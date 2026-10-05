@@ -54,9 +54,11 @@ not look like the duration you recorded, the unit is wrong.
 
 ## What happens after you accept
 
-The file is parsed once and cached beside it in a `.avialcache/` directory: raw arrays plus the
-decimation pyramid that keeps plotting responsive at 50 kHz. Later opens memory-map that cache
-instead of re-parsing, so the second load of a large file is quick.
+The file is parsed once and cached in AvialSync's cache folder: raw arrays plus the decimation
+pyramid that keeps plotting responsive at 50 kHz. Later opens memory-map that cache instead of
+re-parsing, so the second load of a large file is quick. Nothing is written into your data folder;
+**File → Cache** deletes one trial's cache or all of it (see
+[Data handling](../technical/data-handling.md)).
 
 The cache key includes a content hash, not just the path and modification time. Editing the file in
 Excel, or copying it across drives, invalidates the cache and triggers a rebuild — a stale cache in

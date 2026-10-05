@@ -46,7 +46,7 @@ row above a `bodyparts` row — rather than by their file name, and are read as 
 body part becomes a channel; any complete `name_x` / `name_y` / `name_z` triplet also becomes a
 point in the 3D pane.
 
-Correcting a point by hand writes `<pose file>.avialfix.csv` beside the original — a plain
+Correcting a point by hand writes `pose_csv_avialfix.csv` (for a `pose.csv`) beside the original — a plain
 `frame,bodypart,x,y` table with a commented header, readable with
 `pd.read_csv(path, comment="#")`. **The pose file itself is never modified**, so deleting the
 corrections file restores exactly what the model predicted. Corrections can be exported either as a

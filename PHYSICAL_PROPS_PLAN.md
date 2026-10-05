@@ -1,14 +1,14 @@
 # Physical props — implementation plan
 
 Branch: `feat/physical-props`. Decisions: D-149, D-154–D-157. All kinds use one
-versioned `.prop.toml` sidecar and one Props inspector; no legacy wheel-file
+versioned `_prop.toml` sidecar and one Props inspector; no legacy wheel-file
 reader or migration path is supported. Existing old files are left untouched.
 Complete one slice at a time; a model that
 exists only in `core/` is not an app feature.
 
 Current branch status: the Props inspector contains wheel placement and review,
 clicked horizontal ladders, and belt and ball geometry and motion binding. All
-four kinds save to `.prop.toml`; old `.wheel.toml` files are ignored and left
+four kinds save to `_prop.toml`; old `.wheel.toml` files are ignored and left
 untouched. One accepted `PropStore` and one background sidecar read/write path
 serve all four kinds (D-156). Belt displacement needs an explicit path direction,
 mark distance, and displacement channel. Ball orientation needs an identified
@@ -89,13 +89,13 @@ still loads and reports partial evidence when calibration or a source is absent.
 
 ## 3. Persistence and compatibility
 
-Every kind uses the versioned, kind-tagged `pose-3d/<name>.prop.toml` sidecar,
+Every kind uses the versioned, kind-tagged `pose-3d/<name>_prop.toml` sidecar,
 beside its data. It stores declared geometry, raw clicks, source references, fit
 and check reports, plus an explicit removed tombstone; it does not store
-generated per-frame geometry. Discovery reads only `.prop.toml` records. The old
+generated per-frame geometry. Discovery reads only `_prop.toml` records. The old
 `pose-3d/<name>.wheel.toml` format is unsupported: the app does not read,
 convert, rewrite, or delete those files. New wheel mutations write only
-`.prop.toml`.
+`_prop.toml`.
 The `.avv` session stores presentation choices and references, not a second
 copy of the prop's measurements. Names are unique across all prop kinds in a
 recording. Unsupported future kinds remain visible as unreadable records with
@@ -128,5 +128,5 @@ a quality message rather than preventing the recording from opening.
 The final acceptance examples are a static ladder with unequal step spacing and
 height, preserving every clicked point; a belt whose
 surface moves while its frame stays fixed, a ball with two-axis rotation, and
-an existing wheel saved as a `.prop.toml` sidecar that reopens and animates exactly as before. A scalar ball
+an existing wheel saved as a `_prop.toml` sidecar that reopens and animates exactly as before. A scalar ball
 encoder and a belt with no direction must remain explicitly underdetermined.

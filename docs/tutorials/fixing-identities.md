@@ -173,7 +173,7 @@ is in the [User Guide](../user-guide/index.md#correcting-a-tracked-point).
 
 ## Where your work is kept, and how to use it
 
-Accepted swaps are saved beside the pose file as `<pose file>.avialswap.csv`, as soon as you accept
+Accepted swaps are saved beside the pose file as `pose_csv_avialswap.csv` (for a `pose.csv`), as soon as you accept
 them — there is no save step. Your original pose file and its imported cache are never modified;
 deleting the swap file restores exactly what the model predicted.
 

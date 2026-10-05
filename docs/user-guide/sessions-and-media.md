@@ -10,7 +10,7 @@ drift, any accepted mappings and the evidence behind them, your annotations, and
 
 Use **Reset Session** in the **Sources** tab's **Open Files** section to close every loaded source and
 clear annotations, messages, synchronization evidence, and timeline state before opening or dropping a
-different recording. It does not modify your recordings, sidecar caches, or an already-saved `.avv` file.
+different recording. It does not modify your recordings, their cache, or an already-saved `.avv` file.
 
 A session stores *paths*, not copies. Your recordings stay where they are and are never modified,
 which means a session is small and safe to share with a colleague — provided they can reach the
@@ -25,6 +25,23 @@ mid-experiment because a source was removed would cost everything since the last
 Opening a session whose files are no longer where they were shows the **Missing Files** dialog. Each
 missing entry gets a **Browse…** button to point at its new location; the rest of the session loads
 around it. A session with one moved file is not a broken session, so it does not refuse to open.
+
+## The cache
+
+Imported data is cached in one folder of AvialSync's own, never beside your recordings: on macOS
+`~/Library/Caches/avialsync`, on Windows `%LOCALAPPDATA%\avialsync\Cache`, on Linux
+`~/.cache/avialsync`. Everything in it is rebuilt from your files when needed, so deleting it costs
+only the time a re-import takes. **File → Cache** offers three commands:
+
+- **Delete Cache for This Trial** deletes the cached imports of every file in the loaded trial's
+  folder, then reloads the trial from the original files. What you had open, your offsets, markers
+  and unsaved changes all come back as they were.
+- **Delete All Cache** deletes the cached imports of every recording you have opened.
+- **Show Cache Folder** opens the folder in your file manager.
+
+Your own work is never in the cache: tracking corrections, identity swaps, custom markers and
+physical props are saved beside the data they describe, and sessions where you save them. See
+[Data handling](../technical/data-handling.md) for which file is which.
 
 ## Proxies
 

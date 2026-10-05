@@ -233,7 +233,7 @@ Nothing is written until you choose it, and your original pose files are never m
 
 ### Where corrections are kept
 
-Corrections are saved **next to the pose file**, in `<pose file>.avialfix.csv`, as soon as you make
+Corrections are saved **next to the pose file**, in `pose_csv_avialfix.csv` (for a `pose.csv`), as soon as you make
 them — there is no separate save step, and closing without saving the session does not lose them.
 The file is an ordinary CSV of `frame,bodypart,x,y,shown_as` with a commented header, so you can read it in
 pandas (`pd.read_csv(path, comment="#")`) or a spreadsheet and see exactly what was changed by hand.
@@ -249,7 +249,7 @@ showing fewer points. If the recording sits somewhere that cannot be written —
 acquisition on read-only media — the corrections are kept in the session instead and you are told
 so; save the session to keep them.
 
-Accepted corrections and identity swaps are built into derived cache channels so consumers of an edited pose source agree about what is shown. Accepted swaps are saved beside the pose file in `<pose file>.avialswap.csv`; the original CSV and its imported cache are not changed.
+Accepted corrections and identity swaps are built into derived cache channels so consumers of an edited pose source agree about what is shown. Accepted swaps are saved beside the pose file in `pose_csv_avialswap.csv` (for a `pose.csv`); the original CSV and its imported cache are not changed.
 
 ## 3D tracking controls
 
@@ -290,8 +290,8 @@ the model's own points. Adding it is one undo step.
 - With Fix Tracker off, right-click a marker and choose **Delete 3D marker**.
 - A marker exists on the frame it was placed on.
 
-Markers are saved beside the pose files they extend — `<Camera>_eks.custom_markers.csv` next to each
-camera's 2D pose file (in `pose-3d/` for a camera without one) and `_eks.custom_markers.csv` next to
+Markers are saved beside the pose files they extend — `<Camera>_eks_custom_markers.csv` next to each
+camera's 2D pose file (in `pose-3d/` for a camera without one) and `_eks_custom_markers.csv` next to
 the 3D pose — and are read back when the session is opened again. The pose files themselves are never
 written.
 
@@ -391,7 +391,7 @@ A constant delay between the encoder and the cameras goes in the wheel's **Encod
 seconds. It is the encoder's own offset, the same number as its row in the **Sources** tab. It
 therefore moves the encoder's plots with the wheel, and is one undo step. Adjust it while
 watching the bars on a frame where the wheel is turning. Each wheel is saved as
-`pose-3d/<name>.prop.toml` in the recording folder, beside a 3D pose when there is one. It is
+`pose-3d/<name>_prop.toml` in the recording folder, beside a 3D pose when there is one. It is
 read back when the recording's videos open, even if no tracking file is loaded. For cameras in
 separate subfolders, `pose-3d/` is under their shared recording folder.
 

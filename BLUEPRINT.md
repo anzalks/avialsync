@@ -14,7 +14,7 @@
 4. **Modular loaders.** Every data source (video or time series) enters through a plugin interface. CSV and standard video are just the built-in plugins.
 5. **Dependencies must be AGPL-compatible.** PySide6 (LGPL), PyAV (BSD, bundling a GPL-configured FFmpeg), pyqtgraph (MIT), numpy/polars (BSD/MIT). The project is AGPL-3.0-or-later and single-licensed (D-076), so GPL dependencies are fine; PyQt stays banned on user-freedom grounds, not licence-compatibility ones. New deps require a licence check in the PR.
 6. **Sync correctness > frame completeness** during playback; exact frames when paused/stepping.
-7. **Binary sidecar cache.** Text formats are parsed once → cached as mmap-able binary (`.avialcache/` sidecar dir: raw arrays + pyramid levels + metadata JSON).
+7. **Binary cache.** Text formats are parsed once → cached as mmap-able binary in one per-user cache folder (one entry per source: raw arrays + pyramid levels + metadata JSON), never beside the recording (D-160).
 8. **Evidence-based alignment.** TTL/event alignment preserves raw timestamps and presents the
    matched evidence, offset/drift fit, residuals, and confidence before the user accepts it.
    Ambiguous evidence is surfaced, never silently guessed.
@@ -136,7 +136,7 @@ Deliverables:
 - `core/timeline.py`: MasterClock (play/pause/rate/seek, monotonic-driven), TimeMap (offset + drift), Session model (sources, offsets, layout) with JSON round-trip.
 - `core/source.py`: abstract `TimeSeriesSource` and `VideoSource` interfaces (the plugin contract, frozen here — see ARCHITECTURE.md §4), **including chunked ingest (D-005), the video conversion hook (D-006), frame_times() for VFR (D-007), and the no-data contract (D-010)**.
 - `core/pyramid.py`: min/max decimation pyramid (levels 1×,16×,256×,4096×), vectorized numpy, mmap read/write — **NaN-aware (nanmin/nanmax) and gap-aware (gap_mask, D-009) from day one**.
-- `core/cache.py`: sidecar cache manager with content-hash-hardened key (D-008), atomic writes.
+- `core/cache.py`: cache manager with content-hash-hardened key (D-008), atomic writes; `core/cache_store.py` finds and removes entries (D-160).
 - Built-in loaders: `loaders/csv_loader.py` (polars, timestamp column/format/unit config), `loaders/video_ffprobe.py` (metadata + start-time extraction).
 
 Exit criteria: 100 % branch coverage on timeline math; pyramid benchmark ★ passes; property-based tests (hypothesis) on TimeMap round-trips.
@@ -420,7 +420,7 @@ function that implements it.
 
 | Slice | Result | Acceptance evidence |
 |---|---|---|
-| Model and persistence | Declared groups, composable swap events, `.avialswap.csv`, and a correction's raw column plus displayed name | `test_identity_swaps.py`, `test_identity_flow.py` |
+| Model and persistence | Declared groups, composable swap events, `_avialswap.csv`, and a correction's raw column plus displayed name | `test_identity_swaps.py`, `test_identity_flow.py` |
 | Edited data | One edit program materialised into affected cached channels; readers repoint after an accepted event; Show original switches them back for comparison | `test_identity_flow.py`, `test_aol_pose_routing.py` |
 | Evidence and gesture | Motion-based proposals, a group and part selector, a braid with separation evidence, and a drag that snaps to a node | `test_identity_detect.py`, `test_identity_panel.py` |
 | Review and export | Accepted flips in Data Streams, Changes, plot rows when present, and source counts; one corrected CSV for swaps and point corrections | `test_changes_panel.py`, `test_changes_export.py`, `test_pose_export.py` |
@@ -434,7 +434,7 @@ The detector proposes only. An accepted event passes through the command bus; re
 Generalize the existing wheel feature to the belt, ball, and horizontal ladder
 without treating their motion as an angle. `PHYSICAL_PROPS_PLAN.md` is the
 executable plan; D-149 settles the model and D-154 the unified Props inspector
-and generalized `.prop.toml` boundary; D-155 rejects legacy wheel-sidecar
+and generalized `_prop.toml` boundary; D-155 rejects legacy wheel-sidecar
 discovery. The work is complete only when each kind
 can be placed, reviewed, saved, reopened, and shown in the app with its evidence
 and missing information visible.

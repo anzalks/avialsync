@@ -134,7 +134,7 @@ offset:
 nothing: 34526 is equally 09:35:26 and a nine-hour elapsed time, and the
 application cannot tell which you meant.
 
-**Never put a placement in `config`.** `config` is hashed into the sidecar cache
+**Never put a placement in `config`.** `config` is hashed into the cache
 key, so an offset there lets a re-placement invalidate the samples underneath it
 — and it lands in the offset control the user nudges by hand, which is how an
 AOL session came to open with -34526 s already typed into every camera (D-110).

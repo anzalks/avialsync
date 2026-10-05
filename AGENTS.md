@@ -29,7 +29,8 @@ package. Rules 10–17 below are new in that phase and binding everywhere.
 | Python identifiers derived from it | `avialsync` (e.g. `from avialsync.core import ...`) |
 | Env vars / constants | `AVIALSYNC_*` |
 | Session file extension | `.avv` |
-| Sidecar cache dir | `<file>.avialcache/` |
+| Cache | one per-user folder (`core/cache.cache_root()`), never beside a recording (D-160) |
+| Sidecar beside data | source's full name, dots → `_`, plus a tag: `pose.csv` → `pose_csv_avialfix.csv` (D-160) |
 | Installer artifacts | `AvialSync-Setup.exe`, `AvialSync.dmg`, `AvialSync.AppImage` |
 | Plugin packages (3rd party convention) | `avialsync-plugin-<name>` on PyPI |
 | Plugin `display_name()` / `display_aliases()` | the **kind of data**, never the rig — `Video`, `IMU / Motion Data`, `TTL Events`. A camera is a camera whichever system recorded it |
@@ -76,7 +77,9 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
    frames (measured 179/179; 33 ms of misattribution at 30 fps). Frame caches are keyed by integer
    frame index, never by float time. One authority selects *and* names the frame — never two
    (D-075).
-7. Text data is parsed once → binary sidecar cache (`core/cache.py`), mmap-read afterwards.
+7. Text data is parsed once → binary cache (`core/cache.py`) in the per-user cache folder,
+   mmap-read afterwards. Nothing derived is written beside a recording, and nothing the user made
+   (corrections, swaps, markers, props, accepted sync mappings) goes in the cache (D-160).
 8. Synchronization is evidence-based. TTL/event alignment preserves raw source timestamps and records
    matched evidence, fitted offset/drift, residuals, and confidence. Never silently invent a match or
    apply a proposed TimeMap without explicit user acceptance.

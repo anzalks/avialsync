@@ -187,6 +187,8 @@ longer licence contamination.
 Parsed time series → `<file>.avialcache/` dir: `meta.json`, `t.npy`-style raw mmap arrays per channel,
 `pyr_16.bin`/`pyr_256.bin`/`pyr_4096.bin` min/max pairs. Invalidation key: (path, size, mtime, loader
 version). Alternatives: HDF5 (heavy dep), Parquet-only (no mmap random access win for pyramids).
+**Amended by D-160:** the directory is no longer beside the file; each source has one entry in the
+per-user cache folder.
 
 ## 2026-07 · D-005 · Chunked ingest is the only ingest path
 TimeSeriesSource.read_chunks() iterator; cache builder pulls incrementally. Enables 50 GB files
@@ -5592,3 +5594,53 @@ at each end, because where a span ends is what a coverage row says.
 **Consequences.** Video coverage still follows the user's accent exactly. The
 lanes stay labelled, so no lane is told apart by colour alone (rule 17).
 
+
+## 2026-10 · D-160 · Everything derived lives in one per-user cache folder; sidecars use `_`, not `.` — amends D-004, D-099, D-112, D-141, D-149, D-155
+
+**Context.** The cache was a `<file>.avialcache/` directory beside every source, so a recording
+folder filled with derived data, and clearing it meant finding every one by hand. A large session's
+accepted sync mappings were written to `<session>.avv.avialcache/`, which is named like cache but
+which the session will not open without. Hand corrections, identity swaps, custom markers and prop
+records used compound extensions (`pose.csv.avialfix.csv`, `x.custom_markers.csv`,
+`wheel.prop.toml`) that tools disagree about. AvialSync has no installed users yet, so there is no
+old layout to migrate.
+
+**Decision.** Ask of every file: *if it were deleted, could AvialSync rebuild it exactly from files
+that still exist?*
+
+- **Yes → cache.** One per-user folder, as desktop media tools keep derived data: macOS
+  `~/Library/Caches/avialsync`, Windows `%LOCALAPPDATA%\avialsync\Cache`, Linux
+  `$XDG_CACHE_HOME/avialsync`; `AVIALSYNC_CACHE_DIR` overrides it. One entry per source,
+  `sources/<file name>-<16 hex of sha256(normcase(abspath))>/`, so a file has one entry however it
+  arrived, holding the pyramids, a video's frame-timestamp table and the `edited/` generations.
+  Staging (`.tmp-*`) and backups sit in the same `sources/` folder, so a commit stays a rename.
+- **No → beside the data or the session.** Corrections `pose_csv_avialfix.csv`, swaps
+  `pose_csv_avialswap.csv` (the source's full name, dots made underscores, then a tag — the full
+  name still keeps `a.csv` and `a.h5` apart), markers `<stem>_custom_markers.csv`, props
+  `pose-3d/<name>_prop.toml`, accepted sync arrays in `<session>_avv_sync/` beside the `.avv`.
+- **Exports and proxies** stay where the user put them: rebuildable, but files they asked for and
+  open themselves.
+
+Every entry carries `source.json` (`format: avialsync-cache-entry/1` and the source path). Removal
+goes through `core/cache_store` only, which deletes a directory only when it is directly inside
+`sources/`, is not a symlink and carries that record, and renames it to `.trash-*` before deleting
+so a file Windows holds open leaves the entry whole. **File → Cache** offers *Delete Cache for This
+Trial* (every entry whose source lies in the deepest folder holding the loaded sources, falling
+back to the sources themselves when that folder would be a root or would contain the home folder),
+*Delete All Cache* and *Show Cache Folder*. A loaded trial is captured, closed, emptied and restored
+in place, still dirty if it was, without discarding the recovery snapshot; both deletions wait for
+background jobs to finish.
+
+**Alternatives rejected.** A per-dataset `.avialsync/` folder (the `.git` model): a trial assembled
+from two drives has no one root, and data folders still fill with derived files. A content-hash
+entry name that survives moving the file: it needs a read of the file to find its entry, and makes
+"this trial's cache" ambiguous when one file is copied into two trials. A confirmation dialog before
+deleting: nothing the user made is in the cache (rule 10).
+
+**Consequences.** A data folder holds only the recording, the user's sidecars and their sessions.
+Copying a folder to another machine no longer carries its cache; the first open re-imports. Moving a
+file is a cache miss and leaves an orphaned entry until the user deletes the cache. Folder scanners
+no longer special-case `.avialcache`, and any such directories left from development builds are
+ignored and must be removed by hand. The test suite points `AVIALSYNC_CACHE_DIR` at a temporary
+folder in `conftest.py`. Do not add a second code path that deletes from the cache root, and do not
+put anything a user made into it.

@@ -151,6 +151,6 @@ AvialSync does not write your analysis, and it never modifies a source recording
 accepted mappings, and annotations live in the session file (`.avv`) beside your data — so the
 alignment a colleague sees is the one you accepted, with the evidence behind it.
 
-Tracking corrections are the one thing kept outside the session, in `<pose file>.avialfix.csv` next
+Tracking corrections are the one thing kept outside the session, in `pose_csv_avialfix.csv` (for a `pose.csv`) next
 to the pose file, so they travel with the recording rather than with the session. Your pose files
 themselves are still never modified.

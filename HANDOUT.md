@@ -21,7 +21,8 @@ Desktop tool for scrubbing time-synchronized multi-camera video with dense time-
 | Brand / UI / window title | `AvialSync` |
 | Module / CLI / PyPI / import paths | `avialsync` (lowercase, one word) |
 | Session files | `.avv` |
-| Cache sidecar dirs | `<file>.avialcache/` |
+| Cache | one per-user folder, `<cache root>/sources/<name>-<digest>/` per source (D-160) |
+| Sidecars beside data | full source name, dots → `_`, then a tag: `pose_csv_avialfix.csv` (D-160) |
 
 Use `AvialSync` for displayed text and `avialsync` for technical identifiers. Do not invent variants.
 
@@ -103,7 +104,7 @@ camera-specific tracking overlay and its visibility controls.
 **Physical props are in progress on `feat/physical-props`.** Read `PHYSICAL_PROPS_PLAN.md`, D-149,
 and D-154–D-157 before changing a prop. One Props inspector contains wheel placement/review,
 clicked horizontal ladders, and editable geometry and motion binding for belts and balls. Wheel
-placement starts from the selected kind's Add control. All four kinds use versioned `.prop.toml`
+placement starts from the selected kind's Add control. All four kinds use versioned `_prop.toml`
 sidecars; old `.wheel.toml` files are ignored and untouched. Belt marks can follow an explicit
 travel direction and bound displacement channel, or visual-only stereo clicks of the same mark
 on each observed frame. Ball marks can follow four synchronized quaternion channels or three
@@ -131,7 +132,10 @@ Two product laws govern that phase and outrank convention:
 ### Done (Phase 4)
 - Session save/load `.avv` schema v5, autosave 2 min, recent files, relink dialog
 - Sources → Open Files → Reset Session cancels pending loads and clears the current workspace without
-  modifying recordings, sidecar caches, or a saved `.avv` file.
+  modifying recordings, their cache, or a saved `.avv` file.
+- File → Cache: Delete Cache for This Trial / Delete All Cache / Show Cache Folder
+  (`ui/controllers/cache_controller.py`, D-160). A loaded trial is closed, its entries removed
+  in a job, and the same workspace restored — still dirty if it was.
 - Transport: unified `QLineEdit` 110px minimum, `HH:MM:SS.fff`, `_time_editing` guard
 - Theme: System/Dark/Light radio group in View menu; Ctrl+T cycles; System retains the platform
   style, palette, accent, and font, and follows Qt-reported palette changes while open. Explicit
@@ -480,7 +484,9 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `core/timeline.py` | Single master clock — HEADLESS, no PySide6 | `MasterClock`, `TimeMap`, `ClockState` |
 | `core/session_time.py` | The session's declared zero, after NWB's `session_start_time`. A source carrying wall-clock time is **placed** against it through its own TimeMap — nothing is rewritten | `is_absolute()`, `reference_epoch()`, `rebase_offset()`, `ABSOLUTE_EPOCH_FLOOR` |
 | `core/pyramid.py` | Decimation pyramid (1×/16×/256×/4096×) | `PyramidReader`, `PyramidBuilder` |
-| `core/cache.py` | Sidecar binary cache with content-hash key | `CacheManager` |
+| `core/cache.py` | Binary cache in one per-user folder, content-hash key; entry naming and its `source.json` ownership record (D-160) | `CacheManager`, `cache_root()`, `cache_dir_for()` |
+| `core/cache_store.py` | The only code that deletes from the cache: lists entries, finds a trial's, removes them only inside `sources/` and only with our record (D-160) | `list_entries()`, `entries_under()`, `remove_entries()`, `remove_all()`, `working_folders()` |
+| `core/sidecar_names.py` | How a sidecar beside a source is named: full name, dots → `_`, plus a tag (D-160) | `beside()`, `flat_name()` |
 | `core/source.py` | Plugin ABCs — frozen API plus additive optional hooks (`messages()`, `exact_time_mapping()`, `video_metadata()`, `pose_roles()`). **Three kinds, not two**: `TriggerSource` returns instants and declares what they are evidence *of* | `TimeSeriesSource`, `VideoSource`, `TriggerSource`, `VideoMetadata` |
 | `ui/coverage_lanes.py` | Where each source has data, where its alignment is **measured** rather than extended past the last sync point, and where it stops and resumes. Always the whole session — never auto-ranged to the overlap | `CoverageLanes`, `SourceCoverage`, `SourceCoverage.extrapolated()` |
 | `ui/trigger_dialog.py` | Where the user says what each trigger column **is**. Leads with the kind, because the difference between a strobe and a trigger is the difference between an exact mapping and a fitted one | `TriggerEvidenceDialog`, `TrainChoice` |
@@ -494,19 +500,19 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `core/sync.py` | Headless synchronization evidence/model layer (D-026). Carries the guards a residual plot structurally cannot express: match rate, ambiguity margin, plausible-rate search constraint | `SyncEvent`, `SyncProposal`, `AlignmentMethod`, `SyncFit.describe()`, `SyncProposal.applicable`/`.refusal` |
 | `core/channel_reader.py` | Master-clock view of a cached channel + scoped identity (D-045). `sample_at()` retains cursor clamping; `available_sample_at()` rejects times outside coverage or inside timestamp gaps for prop motion evidence | `MappedChannelReader`, `ChannelKey`, `disambiguate()` |
 | `core/point_edits.py` | Hand corrections to tracked points, in memory — sparse overrides keyed by `(source, body part, sample index)`. HEADLESS. **Never writes the pose file or its cache** (D-099) | `PointEditStore`, `PointKey`, `PointMove` |
-| `core/point_edit_sidecar.py` | Where those corrections live: `<pose file>.avialfix.csv` beside the source, written on every edit. Commented header, atomic replace, emptied never deleted (D-099) | `sidecar_path()`, `is_correction_path()`, `read()`, `write()` |
+| `core/point_edit_sidecar.py` | Where those corrections live: `<pose name>_<ext>_avialfix.csv` beside the source, written on every edit. Commented header, atomic replace, emptied never deleted (D-099) | `sidecar_path()`, `is_correction_path()`, `read()`, `write()` |
 | `core/calibration.py` | Multi-camera calibration in anipose's `calibration.toml` form (OpenCV model, no OpenCV). Linear triangulation, and fitting a camera from 3D↔2D pairs when the file is lost — a fitted camera **projects** correctly but its intrinsics are not physical (D-112) | `CameraModel`, `Calibration`, `read_calibration()`, `write_calibration()`, `triangulate()`, `fit_camera()` |
 | `core/calibration_ref.py` | Which calibration a session uses: `pose-3d/calibration_ref.txt` (video names + one `.toml` path), copied between experiments from the same rig; falls back to `calibration.toml` in `pose-3d/` or the session folder. A Windows path (`C:/…`, `\\server\…`) is kept as written, never joined onto this folder. **Never overwritten**: `keep_aside()` renames an existing one to a dated name first (D-112, D-114) | `locate()`, `read_ref()`, `write_ref()`, `keep_aside()`, `unused_name()`, `camera_names()`, `pose3d_dir_for()` |
-| `core/custom_markers.py` | Hand-placed 3D markers: store keyed `(name, frame)`, plus their files — `<Cam>_eks.custom_markers.csv` (DLC layout, the clicks, **the authority**) beside each 2D pose file and `_eks.custom_markers.csv` (anipose layout, derived) beside the 3D one. HEADLESS (D-112) | `CustomMarker`, `CustomMarkerStore`, `write_2d()`, `read_2d()`, `write_3d()`, `read_3d()`, `is_custom_marker_path()` |
+| `core/custom_markers.py` | Hand-placed 3D markers: store keyed `(name, frame)`, plus their files — `<Cam>_eks_custom_markers.csv` (DLC layout, the clicks, **the authority**) beside each 2D pose file and `_eks_custom_markers.csv` (anipose layout, derived) beside the 3D one. HEADLESS (D-112) | `CustomMarker`, `CustomMarkerStore`, `write_2d()`, `read_2d()`, `write_3d()`, `read_3d()`, `is_custom_marker_path()` |
 | `ui/controllers/custom_marker_controller.py` | Add 3D Marker end to end: name → calibration (`calibration_controller`) → one click per camera → triangulate → `SetCustomMarkerCommand`. Also drag re-triangulation, delete, persistence and adoption. A camera with no 2D pose file keeps its markers in `pose-3d/`, never beside the video (D-112, D-114) | `toggled()`, `on_clicked()`, `on_moved()`, `delete()`, `persist()`, `adopt()`, `points_at()` |
 | `core/wheel.py` | A running wheel as a model: what was declared (`WheelSpec`: bar count, units, radius), clicked (`EndClick`), fitted (`WheelGeometry`, `WheelFit`), and what turns it (`EncoderBinding`, `WheelCheck`); `bar_ends(turn)` generates every bar; `project_bars()` into a camera; `Wheel.bar_diameter` is the display-only value set by eye, in the measured radius's units, converted to calibration units by `Wheel.world_per_unit` (fitted ÷ measured radius), drawn as cylinders in the 3D view only (D-128, D-129, D-130). `fit_issue()` is the one quality rule; it words a "Poor fit" warning and never hides a wheel (D-121, D-123). HEADLESS (D-113) | `Wheel`, `WheelGeometry.bar_ends()`, `project_bars()`, `fit_issue()`, `facing()`, `camera_centre()` |
 | `core/physical_props.py`, `core/visual_prop_tracking.py` | Headless prop foundation (D-149, D-154, D-157): ladder clicks resolve independently; belt displacement and ball quaternion channels retain reference and check evidence; visual frames retain named raw stereo clicks and solve path position or ball SO(3) on observed frames. Fixed support never follows material motion. `PropStore` holds all four kinds; `WheelView` filters it. Observers never write files | `StepClick`, `LadderPoint`, `LadderStep`, `Ladder`, `BeltProp`, `BallProp`, `BeltVisualFrame`, `BallVisualFrame`, `belt_visual_state()`, `belt_visual_travel()`, `ball_visual_state()`, `PropStore`, `WheelView` |
-| `core/prop_file.py`, `core/wheel_file.py` | Canonical versioned `pose-3d/<name>.prop.toml` records for all four kinds, preserving wheel fit/click/binding evidence and kind-specific geometry. No legacy wheel-sidecar reader; damaged/future records report per-file issues without hiding good props | `write_prop()`, `write_ladder()`, `write_belt()`, `write_ball()`, `write_wheel()`, `read_props()`, `read_wheels()`, `prop_path()`, `PropFileIssue` |
+| `core/prop_file.py`, `core/wheel_file.py` | Canonical versioned `pose-3d/<name>_prop.toml` records for all four kinds, preserving wheel fit/click/binding evidence and kind-specific geometry. No legacy wheel-sidecar reader; damaged/future records report per-file issues without hiding good props | `write_prop()`, `write_ladder()`, `write_belt()`, `write_ball()`, `write_wheel()`, `read_props()`, `read_wheels()`, `prop_path()`, `PropFileIssue` |
 | `ui/props_app.py`, `ui/props_panel.py`, `ui/prop_motion.py`, `ui/wheel_tab.py` | One Props inspector switches among ladder clicks, wheel placement/review, and belt/ball geometry, channel binding, visual tracking, and checks. The registered camera/3D overlay draws fixed support and observed moving marks separately; `prop_motion` reads gap-aware mapped channels at presentation time or solves exact visual frames. Mutations use document commands; sidecar IO uses registered jobs | `PropsApp`, `PropsPanel`, `PropsTab`, `WheelTab`, `frame_time()`, `material_point()`, `visual_state()`, `check_click()` |
 | `ui/prop_overlay.py`, `engine/prop_file_worker.py` | Registered physical-prop drawing distinguishes observed squares from dashed projections and leaves unknown points unjoined. Workers keep sidecar IO off the UI thread | `draw_props()`, `PropFileReadWorker`, `PropFileWriteWorker` |
 | `core/wheel_fit.py` | Fits a wheel to both ends of 2–3 clicked neighbouring bars. **The bar count is an input**, and **the clicked bars are neighbours in click order**: slots are never re-derived from angles, so a wrong radius cannot scatter them (D-123). Two bars fit two mirrored wheels; a mirror starting 50× worse is refined only for Flip. `fit_labelled()` tries all bars with the typed radius, bars 1–2, then the clicks' own radius, keeping the first plausible fit and otherwise the first that exists (D-122, D-123) | `fit_wheel()`, `fit_labelled()`, `LabelledFit` |
 | `core/wheel_check.py` | Tests the encoder against the video: a click on any bar end fixes the turn modulo one bar gap; two informative checks settle the direction (D-113) | `observed_turn()`, `check()`, `settle_sign()`, `CheckResult` |
-| `core/wheel_file.py` | Wheel-specific tables inside the canonical `.prop.toml` record: clicks (the authority) + fit + binding + checks; a removed wheel keeps its prop record marked `removed = true` (D-155) | `write_wheel()`, `write_removed()`, `read_wheels()` |
+| `core/wheel_file.py` | Wheel-specific tables inside the canonical `_prop.toml` record: clicks (the authority) + fit + binding + checks; a removed wheel keeps its prop record marked `removed = true` (D-155) | `write_wheel()`, `write_removed()`, `read_wheels()` |
 | `core/toml_format.py` | The TOML writer shared by `calibration.toml`, wheel, and prop files, laid out as anipose writes; quoted strings also escape pasted control characters so a prop label can reopen | `toml_value()`, `write_atomic()` |
 | `ui/controllers/rig_paths.py` | Where a recording's pieces are, for the marker, calibration and wheel controllers alike: camera names, open videos, the shared recording's `pose-3d` folder (also for generic cameras in subfolders), each camera's 2D pose file, and **the one frame-on-screen authority** (D-114, D-132). Helpers take `RigPathsContext`, not a window (D-148) | `RigPathsContext`, `camera_name()`, `open_videos()`, `pose3d_dir()`, `pose_2d_file()`, `frame_at()` |
 | `ui/controllers/calibration_controller.py` | The rig's calibration: resolve, import, fit (background job), and reprojection. The Import/Compute question is asked **only** for a gesture that asked for it; an overlay switch or Show All posts a notification with "Choose Calibration…" instead (rule 11). `CalibrationError` goes through `report_failure` (rule 12) (D-114). `calibration_quietly` is retried as each camera pane is added and extends a calibration taken with fewer cameras open, so wheels and markers read back from disk draw on every camera of a reopened session (D-125) | `CalibrationState`, `acquire_calibration()`, `resolve_calibration()`, `calibration_quietly()`, `reprojected()`, `reprojection_toggled()`, `REPROJECTION_OVERLAY` |
@@ -549,6 +555,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `engine/seeker.py` | Parallel seek across all video panes | `SeekGroup` |
 | `engine/drop_worker.py` | Off-thread drop classification; AOL session fan-out, pose `role` tagging (D-046) | `DropScanWorker` — signals: `finished(candidates, is_aol)`, `session_found`, `error` |
 | `engine/session_worker.py` | Off-thread `.avv` save/load | `SessionSaveWorker`, `SessionLoadWorker` |
+| `engine/cache_worker.py` | Off-thread cache removal for File → Cache (D-160) | `CacheRemovalWorker` |
 | `engine/export_worker.py` | Off-thread region stats / data slice / clip / snapshot | `RegionStatsWorker`, `DataExportWorker`, `SnapshotWorker` (takes a `SnapshotFigure`), `ReaderReference` |
 | `engine/video_worker.py` | Off-thread video probe before native pane creation | `VideoOpenWorker` |
 | `loaders/aol_session_loader.py` | AOL folder detection + manifest (videos, 2D/3D pose, encoder, timing). Declares `SessionLayout.rotary`: the encoder angle turns the running wheel, with `hardware: wheel_bar_count / wheel_radius / wheel_radius_units` from `trial_config.yml` when present (D-113) | `is_aol_session()`, `build_manifest()`, `AOLManifest`, `AOL2DTrack` |
@@ -613,6 +620,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/diagnostics.py` | Startup probe (hardware-decode support, disk speed) — async daemon thread | `run_startup_diagnostics()`, `probe_hwdec()` |
 | `ui/controllers/drop_controller.py` | Drag/drop intake, drop scan, candidate routing (D-066) | `drop_event()`, `start_drop_scan()`, `route_import_candidate()` |
 | `core/source.py` | Plugin ABCs: `TimeSeriesSource`, `VideoSource`, and `SessionSource` for folder layouts (D-068); all three name themselves via `_Nameable`. `SessionLayout.warnings` carries what a scan could not lay out, so a dropped recording is never silent (D-085). `TimeSeriesSource.pose_roles()` offers direct-import 2D/3D uses (D-132) | `SessionSource`, `SessionLayout` (incl. `warnings`), `SessionItem` (incl. `label`), `display_name()`, `VideoSource.exact_time_mapping()` (D-072) |
+| `ui/controllers/cache_controller.py` | File → Cache: delete this trial's cache or all of it, show the folder; closes and restores a loaded trial around the removal (D-160) | `delete_trial_cache()`, `delete_all_cache()`, `show_cache_folder()` |
 | `ui/controllers/session_controller.py` | `.avv` save/load/restore, geometry, autosave, recent files. Also the recovery snapshot's UI side: `note_pending_recovery()` holds what a launch found, `offer_pending_recovery()` posts the opt-in bar, `recover_unsaved_work()` is the File command, `forget_pending_recovery()` drops the held offer beside every `clear_recovery()` (D-133) | `build_session_state()`, `restore_session()`, `start_session_save()` |
 | `ui/controllers/export_controller.py` | Snapshot, data slice, video clip, annotations, region stats | `export_snapshot()`, `start_data_export()`, `start_region_stats()` |
 | `ui/snapshot_capture.py` | UI-thread capture for the snapshot figure (D-101): each camera re-rendered at its decoded resolution and cropped free of letterbox, the 3D pose re-projected, the whole channel stack rather than the scroll viewport | `capture_figure()`, `capture_pane_figure()`, `capture_video_tile()`, `capture_plot_image()`, `plot_aspect()` |
@@ -636,7 +644,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 4. Plotting only via decimation pyramid. Never pass raw full-resolution arrays >100k samples to pyqtgraph.
 5. All data sources go through plugin ABCs in `core/source.py`. No format special-casing in UI code.
 6. Sync correctness beats frame completeness. Drop frames, never drift. Paused/stepping: exact seeks only.
-7. Text data parsed once → binary sidecar cache, mmap-read afterwards.
+7. Text data parsed once → binary cache in the per-user cache folder, mmap-read afterwards (D-160).
 8. No GPL/AGPL dependencies. New dep requires license named in PR + pip-installable on all 3 OSes.
 9. No module >~500 lines; no function >~60 lines. Errors: typed exceptions from `core/errors.py`. Never `except Exception: pass`.
 
@@ -759,7 +767,7 @@ from it — `session_zero - source_epoch`, in `core/session_time.placement_offse
 | something with no known instant | nothing; it keeps its own zero |
 
 Two rules. **It goes in the `SessionItem` field, never in `config`** — config is
-hashed into the sidecar cache key, and a source's placement must not be able to
+hashed into the cache key, and a source's placement must not be able to
 invalidate the samples underneath it. And **a declaration is always absolute**:
 34526 is equally 09:35:26 and a nine-hour elapsed time, so a session-relative
 number declares nothing at all.
@@ -1219,16 +1227,16 @@ deleting the directory first. `tests/test_edit_cache.py` reproduces both.
 
 The likelier path in the field was the base cache itself. A pose file imported at an assumed
 frame rate is re-imported as soon as a camera dates its frames, and `CacheManager.commit_cache`
-deleted the old sidecar -- `edited/` inside it, including a build still writing its staging
-directory. `commit_cache` now carries `edited/` into the new sidecar, and each generation's
+deleted the old entry -- `edited/` inside it, including a build still writing its staging
+directory. `commit_cache` now carries `edited/` into the new entry, and each generation's
 manifest records the base key it was built on, so `edit_cache.load` rebuilds rather than reuses
-it after a re-import. Anything that lives *inside* a `.avialcache` and must outlive a rebuild
+it after a re-import. Anything that lives *inside* a cache entry and must outlive a rebuild
 belongs in `cache.EDITED_SUBDIR`'s treatment, not in a new sibling directory.
 
 ### 0c-quater. A correction never touches the pose file or its cache (D-099)
-"Fix Tracker" is a sparse override in `core/point_edits.py`, written to `<pose file>.avialfix.csv`
+"Fix Tracker" is a sparse override in `core/point_edits.py`, written to `<pose name>_<ext>_avialfix.csv`
 beside the source and applied when the overlay reads a coordinate. Nothing writes the imported CSV
-or its `.avialcache/` sidecar, and nothing may start: the recording cannot be regenerated, the cache
+or its cache entry, and nothing may start: the recording cannot be regenerated, the cache
 is content-hash keyed and would discard a hand edit on the next import, and undo would stop being a
 reversal. `PaintCanvas` emits `point_moved` and does **not** apply it —
 `MainWindow._on_tracked_point_moved` puts it through the command bus (rule 14). If you find a canvas
@@ -1248,7 +1256,7 @@ agree have no rule for which wins when they do not.
 ### 0c-sexies. A correction is keyed by sample index, written as a video frame (D-099)
 `PointEditStore` keys by **sample index**, because that is what stays put when an offset or an
 accepted TimeMap changes *when* a sample is shown. Everything outside the application speaks **video
-frame numbers**: the `.avialfix.csv` a person reads, the corrected pose CSV, DLC's labeled data. For
+frame numbers**: the `_avialfix.csv` a person reads, the corrected pose CSV, DLC's labeled data. For
 a pose file written contiguously from frame 0 the two are the same number, which is why the
 difference stays invisible until someone hands you a file covering only the frames they labelled —
 and then every correction lands a hundred frames early. `corrections_controller.frame_for()` and
@@ -1263,10 +1271,10 @@ sits anywhere inside that frame's interval and a fast wheel turns visibly within
 the encoder's own plot-row `TimeMap`, never a `TimeMap` rebuilt from `(offset, drift)` (that loses
 `t_ref`). Bars are cached per frame index; the paint path only projects them. The calibration is
 loaded when wheels are adopted or placed, never while painting. Wheels use the canonical
-`.prop.toml` reader; there is no wheel-specific suffix or loader exclusion.
+`_prop.toml` reader; there is no wheel-specific suffix or loader exclusion.
 
 ### 0c-custom. Our marker files match the globs that find pose data (D-112)
-`_eks.custom_markers.csv` matches the AOL manifest's `*_eks*.csv`, and every marker file is a
+`_eks_custom_markers.csv` matches the AOL manifest's `*_eks*.csv`, and every marker file is a
 DLC- or anipose-shaped CSV the tracking loaders claim. `is_custom_marker_path()` is consulted
 beside `is_correction_path()` in `LoaderRegistry.find_best_loader`, the drop scan, and the AOL
 manifest. A new place that discovers pose CSVs must consult both, or reopening a session offers
@@ -1306,9 +1314,9 @@ record-node tree resolved to the directory holding `settings.xml` rather than to
 that holds the data. `find_recordings()` (manifest-based) now runs first; the glob BFS is the
 fallback for formats that have no manifest and stays capped at depth 2.
 
-### 0g. A sidecar cache is named after its source path *alone*
-`CacheManager.get_cache_dir` is `<path>.avialcache` — the loader and config affect only the
-invalidation key inside it, not the directory name. Two sources sharing a path therefore take turns
+### 0g. A cache entry is named after its source path *alone*
+`CacheManager.get_cache_dir` is `<cache root>/sources/<name>-<digest of the absolute path>` — the
+loader and config affect only the invalidation key inside it, not the directory name. Two sources sharing a path therefore take turns
 invalidating each other, and each import silently rebuilds what the last one wrote. This is why every
 Open Ephys stream is pointed at its own `continuous/<stream>` directory and `NeoLoader` accepts
 `config["root"]` for what neo should actually open (D-071).
@@ -1320,12 +1328,15 @@ read-only via mmap, which is what makes that safe. One in-place write to a commi
 now corrupt every channel of the stream. `os.link` falls back to `shutil.copyfile` on FAT/exFAT and
 some network mounts.
 
-### 0i. A drop must step over our own sidecar caches
-A committed `.avialcache` holds one `.npy` per channel and pyramid level — 482 files for a single
-32-channel stream. `DropScanWorker` filtered children on `startswith(".")` only, and a cache
-directory is not dotted, so re-dropping a folder you had already imported descended into it and
-offered every array as an unrecognised candidate (44 rows for a 40-file cache in the matrix test).
-`core/cache.is_cache_path()` owns that recognition now; use it anywhere that walks user folders.
+### 0i. Nothing derived is written beside a recording; removal proves ownership (D-160)
+The cache is one per-user folder (`core/cache.cache_root()`, `AVIALSYNC_CACHE_DIR` overrides; the
+suite sets it in `conftest.py` so tests never touch the real one). Staging and backups live in the
+same `sources/` folder, so commits stay a rename on one file system. Every entry carries a
+`source.json` record; `core/cache_store` deletes only a non-symlink directory directly in
+`sources/` that carries it, renaming it to `.trash-*` first so a file Windows holds open leaves the
+entry whole. Never add a second way to delete from the cache. Anything a user made — corrections,
+swaps, markers, props, accepted sync mappings (`<session>_avv_sync/`) — is not derived and never
+goes in the cache; that is what makes "delete the cache folder" a safe instruction.
 
 ### 0j. Only the first session of a multi-path drop owns the timeline
 `SessionLayout` carries one `anchor_epoch`/`camera_fps` per drop. Two session folders dropped
@@ -1349,7 +1360,7 @@ Also fixed here: `SessionSource` now inherits `_Nameable` like the other two con
 `AOLSessionSource` came back as "AOLSession", the very example its own docstring used.
 
 ### 0l. A `SessionItem` label is never part of `config`
-`config` is hashed into the sidecar cache key, so a display label living there would make rewording
+`config` is hashed into the cache key, so a display label living there would make rewording
 a table cell invalidate every cache built with the old wording — gigabytes rebuilt to change a
 string. `SessionItem.label` is a separate field; `drop_controller` keys it by path into
 `window._session_item_labels` and hands that to `BatchImportDialog`. The candidate tuple stays a
