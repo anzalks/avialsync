@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
 from avialsync.ui import recovery, workspaces
+from avialsync.ui.app_settings import app_settings
 from avialsync.ui.main_window import MainWindow
 
 
@@ -21,7 +22,7 @@ from avialsync.ui.main_window import MainWindow
 def isolated_settings(tmp_path, monkeypatch):
     QSettings.setDefaultFormat(QSettings.Format.IniFormat)
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    store = QSettings("AvialSync", "AvialSync")
+    store = app_settings()
     store.clear()
     store.sync()
     yield
@@ -159,7 +160,7 @@ def test_pre_detach_workspace_settings_migrate_to_inline_plots(
     window: MainWindow,
 ) -> None:
     captured = workspaces.capture(window)
-    store = QSettings("AvialSync", "AvialSync")
+    store = app_settings()
     store.beginGroup("workspaces/Before-detach")
     store.setValue("geometry", captured.geometry)
     store.setValue("inspector_tab", captured.inspector_tab)

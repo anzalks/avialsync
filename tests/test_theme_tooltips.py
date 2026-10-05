@@ -116,7 +116,7 @@ def test_toggle_applies_light_then_restores_system_palette(monkeypatch) -> None:
         def setValue(self, key: str, value: object) -> None:
             values[key] = value
 
-    monkeypatch.setattr(theme, "QSettings", Settings)
+    monkeypatch.setattr(theme, "app_settings", Settings)
     app = QApplication.instance() or QApplication([])
     native_accent = theme.system_accent(app.palette(), platform=True)
     native_highlight = app.palette().color(QPalette.ColorRole.Highlight)
@@ -145,7 +145,7 @@ def test_theme_switch_preserves_seek_and_plot_interaction_state(monkeypatch, qtb
         def setValue(self, key: str, value: object) -> None:
             values[key] = value
 
-    monkeypatch.setattr(theme, "QSettings", Settings)
+    monkeypatch.setattr(theme, "app_settings", Settings)
     app = QApplication.instance() or QApplication([])
     monkeypatch.delitem(theme._system_palettes, id(app), raising=False)
 
@@ -240,7 +240,7 @@ def test_font_preference_scales_from_and_restores_the_system_font(monkeypatch, q
         def setValue(self, key: str, value: object) -> None:
             values[key] = value
 
-    monkeypatch.setattr(theme, "QSettings", Settings)
+    monkeypatch.setattr(theme, "app_settings", Settings)
     app = QApplication.instance() or QApplication([])
     monkeypatch.delitem(theme._system_fonts, id(app), raising=False)
     monkeypatch.delitem(theme._font_scales, id(app), raising=False)

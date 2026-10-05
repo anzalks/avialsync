@@ -12,12 +12,14 @@ from typing import cast
 
 from PySide6.QtCore import QSettings
 
+from avialsync.ui.app_settings import app_settings
+
 _MAX_RECENT = 10
 _SETTINGS_KEY = "session/recent_files"
 
 
 def _settings() -> QSettings:
-    return QSettings("AvialSync", "AvialSync")
+    return app_settings()
 
 
 def add_recent(path: str) -> None:

@@ -39,6 +39,13 @@ def _sandbox_settings(config: pytest.Config) -> None:
     under a temporary directory. Done here rather than in a fixture because
     collection imports test modules, and an import is early enough to construct
     a ``QSettings``.
+
+    **It only reaches stores opened through ``ui/app_settings.app_settings``.**
+    ``QSettings("AvialSync", "AvialSync")`` ignores ``setDefaultFormat`` and
+    always opens the native store, so for as long as the application opened it
+    that way this sandbox covered nothing and every run wrote into the real
+    preferences (INTERFACE_DESIGN_PLAN F-36). ``tests/test_app_settings.py``
+    keeps that constructor out of the tree.
     """
     del config
     from PySide6.QtCore import QSettings

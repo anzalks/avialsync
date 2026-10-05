@@ -9,6 +9,9 @@ from avialsync.loaders.video_standard import VideoStandardLoader
 from avialsync.ui.main_window import MainWindow
 from avialsync.ui.sync_wizard import SyncWizard
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import screenshot_kit  # noqa: E402, F401  (imported for its settings and recovery sandbox)
+
 
 def generate_screenshots():
     app = QApplication.instance() or QApplication(sys.argv)

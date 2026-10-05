@@ -262,6 +262,25 @@ def test_the_playhead_and_trace_repaint_with_the_pane(qtbot, tmp_path: Path) -> 
     assert channel.curve.opts["pen"].color() != dark_trace
 
 
+def test_the_channel_gutter_keeps_its_text_through_a_switch(qtbot, tmp_path: Path) -> None:
+    """Re-colouring the axis title must not empty it.
+
+    pyqtgraph 0.14's ``setLabel`` reads a ``None`` text as "no label" and hides
+    it, so recolouring with ``setLabel(color=…)`` alone blanked every channel's
+    name, unit and range gutter on the first switch (INTERFACE_DESIGN_PLAN F-27).
+    """
+    pane = _pane_with_a_channel(qtbot, tmp_path)
+    axis = pane.channels[0].plot_item.getAxis("left")
+    before = axis.labelText
+    assert "ch0" in before
+
+    for palette in (DARK, LIGHT, DARK):
+        _switch(pane, palette)
+        assert axis.labelText == before, "the gutter lost its channel name"
+        assert axis.label.isVisibleTo(axis), "the gutter title was hidden"
+        assert "ch0" in axis.label.toHtml()
+
+
 def test_a_row_built_after_a_switch_matches_the_rows_already_there(qtbot, tmp_path: Path) -> None:
     """Construction reads the live palette, not a global left over from earlier."""
     pane = _pane_with_a_channel(qtbot, tmp_path)
@@ -414,7 +433,7 @@ def test_an_explicit_theme_reports_itself_before_the_palette_lands(monkeypatch) 
         def setValue(self, key: str, value: object) -> None:
             stored[key] = value
 
-    monkeypatch.setattr(theme, "QSettings", Settings)
+    monkeypatch.setattr(theme, "app_settings", Settings)
 
     seen: list[bool] = []
     before = QPalette(app.palette())
@@ -503,7 +522,7 @@ def test_emphasis_survives_a_font_size_change(qtbot, monkeypatch) -> None:
         def setValue(self, key: str, value: object) -> None:
             stored[key] = value
 
-    monkeypatch.setattr(theme, "QSettings", Settings)
+    monkeypatch.setattr(theme, "app_settings", Settings)
 
     label = QLabel("Hg")
     qtbot.addWidget(label)
@@ -549,7 +568,7 @@ def test_returning_to_system_gives_the_palette_back_to_the_platform(monkeypatch)
         def setValue(self, key: str, value: object) -> None:
             stored[key] = value
 
-    monkeypatch.setattr(theme, "QSettings", Settings)
+    monkeypatch.setattr(theme, "app_settings", Settings)
 
     entry = QPalette(app.palette())
     try:

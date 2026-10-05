@@ -17,10 +17,12 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 
-from PySide6.QtCore import QEvent, QObject, QSettings, Qt
+from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication, QWidget
 from shiboken6 import isValid
+
+from avialsync.ui.app_settings import app_settings
 
 logger = logging.getLogger(__name__)
 
@@ -886,6 +888,20 @@ def follow_palette(widget: QWidget, build: Callable[[QPalette], str]) -> None:
     _PaletteStyleFollower(widget, build)
 
 
+def refollow(widget: QWidget) -> None:
+    """Re-run *widget*'s :func:`follow_palette` builder now, after its inputs changed.
+
+    For a builder that reads state besides the palette, such as a severity. The
+    tempting shortcut — building the sheet again from ``widget.palette()`` — is
+    the bug this exists to prevent: that palette is the one the previous sheet
+    pinned, so an info message after a busy one came out in the busy amber.
+    """
+    for follower in widget.findChildren(
+        _PaletteStyleFollower, options=Qt.FindChildOption.FindDirectChildrenOnly
+    ):
+        follower._apply()
+
+
 #: Lightness a link is held to, per surface. The accent itself is the user's
 #: choice of hue, not a promise of legibility: the default macOS blue is a dark
 #: navy on the Dark surface and a yellow accent is unreadable on white.
@@ -1064,7 +1080,7 @@ def _apply(app: QApplication, pref: str, *, persist: bool) -> None:
         _applying_palette.discard(app_id)
 
     if persist:
-        QSettings("AvialSync", "AvialSync").setValue("theme/preference", pref)
+        app_settings().setValue("theme/preference", pref)
 
 
 def apply_theme(app: QApplication, pref: str = THEME_SYSTEM) -> None:
@@ -1100,7 +1116,7 @@ def apply_font_size(app: QApplication, pref: str = FONT_SYSTEM) -> None:
     # segfault rather than an exception (D-064). `setFont` has already
     # propagated synchronously by this point, so there is nothing to wait for.
     _apply_font_to_existing_widgets(app, factors[pref])
-    QSettings("AvialSync", "AvialSync").setValue("font/preference", pref)
+    app_settings().setValue("font/preference", pref)
 
 
 def load_saved_font_size(app: QApplication) -> str:
@@ -1112,7 +1128,7 @@ def load_saved_font_size(app: QApplication) -> str:
 
 def load_saved_theme(app: QApplication) -> str:
     """Apply the saved preference and return its normalized value."""
-    raw = QSettings("AvialSync", "AvialSync").value("theme/preference", THEME_SYSTEM)
+    raw = app_settings().value("theme/preference", THEME_SYSTEM)
     if isinstance(raw, bool):
         pref = THEME_DARK if raw else THEME_LIGHT
     elif raw in (THEME_DARK, THEME_LIGHT, THEME_SYSTEM):
@@ -1125,7 +1141,7 @@ def load_saved_theme(app: QApplication) -> str:
 
 def current_preference() -> str:
     """Return the persisted preference, normalized for legacy settings."""
-    raw = QSettings("AvialSync", "AvialSync").value("theme/preference", THEME_SYSTEM)
+    raw = app_settings().value("theme/preference", THEME_SYSTEM)
     if isinstance(raw, bool):
         return THEME_DARK if raw else THEME_LIGHT
     return raw if raw in (THEME_DARK, THEME_LIGHT, THEME_SYSTEM) else THEME_SYSTEM
@@ -1133,7 +1149,7 @@ def current_preference() -> str:
 
 def current_font_preference() -> str:
     """Return the persisted font-size preference."""
-    raw = QSettings("AvialSync", "AvialSync").value("font/preference", FONT_SYSTEM)
+    raw = app_settings().value("font/preference", FONT_SYSTEM)
     return raw if raw in (FONT_SYSTEM, FONT_SMALL, FONT_MEDIUM, FONT_LARGE) else FONT_SYSTEM
 
 

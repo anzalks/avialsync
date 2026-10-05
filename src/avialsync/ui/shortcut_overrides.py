@@ -21,6 +21,8 @@ import re
 from PySide6.QtCore import QSettings
 from PySide6.QtGui import QAction, QKeySequence
 
+from avialsync.ui.app_settings import app_settings
+
 __all__ = [
     "action_id",
     "load_override",
@@ -39,7 +41,7 @@ _DEFAULTS: dict[str, str] = {}
 
 
 def _store() -> QSettings:
-    return QSettings("AvialSync", "AvialSync")
+    return app_settings()
 
 
 def action_id(action: QAction) -> str:

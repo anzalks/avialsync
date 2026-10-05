@@ -33,16 +33,14 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.settings_schema import SETTINGS, Setting, settings_by_group
+from avialsync.ui.app_settings import app_settings
 from avialsync.ui.i18n import tr
 
 __all__ = ["PreferencesDialog", "read_setting", "write_setting", "settings_report"]
 
-_ORGANISATION = "AvialSync"
-_APPLICATION = "AvialSync"
-
 
 def _store() -> QSettings:
-    return QSettings(_ORGANISATION, _APPLICATION)
+    return app_settings()
 
 
 def read_setting(setting: Setting) -> Any:

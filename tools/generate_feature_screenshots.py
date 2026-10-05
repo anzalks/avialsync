@@ -15,6 +15,7 @@ Nothing here changes a saved preference: appearance is pinned with
 
 from __future__ import annotations
 
+import argparse
 import shutil
 import sys
 import tempfile
@@ -455,4 +456,8 @@ def main(out_dir: Path = DEFAULT_OUTPUT_DIR) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--out", type=Path, default=DEFAULT_OUTPUT_DIR, help="folder for the images (default: docs)"
+    )
+    main(parser.parse_args().out)

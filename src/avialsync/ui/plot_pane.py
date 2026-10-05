@@ -7,13 +7,14 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import pyqtgraph as pg
-from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, Signal
+from PySide6.QtCore import QEvent, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QResizeEvent
 from PySide6.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
 
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.timeline import TimeMap
 from avialsync.ui.annotations import AnnotationStore
+from avialsync.ui.app_settings import app_settings
 from avialsync.ui.i18n import tr
 from avialsync.ui.plot_header import PlotHeader
 from avialsync.ui.plot_interactions import PlotInteractionController
@@ -177,7 +178,7 @@ class PlotPane(QWidget):
         self._live_presentation = PlotPresentation.SCOPE
         self._time_mode = TimeDisplayMode.RELATIVE
         self._t_epoch = 0.0
-        self._settings = QSettings("AvialSync", "AvialSync")
+        self._settings = app_settings()
         saved_presentation = self._settings.value(
             "plot/live_presentation", PlotPresentation.SCOPE.value
         )

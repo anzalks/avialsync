@@ -616,6 +616,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/point_edit_tool.py` | The "Fix Tracker" drag: hit test, grab, clamp, handles. `set_edit_mode()` makes markers draggable and emits `point_moved(PointMove)` — **it never writes the store itself** (D-099). `set_place_mode()` turns a left click into `marker_clicked(x, y)` for marker and wheel placement (D-112, D-113) | `PointEditMixin`, `point_at()`, `set_edit_mode()`, `set_place_mode()` |
 | `ui/job_manager.py` | One owner for every background job: labels, watchdog, cancel, abandon-at-shutdown. **Every job now actually goes through it** — the four export registries, the import, the proxy and the video probes were migrated in D-107, and a raw `QThread` in `src/` fails `tests/test_feedback_surface.py` | `JobManager`, `Job`, `JobState`; reached through `MainWindow._run_job` |
 | `ui/feedback/notifications.py` | One message shown, the rest queued behind it (D-107). A sticky message is never displaced; a transient success never holds up a failure, and never queues behind another success — only the newest one is kept, so a three-file import is one line rather than eighteen seconds of them (D-134). The waiting count is shown, so a queue is never silent. An optional `on_dismiss` callback is distinct from the named action (D-118) | `NotificationStrip.show_success/show_warning/show_error()`, `clear()`, `clear_all()`, `pending_count` |
+| `ui/app_settings.py` | The one place the `QSettings` store is opened, in `QSettings.defaultFormat()` so the test and screenshot sandboxes reach it (Phase 9 F-36) | `app_settings()` |
 | `ui/recovery.py` | App-data recovery snapshot and a fingerprint of the last dismissed offer. Dismiss preserves the snapshot and suppresses that state on later launches; changed work gets a new offer (D-118). The snapshot is always written; only the launch-time bar is a preference, and File → Recover Unsaved Work reaches the snapshot without it (D-133) | `write_recovery()`, `pending_recovery()`, `dismiss_recovery()`, `clear_recovery()` |
 | `ui/feedback/text_dialog.py` | The one modal for text the user asked to see — scrolling, selectable, copyable. Replaced five ad-hoc `QMessageBox`es that disagreed about both (D-107) | `TextDialog`, `show_text()` |
 | `ui/feedback/error_presenter.py` | Typed exception → title + cause + named recoveries. `ExportError` is the newest entry; the enumeration test fails if a `core/errors.py` type has no presenter | `present()`, `presentation_for()`, `PresentedError`, `Recovery` |
@@ -1156,6 +1157,15 @@ came up light on a dark desktop — indistinguishable from a broken theme. `test
 sandboxes storage for the whole process in `pytest_configure` (an ini under a temp dir); do not
 remove it, and do not rely on per-module `monkeypatch` of `QSettings`, which only covers the module
 somebody remembered. Same family as `isolated_recovery_dir` below.
+
+**That sandbox covered nothing until Phase 9 DS-0.** `QSettings(org, app)` ignores
+`setDefaultFormat` and always opens the *native* store, so the suite and the screenshot tools kept
+writing geometry, splitter sizes and the inspector page into the real plist/registry. Open the
+store only through `ui/app_settings.app_settings()`, which passes `QSettings.defaultFormat()`
+explicitly (native in the shipped app, the sandbox's ini under test). `tests/test_app_settings.py`
+rejects any other `QSettings(...)` construction in `src/`, `tests/` and `tools/`. The screenshot
+tools get the same sandbox, plus the recovery snapshot and cache, from `tools/screenshot_kit.py`
+on import (`tests/test_screenshot_isolation.py`).
 
 ### 0. Scheduled work that outlives its owner crashes rather than fails (D-062, D-064)
 Two variants, one cause. A worker `deleteLater`-ed from a signal its own thread emits is destroyed

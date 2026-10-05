@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
-from PySide6.QtCore import QSettings, QThread
+from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QFileDialog
 
 from avialsync.core.errors import CacheError, FileUnreadableError, SourceOpenError
@@ -28,6 +28,7 @@ from avialsync.core.session import (
 )
 from avialsync.core.settings_schema import setting_for
 from avialsync.ui import recovery
+from avialsync.ui.app_settings import app_settings
 from avialsync.ui.controllers import (
     corrections_controller,
     custom_marker_controller,
@@ -57,7 +58,7 @@ def _disconnect(signal: object, slot: object) -> None:
 
 
 def restore_geometry(window: MainWindow) -> None:
-    settings = QSettings("AvialSync", "AvialSync")
+    settings = app_settings()
     geom = settings.value("window/geometry")
     if geom:
         window.restoreGeometry(geom)
@@ -86,12 +87,9 @@ def restore_geometry(window: MainWindow) -> None:
 
 
 def save_geometry(window: MainWindow) -> None:
-    settings = QSettings("AvialSync", "AvialSync")
+    settings = app_settings()
     settings.setValue("window/geometry", window.saveGeometry())
-    settings.setValue(
-        "splitter/horizontal",
-        window._h_splitter.saveState(),
-    )
+    settings.setValue("splitter/horizontal", window._h_splitter.saveState())
     # While nothing is loaded the plots and Data Streams are held at their
     # minimum for the drop target (D-127); that is not a layout the user chose,
     # so the one they did choose stays saved instead.

@@ -60,10 +60,12 @@ def apply_plot_item_palette(plot_item: pg.PlotItem, colors: PlotColors) -> None:
     in a separate ``labelStyle`` defaulting to a literal mid-grey that is
     low-contrast on a light canvas and lower on a dark one.
 
-    Passing no text to ``setLabel`` is deliberate: pyqtgraph keeps the existing
-    label text and units when they are ``None``, and replaces ``labelStyle``
-    only when keyword arguments are given.  So this re-colours the title
-    without knowing what it says, and a later label rewrite — the channel
+    The title is re-styled by handing ``setLabel`` its own current text, units
+    and visibility back.  pyqtgraph 0.14 treats a ``None`` text as "no label"
+    and hides it, so the earlier ``setLabel(color=…)`` emptied every channel's
+    name/unit/range gutter on the first theme switch — the gutter was blank in
+    the Light screenshot and in any session switched after load
+    (INTERFACE_DESIGN_PLAN F-27).  A later label rewrite — the channel
     gutter's, say — passes no style of its own and keeps this colour.
     """
     for name in ("left", "right", "top", "bottom"):
@@ -72,7 +74,15 @@ def apply_plot_item_palette(plot_item: pg.PlotItem, colors: PlotColors) -> None:
             continue
         axis.setPen(colors.axis)
         axis.setTextPen(colors.axis)
-        axis.setLabel(color=colors.axis.name())
+        shown = axis.label.isVisibleTo(axis)
+        axis.setLabel(
+            axis.labelText or None,
+            units=axis.labelUnits or None,
+            unitPrefix=axis.labelUnitPrefix or None,
+            unitPower=axis.unitPower,
+            color=colors.axis.name(),
+        )
+        axis.showLabel(shown)
 
 
 def apply_coverage_region_palette(region: pg.LinearRegionItem, palette: QPalette) -> None:

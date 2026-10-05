@@ -9,9 +9,9 @@ platform).
 from __future__ import annotations
 
 import pytest
-from PySide6.QtCore import QSettings
 from shiboken6 import isValid
 
+from avialsync.ui.app_settings import app_settings
 from avialsync.ui.controllers import session_controller
 from avialsync.ui.main_window import MainWindow
 
@@ -54,7 +54,7 @@ def test_the_users_layout_returns_with_the_first_recording(window: MainWindow, m
 
 
 def test_the_empty_layout_is_never_saved_as_the_users(window: MainWindow) -> None:
-    settings = QSettings("AvialSync", "AvialSync")
+    settings = app_settings()
     settings.setValue("splitter/vertical", b"the user's own")
 
     session_controller.save_geometry(window)

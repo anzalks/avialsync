@@ -21,6 +21,7 @@ from avialsync.core.settings_schema import (
     setting_for,
     settings_by_group,
 )
+from avialsync.ui.app_settings import app_settings
 from avialsync.ui.preferences_dialog import (
     PreferencesDialog,
     read_setting,
@@ -34,7 +35,7 @@ def isolated_settings(tmp_path, monkeypatch):
     """Keep every test out of the developer's real preferences."""
     QSettings.setDefaultFormat(QSettings.Format.IniFormat)
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    store = QSettings("AvialSync", "AvialSync")
+    store = app_settings()
     store.clear()
     store.sync()
     yield
@@ -102,13 +103,13 @@ def test_a_written_setting_reads_back() -> None:
 def test_a_bool_stored_as_a_string_reads_as_a_bool() -> None:
     """QSettings returns strings on some platforms; "false" is otherwise true."""
     setting = setting_for("palette/colour_vision_safe")
-    QSettings("AvialSync", "AvialSync").setValue(setting.key, "false")
+    app_settings().setValue(setting.key, "false")
     assert read_setting(setting) is False
 
 
 def test_an_unreadable_value_falls_back_to_the_default() -> None:
     setting = setting_for("storage/autosave_minutes")
-    QSettings("AvialSync", "AvialSync").setValue(setting.key, "not a number")
+    app_settings().setValue(setting.key, "not a number")
     assert read_setting(setting) == setting.default
 
 
@@ -196,9 +197,8 @@ def test_the_report_also_lists_what_is_remembered_but_not_declared() -> None:
     thing causing reported behaviour is more likely to be remembered state
     nobody declared than a preference somebody did.
     """
-    from PySide6.QtCore import QSettings
 
-    store = QSettings("AvialSync", "AvialSync")
+    store = app_settings()
     store.setValue("splitter/content", b"stand-in for a saved layout")
     store.sync()
 
@@ -211,9 +211,8 @@ def test_the_report_also_lists_what_is_remembered_but_not_declared() -> None:
 
 def test_an_opaque_blob_is_named_rather_than_dumped() -> None:
     """A QByteArray geometry printed in full buries every key around it."""
-    from PySide6.QtCore import QSettings
 
-    store = QSettings("AvialSync", "AvialSync")
+    store = app_settings()
     store.setValue("window/geometry", b"\x00\x01\x02" * 200)
     store.sync()
 

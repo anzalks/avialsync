@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import csv
 import math
+import os
 import shutil
 import tempfile
 from collections.abc import Callable, Iterator, Sequence
@@ -29,12 +30,38 @@ from fractions import Fraction
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QEvent, QEventLoop, QPoint, QRect, Qt, QTimer
+from PySide6.QtCore import QEvent, QEventLoop, QPoint, QRect, QSettings, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import QApplication, QWidget
 
+from avialsync.core.cache import CACHE_DIR_ENV
 from avialsync.engine.transcode import encode_video
-from avialsync.ui import theme
+from avialsync.ui import recovery, theme
+
+
+def isolate_user_state() -> Path:
+    """Point settings, the recovery snapshot, and the cache at a throwaway folder.
+
+    A screenshot run builds a real ``MainWindow`` and closes it, and closing a
+    window that holds anything writes the recovery snapshot unconditionally
+    (D-089). Unisolated, photographing the docs replaced the operator's own
+    unsaved-work snapshot with a synthetic session, and wrote window geometry
+    and preferences into their installed application. This is the same
+    sandbox ``tests/conftest.py`` gives the test suite, applied at import so it
+    precedes every ``QSettings`` the tools construct. It returns the folder.
+    """
+    sandbox = Path(tempfile.mkdtemp(prefix="avialsync-screenshots-"))
+    QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+    QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, str(sandbox))
+    recovery_target = sandbox / "appdata"
+    recovery_target.mkdir()
+    recovery.recovery_dir = lambda: recovery_target
+    os.environ[CACHE_DIR_ENV] = str(sandbox / "cache")
+    return sandbox
+
+
+#: The sandbox every tool importing this module runs in.
+USER_STATE_SANDBOX = isolate_user_state()
 
 #: Highlight colour. Chosen to stay legible on both the dark chrome and the
 #: black video panes, and to be distinguishable by someone who cannot separate

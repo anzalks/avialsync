@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QApplication, QDoubleSpinBox
 
 from avialsync.core.settings_schema import setting_for
 from avialsync.core.source import RotaryHint
+from avialsync.ui.app_settings import app_settings
 from avialsync.ui.preferences_dialog import PreferencesDialog, read_setting
 from avialsync.ui.wheel_dialogs import _WheelSetupDialog
 
@@ -16,7 +17,7 @@ from avialsync.ui.wheel_dialogs import _WheelSetupDialog
 def isolated_settings(tmp_path, monkeypatch):
     QSettings.setDefaultFormat(QSettings.Format.IniFormat)
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    store = QSettings("AvialSync", "AvialSync")
+    store = app_settings()
     store.clear()
     store.sync()
     yield

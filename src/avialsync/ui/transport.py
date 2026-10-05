@@ -9,7 +9,6 @@ from PySide6.QtCore import (
     QObject,
     QPoint,
     QRegularExpression,
-    QSettings,
     Qt,
     QTimer,
     Signal,
@@ -41,6 +40,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.ui.app_settings import app_settings
 from avialsync.ui.i18n import tr
 from avialsync.ui.icons import set_glyph_icon
 from avialsync.ui.playback_rates import PLAYBACK_RATE_STEPS, rate_label
@@ -49,6 +49,7 @@ from avialsync.ui.theme import (
     follow_palette,
     loop_pin_color,
     neutral_on_canvas,
+    refollow,
     separator_color,
     set_font_family,
     status_color,
@@ -762,7 +763,7 @@ class TimelineEvidence(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._settings = QSettings("AvialSync", "AvialSync")
+        self._settings = app_settings()
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(0)
@@ -819,9 +820,7 @@ class TimelineEvidence(QWidget):
         """Show active work in the Data Streams row and clear non-active messages shortly after."""
         self._status_severity = severity
         self._status_label.setText(f"Status: {message}")
-        self._status_label.setStyleSheet(
-            f"color: {status_color(self._status_label.palette(), severity).name()};"
-        )
+        refollow(self._status_label)
         self._status_label.show()
         if severity == "busy":
             self._status_clear_timer.stop()

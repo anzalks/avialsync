@@ -30,6 +30,8 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QByteArray, QSettings
 
+from avialsync.ui.app_settings import app_settings
+
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
 
@@ -53,7 +55,7 @@ class Workspace:
 
 
 def _store() -> QSettings:
-    return QSettings("AvialSync", "AvialSync")
+    return app_settings()
 
 
 def capture(window: MainWindow) -> Workspace:
