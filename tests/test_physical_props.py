@@ -31,7 +31,12 @@ from avialsync.core.physical_props import (
     WheelMaterialMap,
 )
 from avialsync.core.visual_prop_tracking import (
+    INCONSISTENT_VIEWS,
+    OFF_PATH,
+    OFF_SPHERE,
+    ball_visual_problem,
     ball_visual_state,
+    belt_visual_problem,
     belt_visual_state,
     belt_visual_travel,
 )
@@ -77,6 +82,38 @@ def test_visual_belt_marks_follow_only_stereo_observed_frames() -> None:
     assert belt_visual_state(belt, 13, CAMERAS) is None
     assert belt_visual_state(belt, 15, CAMERAS) is None
     assert belt_visual_state(belt, 14, {"Front": CAMERAS["Front"]}) is None
+
+
+def test_visual_belt_reports_declared_path_mismatch_without_losing_clicks() -> None:
+    observed = BeltVisualFrame(12, _clicked_point((5.0, 0.0, 70.0), ("Front", "Left")))
+    belt = BeltProp(
+        "belt",
+        BeltTrack(((0.0, 30.0, 70.0), (10.0, 30.0, 70.0))),
+        travel_direction=(1.0, 0.0, 0.0),
+        visual_reference_frame=12,
+        visual_frames=(observed,),
+    )
+    assert belt_visual_state(belt, 12, CAMERAS) is None
+    assert belt_visual_problem(belt, 12, CAMERAS) == OFF_PATH
+    corrected = dataclasses.replace(belt, track=BeltTrack(((0.0, 0.0, 70.0), (10.0, 0.0, 70.0))))
+    assert corrected.visual_frames == belt.visual_frames
+    assert belt_visual_state(corrected, 12, CAMERAS) is not None
+    assert belt_visual_problem(corrected, 12, CAMERAS) is None
+
+
+def test_visual_belt_distinguishes_bad_stereo_clicks_from_bad_geometry() -> None:
+    point = _clicked_point((5.0, 0.0, 70.0), ("Front", "Left"))
+    left = next(click for click in point.clicks if click.camera == "Left")
+    point = point.with_click(StepClick("Left", left.frame, left.x + 100.0, left.y))
+    belt = BeltProp(
+        "belt",
+        BeltTrack(((0.0, 0.0, 70.0), (10.0, 0.0, 70.0))),
+        travel_direction=(1.0, 0.0, 0.0),
+        visual_reference_frame=12,
+        visual_frames=(BeltVisualFrame(12, point),),
+    )
+    assert belt_visual_state(belt, 12, CAMERAS) is None
+    assert belt_visual_problem(belt, 12, CAMERAS) == INCONSISTENT_VIEWS
 
 
 def test_closed_visual_belt_needs_explicit_laps_for_signed_travel(tmp_path: Path) -> None:
@@ -141,6 +178,26 @@ def test_visual_ball_solves_three_named_marks_and_rejects_missing_evidence() -> 
     duplicated = dataclasses.replace(later, marks=(later.marks[0], later.marks[0], later.marks[2]))
     repeated = dataclasses.replace(ball, visual_frames=(reference, duplicated))
     assert ball_visual_state(repeated, 14, CAMERAS) is None
+
+
+def test_visual_ball_reports_declared_sphere_mismatch_without_losing_clicks() -> None:
+    centre = np.asarray((0.0, 0.0, 70.0))
+    marks = tuple(
+        _clicked_point(tuple(centre + offset), ("Front", "Left")) for offset in np.eye(3) * 5.0
+    )
+    observed = BallVisualFrame(12, marks)
+    ball = BallProp(
+        "ball",
+        BallSurface(tuple(centre), 50.0),
+        visual_reference_frame=12,
+        visual_frames=(observed,),
+    )
+    assert ball_visual_state(ball, 12, CAMERAS) is None
+    assert ball_visual_problem(ball, 12, CAMERAS) == OFF_SPHERE
+    corrected = dataclasses.replace(ball, surface=BallSurface(tuple(centre), 5.0))
+    assert corrected.visual_frames == ball.visual_frames
+    assert ball_visual_state(corrected, 12, CAMERAS) is not None
+    assert ball_visual_problem(corrected, 12, CAMERAS) is None
 
 
 def test_visual_tracks_round_trip_raw_clicks_without_storing_old_fits(tmp_path: Path) -> None:

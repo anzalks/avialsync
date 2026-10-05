@@ -6,14 +6,15 @@ rule 11 allows a modal for. It collects what the clicks cannot supply:
 * **the bar count**, without which two or three neighbouring bars cannot give
   the radius -- their curvature is about the size of the click error;
 * **the units** the calibration's 3D coordinates are in, and optionally **the
-  radius** measured on the rig in those units. anipose records no units, and a
-  radius in centimetres against a calibration in millimetres is a wheel a tenth
-  the size, so the radius field is only live once the units are declared;
+  radius** measured on the rig in those units. anipose records no units; a
+  radius typed in centimetres against a millimetre calibration contradicts the
+  clicks and gives way to their implied radius (D-161). The radius field is
+  only live once the units are declared;
 * **the encoder channel** that turns the wheel, pre-selected when the session's
   plugin declared one (:class:`~avialsync.core.source.RotaryHint`), and
   "none" otherwise -- a wheel with no encoder is drawn on its own frame only.
 
-Everything here can be changed afterwards in the Wheels inspector tab; this
+Everything here can be changed afterwards on the Wheel page in Props; this
 is the first answer, not the only one.
 """
 
@@ -314,9 +315,7 @@ class _WheelSetupDialog(QDialog):
         self.radius.setEnabled(bool(units))
         self.radius.setSuffix(f" {units}" if units else "")
         self.radius.setToolTip(
-            ""
-            if units
-            else tr("Declare the 3D units first: a radius in the wrong units is silently wrong")
+            "" if units else tr("Declare the 3D units before entering a measured radius.")
         )
         self._validate()
 

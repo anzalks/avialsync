@@ -416,6 +416,9 @@ class PropsPanel(QWidget):
             lambda: self.remove_prop_requested.emit("ball", self.current_prop())
         )
         layout.addWidget(self.remove_ball)
+        # The stack is sized for the longer belt page. Keep the ball controls
+        # together at the top instead of distributing the surplus between forms.
+        layout.addStretch()
         self.editor_stack.addWidget(self.ball_editor)
         for combo in self.ball_channels:
             combo.currentIndexChanged.connect(self._update_motion_enablement)

@@ -5658,3 +5658,16 @@ and moves on to the clicks' own radius. Click noise moves the implied radius by 
 wrong units move it by 10×, 100× or 1000×. A typed radius within 2× still wins whenever it fits,
 as D-113 and D-123 intended. If nothing else fits, the contradicted fit is still drawn (D-123).
 A wheel saved before this keeps its stored fit until a wheel field changes and re-fits it.
+
+---
+
+## 2026-10 · D-162 · Prop geometry edits preserve visual observations
+
+Editing a belt's declared support path or a ball's declared centre, radius or units keeps every
+raw, named camera click. Visual positions and orientation are derived on demand from those clicks
+against the current geometry and calibration, so a corrected declaration can recover a track
+without re-clicking. A stereo mark off the belt path or sphere is reported as a geometry mismatch;
+camera views that disagree and ambiguous marks get distinct explanations. Motion stays unknown
+where evidence and declared geometry disagree. The app does not move a declared path or sphere to
+fit one mark: a single belt mark cannot recover the path, and three ball landmarks do not uniquely
+determine a sphere. Sensor-derived checks still clear when their geometry changes.

@@ -66,7 +66,8 @@ loads generated frame-strobe evidence and captures a completed preview. The Mess
 generated text attributed to `synthetic_rig_log.txt`.
 
 `tools/generate_feature_screenshots.py` writes the `feature_*` images from the same synthetic
-fixture: the Props tab (a ladder added through its own Add control, then the belt editor), the
+fixture: the Props tab (a ladder added through its own Add control, saved example belt and ball,
+their geometry and motion controls, and the wheel setup dialog), the
 Tasks tab, the File → Cache and View → Overlays menus, the command palette,
 Preferences, and the Light theme. It pins the appearance without saving it and only shows dialogs,
 never accepts them.

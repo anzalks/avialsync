@@ -22,6 +22,7 @@ from avialsync.core.physical_props import (
     UnitQuaternion,
 )
 from avialsync.core.prop_file import read_props, write_ladder
+from avialsync.core.visual_prop_tracking import ball_visual_state, belt_visual_state
 from avialsync.engine import prop_file_worker
 from avialsync.engine.prop_file_worker import PropFileReadWorker, PropFileWriteWorker
 from avialsync.ui.main_window import MainWindow
@@ -96,6 +97,22 @@ def test_visual_only_belt_and_ball_tracks_are_clicked_and_displayed(
     belt = window.props_app.store.get("visual belt")
     assert isinstance(belt, BeltProp) and belt.binding is None
     assert len(belt.visual_frames) == 2
+    panel.belt_vertices.setCurrentRow(1)
+    panel.belt_point_fields[1].setValue(30.0)
+    panel.belt_update_vertex.click()
+    panel.save_belt.click()
+    changed_belt = window.props_app.store.get("visual belt")
+    assert isinstance(changed_belt, BeltProp)
+    assert changed_belt.visual_frames == belt.visual_frames
+    assert belt_visual_state(changed_belt, 8, CAMERAS) is None
+    assert "off the declared belt path" in panel.status.text()
+    click_mark((7.0, 0.0, 70.0))
+    assert "off the declared belt path" in panel.status.text()
+    panel.belt_vertices.setCurrentRow(1)
+    panel.belt_point_fields[1].setValue(0.0)
+    panel.belt_update_vertex.click()
+    panel.save_belt.click()
+    assert belt_visual_state(window.props_app.store.get("visual belt"), 8, CAMERAS) is not None
     assert any(
         "moving mark" in label
         for label, _pixels, _closed in window.props_app.camera_drawing(VIDEOS["Front"], 1.0)
@@ -123,6 +140,23 @@ def test_visual_only_belt_and_ball_tracks_are_clicked_and_displayed(
     ball = window.props_app.store.get("visual ball")
     assert isinstance(ball, BallProp) and ball.binding is None
     assert len(ball.visual_frames) == 2
+    panel.ball_radius.setValue(50.0)
+    panel.save_ball.click()
+    changed_ball = window.props_app.store.get("visual ball")
+    assert isinstance(changed_ball, BallProp)
+    assert changed_ball.visual_frames == ball.visual_frames
+    assert ball_visual_state(changed_ball, 8, CAMERAS) is None
+    assert "off the declared sphere" in panel.status.text()
+    panel.kind.setCurrentIndex(panel.kind.findData("belt"))
+    panel.kind.setCurrentIndex(panel.kind.findData("ball"))
+    assert "off the declared sphere" in panel.status.text()
+    panel.ball_visual_mark.setCurrentIndex(0)
+    click_mark(later_marks[0])
+    assert "off the declared sphere" in panel.status.text()
+    panel.ball_radius.setValue(5.0)
+    panel.save_ball.click()
+    ball = window.props_app.store.get("visual ball")
+    assert isinstance(ball, BallProp) and ball_visual_state(ball, 8, CAMERAS) is not None
     assert any(
         "moving mark A" in label
         for label, _pixels, _closed in window.props_app.camera_drawing(VIDEOS["Front"], 1.0)

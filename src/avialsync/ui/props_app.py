@@ -41,8 +41,16 @@ from avialsync.core.physical_props import (
 )
 from avialsync.core.prop_file import PropFileIssue, PropKind, PropRecord, prop_kind, prop_path
 from avialsync.core.visual_prop_tracking import (
+    AMBIGUOUS_CROSSING,
+    INCONSISTENT_VIEWS,
+    MARKS_TOO_CLOSE,
+    NOT_RIGID,
+    OFF_PATH,
+    OFF_SPHERE,
     BallVisualState,
     BeltVisualState,
+    ball_visual_problem,
+    belt_visual_problem,
     belt_visual_travel,
 )
 from avialsync.engine.prop_file_worker import PropFileReadWorker, PropFileWriteWorker
@@ -236,6 +244,8 @@ class PropsApp:
             self.panel.set_belt_fields(prop)
         elif kind == "ball" and isinstance(prop, BallProp):
             self.panel.set_ball_fields(prop)
+        if isinstance(prop, (BeltProp, BallProp)):
+            self._saved_visual_feedback(prop)
 
     def _refresh_motion_channels(self) -> None:
         if self.panel is None:
@@ -293,11 +303,7 @@ class PropsApp:
                 and same_direction
                 else None
             )
-            visual_frames = (
-                before.visual_frames
-                if isinstance(before, BeltProp) and before.track == declared.track
-                else ()
-            )
+            visual_frames = before.visual_frames if isinstance(before, BeltProp) else ()
             visual_reference = (
                 before.visual_reference_frame
                 if isinstance(before, BeltProp) and visual_frames
@@ -326,6 +332,7 @@ class PropsApp:
             if belt.binding
             else tr("Belt geometry saved; surface motion remains unknown.")
         )
+        self._saved_visual_feedback(belt)
 
     def save_ball(self) -> None:
         """Add or edit a declared sphere without inventing its orientation."""
@@ -362,8 +369,6 @@ class PropsApp:
             ):
                 if binding is not None:
                     binding = dataclasses.replace(binding, checks=())
-                visual_frames = ()
-                visual_reference = None
             ball = BallProp(
                 name,
                 BallSurface(centre, radius),
@@ -390,6 +395,20 @@ class PropsApp:
             if ball.binding
             else tr("Ball geometry saved; orientation remains unknown.")
         )
+        self._saved_visual_feedback(ball)
+
+    def _saved_visual_feedback(self, prop: BeltProp | BallProp) -> None:
+        """Recheck kept camera evidence after declared geometry changes."""
+        if not prop.visual_frames:
+            return
+        displayed = wheel_display.frame_and_time(self.window, self.window.clock.state.t)
+        frames = {item.frame for item in prop.visual_frames}
+        frame = (
+            displayed[0]
+            if displayed is not None and displayed[0] in frames
+            else prop.visual_frames[0].frame
+        )
+        self._visual_feedback(prop, frame, wheel_display.camera_models(self.window))
 
     def bind_belt(self) -> None:
         """Bind a measured displacement channel at the currently displayed frame."""
@@ -673,11 +692,22 @@ class PropsApp:
                 )
             )
         else:
-            self._status(
-                tr("Frame {frame} saved; more camera views or landmarks needed.").format(
-                    frame=frame
-                )
+            problem = (
+                belt_visual_problem(changed, frame, cameras)
+                if isinstance(changed, BeltProp)
+                else ball_visual_problem(changed, frame, cameras)
             )
+            reason = {
+                OFF_PATH: tr("The mark is off the declared belt path; check its points and units."),
+                INCONSISTENT_VIEWS: tr("The camera clicks disagree; check clicks and calibration."),
+                AMBIGUOUS_CROSSING: tr("The belt path crosses here; mark position is ambiguous."),
+                OFF_SPHERE: tr(
+                    "The marks are off the declared sphere; check centre, radius and units."
+                ),
+                MARKS_TOO_CLOSE: tr("The ball marks are too close to distinguish rotation."),
+                NOT_RIGID: tr("The ball marks do not move as one sphere; check their identities."),
+            }.get(problem or "", tr("More calibrated camera views or landmarks are needed."))
+            self._status(tr("Frame {frame} saved; {reason}").format(frame=frame, reason=reason))
 
     def start_check(self, kind: str, name: str) -> None:
         """Take the next video click as a later-frame motion check."""

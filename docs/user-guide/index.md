@@ -307,11 +307,12 @@ you; a message offers **Choose Calibration…**.
 ## Physical props
 
 The **Props** tab (also **Edit → Add Physical Prop…**) records the apparatus in the recording:
-a **Horizontal ladder**, a **Wheel**, a **Belt**, or a **Ball**. Choose the kind at the top of the tab,
-give the prop a name, and add it; the controls below change with the kind. Every prop is placed by
-clicking it in calibrated cameras, every edit is one undo step, and each prop is saved as
-`pose-3d/<name>_prop.toml` in the recording folder. Solid squares in the camera views are your clicks;
-dashed marks are where the 3D fit projects.
+a **Horizontal ladder**, a **Wheel**, a **Belt**, or a **Ball**. Choose the kind at the top of the tab;
+the controls below change with the kind. Ladder and wheel placement use camera clicks. For a belt or
+ball, enter the fixed geometry first, then choose sensor readings or camera clicks for motion.
+Each accepted edit is one undo step, and each prop is saved as
+`pose-3d/<name>_prop.toml` in the recording folder. For ladder, belt and ball marks, solid squares
+in the camera views are your clicks; dashed marks are 3D projections.
 
 ![The Props tab with the prop-kind chooser, a ladder named and selected, and the step controls](../_static/screenshots/feature_props_tab.png)
 
@@ -324,14 +325,28 @@ error; a point seen by one camera stays 2D and is still kept. Steps stay in the 
 step** and **Remove step** edit one. AvialSync never generates rungs from a spacing or forces them onto
 one level, so an irregular ladder is recorded as it is.
 
+![The ladder controls for clicking a foothold or rung and saving the step](../_static/screenshots/feature_props_ladder_steps.png)
+
 ![The Props tab with Belt selected: units, the support path points, and the travel direction](../_static/screenshots/feature_props_belt.png)
 
-For a **belt**, save its fixed path and travel direction, identify a surface mark by its distance
-along the path, select a displacement channel, and choose **Bind displacement at current frame**.
-Set **Distance per reading unit** in the path's units. For a **ball**, save its centre and radius,
-identify the surface mark's world direction on the reference frame, select four quaternion channels (`w`, `x`, `y`, `z`) from
-one source, and bind them at a reference frame. The support path or sphere stays fixed while the
-identified mark follows the measured channel values. Missing readings leave that mark hidden.
+For a **belt**, add its support path points in order, set the travel direction along the first
+segment, and save the fixed geometry. The path and units must use the calibration's 3D frame.
+Then identify a surface mark by its distance along the path, select a displacement channel, and
+choose **Bind displacement at current frame**.
+Set **Distance per reading unit** in the path's units.
+
+![The belt's ordered support points, point editor and travel direction](../_static/screenshots/feature_props_belt_geometry.png)
+
+![The belt's displacement channel and camera-click tracking controls](../_static/screenshots/feature_props_belt_evidence.png)
+
+For a **ball**, enter its centre, radius and units in the calibration's 3D frame and save its
+geometry. To use sensor motion, identify the surface mark's world direction on the reference frame,
+select four quaternion channels (`w`, `x`, `y`, `z`) from one source, and choose **Bind orientation at
+current frame**. The support path or sphere stays fixed while the identified mark follows the
+measured channel values. Missing readings leave that mark hidden.
+
+![The ball's centre, radius and calibration units](../_static/screenshots/feature_props_ball_geometry.png)
+
 Use **Check ... mark on later frame**, then click the visible mark in a calibrated camera to save
 the observed pixel and its difference from the predicted mark. Checks do not change the binding
 automatically. The camera overlay and 3D view use the frame actually displayed.
@@ -343,8 +358,16 @@ closed path, set the whole lap count on each observed frame to measure signed tr
 alone cannot reveal how many complete laps passed. For **visual-only ball tracking**, choose mark
 A, B, or C and click each distinct surface mark in two calibrated cameras on the reference frame.
 Repeat the same identities on later frames. Three valid marks give a 3D orientation; missing or
-ambiguous observations leave it unknown. These visual tracks use the same Props record and can be
-cleared or undone. Clicking a visual mark replaces the prop's channel motion binding.
+ambiguous observations leave it unknown. If two camera clicks disagree, check their locations and
+the calibration. If a stereo-located belt mark is off the declared path, correct the path or its
+units; if ball marks are off the declared sphere, correct its centre, radius or units. AvialSync
+keeps the original camera clicks when you edit belt or ball geometry and checks them against the
+new declaration. A belt path crossing, ball marks too close together, or marks that do not move
+as one rigid sphere also leave motion unknown, with the reason shown in Props. The declared shape
+does not automatically shift to fit a mark. These visual tracks use the same Props record and can
+be cleared or undone. Clicking a visual mark replaces the prop's channel motion binding.
+
+![The ball's named surface-mark selector and camera-click tracking control](../_static/screenshots/feature_props_ball_evidence.png)
 
 The wheel has its own workflow, described in [Placing a running wheel](#placing-a-running-wheel).
 
@@ -360,9 +383,11 @@ least two cameras and their calibration (the same one Add 3D Marker uses).
    neighbouring bars show the spacing between bars, and only the count turns that spacing into the
    wheel's size.
 2. Optionally set the **3D units** (the units your calibration was made in, usually mm) and the
-   **radius to the bar centres**, measured on the rig. With both, AvialSync uses your radius and
-   also reports the radius the clicks imply; if they disagree by more than a few percent, check
-   the units and the bar count.
+   **radius to the bar centres**, measured on the rig. AvialSync reports both your radius and the
+   radius the clicks imply. Check the units and bar count when they disagree.
+   If they differ by more than 2×, AvialSync tries the radius implied by the clicks instead.
+
+   ![The Add Wheel setup dialog with the name, bar count, 3D units, radius and encoder fields highlighted](../_static/screenshots/feature_props_wheel_setup.png)
 3. The Wheel page in the **Props** tab opens when you start placing a wheel. It shows **1A, 1B, 2A, 2B** and optional **3A, 3B**, with a real-click count for
    each. A and B are the two ends of one bar; keep A on the same side for every bar. Click the
    selected point in a camera to place a labelled ring there. **Next Point** or any point button
@@ -388,12 +413,14 @@ least two cameras and their calibration (the same one Add 3D Marker uses).
    Wheel page says it was left out of the fit. Its clicks are still saved.
    **Done Labelling** exits click mode and is one undo step; **Discard Clicks** exits without saving.
 
-The wheel is always drawn from exactly the bars you clicked, taken as neighbours in the order you
-clicked them, even when it fits poorly. A poor fit is labelled **Poor fit** on the Wheel page, with
-how far your clicks sit from it; check the clicked bar ends, the 3D units and the calibration.
-**Done Labelling** still saves it, and a notification offers **Re-place**. If you entered a radius
-that contradicts your clicks, the wheel is built from the radius the clicks imply, and the tab
-says so. It also says when the two are about 10× or 100× apart, which usually means the **3D units**
+The wheel uses the accepted bars as neighbours in click order and remains visible even when it fits
+poorly. All real clicks remain saved, including a third bar left out of the fit. A poor fit is
+labelled **Poor fit** on the Wheel page, with how far your clicks sit from it; check the clicked bar
+ends, the 3D units and the calibration. **Done Labelling** still saves it, and a notification offers
+**Re-place**. If you entered a radius more than 2× from what the clicks imply, AvialSync tries a
+click-derived radius; the tab says when it uses it. If no other fit exists, the contradicted fit
+remains visible for review. The tab also notes when the two radii are about 10× or 100× apart, which
+usually means the **3D units**
 are wrong, for example cm entered for a calibration in mm. To fix a placed wheel, change its
 **3D units** or **Radius** on the Wheel page: it is re-fitted from your original clicks.
 

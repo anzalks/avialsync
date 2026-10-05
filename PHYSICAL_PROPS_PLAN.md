@@ -21,6 +21,9 @@ in two calibrated cameras on each observed frame, and a ball needs three named
 surface marks in two cameras at both reference and later frames. Fits are
 recomputed from raw clicks using current calibration. Missing frames remain
 unknown; closed belts need explicit lap counts before signed travel is known.
+Editing the declared belt path or ball dimensions retains visual clicks; the
+Props inspector names a geometry mismatch or ambiguous observation instead of
+discarding those clicks (D-162).
 A scalar ball encoder remains underdetermined.
 
 ## 1. Vocabulary and mathematical contract
