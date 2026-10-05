@@ -22,6 +22,7 @@ from avialsync.core.rig_naming import match_label
 from avialsync.core.source import TimeSeriesSource, VideoSource
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
+from avialsync.ui.tables import ThemedTable
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ class BatchImportDialog(QDialog):
 
         layout = QVBoxLayout(self)
 
-        self._table = QTableWidget(len(self._candidates), 4)
+        self._table = ThemedTable(len(self._candidates), 4)
         self._table.setHorizontalHeaderLabels(
             [tr("File / Group"), tr("Detected Type"), tr("Use as"), tr("Calibration (XCP)")]
         )

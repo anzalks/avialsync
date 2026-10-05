@@ -42,6 +42,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.ui.i18n import tr
+from avialsync.ui.tables import ThemedTable
 
 __all__ = ["ExportItem", "ExportChangesDialog"]
 
@@ -89,7 +90,7 @@ class ExportChangesDialog(QDialog):
         intro.setWordWrap(True)
         layout.addWidget(intro)
 
-        self._table = QTableWidget(len(items), len(_COLUMNS))
+        self._table = ThemedTable(len(items), len(_COLUMNS))
         self._table.setHorizontalHeaderLabels([tr(name) for name in _COLUMNS])
         header = self._table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)

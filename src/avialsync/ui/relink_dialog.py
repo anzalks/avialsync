@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.ui.i18n import tr
+from avialsync.ui.tables import ThemedTable
 
 
 class RelinkDialog(QDialog):
@@ -47,7 +48,7 @@ class RelinkDialog(QDialog):
         info.setWordWrap(True)
         layout.addWidget(info)
 
-        self._table = QTableWidget(len(missing_paths), 4)
+        self._table = ThemedTable(len(missing_paths), 4)
         self._table.setHorizontalHeaderLabels(["Type", "Original Path", "New Path", ""])
         self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)

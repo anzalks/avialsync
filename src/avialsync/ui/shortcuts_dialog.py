@@ -30,6 +30,7 @@ from avialsync.ui.shortcut_overrides import (
     default_for,
     store_override,
 )
+from avialsync.ui.tables import ThemedTable
 
 # Preferred display order for categories
 _CATEGORY_ORDER = ["Playback", "Marking", "Edit", "Align", "View", "File", "Other"]
@@ -84,7 +85,7 @@ class ShortcutsDialog(QDialog):
                 label = act.text().replace("&", "").rstrip(". ").strip()
                 rows.append((cat, key_text, label, act))
 
-        table = QTableWidget(len(rows), 3)
+        table = ThemedTable(len(rows), 3)
         table.setHorizontalHeaderLabels(["Category", "Key", "Action"])
         header = table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)

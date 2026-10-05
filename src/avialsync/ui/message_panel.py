@@ -23,7 +23,6 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
-    QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
@@ -32,6 +31,7 @@ from PySide6.QtWidgets import (
 from avialsync.core.messages import Message
 from avialsync.core.timeline import TimeMap
 from avialsync.ui.i18n import tr
+from avialsync.ui.tables import ThemedTable
 from avialsync.ui.time_format import TimeDisplayMode, format_time
 
 
@@ -177,7 +177,7 @@ class MessagePanel(QGroupBox):
         self._notes.setVisible(False)
         layout.addWidget(self._notes)
 
-        self._table = QTableWidget(0, 3, self)
+        self._table = ThemedTable(0, 3, self)
         self._table.setHorizontalHeaderLabels(["Time", "Source", "Message"])
         header = self._table.horizontalHeader()
         header.setSectionResizeMode(self._TIME_COLUMN, QHeaderView.ResizeMode.ResizeToContents)

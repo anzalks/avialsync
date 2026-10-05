@@ -19,13 +19,13 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QGroupBox,
     QHeaderView,
-    QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 from avialsync.ui.i18n import tr
+from avialsync.ui.tables import ThemedTable
 
 #: Finished jobs kept for reference.
 _MAX_HISTORY = 20
@@ -51,7 +51,7 @@ class JobsPanel(QGroupBox):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
 
-        self._table = QTableWidget(0, 3)
+        self._table = ThemedTable(0, 3)
         self._table.setHorizontalHeaderLabels(["Task", "State", "Time"])
         header = self._table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)

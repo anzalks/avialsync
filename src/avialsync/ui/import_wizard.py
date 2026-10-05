@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.ui.i18n import tr
+from avialsync.ui.tables import ThemedTable
 
 _COMMON_FORMATS = [
     ("Auto-detect", ""),
@@ -206,7 +207,7 @@ class ImportWizard(QDialog):
         self._has_headers_cb.toggled.connect(self._on_has_headers_toggled)
         preview_layout.addWidget(self._has_headers_cb)
 
-        self._preview_table = QTableWidget()
+        self._preview_table = ThemedTable()
         self._preview_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self._preview_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         preview_layout.addWidget(self._preview_table)

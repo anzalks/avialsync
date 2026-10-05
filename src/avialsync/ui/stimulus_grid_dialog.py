@@ -30,6 +30,7 @@ from avialsync.engine.stimulus_grid_export import MAX_GRID_EVENTS
 from avialsync.engine.stimulus_grid_worker import StimulusEventScanWorker
 from avialsync.ui.i18n import tr
 from avialsync.ui.playback_rates import PLAYBACK_RATE_STEPS, rate_label
+from avialsync.ui.tables import ThemedTable
 
 
 @dataclass(frozen=True)
@@ -120,7 +121,7 @@ class StimulusGridDialog(QDialog):
         self.timeline.setLabel("left", tr("Sensor value"))
         layout.addWidget(self.timeline)
 
-        self.event_table = QTableWidget(0, 2, self)
+        self.event_table = ThemedTable(0, 2, self)
         self.event_table.setHorizontalHeaderLabels([tr("Use"), tr("Event time (s)")])
         self.event_table.horizontalHeader().setStretchLastSection(True)
         self.event_table.verticalHeader().hide()

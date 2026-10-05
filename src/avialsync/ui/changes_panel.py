@@ -44,6 +44,7 @@ from avialsync.core.point_edits import PointEditStore, PointKey
 from avialsync.ui.action_button import ActionButton
 from avialsync.ui.annotations import AnnotationStore
 from avialsync.ui.i18n import tr
+from avialsync.ui.tables import ThemedTable
 from avialsync.ui.time_format import TimeDisplayMode, format_time
 
 __all__ = ["ChangeRow", "ChangesPanel"]
@@ -108,7 +109,7 @@ class ChangesPanel(QGroupBox):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
 
-        self._table = QTableWidget(0, len(_COLUMNS))
+        self._table = ThemedTable(0, len(_COLUMNS))
         self._table.setHorizontalHeaderLabels([tr(name) for name in _COLUMNS])
         header = self._table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)

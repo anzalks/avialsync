@@ -24,7 +24,6 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QHeaderView,
     QLabel,
-    QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
@@ -32,6 +31,7 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.triggers import TriggerKind
 from avialsync.ui.i18n import tr
+from avialsync.ui.tables import ThemedTable
 from avialsync.ui.theme import set_bold
 
 __all__ = ["TriggerEvidenceDialog"]
@@ -102,7 +102,7 @@ class TriggerEvidenceDialog(QDialog):
         layout.addWidget(heading)
 
         trains = list(suggestion.get("trains", []))
-        self._table = QTableWidget(len(trains), len(_COLUMNS), self)
+        self._table = ThemedTable(len(trains), len(_COLUMNS), self)
         self._table.setHorizontalHeaderLabels([tr(name) for name in _COLUMNS])
         self._table.verticalHeader().setVisible(False)
         self._table.setAccessibleName(tr("Trigger trains in this file"))
