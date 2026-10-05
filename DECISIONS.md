@@ -5552,3 +5552,25 @@ single prop store and `.prop.toml` sidecar, with document commands for every edi
 A scalar ball encoder and a belt lacking direction remain underdetermined.
 Visual-only displacement and multi-landmark orientation can be added later as
 distinct evidence adapters without changing the prop store's authority.
+
+## 2026-10 · D-158 · The categorical cycle drops yellow and is six colours
+
+**Context.** D-094 chose Okabe–Ito for colour-blind separation and lifts it
+uniformly on dark surfaces. On the light plot canvas its yellow reaches 1.1:1
+contrast as a 1.4 px trace, and orange and sky blue about 1.8:1. Darkening each
+colour to 3:1 takes the worst pair under deuteranopia to 0.017, far below the
+0.04 floor; a uniform darkening keeps separation but leaves yellow below 1.2:1.
+
+**Decision.** Yellow leaves the cycle, as black already had, because it is a
+fill colour rather than a line colour. `OKABE_ITO` is six colours and
+`MARKER_COLOR_COUNT` follows it, so the colour-vision-safe palette and the hue
+wheel repeat at the same index. The worst pairs are unchanged on a light
+surface (0.084 protanopia, 0.094 deuteranopia, 0.091 tritanopia) and stay above
+the floor on a dark one. The tests that evidence D-094 keep measuring the
+wheel at the seven hues it was decided against.
+
+**Consequences.** A trace or marker with colour index 3 and above shifts by
+one colour. Nothing persists a resolved colour, so no session file changes.
+Orange and sky blue remain under 3:1 on the light canvas; that is the price of
+keeping the separation, not an oversight.
+

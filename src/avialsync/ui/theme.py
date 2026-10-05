@@ -527,12 +527,14 @@ def status_color(palette: QPalette, severity: str) -> QColor:
     return palette.color(QPalette.ColorRole.WindowText)
 
 
-#: How many marker colours before the sequence repeats.  Seven evenly-spaced
-#: hues is about the limit of what stays tellable apart at a two-pixel tick.
-MARKER_COLOR_COUNT = 7
+#: How many marker colours before the sequence repeats: the colour-vision-safe
+#: palette's own length (:data:`avialsync.ui.cvd.OKABE_ITO`), so both palettes
+#: cycle at the same point and switching between them never renumbers a trace.
+MARKER_COLOR_COUNT = 6
 
 #: Markers are more saturated than an evidence lane.  Measured, not guessed: at
-#: the mark saturation used elsewhere the closest pair of the seven differs by
+#: the mark saturation used elsewhere the closest pair of the seven-hue wheel this
+#: was measured on differs by
 #: 0.14 in RGB, which is under the 0.15 two colours need to be tellable apart.
 _MARKER_SATURATION = 0.8
 
