@@ -5574,3 +5574,21 @@ one colour. Nothing persists a resolved colour, so no session file changes.
 Orange and sky blue remain under 3:1 on the light canvas; that is the price of
 keeping the separation, not an oversight.
 
+## 2026-10 · D-159 · Timeline coverage spans are tints with solid ends, and data has its own hue
+
+**Context.** D-079 left video and data coverage on the accent and the `Link`
+role. `Link` is the accent at another lightness, so the two coverage rows
+differed only in how light one blue was. Once the accent came from the
+platform's real `Accent` role instead of its dimmed selection tint, two
+near-opaque full-width blue bands became the loudest thing on screen.
+
+**Decision.** Data coverage takes its own hue, a sixth of a turn back from the
+accent (forward when that lands on the defect red), with lightness solved
+against the surface like every derived lane. It stays clear of the messages
+lane and both loop pins for any accent. Coverage and annotation ranges are
+filled as a tint of their colour, with the colour at full weight in a 2 px cap
+at each end, because where a span ends is what a coverage row says.
+
+**Consequences.** Video coverage still follows the user's accent exactly. The
+lanes stay labelled, so no lane is told apart by colour alone (rule 17).
+

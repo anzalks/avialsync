@@ -487,18 +487,39 @@ def _separated(hue: float, avoid: float, minimum: float = _MIN_HUE_SEPARATION) -
     return (avoid + minimum) % 1.0
 
 
+#: How far the data-coverage hue sits from the accent, in turns. Clear of the
+#: messages lane opposite the accent and of the loop pins a third of a turn
+#: either side, so no two timeline meanings share a hue.
+_DATA_HUE_OFFSET = 1.0 / 6.0
+
+
+def _data_hue(palette: QPalette) -> float:
+    """Return the data-coverage hue: a sixth of a turn back from the accent.
+
+    Forward instead when going back lands on the defect red -- an orange accent
+    does -- rather than letting :func:`_separated` push it forward onto the
+    accent itself, which would paint data and video coverage alike again.
+    """
+    base = accent_hue(palette)
+    for hue in (base - _DATA_HUE_OFFSET, base + _DATA_HUE_OFFSET):
+        if abs((hue - _DEFECT_HUE + 0.5) % 1.0 - 0.5) >= _MIN_HUE_SEPARATION:
+            return hue % 1.0
+    return (base + _DATA_HUE_OFFSET) % 1.0
+
+
 def evidence_color(palette: QPalette, kind: str) -> QColor:
     """Return the colour for one timeline lane, derived from the live palette.
 
-    Coverage and sync keep the accent and the ``Link`` role directly: they are
-    broad filled spans, already palette-driven, and normalising them would churn
-    a working appearance for nothing. The lanes that had no role to sit on —
-    defects and recorded messages — are derived here instead of hardcoded.
+    Video coverage and sync keep the accent. Data coverage used to take the
+    ``Link`` role, which is the accent at another lightness, so the two
+    coverage rows differed only in how light the same blue was; it has its own
+    hue now. The lanes that had no role to sit on -- defects and recorded
+    messages -- are derived here instead of hardcoded.
     """
     if kind in {"video", "ttl", "sync"}:
         return system_accent(palette)
     if kind == "data":
-        return palette.color(QPalette.ColorRole.Link)
+        return on_surface(palette, _data_hue(palette))
     if kind == "gap":
         return on_surface(palette, _DEFECT_HUE)
     if kind == "message":

@@ -61,15 +61,13 @@ from avialsync.ui.time_format import TimeDisplayMode, format_time
 #: and a span never touches the one above it.
 _LANE_INSET = 4
 
-#: Coverage and range fills are spans, not slabs: rounded, and let a little of
-#: the surface through, because what a coverage row says is where it *ends* and
-#: an end is what a full-weight square-cut block is worst at showing.
-#:
-#: Only a little. These are the theme's own colours -- `system_accent`, the
-#: `Link` role, a marker's stored colour -- and taking too much weight out of
-#: them reads as a different palette rather than as the same one with room to
-#: breathe, which is not this widget's decision to make.
-_SPAN_ALPHA = 225
+#: Coverage and range fills are spans, not slabs: a tint of the colour, rounded,
+#: with the colour at full weight only at the two ends. What a coverage row says
+#: is where it *ends*; a full-weight block across the width of the window said
+#: that worst, and with the platform's real accent two of them were the loudest
+#: thing on screen.
+_SPAN_FILL_ALPHA = 110
+_SPAN_CAP_WIDTH = 2
 _SPAN_RADIUS = 3
 
 #: A lane whose marks are glyphs rather than spans draws them at two pixels and
@@ -105,6 +103,24 @@ def _lane_ground(palette: QColor | object) -> QColor:
 #: full weight that is a striped slab which says only "there are many of these";
 #: a shorter, lighter mark says the same thing without drowning the lane.
 _RUG_ALPHA = 200
+
+
+def _paint_span(
+    painter: QPainter, left: int, top: int, width: int, height: int, color: QColor
+) -> None:
+    """Fill one span as a tint of *color*, with *color* itself at both ends."""
+    width = max(2, width)
+    fill = QColor(color)
+    fill.setAlpha(_SPAN_FILL_ALPHA)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(fill)
+    painter.drawRoundedRect(left, top, width, height, _SPAN_RADIUS, _SPAN_RADIUS)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+    cap = min(_SPAN_CAP_WIDTH, width)
+    painter.fillRect(left, top, cap, height, color)
+    painter.fillRect(left + width - cap, top, cap, height, color)
+    painter.setBrush(Qt.BrushStyle.NoBrush)
 
 
 def _rug_pen(color: QColor) -> QPen:
@@ -565,7 +581,7 @@ class TimelineOverview(QWidget):
 
         lane_height = max(self._MIN_LANE_HEIGHT, self.height() // len(lanes))
         accent = system_accent(palette)
-        data_color = palette.color(palette.ColorRole.Link)
+        data_color = evidence_color(palette, "data")
         label_width = min(self._LABEL_WIDTH, max(1, self.width() - 1))
         for lane_index, (label, lane_kind, payload) in enumerate(lanes):
             top = lane_index * lane_height
@@ -595,19 +611,8 @@ class TimelineOverview(QWidget):
                 if span is None:
                     continue
                 left, right = span
-                color = QColor(accent if payload.kind == "video" else data_color)
-                # Softened and rounded. At full weight three coverage rows read
-                # as slabs of colour rather than as spans with ends worth
-                # finding, and the ends are the only thing a coverage row says.
-                color.setAlpha(_SPAN_ALPHA)
-                painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-                painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(color)
-                painter.drawRoundedRect(
-                    left, band_top, max(2, right - left), band_height, _SPAN_RADIUS, _SPAN_RADIUS
-                )
-                painter.setBrush(Qt.BrushStyle.NoBrush)
-                painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+                color = accent if payload.kind == "video" else data_color
+                _paint_span(painter, left, band_top, right - left, band_height, color)
             elif lane_kind == "ttl":
                 # A rug, not a picket fence. A periodic train collapses to one
                 # tick per pixel column, and at full height that is a striped
@@ -676,21 +681,14 @@ class TimelineOverview(QWidget):
                     if end is None:
                         painter.fillRect(left, band_top, 2, band_height, QColor(marker_color))
                     else:
-                        ranged = QColor(marker_color)
-                        ranged.setAlpha(_SPAN_ALPHA)
-                        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-                        painter.setPen(Qt.PenStyle.NoPen)
-                        painter.setBrush(ranged)
-                        painter.drawRoundedRect(
+                        _paint_span(
+                            painter,
                             left,
                             band_top,
-                            max(2, right - left),
+                            right - left,
                             band_height,
-                            _SPAN_RADIUS,
-                            _SPAN_RADIUS,
+                            QColor(marker_color),
                         )
-                        painter.setBrush(Qt.BrushStyle.NoBrush)
-                        painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
 
         viewport = self._visible_span_x(
             self._viewport_start, self._viewport_start + self._viewport_duration

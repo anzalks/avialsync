@@ -325,3 +325,33 @@ def test_a_consistent_surface_is_used_as_given(palette: QPalette) -> None:
     from avialsync.ui.theme import surface_color
 
     assert surface_color(palette) == palette.color(QPalette.ColorRole.AlternateBase)
+
+
+# ── Data coverage is its own colour ──────────────────────────────────────
+
+
+def _hue_distance(first: QColor, second: QColor) -> float:
+    return abs((first.hslHueF() - second.hslHueF() + 0.5) % 1.0 - 0.5)
+
+
+@pytest.mark.parametrize(
+    "accent", ["#0a84ff", "#ff9f0a", "#30d158", "#bf5af2", "#ff375f", "#8e8e93"]
+)
+@pytest.mark.parametrize("surface", ["#1e1e1e", "#f5f5f5"], ids=["dark", "light"])
+def test_data_coverage_is_tellable_from_every_other_timeline_meaning(
+    accent: str, surface: str
+) -> None:
+    """Data coverage took ``Link`` -- the accent at another lightness -- so the
+    two coverage rows differed only in how light one blue was."""
+    palette = _palette(surface, accent)
+    data = evidence_color(palette, "data")
+    others = {
+        "video": on_surface(palette, accent_hue(palette)),
+        "gap": evidence_color(palette, "gap"),
+        "message": evidence_color(palette, "message"),
+        "loop in": loop_pin_color(palette, "in"),
+        "loop out": loop_pin_color(palette, "out"),
+    }
+    for name, colour in others.items():
+        assert _hue_distance(data, colour) >= 0.07, f"data coverage looks like {name}"
+    assert _contrast(data, palette) > _MIN_CONTRAST
