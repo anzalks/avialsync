@@ -114,7 +114,7 @@ from avialsync.ui.identity_braid import BraidModel
 from avialsync.ui.identity_group_dialog import IdentityGroupDialog
 from avialsync.ui.identity_model_worker import BraidBuildJob, BraidBuildWorker
 from avialsync.ui.identity_panel import IdentityWindow
-from avialsync.ui.inspector_dock import DEFAULT_INSPECTOR_WIDTH, install_inspector_dock
+from avialsync.ui.inspector_dock import default_dock_width, install_inspector_dock
 from avialsync.ui.inspector_nav import InspectorNav
 from avialsync.ui.job_manager import JobManager, on_ui_thread
 from avialsync.ui.levels_panel import LevelsPanel
@@ -1138,7 +1138,7 @@ class MainWindow(QMainWindow):
         intent below the thing the user sees.
         """
         self.resizeDocks(
-            [self.inspector_dock], [DEFAULT_INSPECTOR_WIDTH], Qt.Orientation.Horizontal
+            [self.inspector_dock], [default_dock_width(self._left_tabs)], Qt.Orientation.Horizontal
         )
         defaults = (
             (self._content_splitter, (620, 160)),

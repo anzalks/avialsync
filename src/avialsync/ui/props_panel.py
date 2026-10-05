@@ -130,7 +130,7 @@ class PropsPanel(QWidget):
         self.ladders.currentIndexChanged.connect(self._selection_changed)
         # Labelled, in the order they are used: what kind, which saved one,
         # or a name for a new one (D-176, F-16).
-        header = QFormLayout()
+        self._header_form = header = QFormLayout()
         header.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
         header.addRow(tr("Kind"), self.kind)
         header.addRow(tr("Saved"), self.ladders)
@@ -927,11 +927,20 @@ class PropsPanel(QWidget):
         self.create_button.setAccessibleName(text)
         self.create_button.setAccessibleDescription(description)
 
+    def _refresh_empty_note(self) -> None:
+        """Say what fills the page while it is empty; wheels have their own page."""
+        kind = str(self.kind.currentData() or "ladder")
+        self.empty_note.setVisible(kind != "wheel" and not any(True for _ in self._store))
+
     def _kind_changed(self) -> None:
         kind = str(self.kind.currentData() or "ladder")
         self.name.clear()
         self.name.setVisible(kind != "wheel")
         self.ladders.setVisible(kind != "wheel")
+        # The whole row, label included: a "Saved" label beside nothing read as
+        # a missing control while a wheel was being placed.
+        self._header_form.setRowVisible(self.ladders, kind != "wheel")
+        self._refresh_empty_note()
         self.editor_stack.setVisible(kind != "wheel")
         self.create_button.setVisible(kind in {"ladder", "wheel"})
         self.create_button.setCheckable(kind == "wheel")
@@ -1043,7 +1052,7 @@ class PropsPanel(QWidget):
         self.ladders.setCurrentIndex(at if at >= 0 else 0)
         self.ladders.blockSignals(False)
         has_selection = bool(self.ladders.currentData())
-        self.empty_note.setVisible(not any(True for _ in self._store))
+        self._refresh_empty_note()
         self.remove_belt.setEnabled(kind == "belt" and has_selection)
         self.remove_ball.setEnabled(kind == "ball" and has_selection)
         self._refresh_steps()

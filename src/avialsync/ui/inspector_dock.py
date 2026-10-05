@@ -17,19 +17,16 @@ and handed to ``resizeDocks``, then the old key is removed.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from PySide6.QtCore import QByteArray, QDataStream, QSettings, Qt
 from PySide6.QtWidgets import QDockWidget, QMainWindow
 
 from avialsync.ui.i18n import tr
-
-if TYPE_CHECKING:
-    from avialsync.ui.inspector_nav import InspectorNav
+from avialsync.ui.inspector_nav import InspectorNav
 
 __all__ = [
     "DEFAULT_INSPECTOR_WIDTH",
     "apply_dock_state",
+    "default_dock_width",
     "dock_state",
     "install_inspector_dock",
     "inspector_width_from_splitter_state",
@@ -37,7 +34,8 @@ __all__ = [
     "save_dock_state",
 ]
 
-#: The first-run inspector width (it was the splitter's first size).
+#: The first-run width of an inspector *page* (it was the splitter's first
+#: size); the dock adds the page rail to it, so the page keeps all 280 px.
 DEFAULT_INSPECTOR_WIDTH = 280
 #: Where the dock arrangement lives; separate from the window geometry.
 DOCK_STATE_KEY = "window/dock_state"
@@ -47,6 +45,11 @@ LEGACY_SPLITTER_KEY = "splitter/horizontal"
 _STATE_VERSION = 1
 #: First int of every ``QSplitter.saveState``.
 _SPLITTER_MARKER = 0xFF
+
+
+def default_dock_width(nav: InspectorNav, page_width: int = DEFAULT_INSPECTOR_WIDTH) -> int:
+    """The dock width that leaves *page_width* for the page beside the rail."""
+    return page_width + nav.rail_width()
 
 
 def install_inspector_dock(window: QMainWindow, nav: InspectorNav) -> QDockWidget:
@@ -100,7 +103,10 @@ def restore_dock_state(window: QMainWindow, dock: QDockWidget, settings: QSettin
         width = (
             inspector_width_from_splitter_state(legacy) if isinstance(legacy, QByteArray) else None
         )
-        window.resizeDocks([dock], [width or DEFAULT_INSPECTOR_WIDTH], Qt.Orientation.Horizontal)
+        nav = dock.widget()
+        page = width or DEFAULT_INSPECTOR_WIDTH
+        target = default_dock_width(nav, page) if isinstance(nav, InspectorNav) else page
+        window.resizeDocks([dock], [target], Qt.Orientation.Horizontal)
         settings.remove(LEGACY_SPLITTER_KEY)
     # A floating dock restored onto a display that is no longer attached would
     # be unreachable; dock it again rather than leave it off screen.

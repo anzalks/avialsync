@@ -26,8 +26,18 @@ from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import QSplitter
 
 
-def distribute(fractions: Sequence[float], span: int, minimums: Sequence[int]) -> list[int]:
-    """Split *span* pixels across panes by *fractions*, never below *minimums*.
+def distribute(
+    fractions: Sequence[float],
+    span: int,
+    minimums: Sequence[int],
+    maximums: Sequence[int] | None = None,
+) -> list[int]:
+    """Split *span* pixels across panes by *fractions*, within *minimums* and *maximums*.
+
+    A pane whose share would exceed its maximum is held there and the surplus
+    goes to the others: a slot larger than its pane is blank space the pane
+    cannot fill, which is how Data Streams once kept 180 px of nothing under
+    two lanes while the video was squeezed (D-180).
 
     A pane whose proportional share would fall under its minimum is pinned
     there and removed from the pool; the rest re-share what is left. Pinning
@@ -50,32 +60,46 @@ def distribute(fractions: Sequence[float], span: int, minimums: Sequence[int]) -
     floors = [max(0, minimum) for minimum in minimums]
     if sum(floors) >= span:
         return floors
+    ceilings = (
+        [max(floors[i], maximums[i]) for i in range(count)]
+        if maximums is not None
+        else [span] * count
+    )
 
     weights = [max(0.0, fraction) for fraction in fractions]
     if sum(weights) <= 0.0:
         weights = [1.0] * count
 
-    pinned = [False] * count
+    # A pane is held at its floor or its ceiling once its share crosses one;
+    # each pass holds at least one more pane, so this ends within *count*.
+    held: list[int | None] = [None] * count
     while True:
-        free_span = span - sum(floors[i] for i in range(count) if pinned[i])
-        free_weight = sum(weights[i] for i in range(count) if not pinned[i])
+        free_span = span - sum(size for size in held if size is not None)
+        free_weight = sum(weights[i] for i in range(count) if held[i] is None)
         if free_weight <= 0.0:
             break
-        newly_pinned = False
+        newly_held = False
         for i in range(count):
-            if not pinned[i] and free_span * weights[i] / free_weight < floors[i]:
-                pinned[i] = True
-                newly_pinned = True
-        if not newly_pinned:
+            if held[i] is not None:
+                continue
+            share = free_span * weights[i] / free_weight
+            if share < floors[i]:
+                held[i] = floors[i]
+                newly_held = True
+            elif share > ceilings[i]:
+                held[i] = ceilings[i]
+                newly_held = True
+        if not newly_held:
             break
 
-    free_span = span - sum(floors[i] for i in range(count) if pinned[i])
-    free_weight = sum(weights[i] for i in range(count) if not pinned[i])
+    free_span = span - sum(size for size in held if size is not None)
+    free_weight = sum(weights[i] for i in range(count) if held[i] is None)
     sizes = [0] * count
     remainders: list[tuple[float, int]] = []
     for i in range(count):
-        if pinned[i] or free_weight <= 0.0:
-            sizes[i] = floors[i]
+        if held[i] is not None or free_weight <= 0.0:
+            fixed = held[i]
+            sizes[i] = fixed if fixed is not None else floors[i]
             continue
         exact = free_span * weights[i] / free_weight
         sizes[i] = int(exact)
@@ -176,7 +200,7 @@ class PaneProportions(QObject):
             span = sum(sizes)
             if span <= 0:
                 continue
-            target = distribute(fractions, span, _pane_minimums(splitter))
+            target = distribute(fractions, span, _pane_minimums(splitter), _pane_maximums(splitter))
             if target != sizes:
                 splitter.setSizes(target)
 
@@ -201,3 +225,20 @@ def _pane_minimums(splitter: QSplitter) -> list[int]:
         hinted = hint.width() if horizontal else hint.height()
         minimums.append(max(0, explicit, hinted))
     return minimums
+
+
+def _pane_maximums(splitter: QSplitter) -> list[int]:
+    """The largest each pane may be along the splitter; a hidden pane is unbounded."""
+    horizontal = splitter.orientation() == Qt.Orientation.Horizontal
+    maximums: list[int] = []
+    for index in range(splitter.count()):
+        widget = splitter.widget(index)
+        if widget is None or widget.isHidden():
+            maximums.append(_UNBOUNDED)
+            continue
+        maximums.append(widget.maximumWidth() if horizontal else widget.maximumHeight())
+    return maximums
+
+
+#: Qt's QWIDGETSIZE_MAX: a widget with no maximum of its own.
+_UNBOUNDED = 16_777_215

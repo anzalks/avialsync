@@ -78,11 +78,11 @@ class InspectorNav(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        separator = QFrame(self)
-        separator.setFrameShape(QFrame.Shape.VLine)
-        separator.setFrameShadow(QFrame.Shadow.Sunken)
+        self._separator = QFrame(self)
+        self._separator.setFrameShape(QFrame.Shape.VLine)
+        self._separator.setFrameShadow(QFrame.Shadow.Sunken)
         layout.addWidget(self.rail_scroll)
-        layout.addWidget(separator)
+        layout.addWidget(self._separator)
         layout.addWidget(self._stack, 1)
 
     # ── QTabWidget-compatible surface ───────────────────────────────
@@ -127,6 +127,10 @@ class InspectorNav(QWidget):
 
     def tabText(self, index: int) -> str:  # noqa: N802
         return self._buttons[index].text()
+
+    def rail_width(self) -> int:
+        """The rail and its separator: what a page does not get of this widget's width."""
+        return self.rail_scroll.width() + self._separator.sizeHint().width()
 
     def button(self, index: int) -> QToolButton:
         """The rail button that selects page *index*."""

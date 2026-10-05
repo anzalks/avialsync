@@ -37,6 +37,7 @@ from PySide6.QtWidgets import QApplication, QWidget
 from avialsync.core.cache import CACHE_DIR_ENV
 from avialsync.engine.transcode import encode_video
 from avialsync.ui import recovery, theme
+from avialsync.ui.time_format import apply_number_locale
 
 
 def isolate_user_state() -> Path:
@@ -83,6 +84,9 @@ def pin_appearance(app: QApplication) -> None:
     ``persist=False``: taking a screenshot must not be a settings change.
     """
     theme._apply(app, theme.THEME_DARK, persist=False)
+    # The number policy the application applies at startup (D-173): without it
+    # a screenshot shows the build machine's decimal separator, not the app's.
+    apply_number_locale()
 
 
 @contextmanager

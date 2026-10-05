@@ -33,6 +33,7 @@ from PySide6.QtCore import QByteArray, QSettings, Qt
 from avialsync.ui.app_settings import app_settings
 from avialsync.ui.inspector_dock import (
     apply_dock_state,
+    default_dock_width,
     dock_state,
     inspector_width_from_splitter_state,
 )
@@ -109,7 +110,7 @@ def apply(window: MainWindow, workspace: Workspace) -> None:
     elif workspace.legacy_inspector_width:
         window.resizeDocks(
             [window.inspector_dock],
-            [workspace.legacy_inspector_width],
+            [default_dock_width(window._left_tabs, workspace.legacy_inspector_width)],
             Qt.Orientation.Horizontal,
         )
 

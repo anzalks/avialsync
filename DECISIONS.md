@@ -5961,4 +5961,4 @@ Ladder, belt and ball editors, identity review and the alignment dialog use the 
 
 **Alternatives.** Docking every pane would replace the proportion and empty-layout contracts with `QMainWindow`'s dock layout, which has no notion of either, and nested bottom docks cannot hold the transport full width under the plots.
 
-**Consequences.** `MainWindow._h_splitter` is gone; tests that pinned it assert the dock instead. The 640×480 floor and the empty layout hold.
+**Consequences.** `MainWindow._h_splitter` is gone; tests that pinned it assert the dock instead. The default dock width is the page rail plus the old 280 px, so a page keeps its full width (the first cut left Sources 190 px against its 200 px minimum). `PaneProportions.distribute` now honours each pane's maximum as well as its minimum: Data Streams, sized by its lanes (D-171), keeps exactly that height and the surplus goes to video and plots instead of a blank band. The content split is therefore sized by content, not by a remembered ratio; the hand-set-ratio guarantee is asserted on the video/plot handle. The 640×480 floor and the empty layout hold.

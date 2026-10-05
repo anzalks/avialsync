@@ -13,6 +13,7 @@ from avialsync.ui.controllers import session_controller
 from avialsync.ui.inspector_dock import (
     DOCK_STATE_KEY,
     LEGACY_SPLITTER_KEY,
+    default_dock_width,
     inspector_width_from_splitter_state,
 )
 from avialsync.ui.main_window import MainWindow
@@ -61,7 +62,7 @@ def test_a_splitter_era_layout_restores_into_the_dock(window: MainWindow, qapp) 
     settings.setValue(LEGACY_SPLITTER_KEY, _legacy_state(360, 900))
     session_controller.restore_geometry(window)
     qapp.processEvents()
-    assert abs(window.inspector_dock.width() - 360) <= 12
+    assert abs(window.inspector_dock.width() - default_dock_width(window._left_tabs, 360)) <= 12
     assert settings.value(LEGACY_SPLITTER_KEY) is None, "migrated once, then dropped"
     session_controller.save_geometry(window)
     assert settings.value(DOCK_STATE_KEY) is not None
@@ -92,4 +93,23 @@ def test_a_splitter_era_workspace_keeps_its_inspector_width(window: MainWindow, 
     assert loaded is not None and loaded.legacy_inspector_width == 330
     workspaces.apply(window, loaded)
     qapp.processEvents()
-    assert abs(window.inspector_dock.width() - 330) <= 12
+    assert abs(window.inspector_dock.width() - default_dock_width(window._left_tabs, 330)) <= 12
+
+
+def test_the_default_page_keeps_its_full_width_beside_the_rail(qapp, qtbot) -> None:
+    """The dock's default width is rail plus page, so the page is not squeezed.
+
+    The first dock took 280 px including the rail, which left the Sources page
+    about 190 px against its 200 px minimum: cards clipped at the right and a
+    sideways scrollbar showed on a fresh window.
+    """
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.resize(1280, 800)
+    win.show()
+    qapp.processEvents()
+    page = win._left_tabs.currentWidget()
+    assert page is win.sidebar
+    assert page.width() >= page.minimumWidth()
+    assert win.sidebar._scroll_area.horizontalScrollBar().maximum() == 0
+    win.close()
