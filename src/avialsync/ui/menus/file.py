@@ -22,6 +22,7 @@ def build_file_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMenu
     _file_open(window, file_menu, _reg)
     _file_changes(window, file_menu, _reg)
     _file_exports(window, file_menu, _reg)
+    _file_cache(window, file_menu, _reg)
     _file_application(window, file_menu, _reg)
     return file_menu
 
@@ -144,6 +145,49 @@ def _file_exports(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
         lambda: bool(window.video_grid._paths),
         tr("Load a video first — a proxy is a lighter copy of one."),
     )
+
+    file_menu.addSeparator()
+
+
+def _file_cache(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
+    """Offer the cache folder: one trial's entries, all of them, or the folder (D-160)."""
+    from avialsync.ui.controllers import cache_controller
+
+    def idle() -> bool:
+        # A job may be writing into the cache, or a sidecar beside the data
+        # that the reload would then read half-written.
+        return not window._job_manager.is_busy()
+
+    cache_menu = file_menu.addMenu(tr("Cache"))
+    # Opening the submenu re-answers its preconditions: a job may have finished
+    # since File itself was opened.
+    cache_menu.aboutToShow.connect(window._refresh_action_availability)
+
+    act = cache_menu.addAction(tr("Delete Cache for This Trial"))
+    act.setStatusTip(
+        tr("Delete the cached imports of every file in this trial's folder, then re-import it.")
+    )
+    act.triggered.connect(lambda: cache_controller.delete_trial_cache(window))
+    _reg(act, "File")
+    window._require(
+        act,
+        lambda: window._anything_loaded() and idle(),
+        tr("Open a trial, and let background work finish — its cache is what this deletes."),
+    )
+
+    act = cache_menu.addAction(tr("Delete All Cache"))
+    act.setStatusTip(
+        tr("Delete every cached import. Recordings, corrections and sessions are not touched.")
+    )
+    act.triggered.connect(lambda: cache_controller.delete_all_cache(window))
+    _reg(act, "File")
+    window._require(
+        act, idle, tr("Let background work finish first — it may be writing to the cache.")
+    )
+
+    act = cache_menu.addAction(tr("Show Cache Folder"))
+    act.triggered.connect(lambda: cache_controller.show_cache_folder(window))
+    _reg(act, "File")
 
     file_menu.addSeparator()
 

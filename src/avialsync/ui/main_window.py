@@ -2795,6 +2795,8 @@ class MainWindow(QMainWindow):
         self.session_runtime.restoring = False
         self.document.clear()
         self._mark_session_saved()
+        if self.session_runtime.take_dirty_after_restore():
+            self.document.mark_dirty()
 
     def _source_record(self, source_id: str, kind: str) -> SourceRecord:
         offset, drift_ppm = self._recorded_mappings.get(source_id, (0.0, 0.0))

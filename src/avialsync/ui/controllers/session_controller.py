@@ -322,17 +322,17 @@ def start_session_load(window: MainWindow, path: Path) -> None:
     window._run_job(worker, configure=_wire)
 
 
-def reset_session(window: MainWindow) -> None:
+def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
     """Return the workspace to its empty, ready-to-open state."""
     window.session_runtime.generation += 1
     window.session_runtime.path = None
-    # A reset empties the workspace and drops the path. Any snapshot still on
-    # disk describes work this reset has just discarded on purpose; keeping it
-    # would resurrect it at the next launch, and letting the close-time write
-    # replace it with an empty workspace would destroy genuinely unsaved work
-    # from before the reset. Clear it, do not overwrite it (D-089).
-    recovery.clear_recovery()
-    forget_pending_recovery(window)
+    # Any snapshot on disk describes work this reset discards on purpose: keeping
+    # it would resurrect it at next launch, and the close-time write would replace
+    # it with an empty workspace. Clear it, do not overwrite it (D-089) -- unless
+    # the same workspace is being put straight back, as a cache deletion does (D-160).
+    if discard_recovery:
+        recovery.clear_recovery()
+        forget_pending_recovery(window)
 
     for job in window._job_manager.jobs():
         if job.thread not in window.video_load_state.active_probes:

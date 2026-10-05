@@ -33,6 +33,9 @@
     "session_controller.py": 838
   },
   "private_accesses": {
+    "cache_controller.py": {
+      "_run_job": 1
+    },
     "calibration_controller.py": {
       "_calibration_state": 5,
       "_pose_3d_sources": 2,
