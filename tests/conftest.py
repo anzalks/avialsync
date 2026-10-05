@@ -18,6 +18,11 @@ def pytest_configure(config: pytest.Config) -> None:
     """Set up the settings and cache sandboxes, then re-arm faulthandler on Windows."""
     _sandbox_settings(config)
     _sandbox_cache()
+    # The application's number policy (D-173), so a test machine's locale
+    # cannot change what a spin box shows.
+    from avialsync.ui.time_format import apply_number_locale
+
+    apply_number_locale()
     _rearm_faulthandler(config)
 
 

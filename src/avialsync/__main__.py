@@ -57,6 +57,7 @@ def main() -> None:
     from avialsync.ui.i18n import install_translator
     from avialsync.ui.main_window import MainWindow
     from avialsync.ui.theme import load_saved_font_size, load_saved_theme
+    from avialsync.ui.time_format import apply_number_locale
 
     app = QApplication(sys.argv)
     app_icon = QIcon(str(files("avialsync.resources").joinpath("avialsync.png")))
@@ -66,6 +67,9 @@ def main() -> None:
     # retranslate text already set. Silent when no catalogue matches the
     # locale, which is the common case and not an error (WP-12).
     install_translator(app)
+    # After the translator, which reads the system locale to pick a catalogue,
+    # and before any widget, which reads the default to format its numbers.
+    apply_number_locale()
 
     # Qt sets LC_NUMERIC from the user's locale, so "1.5" parses as 1 in a
     # decimal-comma locale. This existed for libmpv, whose option parser was

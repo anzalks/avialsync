@@ -5865,3 +5865,15 @@ panel without installing an action first.
 **Alternatives.** Scroll arrows on a `QTabBar` still elide one title and hide the rest; a combo box hides every page but one.
 
 **Consequences.** `InspectorNav` keeps the `QTabWidget` calls callers used (`addTab`, `currentIndex`, `setCurrentWidget`, `tabText`), so workspaces and screenshot tools are unchanged apart from Tasks, which is captured as a popover.
+
+---
+
+## 2026-10 · D-173 · One decimal separator: the full stop
+
+**Context.** Under a decimal-comma locale the offset spin boxes read "0,000000 s" while plot axes, readouts, the OSD and the master time read "0.5" (INTERFACE_DESIGN_PLAN F-30). Qt widgets formatted with the system locale; everything formatted in Python used a full stop.
+
+**Decision.** Every number AvialSync shows or accepts uses a full stop and no digit grouping. `ui/time_format.apply_number_locale()` makes a C locale with `OmitGroupSeparator` Qt's default before any widget exists, so spin boxes and validators agree with pyqtgraph and the Python-formatted readouts. Translation still follows the system language. File I/O is unchanged and stays locale-independent; the import wizard still parses decimal-comma data files.
+
+**Not done.** DS-10 step 3 proposed fewer decimals on offsets for low-rate sources. `QDoubleSpinBox` rounds its stored value to the decimals it displays, and it is the one authority for an applied offset, so trimming display precision would round accepted sync offsets. Offsets keep six decimals.
+
+**Alternatives.** Following `QLocale` everywhere means overriding pyqtgraph's tick strings and every f-string readout, and mixing separators in text the user copies from the window.

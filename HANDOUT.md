@@ -310,7 +310,8 @@ Two product laws govern that phase and outrank convention:
   status bar, and paints cached evidence under the scrub handle (D-170). DS-4 gives Data Streams
   font-scaled lanes with an adjustable visible-row cap, vertical scrolling, and elided labels
   with full-text hover (D-171). DS-6 replaces the inspector tabs with a vertically scrolling icon
-  and label rail and moves Tasks to a status-bar popover (D-172).
+  and label rail and moves Tasks to a status-bar popover (D-172). DS-10 shows every number with
+  a full stop and no digit grouping, whatever the operating system's locale (D-173).
 - **P4.6 plot review/sweep UX refinement — core implementation complete; certification remains
   (D-044):** `archive/plans/PLOT_UX_PLAN.md` remains the canonical contract. Review/Sweep/Scope, the shared
   continuous time-span control, master navigator viewport drag, one bottom axis and channel gutters,
@@ -617,7 +618,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/source_properties.py` | Collapsible detail for video + sensor sources; copy-as-text (D-020) | `VideoPropertiesPanel`, `SensorPropertiesPanel` |
 | `ui/annotations.py` | Markers, and **the** definition of their CSV layout — three copies existed (D-100) | `AnnotationStore`, `Marker`, `marker_rows()`, `write_marker_rows()`, `MARKER_COLUMNS` |
 | `ui/import_report.py` | ImportReportDialog — scrollable import stats + "Copy as text" (D-020) | `ImportReportDialog` |
-| `ui/time_format.py` | TimeDisplayMode enum + format_time() — single formatting authority (D-020) | `TimeDisplayMode`, `format_time()` |
+| `ui/time_format.py` | TimeDisplayMode enum + format_time() — single formatting authority (D-020); the number policy: full stop, no grouping, made Qt's default locale at startup (D-173) | `TimeDisplayMode`, `format_time()`, `apply_number_locale()`, `format_number()` |
 | `engine/drop_worker.py` | Off-thread drop scanning and AOL session candidate collection | `DropScanWorker` |
 | `loaders/aol_session_loader.py` | AOL session manifest: raw videos, fused per-camera EKS, encoder | `build_manifest()`, `is_aol_session()` |
 | `loaders/aol_eks_loader.py` | AOL 2D/3D pose CSV ingest | `AOLEksLoader` |

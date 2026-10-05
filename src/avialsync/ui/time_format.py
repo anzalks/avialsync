@@ -1,12 +1,39 @@
-"""Time display mode enum and single formatting authority (D-020).
+"""Time display mode enum and single formatting authority (D-020, D-173).
 
 All time-displaying widgets must call format_time() — never format inline.
+Numbers follow one policy (D-173): a full stop as the decimal separator and no
+digit grouping, everywhere the application shows or accepts a number.
 """
 
 from __future__ import annotations
 
 import datetime
 from enum import Enum, auto
+
+from PySide6.QtCore import QLocale
+
+
+def number_locale() -> QLocale:
+    """The locale every number is shown in: C digits, full stop, no grouping (D-173)."""
+    locale = QLocale.c()
+    locale.setNumberOptions(QLocale.NumberOption.OmitGroupSeparator)
+    return locale
+
+
+def apply_number_locale() -> None:
+    """Make :func:`number_locale` Qt's default, before any widget is built.
+
+    Spin boxes and validators read the default locale when they are created;
+    pyqtgraph's tick labels and the readouts already use Python formatting,
+    which is the same full stop. One default reaches every widget, so no
+    control can be left showing the operating system's separator.
+    """
+    QLocale.setDefault(number_locale())
+
+
+def format_number(value: float, decimals: int) -> str:
+    """Format *value* with *decimals* places under the number policy."""
+    return number_locale().toString(float(value), "f", decimals)
 
 
 class TimeDisplayMode(Enum):
