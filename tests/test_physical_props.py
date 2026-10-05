@@ -19,13 +19,16 @@ from avialsync.core.physical_props import (
     BallVisualFrame,
     BeltBinding,
     BeltProp,
+    BeltRollers,
     BeltTrack,
     BeltVisualFrame,
     Ladder,
+    LadderLayout,
     LadderPoint,
     LadderStep,
     MotionCheck,
     PropStore,
+    RungPattern,
     StepClick,
     UnitQuaternion,
     WheelMaterialMap,
@@ -49,6 +52,70 @@ def _clicked_point(world: tuple[float, float, float], cameras: tuple[str, ...]) 
         x, y = CAMERAS[name].project(np.asarray(world))[0]
         point = point.with_click(StepClick(name, 12 + index, float(x), float(y)))
     return point
+
+
+def test_measured_belt_surface_mesh_round_trips_and_legacy_path_stays_valid(
+    tmp_path: Path,
+) -> None:
+    from avialsync.core.prop_file import read_props, write_belt
+
+    track = BeltTrack(((0.0, 0.0, 70.0), (10.0, 0.0, 70.0)))
+    legacy = BeltProp("legacy", track)
+    assert legacy.surface_quads() == ()
+    belt = BeltProp("belt", track, surface_width=4.0, surface_normal=(0.0, 0.0, 2.0))
+    assert belt.surface_normal == pytest.approx((0.0, 0.0, 1.0))
+    np.testing.assert_allclose(
+        belt.surface_quads(),
+        (((0.0, -2.0, 70.0), (0.0, 2.0, 70.0), (10.0, 2.0, 70.0), (10.0, -2.0, 70.0)),),
+    )
+    write_belt(tmp_path, belt)
+    restored, issues = read_props(tmp_path)
+    assert not issues and restored == [belt]
+    assert restored[0].surface_quads() == belt.surface_quads()
+    with pytest.raises(PropModelError, match="both a width and a normal"):
+        BeltProp("incomplete", track, surface_width=4.0)
+    with pytest.raises(PropModelError, match="cannot follow"):
+        BeltProp("parallel", track, surface_width=4.0, surface_normal=(1.0, 0.0, 0.0))
+
+
+def test_two_roller_belt_has_exact_flat_runs_wraps_motion_and_saved_surface(tmp_path: Path) -> None:
+    from avialsync.core.prop_file import read_props, write_belt
+
+    rollers = BeltRollers((0.0, 0.0, 60.0), (100.0, 0.0, 60.0), 10.0, 20.0, (0.0, 0.0, 1.0))
+    track = BeltTrack(tuple(rollers.point_at(s) for s in rollers.sample_distances()), True)
+    belt = BeltProp(
+        "treadmill",
+        track,
+        "mm",
+        (1.0, 0.0, 0.0),
+        BeltBinding("encoder", "distance", 0, 0.0, 95.0, 1.0),
+        surface_width=20.0,
+        surface_normal=(0.0, 0.0, 1.0),
+        rollers=rollers,
+    )
+    assert belt.path_length == pytest.approx(200.0 + 20.0 * math.pi)
+    assert rollers.point_at(0.0) == pytest.approx((0.0, 0.0, 70.0))
+    assert rollers.point_at(100.0) == pytest.approx((100.0, 0.0, 70.0))
+    assert rollers.point_at(100.0 + math.pi * 5.0) == pytest.approx((110.0, 0.0, 60.0))
+    assert rollers.point_at(100.0 + math.pi * 10.0) == pytest.approx((100.0, 0.0, 50.0))
+    assert rollers.point_at(200.0 + math.pi * 10.0) == pytest.approx((0.0, 0.0, 50.0))
+    assert belt.material_point(5.0) == pytest.approx((100.0, 0.0, 70.0))
+    assert belt.material_point(belt.path_length) == pytest.approx((95.0, 0.0, 70.0))
+    assert rollers.closest((110.0, 0.0, 60.0))[1] == pytest.approx(100.0 + 5.0 * math.pi)
+    np.testing.assert_allclose(
+        belt.surface_quads()[0],
+        ((0.0, -10.0, 70.0), (0.0, 10.0, 70.0), (100.0, 10.0, 70.0), (100.0, -10.0, 70.0)),
+    )
+    write_belt(tmp_path, belt)
+    restored, issues = read_props(tmp_path)
+    assert not issues and restored == [belt]
+
+
+def test_two_roller_belt_rejects_nonhorizontal_top_or_unmeasured_dimensions() -> None:
+    with pytest.raises(PropModelError, match="perpendicular"):
+        BeltRollers((0.0, 0.0, 0.0), (10.0, 0.0, 0.0), 2.0, 5.0, (1.0, 0.0, 0.0))
+    with pytest.raises(PropModelError, match="positive"):
+        BeltRollers((0.0, 0.0, 0.0), (10.0, 0.0, 0.0), 0.0, 5.0, (0.0, 0.0, 1.0))
 
 
 def test_visual_belt_marks_follow_only_stereo_observed_frames() -> None:
@@ -506,3 +573,194 @@ def test_wheel_adapter_preserves_the_existing_bar_generator() -> None:
 def test_invalid_prop_geometry_or_motion_is_rejected(make_invalid) -> None:
     with pytest.raises(PropModelError):
         make_invalid()
+
+
+def test_four_clicked_top_corners_place_measured_rollers_in_3d(tmp_path: Path) -> None:
+    from avialsync.core.belt_rollers import rollers_from_corners
+    from avialsync.core.prop_file import read_props, write_belt
+
+    # Truth: rollers 80 mm apart at z=60, radius 10, so the top run is at z=70,
+    # 20 mm wide, running along x. The user clicks the top corners a little
+    # inside each end; only their middle and plane place the belt.
+    truth = BeltRollers((-40.0, 0.0, 60.0), (40.0, 0.0, 60.0), 10.0, 20.0, (0.0, 0.0, 1.0))
+    worlds = ((-35.0, -10.0, 70.0), (-35.0, 10.0, 70.0), (35.0, -10.0, 70.0), (35.0, 10.0, 70.0))
+    corners = tuple(_clicked_point(world, ("Front", "Left")).resolved(CAMERAS) for world in worlds)
+    solved = tuple(corner.xyz for corner in corners)
+    assert all(point is not None for point in solved)
+    rollers, span, flatness = rollers_from_corners(
+        solved,  # type: ignore[arg-type]
+        10.0,
+        80.0,
+        (0.0, -320.0, 260.0),
+    )
+    assert span == pytest.approx(70.0, abs=1e-6)
+    assert flatness == pytest.approx(0.0, abs=1e-6)
+    assert rollers.first == pytest.approx(truth.first, abs=1e-6)
+    assert rollers.second == pytest.approx(truth.second, abs=1e-6)
+    assert rollers.width == pytest.approx(20.0, abs=1e-6)
+    assert rollers.top_normal == pytest.approx((0.0, 0.0, 1.0), abs=1e-9)
+    # Clicking the far side first, or from below, never flips the top away from the cameras.
+    flipped, _, _ = rollers_from_corners(
+        (solved[1], solved[0], solved[3], solved[2]),  # type: ignore[arg-type]
+        10.0,
+        None,
+        (0.0, -320.0, 260.0),
+    )
+    assert flipped.top_normal == pytest.approx((0.0, 0.0, 1.0), abs=1e-9)
+    assert flipped.run_length == pytest.approx(70.0, abs=1e-6), "no measurement: clicked span"
+
+    belt = BeltProp(
+        "treadmill",
+        BeltTrack(tuple(rollers.point_at(s) for s in rollers.sample_distances()), True),
+        "mm",
+        surface_width=rollers.width,
+        surface_normal=rollers.top_normal,
+        rollers=rollers,
+        corners=corners,  # type: ignore[arg-type]
+    )
+    write_belt(tmp_path, belt)
+    restored, issues = read_props(tmp_path)
+    assert not issues
+    saved = restored[0]
+    assert isinstance(saved, BeltProp) and saved.corners is not None
+    assert [corner.clicks for corner in saved.corners] == [corner.clicks for corner in corners]
+
+
+def test_one_camera_side_view_places_a_measured_belt_with_perspective(tmp_path: Path) -> None:
+    from avialsync.core.belt_rollers import BeltSideView, side_rollers
+    from avialsync.core.prop_file import read_props, write_belt
+    from avialsync.core.visual_prop_tracking import belt_visual_state
+
+    # Truth: a side plane y = -30 seen obliquely by one camera; hubs 80 apart,
+    # radius 10. The model's own coordinates are (along, up) in that plane.
+    camera = CAMERAS["Left"]
+
+    def seen(along: float, up: float) -> tuple[float, float]:
+        x, y = camera.project(np.asarray((along - 40.0, -30.0, 60.0 + up)))[0]
+        return (float(x), float(y))
+
+    view = BeltSideView("Left", 3, (seen(0, 0), seen(80, 0), seen(0, 10), seen(80, 10)))
+    rollers = side_rollers(80.0, 10.0, 20.0)
+    mapping = view.plane_view(rollers)
+    # Perspective is exact: a point halfway along the far wrap lands where the camera sees it.
+    far = rollers.point_at(80.0 + math.pi * 5.0)
+    assert mapping.pixel(far[0], far[1]) == pytest.approx(seen(90.0, 0.0), abs=1e-6)
+    assert mapping.plane(*seen(30.0, 10.0)) == pytest.approx((30.0, 10.0), abs=1e-6)
+
+    track = BeltTrack(tuple(rollers.point_at(s) for s in rollers.sample_distances()), True)
+    belt = BeltProp(
+        "side belt",
+        track,
+        "mm",
+        (1.0, 0.0, 0.0),
+        surface_width=20.0,
+        surface_normal=(0.0, 1.0, 0.0),
+        rollers=rollers,
+        side_view=view,
+    )
+    assert belt.surface_quads() == (), "not placed in 3D, so no world surface"
+    mark = BeltVisualFrame(3, LadderPoint().with_click(StepClick("Left", 3, *seen(25.0, 10.0))))
+    tracked = dataclasses.replace(belt, visual_reference_frame=3, visual_frames=(mark,))
+    state = belt_visual_state(tracked, 3, {})
+    assert state is not None and state.path_distance == pytest.approx(25.0, abs=1e-6)
+    write_belt(tmp_path, belt)
+    restored, issues = read_props(tmp_path)
+    assert not issues and restored == [belt]
+    with pytest.raises(PropModelError, match="side plane"):
+        dataclasses.replace(
+            belt,
+            rollers=BeltRollers((1.0, 0.0, 0.0), (80.0, 0.0, 0.0), 10.0, 20.0, (0.0, 1.0, 0.0)),
+        )
+
+
+def test_regular_rungs_extrapolate_from_two_in_one_camera_and_in_3d() -> None:
+    from avialsync.core.ladder_support import lay_out_rungs
+
+    camera = CAMERAS["Left"]
+    pitch, rungs = 12.0, 6
+
+    def ends(index: int) -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+        return ((-15.0, -40.0 + index * pitch, 70.0), (15.0, -40.0 + index * pitch, 70.0))
+
+    def pixels(index: int) -> tuple[tuple[float, ...], tuple[float, ...]]:
+        a, b = ends(index)
+        return (
+            tuple(float(v) for v in camera.project(np.asarray(a))[0]),
+            tuple(float(v) for v in camera.project(np.asarray(b))[0]),
+        )
+
+    # One view only: two neighbouring rungs (the second clicked right-to-left),
+    # plus rung 5 clicked by hand slightly off where regular spacing puts it.
+    second = pixels(1)
+    clicked_fifth = tuple(value + 0.5 for value in pixels(4)[0]), pixels(4)[1]
+    layout = lay_out_rungs((pixels(0), (second[1], second[0]), clicked_fifth), (0, 1, rungs))
+    numbers = [number for number, _ends in layout.generated]
+    assert numbers == [3, 4, 6], "rung 5 was clicked, so it is not extrapolated"
+    for number, (a, b) in layout.generated:
+        expected = pixels(number - 1)
+        assert a == pytest.approx(expected[0], abs=1e-6)
+        assert b == pytest.approx(expected[1], abs=1e-6)
+    assert len(layout.walkway) == rungs
+    assert layout.walkway[4] == clicked_fifth, "bars follow the walkway, not click order"
+
+    # A raised rung's image sits off the pattern's plane; its place from 3D wins.
+    raised = tuple(tuple(v - 40.0 for v in end) for end in pixels(4))
+    misjudged = lay_out_rungs((pixels(0), pixels(1), raised), (0, 1, rungs))
+    assert [n for n, _e in misjudged.generated] != [3, 4, 6]
+    placed = lay_out_rungs((pixels(0), pixels(1), raised), (0, 1, rungs), (0.0, 1.0, 4.0))
+    assert [n for n, _e in placed.generated] == [3, 4, 6]
+
+    solved = lay_out_rungs((ends(0), ends(1)), (0, 1, 4))
+    assert [n for n, _e in solved.generated] == [3, 4]
+    assert solved.generated[1][1][1] == pytest.approx(ends(3)[1])
+    assert lay_out_rungs((ends(0), (ends(1)[0], None)), (0, 1, 4)).generated == ()
+
+
+def test_ladder_support_bars_join_clicked_rungs_without_adding_any() -> None:
+    from avialsync.core.ladder_support import support_bars
+
+    # The second rung is clicked right-to-left; rails must not cross.
+    rungs = (
+        ((0.0, 0.0), (10.0, 0.0)),
+        ((10.0, 5.0), (0.0, 5.0)),
+        ((0.0, 12.0), (10.0, 12.0)),
+    )
+    rails = support_bars(rungs, "side_rails")
+    assert rails == (
+        ((0.0, 0.0), (0.0, 5.0), (0.0, 12.0)),
+        ((10.0, 0.0), (10.0, 5.0), (10.0, 12.0)),
+    )
+    beam = support_bars((*rungs, ((5.0, 20.0),)), "centre_beam")
+    assert beam == (((5.0, 0.0), (5.0, 5.0), (5.0, 12.0), (5.0, 20.0)),)
+    assert support_bars(rungs, "none") == ()
+    # An end unknown in this view leaves a gap, never an invented position.
+    gapped = support_bars((rungs[0], (None, (0.0, 5.0)), rungs[2]), "side_rails")
+    assert gapped[0][1] is None and gapped[1][1] == (0.0, 5.0)
+    assert support_bars(((rungs[0][0], None), rungs[1]), "centre_beam")[0][0] is None
+
+
+def test_ladder_support_and_irregular_tags_round_trip_and_validate(tmp_path: Path) -> None:
+    from avialsync.core.prop_file import read_props, write_ladder
+
+    point = LadderPoint().with_click(StepClick("Front", 0, 10.0, 20.0))
+    ladder = Ladder(
+        "ladder",
+        (
+            LadderStep("a", "Step 1", (point,)),
+            LadderStep("b", "Gap", (point,), irregular="missing"),
+        ),
+        support="centre_beam",
+        pattern=RungPattern("a", "b", 12),
+    )
+    write_ladder(tmp_path, ladder)
+    restored, issues = read_props(tmp_path)
+    assert not issues and restored == [ladder]
+    with pytest.raises(PropModelError, match="irregularity"):
+        LadderStep("c", "Odd", (point,), irregular="bent")  # type: ignore[arg-type]
+    with pytest.raises(PropModelError, match="support"):
+        Ladder("ladder", support="rope")  # type: ignore[arg-type]
+    store = PropStore()
+    store.set("ladder", ladder)
+    assert store.set_layout("ladder", LadderLayout("side_rails"))
+    changed = store.get("ladder")
+    assert isinstance(changed, Ladder) and changed.steps == ladder.steps

@@ -5671,3 +5671,105 @@ camera views that disagree and ambiguous marks get distinct explanations. Motion
 where evidence and declared geometry disagree. The app does not move a declared path or sphere to
 fit one mark: a single belt mark cannot recover the path, and three ball landmarks do not uniquely
 determine a sphere. Sensor-derived checks still clear when their geometry changes.
+
+---
+
+## 2026-10 · D-163 · A treadmill belt is a measured two-roller loop
+
+**Context.** A generic polyline can display a belt, but straight chords through the two ends
+give the wrong material distance and omit the animal-facing surface and roller wraps. The
+[horizontal ladder task](https://pmc.ncbi.nlm.nih.gov/articles/PMC2796662/) places rungs along a
+level walkway; [belt-drive geometry](https://mechanics.ju.se/MachineElements/belts.html) describes
+the two straight tangents joined by wrap arcs.
+
+**Decision.** A new treadmill belt records two level roller centres, one radius, measured width,
+and a top direction perpendicular to the centre line. Its centreline has two straight runs of
+length `L` and two semicircles of radius `r`, giving exact loop length `2L + 2πr`. Material marks
+and stereo-click fitting use this analytic path. The viewer tessellates the same path into a
+measured-width mesh; sampling never sets the motion distance. Direction and lap counts remain
+explicit motion evidence. Old vertex-path belts keep their original interpretation and editing
+mode, and their saved files are not silently changed.
+
+**Alternatives rejected.** A four-corner rectangle invents sharp belt turns at the rollers. A
+sampled polyline as the motion authority changes loop length when display resolution changes.
+An arbitrary strip around a path has no measured width or surface orientation.
+
+**Consequences.** The new optional `[belt.rollers]` sidecar section records these measurements;
+the existing vertex list remains as a display and compatibility record. Changing roller geometry
+clears sensor bindings but retains raw visual clicks for a fresh fit. The default belt editor uses
+two rollers. The legacy path choice remains for apparatus that cannot be represented by equal
+rollers. The usual ladder example and documentation show a horizontal rung walkway; individual
+clicked heights remain measured facts.
+
+---
+
+## 2026-10 · D-164 · Ladder supports and irregular places are declared
+
+**Context.** A horizontal ladder's rungs are held by side rails or a central beam, and the places
+where the walkway departs from its pattern (a missing, raised, lowered or shifted rung) are what an
+experiment cares about.
+
+**Decision.** `Ladder.support` is `none`, `side_rails` or `centre_beam`. Bars are drawn through the
+rungs (`core/ladder_support.py`): rails join same-side rung ends, paired so they do not cross; a beam
+joins step middles. A gap appears where an end is unknown in that space. Bars are dashed in camera
+views because they are drawn between clicks. `LadderStep.irregular` is a closed tag set; the clicks
+remain the geometry, and the tag is shown as text beside the label.
+
+**Alternatives rejected.** Fitting rails as straight lines would hide a bent rail.
+
+**Consequences.** Sidecars gain an optional `[ladder] support` and `[[step]] irregular`; older files
+read unchanged.
+
+---
+
+## 2026-10 · D-165 · Regular rungs may be extrapolated; belts are placed from four clicks, in 3D or one view
+
+**Context.** Clicking every rung of a long regular ladder is slow, and most rigs film the apparatus
+from a side camera that may have no stereo partner or calibration. The user measures the apparatus
+with a ruler; the clicks only need to say where it is. This amends D-149's rule that rungs are never
+generated from a pitch, at the project owner's request.
+
+**Decision.** A `RungPattern` names two clicked neighbouring rungs and a total rung count. In each
+camera the four rung ends fix a homography from rung coordinates to that image
+(`core/plane_view.py`), so extrapolated rungs have correct perspective from a single, uncalibrated
+view; in 3D the rungs repeat the two rungs' mean spacing. Extrapolated rungs are labelled estimates,
+drawn dashed, never stored as clicks, and a clicked rung within 0.3 spacings of one replaces it.
+Support bars then follow the walkway order. A belt is placed from four clicks: in 3D, the top run's
+corners (two near each roller, each in two calibrated cameras) fix the top plane, facing the
+cameras, the run, the width and the middle, and the measured centre distance and radius set the
+size (`rollers_from_corners`); without a typed centre distance the clicked span stands in. In one
+camera, both roller hubs and the top above each are four known points of the side plane, so a
+`BeltSideView` maps the measured profile into that view without calibration. A one-camera belt is
+not placed in 3D, draws only in its own view, and tracks a mark from one click per frame through
+the inverse map.
+
+**Alternatives rejected.** Fitting a straight row of rungs to image pixels ignores perspective.
+Assuming a one-camera belt lies at some depth would invent a 3D placement no evidence supports.
+Using the clicked span as the roller distance when a measurement exists trades a ruler for a
+click.
+
+**Consequences.** Sidecars gain `[ladder] pattern_first/pattern_second/rung_count`,
+`[[belt.corner]]` click tables, and `[belt.side_view]`; older files read unchanged.
+
+---
+
+## 2026-10 · D-166 · Overlay labels are placed by one layout, after the geometry
+
+**Context.** Prop, wheel and 3D labels were each drawn at a fixed offset from their mark. Clustered
+marks (a belt's corners, a rung's ends, a wheel's clicks) produced overlapping text, and labels near
+the top of a frame landed under the pane's file name and timing readout.
+
+**Decision.** `ui/label_layout.LabelLayout` places every overlay label after its drawing's
+geometry: a small pill in the mark's colour on a dark translucent backing, tried at positions
+around the mark (nearest first, right and above preferred), kept inside the visible picture, clear
+of other labels, marks, and the pane's name, timing and zoom chrome, and preferring the fewest
+crossed lines on a coarse occupancy grid. A label placed beyond the first ring keeps a faint leader
+line. When nothing is clear it uses the least-crowded position rather than hiding the name. Saved
+placement points are drawn as uncaptioned marks (`UNNAMED`); they are named only while being
+clicked. A clicked and a projected mark share one name and differ by solid versus dashed outline.
+
+**Alternatives rejected.** Hiding colliding labels loses the name of a click. A force-directed
+layout is not deterministic from paint to paint, so labels would jitter while scrubbing.
+
+**Consequences.** `draw_props` and `draw_wheel_clicks` accept the picture bounds and chrome to avoid;
+the wheel placement cue moves to the bottom of the picture.

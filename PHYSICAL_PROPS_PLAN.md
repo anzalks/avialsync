@@ -24,7 +24,19 @@ unknown; closed belts need explicit lap counts before signed travel is known.
 Editing the declared belt path or ball dimensions retains visual clicks; the
 Props inspector names a geometry mismatch or ambiguous observation instead of
 discarding those clicks (D-162).
+A two-roller belt now records both roller centres, equal radius, measured width, and the top
+direction (D-163). Its flat upper and return runs join exact semicircular wraps. The closed
+material loop uses analytic distance, while sampled faces are only for display. Existing point
+paths remain available as a legacy geometry mode; their old sidecars still load.
 A scalar ball encoder remains underdetermined.
+Ladders declare how rungs are held (none, side rails at rung ends, or a centre beam); the bars
+are drawn through the clicked rungs and never add or move one. Individual steps may be tagged
+missing, raised, lowered, shifted, or irregular (D-164). A regular run may be extrapolated from
+two clicked neighbouring rungs and a total rung count: per camera through the homography their four
+ends fix, so one uncalibrated view suffices, and in 3D by their spacing. Extrapolated rungs are
+dashed estimates; a clicked rung replaces one. A belt is placed from four clicks: top-run corners
+in two calibrated cameras for 3D, or both roller hubs and the top above each in one camera for a
+side-view model. Measured centre distance and radius set its size either way (D-165).
 
 ## 1. Vocabulary and mathematical contract
 
@@ -45,13 +57,15 @@ The built-in kinds have different state spaces and observation requirements:
 | Kind | Fixed structure | Material state | Evidence needed for motion |
 |---|---|---|---|
 | Wheel | Axle, radius, bars | Angle on S¹; keep the encoder's unwrapped angle for checks | Bar clicks on a reference frame; optional encoder and later bar checks |
-| Belt | Contact plane, travel direction, visible boundary | Signed distance on R; surface position may wrap by a declared loop length | At least a measured direction and a displacement source or repeated visual landmarks |
+| Belt | Two level roller centres, radius, width and top direction; legacy paths remain readable | Signed distance on an exact closed loop; displayed surface wraps the rollers | Measured geometry and direction, plus a displacement source or repeated visual landmarks for motion |
 | Ball | Centre and radius | Orientation on SO(3), represented by a unit quaternion | Tracked surface landmarks or a sensor that genuinely gives orientation; one scalar cannot determine 3D orientation |
 | Horizontal ladder | Ordered, individually clicked footholds or rung ends; optional rails | Static singleton | Each clicked image point remains evidence; calibrated multi-view clicks can locate it in 3D |
 
 Wheel bars, belt texture, and ball surface markings are **material** features.
 The ladder and an unmarked sphere can still be drawn with no motion evidence.
-The ladder never generates rungs from a pitch or forces them onto one level.
+The ladder never forces rungs onto one level, and generates rungs only when the user
+declares a regular run from two clicked neighbours (D-165); those stay labelled estimates.
+Its normal walkway is horizontal; individual clicks still allow measured irregular heights.
 Regular, irregular, raised, missing, and staggered steps are all represented by
 the actual clicked points or segments, with optional labels and ordering. A
 single-view click remains at its original 2D location; a dashed projection in
@@ -73,8 +87,9 @@ Wheel, Belt, Ball, and Ladder. Its kind-sensitive Add control is the only way
 to start wheel placement; no separate Add Wheel menu or toolbar action remains.
 The existing wheel gesture and review fields are the Wheel page inside that
 inspector, not a separate top-level tab. Each kind asks for only its own geometry and evidence; every click is immediately labelled
-as an observation or a projection. Belt edits declare support-path vertices,
-units, loop state, and optional travel direction. Ball edits declare centre,
+as an observation or a projection. New belt edits declare two roller centres,
+radius, width, top direction, units and optional travel direction. Old belt edits retain
+support-path vertices and loop state. Ball edits declare centre,
 radius, units, and optional surface marks. Both show unknown motion until actual
 motion evidence is bound. For a ladder, Add Step records a point or the two ends of a rung;
 the user can add, relabel, reorder, move, or remove individual steps without

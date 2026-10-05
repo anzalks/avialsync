@@ -322,7 +322,7 @@ def refresh(window: MainWindow) -> None:
     active = len(window.wheels) > 0 or window.wheel_state.placement is not None
     window.video_grid.set_wheel_source(window.wheel_state.pane_source if active else None)
     window.video_grid.refresh_point_edits()
-    window.tracking_3d_pane.canvas.set_cursor(window.clock.state.t)
+    window.tracking_3d_pane.set_cursor(window.clock.state.t)
     window._update_tracking_pane_visibility()
     window.wheel_panel.set_wheels(
         list(window.wheels), window.wheel_state.checking, encoder_offsets(window)

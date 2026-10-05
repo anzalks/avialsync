@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import math
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -14,7 +15,9 @@ from shiboken6 import isValid
 
 from avialsync.core.physical_props import (
     BallProp,
+    BallSurface,
     BeltProp,
+    BeltTrack,
     Ladder,
     LadderPoint,
     LadderStep,
@@ -26,6 +29,7 @@ from avialsync.core.visual_prop_tracking import ball_visual_state, belt_visual_s
 from avialsync.engine import prop_file_worker
 from avialsync.engine.prop_file_worker import PropFileReadWorker, PropFileWriteWorker
 from avialsync.ui.main_window import MainWindow
+from avialsync.ui.prop_overlay import UNNAMED
 from tests.wheel_fixture import CAMERAS
 from tests.wheel_window import VIDEOS, build_window
 
@@ -54,6 +58,88 @@ def _fake_panes(window: MainWindow, monkeypatch) -> None:
     monkeypatch.setattr(window.video_grid, "panes", [pane for _ in paths])
 
 
+def test_prop_geometry_shows_3d_pane_without_pose_source(window: MainWindow) -> None:
+    """A props-only recording must expose its reconstructed viewer geometry."""
+    pane = window.tracking_3d_pane
+    assert pane.isHidden()
+    window.props_app.store.set("ladder", Ladder("ladder"))
+    assert pane.isHidden(), "an empty ladder has no 3D scene"
+
+    world = np.asarray((0.0, 0.0, 70.0))
+    clicks = tuple(
+        StepClick(camera, 7, *map(float, CAMERAS[camera].project(world)[0]))
+        for camera in ("Front", "Left")
+    )
+    ladder = Ladder("ladder", (LadderStep("one", "Rung", (LadderPoint(clicks),)),))
+    window.props_app.store.set("ladder", ladder)
+    assert pane.isVisible()
+    window.props_app.store.set("ladder", None)
+    assert pane.isHidden()
+
+    window.props_app.store.set(
+        "belt", BeltProp("belt", BeltTrack(((0.0, 0.0, 70.0), (10.0, 0.0, 70.0))))
+    )
+    assert pane.isVisible()
+    window.props_app.store.set("belt", None)
+    assert pane.isHidden()
+
+    window.props_app.store.set("ball", BallProp("ball", BallSurface((0.0, 0.0, 70.0), 5.0)))
+    assert pane.isVisible()
+
+
+def test_measured_belt_surface_is_saved_and_drawn_as_a_mesh(window: MainWindow) -> None:
+    panel = window.props_app.panel
+    assert panel is not None
+    window.props_app.show("belt")
+    panel.belt_geometry_mode.setCurrentIndex(panel.belt_geometry_mode.findData("path"))
+    panel.name.setText("mesh belt")
+    for point in ((0.0, 0.0, 70.0), (20.0, 0.0, 70.0)):
+        for field, value in zip(panel.belt_point_fields, point, strict=True):
+            field.setValue(value)
+        panel.belt_add_vertex.click()
+    panel.belt_width.setValue(8.0)
+    panel.belt_normal_fields[2].setValue(1.0)
+    panel.save_belt.click()
+
+    belt = window.props_app.store.get("mesh belt")
+    assert isinstance(belt, BeltProp) and belt.surface_width == 8.0
+    assert len(belt.surface_quads()) == 1
+    camera = window.props_app.camera_drawing(VIDEOS["Front"], 0.0)
+    assert any(not label and closed and len(points) == 4 for label, points, closed in camera)
+    scene = window.props_app.scene_steps(0.0)
+    assert any(not label and closed and len(points) == 4 for label, points, closed in scene)
+
+
+def test_two_roller_belt_editor_saves_measured_geometry_and_viewer_mesh(window: MainWindow) -> None:
+    panel = window.props_app.panel
+    assert panel is not None
+    window.props_app.show("belt")
+    assert panel.belt_geometry_mode.currentData() == "rollers"
+    panel.name.setText("treadmill")
+    for fields, values in (
+        (panel.belt_first_fields, (-30.0, 0.0, 60.0)),
+        (panel.belt_second_fields, (30.0, 0.0, 60.0)),
+    ):
+        for field, value in zip(fields, values, strict=True):
+            field.setValue(value)
+    panel.belt_radius.setValue(10.0)
+    panel.belt_width.setValue(16.0)
+    panel.belt_normal_fields[2].setValue(1.0)
+    panel.belt_direction_fields[0].setValue(1.0)
+    panel.save_belt.click()
+    belt = window.props_app.store.get("treadmill")
+    assert isinstance(belt, BeltProp) and belt.rollers is not None, panel.status.text()
+    assert belt.rollers.run_length == pytest.approx(60.0)
+    assert len(belt.surface_quads()) > 20
+    assert any(
+        not label and closed and len(points) == 4
+        for label, points, closed in window.props_app.camera_drawing(VIDEOS["Front"], 0.0)
+    )
+    panel.select_prop("treadmill", "belt")
+    assert panel.belt_geometry_mode.currentData() == "rollers"
+    assert panel.belt_radius.value() == 10.0
+
+
 def test_visual_only_belt_and_ball_tracks_are_clicked_and_displayed(
     window: MainWindow, monkeypatch
 ) -> None:
@@ -78,6 +164,7 @@ def test_visual_only_belt_and_ball_tracks_are_clicked_and_displayed(
             assert window.props_app.on_clicked(VIDEOS[camera], float(xy[0]), float(xy[1]))
 
     window.props_app.show("belt")
+    panel.belt_geometry_mode.setCurrentIndex(panel.belt_geometry_mode.findData("path"))
     panel.name.setText("visual belt")
     for vertex in ((0.0, 0.0, 70.0), (10.0, 0.0, 70.0)):
         for field, value in zip(panel.belt_point_fields, vertex, strict=True):
@@ -114,12 +201,13 @@ def test_visual_only_belt_and_ball_tracks_are_clicked_and_displayed(
     panel.save_belt.click()
     assert belt_visual_state(window.props_app.store.get("visual belt"), 8, CAMERAS) is not None
     assert any(
-        "moving mark" in label
-        for label, _pixels, _closed in window.props_app.camera_drawing(VIDEOS["Front"], 1.0)
-    )
+        label == "mark" and pixels[0] is not None and pixels[0][2]
+        for label, pixels, _closed in window.props_app.camera_drawing(VIDEOS["Front"], 1.0)
+    ), "the clicked mark is drawn solid"
+    assert any(label == "mark" for label, *_ in window.props_app.scene_steps(1.0))
     moment.update(frame=9, time=2.0)
     assert not any(
-        "moving mark" in label
+        label == "mark"
         for label, _pixels, _closed in window.props_app.camera_drawing(VIDEOS["Front"], 2.0)
     )
     panel.track_belt.click()
@@ -158,9 +246,10 @@ def test_visual_only_belt_and_ball_tracks_are_clicked_and_displayed(
     ball = window.props_app.store.get("visual ball")
     assert isinstance(ball, BallProp) and ball_visual_state(ball, 8, CAMERAS) is not None
     assert any(
-        "moving mark A" in label
-        for label, _pixels, _closed in window.props_app.camera_drawing(VIDEOS["Front"], 1.0)
-    )
+        label == "A" and pixels[0] is not None and pixels[0][2]
+        for label, pixels, _closed in window.props_app.camera_drawing(VIDEOS["Front"], 1.0)
+    ), "the clicked ball mark is drawn solid"
+    assert any(label == "A" for label, *_ in window.props_app.scene_steps(1.0))
     panel.clear_ball_visual.click()
     cleared = window.props_app.store.get("visual ball")
     assert isinstance(cleared, BallProp) and not cleared.visual_frames
@@ -205,6 +294,7 @@ def test_belt_and_ball_bind_verify_and_persist_later_frame_evidence(
     monkeypatch.setattr(window.plot_pane, "channels", rows)
     window.props_app.show("belt")
     panel.name.setText("belt")
+    panel.belt_geometry_mode.setCurrentIndex(panel.belt_geometry_mode.findData("path"))
     for vertex in ((0.0, 0.0, 70.0), (10.0, 0.0, 70.0)):
         for field, value in zip(panel.belt_point_fields, vertex, strict=True):
             field.setValue(value)
@@ -228,10 +318,9 @@ def test_belt_and_ball_bind_verify_and_persist_later_frame_evidence(
     assert belt.binding.checks[0].source_values == (102.0,)
     available = rows[0].reader.available_sample_at
     rows[0].reader.available_sample_at = lambda _t: None
-    assert any(
-        "motion unavailable" in label
-        for label, _points, _closed in window.props_app.camera_drawing(VIDEOS["Front"], 1.0)
-    )
+    belt_drawings = window.props_app.camera_drawing(VIDEOS["Front"], 1.0)
+    assert any(label == "belt" for label, *_ in belt_drawings)
+    assert not any(label == "mark" for label, *_ in belt_drawings)
     rows[0].reader.available_sample_at = available
 
     moment.update(frame=7, time=0.0)
@@ -256,10 +345,9 @@ def test_belt_and_ball_bind_verify_and_persist_later_frame_evidence(
     assert ball.binding.checks[0].source_values == pytest.approx(quaternion)
     available = rows[-1].reader.available_sample_at
     rows[-1].reader.available_sample_at = lambda _t: None
-    assert any(
-        "orientation unavailable" in label
-        for label, _points, _closed in window.props_app.camera_drawing(VIDEOS["Front"], 1.0)
-    )
+    ball_drawings = window.props_app.camera_drawing(VIDEOS["Front"], 1.0)
+    assert any(label == "ball" for label, *_ in ball_drawings)
+    assert window.props_app._motion_at(ball, 8, 1.0) == ()
     rows[-1].reader.available_sample_at = available
     assert read_props(tmp_path / "pose-3d")[0] == [ball, belt]
 
@@ -464,6 +552,7 @@ def test_belt_and_ball_geometry_are_editable_and_reopen_from_the_props_tab(
     panel.kind.setCurrentIndex(panel.kind.findData("belt"))
     assert panel.editor_stack.currentWidget() is panel.belt_editor
     panel.name.setText("belt")
+    panel.belt_geometry_mode.setCurrentIndex(panel.belt_geometry_mode.findData("path"))
     for values in ((0.0, 0.0, 70.0), (10.0, 0.0, 70.0)):
         for field, value in zip(panel.belt_point_fields, values, strict=True):
             field.setValue(value)
@@ -515,21 +604,14 @@ def test_belt_and_ball_geometry_are_editable_and_reopen_from_the_props_tab(
         "avialsync.ui.props_app.wheel_display.camera_models", lambda _window: dict(CAMERAS)
     )
     drawings = window.props_app.camera_drawing(VIDEOS["Front"], 0.0)
-    assert any(
-        "belt" in label and "motion unknown" in label for label, _points, _closed in drawings
-    )
-    assert (
-        sum(
-            "ball" in label and "orientation unknown" in label
-            for label, _points, _closed in drawings
-        )
-        == 3
-    )
+    assert any(label == "belt" for label, _points, _closed in drawings)
+    ball_rings = [item for item in drawings if item[2] and len(item[1]) > 3]
+    assert len(ball_rings) == 9
+    assert sum(label == "ball" for label, *_ in ball_rings) == 1
     scene = window.props_app.scene_steps(0.0)
-    assert (
-        sum("ball" in label and "orientation unknown" in label for label, _points, _closed in scene)
-        == 3
-    )
+    scene_rings = [item for item in scene if item[2] and len(item[1]) > 3]
+    assert len(scene_rings) == 9
+    assert sum(label == "ball" for label, *_ in scene_rings) == 1
 
     panel.remove_ball.click()
     assert window.props_app.store.get("ball") is None
@@ -753,3 +835,206 @@ def test_every_prop_editor_fits_the_sidebar_without_scrolling_sideways(qtbot, ki
         f"the {kind} editor needs {panel.minimumSizeHint().width()} px "
         f"for controls no wider than {widest} px"
     )
+
+
+def _patch_rig(window: MainWindow, monkeypatch) -> None:
+    _fake_panes(window, monkeypatch)
+    monkeypatch.setattr(
+        "avialsync.ui.props_app.wheel_display.frame_and_time", lambda _window, _t: (7, 0.0)
+    )
+    monkeypatch.setattr(
+        "avialsync.ui.props_app.wheel_display.camera_models", lambda _window: CAMERAS
+    )
+
+
+def _click_world(window: MainWindow, world: tuple[float, ...], cameras: tuple[str, ...]) -> None:
+    for camera in cameras:
+        x, y = CAMERAS[camera].project(np.asarray(world))[0]
+        assert window.props_app.on_clicked(VIDEOS[camera], float(x), float(y))
+
+
+def test_belt_is_placed_in_3d_from_four_clicked_top_corners(
+    window: MainWindow, monkeypatch
+) -> None:
+    panel = window.props_app.panel
+    assert panel is not None
+    _patch_rig(window, monkeypatch)
+    window.props_app.show("belt")
+    panel.name.setText("treadmill")
+    panel.belt_units.setCurrentIndex(panel.belt_units.findData("mm"))
+    panel.belt_radius.setValue(10.0)
+    panel.belt_centre_distance.setValue(60.0)
+    assert panel.belt_placement.isVisibleTo(panel)
+    panel.belt_placement.start.click()
+    corners = ((-25.0, -8.0, 70.0), (-25.0, 8.0, 70.0), (25.0, -8.0, 70.0), (25.0, 8.0, 70.0))
+    for index, corner in enumerate(corners):
+        if index:
+            panel.belt_placement.next_point.click()
+        _click_world(window, corner, ("Front", "Left"))
+    # Every clicked corner stays visible while placing, not only the latest one.
+    labels = [label for label, _p, _c in window.props_app.camera_drawing(VIDEOS["Front"], 0.0)]
+    assert {"corner 1", "corner 2", "corner 3", "corner 4"} <= set(labels)
+    panel.belt_placement.place.click()
+    panel.save_belt.click()
+
+    belt = window.props_app.store.get("treadmill")
+    assert isinstance(belt, BeltProp) and belt.corners is not None, panel.status.text()
+    assert belt.rollers is not None
+    assert belt.rollers.first == pytest.approx((-30.0, 0.0, 60.0), abs=1e-3)
+    assert belt.rollers.second == pytest.approx((30.0, 0.0, 60.0), abs=1e-3)
+    assert belt.rollers.width == pytest.approx(16.0, abs=1e-3)
+    assert belt.travel_direction == pytest.approx((1.0, 0.0, 0.0), abs=1e-6)
+    # Saved corners stay as uncaptioned marks: evidence, not captions.
+    right = [
+        points[0]
+        for label, points, _closed in window.props_app.camera_drawing(VIDEOS["Right"], 0.0)
+        if label == UNNAMED
+    ]
+    assert len(right) == 4 and not any(pixel is None or pixel[2] for pixel in right), (
+        "Right clicked nothing, so it shows projections only"
+    )
+    scene = [label for label, _points, _closed in window.props_app.scene_steps(0.0)]
+    assert scene.count(UNNAMED) == 4
+    assert "3D" in panel.belt_placement.status.text()
+
+
+def test_one_camera_belt_uses_measurements_and_draws_only_in_its_view(
+    window: MainWindow, monkeypatch
+) -> None:
+    panel = window.props_app.panel
+    assert panel is not None
+    _patch_rig(window, monkeypatch)
+    window.props_app.show("belt")
+    panel.belt_geometry_mode.setCurrentIndex(panel.belt_geometry_mode.findData("side"))
+    assert not panel.belt_roller_controls.isVisibleTo(panel)
+    panel.name.setText("side belt")
+    panel.belt_radius.setValue(10.0)
+    panel.belt_centre_distance.setValue(80.0)
+    panel.belt_width.setValue(20.0)
+
+    def seen(along: float, up: float) -> tuple[float, float]:
+        x, y = CAMERAS["Left"].project(np.asarray((along - 40.0, -30.0, 60.0 + up)))[0]
+        return (float(x), float(y))
+
+    panel.belt_placement.start.click()
+    for index, (along, up) in enumerate(((0, 0), (80, 0), (0, 10), (80, 10))):
+        if index:
+            panel.belt_placement.next_point.click()
+        assert window.props_app.on_clicked(VIDEOS["Left"], *seen(along, up))
+    panel.belt_placement.place.click()
+    panel.save_belt.click()
+
+    belt = window.props_app.store.get("side belt")
+    assert isinstance(belt, BeltProp) and belt.side_view is not None, panel.status.text()
+    assert belt.side_view.camera == "Left"
+    left = window.props_app.camera_drawing(VIDEOS["Left"], 0.0)
+    profile = next(points for label, points, _c in left if label == "side belt")
+    # The far wrap's outermost point lands exactly where the camera sees it.
+    assert any(p is not None and math.dist(p[:2], seen(90.0, 0.0)) < 1e-6 for p in profile)
+    assert sum(label == UNNAMED for label, _p, _c in left) == 4, "hubs and tops stay marked"
+    front = window.props_app.camera_drawing(VIDEOS["Front"], 0.0)
+    assert not any(label == "side belt" for label, _p, _c in front)
+    assert not any(label == "side belt" for label, _p, _c in window.props_app.scene_steps(0.0))
+    assert "Left" in panel.belt_placement.status.text()
+
+    # One camera also tracks a belt mark: its click maps back onto the profile.
+    assert panel.track_belt.isEnabled()
+    panel.track_belt.click()
+    assert window.props_app.on_clicked(VIDEOS["Left"], *seen(25.0, 10.0))
+    tracked = window.props_app.store.get("side belt")
+    assert isinstance(tracked, BeltProp) and tracked.visual_frames
+    state = belt_visual_state(tracked, tracked.visual_frames[0].frame, {})
+    assert state is not None and state.path_distance == pytest.approx(25.0, abs=1e-6)
+
+
+def test_ladder_support_irregular_tags_and_clicking_every_rung(
+    window: MainWindow, monkeypatch
+) -> None:
+    panel = window.props_app.panel
+    assert panel is not None
+    _patch_rig(window, monkeypatch)
+    window.props_app.show("ladder")
+    panel.name.setText("walkway")
+    panel.create_button.click()
+    rungs = (
+        ((0.0, -10.0, 70.0), (0.0, 10.0, 70.0)),
+        ((15.0, 10.0, 70.0), (15.0, -10.0, 70.0)),
+        ((33.0, -10.0, 74.0), (33.0, 10.0, 74.0)),
+    )
+    panel.add_rung.click()
+    for index, (first, second) in enumerate(rungs):
+        if index == 2:
+            panel.step_irregular.setCurrentIndex(panel.step_irregular.findData("raised"))
+        _click_world(window, first, ("Front", "Left"))
+        panel.next_point.click()
+        _click_world(window, second, ("Front", "Left"))
+        (panel.save_step if index == 2 else panel.save_next_step).click()
+    ladder = window.props_app.store.get("walkway")
+    assert isinstance(ladder, Ladder) and len(ladder.steps) == 3, panel.status.text()
+    assert [step.irregular for step in ladder.steps] == ["", "", "raised"]
+    assert window.props_app.draft is None
+    assert panel.step_irregular.currentData() == ""
+
+    panel.steps.setCurrentRow(1)
+    panel.step_irregular.setCurrentIndex(panel.step_irregular.findData("missing"))
+    panel.tag_step.click()
+    ladder = window.props_app.store.get("walkway")
+    assert isinstance(ladder, Ladder) and ladder.steps[1].irregular == "missing"
+    labels = [label for label, _p, _c in window.props_app.camera_drawing(VIDEOS["Front"], 0.0)]
+    assert "Step 2 · missing rung" in labels
+
+    panel.ladder_support.setCurrentIndex(panel.ladder_support.findData("side_rails"))
+    panel.ladder_support.activated.emit(panel.ladder_support.currentIndex())
+    ladder = window.props_app.store.get("walkway")
+    assert isinstance(ladder, Ladder) and ladder.support == "side_rails"
+    bars = [
+        points
+        for label, points, _closed in window.props_app.camera_drawing(VIDEOS["Front"], 0.0)
+        if not label and len(points) == 3
+    ]
+    assert len(bars) == 2 and all(
+        pixel is not None and not pixel[2] for bar in bars for pixel in bar
+    )
+    scene_bars = [
+        points
+        for label, points, _closed in window.props_app.scene_steps(0.0)
+        if not label and len(points) == 3
+    ]
+    assert len(scene_bars) == 2
+    # The rails run along the clicked ends without crossing, whatever click order.
+    ends = sorted(round(float(points[0][1])) for points in scene_bars)
+    assert ends == [-10, 10]
+    assert all(
+        round(float(position[1])) == round(float(points[0][1]))
+        for points in scene_bars
+        for position in points
+    )
+    assert window.document.undo(window._mutations)
+    ladder = window.props_app.store.get("walkway")
+    assert isinstance(ladder, Ladder) and ladder.support == "none"
+    assert panel.ladder_support.currentData() == "none"
+
+    # A regular run of 6 from the first two rungs; the clicked third rung is
+    # raised and 3 mm off-pattern, so it replaces rung 3 rather than doubling it.
+    panel.rung_count.setValue(6)
+    panel.extrapolate.click()
+    ladder = window.props_app.store.get("walkway")
+    assert isinstance(ladder, Ladder) and ladder.pattern is not None
+    assert ladder.pattern.count == 6
+    estimated = {
+        label: points
+        for label, points, _c in window.props_app.camera_drawing(VIDEOS["Right"], 0.0)
+        if label.endswith("(est.)")
+    }
+    assert sorted(estimated) == ["Rung 4 (est.)", "Rung 5 (est.)", "Rung 6 (est.)"]
+    assert all(not pixel[2] for points in estimated.values() for pixel in points if pixel)
+    scene = {
+        label: points
+        for label, points, _c in window.props_app.scene_steps(0.0)
+        if label.endswith("(est.)")
+    }
+    assert float(scene["Rung 6 (est.)"][0][0]) == pytest.approx(75.0, abs=1e-6)
+    panel.rung_count.setValue(0)
+    panel.extrapolate.click()
+    ladder = window.props_app.store.get("walkway")
+    assert isinstance(ladder, Ladder) and ladder.pattern is None

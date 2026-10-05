@@ -148,6 +148,9 @@ class FakeTarget:
     def move_ladder_step(self, name: str, step_id: str, position: int) -> None:
         self.props.move_step(name, step_id, position)
 
+    def set_ladder_layout(self, name: str, layout: Any) -> None:
+        self.props.set_layout(name, layout)
+
     def add_source(self, record: SourceRecord) -> None:
         self.sources[record.source_id] = record
 

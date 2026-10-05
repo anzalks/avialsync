@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, QSize, Qt
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt
 from PySide6.QtGui import (
     QAction,
     QColor,
@@ -17,6 +17,7 @@ from PySide6.QtGui import (
     QPaintEvent,
     QPalette,
     QPen,
+    QPolygonF,
     QWheelEvent,
 )
 from PySide6.QtWidgets import (
@@ -37,6 +38,7 @@ from avialsync.core.timeline import TimeMap
 from avialsync.ui.action_button import ActionButton
 from avialsync.ui.cylinder_paint import draw_cylinders
 from avialsync.ui.i18n import tr
+from avialsync.ui.label_layout import LabelLayout
 from avialsync.ui.theme import neutral_on_canvas
 from avialsync.ui.tracking_colors import color_for_point, register_points
 from avialsync.ui.tracking_skeleton import (
@@ -358,13 +360,27 @@ class Tracking3DCanvas(QWidget):
         """Wheels drawn at the current time."""
         return len(self._wheels)
 
+    @property
+    def scene_available(self) -> bool:
+        """Whether the pane has pose points or physical geometry to frame."""
+        return bool(self.point_count or self._custom_points or self._wheels or self._prop_steps)
+
     def _drawn_positions(self) -> np.ndarray:
-        """Every position on screen now: valid tracked points, then custom ones."""
+        """Frame the pose when present, otherwise frame standalone props and wheels."""
         tracked = self._positions[self._valid]
-        if not self._custom_points:
+        if self._custom_points:
+            custom = np.asarray([xyz for _, xyz in self._custom_points], dtype=np.float64)
+            tracked = np.vstack((tracked.reshape(-1, 3), custom))
+        if len(tracked):
             return tracked
-        custom = np.asarray([xyz for _, xyz in self._custom_points], dtype=np.float64)
-        return np.vstack((tracked.reshape(-1, 3), custom))
+        geometry = [
+            position
+            for _label, positions, _closed in self._prop_steps
+            for position in positions
+            if position is not None
+        ]
+        geometry.extend(ends.reshape(-1, 3) for ends, _preview, _diameter in self._wheels)
+        return np.vstack(geometry) if geometry else tracked
 
     @property
     def point_names(self) -> tuple[str, ...]:
@@ -730,9 +746,21 @@ class Tracking3DCanvas(QWidget):
 
     def _draw_props(self, painter: QPainter, width: int, height: int, palette: QPalette) -> None:
         """Draw only solved step points, without bridging unsolved ones."""
-        painter.setPen(QPen(neutral_on_canvas(palette, _WHEEL_WEIGHT), 2))
+        color = neutral_on_canvas(palette, _WHEEL_WEIGHT)
+        mesh_color = QColor(color)
+        mesh_color.setAlpha(170)
+        backing = QColor(palette.color(QPalette.ColorRole.Base))
+        backing.setAlpha(215)
+        # Keep names off the axis gizmo and the orbit readout in the corners.
+        corners = (
+            QRectF(0, height - 96, 96, 96),
+            QRectF(width - 200, height - 26, 200, 26),
+        )
+        labels = LabelLayout(painter, QRectF(4, 4, width - 8, height - 8), corners, backing=backing)
         painter.setBrush(Qt.BrushStyle.NoBrush)
         for label, positions, closed in self._prop_steps:
+            surface_face = not label and closed and len(positions) == 4
+            mesh_line = surface_face or not label or len(positions) > 8
             screen: list[QPointF | None] = []
             for position in positions:
                 if position is None:
@@ -740,16 +768,33 @@ class Tracking3DCanvas(QWidget):
                 else:
                     xy, _depth = self._project(position.reshape(1, 3), width, height)
                     screen.append(QPointF(float(xy[0, 0]), float(xy[0, 1])))
+            if surface_face and all(point is not None for point in screen):
+                fill = QColor(color)
+                fill.setAlpha(55)
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(fill)
+                painter.drawPolygon(QPolygonF([point for point in screen if point is not None]))
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.setPen(QPen(mesh_color if mesh_line else color, 1 if mesh_line else 2))
             for index, point in enumerate(screen):
                 if point is None:
                     continue
-                painter.drawRect(QRect(round(point.x()) - 4, round(point.y()) - 4, 8, 8))
-                if index == 0:
-                    painter.drawText(point + QPointF(7, -6), label)
+                if not mesh_line:
+                    painter.drawRect(QRect(round(point.x()) - 4, round(point.y()) - 4, 8, 8))
+                    labels.mark(point)
                 following = index + 1 if index + 1 < len(screen) else 0 if closed else -1
                 other = screen[following] if following >= 0 else None
                 if other is not None:
                     painter.drawLine(point, other)
+                    labels.line(point, other)
+            visible = [point for point in screen if point is not None]
+            if label.strip() and visible:
+                # A rung is named at its right-hand end, an outline outside its right edge.
+                anchor = (
+                    max(visible, key=lambda point: point.x()) if len(visible) > 1 else visible[0]
+                )
+                labels.label(anchor, label, color)
+        labels.draw()
 
     def _draw_wheels(self, painter: QPainter, width: int, height: int, palette: QPalette) -> None:
         """Each wheel: its bars, and the two rims through their ends; dashed until accepted.
@@ -1147,7 +1192,7 @@ class Tracking3DPane(QWidget):
         """Use complete XYZ channel triplets from the active cached readers."""
         self.canvas.set_readers(readers)
         self._refresh_status()
-        self.fit_button.setEnabled(self.canvas.point_count > 0)
+        self.fit_button.setEnabled(self.canvas.scene_available)
         self._sync_up_axis_combo()
         if self.canvas.point_count:
             self.canvas.fit_current_pose()
@@ -1174,7 +1219,15 @@ class Tracking3DPane(QWidget):
     def _sync_up_axis_combo(self) -> None:
         """Reflect the canvas's current orientation without re-triggering it."""
         target = (self.canvas.up_axis, self.canvas.up_inverted)
-        index = self.up_axis_combo.findData(target)
+        # findData compares QVariants, and a Python tuple never matches there.
+        index = next(
+            (
+                row
+                for row in range(self.up_axis_combo.count())
+                if tuple(self.up_axis_combo.itemData(row) or ()) == target
+            ),
+            -1,
+        )
         if index >= 0:
             self.up_axis_combo.blockSignals(True)
             self.up_axis_combo.setCurrentIndex(index)
@@ -1219,6 +1272,13 @@ class Tracking3DPane(QWidget):
     def set_cursor(self, t_master: float) -> None:
         """Update from the same master-clock value used by video and 2D plots."""
         self.canvas.set_cursor(t_master)
+        available = self.canvas.scene_available
+        if self.fit_button.isEnabled() != available:
+            self.fit_button.setEnabled(available)
+        if self.canvas.point_count == 0:
+            label = tr("Physical props in 3D") if available else tr("No XYZ tracking channels")
+            if self.status_label.text() != label:
+                self.status_label.setText(label)
 
     def _fit_view(self) -> None:
         self.canvas.reset_view()

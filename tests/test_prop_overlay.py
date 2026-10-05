@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPen
+import pytest
+from PySide6.QtCore import QRect, Qt
+from PySide6.QtGui import QFont, QPen
 
 from avialsync.ui.prop_overlay import draw_props
+
+
+@pytest.fixture(autouse=True)
+def _application(qapp: object) -> None:
+    """Label placement measures text, which needs a running application."""
 
 
 class RecordingPainter:
     """Capture geometry and line style without depending on platform rasterisation."""
 
-    def __init__(self) -> None:
+    def __init__(self, viewport: QRect | None = None) -> None:
+        self._viewport = viewport or QRect(0, 0, 1280, 1024)
         self.pen = QPen()
         self.lines: list[tuple[int, int, int, int, Qt.PenStyle]] = []
         self.rectangles: list[tuple[int, int, Qt.PenStyle]] = []
@@ -20,17 +27,40 @@ class RecordingPainter:
     def setPen(self, pen: QPen) -> None:
         self.pen = QPen(pen)
 
-    def setBrush(self, _brush: Qt.BrushStyle) -> None:
+    def setBrush(self, _brush: object) -> None:
+        pass
+
+    def font(self) -> QFont:
+        return QFont()
+
+    def viewport(self) -> QRect:
+        return self._viewport
+
+    def drawPolygon(self, _polygon: object) -> None:
         pass
 
     def drawRect(self, x: int, y: int, _width: int, _height: int) -> None:
         self.rectangles.append((x + 4, y + 4, self.pen.style()))
 
-    def drawText(self, _x: int, _y: int, label: str) -> None:
-        self.labels.append(label)
+    def drawText(self, *args: object) -> None:
+        self.labels.append(str(args[-1]))
 
-    def drawLine(self, x: int, y: int, x2: int, y2: int) -> None:
-        self.lines.append((x, y, x2, y2, self.pen.style()))
+    def drawLine(self, *args: object) -> None:
+        if len(args) == 4:  # geometry; a label's leader line is drawn with points
+            x, y, x2, y2 = args
+            self.lines.append((x, y, x2, y2, self.pen.style()))
+
+    def drawRoundedRect(self, *_args: object) -> None:
+        pass
+
+    def setFont(self, _font: QFont) -> None:
+        pass
+
+    def save(self) -> None:
+        pass
+
+    def restore(self) -> None:
+        pass
 
 
 def test_missing_endpoint_breaks_the_drawn_ladder_segment() -> None:
@@ -90,3 +120,11 @@ def test_closed_outline_joins_only_its_declared_last_and_first_points() -> None:
         (2, 0, 1, 1),
         (1, 1, 0, 0),
     ]
+
+
+def test_a_column_full_of_labels_finishes_painting() -> None:
+    """Colliding labels in a small pane overlap rather than stalling the paint."""
+    painter = RecordingPainter(QRect(0, 0, 120, 60))
+    drawings = [(f"Step {index}", ((50.0, 30.0, True),), False) for index in range(40)]
+    draw_props(painter, drawings, 1.0, 0.0, 0.0)
+    assert len(painter.labels) == 40

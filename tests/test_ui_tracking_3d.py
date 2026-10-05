@@ -61,6 +61,25 @@ def test_incomplete_xy_points_are_not_presented_as_3d(qtbot, tmp_path: Path) -> 
     assert not pane.fit_button.isEnabled()
 
 
+def test_props_only_scene_can_be_framed_and_fitted(qtbot) -> None:
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.resize(500, 300)
+    pane.show()
+    vertices = (np.asarray((-40.0, 0.0, 70.0)), np.asarray((40.0, 0.0, 70.0)))
+    pane.canvas.set_prop_source(lambda _time: [("belt support", vertices, False)])
+    pane.set_cursor(0.0)
+
+    assert pane.fit_button.isEnabled()
+    assert pane.canvas._has_scene_bounds
+    assert pane.canvas._radius > 1.0
+    pane.fit_button.click()
+    assert pane.canvas._bounds_held
+    np.testing.assert_allclose(
+        pane.canvas._center, pane.canvas._to_view(np.asarray([[0.0, 0.0, 70.0]]))[0]
+    )
+
+
 def test_out_of_range_pose_has_no_stale_coordinates(qtbot, tmp_path: Path) -> None:
     pane = Tracking3DPane()
     qtbot.addWidget(pane)
@@ -521,3 +540,15 @@ class TestPanningThe3DView:
         readout = canvas._orientation_readout()
         assert "x +12" in readout
         assert "y -5" in readout
+
+
+def test_up_axis_choice_is_shown_in_its_combo_box(qtbot) -> None:
+    """The combo must name the axis the canvas actually renders upward."""
+    from avialsync.ui.tracking_3d_pane import Tracking3DPane
+
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.set_up_axis(2, False)
+    assert pane.up_axis_combo.currentData() == (2, False)
+    pane.set_up_axis(1, True)
+    assert pane.up_axis_combo.currentData() == (1, True)

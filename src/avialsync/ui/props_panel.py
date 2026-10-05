@@ -23,8 +23,38 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from avialsync.core.physical_props import BallProp, BeltProp, Ladder, Point3, PropStore
+from avialsync.core.physical_props import (
+    BallProp,
+    BeltProp,
+    Ladder,
+    LadderSupport,
+    Point3,
+    PropStore,
+    StepIrregularity,
+)
+from avialsync.ui.belt_placement_controls import BeltPlacementControls
 from avialsync.ui.i18n import tr
+
+
+def support_text(support: LadderSupport) -> str:
+    """The translated name of a ladder support layout."""
+    return {
+        "none": tr("No support bars"),
+        "side_rails": tr("Side rails at rung ends"),
+        "centre_beam": tr("Centre beam under rungs"),
+    }[support]
+
+
+def irregular_text(tag: StepIrregularity) -> str:
+    """The translated name of a step's irregularity tag; empty when regular."""
+    return {
+        "": "",
+        "missing": tr("missing rung"),
+        "raised": tr("raised"),
+        "lowered": tr("lowered"),
+        "shifted": tr("shifted sideways"),
+        "other": tr("irregular"),
+    }[tag]
 
 
 class PropsPanel(QWidget):
@@ -34,6 +64,11 @@ class PropsPanel(QWidget):
     place_requested = Signal(str, str, bool)
     next_point_requested = Signal()
     save_step_requested = Signal()
+    save_next_step_requested = Signal()
+    ladder_support_requested = Signal(str, str)
+    step_irregular_requested = Signal(str, str, str)
+    belt_placement_requested = Signal(str)
+    rung_count_requested = Signal(str, int)
     cancel_step_requested = Signal()
     remove_step_requested = Signal(str, str)
     reclick_step_requested = Signal(str, str)
@@ -97,6 +132,32 @@ class PropsPanel(QWidget):
             tr("Steps stay in the order placed; each preserves its own camera clicks.")
         )
         layout.addWidget(self.steps)
+        support_form = QFormLayout()
+        self.ladder_support = QComboBox(self)
+        for support in ("none", "side_rails", "centre_beam"):
+            self.ladder_support.addItem(support_text(support), support)
+        self.ladder_support.setAccessibleName(tr("Ladder support bars"))
+        self.ladder_support.setAccessibleDescription(
+            tr("Draw a rail through each rung end, or one beam under the rung middles.")
+        )
+        self.ladder_support.activated.connect(self._support_chosen)
+        support_form.addRow(tr("Support"), self.ladder_support)
+        self.rung_count = QSpinBox(self)
+        self.rung_count.setRange(0, 10_000)
+        self.rung_count.setSpecialValueText(tr("Off"))
+        self.rung_count.setAccessibleName(tr("Rungs in the regular run"))
+        self.rung_count.setAccessibleDescription(
+            tr("Total rungs to extrapolate from the first two clicked rungs; Off to stop.")
+        )
+        support_form.addRow(tr("Rungs in total"), self.rung_count)
+        layout.addLayout(support_form)
+        self.extrapolate = QPushButton(tr("Extrapolate from first two rungs"), self)
+        self.extrapolate.setAccessibleName(self.extrapolate.text())
+        self.extrapolate.setAccessibleDescription(
+            tr("Click two neighbouring rungs first; clicked rungs always replace estimates.")
+        )
+        self.extrapolate.clicked.connect(self._extrapolate_chosen)
+        layout.addWidget(self.extrapolate)
         legend = QLabel(
             tr("Solid squares are your camera clicks; dashed marks are 3D projections."), self
         )
@@ -111,11 +172,25 @@ class PropsPanel(QWidget):
         self.closed.setAccessibleName(self.closed.text())
         self.closed.setAccessibleDescription(tr("Join the last clicked point to the first."))
         form.addRow(self.closed)
+        self.step_irregular = QComboBox(self)
+        self.step_irregular.addItem(tr("Regular"), "")
+        for tag in ("missing", "raised", "lowered", "shifted", "other"):
+            self.step_irregular.addItem(irregular_text(tag).capitalize(), tag)
+        self.step_irregular.setAccessibleName(tr("Step regularity"))
+        self.step_irregular.setAccessibleDescription(
+            tr("Tag a place where the ladder departs from its regular pattern.")
+        )
+        form.addRow(tr("Regularity"), self.step_irregular)
         layout.addLayout(form)
         self.add_point = QPushButton(tr("Click foothold"), self)
         self.add_rung = QPushButton(tr("Click rung ends"), self)
         self.next_point = QPushButton(tr("Next point"), self)
         self.save_step = QPushButton(tr("Save step"), self)
+        self.save_next_step = QPushButton(tr("Save and click next step"), self)
+        self.save_next_step.setAccessibleDescription(
+            tr("Save this step and start clicking the next one of the same kind.")
+        )
+        self.tag_step = QPushButton(tr("Set selected step's regularity"), self)
         self.cancel_step = QPushButton(tr("Cancel clicks"), self)
         self.remove_step = QPushButton(tr("Remove step"), self)
         self.reclick_step = QPushButton(tr("Re-click selected step"), self)
@@ -128,9 +203,11 @@ class PropsPanel(QWidget):
             self.add_rung,
             self.next_point,
             self.save_step,
+            self.save_next_step,
             self.cancel_step,
             self.reclick_step,
             self.relabel_step,
+            self.tag_step,
             self.remove_step,
             self.up,
             self.down,
@@ -145,6 +222,9 @@ class PropsPanel(QWidget):
         self.add_rung.clicked.connect(lambda: self._place(True))
         self.next_point.clicked.connect(self.next_point_requested)
         self.save_step.clicked.connect(self.save_step_requested)
+        self.save_next_step.clicked.connect(self.save_next_step_requested)
+        self.tag_step.clicked.connect(self._tag_selected_step)
+        self.steps.currentRowChanged.connect(self._show_step_tag)
         self.cancel_step.clicked.connect(self.cancel_step_requested)
         self.remove_step.clicked.connect(self._remove_selected_step)
         self.reclick_step.clicked.connect(self._reclick_selected_step)
@@ -174,6 +254,10 @@ class PropsPanel(QWidget):
         return field
 
     @staticmethod
+    def _point(fields: list[QDoubleSpinBox]) -> Point3:
+        return (float(fields[0].value()), float(fields[1].value()), float(fields[2].value()))
+
+    @staticmethod
     def _units(parent: QWidget) -> QComboBox:
         combo = QComboBox(parent)
         combo.addItem(tr("Calibration units"), "")
@@ -187,12 +271,70 @@ class PropsPanel(QWidget):
         layout = QVBoxLayout(self.belt_editor)
         layout.setContentsMargins(0, 0, 0, 0)
         form = QFormLayout()
+        self.belt_geometry_mode = QComboBox(self.belt_editor)
+        self.belt_geometry_mode.addItem(tr("Two rollers placed in 3D"), "rollers")
+        self.belt_geometry_mode.addItem(tr("Two rollers in one camera view"), "side")
+        self.belt_geometry_mode.addItem(tr("Legacy point path"), "path")
+        self.belt_geometry_mode.setAccessibleName(tr("Belt geometry model"))
+        self.belt_geometry_mode.setAccessibleDescription(
+            tr(
+                "Place measured rollers from calibrated cameras, or in one camera's "
+                "side view without calibration."
+            )
+        )
+        form.addRow(tr("Geometry"), self.belt_geometry_mode)
         self.belt_units = self._units(self.belt_editor)
         self.belt_closed = QCheckBox(tr("Closed return path"), self.belt_editor)
         self.belt_closed.setAccessibleName(self.belt_closed.text())
         form.addRow(tr("Units"), self.belt_units)
         form.addRow(self.belt_closed)
         layout.addLayout(form)
+        measure_form = QFormLayout()
+        self.belt_centre_distance = QDoubleSpinBox(self.belt_editor)
+        self.belt_centre_distance.setRange(0.0, 1_000_000_000.0)
+        self.belt_centre_distance.setDecimals(4)
+        self.belt_centre_distance.setSpecialValueText(tr("From clicks"))
+        self.belt_centre_distance.setAccessibleName(tr("Measured roller centre distance"))
+        self.belt_centre_distance.setAccessibleDescription(
+            tr("Distance between the two roller axles, measured on the apparatus.")
+        )
+        measure_form.addRow(tr("Centre distance"), self.belt_centre_distance)
+        self.belt_radius = QDoubleSpinBox(self.belt_editor)
+        self.belt_radius.setRange(0.0, 1_000_000_000.0)
+        self.belt_radius.setDecimals(4)
+        self.belt_radius.setAccessibleName(tr("Measured roller radius"))
+        measure_form.addRow(tr("Roller radius"), self.belt_radius)
+        self.belt_measure_controls = QWidget(self.belt_editor)
+        self.belt_measure_controls.setLayout(measure_form)
+        layout.addWidget(self.belt_measure_controls)
+        self.belt_placement = BeltPlacementControls(self.belt_editor)
+        self.belt_placement.start.clicked.connect(
+            lambda: self.belt_placement_requested.emit(
+                str(self.belt_geometry_mode.currentData() or "")
+            )
+        )
+        self.belt_placement.next_point.clicked.connect(self.next_point_requested)
+        self.belt_placement.place.clicked.connect(self.save_step_requested)
+        self.belt_placement.cancel.clicked.connect(self.cancel_step_requested)
+        layout.addWidget(self.belt_placement)
+        roller_form = QFormLayout()
+        self.belt_first_fields = [
+            self._coordinate(self.belt_editor, tr("First roller centre {axis}").format(axis=axis))
+            for axis in ("X", "Y", "Z")
+        ]
+        self.belt_second_fields = [
+            self._coordinate(self.belt_editor, tr("Second roller centre {axis}").format(axis=axis))
+            for axis in ("X", "Y", "Z")
+        ]
+        for axis, first, second in zip(
+            ("X", "Y", "Z"), self.belt_first_fields, self.belt_second_fields, strict=True
+        ):
+            roller_form.addRow(tr("First centre {axis}").format(axis=axis), first)
+            roller_form.addRow(tr("Second centre {axis}").format(axis=axis), second)
+        self.belt_roller_controls = QWidget(self.belt_editor)
+        self.belt_roller_controls.setLayout(roller_form)
+        layout.addWidget(self.belt_roller_controls)
+        self.belt_geometry_mode.currentIndexChanged.connect(self._update_belt_geometry_mode)
         self.belt_vertices = QListWidget(self.belt_editor)
         self.belt_vertices.setAccessibleName(tr("Belt support path vertices"))
         self.belt_vertices.setAccessibleDescription(
@@ -219,6 +361,37 @@ class PropsPanel(QWidget):
             button.setAccessibleName(button.text())
             point_buttons.addWidget(button)
         layout.addLayout(point_buttons)
+        self.belt_path_controls = (
+            self.belt_closed,
+            self.belt_vertices,
+            *self.belt_point_fields,
+            self.belt_add_vertex,
+            self.belt_update_vertex,
+            self.belt_remove_vertex,
+        )
+        surface_form = QFormLayout()
+        self.belt_width = QDoubleSpinBox(self.belt_editor)
+        self.belt_width.setRange(0.0, 1_000_000_000.0)
+        self.belt_width.setDecimals(4)
+        self.belt_width.setSpecialValueText(tr("No surface mesh"))
+        self.belt_width.setAccessibleName(tr("Measured belt surface width"))
+        self.belt_width.setAccessibleDescription(
+            tr("Width across the belt path, in the selected calibration units.")
+        )
+        surface_form.addRow(tr("Surface width"), self.belt_width)
+        self.belt_normal_fields = [
+            self._coordinate(self.belt_editor, tr("Belt surface normal X")),
+            self._coordinate(self.belt_editor, tr("Belt surface normal Y")),
+            self._coordinate(self.belt_editor, tr("Belt surface normal Z")),
+        ]
+        self.belt_normal_controls = QWidget(self.belt_editor)
+        normal_form = QFormLayout(self.belt_normal_controls)
+        normal_form.setContentsMargins(0, 0, 0, 0)
+        for axis, field in zip(("X", "Y", "Z"), self.belt_normal_fields, strict=True):
+            normal_form.addRow(tr("Surface normal {axis}").format(axis=axis), field)
+        layout.addLayout(surface_form)
+        layout.addWidget(self.belt_normal_controls)
+        self._update_belt_geometry_mode()
         direction_form = QFormLayout()
         self.belt_direction_fields = [
             self._coordinate(self.belt_editor, tr("Belt travel direction X")),
@@ -428,6 +601,15 @@ class PropsPanel(QWidget):
         self.belt_vertices.addItem(", ".join(f"{value:g}" for value in point))
         self.belt_vertices.setCurrentRow(self.belt_vertices.count() - 1)
 
+    def _update_belt_geometry_mode(self) -> None:
+        mode = self.belt_geometry_mode.currentData()
+        self.belt_roller_controls.setVisible(mode == "rollers")
+        self.belt_measure_controls.setVisible(mode in ("rollers", "side"))
+        self.belt_placement.set_mode(str(mode))
+        self.belt_normal_controls.setVisible(mode != "side")
+        for widget in self.belt_path_controls:
+            widget.setVisible(mode == "path")
+
     def _replace_belt_vertex(self) -> None:
         row = self.belt_vertices.currentRow()
         if row < 0:
@@ -449,7 +631,13 @@ class PropsPanel(QWidget):
     def belt_values(
         self,
     ) -> tuple[
-        tuple[tuple[float, float, float], ...], bool, str, tuple[float, float, float] | None
+        tuple[tuple[float, float, float], ...],
+        bool,
+        str,
+        Point3 | None,
+        float | None,
+        Point3 | None,
+        tuple[Point3, Point3, float] | None,
     ]:
         vertices: tuple[Point3, ...] = tuple(
             (
@@ -466,14 +654,53 @@ class PropsPanel(QWidget):
             float(self.belt_direction_fields[2].value()),
         )
         direction = None if all(value == 0.0 for value in direction_values) else direction_values
+        width = float(self.belt_width.value()) or None
+        normal = self._point(self.belt_normal_fields) if width else None
+        mode = self.belt_geometry_mode.currentData()
+        rollers: tuple[Point3, Point3, float] | None = None
+        if mode == "rollers":
+            rollers = (
+                self._point(self.belt_first_fields),
+                self._point(self.belt_second_fields),
+                float(self.belt_radius.value()),
+            )
+        elif mode == "side":
+            # A one-camera belt lives in its own side plane: x from hub 1 to
+            # hub 2, y up. Only the measurements give it size.
+            rollers = (
+                (0.0, 0.0, 0.0),
+                (float(self.belt_centre_distance.value()), 0.0, 0.0),
+                float(self.belt_radius.value()),
+            )
+            normal = (0.0, 1.0, 0.0) if width else None
         return (
             vertices,
             self.belt_closed.isChecked(),
             str(self.belt_units.currentData() or ""),
             direction,
+            width,
+            normal,
+            rollers,
         )
 
     def set_belt_fields(self, belt: BeltProp) -> None:
+        mode = (
+            "side"
+            if belt.side_view is not None
+            else "rollers"
+            if belt.rollers is not None
+            else "path"
+        )
+        self.belt_geometry_mode.setCurrentIndex(self.belt_geometry_mode.findData(mode))
+        if belt.rollers is not None:
+            self.belt_centre_distance.setValue(belt.rollers.run_length)
+            for fields, values in (
+                (self.belt_first_fields, belt.rollers.first),
+                (self.belt_second_fields, belt.rollers.second),
+            ):
+                for field, value in zip(fields, values, strict=True):
+                    field.setValue(value)
+            self.belt_radius.setValue(belt.rollers.radius)
         self.belt_vertices.clear()
         for vertex in belt.track.vertices:
             self.belt_vertices.addItem(", ".join(f"{value:g}" for value in vertex))
@@ -481,6 +708,12 @@ class PropsPanel(QWidget):
         self.belt_units.setCurrentIndex(max(0, self.belt_units.findData(belt.units)))
         direction = belt.travel_direction or (0.0, 0.0, 0.0)
         for field, value in zip(self.belt_direction_fields, direction, strict=True):
+            field.setValue(value)
+        self.belt_width.setValue(belt.surface_width or 0.0)
+        self.belt_placement.show_saved(belt)
+        for field, value in zip(
+            self.belt_normal_fields, belt.surface_normal or (0.0, 0.0, 0.0), strict=True
+        ):
             field.setValue(value)
         binding = belt.binding
         self.belt_reference_distance.setValue(binding.reference_distance if binding else 0.0)
@@ -703,6 +936,36 @@ class PropsPanel(QWidget):
                 self.current_ladder(), self._selected_step(), self.step_label.text().strip()
             )
 
+    def _tag_selected_step(self) -> None:
+        if self.current_ladder() and self._selected_step():
+            self.step_irregular_requested.emit(
+                self.current_ladder(),
+                self._selected_step(),
+                str(self.step_irregular.currentData() or ""),
+            )
+
+    def _show_step_tag(self, _row: int) -> None:
+        """Show the selected step's own tag so re-tagging starts from it."""
+        prop = self._store.get(self.current_ladder())
+        step_id = self._selected_step()
+        if not isinstance(prop, Ladder) or not step_id:
+            return
+        step = next((item for item in prop.steps if item.step_id == step_id), None)
+        if step is not None:
+            self.step_irregular.setCurrentIndex(
+                max(0, self.step_irregular.findData(step.irregular))
+            )
+
+    def _extrapolate_chosen(self) -> None:
+        if self.current_ladder():
+            self.rung_count_requested.emit(self.current_ladder(), int(self.rung_count.value()))
+
+    def _support_chosen(self, _index: int) -> None:
+        if self.current_ladder():
+            self.ladder_support_requested.emit(
+                self.current_ladder(), str(self.ladder_support.currentData() or "none")
+            )
+
     def _move_selected_step(self, offset: int) -> None:
         if self.current_ladder() and self._selected_step():
             self.move_step_requested.emit(self.current_ladder(), self._selected_step(), offset)
@@ -761,16 +1024,23 @@ class PropsPanel(QWidget):
         selected = self._selected_step()
         prop = self._store.get(self.current_ladder())
         self.steps.clear()
+        for control in (self.ladder_support, self.rung_count, self.extrapolate):
+            control.setEnabled(isinstance(prop, Ladder))
         if not isinstance(prop, Ladder):
             return
+        blocked = self.ladder_support.blockSignals(True)
+        self.ladder_support.setCurrentIndex(max(0, self.ladder_support.findData(prop.support)))
+        self.ladder_support.blockSignals(blocked)
+        self.rung_count.setValue(0 if prop.pattern is None else prop.pattern.count)
         for step in prop.steps:
             clicks = sum(len(point.clicks) for point in step.points)
             solved = sum(point.xyz is not None for point in step.points)
-            self.steps.addItem(
-                tr("{label} — {clicks} clicks; {solved}/{points} points in 3D").format(
-                    label=step.label, clicks=clicks, solved=solved, points=len(step.points)
-                )
+            text = tr("{label} — {clicks} clicks; {solved}/{points} points in 3D").format(
+                label=step.label, clicks=clicks, solved=solved, points=len(step.points)
             )
+            if step.irregular:
+                text = tr("{step} · {tag}").format(step=text, tag=irregular_text(step.irregular))
+            self.steps.addItem(text)
             item = self.steps.item(self.steps.count() - 1)
             item.setData(0x0100, step.step_id)
             if solved < len(step.points):

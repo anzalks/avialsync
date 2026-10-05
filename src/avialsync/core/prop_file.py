@@ -14,16 +14,20 @@ import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, TypeVar
 
 from avialsync.core.errors import PropModelError
 from avialsync.core.physical_props import (
+    LADDER_SUPPORTS,
+    STEP_IRREGULARITIES,
     BallBinding,
     BallProp,
     BallSurface,
     BallVisualFrame,
     BeltBinding,
     BeltProp,
+    BeltRollers,
+    BeltSideView,
     BeltTrack,
     BeltVisualFrame,
     Ladder,
@@ -32,6 +36,7 @@ from avialsync.core.physical_props import (
     MotionCheck,
     PhysicalProp,
     Point3,
+    RungPattern,
     StepClick,
     UnitQuaternion,
 )
@@ -67,6 +72,7 @@ _WINDOWS_RESERVED = {"CON", "PRN", "AUX", "NUL"} | {
     f"{prefix}{index}" for prefix in ("COM", "LPT") for index in range(1, 10)
 }
 _FORBIDDEN_NAME = set('<>:"/\\|?*')
+_Choice = TypeVar("_Choice", bound=str)
 PropFileIssueCode = Literal["damaged", "unsupported_version", "unsupported_kind", "name_mismatch"]
 
 
@@ -133,10 +139,26 @@ def _assert_owned(target: Path, name: str, kind: PropKind) -> bool:
 def _ladder_sections(ladder: Ladder) -> list[str]:
     """Serialize actual step clicks and their last solved 3D positions."""
     lines: list[str] = []
+    pattern = ladder.pattern
+    if ladder.support != "none" or pattern is not None:
+        lines += _table(
+            "[ladder]",
+            [
+                ("support", ladder.support),
+                ("pattern_first", None if pattern is None else pattern.first),
+                ("pattern_second", None if pattern is None else pattern.second),
+                ("rung_count", None if pattern is None else pattern.count),
+            ],
+        )
     for step in ladder.steps:
         lines += _table(
             "[[step]]",
-            [("id", step.step_id), ("label", step.label), ("closed", step.closed)],
+            [
+                ("id", step.step_id),
+                ("label", step.label),
+                ("closed", step.closed),
+                ("irregular", step.irregular or None),
+            ],
         )
         for point in step.points:
             lines += _table(
@@ -167,10 +189,39 @@ def _belt_sections(belt: BeltProp) -> list[str]:
             ("units", belt.units),
             ("closed", belt.track.closed),
             ("travel_direction", belt.travel_direction),
+            ("surface_width", belt.surface_width),
+            ("surface_normal", belt.surface_normal),
         ],
     )
     for vertex in belt.track.vertices:
         lines += _table("[[belt.vertex]]", [("xyz", vertex)])
+    if belt.rollers is not None:
+        lines += _table(
+            "[belt.rollers]",
+            [
+                ("first", belt.rollers.first),
+                ("second", belt.rollers.second),
+                ("radius", belt.rollers.radius),
+                ("width", belt.rollers.width),
+                ("top_normal", belt.rollers.top_normal),
+            ],
+        )
+    for corner in belt.corners or ():
+        lines += _table("[[belt.corner]]", [])
+        lines += _visual_clicks("belt.corner", corner)
+    if belt.side_view is not None:
+        view = belt.side_view
+        lines += _table(
+            "[belt.side_view]",
+            [
+                ("camera", view.camera),
+                ("frame", view.frame),
+                ("hub_first", view.pixels[0]),
+                ("hub_second", view.pixels[1]),
+                ("top_first", view.pixels[2]),
+                ("top_second", view.pixels[3]),
+            ],
+        )
     if belt.binding is not None:
         binding = belt.binding
         lines += _table(
@@ -405,6 +456,12 @@ def _point3(value: object) -> Point3:
     return (_number(value[0]), _number(value[1]), _number(value[2]))
 
 
+def _pixel(value: object) -> tuple[float, float]:
+    if not isinstance(value, list) or len(value) != 2:
+        raise PropModelError("A clicked pixel needs two coordinates.")
+    return (_number(value[0]), _number(value[1]))
+
+
 def _quaternion(value: object) -> UnitQuaternion:
     return UnitQuaternion(*_point4(value))
 
@@ -464,15 +521,36 @@ def _parse_ladder(head: Mapping[str, Any], document: Mapping[str, Any]) -> Ladde
             label=_text(row["label"]),
             points=tuple(_parse_point(point) for point in _records(row["point"])),
             closed=_flag(row, "closed"),
+            irregular=_choice(row.get("irregular", ""), STEP_IRREGULARITIES),
         )
         for row in _records(document.get("step", []))
+    )
+    table = _mapping(document.get("ladder", {}))
+    pattern = (
+        RungPattern(
+            _text(table["pattern_first"]),
+            _text(table["pattern_second"]),
+            _integer(table["rung_count"]),
+        )
+        if "rung_count" in table
+        else None
     )
     return Ladder(
         name=_text(head["name"]),
         steps=steps,
         calibration=_text(head.get("calibration", "")),
         units=_text(head.get("units", "")),
+        support=_choice(table.get("support", "none"), LADDER_SUPPORTS),
+        pattern=pattern,
     )
+
+
+def _choice(value: object, choices: tuple[_Choice, ...]) -> _Choice:
+    """One of a closed set of stable codes; an unknown code is a damaged record."""
+    for choice in choices:
+        if value == choice:
+            return choice
+    raise PropModelError("A prop field has an unknown value.")
 
 
 def _parse_belt(head: Mapping[str, Any], document: Mapping[str, Any]) -> BeltProp:
@@ -506,6 +584,37 @@ def _parse_belt(head: Mapping[str, Any], document: Mapping[str, Any]) -> BeltPro
         if visual_table is not None
         else ()
     )
+    corners = tuple(
+        _parse_point({"click": row.get("click", [])}) for row in _records(table.get("corner", []))
+    )
+    if len(corners) not in (0, 4):
+        raise PropModelError("A belt placement needs exactly four clicked corners.")
+    side_table = table.get("side_view")
+    side_view = None
+    if side_table is not None:
+        side = _mapping(side_table)
+        side_view = BeltSideView(
+            _text(side["camera"]),
+            _integer(side["frame"]),
+            (
+                _pixel(side["hub_first"]),
+                _pixel(side["hub_second"]),
+                _pixel(side["top_first"]),
+                _pixel(side["top_second"]),
+            ),
+        )
+    roller_table = table.get("rollers")
+    rollers = (
+        BeltRollers(
+            _point3(roller_table["first"]),
+            _point3(roller_table["second"]),
+            _number(roller_table["radius"]),
+            _number(roller_table["width"]),
+            _point3(roller_table["top_normal"]),
+        )
+        if isinstance(roller_table, dict)
+        else None
+    )
     return BeltProp(
         name=_text(head["name"]),
         track=BeltTrack(vertices, closed=_flag(table, "closed")),
@@ -516,6 +625,11 @@ def _parse_belt(head: Mapping[str, Any], document: Mapping[str, Any]) -> BeltPro
         if visual_table is None
         else _integer(visual_table["reference_frame"]),
         visual_frames=visual_frames,
+        surface_width=None if "surface_width" not in table else _number(table["surface_width"]),
+        surface_normal=None if "surface_normal" not in table else _point3(table["surface_normal"]),
+        rollers=rollers,
+        corners=(corners[0], corners[1], corners[2], corners[3]) if corners else None,
+        side_view=side_view,
     )
 
 

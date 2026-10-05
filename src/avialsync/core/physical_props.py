@@ -22,6 +22,7 @@ from typing import Literal
 
 import numpy as np
 
+from avialsync.core.belt_rollers import BeltRollers, BeltSideView
 from avialsync.core.calibration import CameraModel, triangulate
 from avialsync.core.errors import PropModelError
 from avialsync.core.wheel import Wheel, WheelGeometry
@@ -30,6 +31,10 @@ __all__ = [
     "Point3",
     "StepClick",
     "LadderPointIssue",
+    "LadderSupport",
+    "StepIrregularity",
+    "LADDER_SUPPORTS",
+    "STEP_IRREGULARITIES",
     "LadderPoint",
     "LadderStep",
     "Ladder",
@@ -37,6 +42,9 @@ __all__ = [
     "BallProp",
     "BeltVisualFrame",
     "BallVisualFrame",
+    "BeltSideView",
+    "RungPattern",
+    "LadderLayout",
     "BeltBinding",
     "BallBinding",
     "MotionCheck",
@@ -44,6 +52,7 @@ __all__ = [
     "PropStore",
     "WheelView",
     "BeltTrack",
+    "BeltRollers",
     "UnitQuaternion",
     "BallSurface",
     "WheelMaterialMap",
@@ -51,6 +60,19 @@ __all__ = [
 
 Point3 = tuple[float, float, float]
 LadderPointIssue = Literal["need_two_calibrated_views", "rays_parallel", "invalid_solution"]
+LadderSupport = Literal["none", "side_rails", "centre_beam"]
+"""How the rungs are held: no drawn support, a rail through each rung end, or one central beam."""
+StepIrregularity = Literal["", "missing", "raised", "lowered", "shifted", "other"]
+"""A user's tag for a place where the walkway departs from its regular pattern."""
+LADDER_SUPPORTS: tuple[LadderSupport, ...] = ("none", "side_rails", "centre_beam")
+STEP_IRREGULARITIES: tuple[StepIrregularity, ...] = (
+    "",
+    "missing",
+    "raised",
+    "lowered",
+    "shifted",
+    "other",
+)
 _MIN_RAY_ANGLE_DEG = 1.0
 
 
@@ -206,16 +228,21 @@ class LadderStep:
     One point draws a foothold; two draw a rung/edge; more draw only the
     segments between explicitly clicked points. ``closed`` joins the last to
     the first for an outline the user declared, never for an inferred step.
+    ``irregular`` is the user's tag for a missing, raised, lowered, or shifted
+    place; the clicks remain the geometry either way.
     """
 
     step_id: str
     label: str
     points: tuple[LadderPoint, ...]
     closed: bool = False
+    irregular: StepIrregularity = ""
 
     def __post_init__(self) -> None:
         if not self.step_id or not self.label or not self.points:
             raise PropModelError("A ladder step needs an id, label, and clicked point.")
+        if self.irregular not in STEP_IRREGULARITIES:
+            raise PropModelError("A ladder step has an unknown irregularity tag.")
         if self.closed and len(self.points) < 3:
             raise PropModelError("A closed step outline needs at least three points.")
 
@@ -227,18 +254,60 @@ class LadderStep:
 
 
 @dataclass(frozen=True)
+class RungPattern:
+    """A regular run of rungs extrapolated from two clicked neighbours (D-165).
+
+    ``first`` and ``second`` are the ids of two adjacent clicked rungs; their
+    four ends fix the spacing. ``count`` is the number of rungs in the run,
+    those two included. Extrapolated rungs are estimates: a clicked rung at the
+    same place replaces one, and nothing extrapolated becomes a click.
+    """
+
+    first: str
+    second: str
+    count: int
+
+    def __post_init__(self) -> None:
+        if not self.first or not self.second or self.first == self.second:
+            raise PropModelError("A rung pattern needs two different clicked rungs.")
+        if type(self.count) is not int or not 2 <= self.count <= 10_000:
+            raise PropModelError("A rung pattern needs between 2 and 10000 rungs.")
+
+
+@dataclass(frozen=True)
+class LadderLayout:
+    """How a ladder's rungs are held and whether a regular run is extrapolated."""
+
+    support: LadderSupport = "none"
+    pattern: RungPattern | None = None
+
+
+@dataclass(frozen=True)
 class Ladder:
-    """A static ordered collection of exactly the steps the user placed."""
+    """A static ordered collection of exactly the steps the user placed.
+
+    ``support`` declares how the rungs are held. Its bars are drawn through the
+    clicked rungs in the user's order; they never add, move, or space a rung.
+    """
 
     name: str
     steps: tuple[LadderStep, ...] = ()
     calibration: str = ""
     units: str = ""
+    support: LadderSupport = "none"
+    pattern: RungPattern | None = None
+
+    @property
+    def layout(self) -> LadderLayout:
+        """The support and rung pattern, as one undoable value."""
+        return LadderLayout(self.support, self.pattern)
 
     def __post_init__(self) -> None:
         ids = [step.step_id for step in self.steps]
         if not self.name or len(ids) != len(set(ids)):
             raise PropModelError("A ladder needs a name and unique step ids.")
+        if self.support not in LADDER_SUPPORTS:
+            raise PropModelError("A ladder has an unknown support layout.")
 
     def with_step(self, step: LadderStep, position: int | None = None) -> Ladder:
         """Replace a step in place, or insert a newly clicked step."""
@@ -306,12 +375,59 @@ class BeltProp:
     binding: BeltBinding | None = None
     visual_reference_frame: int | None = None
     visual_frames: tuple[BeltVisualFrame, ...] = ()
+    surface_width: float | None = None
+    surface_normal: Point3 | None = None
+    rollers: BeltRollers | None = None
+    corners: tuple[LadderPoint, LadderPoint, LadderPoint, LadderPoint] | None = None
+    """Raw clicks on the top run's four corners that placed the rollers in 3D."""
+    side_view: BeltSideView | None = None
+    """One camera's clicks that place the belt in that view's side plane instead."""
 
     def __post_init__(self) -> None:
         if not self.name:
             raise PropModelError("A belt needs a name.")
+        if self.corners is not None and len(self.corners) != 4:
+            raise PropModelError("A belt placement needs exactly four clicked corners.")
+        if self.side_view is not None and (
+            self.rollers is None or not BeltSideView.is_side_frame(self.rollers)
+        ):
+            raise PropModelError("A one-camera belt needs rollers in its side plane.")
         if self.units not in ("", "mm", "cm", "m"):
             raise PropModelError("A belt needs supported calibration units.")
+        if (self.surface_width is None) != (self.surface_normal is None):
+            raise PropModelError("A belt surface needs both a width and a normal.")
+        if self.rollers is not None:
+            if not self.track.closed:
+                raise PropModelError("A two-roller belt needs a closed display path.")
+            if self.surface_width != self.rollers.width or self.surface_normal is None:
+                raise PropModelError("Belt roller width and top direction must match its surface.")
+            normal = np.asarray(self.surface_normal, dtype=np.float64)
+            normal /= np.linalg.norm(normal)
+            if not np.allclose(normal, self.rollers.top_normal, atol=1e-6):
+                raise PropModelError("Belt roller top direction must match its surface normal.")
+        if self.surface_width is not None:
+            if not math.isfinite(self.surface_width) or self.surface_width <= 0:
+                raise PropModelError("A belt surface width must be positive and finite.")
+            assert self.surface_normal is not None
+            if not _finite_point(self.surface_normal):
+                raise PropModelError("A belt surface normal must be finite.")
+            normal = np.asarray(self.surface_normal, dtype=np.float64)
+            norm = float(np.linalg.norm(normal))
+            if norm < 1e-12:
+                raise PropModelError("A belt surface normal must be nonzero.")
+            normal /= norm
+            object.__setattr__(self, "surface_normal", tuple(float(value) for value in normal))
+            vertices = self.track.vertices
+            pairs = zip(
+                vertices if self.track.closed else vertices[:-1],
+                (*vertices[1:], vertices[0]) if self.track.closed else vertices[1:],
+                strict=True,
+            )
+            if self.rollers is None and any(
+                np.linalg.norm(np.cross(normal, np.asarray(end) - np.asarray(start))) < 1e-9
+                for start, end in pairs
+            ):
+                raise PropModelError("A belt surface normal cannot follow a path segment.")
         if self.travel_direction is not None:
             if not _finite_point(self.travel_direction):
                 raise PropModelError("A belt travel direction must be finite.")
@@ -341,7 +457,7 @@ class BeltProp:
             if abs(alignment) < 1e-9 * math.hypot(*tangent):
                 raise PropModelError("Belt direction must follow the first path segment.")
             if self.binding is not None and not (
-                0 <= self.binding.reference_distance <= self.track.length
+                0 <= self.binding.reference_distance <= self.path_length
             ):
                 raise PropModelError("Belt mark must begin on the declared path.")
 
@@ -360,9 +476,47 @@ class BeltProp:
             raise PropModelError("Belt direction must follow the first path segment.")
         signed = math.copysign(1.0, alignment) * self.binding.units_per_reading
         origin = self.binding.reference_reading if reference_reading is None else reference_reading
-        return self.track.material_point(
-            self.binding.reference_distance, signed * (reading - origin)
+        travel = signed * (reading - origin)
+        if self.rollers is not None:
+            return self.rollers.point_at(self.binding.reference_distance + travel)
+        return self.track.material_point(self.binding.reference_distance, travel)
+
+    @property
+    def path_length(self) -> float:
+        """Exact roller loop length, or the length of a legacy declared path."""
+        return self.rollers.length if self.rollers is not None else self.track.length
+
+    def surface_quads(self) -> tuple[tuple[Point3, Point3, Point3, Point3], ...]:
+        """Measured ribbon faces around the path; empty without width or a 3D placement."""
+        if self.surface_width is None or self.surface_normal is None or self.side_view:
+            return ()
+        if self.rollers is not None:
+            return self.rollers.surface_quads()
+        normal = np.asarray(self.surface_normal, dtype=np.float64)
+        vertices = self.track.vertices
+        pairs = zip(
+            vertices if self.track.closed else vertices[:-1],
+            (*vertices[1:], vertices[0]) if self.track.closed else vertices[1:],
+            strict=True,
         )
+
+        def point(values: np.ndarray) -> Point3:
+            return (float(values[0]), float(values[1]), float(values[2]))
+
+        quads: list[tuple[Point3, Point3, Point3, Point3]] = []
+        for start, end in pairs:
+            a, b = np.asarray(start), np.asarray(end)
+            lateral = np.cross(normal, b - a)
+            lateral *= self.surface_width / (2.0 * np.linalg.norm(lateral))
+            quads.append(
+                (
+                    point(a - lateral),
+                    point(a + lateral),
+                    point(b + lateral),
+                    point(b - lateral),
+                )
+            )
+        return tuple(quads)
 
 
 @dataclass(frozen=True)
@@ -538,6 +692,15 @@ class PropStore:
             self._props[name] = prop
         self._notify(name)
         return True
+
+    def set_layout(self, name: str, layout: LadderLayout) -> bool:
+        """Change a ladder's support and rung pattern; every click is kept."""
+        prop = self.get(name)
+        if not isinstance(prop, Ladder):
+            raise PropModelError("A ladder layout needs an existing ladder.")
+        return self.set(
+            name, dataclasses.replace(prop, support=layout.support, pattern=layout.pattern)
+        )
 
     def set_step(
         self, name: str, step_id: str, step: LadderStep | None, position: int | None = None

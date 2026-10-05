@@ -65,12 +65,13 @@ Both pin the application appearance and wait for the camera frame to be painted;
 loads generated frame-strobe evidence and captures a completed preview. The Messages image adds
 generated text attributed to `synthetic_rig_log.txt`.
 
-`tools/generate_feature_screenshots.py` writes the `feature_*` images from the same synthetic
-fixture: the Props tab (a ladder added through its own Add control, saved example belt and ball,
-their geometry and motion controls, and the wheel setup dialog), the
-Tasks tab, the File → Cache and View → Overlays menus, the command palette,
-Preferences, and the Light theme. It pins the appearance without saving it and only shows dialogs,
-never accepts them.
+`tools/generate_feature_screenshots.py` writes the `feature_*` images from synthetic calibrated
+camera views. It actually clicks three horizontal ladder rungs, a mark on a measured two-roller
+belt, three ball landmarks, and wheel bar ends in two cameras, then captures the camera overlays
+and reconstructed 3D viewer. It also captures the Props editors, wheel fit review and acceptance,
+Tasks, File → Cache, View → Overlays, the command palette, Preferences, and Light theme. It pins
+the appearance without changing saved preferences. The screenshots are reproducible from the
+script; their mesh and bar geometry comes from the accepted app models, not image annotations.
 
 ```bash
 conda run -n avialsync python tools/generate_feature_screenshots.py

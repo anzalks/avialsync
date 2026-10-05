@@ -301,6 +301,16 @@ class WindowMutationTarget:
             if self._window.props_app.store.move_step(name, step_id, position):
                 self._window.props_app.persist(name)
 
+    def set_ladder_layout(self, name: str, layout: object) -> None:
+        """Change a ladder's support and rung pattern through the store and sidecar queue."""
+        from avialsync.core.physical_props import LadderLayout
+
+        if not isinstance(layout, LadderLayout):
+            return
+        with self.replaying():
+            if self._window.props_app.store.set_layout(name, layout):
+                self._window.props_app.persist(name)
+
     # ── sources ──────────────────────────────────────────────────────
 
     def add_source(self, record: SourceRecord) -> None:

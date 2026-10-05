@@ -29,6 +29,7 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 
 from avialsync.ui.i18n import tr
+from avialsync.ui.label_layout import LabelLayout
 
 __all__ = ["WheelBar", "WheelDrawing", "draw_wheel", "draw_wheel_clicks"]
 
@@ -117,13 +118,24 @@ def draw_wheel(
 
 
 def draw_wheel_clicks(
-    painter: QPainter, drawing: WheelDrawing, scale: float, offset_x: float, offset_y: float
+    painter: QPainter,
+    drawing: WheelDrawing,
+    scale: float,
+    offset_x: float,
+    offset_y: float,
+    bounds: QRectF | None = None,
+    avoid: tuple[QRectF, ...] = (),
 ) -> None:
-    """Draw real clicks and distinct projected estimates over the tracking."""
+    """Draw real clicks and distinct projected estimates over the tracking.
+
+    Their names are placed by :class:`LabelLayout` (D-166): beside each mark,
+    inside the picture, clear of each other and of the pane's header.
+    """
+    area = bounds or QRectF(painter.viewport())
+    labels = LabelLayout(painter, area, avoid, mark_radius=_CLICK_RADIUS + 1)
     painter.save()
     painter.setBrush(Qt.BrushStyle.NoBrush)
     for label, x, y in drawing.projections:
-        projected_label = tr("{point} projected").format(point=label.upper())
         centre = QPointF(offset_x + x * scale, offset_y + y * scale)
         points = (
             centre + QPointF(0, -_CLICK_RADIUS),
@@ -137,31 +149,42 @@ def draw_wheel_clicks(
         painter.setPen(_pen(_BAR, 1.5, True))
         for start, end in zip(points, (*points[1:], points[0]), strict=True):
             painter.drawLine(start, end)
-        label_pos = centre + QPointF(_CLICK_RADIUS + 2, -_CLICK_RADIUS)
-        painter.setPen(_pen(_UNDERLAY, 1.5, False))
-        painter.drawText(label_pos + QPointF(1, 1), projected_label)
-        painter.setPen(_pen(_BAR, 1.5, False))
-        painter.drawText(label_pos, projected_label)
+        labels.mark(centre)
+        labels.label(centre, tr("{point} projected").format(point=label.upper()), _BAR, dashed=True)
     for label, x, y in drawing.clicks:
         centre = QPointF(offset_x + x * scale, offset_y + y * scale)
         painter.setPen(_pen(_UNDERLAY, 3.0, False))
         painter.drawEllipse(centre, _CLICK_RADIUS, _CLICK_RADIUS)
         painter.setPen(_pen(_BAR, 1.5, False))
         painter.drawEllipse(centre, _CLICK_RADIUS, _CLICK_RADIUS)
-        label_pos = centre + QPointF(_CLICK_RADIUS + 2, -_CLICK_RADIUS)
-        painter.setPen(_pen(_UNDERLAY, 1.5, False))
-        painter.drawText(label_pos + QPointF(1, 1), label)
-        painter.setPen(_pen(_BAR, 1.5, False))
-        painter.drawText(label_pos, label)
+        labels.mark(centre)
+        labels.label(centre, label, _BAR)
+    painter.restore()
+    labels.draw()
     if drawing.prompt:
-        metrics = painter.fontMetrics()
-        available = max(0, painter.viewport().width() - 30)
-        if available:
-            cue = metrics.elidedText(drawing.prompt, Qt.TextElideMode.ElideRight, available)
-            box = QRectF(8, 8, metrics.horizontalAdvance(cue) + 14, metrics.height() + 8)
-            painter.setBrush(_UNDERLAY)
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawRoundedRect(box, 4, 4)
-            painter.setPen(_pen(_BAR, 1.0, False))
-            painter.drawText(QPointF(15, 12 + metrics.ascent()), cue)
+        _draw_prompt(painter, drawing.prompt, area, avoid)
+
+
+def _draw_prompt(painter: QPainter, prompt: str, area: QRectF, avoid: tuple[QRectF, ...]) -> None:
+    """The placement cue as one pill along the picture's bottom edge.
+
+    The bottom, because the top of every pane already carries its file name
+    and timing readout; centred, clear of the zoom buttons in the corner.
+    """
+    metrics = painter.fontMetrics()
+    available = max(0, int(area.width()) - 24)
+    if not available:
+        return
+    cue = metrics.elidedText(prompt, Qt.TextElideMode.ElideRight, available)
+    width, height = metrics.horizontalAdvance(cue) + 14, metrics.height() + 8
+    box = QRectF(area.center().x() - width / 2, area.bottom() - height - 8, width, height)
+    for rect in avoid:
+        if box.intersects(rect):
+            box.moveBottom(rect.top() - 6)
+    painter.save()
+    painter.setBrush(_UNDERLAY)
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.drawRoundedRect(box, 4, 4)
+    painter.setPen(_pen(_BAR, 1.0, False))
+    painter.drawText(box, int(Qt.AlignmentFlag.AlignCenter), cue)
     painter.restore()

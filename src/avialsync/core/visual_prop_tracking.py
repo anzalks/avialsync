@@ -13,7 +13,13 @@ from dataclasses import dataclass
 import numpy as np
 
 from avialsync.core.calibration import CameraModel
-from avialsync.core.physical_props import BallProp, BeltProp, LadderPoint, Point3
+from avialsync.core.physical_props import (
+    BallProp,
+    BeltProp,
+    BeltVisualFrame,
+    LadderPoint,
+    Point3,
+)
 
 
 @dataclass(frozen=True)
@@ -75,12 +81,23 @@ def _belt_visual(
     observation = next((item for item in belt.visual_frames if item.frame == frame), None)
     if observation is None:
         return None, None
+    if belt.side_view is not None:
+        return _side_view_visual(belt, observation)
     solved = _solved(observation.point, cameras)
     if solved.xyz is None or solved.error_px is None:
         return None, None
     if solved.error_px > 5.0:
         return None, INCONSISTENT_VIEWS
     xyz = np.asarray(solved.xyz, dtype=np.float64)
+    if belt.rollers is not None:
+        offset, path_distance, closest = belt.rollers.closest(solved.xyz)
+        tolerance = max(1e-6, belt.path_length * 0.05)
+        if offset > tolerance:
+            return None, OFF_PATH
+        return (
+            BeltVisualState(closest, path_distance, offset, solved.error_px, observation.lap),
+            None,
+        )
     vertices = belt.track.vertices
     segments = zip(
         vertices if belt.track.closed else vertices[:-1],
@@ -105,7 +122,7 @@ def _belt_visual(
         distance += length
     candidates.sort(key=lambda item: item[0])
     best = candidates[0]
-    tolerance = max(1e-6, belt.track.length * 0.05)
+    tolerance = max(1e-6, belt.path_length * 0.05)
     if best[0] > tolerance:
         # A mark clicked well in two cameras that lies off the typed path means
         # the path, or its units, disagree with the calibration.
@@ -115,11 +132,36 @@ def _belt_visual(
     if any(
         abs(other[0] - best[0]) < tolerance * 0.05
         and abs(other[1] - best[1]) > tolerance * 0.05
-        and abs(other[1] - best[1]) < belt.track.length - tolerance * 0.05
+        and abs(other[1] - best[1]) < belt.path_length - tolerance * 0.05
         for other in candidates[1:]
     ):
         return None, AMBIGUOUS_CROSSING
     return BeltVisualState(best[2], best[1], best[0], solved.error_px, observation.lap), None
+
+
+def _side_view_visual(
+    belt: BeltProp, observation: BeltVisualFrame
+) -> tuple[BeltVisualState | None, str | None]:
+    """One click in a one-camera belt's own view maps back onto its side profile.
+
+    The side plane is the only surface that view's clicks can locate without a
+    second camera, so the mark is read where the profile shows it (D-165).
+    """
+    view, rollers = belt.side_view, belt.rollers
+    assert view is not None and rollers is not None
+    click = next((item for item in observation.point.clicks if item.camera == view.camera), None)
+    if click is None:
+        return None, None
+    mapping = view.plane_view(rollers)
+    plane = mapping.plane(click.x, click.y)
+    if plane is None:
+        return None, OFF_PATH
+    offset, path_distance, closest = rollers.closest((plane[0], plane[1], 0.0))
+    if offset > max(1e-6, belt.path_length * 0.05):
+        return None, OFF_PATH
+    pixel = mapping.pixel(closest[0], closest[1])
+    error = math.inf if pixel is None else math.hypot(pixel[0] - click.x, pixel[1] - click.y)
+    return BeltVisualState(closest, path_distance, offset, error, observation.lap), None
 
 
 def belt_visual_travel(
@@ -143,7 +185,7 @@ def belt_visual_travel(
         return sign * (
             current.path_distance
             - reference.path_distance
-            + (current.lap - reference.lap) * belt.track.length
+            + (current.lap - reference.lap) * belt.path_length
         )
     return sign * (current.path_distance - reference.path_distance)
 

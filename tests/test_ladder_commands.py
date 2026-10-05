@@ -5,6 +5,7 @@ from __future__ import annotations
 from avialsync.core.commands import (
     MoveLadderStepCommand,
     SetLadderCommand,
+    SetLadderLayoutCommand,
     SetLadderStepCommand,
     SetPhysicalPropCommand,
 )
@@ -13,10 +14,12 @@ from avialsync.core.physical_props import (
     BeltProp,
     BeltTrack,
     Ladder,
+    LadderLayout,
     LadderPoint,
     LadderStep,
     PhysicalProp,
     PropStore,
+    RungPattern,
     StepClick,
 )
 
@@ -40,6 +43,9 @@ class Target:
 
     def move_ladder_step(self, name: str, step_id: str, position: int) -> None:
         self.props.move_step(name, step_id, position)
+
+    def set_ladder_layout(self, name: str, layout: LadderLayout) -> None:
+        self.props.set_layout(name, layout)
 
 
 def _step(step_id: str, x: float) -> LadderStep:
@@ -108,3 +114,23 @@ def test_reorder_keeps_irregular_steps_and_undo_restores_order() -> None:
     assert target.props.get("steps").steps == (steps[2], steps[0], steps[1])
     assert document.undo(target)
     assert target.props.get("steps").steps == steps
+
+
+def test_ladder_layout_change_is_one_undoable_step_that_keeps_clicks() -> None:
+    target = Target()
+    document = Document()
+    ladder = Ladder("Ladder", (_step("a", 10.0), _step("b", 30.0)))
+    document.execute(SetLadderCommand("Ladder", None, ladder, "Add"), target)
+    document.execute(
+        SetLadderLayoutCommand(
+            "Ladder", LadderLayout(), LadderLayout("side_rails", RungPattern("a", "b", 5)), "Layout"
+        ),
+        target,
+    )
+    changed = target.props.get("Ladder")
+    assert isinstance(changed, Ladder)
+    assert changed.support == "side_rails"
+    assert changed.pattern == RungPattern("a", "b", 5)
+    assert changed.steps == ladder.steps
+    document.undo(target)
+    assert target.props.get("Ladder") == ladder

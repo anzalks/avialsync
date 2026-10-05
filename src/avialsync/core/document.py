@@ -40,7 +40,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from avialsync.core.custom_markers import CustomMarker
-    from avialsync.core.physical_props import Ladder, LadderStep, PhysicalProp
+    from avialsync.core.physical_props import Ladder, LadderLayout, LadderStep, PhysicalProp
     from avialsync.core.wheel import Wheel
 
 __all__ = [
@@ -191,6 +191,9 @@ class MutationTarget(Protocol):
 
     def move_ladder_step(self, name: str, step_id: str, position: int) -> None:
         """Change one step's position without storing all its neighbours."""
+
+    def set_ladder_layout(self, name: str, layout: LadderLayout) -> None:
+        """Change one ladder's support and rung pattern, keeping every click."""
 
     def add_source(self, record: SourceRecord) -> None:
         """Load a source back into the workspace."""

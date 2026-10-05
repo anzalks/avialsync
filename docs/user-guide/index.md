@@ -322,22 +322,74 @@ platform edge. Click the point in each camera where it is visible, use **Next po
 then **Save step**. A point clicked in two calibrated cameras is placed in 3D and reports its fit
 error; a point seen by one camera stays 2D and is still kept. Steps stay in the order you placed them —
 **Move step up** / **Move step down** reorder them, and **Rename selected step**, **Re-click selected
-step** and **Remove step** edit one. AvialSync never generates rungs from a spacing or forces them onto
-one level, so an irregular ladder is recorded as it is.
+step** and **Remove step** edit one. AvialSync never forces rungs onto one level, so an irregular
+ladder is recorded as it is. For a regular ladder, click the ends of two neighbouring rungs, set
+**Rungs in total**, and choose **Extrapolate from first two rungs**. The remaining rungs are drawn
+dashed and labelled *(est.)*, with correct perspective in every camera where both rungs are visible;
+one camera is enough, and calibration is not needed for the camera view. Any rung you click replaces
+the estimate at that place, so click the irregular ones and let the rest be extrapolated, or click
+them all. Set **Rungs in total** to **Off** to show only clicked rungs. To click every rung in turn,
+use **Save and click next step**: it saves the step and starts the next one of the same kind. Where the ladder departs
+from its regular pattern, choose a **Regularity** tag — missing rung, raised, lowered, shifted
+sideways, or irregular — before saving, or select a saved step and use **Set selected step's
+regularity**. For a missing rung, click where it would be. The tag is shown beside the step's label;
+the clicks remain its geometry. **Support** draws how the rungs are held: **Side rails at rung ends**
+joins the matching ends of consecutive rungs, and **Centre beam under rungs** joins their middles. The
+bars are dashed because they are drawn between your clicks, not clicked themselves; they never add or
+move a rung. In the example, three rungs are clicked on side rails, the third tagged as raised, and
+the run is extrapolated to six rungs. Clicked ends are solid in their camera; estimates and
+projections into an unclicked camera are dashed.
 
 ![The ladder controls for clicking a foothold or rung and saving the step](../_static/screenshots/feature_props_ladder_steps.png)
 
-![The Props tab with Belt selected: units, the support path points, and the travel direction](../_static/screenshots/feature_props_belt.png)
+![Clicking a rung end in a calibrated camera](../_static/screenshots/feature_props_ladder_clicks.png)
 
-For a **belt**, add its support path points in order, set the travel direction along the first
-segment, and save the fixed geometry. The path and units must use the calibration's 3D frame.
-Then identify a surface mark by its distance along the path, select a displacement channel, and
-choose **Bind displacement at current frame**.
-Set **Distance per reading unit** in the path's units.
+![The ladder's support, step regularity and save-and-next controls](../_static/screenshots/feature_props_ladder_support.png)
 
-![The belt's ordered support points, point editor and travel direction](../_static/screenshots/feature_props_belt_geometry.png)
+![Clicked rungs on side rails with the rest of a regular run extrapolated](../_static/screenshots/feature_props_ladder_viewer.png)
+
+![The Props tab with the measured two-roller belt selected](../_static/screenshots/feature_props_belt.png)
+
+For a **treadmill belt**, measure the apparatus first: the distance between the two roller axles and
+the roller radius. Clicks then say where the belt is; your measurements say how big it is.
+
+With two calibrated cameras, choose **Two rollers placed in 3D**, enter **Centre distance** and
+**Roller radius**, and choose **Click 4 top corners**. Click a top corner near the first roller in
+two cameras, choose **Next placement point**, click the other corner on that roller's end, then the
+two corners near the second roller (the first of them on the first corner's side). Choose **Place
+belt from clicks**, then **Save belt geometry**. The corners give the top plane (facing the
+cameras), the direction of travel, the width and the belt's middle; the typed centre distance and
+radius give its size. Leave **Centre distance** at **From clicks** to use the clicked span instead.
+All four corners stay marked in every camera, and the status reports how flat they are. You can also
+type the centres, width and top direction yourself.
+
+With one camera, for example a side view, choose **Two rollers in one camera view**, enter **Centre
+distance**, **Roller radius** and **Surface width**, choose **Click hubs and belt top**, and click
+in that camera: the first roller's hub, the second roller's hub, the belt's top above the first hub
+and the top above the second hub. These four points fix the view's perspective of the belt's side,
+so no calibration is needed. The belt is drawn only in that camera and not placed in 3D; a belt mark
+can still be tracked there with one click per frame, and travel direction X runs from hub 1 to hub 2.
+
+In either mode the top run is flat. AvialSync draws the top and return surfaces around both
+rollers. Its exact loop length is twice the centre separation plus the circumference of one roller;
+the curved wraps are used for motion even though the viewer draws them as a surface mesh. Set the
+travel direction along the top run. To locate a painted mark from a displacement channel, enter
+its reference distance along the loop, select the channel, set **Distance per reading unit** in the
+geometry's units, and choose **Bind displacement at current frame**. The top can move while the
+roller centres remain fixed. The **Legacy point path** choice opens belts saved with individual
+path vertices; use it only when the apparatus cannot be described by two equal rollers.
+
+![The belt's measured roller centres and radius](../_static/screenshots/feature_props_belt_geometry.png)
+
+![The belt's measured width and top-surface direction](../_static/screenshots/feature_props_belt_surface_fields.png)
+
+![Four clicked top corners placing the belt in every camera](../_static/screenshots/feature_props_belt_corners.png)
+
+![A one-camera belt placed from its hubs and top in a side view](../_static/screenshots/feature_props_belt_side_view.png)
 
 ![The belt's displacement channel and camera-click tracking controls](../_static/screenshots/feature_props_belt_evidence.png)
+
+![A stereo-clicked belt mark over the recreated top, return and roller-wrap surface in camera and 3D viewers](../_static/screenshots/feature_props_belt_viewer.png)
 
 For a **ball**, enter its centre, radius and units in the calibration's 3D frame and save its
 geometry. To use sensor motion, identify the surface mark's world direction on the reference frame,
@@ -346,6 +398,8 @@ current frame**. The support path or sphere stays fixed while the identified mar
 measured channel values. Missing readings leave that mark hidden.
 
 ![The ball's centre, radius and calibration units](../_static/screenshots/feature_props_ball_geometry.png)
+
+![The recreated ball surface and short labels in camera and 3D viewers](../_static/screenshots/feature_props_ball_viewer.png)
 
 Use **Check ... mark on later frame**, then click the visible mark in a calibrated camera to save
 the observed pixel and its difference from the predicted mark. Checks do not change the binding
@@ -412,6 +466,12 @@ least two cameras and their calibration (the same one Add 3D Marker uses).
    agree with bars 1 and 2, for example because its ends were clicked the other way round, the
    Wheel page says it was left out of the fit. Its clicks are still saved.
    **Done Labelling** exits click mode and is one undo step; **Discard Clicks** exits without saving.
+
+   ![Wheel bars reconstructed as a dashed preview from stereo-clicked ends](../_static/screenshots/feature_props_wheel_preview.png)
+
+   ![Reviewing the fitted wheel and its measured bar ends in Props](../_static/screenshots/feature_props_wheel_review.png)
+
+   ![Accepted wheel bars shown across calibrated cameras and in the 3D viewer](../_static/screenshots/feature_props_wheel_viewer.png)
 
 The wheel uses the accepted bars as neighbours in click order and remains visible even when it fits
 poorly. All real clicks remain saved, including a third bar left out of the fit. A poor fit is

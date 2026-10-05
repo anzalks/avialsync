@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any, cast
 
 import numpy as np
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, QPointF, QRectF, QSizeF, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
@@ -323,8 +323,9 @@ class PaintCanvas(MarkerOverlayMixin):
         offset_y: float,
     ) -> None:
         """Draw the registered video layers with an active painter."""
+        bounds, chrome = self._label_area(scale, offset_x, offset_y)
         if props:
-            draw_props(painter, props, scale, offset_x, offset_y)
+            draw_props(painter, props, scale, offset_x, offset_y, bounds, chrome)
 
         if wheel is not None:
             # Under the tracking, so a bar never hides the paw standing on it.
@@ -339,7 +340,7 @@ class PaintCanvas(MarkerOverlayMixin):
             )
         if not draw_points:
             if wheel is not None and (wheel.clicks or wheel.projections or wheel.prompt):
-                draw_wheel_clicks(painter, wheel, scale, offset_x, offset_y)
+                draw_wheel_clicks(painter, wheel, scale, offset_x, offset_y, bounds, chrome)
             return
 
         if self.tracks:
@@ -362,7 +363,29 @@ class PaintCanvas(MarkerOverlayMixin):
             self._draw_custom(painter, scale, offset_x, offset_y)
 
         if wheel is not None and (wheel.clicks or wheel.projections or wheel.prompt):
-            draw_wheel_clicks(painter, wheel, scale, offset_x, offset_y)
+            draw_wheel_clicks(painter, wheel, scale, offset_x, offset_y, bounds, chrome)
+
+    def _label_area(
+        self, scale: float, offset_x: float, offset_y: float
+    ) -> tuple[QRectF, tuple[QRectF, ...]]:
+        """The visible picture labels stay inside, and the pane chrome they avoid.
+
+        Labels belong on the picture, not on the letterbox, and never under the
+        file name, the timing readout, or the zoom buttons drawn over it.
+        """
+        area = QRectF(self.rect()).adjusted(2, 2, -2, -2)
+        parent = self.parent()
+        size = getattr(getattr(parent, "surface", None), "video_size", None)
+        if size is not None:
+            picture = QRectF(offset_x, offset_y, size[0] * scale, size[1] * scale)
+            area = area.intersected(picture.adjusted(2, 2, -2, -2))
+        chrome: list[QRectF] = []
+        for name in ("lbl_name", "lbl_osd", "zoom_controls"):
+            widget = getattr(parent, name, None)
+            if isinstance(widget, QWidget) and widget.isVisible():
+                corner = self.mapFromGlobal(widget.mapToGlobal(QPoint(0, 0)))
+                chrome.append(QRectF(QPointF(corner), QSizeF(widget.size())).adjusted(-3, -3, 3, 3))
+        return area, tuple(chrome)
 
     def _draw_track(
         self,

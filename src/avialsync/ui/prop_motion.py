@@ -144,16 +144,26 @@ def check_click(
         return None
     point, source_values = sampled
     camera = rig_paths.camera_name(video)
-    model = wheel_display.camera_models(window).get(camera)
-    if model is None:
-        return None
-    xyz = np.asarray(point, dtype=np.float64)
-    depth = float(model.rotation_matrix()[2] @ xyz + model.translation[2])
-    if depth <= 0 or not math.isfinite(depth):
-        return None
-    predicted = model.project(xyz)[0]
-    if not np.all(np.isfinite(predicted)):
-        return None
+    side = prop.side_view if isinstance(prop, BeltProp) else None
+    if side is not None and isinstance(prop, BeltProp) and prop.rollers is not None:
+        # A one-camera belt is only predicted in its own view (D-165).
+        if side.camera != camera:
+            return None
+        pixel = side.plane_view(prop.rollers).pixel(point[0], point[1])
+        if pixel is None:
+            return None
+        predicted = np.asarray(pixel, dtype=np.float64)
+    else:
+        model = wheel_display.camera_models(window).get(camera)
+        if model is None:
+            return None
+        xyz = np.asarray(point, dtype=np.float64)
+        depth = float(model.rotation_matrix()[2] @ xyz + model.translation[2])
+        if depth <= 0 or not math.isfinite(depth):
+            return None
+        predicted = model.project(xyz)[0]
+        if not np.all(np.isfinite(predicted)):
+            return None
     return MotionCheck(
         found[0],
         camera,

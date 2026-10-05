@@ -612,7 +612,7 @@ def refresh_pose_3d(window: MainWindow) -> None:
 
 
 def update_tracking_pane_visibility(window: MainWindow) -> None:
-    """Show the 3D pane only while a source provides complete XYZ triplets.
+    """Show the 3D pane while a source or prop contributes 3D geometry.
 
     An always-present empty pane keeps a quarter of the media width and raises
     the window's minimum width for sessions that have no tracking data.
@@ -622,6 +622,7 @@ def update_tracking_pane_visibility(window: MainWindow) -> None:
         or len(window.custom_markers) > 0
         or len(window.wheels) > 0
         or window.wheel_state.placement is not None
+        or window.props_app.has_scene_geometry()
     )
     if window.tracking_3d_pane.isVisible() == has_points:
         return

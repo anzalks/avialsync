@@ -81,6 +81,9 @@ def _scene(qtbot, wheels: list) -> np.ndarray:
     qtbot.addWidget(canvas)
     canvas._center = np.zeros(3)
     canvas._radius = 160.0
+    # A pose-less scene now frames its wheels; this comparison needs one fixed
+    # camera for the bare, line and solid scenes alike.
+    canvas._bounds_held = True
     canvas.set_wheel_source(lambda _t: wheels)
     image = QImage(300, 300, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(0)
