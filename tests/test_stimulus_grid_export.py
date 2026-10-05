@@ -131,13 +131,16 @@ def test_stimulus_grid_export_is_decodable(tmp_path, qapp) -> None:
     with av.open(str(destination)) as container:
         stream = container.streams.video[0]
         frames = list(container.decode(stream))
+        # Read while the container is open: PyAV 19 refuses stream attributes
+        # once it has closed.
+        duration = float(stream.duration * stream.time_base)
 
     expected = plan_grid(video_count=1, event_count=1, before=0.1, after=0.2)
     assert len(frames) == 3
     assert [float(frame.pts * frame.time_base) for frame in frames] == pytest.approx(
         [0.0, 0.1, 0.2]
     )
-    assert float(stream.duration * stream.time_base) == pytest.approx(0.3)
+    assert duration == pytest.approx(0.3)
     assert (frames[0].width, frames[0].height) == (expected.width, expected.height)
     cell = expected.cell_rect(0, 0)
     image = frames[0].to_ndarray(format="rgb24")
