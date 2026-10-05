@@ -20,7 +20,7 @@ from avialsync.ui.plot_theme import gap_marker_pen, identity_marker_pen, measure
 logger = logging.getLogger(__name__)
 
 ContextAction = Literal[
-    "annotate", "measure_a", "measure_b", "clear_measure", "fit_y", "auto_y", "hold_y"
+    "annotate", "measure_a", "measure_b", "clear_measure", "fit_y", "auto_y", "hold_y", "hide"
 ]
 
 
@@ -58,6 +58,9 @@ def show_context_menu(
         menu.addSeparator()
         for extra in extras:
             menu.addAction(extra)
+    # The row's own close, also here so it never depends on hovering (D-177).
+    menu.addSeparator()
+    hide = menu.addAction(tr("Hide {name}").format(name=channel.name))
     chosen = menu.exec(event.screenPos().toPoint())
     actions: dict[QAction, ContextAction] = {
         annotate: "annotate",
@@ -67,6 +70,7 @@ def show_context_menu(
         fit_y: "fit_y",
         auto_y: "auto_y",
         hold_y: "hold_y",
+        hide: "hide",
     }
     action = actions.get(chosen)
     if action is None:

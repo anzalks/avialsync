@@ -196,6 +196,7 @@ class PlotPane(QWidget):
         self._master_plot: pg.PlotItem | None = None
         self._interactions = PlotInteractionController(self)
         self.graphics_layout.scene().sigMouseClicked.connect(self._interactions.on_scene_clicked)
+        self.graphics_layout.scene().sigMouseMoved.connect(self._interactions.on_scene_moved)
 
     def changeEvent(self, event: QEvent) -> None:
         """Keep pyqtgraph's canvas aligned with an application palette change."""
@@ -295,6 +296,8 @@ class PlotPane(QWidget):
                 self._request_channel_close,
                 time_map,
                 source_id,
+                # The density chosen now, not the dataclass default (D-177).
+                row_height=int(self.row_height_combo.currentData()),
             )
             if self._master_plot is None:
                 self._master_plot = channel.plot_item
@@ -920,6 +923,10 @@ class PlotPane(QWidget):
         if text != self._page_label_text:
             self._page_label_text = text
             self.page_label.setText(text)
+
+    def hide_channel_row(self, channel_id: str) -> None:
+        """Hide a row as its close tool does, from the row's context menu (D-177)."""
+        self._request_channel_close(channel_id)
 
     def _request_channel_close(self, channel_id: str) -> None:
         """Row close button: hide this source's row and tell the sidebar which one."""

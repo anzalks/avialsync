@@ -72,7 +72,8 @@ def apply_plot_item_palette(plot_item: pg.PlotItem, colors: PlotColors) -> None:
         axis = plot_item.getAxis(name)
         if axis is None:
             continue
-        axis.setPen(colors.axis)
+        # Strokes lighter than the numbers: rules recede, ticks stay legible.
+        axis.setPen(colors.rule)
         axis.setTextPen(colors.axis)
         shown = axis.label.isVisibleTo(axis)
         axis.setLabel(

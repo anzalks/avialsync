@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QGraphicsProxyWidget, QToolButton
 
@@ -20,7 +20,7 @@ from avialsync.ui.design_tokens import ControlRole, apply_role
 from avialsync.ui.i18n import tr
 from avialsync.ui.plot_sweep import SweepCurveItem
 from avialsync.ui.plot_theme import apply_coverage_region_palette, gap_marker_pen
-from avialsync.ui.theme import coverage_color, playhead_color, trace_color
+from avialsync.ui.theme import coverage_color, playhead_color, plot_colors, trace_color
 
 # Every row's left axis is pinned to one width so the gutters line up down the
 # stack (PLOT_UX_PLAN.md "aligned channel gutters"); it is not derived from
@@ -198,6 +198,32 @@ def enforce_channel_visibility(channels: list[ChannelPlot]) -> None:
         apply_channel_visibility(channel)
 
 
+class _RevealOnFocus(QObject):
+    """Show a row tool while it has keyboard focus, whatever the pointer does."""
+
+    def __init__(self, proxy: QGraphicsProxyWidget, parent: QObject) -> None:
+        super().__init__(parent)
+        self._proxy = proxy
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        if event.type() == QEvent.Type.FocusIn:
+            self._proxy.setOpacity(1.0)
+        elif event.type() == QEvent.Type.FocusOut:
+            self._proxy.setOpacity(0.0)
+        return super().eventFilter(watched, event)
+
+
+def reveal_row_tools(channels: list[ChannelPlot], scene_y: float) -> None:
+    """Show the tools of the row under the pointer; fade the rest (D-177)."""
+    for channel in channels:
+        band = channel.plot_item.sceneBoundingRect()
+        over = channel.visible and band.top() <= scene_y <= band.bottom()
+        focused = channel.close_button.hasFocus()
+        opacity = 1.0 if over or focused else 0.0
+        if channel.close_proxy.opacity() != opacity:
+            channel.close_proxy.setOpacity(opacity)
+
+
 def create_channel_plot(
     graphics_layout: pg.GraphicsLayoutWidget,
     row: int,
@@ -207,6 +233,7 @@ def create_channel_plot(
     close_requested: Callable[[str], None],
     time_map: TimeMap | None = None,
     source_id: str = "",
+    row_height: int = 110,
 ) -> ChannelPlot:
     """Create one row without deciding shared X-axis ownership.
 
@@ -227,10 +254,14 @@ def create_channel_plot(
     )
     close_proxy = QGraphicsProxyWidget()
     close_proxy.setWidget(close_button)
+    # Shown while the pointer is over the row or the button has keyboard focus
+    # (D-177); transparent, not hidden, so Tab still reaches it.
+    close_proxy.setOpacity(0.0)
+    close_button.installEventFilter(_RevealOnFocus(close_proxy, close_button))
     graphics_layout.addItem(close_proxy, row=row, col=0)
 
     plot_item = graphics_layout.addPlot(row=row, col=1)
-    plot_item.setMinimumHeight(110)
+    plot_item.setMinimumHeight(row_height)
     # Escaped for the same reason the gutter is: this label is rendered as HTML,
     # so a channel named "I<V" or "a & b" would lose part of its name.
     plot_item.setLabel("left", html.escape(channel_name))
@@ -242,7 +273,7 @@ def create_channel_plot(
     # appending a scale factor to a label that already states its range and
     # re-rendering its HTML on a hot path.
     left_axis.enableAutoSIPrefix(False)
-    plot_item.showGrid(x=True, y=False, alpha=0.18)
+    plot_item.showGrid(x=True, y=False, alpha=plot_colors(graphics_layout.palette()).grid_alpha)
     plot_item.setMouseEnabled(x=False, y=False)
     plot_item.enableAutoRange(axis="y", enable=False)
     plot_item.enableAutoRange(axis="x", enable=False)
@@ -284,6 +315,7 @@ def create_channel_plot(
         coverage_region=coverage_region,
         coverage_bounds=coverage_bounds,
         color_index=color_index,
+        row_height=row_height,
     )
 
 

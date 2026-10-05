@@ -93,15 +93,17 @@ def test_a_stack_taller_than_the_pane_scrolls_instead_of_clipping(qtbot, tmp_pat
     rows = 12
     pane = _pane_with_channels(qtbot, tmp_path, rows, 1000, 320)
     scroll = pane._plot_scroll
+    # D-177: rows take the chosen density (Compact by default), not a fixed 110 px.
+    row_height = int(pane.row_height_combo.currentData())
 
     qtbot.waitUntil(lambda: scroll.verticalScrollBar().maximum() > 0, timeout=2000)
 
-    assert pane.graphics_layout.height() >= rows * 110, (
+    assert pane.graphics_layout.height() >= rows * row_height, (
         "the stack collapsed to the viewport, so the rows below the fold are "
         "clipped rather than scrollable"
     )
     assert scroll.verticalScrollBar().maximum() > 0
-    assert all(channel.plot_item.minimumHeight() == 110 for channel in pane.channels)
+    assert all(channel.plot_item.minimumHeight() == row_height for channel in pane.channels)
 
 
 def test_rows_that_fit_share_the_pane_without_a_scrollbar(qtbot, tmp_path: Path) -> None:

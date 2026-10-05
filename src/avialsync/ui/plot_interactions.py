@@ -16,7 +16,7 @@ from avialsync.ui.plot_overlays import (
     redraw_measure_lines,
     show_context_menu,
 )
-from avialsync.ui.plot_row import Y_AUTO, Y_FIT_ONCE, Y_MANUAL
+from avialsync.ui.plot_row import Y_AUTO, Y_FIT_ONCE, Y_MANUAL, reveal_row_tools
 
 if TYPE_CHECKING:
     from avialsync.ui.plot_pane import PlotPane
@@ -124,6 +124,10 @@ class PlotInteractionController:
         self.redraw_annotations()
         self.redraw_identity_markers()
 
+    def on_scene_moved(self, scene_pos: Any) -> None:
+        """Reveal the row tools under the pointer (D-177); no work on the clock tick."""
+        reveal_row_tools(self._pane.channels, float(scene_pos.y()))
+
     def on_scene_clicked(self, event: Any) -> None:
         """Seek on left-clicks and show actions for right-clicks in visible rows."""
         if self._pane.sweep_start is None:
@@ -166,4 +170,6 @@ class PlotInteractionController:
             self._pane.set_channel_y_mode(choice.channel_id, Y_AUTO)
         elif choice.action == "hold_y":
             self._pane.set_channel_y_mode(choice.channel_id, Y_MANUAL)
+        elif choice.action == "hide":
+            self._pane.hide_channel_row(choice.channel_id)
         event.accept()

@@ -317,7 +317,9 @@ Two product laws govern that phase and outrank convention:
   one or two cameras (D-174). DS-7 compacts the source cards: offset and drift behind a Timing
   disclosure, one overflow per card, a split Open button, and Reset Session apart (D-175). DS-8
   puts wheel, ladder/belt/ball, identity review and alignment on one `StepPanel`, labels the props
-  header, and gives every inspector page an `EmptyNote` (D-176).
+  header, and gives every inspector page an `EmptyNote` (D-176). DS-9 reveals row tools on
+  hover or focus, adds Hide to the row menu, lightens rules and grid, defaults rows to Compact,
+  and records the gutter as each trace's non-colour identifier (D-177).
 - **P4.6 plot review/sweep UX refinement — core implementation complete; certification remains
   (D-044):** `archive/plans/PLOT_UX_PLAN.md` remains the canonical contract. Review/Sweep/Scope, the shared
   continuous time-span control, master navigator viewport drag, one bottom axis and channel gutters,
@@ -609,7 +611,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/video_grid.py` | N VideoPanes; persistent visibility; single `QGridLayout`; `_relayout()`; one or two strip panes are sized to their pictures through the layout's margins and column stretches (D-174). `reset_all_views()` is View → Fit All Videos (Ctrl+Shift+0), also a video tools button: every pane to 1.00×, no pan. Fix Tracker and marker/wheel placement are the grid's modes, so a pane built later joins them (D-099, D-112, D-113) | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `visible_panes()`, `set_grid_mode()`, `set_point_edit_mode()`, `set_point_edits()`, `set_marker_place_mode()`, `set_custom_markers()`, `set_reprojection_source()`, `set_wheel_source()`, `custom_marker_at()`; signals `marker_clicked`, `custom_point_moved` |
 | `ui/plot_pane.py` | Coordinator for linked pyramid plot rows, presentation, shared X/Y state, and navigator signal. The row stack lives in a `QScrollArea` (`_plot_scroll`); the one control strip below it holds the existing time-span editor and scrolls at compact widths (D-170) | `load_channels()`, `set_window_duration()`, `set_cursor()`, `set_channel_y_mode()` |
 | `ui/plot_header.py` | One compact plot and time-span control row (D-170) | `PlotHeader.insert_span_control()`, `PlotControlStrip` |
-| `ui/plot_row.py` | One channel row's bounded envelope, retained sweep page, gutter, Y state, coverage, and close control | `ChannelPlot`, `create_channel_plot()`, `apply_channel_palette()`, `fit_channel_y()` |
+| `ui/plot_row.py` | One channel row's bounded envelope, retained sweep page, gutter, Y state, coverage, and close control. The close tool is transparent until its row is hovered or it has focus; `reveal_row_tools()` decides, the row menu has Hide (D-177) | `ChannelPlot`, `create_channel_plot()`, `apply_channel_palette()`, `fit_channel_y()` |
 | `ui/plot_sweep.py` | Review/Sweep/Scope state and shared unit-converting logarithmic time-span control; `set_focus_target()` weakly names the pane that regains focus, avoiding a Qt/Python parent cycle (D-170) | `PlotPresentation`, `SweepWindowControl`, `SweepCurveItem` |
 | `ui/plot_interactions.py` | Plot context actions, measurement, annotation, and gap interaction state | `PlotInteractionController` |
 | `ui/axis_nav.py` | Per-axis zoom/reset controls and one-axis-at-a-time wheel semantics for a pyqtgraph canvas. **Reset goes to a range the owner declares**, never to auto-range — auto-ranging to the matched subset is what hid a bad fit | `AxisNav`, `NavigableViewBox`, `AxisNav.set_home_range()` |

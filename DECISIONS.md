@@ -5916,3 +5916,17 @@ panel without installing an action first.
 Ladder, belt and ball editors, identity review and the alignment dialog use the same panel; the props header is labelled Kind · Saved · New. Values, Messages, Changes, Props and the Tasks popover show an `EmptyNote` naming what fills them; Messages and Values offer File → Open Sensor/Ephys Data…. No inspector page's minimum width exceeds the 280 px default, for every props kind; the minimum, not the preferred width, is what decides whether a page's scroll area shows its horizontal bar.
 
 **Consequences.** Tests that click the flows' buttons are unchanged; the buttons are the same objects, some now reached through the overflow.
+
+---
+
+## 2026-10 · D-177 · Plot rows: the gutter names each trace; quiet row tools; lighter rules
+
+**Context.** D-094 required that categorical colour never carry meaning alone and deferred the structural fix. Row close buttons were always drawn, rules and grid outweighed the traces in Light, and the default row height showed about two and a half rows at 1280×800 (INTERFACE_DESIGN_PLAN F-28, F-29).
+
+**Decision.**
+- **Redundant encoding is the direct label.** A plot row draws exactly one trace, and its gutter names it (with unit and range), so the trace is identified by its own label and position, never by hue alone. No dash cycle: a dashed pen costs pyqtgraph far more per segment than a solid one, against the 16 ms pan budget, and would add nothing a per-row label does not already say. A future surface that overlays several traces in one plot must label each trace directly.
+- Each row's close tool is transparent until the pointer is over the row or the tool has keyboard focus (still focusable by Tab); the row's context menu gains Hide, the same command. Hover is computed on mouse movement only, never on the clock tick.
+- Axis lines and tick marks are text colour moved 55 % toward the canvas; tick numbers and titles keep full text contrast; the grid alpha drops from 0.18 to 0.10, in both themes.
+- Plot rows default to Compact, and a row added later takes the density currently chosen (it always took 110 px before).
+
+**Consequences.** `test_bench_plot_pane.py` medians stayed within 5 % of the previous commit.

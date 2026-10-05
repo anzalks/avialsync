@@ -164,7 +164,11 @@ Streams areas stay small. The layout you had comes back when the first recording
   fullscreen toggles. Hidden videos are paused until shown again, then resynchronize automatically.
 - **Reset Plots** under the plots (also **View → Reset Plots**, `Ctrl+0`) expands the shared plot
   window to the full loaded timeline and refits every visible plot.
-- The row density selector sets the height of every plot row at once: Compact, Comfortable, or Large.
+- The row density selector sets the height of every plot row at once: Compact (the default, so more
+  rows fit), Comfortable, or Large.
+- Each row's hide button appears when the pointer is over the row or the button has keyboard
+  focus; right-click a row and choose **Hide** for the same command. Every trace is named in its
+  own row's gutter, so colour is never the only way to tell traces apart.
 - The playback row's loop buttons mark an A/B range for inspection or export: **Set In** (`[` or `I`)
   and **Set Out** (`]` or `O`) at the playhead; **Clear Loop** removes it. The rate selector sets
   playback speed. The scrubber shows loaded coverage, annotation ticks and the active loop span.

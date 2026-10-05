@@ -654,7 +654,12 @@ _COVERAGE_ALPHA = 28
 
 #: Grid opacity.  pyqtgraph strokes the grid in the axis colour, so this is the
 #: whole of what keeps it a background rule instead of a second set of traces.
-_GRID_ALPHA = 0.18
+#: Background rules recede behind the traces (D-177, F-28): 0.18 outweighed a
+#: trace in Light.
+_GRID_ALPHA = 0.10
+#: How far the axis line and tick marks move from text colour toward the canvas.
+#: Tick numbers keep full text contrast; only the strokes lighten (D-177).
+_RULE_TOWARD_CANVAS = 0.55
 
 
 @dataclass(frozen=True)
@@ -675,6 +680,9 @@ class PlotColors:
 
     grid_alpha: float
     """Opacity for the background rules, as pyqtgraph's ``showGrid`` takes it."""
+
+    rule: QColor
+    """Axis lines and tick marks: text colour moved toward the canvas (D-177)."""
 
 
 def _canvas_is_dark(palette: QPalette) -> bool:
@@ -798,6 +806,20 @@ def plot_colors(palette: QPalette) -> PlotColors:
         playhead=playhead_color(palette),
         coverage=coverage_color(palette),
         grid_alpha=_GRID_ALPHA,
+        rule=_toward(
+            palette.color(QPalette.ColorRole.Text),
+            palette.color(QPalette.ColorRole.Base),
+            _RULE_TOWARD_CANVAS,
+        ),
+    )
+
+
+def _toward(colour: QColor, target: QColor, amount: float) -> QColor:
+    """*colour* moved *amount* of the way to *target*, channel by channel."""
+    return QColor.fromRgbF(
+        colour.redF() + (target.redF() - colour.redF()) * amount,
+        colour.greenF() + (target.greenF() - colour.greenF()) * amount,
+        colour.blueF() + (target.blueF() - colour.blueF()) * amount,
     )
 
 

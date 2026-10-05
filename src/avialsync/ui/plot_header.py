@@ -56,7 +56,8 @@ class PlotHeader(QWidget):
         self.row_height_combo.addItem(tr("Compact"), 72)
         self.row_height_combo.addItem(tr("Comfortable"), 110)
         self.row_height_combo.addItem(tr("Large"), 160)
-        self.row_height_combo.setCurrentIndex(1)
+        # Compact by default, so a laptop shows more rows (D-177, DS-9).
+        self.row_height_combo.setCurrentIndex(0)
         self.row_height_combo.setAccessibleName(tr("Plot row density"))
         self.row_height_combo.setToolTip(tr("Shared visible channel row height"))
         self.row_height_combo.currentIndexChanged.connect(self._emit_row_height)
