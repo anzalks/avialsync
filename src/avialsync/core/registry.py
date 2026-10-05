@@ -13,11 +13,28 @@ from types import ModuleType
 from typing import Protocol, TypeVar
 
 from avialsync.core.custom_markers import is_custom_marker_path
+from avialsync.core.identity_sidecar import is_swap_path
 from avialsync.core.point_edit_sidecar import is_correction_path
 from avialsync.core.prop_file import is_prop_path
 from avialsync.core.source import SessionSource, TimeSeriesSource, TriggerSource, VideoSource
 
 logger = logging.getLogger(__name__)
+
+
+def is_own_sidecar(path: Path | str) -> bool:
+    """Return whether *path* is a file AvialSync writes beside a recording.
+
+    The one list every filter consults. Each of these is a well-formed CSV or
+    TOML that a generic loader claims on extension alone, and listing them at
+    each call site is how the identity-swap sidecar came to be offered back as a
+    time series: two filters named three of the four.
+    """
+    return (
+        is_correction_path(path)
+        or is_swap_path(path)
+        or is_custom_marker_path(path)
+        or is_prop_path(path)
+    )
 
 
 class _Capability(Protocol):
@@ -374,7 +391,7 @@ class LoaderRegistry:
         they belong to (D-099). One place, so a plugin cannot reintroduce it.
         """
         self.ensure_discovered()
-        if is_correction_path(path) or is_custom_marker_path(path) or is_prop_path(path):
+        if is_own_sidecar(path):
             return None
         return self._best_by_capability(self._loaders, path, "loader")
 
