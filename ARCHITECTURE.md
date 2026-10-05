@@ -201,9 +201,10 @@ playhead controls · time ───── master seek bar ───── end ·
 
 **Presentation contract:**
 
-- The title is exactly **Data Streams**. Hide and **Flag Frame** sit beside it, followed by compact
-  status text. Snapshot/Fullscreen remain existing video/main actions and Reset Zoom remains the
-  existing plot QAction; presentation may proxy old buttons during migration but may not duplicate
+- The title is exactly **Data Streams**. **Hide** sits beside it, followed by compact status text,
+  then the transport's **Loop region** (Set In / Set Out / Clear Loop) and **Speed** controls.
+  Flag Frame, Snapshot and Fullscreen are video actions under the cameras, and **Reset plots** is
+  the plot header's face of the View → Reset Plot Zoom QAction; presentation may proxy old buttons during migration but may not duplicate
   command logic. Busy status remains visible;
   ordinary completion/status messages clear after a short delay. Each visible lane has a text label and an accessible name;
   colour is supporting information, never the only meaning. Do not print a long inline list of all
