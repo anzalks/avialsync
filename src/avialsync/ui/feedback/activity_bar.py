@@ -20,11 +20,12 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QProgressBar,
-    QPushButton,
     QSizePolicy,
+    QToolButton,
     QWidget,
 )
 
+from avialsync.ui.design_tokens import ControlRole, apply_role
 from avialsync.ui.i18n import tr
 
 #: Nobody can read a changing percentage faster than this, and every extra
@@ -83,8 +84,13 @@ class ActivityBar(QWidget):
         self._eta = QLabel("")
         self._eta.setAccessibleName(tr("Estimated time remaining"))
 
-        self._cancel = QPushButton(tr("Cancel"))
+        # A tool button, not a push button: QStatusBar sizes itself from every
+        # widget it holds, hidden or not, and a native push button made the
+        # status bar alone push the window past the 640x480 floor on macOS.
+        self._cancel = QToolButton()
+        self._cancel.setText(tr("Cancel"))
         self._cancel.setAccessibleName(tr("Cancel the running background task"))
+        apply_role(self._cancel, ControlRole.TOOL, "close")
         self._cancel.clicked.connect(self.cancel_requested)
 
         layout.addWidget(self._label)

@@ -237,12 +237,18 @@ def test_a_short_video_area_scrolls_rather_than_squashing(qapp: QApplication, qt
     controls at once. Scrolling keeps every one of them at its natural size and
     shows as much as fits; squashing is what drew the slivers.
     """
+    from PySide6.QtGui import QAction
     from PySide6.QtWidgets import QLabel, QPushButton, QScrollArea, QWidget
 
     from avialsync.ui.video_grid import VideoGrid
 
     state = EmptyState()
     qtbot.addWidget(state)
+    # Bound as the window binds them (D-167): an ActionButton with no action has
+    # no text, and macOS gives a textless push button a size hint below its own
+    # minimum, which is a state the window never shows.
+    open_video, open_data = QAction("Open Video(s)…", state), QAction("Open Data…", state)
+    state.install_open_actions(open_video, open_data)
     state.resize(600, VideoGrid.BASE_MIN_HEIGHT)
     state.show()
     qapp.processEvents()

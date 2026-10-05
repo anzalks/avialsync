@@ -23,6 +23,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QComboBox,
     QGridLayout,
+    QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
@@ -37,6 +38,7 @@ from avialsync.core.skeleton import SkeletonEstimate, frame_budget, infer_skelet
 from avialsync.core.timeline import TimeMap
 from avialsync.ui.action_button import ActionButton
 from avialsync.ui.cylinder_paint import draw_cylinders
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 from avialsync.ui.label_layout import LabelLayout
 from avialsync.ui.theme import neutral_on_canvas
@@ -1145,11 +1147,16 @@ class Tracking3DPane(QWidget):
         self.fit_button = QPushButton(tr("Fit View"), header)
         self.fit_button.setToolTip(tr("Fit the 3D camera to the current tracked pose"))
         self.fit_button.clicked.connect(self._fit_view)
-        header_layout.addWidget(self.title_label, 0, 0)
-        header_layout.addWidget(self.status_label, 1, 0, 1, 3)
-        header_layout.addWidget(self.up_axis_combo, 2, 0)
-        header_layout.addWidget(self.bone_combo, 2, 1)
-        header_layout.addWidget(self.fit_button, 2, 2)
+        # Title and status share the first row: a third header row was the
+        # height that pushed the window's minimum past a 640x480 display.
+        title_row = QHBoxLayout()
+        title_row.setSpacing(spacing("m", self))
+        title_row.addWidget(self.title_label)
+        title_row.addWidget(self.status_label, 1)
+        header_layout.addLayout(title_row, 0, 0)
+        header_layout.addWidget(self.up_axis_combo, 1, 0)
+        header_layout.addWidget(self.bone_combo, 1, 1)
+        header_layout.addWidget(self.fit_button, 1, 2)
         # Filled by install_reprojection_action with the View -> Overlays
         # action, so the button and the menu entry are one command (rule 15).
         # Beside the title: it is about the videos, not about this view.
