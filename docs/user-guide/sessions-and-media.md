@@ -6,7 +6,7 @@ The parts of day-to-day use that are not alignment, annotation, or import.
 
 **File → Save Session…** writes a `.avv` file recording which sources you loaded, their offsets and
 drift, any accepted mappings and the evidence behind them, your annotations, and the layout. **File
-→ Open Session…** restores it.
+→ Open Session…** restores it, and **File → Recent Sessions** lists the ones you opened last.
 
 Use **Reset Session** in the **Sources** tab's **Open Files** section to close every loaded source and
 clear annotations, messages, synchronization evidence, and timeline state before opening or dropping a
@@ -92,11 +92,13 @@ whatever the session declared.
 Plots are a fixed oscilloscope-style window, not a scrolling strip. The trace fills left to
 right and restarts at the left edge when the window completes.
 
-- **Window limit** sets the span, in `ms`, `s`, `min`, or `h`. Pick the unit first: a smaller unit
+- **Time span** sets the span, in `ms`, `s`, `min`, or `h`. Pick the unit first: a smaller unit
   gives fine control, a larger one gives coarse.
 - The single slider below the plots sets the visible span and controls every row together. Rows do
   not zoom or scroll independently — they share one time axis because comparing them is the point.
-- **Reset Zoom** returns to the full loaded timeline.
+- **Reset plots** (`Ctrl+0`) returns to the full loaded timeline and refits every visible plot.
+- **Fit Y** fits and holds the vertical range of every visible channel.
+- **Rows** sets one height for every row: Compact, Comfortable, or Large.
 - The small **×** beside a plot hides that row, which also unchecks it in the left panel.
 
 Everything drawn goes through a decimation pyramid, so a 180-million-sample channel draws one
@@ -144,8 +146,8 @@ collects everything configurable in one dialog, generated from the
 application's own settings list, so each entry carries its explanation and its own **Reset to
 default**. It holds the theme and font size, the colour-vision-safe trace palette, whether the A–B
 range loops, live plot presentation, whether body-part names are drawn by default, whether display
-levels for high-bit-depth video are chosen automatically, the autosave interval, and whether unsaved
-work from a previous run is offered at launch.
+levels for high-bit-depth video are chosen automatically, the remembered wheel setup (bar count, units
+and radius), the autosave interval, and whether unsaved work from a previous run is offered at launch.
 
 ![The Preferences dialog](../_static/screenshots/feature_preferences.png)
 
@@ -178,6 +180,18 @@ this is so you do not rearrange the splitters each time.
 A layout belongs to you and your screen, not to the recording, so workspaces are kept with your
 application settings rather than in the `.avv` file. **Delete Layout…** removes one.
 
+**View → Detach Plots** moves the plots into their own window, for a second display. If a panel ends
+up somewhere you cannot reach — floated onto a screen that has since been unplugged, say — **View →
+Bring Panels Back** re-docks every panel and moves any stray window back onto this screen.
+
+## Time display
+
+**View → Time Display** chooses how times are written in the time readout, the plot axes, and the
+Messages and Changes tabs: **Relative (HH:MM:SS)** from the start of the recording, **UTC**, or
+**Local time of day**. It changes the label only; the shared timeline and every alignment stay as
+they are. A recording folder that declares its own wall clock switches the display to
+UTC when it opens.
+
 ## Finding a command
 
 **Help → Commands…** opens a searchable list of everything the application can do, with each entry's
@@ -186,6 +200,20 @@ so it cannot list a command that does not exist or miss one that does — useful
 switches in particular, which are otherwise three levels into a menu.
 
 ![The command palette](../_static/screenshots/feature_command_palette.png)
+
+## The Help menu
+
+- **Review Workflow…** opens a checklist for checking timing, alignment, and observations.
+- **Commands…** and **Keyboard Shortcuts…** are described above and below.
+- **Documentation** opens this site.
+- **Report a Problem…** copies this build's version details to the clipboard and opens the issue
+  tracker, so you can paste them into the report.
+- **Check for Updates** opens the changelog. The installers are not code-signed and do not update
+  themselves.
+- **Cite AvialSync…** shows the citation for the release you are running.
+- **Diagnostics…** shows what this machine reported: the decoder, the platform, and any plugin that
+  failed to load and why.
+- **About AvialSync** shows the version and licence (in the application menu on macOS).
 
 ## Keyboard shortcuts
 
@@ -201,7 +229,7 @@ The ones worth knowing without looking:
 |---|---|
 | `M` | Flag the current frame |
 | `Ctrl+E` | Export snapshot |
-| `[` and `]` | Mark the start and end of a range |
+| `[` and `]` (or `I` and `O`) | Mark the start and end of a range |
 | `F11` (`Ctrl+Cmd+F` on macOS) | Toggle fullscreen on the active video |
 | `J` / `K` / `L` | Shuttle back, pause, shuttle forward |
 | `Ctrl+Z` / `Ctrl+Shift+Z` | Undo, redo |

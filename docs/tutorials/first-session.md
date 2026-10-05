@@ -42,7 +42,7 @@ the left panel together — they are all showing the same instant.
 For a copyable text view of the current channel values, sample indices, and camera frames, open the
 **Values** inspector tab and choose **Text view**.
 
-For a closer look, set **Window limit** and drag the slider below the traces. Every trace keeps the
+For a closer look, set **Time span** and drag the slider below the traces. Every trace keeps the
 same window: they sweep left to right together and restart together, because comparing them is the
 point.
 

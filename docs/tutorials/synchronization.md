@@ -88,7 +88,7 @@ finds either no edges or every sample.
    - **Exact index (1:1 frame mapping)** — forces mapping video frame *n* to reference event *n*.
      Only correct when the reference genuinely records each exposure that *happened*; if it records
      each exposure that was *requested*, a dropped frame shifts everything after it.
-2. **Index Offset** — enabled only for Exact Index. Sets which reference event video frame 0
+2. **Index Offset** — enabled only for Exact index. Sets which reference event video frame 0
    corresponds to. Leave it at 0 unless recording started mid-sequence.
 
 ### Set the tolerance, if the default is not good enough

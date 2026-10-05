@@ -47,6 +47,13 @@ pane draws. Nothing in AvialSync knows this lab's format.*
   [illustrated export demo](https://avialsync.readthedocs.io/en/latest/tutorials/annotating-and-exporting.html#export-an-event-aligned-video-grid-with-its-ttl-trace).
 - Correction of a wrong pose estimate by hand, saved beside the pose file and exportable either as
   corrected data or as a DeepLabCut retraining set.
+- Repair of a tracker that swapped two animals or left/right body parts, by accepting the crossings
+  it proposes; the original pose file is never modified.
+- Physical apparatus — horizontal ladders, running wheels, belts and balls — placed by clicking it
+  in calibrated cameras and drawn in every view and in 3D, moved by its encoder or orientation
+  channels where it has one.
+- Imported data cached in one per-user folder, never beside your recordings, and cleared from
+  **File → Cache**.
 - Undo on every edit you make, a recovery snapshot written on quit, and no modal dialog standing
   between you and a file: a damaged recording opens as far as it can and reports the rest.
 

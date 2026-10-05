@@ -9,7 +9,7 @@
   Drag the vertical splitter handle to give either view more space.
 - **Plots** show sensor, electrode, and tracking values in a fixed oscilloscope-style time window.
   The trace grows from left to right and starts again at the left edge when the window completes.
-  Set **Window limit** in `ms`, `s`, `min`, or `h`, then use the single slider to choose the shared
+  Set **Time span** in `ms`, `s`, `min`, or `h`, then use the single slider to choose the shared
   visible span. A smaller limit gives fine adjustment; a larger unit gives coarse adjustment.
   Left-click a trace to move the shared playhead to that exact time across every view.
 - **Data Streams** shows when every loaded file is available. A coloured span means the source has
@@ -19,8 +19,6 @@
   **Messages** (prose the recording itself carries), **Changes** (everything you flagged,
   labelled, or corrected), **Props** (physical apparatus), and **Tasks** (what is loading,
   with a cancel where the work supports one).
-
-  ![The Props tab with the prop-kind chooser, a prop name field and the foothold controls](../_static/screenshots/feature_props_tab.png)
 
   ![The Tasks tab beside the video and plots](../_static/screenshots/feature_tasks_tab.png)
 - **Tasks lists everything the application is doing** — imports, session saves and loads, proxy
@@ -64,7 +62,7 @@ Three routes, in the order to try them — all covered field by field, with anno
 - **Align → Synchronize TTL / events…** fits the mapping from TTL pulses or frame triggers. Choose reference and target
   evidence, set the **TTL high threshold** (or tick **Use all samples as events** when the reference
   is already a list of event times), then leave **Alignment strategy** on **Automatic** unless you
-  have a specific reason to override what the evidence supports. **Exact Index** is valid only when
+  have a specific reason to override what the evidence supports. **Exact index** is valid only when
   each recorded frame has a corresponding event, not merely when an exposure was requested. Choose
   **Preview alignment**, inspect the matches and residuals, then **Accept mapping**. Nothing is
   applied until you accept it.
@@ -115,30 +113,12 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
 ## Useful controls
 
 Controls sit under what they act on. Under the videos: **Flag Frame**, **Fix Tracker**, **Add 3D
-Marker**, **Snapshot**, **Fit All Videos** and **Fullscreen Toggle**. Physical props are managed
-from **Edit → Add Physical Prop…**; select a kind in **Props** to see its controls. Under the plots:
-the live presentation, **Fit all**, **Rows**, **Reset** and the time span. Under the Data Streams
-lanes: **Hide** and the status line. Then the play controls.
-
-For a **belt**, save its fixed path and travel direction, identify a surface mark by its distance
-along the path, select a displacement channel, and choose **Bind displacement at current frame**.
-Set **Distance per reading unit** in the path's units. For a **ball**, save its centre and radius,
-identify the surface mark's world direction on the reference frame, select four quaternion channels (`w`, `x`, `y`, `z`) from
-one source, and bind them at a reference frame. The support path or sphere stays fixed while the
-identified mark follows the measured channel values. Missing readings leave that mark hidden.
-Use **Check ... mark on later frame**, then click the visible mark in a calibrated camera to save
-the observed pixel and its difference from the predicted mark. Checks do not change the binding
-automatically. The camera overlay and 3D view use the frame actually displayed.
-
-For **visual-only belt tracking**, choose **Track belt mark from camera clicks** and click the same
-painted mark in two calibrated cameras at the reference frame and each later frame you want to
-measure. The path stays fixed; the mark appears only on frames with a valid stereo fit. On a
-closed path, set the whole lap count on each observed frame to measure signed travel; a position
-alone cannot reveal how many complete laps passed. For **visual-only ball tracking**, choose mark
-A, B, or C and click each distinct surface mark in two calibrated cameras on the reference frame.
-Repeat the same identities on later frames. Three valid marks give a 3D orientation; missing or
-ambiguous observations leave it unknown. These visual tracks use the same Props record and can be
-cleared or undone. Clicking a visual mark replaces the prop's channel motion binding.
+Marker**, **Play original**, **Snapshot**, **Fit All Videos** and **Fullscreen Toggle**. Under the
+plots: the **Live** presentation, **Fit Y**, **Rows** (Compact, Comfortable or Large), **Reset plots**,
+and below them **Time span** with its unit and slider. Beside the Data Streams lanes: **Hide**, the
+status line, **Loop region** (**Set In**, **Set Out**, **Clear Loop**) and **Speed**. Then the play
+controls: **Back 1 s**, **Prev frame**, **Play**, **Next frame**, **Forward 1 s**, the time readout and
+the seek bar. Physical props are managed in the **Props** tab; see [Physical props](#physical-props).
 
 Before anything is open, the drop area takes almost the whole window and the empty plot and Data
 Streams areas stay small. The layout you had comes back when the first recording opens.
@@ -152,8 +132,8 @@ Streams areas stay small. The layout you had comes back when the first recording
 - **Fullscreen Toggle** expands the selected video view.
 - **Fit All Videos** (**View → Fit All Videos**, `Ctrl+Shift+0`) sets every camera back to its
   whole frame: zoom 1.00×, no pan. Each camera's own reset button does the same for one camera.
-  **Fit all** above the plots is different: it fits the plots' vertical range.
-- Set **Window limit** and choose `ms`, `s`, `min`, or `h`, then drag the single slider below the
+  **Fit Y** under the plots is different: it fits the plots' vertical range.
+- Set **Time span** and choose `ms`, `s`, `min`, or `h`, then drag the single slider below the
   plots. The slider is linear within that limit and controls every row; rows do not have separate
   scroll or zoom controls. The number updates immediately, plot refreshes are capped at the display
   cadence while dragging, and the final value renders on release, so rapid adjustment does not
@@ -161,9 +141,11 @@ Streams areas stay small. The layout you had comes back when the first recording
 - Select the small **×** beside a plot to hide it. This unchecks the same channel in the left panel.
 - Unchecking a video or plot keeps it loaded but hidden through window resizing, grid changes, and
   fullscreen toggles. Hidden videos are paused until shown again, then resynchronize automatically.
-- **Reset** under the plots (**View → Reset Plot Zoom**, `Ctrl+0`) expands the shared plot window
-  to the full loaded timeline.
-- **A/B** marks a time range for inspection or export.
+- **Reset plots** under the plots (**View → Reset Plot Zoom**, `Ctrl+0`) expands the shared plot
+  window to the full loaded timeline and refits every visible plot.
+- **Rows** sets the height of every plot row at once: Compact, Comfortable, or Large.
+- **Loop region** marks an A/B range for inspection or export: **Set In** (`[` or `I`) and **Set Out**
+  (`]` or `O`) at the playhead, **Clear Loop** to remove it. **Speed** sets the playback rate.
 - After accepting exact frame-trigger alignment, exact scrubs, pause, and frame-step land on those
   trigger timestamps for every synchronized video.
 
@@ -322,6 +304,50 @@ point back into each camera as a **cross**, beside the 2D tracking's dot: the ga
 the reconstruction's error on that body part. Switching it on without a calibration does not stop
 you; a message offers **Choose Calibration…**.
 
+## Physical props
+
+The **Props** tab (also **Edit → Add Physical Prop…**) records the apparatus in the recording:
+a **Horizontal ladder**, a **Wheel**, a **Belt**, or a **Ball**. Choose the kind at the top of the tab,
+give the prop a name, and add it; the controls below change with the kind. Every prop is placed by
+clicking it in calibrated cameras, every edit is one undo step, and each prop is saved as
+`pose-3d/<name>_prop.toml` in the recording folder. Solid squares in the camera views are your clicks;
+dashed marks are where the 3D fit projects.
+
+![The Props tab with the prop-kind chooser, a ladder named and selected, and the step controls](../_static/screenshots/feature_props_tab.png)
+
+For a **ladder**, each step is clicked on its own: **Click foothold** records one point, **Click rung
+ends** records the two ends of a rung, and **Close outline** joins the last point to the first for a
+platform edge. Click the point in each camera where it is visible, use **Next point** for the next one,
+then **Save step**. A point clicked in two calibrated cameras is placed in 3D and reports its fit
+error; a point seen by one camera stays 2D and is still kept. Steps stay in the order you placed them —
+**Move step up** / **Move step down** reorder them, and **Rename selected step**, **Re-click selected
+step** and **Remove step** edit one. AvialSync never generates rungs from a spacing or forces them onto
+one level, so an irregular ladder is recorded as it is.
+
+![The Props tab with Belt selected: units, the support path points, and the travel direction](../_static/screenshots/feature_props_belt.png)
+
+For a **belt**, save its fixed path and travel direction, identify a surface mark by its distance
+along the path, select a displacement channel, and choose **Bind displacement at current frame**.
+Set **Distance per reading unit** in the path's units. For a **ball**, save its centre and radius,
+identify the surface mark's world direction on the reference frame, select four quaternion channels (`w`, `x`, `y`, `z`) from
+one source, and bind them at a reference frame. The support path or sphere stays fixed while the
+identified mark follows the measured channel values. Missing readings leave that mark hidden.
+Use **Check ... mark on later frame**, then click the visible mark in a calibrated camera to save
+the observed pixel and its difference from the predicted mark. Checks do not change the binding
+automatically. The camera overlay and 3D view use the frame actually displayed.
+
+For **visual-only belt tracking**, choose **Track belt mark from camera clicks** and click the same
+painted mark in two calibrated cameras at the reference frame and each later frame you want to
+measure. The path stays fixed; the mark appears only on frames with a valid stereo fit. On a
+closed path, set the whole lap count on each observed frame to measure signed travel; a position
+alone cannot reveal how many complete laps passed. For **visual-only ball tracking**, choose mark
+A, B, or C and click each distinct surface mark in two calibrated cameras on the reference frame.
+Repeat the same identities on later frames. Three valid marks give a 3D orientation; missing or
+ambiguous observations leave it unknown. These visual tracks use the same Props record and can be
+cleared or undone. Clicking a visual mark replaces the prop's channel motion binding.
+
+The wheel has its own workflow, described in [Placing a running wheel](#placing-a-running-wheel).
+
 ## Placing a running wheel
 
 When the animal runs on a wheel, open **Edit → Add Physical Prop…**, select **Wheel** in **Props**,
@@ -337,7 +363,7 @@ least two cameras and their calibration (the same one Add 3D Marker uses).
    **radius to the bar centres**, measured on the rig. With both, AvialSync uses your radius and
    also reports the radius the clicks imply; if they disagree by more than a few percent, check
    the units and the bar count.
-3. The **Wheels** inspector tab opens when you start placing a wheel. It shows **1A, 1B, 2A, 2B** and optional **3A, 3B**, with a real-click count for
+3. The Wheel page in the **Props** tab opens when you start placing a wheel. It shows **1A, 1B, 2A, 2B** and optional **3A, 3B**, with a real-click count for
    each. A and B are the two ends of one bar; keep A on the same side for every bar. Click the
    selected point in a camera to place a labelled ring there. **Next Point** or any point button
    changes which end the next click places, so you can work point by point across cameras or mark
