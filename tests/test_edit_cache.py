@@ -368,3 +368,27 @@ def test_an_explicit_rebuild_never_leaves_a_file_missing(tmp_path: Path, monkeyp
 
     assert seen_missing == []
     assert {entry.name for entry in rebuilt.directory.iterdir()} == names
+
+
+def test_a_generation_built_on_an_older_import_is_rebuilt_not_reused(tmp_path: Path) -> None:
+    """A generation is a function of the edits *and* the base it edited.
+
+    It was found by the edits' fingerprint alone, so once a re-import kept it
+    (a frame rate learned from the camera re-dates every sample), the same
+    edits would have kept showing the old timing indefinitely.
+    """
+    cache = tmp_path / "pose.csv.avialcache"
+    _import(cache)
+    (cache / "meta.json").write_text('{"fps": 30}', encoding="utf-8")
+    swaps, edits = _stores()
+    swaps.add(SOURCE, SwapEvent(FLIP, ANIMALS, ("testMouse", "conSpecific")))
+    program = build_program(SOURCE, swaps, edits)
+    edit_cache.materialise(cache, program, SCHEMA)
+    assert edit_cache.load(cache, program.fingerprint) is not None
+
+    (cache / "meta.json").write_text('{"fps": 59.94}', encoding="utf-8")
+
+    assert edit_cache.load(cache, program.fingerprint) is None
+    rebuilt = edit_cache.materialise(cache, program, SCHEMA)
+    assert rebuilt.channels
+    assert edit_cache.load(cache, program.fingerprint) is not None

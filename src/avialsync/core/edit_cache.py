@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import dataclasses
 import datetime as _datetime
+import hashlib
 import json
 import logging
 import os
@@ -39,6 +40,7 @@ from pathlib import Path
 
 import numpy as np
 
+from avialsync.core.cache import EDITED_SUBDIR
 from avialsync.core.edit_program import EditProgram
 from avialsync.core.pose import PosePoint, PoseSchema
 from avialsync.core.pyramid import PyramidBuilder, PyramidReader
@@ -53,8 +55,12 @@ __all__ = [
     "prune",
 ]
 
-#: Where generations live inside a source's own sidecar cache directory.
-EDITED_DIR = "edited"
+#: Where generations live inside a source's own sidecar cache directory. Owned
+#: by :mod:`avialsync.core.cache`, which carries it across a rebuild.
+EDITED_DIR = EDITED_SUBDIR
+
+#: The base cache's own key file, written by :class:`~avialsync.core.cache.CacheManager`.
+_BASE_KEY_FILE = "meta.json"
 
 #: Written into every manifest.  :func:`prune` refuses to remove a directory
 #: that does not carry it, so a fingerprint-shaped directory somebody else left
@@ -93,11 +99,30 @@ def _generation_dir(cache_dir: Path, fingerprint: str) -> Path:
     return cache_dir / EDITED_DIR / fingerprint
 
 
+def _base_key(cache_dir: Path) -> str | None:
+    """Identify the import a generation was built from, or None for a bare cache.
+
+    A generation is a function of the edits *and* the arrays they edit. The
+    fingerprint names only the edits, so after a re-import -- a frame rate
+    learned from the camera re-dates every sample -- the same edits would have
+    found the old generation and kept showing the old timing.
+    """
+    try:
+        key = (cache_dir / _BASE_KEY_FILE).read_bytes()
+    except OSError:
+        return None
+    return hashlib.sha1(key, usedforsecurity=False).hexdigest()[:16]
+
+
 def load(cache_dir: Path, fingerprint: str) -> EditedCache | None:
-    """Return an already-materialised generation, or None when there is none."""
+    """Return an already-materialised generation, or None when there is none.
+
+    One built from a different import of the same source is none: it is stale,
+    and the caller rebuilds it.
+    """
     directory = _generation_dir(cache_dir, fingerprint)
     manifest = _read_manifest(directory)
-    if manifest is None:
+    if manifest is None or manifest.get("base") != _base_key(cache_dir):
         return None
     held = manifest.get("channels")
     names = held if isinstance(held, list) else []
@@ -144,7 +169,7 @@ def materialise(
                 continue
             written.extend(_write_point(cache_dir, staging, program, point))
 
-        _write_manifest(staging, program.fingerprint, written)
+        _write_manifest(staging, program.fingerprint, written, _base_key(cache_dir))
         directory.parent.mkdir(parents=True, exist_ok=True)
         if not rebuild:
             # Another job for the same edits may have committed while this one
@@ -280,13 +305,16 @@ def _read_manifest(directory: Path) -> dict[str, object] | None:
     return payload
 
 
-def _write_manifest(directory: Path, fingerprint: str, channels: list[str]) -> None:
+def _write_manifest(
+    directory: Path, fingerprint: str, channels: list[str], base: str | None
+) -> None:
     written = _datetime.datetime.now(_datetime.UTC).isoformat(timespec="seconds")
     (directory / _MANIFEST).write_text(
         json.dumps(
             {
                 "marker": _MARKER,
                 "fingerprint": fingerprint,
+                "base": base,
                 "channels": sorted(channels),
                 "written": written,
             },

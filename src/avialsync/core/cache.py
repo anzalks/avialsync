@@ -23,6 +23,14 @@ CACHE_DIR_SUFFIX = ".avialcache"
 #: it is also caught by any filter that skips hidden entries.
 TEMP_CACHE_PREFIX = ".tmp_avialcache_"
 
+#: Sub-directory of a sidecar that outlives a rebuild of the sidecar itself:
+#: the edited-tracker generations (:mod:`avialsync.core.edit_cache`). They are
+#: derived from the user's edits, readers hold paths into them, and a job may be
+#: writing one while the source is re-imported, so a rebuild carries them into
+#: the new sidecar rather than deleting them with the old one. Whether one is
+#: still valid for the new base is :mod:`~avialsync.core.edit_cache`'s question.
+EDITED_SUBDIR = "edited"
+
 
 def is_cache_path(path: Path) -> bool:
     """Return whether *path* is one of our own sidecar directories."""
@@ -127,6 +135,8 @@ class CacheManager:
                 backup_dir = cache_dir.with_name(f".{cache_dir.name}.backup-{uuid.uuid4().hex}")
                 os.rename(cache_dir, backup_dir)
             os.rename(temp_dir, cache_dir)
+            if backup_dir is not None:
+                self._carry_edited(backup_dir, cache_dir)
         except OSError as rename_error:
             if backup_dir is not None and backup_dir.exists() and not cache_dir.exists():
                 try:
@@ -152,6 +162,25 @@ class CacheManager:
                 shutil.rmtree(backup_dir)
             except OSError as error:
                 raise CacheError(f"Committed cache but could not remove backup: {error}") from error
+
+    @staticmethod
+    def _carry_edited(backup_dir: Path, cache_dir: Path) -> None:
+        """Move the outgoing sidecar's edited generations into the new one.
+
+        Deleting them with the backup is what crashed a running build: a
+        provisional frame rate is replaced as soon as a camera can date the
+        frames, which re-imports the pose file, and every reader pointing into
+        ``edited/`` then found its next array gone mid-paint. A failure here is
+        not a failed commit -- generations are derived and are rebuilt on
+        demand -- so it is left for the backup's removal to deal with.
+        """
+        edited = backup_dir / EDITED_SUBDIR
+        if not edited.is_dir():
+            return
+        try:
+            os.rename(edited, cache_dir / EDITED_SUBDIR)
+        except OSError:
+            return
 
     def _commit_in_place(self, source_path: Path, cache_dir: Path, temp_dir: Path) -> None:
         """Replace a sidecar's contents without renaming the directory.

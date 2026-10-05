@@ -161,3 +161,63 @@ def test_cache_commit_raises_when_both_the_rename_and_the_in_place_swap_fail(
 
     # The sidecar is deliberately left invalid rather than half-updated.
     assert not manager.is_cache_valid(source)
+
+
+def test_a_rebuilt_cache_keeps_the_edited_generations_inside_it(tmp_path: Path) -> None:
+    """Re-importing a pose file used to delete ``edited/`` with the old cache.
+
+    A provisional frame rate is replaced the moment a camera can date the
+    frames, which re-imports the file. ``commit_cache`` renamed the old sidecar
+    aside and deleted it -- generations, and the staging directory of a job
+    still writing one, included. Readers pointing into ``edited/`` then failed on
+    their next lazy load: the field crash in the overlay's paint.
+    """
+    manager = CacheManager(loader_version=1)
+    source = tmp_path / "pose.csv"
+    source.write_text("source", encoding="utf-8")
+    first = manager.get_temp_cache_dir(source)
+    (first / "x_v.npy").write_text("old", encoding="utf-8")
+    manager.commit_cache(source, first)
+    cache_dir = manager.get_cache_dir(source)
+    generation = cache_dir / "edited" / "8300d50037405a67"
+    generation.mkdir(parents=True)
+    (generation / "testMouse_snout_y_v.npy").write_text("edited", encoding="utf-8")
+    staging = cache_dir / "edited" / ".tmp_8300d50037405a67_4019d6a6"
+    staging.mkdir()
+
+    rebuilt = manager.get_temp_cache_dir(source)
+    (rebuilt / "x_v.npy").write_text("new", encoding="utf-8")
+    manager.commit_cache(source, rebuilt)
+
+    assert (cache_dir / "x_v.npy").read_text(encoding="utf-8") == "new"
+    assert (generation / "testMouse_snout_y_v.npy").read_text(encoding="utf-8") == "edited"
+    assert staging.is_dir()
+    assert not list(tmp_path.glob(".pose.csv.avialcache.backup-*"))
+
+
+def test_the_in_place_fallback_keeps_the_edited_generations_too(
+    tmp_path: Path, monkeypatch
+) -> None:
+    manager = CacheManager(loader_version=1)
+    source = tmp_path / "pose.csv"
+    source.write_text("source", encoding="utf-8")
+    first = manager.get_temp_cache_dir(source)
+    (first / "x_v.npy").write_text("old", encoding="utf-8")
+    manager.commit_cache(source, first)
+    generation = manager.get_cache_dir(source) / "edited" / "8300d50037405a67"
+    generation.mkdir(parents=True)
+    (generation / "a_v.npy").write_text("edited", encoding="utf-8")
+
+    rebuilt = manager.get_temp_cache_dir(source)
+    (rebuilt / "x_v.npy").write_text("new", encoding="utf-8")
+    original_rename = os.rename
+
+    def fail_directory_rename(src, dst):
+        if str(src) == str(rebuilt):
+            raise OSError("simulated directory rename failure")
+        return original_rename(src, dst)
+
+    monkeypatch.setattr(os, "rename", fail_directory_rename)
+    manager.commit_cache(source, rebuilt)
+
+    assert (generation / "a_v.npy").read_text(encoding="utf-8") == "edited"
