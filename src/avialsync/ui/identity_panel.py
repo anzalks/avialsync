@@ -45,10 +45,12 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.identity_groups import ANIMALS, CUSTOM, SIDES, split_group_id
 from avialsync.core.identity_swaps import ALL_PARTS, SwapEvent, SwapGroup
+from avialsync.ui.about import docs_url
 from avialsync.ui.axis_nav import NavigableViewBox
 from avialsync.ui.i18n import tr
 from avialsync.ui.identity_braid import BraidModel, BraidNode, draw_braid, draw_separation
 from avialsync.ui.plot_theme import apply_canvas_palette
+from avialsync.ui.step_panel import StepPanel
 from avialsync.ui.theme import set_bold
 
 __all__ = ["IdentityPanel", "IdentityWindow", "group_label", "ALL_PARTS_ITEM"]
@@ -327,14 +329,21 @@ class IdentityPanel(QWidget):
             tr("Restore every identity in this tracking file to what the model predicted")
         )
         self._remove_all.clicked.connect(self.remove_all_requested)
+        # On the shared step panel (D-176): Apply is the one primary, the frame
+        # nudges and Play beside it, and the two removals in the overflow.
+        steps = StepPanel(tr("Review the crossing"), self)
+        steps.set_instruction(
+            tr("Watch the crossing, nudge it to the right frame, then apply the swap.")
+        )
+        steps.set_primary(self._apply)
         for button in (self._back, self._forward, self._play):
             review.addWidget(button)
-        controls.addLayout(review)
-        edits = QHBoxLayout()
-        edits.addWidget(self._apply)
-        edits.addWidget(self._remove)
-        edits.addWidget(self._remove_all)
-        controls.addLayout(edits)
+        steps.add_controls(review)
+        steps.add_overflow(self._remove, destructive=True)
+        steps.add_overflow(self._remove_all, destructive=True)
+        steps.set_learn_more(docs_url("tutorials/fixing-identities.html"))
+        self.review_steps = steps
+        controls.addWidget(steps)
         self._update_actions()
         return controls
 
