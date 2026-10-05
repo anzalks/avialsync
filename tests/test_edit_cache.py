@@ -296,3 +296,75 @@ def test_a_braid_channel_that_vanished_does_not_take_the_whole_plot_with_it(
 
     assert len(_values(_Job(), "testMouse_snout_x")) == 0
     assert len(_values(_Job(), "unknown_channel_x")) == 0
+
+
+def test_a_job_that_finds_its_generation_already_committed_leaves_it_alone(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Two jobs for one fingerprint, both started before either committed.
+
+    The first commits and its readers start painting from it. The second used to
+    ``rmtree`` the committed directory before moving its own copy in, so a
+    reader that loaded ``_t.npy`` then found ``_v.npy`` gone -- the field
+    traceback, and from there a native crash in the overlay's paint.
+    """
+    cache = tmp_path / "pose.csv.avialcache"
+    _import(cache)
+    swaps, edits = _stores()
+    swaps.add(SOURCE, SwapEvent(FLIP, ANIMALS, ("testMouse", "conSpecific")))
+    program = build_program(SOURCE, swaps, edits)
+
+    committed = edit_cache.materialise(cache, program, SCHEMA)
+    reader = PyramidReader(committed.dir_for(cache, "testMouse_snout_y"), "testMouse_snout_y")
+
+    removed: list[Path] = []
+    original_remove = edit_cache._remove_generation
+    monkeypatch.setattr(
+        edit_cache,
+        "_remove_generation",
+        lambda directory: (removed.append(directory), original_remove(directory)),
+    )
+    # The second job looked before the first had committed.
+    real_load = edit_cache.load
+    calls = iter([None])
+    monkeypatch.setattr(
+        edit_cache,
+        "load",
+        lambda cache_dir, fingerprint: next(calls, real_load(cache_dir, fingerprint)),
+    )
+
+    again = edit_cache.materialise(cache, program, SCHEMA)
+
+    assert committed.directory not in removed
+    assert again.directory == committed.directory
+    assert again.channels == committed.channels
+    assert len(reader.mapped_columns()[1]) == FRAMES
+
+
+def test_an_explicit_rebuild_never_leaves_a_file_missing(tmp_path: Path, monkeypatch) -> None:
+    """A rebuild swaps files in place; it does not delete the directory first."""
+    cache = tmp_path / "pose.csv.avialcache"
+    _import(cache)
+    swaps, edits = _stores()
+    swaps.add(SOURCE, SwapEvent(FLIP, ANIMALS, ("testMouse", "conSpecific")))
+    program = build_program(SOURCE, swaps, edits)
+    committed = edit_cache.materialise(cache, program, SCHEMA)
+    names = {entry.name for entry in committed.directory.iterdir()}
+
+    seen_missing: list[str] = []
+    real_replace = os.replace
+
+    def watching_replace(src: Path, dst: Path) -> None:
+        present = (
+            {entry.name for entry in committed.directory.iterdir()}
+            if committed.directory.exists()
+            else set()
+        )
+        seen_missing.extend(sorted(names - present))
+        real_replace(src, dst)
+
+    monkeypatch.setattr(edit_cache.os, "replace", watching_replace)
+    rebuilt = edit_cache.materialise(cache, program, SCHEMA, rebuild=True)
+
+    assert seen_missing == []
+    assert {entry.name for entry in rebuilt.directory.iterdir()} == names

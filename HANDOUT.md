@@ -1184,6 +1184,22 @@ clamps into range and ignores the gap mask, both of which `value_at` handled int
 coverage and gap checks are written out explicitly beside it. Deleting either one puts a stale
 coordinate on screen at the ends of a recording or across a missing stretch.
 
+An edited-cache generation can disappear after a reader has been pointed at it, or lose one of its
+`.npy` files. `PaintCanvas` skips that channel's point and logs the read failure once per reader;
+the other points keep drawing, and the channel is retried on later paints so a rebuilt file can
+appear again. The loose-reader `value_at` path has the same guard. `paintEvent` always ends its
+`QPainter`, including if a different layer raises, so an exception cannot leave Qt's backing store
+mid-paint and cascade into native painter errors. `tests/test_fix_tracker.py` renders a canvas with
+the exact missing `_v.npy` shape from the field traceback and checks recovery.
+
+That guard is the second line. The cause was `edit_cache.materialise` itself: two rebuild jobs for
+the same fingerprint (undoing back to an edit still being built starts a second) both saw no
+generation when they started, and the later one `rmtree`d the directory the earlier one had
+committed and readers were already painting from. Readers load lazily, so one found `_t.npy` and
+then no `_v.npy`. A job now keeps a generation another job committed for the same edits, and an
+explicit `rebuild=True` renames each file over its predecessor (manifest last) instead of
+deleting the directory first. `tests/test_edit_cache.py` reproduces both.
+
 ### 0c-quater. A correction never touches the pose file or its cache (D-099)
 "Fix Tracker" is a sparse override in `core/point_edits.py`, written to `<pose file>.avialfix.csv`
 beside the source and applied when the overlay reads a coordinate. Nothing writes the imported CSV

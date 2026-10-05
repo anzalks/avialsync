@@ -146,9 +146,16 @@ def materialise(
 
         _write_manifest(staging, program.fingerprint, written)
         directory.parent.mkdir(parents=True, exist_ok=True)
-        if directory.exists():
-            _remove_generation(directory)
-        os.replace(staging, directory)
+        if not rebuild:
+            # Another job for the same edits may have committed while this one
+            # ran -- several are in flight while a person works, and undoing
+            # back to an edit still being built starts a second. Its readers
+            # are already painting from it. Same fingerprint, same content, so
+            # it is kept as it is and this job's copy is discarded below.
+            committed = load(cache_dir, program.fingerprint)
+            if committed is not None:
+                return committed
+        _commit(staging, directory)
     finally:
         # Whatever went wrong, this job's own half-written directory goes with
         # it rather than being left for a later sweep to find and puzzle over.
@@ -159,6 +166,27 @@ def materialise(
         directory=directory,
         channels=frozenset(written),
     )
+
+
+def _commit(staging: Path, directory: Path) -> None:
+    """Make *staging* the generation at *directory* without a reader seeing a gap.
+
+    A new generation is one atomic rename. Replacing a committed one used to
+    ``rmtree`` it first, and readers load their arrays lazily on first paint:
+    measured, a reader that had loaded ``_t.npy`` then found ``_v.npy`` gone,
+    the overlay's ``paintEvent`` raised, and Qt crashed natively. Each file is
+    instead renamed over its predecessor, which is atomic per file and leaves
+    an open memory map on the old one, and the manifest goes last so a
+    directory never claims channels it does not yet hold.
+    """
+    if not directory.exists():
+        os.replace(staging, directory)
+        return
+    manifest = staging / _MANIFEST
+    for entry in staging.iterdir():
+        if entry != manifest:
+            os.replace(entry, directory / entry.name)
+    os.replace(manifest, directory / _MANIFEST)
 
 
 def _write_point(

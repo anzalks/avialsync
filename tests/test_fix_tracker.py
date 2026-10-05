@@ -13,12 +13,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 from PySide6.QtCore import QEvent, QPointF, Qt
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtGui import QImage, QMouseEvent, QPainter, QPaintEvent
 from PySide6.QtWidgets import QApplication, QWidget
 from shiboken6 import isValid
 
 from avialsync.core import point_edit_sidecar
 from avialsync.core.point_edits import PointEditStore, PointKey, PointMove
+from avialsync.core.pyramid import PyramidBuilder, PyramidReader
 from avialsync.ui import recovery
 from avialsync.ui.controllers import corrections_controller
 from avialsync.ui.main_window import MainWindow
@@ -162,6 +163,85 @@ def test_a_point_inside_a_gap_is_not_drawn(qtbot) -> None:
     canvas = _canvas(qtbot, track, t=1.0)
 
     assert canvas._resolve(track) == []
+
+
+def test_a_missing_edited_channel_skips_only_its_point_and_recovers(
+    qtbot, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A pruned generation cannot raise through the video paint callback."""
+    cache = tmp_path / "pose.csv.avialcache" / "edited" / "old-generation"
+    cache.mkdir(parents=True)
+    times = np.array([0.0, 1.0])
+    for channel, values in (
+        ("missing_x", [10.0, 11.0]),
+        ("missing_y", [20.0, 21.0]),
+        ("visible_x", [30.0, 31.0]),
+        ("visible_y", [40.0, 41.0]),
+    ):
+        PyramidBuilder(cache, channel).build_and_save(times, np.array(values))
+    (cache / "missing_y_v.npy").unlink()
+    missing_y = PyramidReader(cache, "missing_y")
+    track = _track(
+        {
+            "missing": (PyramidReader(cache, "missing_x"), missing_y),
+            "visible": (
+                PyramidReader(cache, "visible_x"),
+                PyramidReader(cache, "visible_y"),
+            ),
+        }
+    )
+    canvas = _canvas(qtbot, track)
+    canvas.resize(*VIDEO_SIZE)
+
+    image = QImage(*VIDEO_SIZE, QImage.Format.Format_ARGB32)
+    image.fill(Qt.GlobalColor.transparent)
+    canvas.render(image)
+    assert [(point.name, point.x, point.y) for point in canvas._resolve(track)] == [
+        ("visible", 30.0, 40.0)
+    ]
+    assert sum("missing_y" in record.message for record in caplog.records) == 1
+
+    PyramidBuilder(cache, "missing_y").build_and_save(times, np.array([20.0, 21.0]))
+    assert {point.name for point in canvas._resolve(track)} == {"missing", "visible"}
+
+
+def test_a_missing_loose_channel_does_not_escape_paint(qtbot, tmp_path: Path) -> None:
+    """The older loose-reader overlay uses value_at and needs the same guard."""
+    canvas = _canvas(qtbot, _track({}))
+    canvas.set_readers([PyramidReader(tmp_path / "missing", "nose_x")])
+    image = QImage(*VIDEO_SIZE, QImage.Format.Format_ARGB32)
+    image.fill(Qt.GlobalColor.transparent)
+
+    canvas.render(image)
+
+
+def test_paint_ends_its_painter_when_a_layer_raises(qtbot, monkeypatch) -> None:
+    """An unexpected drawing failure must not leave Qt's backing store active."""
+    canvas = _canvas(qtbot, _one_point_track([10.0], [10.0], [0.0]))
+    painters = []
+
+    class _Painter:
+        RenderHint = QPainter.RenderHint
+
+        def __init__(self, _widget):
+            self.active = True
+            painters.append(self)
+
+        def setRenderHint(self, _hint):
+            pass
+
+        def end(self):
+            self.active = False
+
+    def fail(*_args):
+        raise RuntimeError("draw failed")
+
+    monkeypatch.setattr("avialsync.ui.video_overlay.QPainter", _Painter)
+    monkeypatch.setattr(canvas, "_paint_layers", fail)
+    with pytest.raises(RuntimeError, match="draw failed"):
+        canvas.paintEvent(QPaintEvent(canvas.rect()))
+    assert len(painters) == 1
+    assert not painters[0].active
 
 
 # ── the gesture ──────────────────────────────────────────────────────

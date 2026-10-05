@@ -9,6 +9,7 @@ window turns into a reversible command against
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -21,9 +22,11 @@ from avialsync.core.point_edits import PointKey
 from avialsync.core.pose import split_channel
 from avialsync.ui.marker_overlay import MarkerOverlayMixin, ResolvedPoint
 from avialsync.ui.overlay_registry import default_visible_for
-from avialsync.ui.prop_overlay import draw_props
+from avialsync.ui.prop_overlay import PropDrawing, draw_props
 from avialsync.ui.tracking_colors import color_for_point
-from avialsync.ui.wheel_overlay import draw_wheel, draw_wheel_clicks
+from avialsync.ui.wheel_overlay import WheelDrawing, draw_wheel, draw_wheel_clicks
+
+logger = logging.getLogger(__name__)
 
 _ENSEMBLE_COLOR = (0, 255, 255)
 _MODEL_COLORS = (
@@ -86,6 +89,7 @@ class PaintCanvas(MarkerOverlayMixin):
         self.setAutoFillBackground(False)
         self.readers: list[Any] = []
         self.tracks: list[OverlayTrack] = []
+        self._reported_reader_errors: set[int] = set()
         self.t = 0.0
         #: Seeded from the registry, never from literals here: these are the
         #: same defaults View -> Overlays checks its boxes against, and a second
@@ -110,11 +114,13 @@ class PaintCanvas(MarkerOverlayMixin):
         way, broadcast to every camera rather than routed to one.
         """
         self.readers = readers
+        self._reported_reader_errors.clear()
         self.update()
 
     def set_tracks(self, tracks: list[OverlayTrack]) -> None:
         """Draw one or more named prediction sources over this camera."""
         self.tracks = list(tracks)
+        self._reported_reader_errors.clear()
         self.update()
 
     def set_points_visible(self, visible: bool) -> None:
@@ -180,6 +186,16 @@ class PaintCanvas(MarkerOverlayMixin):
         genuinely missing stretch would show its last known coordinate pinned
         in place rather than nothing, which ``value_at`` never did.
         """
+        try:
+            sample = self._sample_readable(reader)
+        except (OSError, ValueError) as error:
+            self._reader_unavailable(reader, error)
+            return None
+        self._reported_reader_errors.discard(id(reader))
+        return sample
+
+    def _sample_readable(self, reader: Any) -> tuple[int, float] | None:
+        """Read a point after the paint boundary has installed its error guard."""
         sample_at = getattr(reader, "sample_at", None)
         if sample_at is None:
             value = float(reader.value_at(self.t))
@@ -202,6 +218,18 @@ class PaintCanvas(MarkerOverlayMixin):
             if 0 <= index < len(gap) and bool(gap[index]):
                 return None
         return int(index), float(value)
+
+    def _reader_unavailable(self, reader: Any, error: OSError | ValueError) -> None:
+        """Report a lost channel once while letting later paints retry it."""
+        identity = id(reader)
+        if identity in self._reported_reader_errors:
+            return
+        self._reported_reader_errors.add(identity)
+        logger.warning(
+            "Tracking overlay skipped unavailable channel %s: %s",
+            getattr(reader, "channel_id", "<unknown>"),
+            error,
+        )
 
     def _resolve(self, track: OverlayTrack) -> list[ResolvedPoint]:
         """Return every body part of *track* that has a position right now.
@@ -275,8 +303,26 @@ class PaintCanvas(MarkerOverlayMixin):
         scale, offset_x, offset_y = geometry
 
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        try:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            self._paint_layers(painter, draw_points, wheel, props, scale, offset_x, offset_y)
+        finally:
+            # A Python exception must not return control to Qt with this widget
+            # still being painted; that leaves the backing store in an invalid
+            # state and can turn one read error into a native crash.
+            painter.end()
 
+    def _paint_layers(
+        self,
+        painter: QPainter,
+        draw_points: bool,
+        wheel: WheelDrawing | None,
+        props: list[PropDrawing],
+        scale: float,
+        offset_x: float,
+        offset_y: float,
+    ) -> None:
+        """Draw the registered video layers with an active painter."""
         if props:
             draw_props(painter, props, scale, offset_x, offset_y)
 
@@ -388,7 +434,12 @@ class PaintCanvas(MarkerOverlayMixin):
     ) -> None:
         points: dict[str, dict[str, float]] = {}
         for reader in self.readers:
-            value = reader.value_at(self.t)
+            try:
+                value = reader.value_at(self.t)
+            except (OSError, ValueError) as error:
+                self._reader_unavailable(reader, error)
+                continue
+            self._reported_reader_errors.discard(id(reader))
             if np.isnan(value):
                 continue
             split = split_channel(reader.channel_id)
