@@ -1070,7 +1070,7 @@ these looked done from the module that owned it and was wrong from the window.
    again when the tree grows: `_sweep_accessibility` on every source change, and `ShowTimeSweeper`
    on `Show` for dialogs, which do not exist until someone opens one.
 
-### 0a-bis. Four ways a theme change silently fails to arrive (D-106)
+### 0a-bis. Ways a theme change silently fails to arrive (D-106)
 None of these raise. Each just leaves one surface on the previous appearance, which is
 why they survived for a phase apiece.
 1. **`pg.setConfigOption` moves nothing that already exists.** pyqtgraph reads those globals
@@ -1107,6 +1107,23 @@ why they survived for a phase apiece.
    outgoing appearance. That bug shipped and was reported from a running build — Dark→System and
    Light→System did nothing while a fresh launch into System was correct. Refresh
    `_system_palettes` only *after* handing back, never before.
+6. **A widget with a stylesheet hears nothing when the application palette changes.** No
+   `PaletteChange`, no `ApplicationPaletteChange` — measured — and its own `palette()` keeps the
+   colour the sheet pinned even after the sheet is cleared. `follow_palette` therefore listens to
+   `app.paletteChanged` and builds from `_inherited_palette`, never from the widget. Its old test
+   called `setPalette` on the widget itself, the one path Qt still delivers, and passed while every
+   real switch left followed widgets on the launch theme.
+7. **Style-supplied ink ignores the palette.** Standard icons are drawn in one fixed colour (black
+   on macOS) and `SH_Table_GridLineColor` is a fixed `#141414` under both appearances. Use
+   `icons.set_glyph_icon` / `set_status_icon` for button icons and `tables.ThemedTable` for any
+   table that shows its grid. On a 2× display paint over a one-pixel grid line with `fillRect`, not
+   `drawLine`: a stroked line covers one device row of the two and leaves half the black showing.
+8. **Platform palettes can contradict themselves.** macOS's dark palette reports an opaque
+   `#989898` `AlternateBase` and its dimmed selection tint as `Highlight`. Read surfaces through
+   `theme.surface_color` and the accent through `theme.system_accent`; never read `AlternateBase`
+   or `Highlight` directly for custom paint. Rich-text links in a `QTextBrowser` keep the link
+   colour they had when the HTML was set — the application has none today; re-set the HTML on a
+   palette change if one is ever added.
 
 ### 0a-ter. A test that writes real `QSettings` edits the developer's application (D-106)
 Thirteen places in `src/` construct `QSettings("AvialSync", "AvialSync")`. A run that exercised the

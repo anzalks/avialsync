@@ -352,7 +352,7 @@ conda run -n avialsync python tools/generate_session_screenshot.py <recording fo
   itself, and does not reach *any* widget carrying a stylesheet — including one that sets only a
   font weight. Colours are defined in `ui/theme.py` and applied through `ui/plot_theme.py`;
   emphasis goes through `theme.set_bold()`, never `setStyleSheet("font-weight: bold;")`. See
-  HANDOUT.md "Four ways a theme change silently fails to arrive" before adding a drawn surface.
+  HANDOUT.md "Ways a theme change silently fails to arrive" before adding a drawn surface.
 - Playback drift correction needs hysteresis: re-seek only after N consecutive off-target ticks,
   or late Qt timers cause re-seek/stutter cascades under UI load.
 - Frame stepping: always the decoded presentation timestamps; never `t += 1/fps` (breaks on VFR and
