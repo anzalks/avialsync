@@ -1217,6 +1217,14 @@ then no `_v.npy`. A job now keeps a generation another job committed for the sam
 explicit `rebuild=True` renames each file over its predecessor (manifest last) instead of
 deleting the directory first. `tests/test_edit_cache.py` reproduces both.
 
+The likelier path in the field was the base cache itself. A pose file imported at an assumed
+frame rate is re-imported as soon as a camera dates its frames, and `CacheManager.commit_cache`
+deleted the old sidecar -- `edited/` inside it, including a build still writing its staging
+directory. `commit_cache` now carries `edited/` into the new sidecar, and each generation's
+manifest records the base key it was built on, so `edit_cache.load` rebuilds rather than reuses
+it after a re-import. Anything that lives *inside* a `.avialcache` and must outlive a rebuild
+belongs in `cache.EDITED_SUBDIR`'s treatment, not in a new sibling directory.
+
 ### 0c-quater. A correction never touches the pose file or its cache (D-099)
 "Fix Tracker" is a sparse override in `core/point_edits.py`, written to `<pose file>.avialfix.csv`
 beside the source and applied when the overlay reads a coordinate. Nothing writes the imported CSV
