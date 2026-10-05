@@ -17,13 +17,28 @@ from PySide6.QtWidgets import QApplication, QMenu
 from shiboken6 import isValid
 
 from avialsync.core import cache_store
-from avialsync.core.cache import CacheManager, cache_dir_for, cache_root
+from avialsync.core.cache import CACHE_DIR_ENV, CacheManager, cache_dir_for, cache_root
 from avialsync.loaders.csv_loader import CSVLoader
 from avialsync.ui import recovery
 from avialsync.ui.controllers import cache_controller
 from avialsync.ui.main_window import MainWindow
 
 _CONFIG = {"time_col": "time", "time_unit": "s", "separator": ","}
+
+
+@pytest.fixture(autouse=True)
+def isolated_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Give each test a cache root of its own.
+
+    The suite shares one sandbox root, so without this "Delete All Cache"
+    also meets entries an earlier test imported. On Windows a closed window
+    that has not been collected yet still maps those arrays, so they cannot
+    be renamed aside: they are reported and kept, as designed, and a test
+    expecting an empty root waits forever.
+    """
+    root = tmp_path / "cache"
+    monkeypatch.setenv(CACHE_DIR_ENV, str(root))
+    return root
 
 
 @pytest.fixture(autouse=True)

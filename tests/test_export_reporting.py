@@ -129,18 +129,21 @@ def test_a_stimulus_grid_export_is_a_registered_job(window: MainWindow, tmp_path
     window._job_manager.shutdown()
 
 
-def test_a_finished_stimulus_grid_reports_without_a_modal(window: MainWindow) -> None:
-    export_controller.on_stimulus_grid_export_finished(window, "/data/comparison.mp4", False)
+def test_a_finished_stimulus_grid_reports_without_a_modal(window: MainWindow, tmp_path) -> None:
+    output = tmp_path / "comparison.mp4"
+    export_controller.on_stimulus_grid_export_finished(window, str(output), False)
 
-    assert "/data/comparison.mp4" in window.notifications.message
+    # The full resolved path, in the platform's own form: "D:\\..." on Windows.
+    assert str(output.resolve()) in window.notifications.message
     assert window.notifications.is_sticky is False
 
 
-def test_replaced_stimulus_grid_reports_replacement(window: MainWindow) -> None:
-    export_controller.on_stimulus_grid_export_finished(window, "/data/comparison.mp4", True)
+def test_replaced_stimulus_grid_reports_replacement(window: MainWindow, tmp_path) -> None:
+    output = tmp_path / "comparison.mp4"
+    export_controller.on_stimulus_grid_export_finished(window, str(output), True)
 
     assert "Replaced" in window.notifications.message
-    assert "/data/comparison.mp4" in window.notifications.message
+    assert str(output.resolve()) in window.notifications.message
     assert "Reopen" in window.notifications.message
 
 
