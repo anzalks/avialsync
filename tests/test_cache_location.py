@@ -413,3 +413,20 @@ def test_large_sync_mappings_live_with_the_session_not_in_the_cache(tmp_path: Pa
     assert stored["sync_provenance"][0]["exact_mapping"]["file"].startswith("trial_avv_sync/")
     assert not cache_root().is_relative_to(tmp_path)
     np.testing.assert_array_equal(loaded.sync_provenance[0].exact_source, master + 0.5)
+
+
+def test_an_unwritable_cache_folder_costs_the_timestamp_cache_not_the_video(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The cache is an optimisation; a full or locked cache disk must not fail an open."""
+    from avialsync.loaders.video_standard import VideoStandardLoader
+
+    def refuse(self: CacheManager, source_path: Path) -> Path:
+        raise PermissionError(13, "cache folder not writable")
+
+    monkeypatch.setattr(CacheManager, "get_temp_cache_dir", refuse)
+    video = _source(tmp_path / "data", "cam.mp4")
+
+    VideoStandardLoader()._save_frame_times_cache(video, np.arange(5, dtype=np.float64))
+
+    assert not cache_dir_for(video).exists()

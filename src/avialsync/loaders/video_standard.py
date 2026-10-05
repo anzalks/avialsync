@@ -422,15 +422,20 @@ class VideoStandardLoader(VideoSource):
 
     def _save_frame_times_cache(self, path: Path, frame_times: np.ndarray) -> None:
         manager = self._cache_manager()
-        temp_dir = manager.get_temp_cache_dir(path)
+        temp_dir: Path | None = None
         try:
+            # Inside the guard: creating the staging directory is the first
+            # write, and a cache folder that cannot be written must cost the
+            # cache, not the video.
+            temp_dir = manager.get_temp_cache_dir(path)
             np.save(temp_dir / _FRAME_TIMES_NAME, frame_times, allow_pickle=False)
             manager.commit_cache(path, temp_dir)
         except (CacheError, OSError):
-            # Timestamp caching is an optimization.  Read-only acquisition
-            # media must remain loadable with the in-memory evidence.
+            # Timestamp caching is an optimization.  The video must remain
+            # loadable with the in-memory evidence.
             logger.warning("Could not cache video frame timestamps for %s", path, exc_info=True)
-            shutil.rmtree(temp_dir, ignore_errors=True)
+            if temp_dir is not None:
+                shutil.rmtree(temp_dir, ignore_errors=True)
 
     def _extract_frame_times(self, path: Path) -> None:
         """Build the presentation-timestamp table with the decoder's own code.
