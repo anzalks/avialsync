@@ -19,6 +19,10 @@
   **Messages** (prose the recording itself carries), **Changes** (everything you flagged,
   labelled, or corrected), **Props** (physical apparatus), and **Tasks** (what is loading,
   with a cancel where the work supports one).
+
+  ![The Props tab with the prop-kind chooser, a prop name field and the foothold controls](../_static/screenshots/feature_props_tab.png)
+
+  ![The Tasks tab beside the video and plots](../_static/screenshots/feature_tasks_tab.png)
 - **Tasks lists everything the application is doing** — imports, session saves and loads, proxy
   builds, every export, and the metadata probe each video runs when it opens. A job that has gone
   quiet for longer than it should is marked *not responding* rather than left looking busy, which

@@ -30,7 +30,7 @@ declares. That matters more often than it sounds: a camera running at a varying 
 routinely writes a file claiming a constant 30 fps, and its own timestamps prove otherwise.
 
 Those timestamps decide whether a recording is treated as CFR or VFR, where a frame step lands, and
-which frame is named at any moment. They are cached beside the video after the first read, so
+which frame is named at any moment. They are cached in the per-user cache folder after the first read, so
 opening it again does not walk the file a second time.
 
 ## Sensor and tracking data

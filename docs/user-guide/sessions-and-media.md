@@ -39,6 +39,8 @@ only the time a re-import takes. **File → Cache** offers three commands:
 - **Delete All Cache** deletes the cached imports of every recording you have opened.
 - **Show Cache Folder** opens the folder in your file manager.
 
+![The File → Cache submenu with its three commands](../_static/screenshots/feature_menu_file_cache.png)
+
 Your own work is never in the cache: tracking corrections, identity swaps, custom markers and
 physical props are saved beside the data they describe, and sessions where you save them. See
 [Data handling](../technical/data-handling.md) for which file is which.
@@ -145,6 +147,8 @@ range loops, live plot presentation, whether body-part names are drawn by defaul
 levels for high-bit-depth video are chosen automatically, the autosave interval, and whether unsaved
 work from a previous run is offered at launch.
 
+![The Preferences dialog](../_static/screenshots/feature_preferences.png)
+
 The View menu still offers theme, font size, and time display directly; they are the same settings,
 not a second copy.
 
@@ -157,6 +161,8 @@ cannot account for.
 
 Right-click a video pane and use **Overlays on this camera** to override one camera without changing
 the others; **Follow the View menu** puts it back. Overlay choices are remembered with the session.
+
+![The View → Overlays submenu](../_static/screenshots/feature_menu_view_overlays.png)
 
 Two are listed but cannot be switched off, and say why when you ask: the **No Footage** placeholder,
 because hiding it would leave an empty pane looking like a camera that simply had nothing to show,
@@ -178,6 +184,8 @@ application settings rather than in the `.avv` file. **Delete Layout…** remove
 current shortcut beside it. Type part of a name to filter. It is built from the live menu actions,
 so it cannot list a command that does not exist or miss one that does — useful for the overlay
 switches in particular, which are otherwise three levels into a menu.
+
+![The command palette](../_static/screenshots/feature_command_palette.png)
 
 ## Keyboard shortcuts
 
@@ -207,6 +215,8 @@ and `Ctrl+Shift+D` for data.
 ## Appearance
 
 **View → Theme** offers System, Dark, or Light. **View → Font Size** offers a system-relative size.
+
+![The same session in the Light theme](../_static/screenshots/feature_light_theme.png)
 
 System follows your desktop, including a change you make while AvialSync is running, and switching
 back to System from Dark or Light hands the appearance to your desktop again.

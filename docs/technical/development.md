@@ -65,6 +65,15 @@ Both pin the application appearance and wait for the camera frame to be painted;
 loads generated frame-strobe evidence and captures a completed preview. The Messages image adds
 generated text attributed to `synthetic_rig_log.txt`.
 
+`tools/generate_feature_screenshots.py` writes the `feature_*` images from the same synthetic
+fixture: the Props and Tasks tabs, the File → Cache and View → Overlays menus, the command palette,
+Preferences, and the Light theme. It pins the appearance without saving it and only shows dialogs,
+never accepts them.
+
+```bash
+conda run -n avialsync python tools/generate_feature_screenshots.py
+```
+
 The stimulus-grid assets use a separate synthetic scene and the real File → Export Stimulus Grid
 workflow:
 
