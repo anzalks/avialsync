@@ -11,7 +11,7 @@ overlay can apply it as it paints; a flip changes every frame from here to the
 end, and the plot rows, the 3D view, the readout and the exports all have to
 agree with the overlay about who is who.  So an accepted flip is materialised:
 :mod:`avialsync.core.edit_cache` writes the edited channels into a generation
-of the source's own sidecar cache, and every reader is re-pointed at it.  From
+of the source's own cache entry, and every reader is re-pointed at it.  From
 then on nothing downstream knows that flips exist -- it is reading a tracker
 that says what the user says it says (D-142).
 

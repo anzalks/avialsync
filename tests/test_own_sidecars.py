@@ -18,9 +18,10 @@ from avialsync.engine.drop_worker import DropScanWorker
 
 _ROWS = "frame,value\n1,2.0\n2,3.0\n"
 SIDECARS = [
-    "pose.csv.avialswap.csv",
-    "pose.csv.avialfix.csv",
-    "session.custom_markers.csv",
+    "pose_csv_avialswap.csv",
+    "pose_csv_avialfix.csv",
+    "session_custom_markers.csv",
+    "wheel_prop.toml",
 ]
 
 

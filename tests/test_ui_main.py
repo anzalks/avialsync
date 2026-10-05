@@ -95,7 +95,7 @@ def test_reset_session_button_requests_a_clean_workspace(main_window: MainWindow
 
     video_path = "/tmp/camera.mp4"
     sensor_path = "/tmp/sensor.csv"
-    cache_dir = Path("/tmp/sensor.avialcache")
+    cache_dir = Path("/tmp/sensor_cache")
     pane = QWidget()
     main_window.video_grid.panes.append(pane)
     main_window.video_grid._paths.append(video_path)
@@ -232,7 +232,7 @@ def test_programmatic_import_completion_needs_no_progress_dialog(
     from avialsync.core.inspection import SourceInspection
     from avialsync.core.pyramid import PyramidBuilder
 
-    cache_dir = tmp_path / "demo.avialcache"
+    cache_dir = tmp_path / "demo_cache"
     cache_dir.mkdir()
     PyramidBuilder(cache_dir, "ttl").build_and_save(np.array([0.0, 1.0]), np.array([0.0, 1.0]))
     main_window._on_import_finished(

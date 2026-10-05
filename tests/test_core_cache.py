@@ -192,7 +192,7 @@ def test_a_rebuilt_cache_keeps_the_edited_generations_inside_it(tmp_path: Path) 
     assert (cache_dir / "x_v.npy").read_text(encoding="utf-8") == "new"
     assert (generation / "testMouse_snout_y_v.npy").read_text(encoding="utf-8") == "edited"
     assert staging.is_dir()
-    assert not list(tmp_path.glob(".pose.csv.avialcache.backup-*"))
+    assert not list(cache_dir.parent.glob(f".{cache_dir.name}.backup-*"))
 
 
 def test_the_in_place_fallback_keeps_the_edited_generations_too(

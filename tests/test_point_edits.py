@@ -230,7 +230,7 @@ def _pose_file(tmp_path: Path) -> Path:
 def test_the_sidecar_sits_beside_the_pose_file(tmp_path: Path) -> None:
     """Named off the full file name, so `a.csv` and `a.h5` cannot collide."""
     pose = _pose_file(tmp_path)
-    assert sidecar.sidecar_path(pose) == tmp_path / "eks.csv.avialfix.csv"
+    assert sidecar.sidecar_path(pose) == tmp_path / "eks_csv_avialfix.csv"
     assert sidecar.is_correction_path(sidecar.sidecar_path(pose))
     assert not sidecar.is_correction_path(pose)
 

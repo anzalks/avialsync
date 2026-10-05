@@ -13,7 +13,7 @@ something they can open in pandas or a spreadsheet without a parser. The
 provenance header is `#`-commented, which both `polars.read_csv(comment_prefix=)`
 and `pandas.read_csv(comment=)` skip.
 
-**Beside the file, not inside `.avialcache/`.** That directory is derived state,
+**Beside the file, not in the cache.** The cache folder is derived state,
 rebuilt from a content hash and safe to delete; corrections are irreplaceable
 human work. Putting them there would mean a cache clear ate an afternoon of it.
 
@@ -33,6 +33,8 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from avialsync.core import sidecar_names
+
 logger = logging.getLogger(__name__)
 
 __all__ = [
@@ -45,10 +47,9 @@ __all__ = [
     "write",
 ]
 
-#: Appended to the source's **full** file name, matching the `<file>.avialcache/`
-#: convention: `eks.csv` -> `eks.csv.avialfix.csv`. Appending to the whole name
-#: rather than the stem is what keeps `a.csv` and `a.h5` from colliding.
-SIDECAR_SUFFIX = ".avialfix.csv"
+#: Appended to the source's full file name, dots made underscores
+#: (:mod:`avialsync.core.sidecar_names`): `eks.csv` -> `eks_csv_avialfix.csv`.
+SIDECAR_SUFFIX = "_avialfix.csv"
 
 _COLUMNS = ("frame", "bodypart", "x", "y", "shown_as")
 _HEADER_COMMENT = (
@@ -96,8 +97,7 @@ class Corrections:
 
 def sidecar_path(source: Path | str) -> Path:
     """Return the corrections file that belongs beside *source*."""
-    path = Path(source)
-    return path.with_name(path.name + SIDECAR_SUFFIX)
+    return sidecar_names.beside(source, SIDECAR_SUFFIX)
 
 
 def is_correction_path(path: Path | str) -> bool:

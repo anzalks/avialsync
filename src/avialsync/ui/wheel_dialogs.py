@@ -52,7 +52,7 @@ __all__ = [
     "bar_count_spin",
 ]
 
-#: A wheel's name becomes a file name, ``<name>.prop.toml``.
+#: A wheel's name becomes a file name, ``<name>_prop.toml``.
 _NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_\-]*$")
 _MAX_BARS = 720
 

@@ -14,9 +14,9 @@ assumes it will not come.
 marker lives in files of its own beside the data it extends, which this module
 reads and writes:
 
-* ``<Camera>_eks.custom_markers.csv`` beside each camera's 2D pose file, in
+* ``<Camera>_eks_custom_markers.csv`` beside each camera's 2D pose file, in
   DeepLabCut's three-header-row layout -- the clicks, per camera;
-* ``_eks.custom_markers.csv`` beside the 3D pose file, in anipose's layout --
+* ``_eks_custom_markers.csv`` beside the 3D pose file, in anipose's layout --
   the triangulated result, with ``_error`` and ``_ncams`` as anipose writes them.
 
 The 2D files are the authority: they are what the user did. The 3D file is
@@ -53,8 +53,9 @@ __all__ = [
 ]
 
 #: Replaces the pose file's ``.csv``: ``FaceCam_eks.csv`` ->
-#: ``FaceCam_eks.custom_markers.csv``, the name the lab asked for.
-MARKER_SUFFIX = ".custom_markers.csv"
+#: ``FaceCam_eks_custom_markers.csv``. An underscore rather than a dot, so the
+#: file's only extension is its real one (D-160).
+MARKER_SUFFIX = "_custom_markers.csv"
 
 #: DLC keys a column set by scorer; this one says a person placed the points.
 SCORER = "avialsync_custom"
@@ -193,7 +194,7 @@ def is_custom_marker_path(path: Path | str) -> bool:
     """Whether *path* is one of our own marker files.
 
     Drop scanning, format sniffing, and the AOL manifest consult this: the files
-    are pose-shaped CSVs, and ``_eks.custom_markers.csv`` even matches the
+    are pose-shaped CSVs, and ``_eks_custom_markers.csv`` even matches the
     ``*_eks*.csv`` glob that finds 3D pose, so without it our own output would
     be offered back as data.
     """

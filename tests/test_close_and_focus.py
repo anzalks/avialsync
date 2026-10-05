@@ -240,7 +240,7 @@ def _pyramid_channels(tmp_path: Path, count: int) -> Path:
 
     from avialsync.core.pyramid import PyramidBuilder
 
-    cache = tmp_path / "many.avialcache"
+    cache = tmp_path / "many_cache"
     cache.mkdir(parents=True, exist_ok=True)
     times = np.linspace(0.0, 10.0, 2_000)
     for index in range(count):

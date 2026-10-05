@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
+from avialsync.core.cache import cache_dir_for
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.messages import Message
 from avialsync.core.source import ChannelInfo
@@ -63,7 +64,9 @@ def test_import_worker_commits_cache_without_reopening_mmap(tmp_path: Path, monk
     assert errors == []
     assert len(completed) == 1
     assert completed[0][3] == (0.0, 1.0)
-    assert (tmp_path / "signal.csv.avialcache" / "meta.json").exists()
+    assert (cache_dir_for(source) / "meta.json").exists()
+    # The cache lives in the cache root, never beside the recording (D-160).
+    assert [path.name for path in tmp_path.iterdir()] == ["signal.csv"]
 
 
 def test_import_worker_uses_one_bulk_parse_then_reuses_valid_cache(tmp_path: Path) -> None:
@@ -81,7 +84,7 @@ def test_import_worker_uses_one_bulk_parse_then_reuses_valid_cache(tmp_path: Pat
     assert len(completed) == 1
     assert _BulkLoader.open_calls == 1
     assert _BulkLoader.bulk_calls == 1
-    cache_dir = tmp_path / "signal.csv.avialcache"
+    cache_dir = cache_dir_for(source)
     assert (cache_dir / "import.json").exists()
 
     second = ImportWorker(source, config, _BulkLoader)

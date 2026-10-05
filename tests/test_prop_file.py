@@ -157,7 +157,7 @@ def test_misnamed_tombstone_reports_an_issue_without_hiding_another_prop(tmp_pat
     props, issues = read_props(tmp_path)
     assert props == [ladder]
     assert [(issue.filename, issue.reason) for issue in issues] == [
-        ("wrong.prop.toml", "name_mismatch")
+        ("wrong_prop.toml", "name_mismatch")
     ]
 
 
@@ -173,8 +173,8 @@ def test_future_version_and_kind_are_reported_without_hiding_good_props(tmp_path
     props, issues = read_props(tmp_path)
     assert props == [good]
     assert {issue.filename for issue in issues} == {
-        "future.prop.toml",
-        "unsupported.prop.toml",
+        "future_prop.toml",
+        "unsupported_prop.toml",
     }
     assert {issue.reason for issue in issues} == {"unsupported_version", "unsupported_kind"}
 
@@ -206,7 +206,7 @@ def test_one_corrupt_file_costs_only_that_prop(tmp_path) -> None:
     (tmp_path / f"broken{PROP_SUFFIX}").write_text("[prop\n", encoding="utf-8")
     props, issues = read_props(tmp_path)
     assert props == [good]
-    assert len(issues) == 1 and issues[0].filename == "broken.prop.toml"
+    assert len(issues) == 1 and issues[0].filename == "broken_prop.toml"
 
 
 @pytest.mark.parametrize(
@@ -222,7 +222,7 @@ def test_typed_sidecar_fields_do_not_silently_change_evidence(tmp_path, bad_fiel
     )
     props, issues = read_props(tmp_path)
     assert props == [good]
-    assert len(issues) == 1 and issues[0].filename == "bad.prop.toml"
+    assert len(issues) == 1 and issues[0].filename == "bad_prop.toml"
 
 
 def test_a_filename_mismatch_is_reported_not_silently_adopted(tmp_path) -> None:

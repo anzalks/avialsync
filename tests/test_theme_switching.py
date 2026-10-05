@@ -183,7 +183,7 @@ def test_the_canvas_and_axis_come_from_palette_roles() -> None:
 
 
 def _pane_with_a_channel(qtbot, tmp_path: Path) -> PlotPane:
-    cache = tmp_path / "theme.avialcache"
+    cache = tmp_path / "theme_cache"
     cache.mkdir(parents=True, exist_ok=True)
     times = np.arange(2_000, dtype=np.float64) / 1000.0
     PyramidBuilder(cache, "ch0").build_and_save(times, np.sin(times))
@@ -268,7 +268,7 @@ def test_a_row_built_after_a_switch_matches_the_rows_already_there(qtbot, tmp_pa
     _switch(pane, DARK)
     existing = pane.channels[0].cursor_line.pen.color()
 
-    cache = tmp_path / "later.avialcache"
+    cache = tmp_path / "later_cache"
     cache.mkdir(parents=True, exist_ok=True)
     times = np.arange(2_000, dtype=np.float64) / 1000.0
     PyramidBuilder(cache, "ch1").build_and_save(times, np.cos(times))

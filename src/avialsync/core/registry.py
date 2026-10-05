@@ -385,7 +385,7 @@ class LoaderRegistry:
         """Return the loader with the highest can_open() score > 0.
 
         Our own corrections sidecars are excluded here rather than in each
-        loader: a ``.avialfix.csv`` is a perfectly well-formed CSV, so the
+        loader: a ``_avialfix.csv`` is a perfectly well-formed CSV, so the
         generic CSV loader claims it on extension alone and offers to import
         the user's hand corrections back as a time series beside the pose file
         they belong to (D-099). One place, so a plugin cannot reintroduce it.

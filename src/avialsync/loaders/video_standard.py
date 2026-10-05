@@ -443,7 +443,7 @@ class VideoStandardLoader(VideoSource):
         Both are now literally the same code, so they cannot disagree.
 
         Costs one demux pass, no decode: 225 ms on a 716 MB, 13 844-frame file,
-        which is why the result is cached in the sidecar beside the media.
+        which is why the result is cached in the video's cache entry.
         """
         from avialsync.engine.pyav_reader import PyAVReader
 

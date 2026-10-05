@@ -144,7 +144,7 @@ class SessionItem:
     #: and four streams of one recording all read as their directory names with
     #: nothing to say which is the 30 kHz one. Empty means "use the filename".
     #:
-    #: Deliberately not part of ``config``: config is hashed into the sidecar
+    #: Deliberately not part of ``config``: config is hashed into the
     #: cache key, so wording a label better would invalidate every cache built
     #: with the old one — several gigabytes rebuilt to reword a table cell.
     label: str = ""
@@ -170,7 +170,7 @@ class SessionItem:
     #: lane, which is right for anything with a span of its own.
     #:
     #: Not part of ``config``, for the same reason :attr:`label` is not: config
-    #: is hashed into the sidecar cache key, so renaming a lane would rebuild
+    #: is hashed into the cache key, so renaming a lane would rebuild
     #: every pyramid underneath it.
     coverage_group: str = ""
 
@@ -187,7 +187,7 @@ class SessionItem:
     #: it and the application cannot.
     #:
     #: Not part of ``config``, for the same reason :attr:`label` is not: config
-    #: is hashed into the sidecar cache key, and a source's placement must not
+    #: is hashed into the cache key, and a source's placement must not
     #: be able to invalidate the samples underneath it. Re-placing a recording
     #: is a mapping change and must stay one (architecture rule 8).
     source_epoch: float | None = None

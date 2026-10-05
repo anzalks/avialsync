@@ -449,7 +449,7 @@ class MainWindow(QMainWindow):
         self._inspections: dict[str, SourceInspection] = {}
         # Units dict keyed by channel_id; populated from import config or wizard
         self._channel_units: dict[ChannelKey, str] = {}
-        # Sensor source path → its sidecar cache dir, so an offset edit can find
+        # Sensor source path → its cache entry, so an offset edit can find
         # the plot rows it owns without walking every channel.
         self._sensor_cache_dirs: dict[str, Path] = {}
         # Sources whose plot rows are still being built; their exact reader-derived
@@ -3429,7 +3429,7 @@ class MainWindow(QMainWindow):
         references: list[EvidenceSpec] = [
             SignalEvidenceSpec(
                 source_id=(
-                    f"{channel.reader.cache_dir.name.removesuffix('.avialcache')} : "
+                    f"{Path(channel.reader.source_id).name or channel.reader.cache_dir.name} : "
                     f"{channel.reader.channel_id}"
                 ),
                 cache_dir=channel.reader.cache_dir,

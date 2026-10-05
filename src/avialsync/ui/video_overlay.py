@@ -54,7 +54,7 @@ class OverlayTrack:
     """One prediction source drawn over a camera's video.
 
     ``points`` maps a body-part name to its ``(x_reader, y_reader)`` pair. Each
-    track owns readers from its own sidecar cache, so two models that both emit
+    track owns readers from its own cache entry, so two models that both emit
     a channel called ``head_bar_x`` never collide.
     """
 

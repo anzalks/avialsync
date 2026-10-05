@@ -40,7 +40,7 @@ def test_bench_tracking_3d_cursor(benchmark, qapp, tmp_path: Path) -> None:
             values = np.sin(times + point_index + axis_index)
             readers.append(
                 _ArrayReader(
-                    tmp_path / "tracking.avialcache",
+                    tmp_path / "tracking_cache",
                     f"point_{point_index}_{axis}",
                     times,
                     values,

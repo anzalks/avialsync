@@ -216,7 +216,7 @@ def test_a_sidecar_whose_arrays_disagree_with_its_count_is_rejected(tmp_path: Pa
 
     master = np.arange(600, dtype=np.float64)
     session_path = tmp_path / "s.avv"
-    sidecar_dir = tmp_path / "s.avv.avialcache"
+    sidecar_dir = tmp_path / "s_avv_sync"
     sidecar_dir.mkdir()
     mapping_path = sidecar_dir / "exact-sync-0-corrupt.npz"
     # Deliberately store fewer source samples than the declared count.
@@ -241,7 +241,7 @@ def test_a_sidecar_whose_arrays_disagree_with_its_count_is_rejected(tmp_path: Pa
                         "exact_master": [],
                         "exact_source": [],
                         "exact_mapping": {
-                            "file": f"s.avv.avialcache/{mapping_path.name}",
+                            "file": f"s_avv_sync/{mapping_path.name}",
                             "sha256": digest,
                             "count": len(master),
                         },

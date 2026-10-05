@@ -404,7 +404,7 @@ def register_tracking_source(
 ) -> None:
     """Route imported pose data to the overlay or the 3D view.
 
-    Readers are built straight from the source's own sidecar cache, so two
+    Readers are built straight from the source's own cache entry, so two
     cameras or two models that both emit ``head_bar_x`` stay separate without
     depending on globally unique channel names.
     """

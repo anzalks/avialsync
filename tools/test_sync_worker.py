@@ -3,12 +3,13 @@ from pathlib import Path
 
 from PySide6.QtCore import QCoreApplication
 
+from avialsync.core.cache import cache_dir_for
 from avialsync.engine.sync_worker import EventEvidenceSpec, SignalEvidenceSpec, SyncWorker
 from avialsync.loaders.video_standard import VideoStandardLoader
 
 app = QCoreApplication.instance() or QCoreApplication(sys.argv)
 
-cache_dir = Path("TENSS26_Anzal/2026-06-21_17-54-56.avialcache")
+cache_dir = cache_dir_for(Path("TENSS26_Anzal/2026-06-21_17-54-56"))
 if not cache_dir.exists():
     print("Cache dir doesn't exist! Did you run import?")
 

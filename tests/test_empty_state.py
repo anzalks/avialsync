@@ -85,13 +85,13 @@ def test_each_button_reports(signal_name: str, qapp: QApplication, qtbot) -> Non
 
 def test_it_hides_once_something_is_loaded(window: MainWindow, tmp_path) -> None:
     """It must never sit over real data."""
-    window._sensor_cache_dirs["/tmp/sensor.csv"] = tmp_path / "sensor.avialcache"
+    window._sensor_cache_dirs["/tmp/sensor.csv"] = tmp_path / "sensor_cache"
     window._refresh_empty_state()
     assert window.empty_state.isVisible() is False
 
 
 def test_it_returns_when_everything_is_closed(window: MainWindow, tmp_path) -> None:
-    window._sensor_cache_dirs["/tmp/sensor.csv"] = tmp_path / "sensor.avialcache"
+    window._sensor_cache_dirs["/tmp/sensor.csv"] = tmp_path / "sensor_cache"
     window._refresh_empty_state()
     window._sensor_cache_dirs.clear()
     window._refresh_empty_state()
@@ -211,7 +211,7 @@ def test_the_empty_state_never_raises_the_window_minimum(
     assert window.empty_state.isVisible(), "nothing is loaded; it should be showing"
     assert window.video_grid.minimumHeight() == VideoGrid.BASE_MIN_HEIGHT
 
-    window._sensor_cache_dirs["/tmp/sensor.csv"] = tmp_path / "sensor.avialcache"
+    window._sensor_cache_dirs["/tmp/sensor.csv"] = tmp_path / "sensor_cache"
     window._refresh_empty_state()
 
     assert window.video_grid.minimumHeight() == VideoGrid.BASE_MIN_HEIGHT

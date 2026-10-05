@@ -45,7 +45,7 @@ def test_bench_pyramid_build(benchmark, tmp_path: Path, large_dataset):
 
     def setup():
         gc.collect()
-        cache_dir = tmp_path / "bench.avialcache"
+        cache_dir = tmp_path / "bench_cache"
         cache_dir.mkdir(exist_ok=True)
         builder = PyramidBuilder(cache_dir, "ch0")
         return (builder, t, v), {}
@@ -68,7 +68,7 @@ def test_bench_pyramid_build(benchmark, tmp_path: Path, large_dataset):
 def test_bench_pyramid_query(benchmark, tmp_path: Path, large_dataset):
     t, v = large_dataset
 
-    cache_dir = tmp_path / "bench_q.avialcache"
+    cache_dir = tmp_path / "bench_q_cache"
     cache_dir.mkdir(exist_ok=True)
     builder = PyramidBuilder(cache_dir, "ch0")
     builder.build_and_save(t, v)
@@ -118,7 +118,7 @@ def test_bench_cursor_path(benchmark, tmp_path: Path):
     # Build N_CHANNELS worth of pyramid data
     readers = []
     for ch_idx in range(N_CHANNELS):
-        cache_dir = tmp_path / f"ch{ch_idx}.avialcache"
+        cache_dir = tmp_path / f"ch{ch_idx}_cache"
         cache_dir.mkdir(exist_ok=True)
         t = np.linspace(0.0, 1.0, N, dtype=np.float64)
         v = np.random.default_rng(ch_idx).standard_normal(N)
@@ -132,7 +132,7 @@ def test_bench_cursor_path(benchmark, tmp_path: Path):
     plot_pane = PlotPane()
     plot_pane.set_timeline_bounds(0.0, 1.0)
     for ch_idx in range(N_CHANNELS):
-        plot_pane.load_channels(tmp_path / f"ch{ch_idx}.avialcache", [f"ch{ch_idx}"])
+        plot_pane.load_channels(tmp_path / f"ch{ch_idx}_cache", [f"ch{ch_idx}"])
     plot_pane.set_cursor(0.25)
     transport = Transport()
     transport.set_bounds(0.0, 1.0)
@@ -189,7 +189,7 @@ def test_bench_four_channel_window_refresh(benchmark, tmp_path: Path):
     pane.resize(1000, 600)
     pane.set_timeline_bounds(0.0, 1.0)
     for channel_index in range(4):
-        cache_dir = tmp_path / f"window_ch{channel_index}.avialcache"
+        cache_dir = tmp_path / f"window_ch{channel_index}_cache"
         cache_dir.mkdir(exist_ok=True)
         times = np.linspace(0.0, 1.0, sample_count, dtype=np.float64)
         values = np.sin(times * (channel_index + 1))

@@ -412,7 +412,7 @@ def test_tracking_tile_is_rendered_at_the_tile_size_and_captioned(qtbot, tmp_pat
     pane = Tracking3DPane()
     qtbot.addWidget(pane)
     pane.resize(160, 120)
-    pane.set_readers(_tracking_readers(tmp_path / "tracking.avialcache"))
+    pane.set_readers(_tracking_readers(tmp_path / "tracking_cache"))
     pane.set_cursor(0.5)
 
     tile = capture_tracking_tile(pane)

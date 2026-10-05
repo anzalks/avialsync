@@ -37,7 +37,7 @@ def _channel_cache(tmp_path: Path, count: int, samples: int = 6_000) -> Path:
     cost measured here, while a deeper cache only adds memory pressure that
     skews the other benchmarks sharing the session.
     """
-    cache = tmp_path / "bench.avialcache"
+    cache = tmp_path / "bench_cache"
     cache.mkdir(parents=True, exist_ok=True)
     times = np.linspace(0.0, 60.0, samples)
     for index in range(count):

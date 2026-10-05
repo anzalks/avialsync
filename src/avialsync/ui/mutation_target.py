@@ -190,7 +190,7 @@ class WindowMutationTarget:
         """Override one tracked coordinate, or restore the prediction (D-099).
 
         Writes the correction store and then the corrections file beside the
-        pose source; the pose file itself and its sidecar cache are never
+        pose source; the pose file itself and its cache entry are never
         touched. This is the one funnel every correction passes through -- drag,
         undo, and redo alike -- which is why persistence hangs off it rather
         than off the store's observers: reading a sidecar in must not echo it

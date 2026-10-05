@@ -175,11 +175,11 @@ def _non_monotonic(error: BaseException) -> PresentedError:
 @_register(CacheError)
 def _cache(error: BaseException) -> PresentedError:
     return PresentedError(
-        title="The sidecar cache could not be used",
+        title="The import cache could not be used",
         cause=(
-            "The parsed copy beside your recording could not be read or written. "
+            "The parsed copy in AvialSync's cache folder could not be read or written. "
             "Your recording is untouched — cache writes are atomic, so the previous "
-            "cache is still valid. Check free space and folder permissions."
+            "cache is still valid. Check free space and the cache folder's permissions."
         ),
         recoveries=(RETRY, OPEN_LOG, COPY_DIAGNOSTICS),
         details=str(error),

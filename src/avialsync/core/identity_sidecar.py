@@ -30,6 +30,7 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from avialsync.core import sidecar_names
 from avialsync.core.identity_groups import is_custom
 from avialsync.core.identity_swaps import SwapEvent, SwapGroup
 
@@ -44,9 +45,10 @@ __all__ = [
     "write",
 ]
 
-#: Appended to the source's **full** file name, matching the `<file>.avialcache/`
-#: and `.avialfix.csv` convention: `pose.csv` -> `pose.csv.avialswap.csv`.
-SIDECAR_SUFFIX = ".avialswap.csv"
+#: Appended to the source's full file name, dots made underscores, as the
+#: corrections file is (:mod:`avialsync.core.sidecar_names`):
+#: `pose.csv` -> `pose_csv_avialswap.csv`.
+SIDECAR_SUFFIX = "_avialswap.csv"
 
 _COLUMNS = ("frame", "group", "lane_a", "lane_b", "parts")
 
@@ -82,8 +84,7 @@ class Swaps:
 
 def sidecar_path(source: Path | str) -> Path:
     """Return the swaps file that belongs beside *source*."""
-    path = Path(source)
-    return path.with_name(path.name + SIDECAR_SUFFIX)
+    return sidecar_names.beside(source, SIDECAR_SUFFIX)
 
 
 def is_swap_path(path: Path | str) -> bool:

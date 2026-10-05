@@ -197,7 +197,7 @@ def test_generating_the_wheel_is_announced_once(window: MainWindow, monkeypatch)
 
 def _load_encoder(window: MainWindow, tmp_path: Path, times, values) -> None:
     """An encoder imported as the app does: cached, plotted, and registered as a source."""
-    cache = tmp_path / "encoder.avialcache"
+    cache = tmp_path / "encoder_cache"
     cache.mkdir()
     PyramidBuilder(cache, "angle").build_and_save(times, values)
     window.sidebar.add_sensor("encoder.csv", ["angle"])
@@ -462,7 +462,7 @@ def test_out_of_sight_bars_check_box_follows_its_overlay(window: MainWindow) -> 
 def encoder(window: MainWindow, tmp_path: Path) -> str:
     path = "/rec/encoder_log.txt"
     window.sidebar.add_sensor(path, ["encoder_angle"])
-    window._sensor_cache_dirs[path] = tmp_path / "encoder.avialcache"
+    window._sensor_cache_dirs[path] = tmp_path / "encoder_cache"
     return path
 
 

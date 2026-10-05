@@ -19,7 +19,7 @@ from avialsync.ui.plot_pane import PlotPane
 
 @pytest.fixture
 def pane_with_channel(qtbot, tmp_path: Path) -> PlotPane:
-    cache = tmp_path / "gutter.avialcache"
+    cache = tmp_path / "gutter_cache"
     cache.mkdir(parents=True, exist_ok=True)
     times = np.linspace(0.0, 1.0, 200)
     PyramidBuilder(cache, "Electrode_1").build_and_save(times, np.sin(times) * 37_000)

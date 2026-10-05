@@ -254,7 +254,7 @@ def parse_wheel_document(document: Mapping[str, Any]) -> Wheel | None:
 
 
 def read_wheels(folder: Path | str) -> list[Wheel]:
-    """Read wheel records from canonical ``.prop.toml`` sidecars only."""
+    """Read wheel records from canonical ``_prop.toml`` sidecars only."""
     from avialsync.core.prop_file import read_props
 
     props, _issues = read_props(folder)

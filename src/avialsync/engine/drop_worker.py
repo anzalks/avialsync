@@ -12,7 +12,6 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, Slot
 
-from avialsync.core.cache import is_cache_path
 from avialsync.core.registry import LoaderRegistry, is_own_sidecar
 from avialsync.core.source import SessionLayout, TimeSeriesSource
 
@@ -87,12 +86,7 @@ class DropScanWorker(QObject):
             if session_files:
                 return self._collect_drop_candidates(session_files[0])
             for child in path.iterdir():
-                if child.name.startswith(".") or is_cache_path(child):
-                    # Our own sidecar. It holds one ``.npy`` per channel and
-                    # pyramid level — 482 files for a single 32-channel stream —
-                    # and none of them is an importable source. Descending into
-                    # one turned "drop the folder you imported last week" into a
-                    # dialog of several hundred unrecognised rows.
+                if child.name.startswith("."):
                     continue
                 if is_own_sidecar(child):
                     # Also ours: a corrections file is a CSV, so without this a

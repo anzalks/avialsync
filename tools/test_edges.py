@@ -1,8 +1,9 @@
 from pathlib import Path
 
+from avialsync.core.cache import cache_dir_for
 from avialsync.engine.sync_worker import SignalEvidenceSpec, SyncWorker
 
-cache_dir = Path("TENSS26_Anzal/2026-06-21_17-54-56.avialcache")
+cache_dir = cache_dir_for(Path("TENSS26_Anzal/2026-06-21_17-54-56"))
 
 ref_spec = SignalEvidenceSpec(
     source_id="2026-06-21_17-54-56",

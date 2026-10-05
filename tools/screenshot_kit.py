@@ -66,13 +66,12 @@ def staged_fixture(source: Path) -> Iterator[Path]:
     evidence menus. Opened from the repository they read
     ``/Users/<whoever ran this>/Documents/...``, which put a username into a
     published image. Opening a copy from a temporary directory keeps the
-    operator out of the picture, and keeps the caches the import writes out of
-    ``tests/fixtures`` too. The copy is additive (``copytree`` into a fresh
+    operator out of the picture. The copy is additive (``copytree`` into a fresh
     directory) and the directory is this call's own, removed on exit.
     """
     with tempfile.TemporaryDirectory(prefix="avialsync-docs-") as scratch:
         target = Path(scratch) / source.name
-        shutil.copytree(source, target, ignore=shutil.ignore_patterns("*.avialcache"))
+        shutil.copytree(source, target)
         yield target
 
 

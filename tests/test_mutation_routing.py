@@ -189,7 +189,7 @@ def test_a_video_offset_drag_is_one_undo_step(window: MainWindow) -> None:
 def test_a_sensor_mapping_change_is_recorded(window: MainWindow, tmp_path) -> None:
     path = "/tmp/sensor.csv"
     window.sidebar.add_sensor(path, ["force"])
-    window._sensor_cache_dirs[path] = tmp_path / "sensor.avialcache"
+    window._sensor_cache_dirs[path] = tmp_path / "sensor_cache"
 
     window._on_sensor_mapping_changed(path, 0.5, 12.0)
     command = _last(window)
@@ -240,7 +240,7 @@ def test_removing_a_video_is_recorded(window: MainWindow) -> None:
 def test_removing_a_sensor_is_recorded(window: MainWindow, tmp_path) -> None:
     path = "/tmp/sensor.csv"
     window.sidebar.add_sensor(path, ["force"])
-    window._sensor_cache_dirs[path] = tmp_path / "sensor.avialcache"
+    window._sensor_cache_dirs[path] = tmp_path / "sensor_cache"
     window.document.clear()
 
     window._on_sensor_remove_requested(path)

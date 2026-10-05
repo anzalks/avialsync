@@ -17,7 +17,7 @@ its mind.  The first decides where the value goes; the second is provenance and
 decides nothing.
 
 **The correction never touches the imported data.**  The pose CSV is a
-recording; the sidecar pyramid cache is derived from it; neither is rewritten
+recording; the cached pyramid is derived from it; neither is rewritten
 here.  A correction is a sparse override — one ``(source, body part, frame)``
 key mapping to one ``(x, y)`` in video pixels — held in this store and applied
 when the overlay reads a value.  That is also what makes the edit reversible:

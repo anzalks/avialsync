@@ -65,7 +65,7 @@ def _values(directory: Path, channel: str) -> np.ndarray:
 
 
 def test_a_flip_makes_one_point_read_the_other_from_that_frame(tmp_path: Path) -> None:
-    cache = tmp_path / "pose.csv.avialcache"
+    cache = tmp_path / "pose.csv_cache"
     raw = _import(cache)
     swaps, edits = _stores()
     swaps.add(SOURCE, SwapEvent(FLIP, ANIMALS, ("testMouse", "conSpecific")))
@@ -79,7 +79,7 @@ def test_a_flip_makes_one_point_read_the_other_from_that_frame(tmp_path: Path) -
 
 
 def test_the_original_cache_is_not_written(tmp_path: Path) -> None:
-    cache = tmp_path / "pose.csv.avialcache"
+    cache = tmp_path / "pose.csv_cache"
     raw = _import(cache)
     before = {path.name: path.stat().st_mtime_ns for path in cache.glob("*.npy")}
     swaps, edits = _stores()
@@ -92,7 +92,7 @@ def test_the_original_cache_is_not_written(tmp_path: Path) -> None:
 
 
 def test_only_the_channels_a_flip_changed_are_materialised(tmp_path: Path) -> None:
-    cache = tmp_path / "pose.csv.avialcache"
+    cache = tmp_path / "pose.csv_cache"
     _import(cache)
     swaps, edits = _stores()
     swaps.add(
@@ -109,7 +109,7 @@ def test_only_the_channels_a_flip_changed_are_materialised(tmp_path: Path) -> No
 
 
 def test_a_correction_follows_the_column_it_was_made_on(tmp_path: Path) -> None:
-    cache = tmp_path / "pose.csv.avialcache"
+    cache = tmp_path / "pose.csv_cache"
     _import(cache)
     swaps, edits = _stores()
     swaps.add(SOURCE, SwapEvent(FLIP, ANIMALS, ("testMouse", "conSpecific")))
@@ -128,7 +128,7 @@ def test_a_correction_follows_the_column_it_was_made_on(tmp_path: Path) -> None:
 def test_a_corrected_coordinate_is_not_left_at_the_models_low_confidence(
     tmp_path: Path,
 ) -> None:
-    cache = tmp_path / "pose.csv.avialcache"
+    cache = tmp_path / "pose.csv_cache"
     _import(cache)
     swaps, edits = _stores()
     edits.set(PointKey(SOURCE, "testMouse_snout", 12), (1.0, 2.0))
@@ -142,7 +142,7 @@ def test_a_corrected_coordinate_is_not_left_at_the_models_low_confidence(
 
 
 def test_an_unedited_source_materialises_nothing(tmp_path: Path) -> None:
-    cache = tmp_path / "pose.csv.avialcache"
+    cache = tmp_path / "pose.csv_cache"
     _import(cache)
     swaps, edits = _stores()
 
@@ -154,7 +154,7 @@ def test_an_unedited_source_materialises_nothing(tmp_path: Path) -> None:
 
 
 def test_reopening_the_same_edits_reuses_the_generation(tmp_path: Path) -> None:
-    cache = tmp_path / "pose.csv.avialcache"
+    cache = tmp_path / "pose.csv_cache"
     _import(cache)
     swaps, edits = _stores()
     swaps.add(SOURCE, SwapEvent(FLIP, ANIMALS, ("testMouse", "conSpecific")))
@@ -170,7 +170,7 @@ def test_reopening_the_same_edits_reuses_the_generation(tmp_path: Path) -> None:
 
 
 def test_prune_removes_our_old_generations_and_nothing_else(tmp_path: Path) -> None:
-    cache = tmp_path / "pose.csv.avialcache"
+    cache = tmp_path / "pose.csv_cache"
     _import(cache)
     swaps, edits = _stores()
     made = []
@@ -193,7 +193,7 @@ def test_prune_removes_our_old_generations_and_nothing_else(tmp_path: Path) -> N
 
 
 def test_a_generation_says_what_it_is(tmp_path: Path) -> None:
-    cache = tmp_path / "pose.csv.avialcache"
+    cache = tmp_path / "pose.csv_cache"
     _import(cache)
     swaps, edits = _stores()
     swaps.add(SOURCE, SwapEvent(FLIP, ANIMALS, ("testMouse", "conSpecific")))
@@ -214,7 +214,7 @@ def test_prune_never_removes_a_generation_being_written(tmp_path: Path) -> None:
     directory, the other job dies half-written with a FileNotFoundError from
     inside numpy, and the edit it was applying is silently lost.
     """
-    cache = tmp_path / "pose.csv.avialcache"
+    cache = tmp_path / "pose.csv_cache"
     _import(cache)
     swaps, edits = _stores()
     swaps.add(SOURCE, SwapEvent(FLIP, ANIMALS, ("testMouse", "conSpecific")))
@@ -235,7 +235,7 @@ def test_two_rebuilds_of_the_same_edits_do_not_share_a_staging_directory(
     tmp_path: Path,
 ) -> None:
     """Two jobs for one fingerprint must not write into one directory."""
-    cache = tmp_path / "pose.csv.avialcache"
+    cache = tmp_path / "pose.csv_cache"
     _import(cache)
     swaps, edits = _stores()
     swaps.add(SOURCE, SwapEvent(FLIP, ANIMALS, ("testMouse", "conSpecific")))
@@ -263,7 +263,7 @@ def test_prune_leaves_recent_generations_for_readers_still_on_them(tmp_path: Pat
     alone deleted the directory that job was reading, and it died with a
     FileNotFoundError out of numpy instead of drawing anything.
     """
-    cache = tmp_path / "pose.csv.avialcache"
+    cache = tmp_path / "pose.csv_cache"
     _import(cache)
     swaps, edits = _stores()
     directories = []
@@ -308,7 +308,7 @@ def test_a_job_that_finds_its_generation_already_committed_leaves_it_alone(
     reader that loaded ``_t.npy`` then found ``_v.npy`` gone -- the field
     traceback, and from there a native crash in the overlay's paint.
     """
-    cache = tmp_path / "pose.csv.avialcache"
+    cache = tmp_path / "pose.csv_cache"
     _import(cache)
     swaps, edits = _stores()
     swaps.add(SOURCE, SwapEvent(FLIP, ANIMALS, ("testMouse", "conSpecific")))
@@ -343,7 +343,7 @@ def test_a_job_that_finds_its_generation_already_committed_leaves_it_alone(
 
 def test_an_explicit_rebuild_never_leaves_a_file_missing(tmp_path: Path, monkeypatch) -> None:
     """A rebuild swaps files in place; it does not delete the directory first."""
-    cache = tmp_path / "pose.csv.avialcache"
+    cache = tmp_path / "pose.csv_cache"
     _import(cache)
     swaps, edits = _stores()
     swaps.add(SOURCE, SwapEvent(FLIP, ANIMALS, ("testMouse", "conSpecific")))
@@ -377,7 +377,7 @@ def test_a_generation_built_on_an_older_import_is_rebuilt_not_reused(tmp_path: P
     (a frame rate learned from the camera re-dates every sample), the same
     edits would have kept showing the old timing indefinitely.
     """
-    cache = tmp_path / "pose.csv.avialcache"
+    cache = tmp_path / "pose.csv_cache"
     _import(cache)
     (cache / "meta.json").write_text('{"fps": 30}', encoding="utf-8")
     swaps, edits = _stores()

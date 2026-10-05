@@ -169,7 +169,7 @@ def test_a_missing_edited_channel_skips_only_its_point_and_recovers(
     qtbot, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     """A pruned generation cannot raise through the video paint callback."""
-    cache = tmp_path / "pose.csv.avialcache" / "edited" / "old-generation"
+    cache = tmp_path / "pose.csv_cache" / "edited" / "old-generation"
     cache.mkdir(parents=True)
     times = np.array([0.0, 1.0])
     for channel, values in (

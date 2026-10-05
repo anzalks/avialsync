@@ -21,7 +21,7 @@ from avialsync.core.registry import LoaderRegistry
 @pytest.fixture
 def channel(tmp_path: Path) -> PyramidReader:
     """A one-second channel sampled at 100 Hz, with a gap in the middle."""
-    cache = tmp_path / "edges.avialcache"
+    cache = tmp_path / "edges_cache"
     cache.mkdir(parents=True, exist_ok=True)
     times = np.linspace(0.0, 1.0, 101)
     values = np.sin(times * 2 * np.pi)
@@ -61,7 +61,7 @@ class TestEmptyChannel:
 
     @pytest.fixture
     def empty(self, tmp_path: Path) -> PyramidReader:
-        cache = tmp_path / "empty.avialcache"
+        cache = tmp_path / "empty_cache"
         cache.mkdir(parents=True, exist_ok=True)
         PyramidBuilder(cache, "none").build_and_save(
             np.array([], dtype=np.float64), np.array([], dtype=np.float64)

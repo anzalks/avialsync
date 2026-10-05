@@ -14,6 +14,20 @@ import numpy as np
 
 _EXACT_MAPPING_INLINE_LIMIT = 500
 
+#: Appended to a session's stem for the folder holding its large exact-sync
+#: mappings: ``trial.avv`` -> ``trial_avv_sync/``.
+EXACT_MAPPING_DIR_SUFFIX = "_avv_sync"
+
+
+def exact_mapping_dir(session_path: Path) -> Path:
+    """Return the folder beside *session_path* holding its exact-sync arrays.
+
+    Part of the session, not the cache (D-160): a mapping the user accepted is
+    a decision, and the session will not open without the arrays it names.
+    Keeping them out of the cache root is what makes that root safe to delete.
+    """
+    return session_path.with_name(f"{session_path.stem}{EXACT_MAPPING_DIR_SUFFIX}")
+
 
 @dataclasses.dataclass
 class VideoEntry:
@@ -164,7 +178,7 @@ class SessionState:
     triggers: list[TriggerEntry] = dataclasses.field(default_factory=list)
     #: Accepted identity swaps per pose source, schema v10 (D-141). Normally a
     #: count and where the swaps live, exactly as `point_edits` records a count:
-    #: the authority is the `.avialswap.csv` beside the pose file, and the count
+    #: the authority is the `_avialswap.csv` beside the pose file, and the count
     #: is what lets a missing one be reported rather than silently obeyed. The
     #: events themselves appear here only when that file could not be written.
     identity_swaps: list[dict[str, Any]] = dataclasses.field(default_factory=list)
@@ -321,7 +335,7 @@ class SessionState:
         # on a mismatch, so it has already run for all of them by the time this
         # loop starts; repeating the check here was unreachable.
         payload = self.to_dict()
-        sidecar_dir = path.with_suffix(f"{path.suffix}.avialcache")
+        sidecar_dir = exact_mapping_dir(path)
         for index, provenance in enumerate(self.sync_provenance):
             master = np.asarray(provenance.exact_master, dtype=np.float64)
             source = np.asarray(provenance.exact_source, dtype=np.float64)
@@ -338,7 +352,7 @@ class SessionState:
             item["exact_master"] = []
             item["exact_source"] = []
             item["exact_mapping"] = {
-                "file": str(mapping_path.relative_to(path.parent)),
+                "file": mapping_path.relative_to(path.parent).as_posix(),
                 "sha256": digest,
                 "count": int(len(master)),
             }

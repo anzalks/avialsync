@@ -489,7 +489,7 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     window.point_edits.clear()
     corrections_controller.restore_manifest(window, state.point_edits)
     # Identity swaps are the same arrangement for the same reason: the
-    # `.avialswap.csv` beside the pose file is the authority, and the session
+    # `_avialswap.csv` beside the pose file is the authority, and the session
     # holds the count to check it against as the source imports (D-141).
     window.identity_swaps.clear()
     identity_controller.restore_manifest(window, state.identity_swaps)

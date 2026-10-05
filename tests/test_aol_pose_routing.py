@@ -197,7 +197,7 @@ def test_2d_tracking_source_controls_its_overlay_and_plot(
     _finish_import(
         window,
         source,
-        tmp_path / "FaceCam_eks.avialcache",
+        tmp_path / "FaceCam_eks_cache",
         channels,
         {
             "role": "overlay2d",
@@ -305,7 +305,7 @@ def test_3d_tracking_source_controls_its_view_and_plot(tmp_path: Path, qtbot, mo
     _finish_import(
         window,
         source,
-        tmp_path / "eks.avialcache",
+        tmp_path / "eks_cache",
         ["head_bar_x", "head_bar_y", "head_bar_z"],
         {"role": "pose3d"},
     )
@@ -350,7 +350,7 @@ def test_combined_pose_routes_world_xyz_and_projected_xy(
     qtbot.addWidget(window)
 
     source = str(tmp_path / "trial.c3d")
-    cache = tmp_path / "trial.avialcache"
+    cache = tmp_path / "trial_cache"
     cache.mkdir()
     video = str(tmp_path / "trial.avi")
     projection_channels = ["vicon_projection_marker_x", "vicon_projection_marker_y"]
@@ -397,7 +397,7 @@ def test_non_pose_sources_still_plot(tmp_path: Path, qtbot, monkeypatch) -> None
     window = MainWindow()
     qtbot.addWidget(window)
 
-    _finish_import(window, "encoder_log.txt", tmp_path / "enc.avialcache", ["encoder_velocity"], {})
+    _finish_import(window, "encoder_log.txt", tmp_path / "enc_cache", ["encoder_velocity"], {})
 
     assert [c.name for c in window.plot_pane.channels] == ["encoder_velocity"]
     assert not window._overlay_sources
@@ -418,7 +418,7 @@ def test_generic_pose_without_required_coordinates_is_plotted(
     _finish_import(
         window,
         str(tmp_path / "points.csv"),
-        tmp_path / "points.avialcache",
+        tmp_path / "points_cache",
         ["speed"],
         {"role": "pose3d"},
     )
@@ -458,7 +458,7 @@ def test_every_camera_is_painted_even_when_its_pane_is_built_last(
         _finish_import(
             window,
             source,
-            tmp_path / f"{camera}_eks.avialcache",
+            tmp_path / f"{camera}_eks_cache",
             ["head_bar_x", "head_bar_y"],
             {
                 "role": "overlay2d",
@@ -506,7 +506,7 @@ def test_overlay_tracks_get_distinct_colours_and_labels(tmp_path: Path, qtbot, m
         _finish_import(
             window,
             source,
-            tmp_path / f"FaceCam_{label}.avialcache",
+            tmp_path / f"FaceCam_{label}_cache",
             ["head_bar_x", "head_bar_y"],
             {
                 "role": "overlay2d",

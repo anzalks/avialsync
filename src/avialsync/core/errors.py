@@ -25,7 +25,7 @@ class SourceOpenError(AvialSyncError):
 
 
 class CacheError(AvialSyncError):
-    """Raised when the sidecar binary cache encounters an error."""
+    """Raised when the binary import cache encounters an error."""
 
     pass
 

@@ -1,7 +1,7 @@
-"""The edited tracker, materialised beside the original in the sidecar cache.
+"""The edited tracker, materialised beside the original in its cache entry.
 
 The recording is never written.  Its imported pyramid is never written either.
-An edit produces a **generation** -- ``<file>.avialcache/edited/<fingerprint>/``
+An edit produces a **generation** -- ``<cache entry>/edited/<fingerprint>/``
 -- holding the pyramid of exactly the channels the edits changed, and every
 consumer then reads those channels from there and the rest from the original
 cache.  Plot rows, the video overlay, the 3D view, the readout and every export
@@ -15,7 +15,7 @@ directory holding all sixty would cost a full re-import for every drag.
 not name are read from the original -- the same arrays, not a copy of them.
 
 **Derived, and safe to lose.**  A generation is a pure function of the pose file
-and the two sidecars beside it.  Deleting ``.avialcache/`` costs a rebuild and
+and the two sidecars beside it.  Deleting the cache costs a rebuild and
 nothing else, which is exactly what makes it the right place for this and the
 sidecar the wrong one.
 
@@ -55,7 +55,7 @@ __all__ = [
     "prune",
 ]
 
-#: Where generations live inside a source's own sidecar cache directory. Owned
+#: Where generations live inside a source's own cache entry. Owned
 #: by :mod:`avialsync.core.cache`, which carries it across a rebuild.
 EDITED_DIR = EDITED_SUBDIR
 

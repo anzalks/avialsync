@@ -59,11 +59,11 @@ def _channel_value(point: str, axis: str) -> float:
 
 @pytest.fixture
 def pose_source(tmp_path: Path) -> tuple[Path, Path, list[str]]:
-    """A pose file on disk, and the imported cache beside it."""
+    """A pose file on disk, and its imported cache."""
     pose = tmp_path / "twomice_DLC.csv"
     pose.write_text("scorer,DLC\nindividuals,testMouse\n", encoding="utf-8")
 
-    cache = tmp_path / "twomice_DLC.csv.avialcache"
+    cache = tmp_path / "twomice_DLC.csv_cache"
     cache.mkdir()
     times = np.arange(FRAMES, dtype=np.float64) / FPS
     channels: list[str] = []
@@ -481,7 +481,7 @@ def test_a_scan_proposes_the_flip_that_was_injected(qtbot, tmp_path) -> None:
     """
     pose = tmp_path / "crossing_DLC.csv"
     pose.write_text("scorer,DLC\n", encoding="utf-8")
-    cache = tmp_path / "crossing_DLC.csv.avialcache"
+    cache = tmp_path / "crossing_DLC.csv_cache"
     cache.mkdir()
 
     times = np.arange(FRAMES, dtype=np.float64) / FPS
@@ -571,7 +571,7 @@ def unpaired_source(tmp_path: Path) -> tuple[Path, Path, list[str]]:
     """Points a tracker can confuse that no naming convention pairs."""
     pose = tmp_path / "onemouse_DLC.csv"
     pose.write_text("scorer,DLC\n", encoding="utf-8")
-    cache = tmp_path / "onemouse_DLC.csv.avialcache"
+    cache = tmp_path / "onemouse_DLC.csv_cache"
     cache.mkdir()
     times = np.arange(FRAMES, dtype=np.float64) / FPS
     channels: list[str] = []

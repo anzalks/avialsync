@@ -40,7 +40,7 @@ def _share_file(source: Path, target: Path) -> None:
     """Give *target* the same bytes as *source*, without a second copy if possible.
 
     Every channel of one stream carries the same timestamps and the same gap mask,
-    and the sidecar names a copy of each after every channel.  For a 32-channel
+    and the cache entry names a copy of each after every channel.  For a 32-channel
     30 kHz headstage that is 32 identical 191 MB timestamp arrays — six gigabytes
     of the same numbers, and six gigabytes of write time before anything can be
     plotted.  A hard link is the same file under a second name, so the reader,
@@ -191,7 +191,7 @@ class ImportWorker(QObject):
             return ()
 
     def _cache_manager(self) -> CacheManager:
-        """Return the sidecar manager scoped to loader identity and accepted config."""
+        """Return the cache manager scoped to loader identity and accepted config."""
         prepare_config = getattr(self.loader_class, "prepare_import_config", None)
         if callable(prepare_config):
             self.config = prepare_config(self.path, self.config)
@@ -283,7 +283,7 @@ class ImportWorker(QObject):
         time_stage: ChannelStage,
         value_stages: dict[str, ChannelStage],
     ) -> tuple[int, int, int, list[float], float, float]:
-        """Materialise staged samples into the sidecar; scopes every mmap locally."""
+        """Materialise staged samples into the cache entry; scopes every mmap locally."""
         shared_t_path = staging_dir / "shared_t.npy"
         shared_t = time_stage.materialize(shared_t_path)
         gap_mask = build_gap_mask(shared_t)

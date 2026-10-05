@@ -16,7 +16,7 @@ The loader declares a :class:`PoseSchema`; everything downstream reads it.  A
 new format is then one loader emitting the same schema, and no consumer changes.
 
 **The canonical name is a persisted identifier.**  :class:`PointKey.point` is
-written into the ``.avialfix.csv`` corrections sidecar beside each pose file and
+written into the ``_avialfix.csv`` corrections sidecar beside each pose file and
 into the session (D-099), so :func:`canonical_name` is the single place that
 decides it and renaming is a migration, not an edit.
 """

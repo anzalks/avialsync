@@ -116,7 +116,7 @@ def test_markers_are_written_in_pose3d_never_beside_the_videos(
     for name in CAMERAS:
         read = custom_markers.read_2d(pose3d / f"{name}{custom_markers.MARKER_SUFFIX}")
         assert ("rung", FRAME) in read
-    assert ("rung", FRAME) in custom_markers.read_3d(pose3d / "pose.custom_markers.csv")
+    assert ("rung", FRAME) in custom_markers.read_3d(pose3d / "pose_custom_markers.csv")
 
 
 def test_markers_on_disk_are_adopted(window: MainWindow, videos, monkeypatch) -> None:
