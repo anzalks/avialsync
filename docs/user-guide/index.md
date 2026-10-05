@@ -34,7 +34,7 @@
   one sentence, a bold next action, rarer and destructive choices in **⋯**, detail behind
   **More…**, and **Learn more** linking to this guide.
 
-  ![The Tasks popover beside the video and plots](../_static/screenshots/feature_tasks_tab.png)
+  ![The Tasks popover, opened from the status bar](../_static/screenshots/feature_tasks_tab.png)
 - **Tasks lists everything the application is doing** — imports, session saves and loads, proxy
   builds, every export, and the metadata probe each video runs when it opens. A job that has gone
   quiet for longer than it should is marked *not responding* rather than left looking busy, which

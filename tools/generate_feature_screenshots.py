@@ -409,9 +409,11 @@ def _generate(out_dir: Path, session: Path) -> None:
 
     try:
         # Tasks opens from the status bar (D-172), so the shot is its popover.
+        # A menu is its own window, so the main window's grab cannot see it:
+        # the popover is captured on its own.
         window.tasks_button.show_popover()
         settle(app)
-        capture(window, out_dir / "feature_tasks_tab.png")
+        capture(window.tasks_button.popover, out_dir / "feature_tasks_tab.png")
         window.tasks_button.popover.close()
         _show_tab(window, app, "Sources")
 
