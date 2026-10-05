@@ -179,7 +179,9 @@ def test_a_missing_edited_channel_skips_only_its_point_and_recovers(
         ("visible_y", [40.0, 41.0]),
     ):
         PyramidBuilder(cache, channel).build_and_save(times, np.array(values))
-    (cache / "missing_y_v.npy").unlink()
+    removed = cache / "missing_y_v.npy"
+    restored = removed.read_bytes()
+    removed.unlink()
     missing_y = PyramidReader(cache, "missing_y")
     track = _track(
         {
@@ -201,7 +203,10 @@ def test_a_missing_edited_channel_skips_only_its_point_and_recovers(
     ]
     assert sum("missing_y" in record.message for record in caplog.records) == 1
 
-    PyramidBuilder(cache, "missing_y").build_and_save(times, np.array([20.0, 21.0]))
+    # Only the deleted file comes back. Rebuilding the channel would rewrite
+    # missing_y_t.npy too, which the reader above still maps -- and Windows
+    # refuses to write over a mapped file.
+    removed.write_bytes(restored)
     assert {point.name for point in canvas._resolve(track)} == {"missing", "visible"}
 
 
