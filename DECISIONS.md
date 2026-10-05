@@ -5843,3 +5843,13 @@ panel without installing an action first.
 **Decision.** The plot controls and time span share one row. Data Streams keeps its header and coverage lanes, with no playback or application status controls. The transport orders jump and frame controls, Play, editable time, a coverage-aware scrubber, end time, loop controls, and rate. The status bar owns a `StatusLine` beside the activity area; `Transport.set_status` and `status_text` remain forwarding APIs for existing callers. This amends D-126's bottom-row placement while retaining its video toolbar placement. The scrubber caches its coverage, annotation, and loop painting; cursor ticks only move its handle.
 
 **Consequences.** Tests that pin the old geometry are amended to assert the new ordering and the same signals. Existing seek, stepping, and timeline mapping semantics stay the same.
+
+---
+
+## 2026-10 · D-171 · Data Streams lanes have a density and a visible-row cap
+
+**Context.** The Data Streams overview expands a few lanes to fill the space offered by the splitter, while a crowded session compresses rows until labels and evidence become hard to inspect (INTERFACE_DESIGN_PLAN F-07).
+
+**Decision.** Each lane's height follows the application font plus the shared density spacing token. Compact is the default. The overview keeps its complete lane list at that height; a vertical scroll viewport shows up to the configured number of lanes. Compact defaults to ten visible lanes, so four videos and six data sources fit without scrolling; comfortable defaults to eight. Density and each density's row cap live in the settings schema. Labels elide inside their gutter and reveal their full text on hover. Coverage spans retain their tinted bodies and solid 2 px end caps in both themes.
+
+**Consequences.** More lanes remain accessible by vertical scrolling without squeezing the rows or expanding the bottom area indefinitely. Changing font size or density recalculates lane height without changing timeline time or evidence.

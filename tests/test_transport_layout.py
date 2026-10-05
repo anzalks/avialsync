@@ -1,17 +1,19 @@
 """Tests for the two-row timeline and status transport layout."""
 
 import pytest
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
+from PySide6.QtGui import QColor, QImage, QMouseEvent, QPainter
+from PySide6.QtWidgets import QApplication
 
 from avialsync.ui.main_window import MainWindow
 from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.theme import status_color
-from avialsync.ui.transport import Transport
+from avialsync.ui.transport import Transport, _paint_span
 from avialsync.ui.view_toolbar import ViewToolbar
 
 
 def test_seek_row_orders_playhead_ab_end_time_and_rate_controls(qtbot) -> None:
-    """D-170: loop and rate follow end time in the playback row."""
+    """D-170/171: playback is ordered, and the capped lane area follows its header."""
     transport = Transport()
     qtbot.addWidget(transport)
     transport.resize(1000, 220)
@@ -32,7 +34,12 @@ def test_seek_row_orders_playhead_ab_end_time_and_rate_controls(qtbot) -> None:
     assert transport._time_edit.geometry().right() < transport.slider.geometry().x()
     assert transport.slider.geometry().right() < transport._end_time_label.geometry().x()
     assert transport._ab_in_btn.parentWidget() is transport
-    assert transport._ab_in_btn.geometry().top() == transport.play_btn.geometry().top()
+    # Same row: compare layout cells, since macOS frames a default button 2 px lower.
+    row = transport._timeline_layout
+    assert (
+        row.itemAt(row.indexOf(transport._ab_in_btn)).geometry().center().y()
+        == row.itemAt(row.indexOf(transport.play_btn)).geometry().center().y()
+    )
     assert transport._time_edit.geometry().top() > transport.evidence.geometry().bottom()
     assert transport._ab_in_btn.geometry().x() < transport._ab_out_btn.geometry().x()
     assert transport._ab_out_btn.geometry().x() < transport._ab_clear_btn.geometry().x()
@@ -52,7 +59,8 @@ def test_seek_row_orders_playhead_ab_end_time_and_rate_controls(qtbot) -> None:
     # D-170: the one Data Streams header sits above its lanes.
     evidence = transport.evidence
     assert evidence.collapse_button.parentWidget() is evidence
-    assert evidence.collapse_button.geometry().bottom() <= evidence.overview.geometry().top()
+    assert evidence.collapse_button.geometry().bottom() <= evidence.lane_scroll.geometry().top()
+    assert evidence.lane_scroll.widget() is evidence.overview
 
 
 def test_descriptive_transport_controls_leave_a_usable_slider_at_narrow_width(qtbot) -> None:
@@ -425,3 +433,92 @@ def test_overview_keeps_labels_clear_of_clipped_master_time_coverage(qtbot) -> N
     assert later_span is not None
     assert negative_span[0] == transport.overview._LABEL_WIDTH
     assert later_span[0] > transport.overview._LABEL_WIDTH
+
+
+def test_ten_compact_sources_fit_before_data_streams_scrolls(qtbot) -> None:
+    """D-171: four video and six data lanes use the compact cap without squeezing."""
+    transport = Transport()
+    qtbot.addWidget(transport)
+    transport.resize(1280, 800)
+    transport.show()
+    qtbot.waitExposed(transport)
+    transport.set_bounds(0.0, 10.0)
+    for index in range(10):
+        kind = "video" if index < 4 else "data"
+        transport.set_source_coverage(f"/recording/source_{index}", 0.0, 10.0, kind)
+
+    overview = transport.overview
+    scroll = transport.evidence.lane_scroll
+    assert len(overview.lane_labels()) == 10
+    assert overview.height() == 10 * overview.lane_height()
+    assert scroll.height() == overview.height()
+    assert scroll.verticalScrollBar().maximum() == 0
+
+    transport.set_source_coverage("/recording/extra", 0.0, 10.0, "data")
+    assert overview.height() == 11 * overview.lane_height()
+    assert scroll.height() == 10 * overview.lane_height()
+    assert scroll.verticalScrollBar().maximum() > 0
+
+
+def test_data_streams_cap_and_density_follow_preferences(qtbot) -> None:
+    """D-171: the remembered cap and density change the live viewport."""
+    from avialsync.ui.app_settings import app_settings
+
+    transport = Transport()
+    qtbot.addWidget(transport)
+    transport.set_bounds(0.0, 10.0)
+    for index in range(5):
+        transport.set_source_coverage(f"/recording/source_{index}", 0.0, 10.0, "data")
+    compact_height = transport.overview.lane_height()
+    settings = app_settings()
+    settings.setValue("interface/density", "comfortable")
+    settings.setValue("timeline/comfortable_visible_lanes", 3)
+    transport.evidence.reload_preferences()
+    assert transport.overview.lane_height() > compact_height
+    assert transport.evidence.lane_scroll.height() == 3 * transport.overview.lane_height()
+
+
+def test_data_streams_long_label_elides_but_hover_reveals_it(qtbot) -> None:
+    """D-171: a long lane name remains available when its painted text is short."""
+    transport = Transport()
+    qtbot.addWidget(transport)
+    transport.resize(800, 200)
+    transport.show()
+    qtbot.waitExposed(transport)
+    transport.set_bounds(0.0, 10.0)
+    name = "camera_with_a_very_long_identifier_that_will_not_fit_in_the_lane_label.mp4"
+    transport.set_source_coverage(f"/recording/{name}", 0.0, 10.0, "video")
+    overview = transport.overview
+    label = overview.lane_labels()[0]
+    assert "…" in overview.fontMetrics().elidedText(
+        label, Qt.TextElideMode.ElideMiddle, overview._LABEL_WIDTH - 14
+    )
+    # Deliver the hover directly: a synthetic cursor move is not reliable on every platform.
+    point = QPointF(20, overview.lane_height() // 2)
+    QApplication.sendEvent(
+        overview,
+        QMouseEvent(
+            QEvent.Type.MouseMove,
+            point,
+            overview.mapToGlobal(point),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        ),
+    )
+    assert overview.toolTip() == label
+
+
+def test_coverage_span_keeps_solid_two_pixel_caps(qtbot) -> None:
+    """D-159/171: tinted coverage still has opaque edges at both ends."""
+    del qtbot
+    picture = QImage(40, 20, QImage.Format.Format_ARGB32)
+    picture.fill(QColor("white"))
+    painter = QPainter(picture)
+    _paint_span(painter, 5, 4, 20, 10, QColor("#123456"))
+    painter.end()
+    assert picture.pixelColor(5, 8) == QColor("#123456")
+    assert picture.pixelColor(6, 8) == QColor("#123456")
+    assert picture.pixelColor(23, 8) == QColor("#123456")
+    assert picture.pixelColor(24, 8) == QColor("#123456")
+    assert picture.pixelColor(14, 8) != QColor("#123456")

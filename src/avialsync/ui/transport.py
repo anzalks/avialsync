@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QSlider,
     QStyle,
@@ -39,12 +40,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.core.settings_schema import setting_for
 from avialsync.ui.app_settings import app_settings
-from avialsync.ui.design_tokens import ControlRole, apply_role
+from avialsync.ui.design_tokens import DENSITY_ROW_HEIGHT, ControlRole, Density, apply_role
 from avialsync.ui.feedback.status_line import StatusLine
 from avialsync.ui.i18n import tr
 from avialsync.ui.icons import set_svg_icon
 from avialsync.ui.playback_rates import PLAYBACK_RATE_STEPS, rate_label
+from avialsync.ui.preferences_dialog import read_setting
 from avialsync.ui.scrub_bar import ScrubBar
 from avialsync.ui.theme import (
     evidence_color,
@@ -200,9 +203,8 @@ class TimelineOverview(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setMinimumHeight(28)
-        self.setMaximumHeight(180)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._density = Density.COMPACT
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setMouseTracking(True)
         self.setToolTip(tr("Data Streams. Click to seek."))
         self.setAccessibleName(tr("Data Streams lanes"))
@@ -239,6 +241,7 @@ class TimelineOverview(QWidget):
         self._viewport_phase = 0.0
         self._dragging_viewport = False
         self._viewport_drag_offset = 0.0
+        self._on_evidence_changed()
 
     def changeEvent(self, event: QEvent) -> None:
         """Repaint the lanes when the platform appearance changes.
@@ -251,7 +254,21 @@ class TimelineOverview(QWidget):
         """
         if event.type() == QEvent.Type.PaletteChange:
             self.update()
+        elif event.type() == QEvent.Type.FontChange and hasattr(self, "_coverage"):
+            self._on_evidence_changed()
         super().changeEvent(event)
+
+    def set_density(self, density: Density) -> None:
+        """Resize evidence rows using the shared density token."""
+        self._density = density
+        self._on_evidence_changed()
+
+    def lane_height(self) -> int:
+        """Return a single readable row at the current font and density."""
+        return max(
+            self._MIN_LANE_HEIGHT,
+            self.fontMetrics().height() + DENSITY_ROW_HEIGHT[self._density],
+        )
 
     def set_bounds(self, t0: float, t1: float) -> None:
         """Set the shared master-time range rendered by this overview."""
@@ -403,17 +420,14 @@ class TimelineOverview(QWidget):
     def lane_labels(self) -> list[str]:
         """Return the currently populated lanes, in their rendered order.
 
-        Read from the lanes themselves rather than rebuilt beside them: the two
-        listings have to agree on how many lanes there are, since the height
-        each one gets is the widget height divided by this count.
+        Read from the lanes themselves so the height and painted rows agree.
         """
         return [label for label, _, _ in self._lanes()]
 
     def _on_evidence_changed(self) -> None:
         """Refresh labels and ensure populated lanes have usable vertical space."""
         lane_count = max(1, len(self.lane_labels()))
-        requested_height = max(28, lane_count * self._MIN_LANE_HEIGHT + 4)
-        self.setMinimumHeight(min(180, requested_height))
+        self.setFixedHeight(max(28, lane_count * self.lane_height()))
         self.evidence_changed.emit()
         self.update()
 
@@ -529,8 +543,15 @@ class TimelineOverview(QWidget):
             self._move_viewport(event.position().x(), exact=False)
             event.accept()
             return
-        detail = self._event_detail(event.position().x(), event.position().y())
-        self.setToolTip(detail or "Data Streams. Click to seek.")
+        x, y = event.position().x(), event.position().y()
+        if x < self._LABEL_WIDTH:
+            labels = self.lane_labels()
+            index = int(y // self.lane_height())
+            self.setToolTip(
+                labels[index] if 0 <= index < len(labels) else tr("Data Streams. Click to seek.")
+            )
+        else:
+            self.setToolTip(self._event_detail(x, y) or tr("Data Streams. Click to seek."))
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
@@ -568,7 +589,7 @@ class TimelineOverview(QWidget):
         if not lanes:
             lanes = [("Navigator", "navigator", None)]
 
-        lane_height = max(self._MIN_LANE_HEIGHT, self.height() // len(lanes))
+        lane_height = self.lane_height()
         accent = system_accent(palette)
         data_color = evidence_color(palette, "data")
         label_width = min(self._LABEL_WIDTH, max(1, self.width() - 1))
@@ -587,7 +608,9 @@ class TimelineOverview(QWidget):
                 label_width - 14,
                 lane_height,
                 Qt.AlignmentFlag.AlignVCenter,
-                label,
+                painter.fontMetrics().elidedText(
+                    label, Qt.TextElideMode.ElideMiddle, max(1, label_width - 14)
+                ),
             )
             painter.setPen(separator_color(palette))
             painter.drawLine(self._LABEL_WIDTH, bottom, self.width() - 1, bottom)
@@ -702,7 +725,7 @@ class TimelineOverview(QWidget):
         lanes = self._lanes()
         if not lanes:
             return f"Navigator\nMaster time: {self._time_at_x(x):.6f} s"
-        lane_height = max(self._MIN_LANE_HEIGHT, self.height() // len(lanes))
+        lane_height = self.lane_height()
         lane_index = min(len(lanes) - 1, int(y // lane_height))
         label, kind, payload = lanes[lane_index]
         time = self._time_at_x(x)
@@ -762,20 +785,60 @@ class TimelineEvidence(QWidget):
         header.addWidget(self.collapse_button)
         header.addStretch(1)
         self.overview = TimelineOverview(self)
+        self.lane_scroll = QScrollArea(self)
+        self.lane_scroll.setAccessibleName(tr("Data Streams scroll area"))
+        self.lane_scroll.setAccessibleDescription(
+            tr("Scroll vertically to inspect additional Data Streams lanes.")
+        )
+        self.lane_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.lane_scroll.setWidgetResizable(True)
+        self.lane_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.lane_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.lane_scroll.setWidget(self.overview)
         self._layout.addLayout(header)
-        self._layout.addWidget(self.overview)
+        self._layout.addWidget(self.lane_scroll)
+        self.overview.evidence_changed.connect(self._resize_lanes)
+        self.reload_preferences()
         collapsed = bool(self._settings.value("timeline_evidence/collapsed", False, type=bool))
         self.set_collapsed(collapsed, persist=False)
+
+    def reload_preferences(self) -> None:
+        """Apply density and its row cap after a preference or font change."""
+        density_setting = setting_for("interface/density")
+        assert density_setting is not None
+        raw_density = read_setting(density_setting)
+        try:
+            density = Density(raw_density)
+        except ValueError:
+            density = Density(density_setting.default)
+        self._density = density
+        cap_setting = setting_for(f"timeline/{density.value}_visible_lanes")
+        assert cap_setting is not None
+        self._visible_cap = max(1, min(32, read_setting(cap_setting)))
+        self.overview.set_density(density)
+        self._resize_lanes()
+
+    def _resize_lanes(self) -> None:
+        visible = min(self._visible_cap, max(1, len(self.overview.lane_labels())))
+        self.lane_scroll.setFixedHeight(max(28, visible * self.overview.lane_height()))
+        self._limit_shell_height()
+
+    def _limit_shell_height(self) -> None:
+        """Return unused splitter space to the video and plots."""
+        self._layout.activate()
+        self.setMaximumHeight(self._layout.sizeHint().height())
 
     def toggle_collapsed(self) -> None:
         self.set_collapsed(not self.overview.isHidden())
 
     def set_collapsed(self, collapsed: bool, *, persist: bool = True) -> None:
         self.overview.setVisible(not collapsed)
-        self.collapse_button.setText("Show" if collapsed else "Hide")
+        self.lane_scroll.setVisible(not collapsed)
+        self.collapse_button.setText(tr("Show") if collapsed else tr("Hide"))
         self.collapse_button.setAccessibleName(
-            "Show Data Streams" if collapsed else "Hide Data Streams"
+            tr("Show Data Streams") if collapsed else tr("Hide Data Streams")
         )
+        self._limit_shell_height()
         if persist:
             self._settings.setValue("timeline_evidence/collapsed", collapsed)
 

@@ -104,6 +104,13 @@ class HelpController(QObject):
             from avialsync.ui.theme import apply_font_size, load_saved_font_size
 
             apply_font_size(app, load_saved_font_size(app))
+            self._window.data_streams.reload_preferences()
+        elif key in {
+            "interface/density",
+            "timeline/compact_visible_lanes",
+            "timeline/comfortable_visible_lanes",
+        }:
+            self._window.data_streams.reload_preferences()
 
     @Slot()
     def show_about(self) -> None:

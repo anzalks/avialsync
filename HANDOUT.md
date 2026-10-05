@@ -307,7 +307,9 @@ Two product laws govern that phase and outrank convention:
   action-backed and widened the translation gate (D-167). DS-2 adds shared control roles,
   font-scaled spacing, and original palette-aware SVG glyphs (D-168, D-169). DS-3 joins the plot
   controls and time span, moves loop and rate controls beside Play, puts application status in the
-  status bar, and paints cached evidence under the scrub handle (D-170).
+  status bar, and paints cached evidence under the scrub handle (D-170). DS-4 gives Data Streams
+  font-scaled lanes with an adjustable visible-row cap, vertical scrolling, and elided labels
+  with full-text hover (D-171).
 - **P4.6 plot review/sweep UX refinement — core implementation complete; certification remains
   (D-044):** `archive/plans/PLOT_UX_PLAN.md` remains the canonical contract. Review/Sweep/Scope, the shared
   continuous time-span control, master navigator viewport drag, one bottom axis and channel gutters,
@@ -457,7 +459,7 @@ Two product laws govern that phase and outrank convention:
   Auto / Detected / Off (D-082). Names never imply topology.
 - Reset Plots: `PlotPane.reset_action`, shown in View (Ctrl+0) and as the plots' own button (D-167), and shortcuts dialog; the Data Streams twin was removed (D-126)
 - Transport UX: the full-width **Data Streams** section is distinct from both plots and the
-  seek/transport section with the same splitter handles used for video/plot resizing (drawn end to end, D-106). Its controls row, *below* the lanes (D-126), owns Hide, compact status, loop marks, and the labelled Speed selector; the video tools moved under the videos (`ui/view_toolbar.py`); busy work remains visible while ordinary messages clear shortly.
+  seek/transport section with the same splitter handles used for video/plot resizing (drawn end to end, D-106). Its header owns Hide, and its font-scaled lanes show up to ten rows in Compact density before scrolling. Preferences sets the density and visible-row caps (D-171). Status is in the status bar; loop and speed sit beside playback (D-170); video tools are under the videos (`ui/view_toolbar.py`).
   Playhead controls precede master time and the seek bar; end time follows it.
   Evidence renders source coverage, annotations, data
   gaps, accepted TTL matches, and playhead; the native handle resizes it against the video/plot workspace,
@@ -605,7 +607,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/axis_nav.py` | Per-axis zoom/reset controls and one-axis-at-a-time wheel semantics for a pyqtgraph canvas. **Reset goes to a range the owner declares**, never to auto-range — auto-ranging to the matched subset is what hid a bad fit | `AxisNav`, `NavigableViewBox`, `AxisNav.set_home_range()` |
 | `ui/plot_overlays.py` | Bounded page-local overlay drawing and plot context menu helpers | `redraw_annotations()`, `redraw_measure_lines()` |
 | `ui/tracking_3d_pane.py` | Current-pose XYZ projection from cached triplets; orbit/zoom/fit. Its header scrolls sideways on narrow displays so the controls cannot collapse the video column. `Tracking3DCanvas.render_scene(painter, w, h)` is the one painting authority — `paintEvent` calls it at the widget's size, a snapshot at its tile's (D-101). Draws hand-placed markers (rings) and wheels (bars + rims, not in the scene bounds) from sources asked on every cursor move (D-112, D-113) | `Tracking3DPane.set_readers()`, `set_cursor()`, `install_reprojection_action()`, `Tracking3DCanvas.render_scene()`, `set_custom_point_source()`, `set_wheel_source()` |
-| `ui/transport.py` | Master-time seek row with Play, glyph step controls, loop and rate; Data Streams has its own compact title and lanes. Status forwards to the status bar (D-170). `format_master_time()` owns the displayed time mode and epoch (D-020, D-101) | `set_time()`, `set_bounds()`, `format_master_time()`, `status_text()`, `set_source_coverage(source_id, t0, t1, kind, group="")` — a non-empty `group` merges the span into one shared lane (D-083); an empty span at the origin removes it — `set_ttl_events()`, `set_gap_events()`, `set_message_events()`, `set_annotation_markers()`, `set_status()` |
+| `ui/transport.py` | Master-time seek row with Play, glyph step controls, loop and rate; Data Streams has a title and font-scaled, vertically scrolling lanes (D-170, D-171). Status forwards to the status bar. `format_master_time()` owns the displayed time mode and epoch (D-020, D-101) | `set_time()`, `set_bounds()`, `format_master_time()`, `status_text()`, `set_source_coverage(source_id, t0, t1, kind, group="")` — a non-empty `group` merges the span into one shared lane (D-083); an empty span at the origin removes it — `set_ttl_events()`, `set_gap_events()`, `set_message_events()`, `set_annotation_markers()`, `set_status()` |
 | `ui/scrub_bar.py` | Cached coverage, annotation, and loop track under the seek handle; cursor ticks reuse it (D-170) | `ScrubBar.set_track_data()`, `track_build_count` |
 | `ui/feedback/status_line.py` | Transient status in the status bar, painted from the current palette with severity labels (D-170) | `StatusLine.set_status()`, `status_text()`, `ink_color()` |
 | `ui/sidebar.py` | File management; video/channel visibility; WarningBadge; links to properties panels | `SidebarPane`, `VideoInfoWidget`, `SensorInfoWidget` |

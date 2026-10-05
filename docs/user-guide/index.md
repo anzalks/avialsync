@@ -116,6 +116,9 @@ Controls sit with what they act on. Under the videos: **Flag Frame**, **Fix Trac
 Marker**, **Play original**, **Snapshot**, **Fit All Videos** and **Fullscreen Toggle**. One row
 under the plots holds **Live**, **Time span** and its slider, **Fit Y**, row density (Compact,
 Comfortable or Large), and **Reset Plots**. Data Streams has a **Hide** control above its lanes.
+Its lane labels shorten when space is tight; hover to read the full name. Compact density shows
+up to ten lanes at once, then scrolls vertically. **Preferences → Appearance** sets the Data
+Streams density and the visible-row limit for each density.
 The playback row holds back/forward jumps, frame steps, **Play**, editable time, the scrubber,
 end time, loop controls and playback rate. The status bar reports activity and short status
 messages. Hover over a glyph button to read its action name. Physical props are managed in the

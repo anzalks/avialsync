@@ -79,6 +79,39 @@ SETTINGS: tuple[Setting, ...] = (
         help_text="Scales every control relative to the platform's own font.",
     ),
     Setting(
+        key="interface/density",
+        label="Interface density",
+        group="Appearance",
+        default="compact",
+        kind=str,
+        choices=("compact", "comfortable"),
+        help_text="Choose the vertical spacing of data lanes and other compact surfaces.",
+    ),
+    Setting(
+        key="timeline/compact_visible_lanes",
+        label="Compact Data Streams rows",
+        group="Appearance",
+        default=10,
+        kind=int,
+        minimum=1,
+        maximum=32,
+        help_text=(
+            "Maximum Data Streams lanes visible before vertical scrolling in compact density."
+        ),
+    ),
+    Setting(
+        key="timeline/comfortable_visible_lanes",
+        label="Comfortable Data Streams rows",
+        group="Appearance",
+        default=8,
+        kind=int,
+        minimum=1,
+        maximum=32,
+        help_text=(
+            "Maximum Data Streams lanes visible before vertical scrolling in comfortable density."
+        ),
+    ),
+    Setting(
         key="palette/colour_vision_safe",
         label="Colour-vision-safe trace palette",
         group="Appearance",
