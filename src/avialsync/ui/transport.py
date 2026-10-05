@@ -10,7 +10,6 @@ from PySide6.QtCore import (
     QPoint,
     QRegularExpression,
     Qt,
-    QTimer,
     Signal,
 )
 from PySide6.QtGui import (
@@ -42,18 +41,18 @@ from PySide6.QtWidgets import (
 
 from avialsync.ui.app_settings import app_settings
 from avialsync.ui.design_tokens import ControlRole, apply_role
+from avialsync.ui.feedback.status_line import StatusLine
 from avialsync.ui.i18n import tr
-from avialsync.ui.icons import set_glyph_icon, set_svg_icon
+from avialsync.ui.icons import set_svg_icon
 from avialsync.ui.playback_rates import PLAYBACK_RATE_STEPS, rate_label
+from avialsync.ui.scrub_bar import ScrubBar
 from avialsync.ui.theme import (
     evidence_color,
     follow_palette,
     loop_pin_color,
     neutral_on_canvas,
-    refollow,
     separator_color,
     set_font_family,
-    status_color,
     surface_color,
     system_accent,
 )
@@ -130,18 +129,6 @@ def _rug_pen(color: QColor) -> QPen:
     faded = QColor(color)
     faded.setAlpha(_RUG_ALPHA)
     return QPen(faded, 1)
-
-
-class JumpSlider(QSlider):
-    """A QSlider that instantly jumps to the clicked position."""
-
-    def mousePressEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
-            val = self.minimum() + int(
-                (self.maximum() - self.minimum()) * event.position().x() / self.width()
-            )
-            self.setValue(val)
-        super().mousePressEvent(event)
 
 
 _EMPTY_TIMES = np.empty(0, dtype=np.float64)
@@ -754,13 +741,7 @@ class TimelineOverview(QWidget):
 
 
 class TimelineEvidence(QWidget):
-    """Titled, collapsible Data Streams shell for named TimelineOverview lanes.
-
-    Its controls sit *below* the lanes, above the play controls: each group of
-    controls under the thing it acts on. The video tools, Flag Frame among
-    them, moved to :class:`~avialsync.ui.view_toolbar.ViewToolbar`, under the
-    video panes (D-126).
-    """
+    """Titled, collapsible Data Streams shell for named TimelineOverview lanes."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -779,58 +760,15 @@ class TimelineEvidence(QWidget):
         self.collapse_button.setToolTip(tr("Hide or show the Data Streams lanes"))
         self.collapse_button.clicked.connect(self.toggle_collapsed)
         header.addWidget(self.collapse_button)
-        self._status_label = QLabel(self)
-        self._status_label.setAccessibleName(tr("Application status"))
-        self._status_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self._status_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        self._status_label.setToolTip(tr("Non-blocking application status"))
-        self._status_label.hide()
-        # The severity is state, so the builder reads it rather than closing over
-        # one value: a theme switch must re-colour whatever severity is showing
-        # at that moment, not the one this widget was built with.
-        self._status_severity = "info"
-        follow_palette(
-            self._status_label,
-            lambda palette: f"color: {status_color(palette, self._status_severity).name()};",
-        )
-        self._status_clear_timer = QTimer(self)
-        self._status_clear_timer.setSingleShot(True)
-        self._status_clear_timer.timeout.connect(self._clear_status)
-        header.addWidget(self._status_label, 1)
-        self._header_layout = header
+        header.addStretch(1)
         self.overview = TimelineOverview(self)
-        self._layout.addWidget(self.overview)
         self._layout.addLayout(header)
+        self._layout.addWidget(self.overview)
         collapsed = bool(self._settings.value("timeline_evidence/collapsed", False, type=bool))
         self.set_collapsed(collapsed, persist=False)
 
-    def _add_header_controls(self, controls: tuple[QWidget, ...]) -> None:
-        """Place transport actions alongside the Data Streams header controls."""
-        for control in controls:
-            self._header_layout.addWidget(control)
-        self._header_layout.addStretch(1)
-
     def toggle_collapsed(self) -> None:
         self.set_collapsed(not self.overview.isHidden())
-
-    def status_text(self) -> str:
-        """The currently displayed status message, without its label prefix."""
-        return self._status_label.text().removeprefix("Status: ")
-
-    def set_status(self, message: str, severity: str = "info") -> None:
-        """Show active work in the Data Streams row and clear non-active messages shortly after."""
-        self._status_severity = severity
-        self._status_label.setText(f"Status: {message}")
-        refollow(self._status_label)
-        self._status_label.show()
-        if severity == "busy":
-            self._status_clear_timer.stop()
-        else:
-            self._status_clear_timer.start(5000)
-
-    def _clear_status(self) -> None:
-        self._status_label.clear()
-        self._status_label.hide()
 
     def set_collapsed(self, collapsed: bool, *, persist: bool = True) -> None:
         self.overview.setVisible(not collapsed)
@@ -905,6 +843,7 @@ class Transport(QWidget):
         self._timeline_layout = QHBoxLayout()
         self._timeline_layout.setSpacing(5)
         self.evidence = TimelineEvidence(self)
+        self.status_line = StatusLine(self)
         self.overview = self.evidence.overview
         self.overview.seek_requested.connect(lambda t: self.seek_requested.emit(t, True))
         self.overview.viewport_seek_requested.connect(
@@ -936,8 +875,9 @@ class Transport(QWidget):
         self._time_edit.textEdited.connect(self._on_text_edited)
         self._timeline_layout.addWidget(self._time_edit)
 
-        self.slider = JumpSlider(Qt.Orientation.Horizontal)
+        self.slider = ScrubBar(self)
         self.slider.setRange(0, 10000)
+        self.slider.setAccessibleName(tr("Master timeline scrubber"))
         self.slider.setToolTip(tr("Master timeline — drag to scrub; release for an exact seek"))
         self.slider.sliderPressed.connect(self._on_slider_pressed)
         self.slider.sliderMoved.connect(self._on_slider_moved)
@@ -948,23 +888,23 @@ class Transport(QWidget):
         self._end_time_label.setMinimumWidth(110)
         self._end_time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         set_font_family(self._end_time_label, mono_font)
-        self._end_time_label.setToolTip(tr("End of the loaded master timeline"))
+        self._end_time_label.setToolTip(
+            tr("End of the loaded master timeline; plot Time span is the width of the current page")
+        )
         self._timeline_layout.addWidget(self._end_time_label)
 
         # ── Jump back 1 s ─────────────────────────────────────────────
         self._jump_back_btn = QPushButton(tr("Back 1 s"))
-        self._jump_back_btn.setMinimumWidth(64)
-        set_glyph_icon(self._jump_back_btn, QStyle.StandardPixmap.SP_MediaSkipBackward)
         self._jump_back_btn.setAccessibleName(tr("Jump back one second"))
         self._jump_back_btn.setToolTip(tr("Jump back 1 second (J or Shift+←)"))
+        apply_role(self._jump_back_btn, ControlRole.TOOL, "jump-back")
         self._jump_back_btn.clicked.connect(lambda: self.jump_requested.emit(-1.0))
 
         # ── Frame step back ───────────────────────────────────────────
         self._step_back_btn = QPushButton(tr("Prev frame"))
-        self._step_back_btn.setMinimumWidth(78)
-        set_glyph_icon(self._step_back_btn, QStyle.StandardPixmap.SP_MediaSeekBackward)
         self._step_back_btn.setAccessibleName(tr("Step back one frame"))
         self._step_back_btn.setToolTip(tr("Step back 1 frame (← or ,)"))
+        apply_role(self._step_back_btn, ControlRole.TOOL, "frame-back")
         self._step_back_btn.clicked.connect(lambda: self.frame_step_requested.emit(-1))
 
         # ── Play / Pause ──────────────────────────────────────────────
@@ -982,39 +922,37 @@ class Transport(QWidget):
 
         # ── Frame step forward ────────────────────────────────────────
         self._step_fwd_btn = QPushButton(tr("Next frame"))
-        self._step_fwd_btn.setMinimumWidth(78)
-        set_glyph_icon(self._step_fwd_btn, QStyle.StandardPixmap.SP_MediaSeekForward)
         self._step_fwd_btn.setAccessibleName(tr("Step forward one frame"))
         self._step_fwd_btn.setToolTip(tr("Step forward 1 frame (→ or .)"))
+        apply_role(self._step_fwd_btn, ControlRole.TOOL, "frame-forward")
         self._step_fwd_btn.clicked.connect(lambda: self.frame_step_requested.emit(1))
 
         # ── Jump forward 1 s ──────────────────────────────────────────
         self._jump_fwd_btn = QPushButton(tr("Forward 1 s"))
-        self._jump_fwd_btn.setMinimumWidth(76)
-        set_glyph_icon(self._jump_fwd_btn, QStyle.StandardPixmap.SP_MediaSkipForward)
         self._jump_fwd_btn.setAccessibleName(tr("Jump forward one second"))
         self._jump_fwd_btn.setToolTip(tr("Jump forward 1 second (Shift+→)"))
+        apply_role(self._jump_fwd_btn, ControlRole.TOOL, "jump-forward")
         self._jump_fwd_btn.clicked.connect(lambda: self.jump_requested.emit(1.0))
 
         # ── A/B loop buttons (checkable — D-022.5) ────────────────────
         self._ab_in_btn = QPushButton(tr("Set In"))
-        self._ab_in_btn.setFixedWidth(68)
         self._ab_in_btn.setCheckable(True)
         self._ab_in_btn.setAccessibleName(tr("Set loop in-point"))
         self._ab_in_btn.setToolTip(tr("Set the loop start here (I)"))
+        apply_role(self._ab_in_btn, ControlRole.TOOL, "loop-in")
         self._ab_in_btn.clicked.connect(self._on_ab_in_clicked)
 
         self._ab_out_btn = QPushButton(tr("Set Out"))
-        self._ab_out_btn.setFixedWidth(72)
         self._ab_out_btn.setCheckable(True)
         self._ab_out_btn.setAccessibleName(tr("Set loop out-point"))
         self._ab_out_btn.setToolTip(tr("Set the loop end here (O)"))
+        apply_role(self._ab_out_btn, ControlRole.TOOL, "loop-out")
         self._ab_out_btn.clicked.connect(self._on_ab_out_clicked)
 
         self._ab_clear_btn = QPushButton(tr("Clear Loop"))
-        self._ab_clear_btn.setFixedWidth(82)
         self._ab_clear_btn.setAccessibleName(tr("Clear loop points"))
         self._ab_clear_btn.setToolTip(tr("Clear A/B loop"))
+        apply_role(self._ab_clear_btn, ControlRole.TOOL, "loop-clear")
         self._ab_clear_btn.clicked.connect(self._on_ab_clear)
 
         # ── Rate combo (0.01× – 10×) ──────────────────────────────────
@@ -1024,9 +962,6 @@ class Transport(QWidget):
         self.rate_combo.setCurrentText("1.0x")
         self.rate_combo.setToolTip(tr("Playback rate (L = step up, K = pause)"))
         self.rate_combo.currentIndexChanged.connect(self._on_rate_changed)
-        self._speed_label = QLabel(tr("Speed"), self)
-        self._speed_label.setToolTip(tr("Playback speed selector"))
-
         playhead_buttons = (
             self._jump_back_btn,
             self._step_back_btn,
@@ -1036,16 +971,9 @@ class Transport(QWidget):
         )
         for index, button in enumerate(playhead_buttons):
             self._timeline_layout.insertWidget(index, button)
-        self.evidence._add_header_controls(
-            (
-                QLabel(tr("Loop region"), self),
-                self._ab_in_btn,
-                self._ab_out_btn,
-                self._ab_clear_btn,
-                self._speed_label,
-                self.rate_combo,
-            )
-        )
+        for button in (self._ab_in_btn, self._ab_out_btn, self._ab_clear_btn):
+            self._timeline_layout.addWidget(button)
+        self._timeline_layout.addWidget(self.rate_combo)
 
         self._bounds = (0.0, 0.0)
         self._is_scrubbing = False
@@ -1053,6 +981,8 @@ class Transport(QWidget):
         self._ab_out_t: float | None = None
         self._time_mode = TimeDisplayMode.RELATIVE
         self._t_epoch = 0.0
+        self.overview.evidence_changed.connect(self._sync_scrub_track)
+        self._sync_scrub_track()
 
         # Overlay pins for A/B markers
         self._pin_in = _ABPin("in", self)
@@ -1093,6 +1023,7 @@ class Transport(QWidget):
         self._ab_out_btn.setChecked(True)
         self._pin_in.pin_to_slider(self.slider, self._time_to_frac(self._ab_in_t))
         self._pin_out.pin_to_slider(self.slider, self._time_to_frac(self._ab_out_t))
+        self._sync_scrub_track()
         self.ab_loop_changed.emit(self._ab_in_t, self._ab_out_t)
 
     @property
@@ -1108,6 +1039,17 @@ class Transport(QWidget):
         self._bounds = (t0, t1)
         self._end_time_label.setText(format_time(t1, self._time_mode, self._t_epoch))
         self.overview.set_bounds(t0, t1)
+        self._sync_scrub_track()
+
+    def _sync_scrub_track(self) -> None:
+        """Snapshot changed evidence for the slider, never called by a cursor tick."""
+        coverage = tuple((start, end) for start, end, _, _ in self.overview._coverage.values())
+        self.slider.set_track_data(
+            self._bounds,
+            coverage,
+            self.overview._markers,
+            (self._ab_in_t, self._ab_out_t),
+        )
 
     def set_time_mode(self, mode: TimeDisplayMode) -> None:
         self._time_mode = mode
@@ -1130,11 +1072,11 @@ class Transport(QWidget):
 
     def status_text(self) -> str:
         """The currently displayed status message."""
-        return self.evidence.status_text()
+        return self.status_line.status_text()
 
     def set_status(self, message: str, severity: str = "info") -> None:
-        """Show compact, non-blocking status text in the Data Streams row."""
-        self.evidence.set_status(message, severity)
+        """Show compact, non-blocking status text in the status bar."""
+        self.status_line.set_status(message, severity)
 
     def set_source_coverage(
         self, source_id: str, t0: float, t1: float, kind: str, group: str = ""
@@ -1279,6 +1221,7 @@ class Transport(QWidget):
         self._ab_in_t = self._t_from_slider(self.slider.value())
         self._ab_in_btn.setChecked(True)
         self._pin_in.pin_to_slider(self.slider, self._time_to_frac(self._ab_in_t))
+        self._sync_scrub_track()
         self.ab_loop_changed.emit(self._ab_in_t, self._ab_out_t)
 
     def _on_ab_in_clicked(self, _checked: bool = False) -> None:
@@ -1290,6 +1233,7 @@ class Transport(QWidget):
         self._ab_out_t = self._t_from_slider(self.slider.value())
         self._ab_out_btn.setChecked(True)
         self._pin_out.pin_to_slider(self.slider, self._time_to_frac(self._ab_out_t))
+        self._sync_scrub_track()
         self.ab_loop_changed.emit(self._ab_in_t, self._ab_out_t)
 
     def _on_ab_out_clicked(self, _checked: bool = False) -> None:
@@ -1303,6 +1247,7 @@ class Transport(QWidget):
         self._ab_out_btn.setChecked(False)
         self._pin_in.hide()
         self._pin_out.hide()
+        self._sync_scrub_track()
         self.ab_loop_changed.emit(None, None)
 
     def _on_jump(self) -> None:

@@ -16,7 +16,7 @@ from avialsync.core.timeline import TimeMap
 from avialsync.ui.annotations import AnnotationStore
 from avialsync.ui.app_settings import app_settings
 from avialsync.ui.i18n import tr
-from avialsync.ui.plot_header import PlotHeader
+from avialsync.ui.plot_header import PlotControlStrip, PlotHeader
 from avialsync.ui.plot_interactions import PlotInteractionController
 from avialsync.ui.plot_row import (
     Y_AUTO,
@@ -149,15 +149,16 @@ class PlotPane(QWidget):
         _layout.addWidget(self._plot_scroll)
 
         self._sweep_control = SweepWindowControl(self)
+        self._sweep_control.set_focus_target(self)
         self._sweep_control.window_changed.connect(self._on_window_changed)
         self.window_limit_spin = self._sweep_control.limit_spin
         self.window_unit_combo = self._sweep_control.unit_combo
         self.window_slider = self._sweep_control.slider
         self.window_value_label = self._sweep_control.value_label
-        # Every plot control sits under the plots it acts on, then the shared
-        # time span: the same rule as the video and Data Streams rows (D-126).
-        _layout.addWidget(self._plot_header)
-        _layout.addWidget(self._sweep_control)
+        # D-170: one row contains the existing plot and time-span controls.
+        self._plot_header.insert_span_control(self._sweep_control)
+        self._header_strip = PlotControlStrip(self._plot_header, self)
+        _layout.addWidget(self._header_strip)
         self._resize_refresh_timer = QTimer(self)
         self._resize_refresh_timer.setSingleShot(True)
         self._resize_refresh_timer.setInterval(75)

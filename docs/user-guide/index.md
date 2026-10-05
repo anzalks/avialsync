@@ -112,13 +112,14 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
 
 ## Useful controls
 
-Controls sit under what they act on. Under the videos: **Flag Frame**, **Fix Tracker**, **Add 3D
-Marker**, **Play original**, **Snapshot**, **Fit All Videos** and **Fullscreen Toggle**. Under the
-plots: the **Live** presentation, **Fit Y**, **Rows** (Compact, Comfortable or Large), **Reset Plots**,
-and below them **Time span** with its unit and slider. Beside the Data Streams lanes: **Hide**, the
-status line, **Loop region** (**Set In**, **Set Out**, **Clear Loop**) and **Speed**. Then the play
-controls: **Back 1 s**, **Prev frame**, **Play**, **Next frame**, **Forward 1 s**, the time readout and
-the seek bar. Physical props are managed in the **Props** tab; see [Physical props](#physical-props).
+Controls sit with what they act on. Under the videos: **Flag Frame**, **Fix Tracker**, **Add 3D
+Marker**, **Play original**, **Snapshot**, **Fit All Videos** and **Fullscreen Toggle**. One row
+under the plots holds **Live**, **Time span** and its slider, **Fit Y**, row density (Compact,
+Comfortable or Large), and **Reset Plots**. Data Streams has a **Hide** control above its lanes.
+The playback row holds back/forward jumps, frame steps, **Play**, editable time, the scrubber,
+end time, loop controls and playback rate. The status bar reports activity and short status
+messages. Hover over a glyph button to read its action name. Physical props are managed in the
+**Props** tab; see [Physical props](#physical-props).
 
 Before anything is open, the drop area takes almost the whole window and the empty plot and Data
 Streams areas stay small. The layout you had comes back when the first recording opens.
@@ -133,8 +134,8 @@ Streams areas stay small. The layout you had comes back when the first recording
 - **Fit All Videos** (**View → Fit All Videos**, `Ctrl+Shift+0`) sets every camera back to its
   whole frame: zoom 1.00×, no pan. Each camera's own reset button does the same for one camera.
   **Fit Y** under the plots is different: it fits the plots' vertical range.
-- Set **Time span** and choose `ms`, `s`, `min`, or `h`, then drag the single slider below the
-  plots. The slider is linear within that limit and controls every row; rows do not have separate
+- Set **Time span** and choose `ms`, `s`, `min`, or `h`, then drag the slider in the same row. The
+  slider is linear within that limit and controls every row; rows do not have separate
   scroll or zoom controls. The number updates immediately, plot refreshes are capped at the display
   cadence while dragging, and the final value renders on release, so rapid adjustment does not
   queue redraws.
@@ -143,9 +144,10 @@ Streams areas stay small. The layout you had comes back when the first recording
   fullscreen toggles. Hidden videos are paused until shown again, then resynchronize automatically.
 - **Reset Plots** under the plots (also **View → Reset Plots**, `Ctrl+0`) expands the shared plot
   window to the full loaded timeline and refits every visible plot.
-- **Rows** sets the height of every plot row at once: Compact, Comfortable, or Large.
-- **Loop region** marks an A/B range for inspection or export: **Set In** (`[` or `I`) and **Set Out**
-  (`]` or `O`) at the playhead, **Clear Loop** to remove it. **Speed** sets the playback rate.
+- The row density selector sets the height of every plot row at once: Compact, Comfortable, or Large.
+- The playback row's loop buttons mark an A/B range for inspection or export: **Set In** (`[` or `I`)
+  and **Set Out** (`]` or `O`) at the playhead; **Clear Loop** removes it. The rate selector sets
+  playback speed. The scrubber shows loaded coverage, annotation ticks and the active loop span.
 - After accepting exact frame-trigger alignment, exact scrubs, pause, and frame-step land on those
   trigger timestamps for every synchronized video.
 

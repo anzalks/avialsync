@@ -54,8 +54,9 @@ class ElidedLabel(QLabel):
 
     def setText(self, text: str) -> None:  # noqa: N802  (Qt naming)
         """Store the full text, display as much of it as fits."""
+        previous = self._full_text
         self._full_text = text
-        if not self.toolTip() or self.toolTip() == self._full_text:
+        if not self.toolTip() or self.toolTip() == previous:
             self.setToolTip(text)
         self._relayout_text()
 

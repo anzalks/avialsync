@@ -1,8 +1,9 @@
-"""Regression tests: transport A/B pins must realign after window resize."""
+"""D-170: transport A/B pins follow the cached ScrubBar after resize."""
 
 import pytest
 from PySide6.QtWidgets import QStyle, QStyleOptionSlider
 
+from avialsync.ui.scrub_bar import ScrubBar
 from avialsync.ui.transport import Transport
 
 
@@ -14,6 +15,7 @@ def transport(qtbot):
     t.show()
     qtbot.waitExposed(t)
     qtbot.wait(20)
+    assert isinstance(t.slider, ScrubBar)
     return t
 
 

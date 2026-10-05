@@ -230,7 +230,7 @@ def test_session_restore_queues_exact_mapping_for_async_video_open(
 def test_programmatic_import_completion_needs_no_progress_dialog(
     main_window: MainWindow, tmp_path: Path
 ) -> None:
-    """Demo/programmatic imports may finish without an interactive progress dialog."""
+    """D-170: programmatic imports finish through status bar, never a dialog."""
     from avialsync.core.inspection import SourceInspection
     from avialsync.core.pyramid import PyramidBuilder
 
@@ -245,7 +245,8 @@ def test_programmatic_import_completion_needs_no_progress_dialog(
         SourceInspection(path="demo.csv"),
     )
 
-    assert main_window.data_streams._status_label.text() == "Status: Ready · imported demo.csv"
+    assert main_window.transport.status_line.text() == "Status: Ready · imported demo.csv"
+    assert main_window.transport.status_text() == "Ready · imported demo.csv"
 
 
 # ── Bug b: _start_csv_import → _start_data_import ────────────────────

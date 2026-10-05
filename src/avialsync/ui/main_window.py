@@ -1013,6 +1013,7 @@ class MainWindow(QMainWindow):
         the strip sits in the layout rather than floating so it never covers
         the data it is reporting on.
         """
+        self.statusBar().addWidget(self.transport.status_line, 1)
         self.statusBar().addPermanentWidget(self.activity_bar)
 
     def _cancel_active_task(self) -> None:

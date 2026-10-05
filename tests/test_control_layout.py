@@ -1,7 +1,7 @@
-"""Each group of controls sits under what it acts on (D-126).
+"""Each group of controls sits with what it acts on (D-170 amends D-126).
 
 Top to bottom: the videos, then the video tools; the plots, then the plot
-controls and the time span; the Data Streams lanes, then their controls; then
+controls and the time span; the Data Streams header, then its lanes; then
 the play controls. Asserted on window coordinates of a shown window, as order
 rather than pixels (AGENTS.md: font metrics differ per platform).
 """
@@ -37,6 +37,7 @@ def _bottom(window: MainWindow, widget: QWidget) -> int:
 
 
 def test_controls_sit_under_what_they_act_on(window: MainWindow) -> None:
+    """D-170: each subject keeps one ordered control area."""
     plots = window.plot_pane
     evidence = window.data_streams
     order = [
@@ -45,8 +46,8 @@ def test_controls_sit_under_what_they_act_on(window: MainWindow) -> None:
         ("plots", _top(window, plots._plot_scroll)),
         ("plot controls", _top(window, plots._plot_header)),
         ("time span", _top(window, plots._sweep_control)),
+        ("data streams header", _top(window, evidence.collapse_button)),
         ("data streams lanes", _top(window, evidence.overview)),
-        ("data streams controls", _top(window, evidence.collapse_button)),
         ("play controls", _top(window, window.transport.play_btn)),
     ]
     tops = [top for _, top in order]

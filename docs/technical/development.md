@@ -157,9 +157,9 @@ user sees no such frame.
 menu bar, so Qt draws one inside the window and every capture gains a File/View/Help strip a real
 macOS user never sees.
 
-Capture at 1280x860 or wider. Below roughly 1200px the Data Streams header overflows and Qt clips
-"Fullscreen Toggle" to "ullscreen Togg", which reads as a rendering fault rather than as the window
-being narrow.
+Capture at 1280x800 and 640x480 as well as a wider size. Phase 9 moved playback and status out of
+the Data Streams header, so the narrower captures now check the compact controls and the one-row
+plot strip rather than a header crowded with unrelated buttons (D-170).
 
 ## Building the documentation
 

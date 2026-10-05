@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from PySide6.QtCore import Qt
 
 from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.transport import Transport
@@ -82,3 +83,27 @@ def test_transport_has_no_second_plot_zoom_control(qtbot) -> None:
 
     assert not hasattr(transport, "window_combo")
     assert not hasattr(transport, "follow_checkbox")
+
+
+def test_plot_controls_and_span_share_one_scrollable_row(qtbot) -> None:
+    """D-170: one row holds the same span editor and exposes narrow overflow."""
+    pane = PlotPane()
+    qtbot.addWidget(pane)
+
+    assert pane._sweep_control.parentWidget() is pane._plot_header
+    assert pane._header_strip.widget() is pane._plot_header
+    assert pane._header_strip.horizontalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAsNeeded
+    assert pane._header_strip.sizeHint().height() < (
+        pane._plot_header.sizeHint().height() + pane._sweep_control.sizeHint().height()
+    )
+    assert pane.window_value_label.isHidden()
+
+
+def test_plot_page_elision_keeps_the_latest_full_range_in_its_tooltip(qtbot) -> None:
+    """A page change updates the text a reader can request after elision."""
+    pane = PlotPane()
+    qtbot.addWidget(pane)
+    pane.page_label.setText("00:00:00.000 – 00:00:04.000")
+    pane.page_label.setText("00:00:04.000 – 00:00:08.000")
+
+    assert pane.page_label.toolTip() == pane.page_label.text()

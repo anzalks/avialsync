@@ -3,6 +3,7 @@
 import pytest
 from PySide6.QtCore import QPoint, Qt
 
+from avialsync.ui.main_window import MainWindow
 from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.theme import status_color
 from avialsync.ui.transport import Transport
@@ -10,7 +11,7 @@ from avialsync.ui.view_toolbar import ViewToolbar
 
 
 def test_seek_row_orders_playhead_ab_end_time_and_rate_controls(qtbot) -> None:
-    """Seek-row controls follow the compact visual-inspection workflow."""
+    """D-170: loop and rate follow end time in the playback row."""
     transport = Transport()
     qtbot.addWidget(transport)
     transport.resize(1000, 220)
@@ -30,22 +31,28 @@ def test_seek_row_orders_playhead_ab_end_time_and_rate_controls(qtbot) -> None:
     assert transport._jump_fwd_btn.geometry().right() < transport._time_edit.geometry().x()
     assert transport._time_edit.geometry().right() < transport.slider.geometry().x()
     assert transport.slider.geometry().right() < transport._end_time_label.geometry().x()
-    assert transport._ab_in_btn.parentWidget() is transport.evidence
-    assert transport._ab_in_btn.geometry().top() >= transport.overview.geometry().bottom()
-    assert transport._ab_clear_btn.geometry().bottom() <= transport.evidence.height()
+    assert transport._ab_in_btn.parentWidget() is transport
+    assert transport._ab_in_btn.geometry().top() == transport.play_btn.geometry().top()
     assert transport._time_edit.geometry().top() > transport.evidence.geometry().bottom()
     assert transport._ab_in_btn.geometry().x() < transport._ab_out_btn.geometry().x()
     assert transport._ab_out_btn.geometry().x() < transport._ab_clear_btn.geometry().x()
-    assert transport._ab_clear_btn.geometry().x() < transport._speed_label.geometry().x()
-    assert transport._speed_label.geometry().right() < transport.rate_combo.geometry().x()
-    assert transport._step_back_btn.text() == "Prev frame"
-    assert transport._step_fwd_btn.text() == "Next frame"
-    assert transport._ab_in_btn.text() == "Set In"
-    assert transport._ab_out_btn.text() == "Set Out"
-    # D-126: the Data Streams controls sit under the lanes they act on.
+    assert transport._ab_clear_btn.geometry().x() < transport.rate_combo.geometry().x()
+    tools = (
+        transport._jump_back_btn,
+        transport._step_back_btn,
+        transport._step_fwd_btn,
+        transport._jump_fwd_btn,
+        transport._ab_in_btn,
+        transport._ab_out_btn,
+        transport._ab_clear_btn,
+    )
+    assert all(
+        button.text() == "" and button.accessibleName() and button.toolTip() for button in tools
+    )
+    # D-170: the one Data Streams header sits above its lanes.
     evidence = transport.evidence
     assert evidence.collapse_button.parentWidget() is evidence
-    assert evidence.collapse_button.geometry().top() >= evidence.overview.geometry().bottom()
+    assert evidence.collapse_button.geometry().bottom() <= evidence.overview.geometry().top()
 
 
 def test_descriptive_transport_controls_leave_a_usable_slider_at_narrow_width(qtbot) -> None:
@@ -78,7 +85,7 @@ def test_plot_header_buttons_name_their_effect(qtbot) -> None:
 
 
 def test_transport_status_does_not_block_controls(qtbot) -> None:
-    """Status updates do not block controls. Reset belongs to the plots (D-126)."""
+    """D-170: forwarding updates the status line and leaves playback enabled."""
     transport = Transport()
     qtbot.addWidget(transport)
 
@@ -86,26 +93,70 @@ def test_transport_status_does_not_block_controls(qtbot) -> None:
     transport.set_status("Importing sensor data 62%", "busy")
 
     assert transport._end_time_label.text() == "00:01:02.500"
-    assert transport.evidence._status_label.text() == "Status: Importing sensor data 62%"
-    # Asserted as the derived colour, not as a hex literal. Pinning the literal
-    # is what let the hardcoded amber sit here unnoticed: it read as dark grey
-    # on a light theme, and the test agreed with it either way.
-    label = transport.evidence._status_label
-    assert status_color(label.palette(), "busy").name() in label.styleSheet()
-    assert status_color(label.palette(), "busy") != status_color(label.palette(), "error")
+    assert transport.status_line.text() == "Working: Importing sensor data 62%"
+    assert transport.status_text() == "Importing sensor data 62%"
+    line = transport.status_line
+    assert line.ink_color() == status_color(line.palette(), "busy")
+    assert not line.styleSheet()
     assert transport.play_btn.focusPolicy() == Qt.FocusPolicy.TabFocus
 
 
-def test_status_timer_is_owned_by_data_streams(qtbot) -> None:
-    """A pending status clear cannot outlive and call a deleted label."""
+def test_status_timer_is_owned_by_status_line(qtbot) -> None:
+    """D-170: a pending clear cannot outlive its status line."""
     transport = Transport()
     transport.set_status("Ready")
 
-    timer = transport.evidence._status_clear_timer
-    assert timer.parent() is transport.evidence
+    timer = transport.status_line._status_clear_timer
+    assert timer.parent() is transport.status_line
     timer.start(1)
     transport.deleteLater()
     qtbot.wait(10)
+
+
+def test_status_line_sits_beside_activity_in_status_bar(qtbot) -> None:
+    """D-170: application status and jobs share the status bar without overlap."""
+    window = MainWindow()
+    qtbot.addWidget(window)
+    window.resize(1280, 800)
+    window.show()
+    qtbot.waitExposed(window)
+    window.transport.set_status("Loading", "busy")
+    window.activity_bar.show()
+    qtbot.wait(10)
+
+    line = window.transport.status_line
+    assert line.parentWidget() is window.statusBar()
+    assert line.geometry().right() <= window.activity_bar.geometry().left()
+    assert line.status_text() == "Loading"
+    window.close()
+
+
+def test_moved_loop_and_rate_controls_keep_their_signals(qtbot) -> None:
+    """D-170 changes placement and labels, preserving the playback signals."""
+    transport = Transport()
+    qtbot.addWidget(transport)
+    transport.set_bounds(0.0, 10.0)
+    transport.set_time(2.0)
+    loops: list[tuple[float | None, float | None]] = []
+    rates: list[float] = []
+    transport.ab_loop_changed.connect(lambda start, end: loops.append((start, end)))
+    transport.rate_changed.connect(rates.append)
+
+    transport._ab_in_btn.click()
+    transport.set_time(4.0)
+    transport._ab_out_btn.click()
+    transport._ab_clear_btn.click()
+    transport.rate_combo.setCurrentIndex(transport.rate_combo.currentIndex() + 1)
+
+    assert loops == [(2.0, None), (2.0, 4.0), (None, None)]
+    assert rates == [transport.rate_combo.currentData()]
+
+
+def test_end_time_explains_its_difference_from_plot_span(qtbot) -> None:
+    """D-170: loaded duration and visible page width have distinct names."""
+    transport = Transport()
+    qtbot.addWidget(transport)
+    assert "Time span" in transport._end_time_label.toolTip()
 
 
 def test_play_pause_text_never_changes_seek_bar_geometry(qtbot) -> None:
@@ -137,7 +188,7 @@ def test_flag_button_emits_annotation_request(qtbot) -> None:
 
 
 def test_data_streams_header_buttons_have_explanatory_tooltips(qtbot) -> None:
-    """Header actions explain their user-visible purpose without relying on icons."""
+    """D-170: the lane header owns only its collapse control."""
     transport = Transport()
     qtbot.addWidget(transport)
 
@@ -150,6 +201,8 @@ def test_data_streams_header_buttons_have_explanatory_tooltips(qtbot) -> None:
         toolbar.fullscreen_button,
     ):
         assert button.toolTip()
+    assert transport.evidence.layout().count() == 2
+    assert transport._ab_in_btn.parentWidget() is transport
 
 
 def test_overview_renders_inspection_evidence_and_seeks(qtbot) -> None:
