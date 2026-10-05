@@ -73,6 +73,8 @@ GLYPHS: dict[str, str] = {
     "changes": '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 8v4l3 2"/>',
     "props": '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5"/>'
     '<path d="M12 12v9"/><path d="M12 12L4 7.5"/>',
+    "align": '<path d="M4 7h10"/><path d="M10 17h10"/><path d="M12 4v16"/>'
+    '<path d="M9 10l3-3 3 3"/>',
     "tasks": '<path d="M3 12h4l3-7 4 14 3-7h4"/>',
     "warning": '<path d="M12 3L2 20h20z"/><path d="M12 9v5"/><path d="M12 17h.01"/>',
     "info": '<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7.5h.01"/>',

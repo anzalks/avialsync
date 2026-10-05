@@ -5930,3 +5930,13 @@ Ladder, belt and ball editors, identity review and the alignment dialog use the 
 - Plot rows default to Compact, and a row added later takes the density currently chosen (it always took 110 px before).
 
 **Consequences.** `test_bench_plot_pane.py` medians stayed within 5 % of the previous commit.
+
+---
+
+## 2026-10 · D-178 · No main toolbar; Align gets a one-click entry beside Open
+
+**Context.** F-31: there is no `QToolBar`, and Phase 7 WP-10 promised Align a toolbar entry. DS-11 asked whether to ship a slim toolbar (Open…, Align, Add Prop, Command Palette, Fullscreen).
+
+**Decision.** No main toolbar. Every candidate already has a one-click home after DS-3–DS-8: Open is the split button at the top of Sources, Fullscreen is a glyph under the videos, Add Prop is the Props page's Add, and the Command Palette has its shortcut and Help → Commands…. A toolbar row would cost about 36 px, and the window's minimum height on macOS is 469 px against the 640×480 floor. The one entry without a home, Align → Synchronize TTL / events…, becomes a glyph `ActionButton` on that action beside Open in the Sources page, where the recordings it aligns are listed.
+
+**Alternatives.** A hidden-by-default toolbar would push the window over 480 px whenever it was shown; a status-bar Align button would sit away from the sources it acts on.

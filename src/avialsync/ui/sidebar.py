@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.inspection import SourceInspection
+from avialsync.ui.action_button import ActionButton
 from avialsync.ui.channel_tree import group_prefixes, matches_filter, split_channel
 from avialsync.ui.design_tokens import ControlRole, apply_role
 from avialsync.ui.elided_label import ElidedLabel
@@ -1001,6 +1002,9 @@ class SidebarPane(QWidget):
         self._open_row.setContentsMargins(0, 0, 0, 0)
         self.btn_open: QToolButton | None = None
         self.session_menu_button: QToolButton | None = None
+        # Align's one-click entry (D-178): a glyph on Align → Synchronize, beside
+        # Open, rather than a main toolbar the 640x480 floor has no height for.
+        self.btn_align = ActionButton(self)
         self.content_layout.addLayout(self._open_row)
 
         self._source_filter = QLineEdit()
@@ -1119,7 +1123,16 @@ class SidebarPane(QWidget):
         reset.setIcon(svg_icon(self.session_menu_button, self.palette(), "reset", "danger"))
         self.session_menu_button.setMenu(session_menu)
         self._open_row.addWidget(self.btn_open, 1)
+        self._open_row.addWidget(self.btn_align)
         self._open_row.addWidget(self.session_menu_button)
+
+    def install_align_action(self, action: QAction) -> None:
+        """Show Align → Synchronize as a glyph beside Open (D-178)."""
+        self.btn_align.set_action(action)
+        self.btn_align.set_icon_only("align")
+        self.btn_align.setAccessibleDescription(
+            tr("Fit an offset from events both recordings share")
+        )
 
     def _apply_source_filter(self, text: str) -> None:
         """Filter source cards and channel rows across the whole inspector."""

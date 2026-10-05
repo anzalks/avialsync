@@ -21,6 +21,8 @@
   in full; on a short window the rail scrolls. Up and Down move between pages, and
   **View → Inspector** or the command palette opens any of them. The last page used is restored
   next time.
+- The **Align** glyph beside **Open** on the Sources page runs **Align → Synchronize TTL /
+  events…**.
 - **Tasks** opens from the status bar and lists what is loading, with a cancel where the work
   supports one.
 - An empty page says what will fill it: **Values**, **Messages**, **Changes**, **Props** and

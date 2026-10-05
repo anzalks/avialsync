@@ -29,6 +29,7 @@ def build_align_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMen
     act.setToolTip(tr("Fit an offset from events both recordings share"))
     act.triggered.connect(window._open_sync_wizard)
     _reg(act, "Align")
+    window.sidebar.install_align_action(act)
     window._require(
         act,
         window._has_alignment_evidence,

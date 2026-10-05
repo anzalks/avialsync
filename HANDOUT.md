@@ -319,7 +319,8 @@ Two product laws govern that phase and outrank convention:
   puts wheel, ladder/belt/ball, identity review and alignment on one `StepPanel`, labels the props
   header, and gives every inspector page an `EmptyNote` (D-176). DS-9 reveals row tools on
   hover or focus, adds Hide to the row menu, lightens rules and grid, defaults rows to Compact,
-  and records the gutter as each trace's non-colour identifier (D-177).
+  and records the gutter as each trace's non-colour identifier (D-177). DS-11 decides against a
+  main toolbar and puts Align → Synchronize as a glyph beside Open (D-178).
 - **P4.6 plot review/sweep UX refinement — core implementation complete; certification remains
   (D-044):** `archive/plans/PLOT_UX_PLAN.md` remains the canonical contract. Review/Sweep/Scope, the shared
   continuous time-span control, master navigator viewport drag, one bottom axis and channel gutters,

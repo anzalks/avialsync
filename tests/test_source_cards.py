@@ -87,3 +87,18 @@ def test_four_cameras_and_twelve_files_show_every_name_and_badge(qtbot, qapp) ->
         assert right <= viewport.width(), f"{card.path}: badge is off the edge"
         names = [w for w in card.findChildren(ElidedLabel) if w.toolTip() == card.path]
         assert names and names[0].width() > 0
+
+
+def test_align_has_a_one_click_entry_beside_open_and_no_toolbar(qtbot) -> None:
+    """D-178: no main toolbar; Align → Synchronize is a glyph beside Open."""
+    from PySide6.QtWidgets import QToolBar
+
+    from avialsync.ui.main_window import MainWindow
+
+    window = MainWindow()
+    qtbot.addWidget(window)
+    assert window.findChildren(QToolBar) == []
+    button = window.sidebar.btn_align
+    assert button.action is window._act_synchronize
+    assert button.text() == "" and button.accessibleName() == "Synchronize TTL / events"
+    window.close()
