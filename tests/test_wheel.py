@@ -13,6 +13,7 @@ import math
 import numpy as np
 import pytest
 
+from avialsync.core import wheel_fit
 from avialsync.core.commands import SetWheelCommand
 from avialsync.core.errors import PropModelError, WheelFitError
 from avialsync.core.physical_props import Ladder, PropStore, WheelView
@@ -34,7 +35,7 @@ from avialsync.core.wheel_file import (
     write_removed,
     write_wheel,
 )
-from avialsync.core.wheel_fit import fit_wheel
+from avialsync.core.wheel_fit import fit_labelled, fit_wheel
 from tests.wheel_fixture import CAMERAS, TRUTH, clicks_for
 
 
@@ -157,6 +158,31 @@ def test_clicked_bars_are_taken_as_neighbours_in_click_order() -> None:
 def test_a_radius_ten_times_off_is_visible_in_the_implied_radius() -> None:
     fit = fit_wheel(WheelSpec("wheel", 36, radius=10.0, units="mm"), clicks_for([0, 1]), CAMERAS)
     assert fit.implied_radius == pytest.approx(TRUTH.radius, rel=0.02)
+
+
+def test_a_radius_in_the_wrong_units_gives_way_to_the_clicks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Typed in cm against an mm calibration, the wheel was drawn ten times too small.
+
+    On a real rig the typed-radius fit still reprojected within ``fit_issue``'s
+    tolerance (22.6 px against long bars), so it won and the panel only warned.
+    Every fit is made to pass that check here, so only the radius can decide.
+    """
+    monkeypatch.setattr(wheel_fit, "fit_issue", lambda fit, clicks: None)
+    labelled = fit_labelled(
+        WheelSpec("wheel", 36, radius=10.0, units="mm"), clicks_for([0, 1, 2]), CAMERAS
+    )
+    assert labelled.radius_from_clicks
+    assert labelled.fit.geometry.radius == pytest.approx(TRUTH.radius, rel=0.05)
+
+
+def test_a_typed_radius_close_to_the_clicks_still_wins() -> None:
+    labelled = fit_labelled(
+        WheelSpec("wheel", 36, radius=100.0, units="mm"), clicks_for([0, 1, 2]), CAMERAS
+    )
+    assert not labelled.radius_from_clicks
+    assert labelled.fit.geometry.radius == 100.0
 
 
 def test_the_residuals_report_every_click() -> None:

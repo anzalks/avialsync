@@ -5644,3 +5644,17 @@ no longer special-case `.avialcache`, and any such directories left from develop
 ignored and must be removed by hand. The test suite points `AVIALSYNC_CACHE_DIR` at a temporary
 folder in `conftest.py`. Do not add a second code path that deletes from the cache root, and do not
 put anything a user made into it.
+
+---
+
+## 2026-10 · D-161 · A typed wheel radius several times off the clicks gives way to them — amends D-123
+
+A wheel was again drawn as a thin rod: 12.5 cm typed against an mm calibration, clicks implying
+180.2, 1342 % apart. D-123 let the typed radius give way only when it produced no plausible fit,
+but with long bars in the image the wrong-units fit reprojected at 22.6 px, inside `fit_issue`'s
+5 %-of-bar-length tolerance, so it won and the panel only warned. `fit_labelled` now also skips a
+typed-radius fit whose implied radius is more than `_CONTRADICTION_FACTOR` (2×) larger or smaller,
+and moves on to the clicks' own radius. Click noise moves the implied radius by tens of percent;
+wrong units move it by 10×, 100× or 1000×. A typed radius within 2× still wins whenever it fits,
+as D-113 and D-123 intended. If nothing else fits, the contradicted fit is still drawn (D-123).
+A wheel saved before this keeps its stored fit until a wheel field changes and re-fits it.

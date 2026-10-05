@@ -427,6 +427,21 @@ def _report(
 #: Bars 1 and 2 -- the least a labelled wheel needs.
 _REQUIRED_BARS = 2
 
+#: A typed radius this many times larger or smaller than the one the clicks
+#: imply contradicts them. Click noise moves the implied radius by tens of
+#: percent at most; wrong 3D units move it by 10x, 100x or 1000x, and still
+#: reproject well enough to pass :func:`fit_issue` (D-123, amended).
+_CONTRADICTION_FACTOR = 2.0
+
+
+def _contradicts(fit: WheelFit, spec: WheelSpec) -> bool:
+    """Whether *fit* kept a typed radius its own clicks disagree with."""
+    typed = spec.known_radius
+    implied = fit.implied_radius
+    if typed is None or implied is None or typed <= 0.0 or implied <= 0.0:
+        return False
+    return max(typed, implied) / min(typed, implied) > _CONTRADICTION_FACTOR
+
 
 @dataclass(frozen=True)
 class LabelledFit:
@@ -450,7 +465,8 @@ def fit_labelled(
     """Fit the wheel the clicks describe, trying less of the input only when it must.
 
     In order, the first plausible fit (:func:`fit_issue`) winning: every located
-    bar with the typed radius; bars 1 and 2 alone; every bar with the radius
+    bar with the typed radius, unless the clicks imply one more than
+    ``_CONTRADICTION_FACTOR`` times larger or smaller; bars 1 and 2 alone; every bar with the radius
     the clicks imply; bars 1 and 2 with it. When none is plausible, the first
     fit that exists is returned -- the user sees it however poor. Raises
     :class:`WheelFitError` only when no fit exists at all.
@@ -464,7 +480,8 @@ def fit_labelled(
         attempts.append((clicks, free, False))
         if len(first) < len(clicks):
             attempts.append((first, free, True))
-    best: WheelFit | None = None
+    best: tuple[WheelFit, bool] | None = None
+    contradicted: WheelFit | None = None
     error: WheelFitError | None = None
     for used, used_spec, dropped in attempts:
         try:
@@ -472,13 +489,21 @@ def fit_labelled(
         except WheelFitError as failure:
             error = error or failure
             continue
-        best = best or fit
+        # A typed radius in the wrong units still reprojects plausibly, so it
+        # would win and draw a wheel 10x too small or too large. It gives way
+        # to the clicks' own radius like one that does not fit at all.
+        if _contradicts(fit, used_spec):
+            contradicted = contradicted or fit
+            continue
+        best = best or (fit, used_spec is free)
         if fit_issue(fit, clicks) is None:
             return LabelledFit(
                 fit,
                 dropped_third=(str(error) if error is not None else "") if dropped else None,
                 radius_from_clicks=used_spec is free,
             )
-    if best is None:
-        raise error or WheelFitError("No wheel fits the clicked bars.")
-    return LabelledFit(best)
+    if best is not None:
+        return LabelledFit(best[0], radius_from_clicks=best[1])
+    if contradicted is not None:
+        return LabelledFit(contradicted)
+    raise error or WheelFitError("No wheel fits the clicked bars.")
