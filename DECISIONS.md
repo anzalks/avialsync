@@ -5904,3 +5904,13 @@ panel without installing an action first.
 **Decision.** A card's header holds visibility (videos), a kind glyph, the eliding name with the full path in its tooltip, the quality badge, and one `⋯` overflow: Properties, Copy details, and Remove last, after a separator, with the bin glyph. Offset and drift sit behind a Timing disclosure that shows both values inline while closed; it wraps the card's own spin boxes, so they remain the one authority and an offset drag is still one undo command (D-087). Paths show `…/folder/name`. The Open group becomes one split button whose click runs File → Open Videos… and whose arrow lists the File menu's open actions (the same QActions); Reset Session moves to a separate session overflow beside it, marked with the danger reset glyph, and stays in File.
 
 **Alternatives.** A collapsible whole card hides the badge; a second row of text buttons for Remove keeps the equal weight F-24 objected to.
+
+---
+
+## 2026-10 · D-176 · Guided flows share one step panel; empty pages say what fills them
+
+**Context.** Wheel placement showed about twelve equally weighted buttons and a paragraph of instructions; the props header was four unlabelled controls; Props, Changes and Tasks had no empty state; inspector pages scrolled sideways by policy (INTERFACE_DESIGN_PLAN F-14–F-17).
+
+**Decision.** `ui/step_panel.StepPanel` is the one layout for a guided flow: title and "Step n of m", one sentence of instruction, at most one primary action, a short secondary row, the flow's own controls, an overflow for rarely used and destructive choices (destructive last, with the bin glyph), explanation behind More…, and a Learn more link to the user guide (`about.docs_url`, built on `[project.urls]`). Flows keep their widgets and signals; an overflow entry triggers the flow's own button and follows its enablement, so the flow still decides what is possible. Wheel placement is the first flow: Next Point is primary; Undo Click, Go to Frame and Done Labelling are secondary; Flip Side and Discard Clicks are in the overflow; the legend and projected-mark note are behind More…. Pages that can be empty say what fills them and offer that action. Text wraps to the page; horizontal scrolling remains only as the backstop.
+
+**Consequences.** Tests that click the wheel buttons are unchanged; the buttons are the same objects, some now reached through the overflow.

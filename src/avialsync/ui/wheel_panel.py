@@ -40,8 +40,10 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.wheel import Wheel, WheelSpec
+from avialsync.ui.about import docs_url
 from avialsync.ui.bar_diameter_field import BarDiameterField
 from avialsync.ui.i18n import tr
+from avialsync.ui.step_panel import StepPanel
 from avialsync.ui.theme import set_bold
 from avialsync.ui.wheel_dialogs import bar_count_spin, radius_spin, unit_items
 from avialsync.ui.wheel_text import describe_encoder, describe_fit
@@ -290,20 +292,24 @@ class WheelPanel(QGroupBox):
         self._review.hide()
         self.hide()
 
-    def _build_review(self) -> QFrame:
-        """The review shown while a wheel is being clicked: what next, the fit, the choices."""
-        frame = QFrame(self)
-        frame.setFrameStyle(QFrame.Shape.StyledPanel | QFrame.Shadow.Sunken)
-        review = QVBoxLayout(frame)
-        review.setContentsMargins(5, 5, 5, 5)
-        self._review_title = QLabel(frame)
-        set_bold(self._review_title)
-        self._instruction = _wrapped(frame)
+    def _build_review(self) -> StepPanel:
+        """The review shown while a wheel is being clicked, on the shared step panel (D-176).
+
+        One sentence and one primary (Next Point); Undo, Go to Frame and Done
+        Labelling beside it; Flip Side and Discard Clicks in the overflow; the
+        legend and the projected-mark note behind More….
+        """
+        frame = StepPanel("", self)
+        self._review_title = frame.title
+        self._instruction = frame.instruction
         self._summary = _wrapped(frame)
-        review.addWidget(self._review_title)
-        review.addWidget(self._instruction)
-        review.addLayout(self._build_points(frame))
-        review.addLayout(self._build_actions(frame))
+        self._build_actions(frame)
+        frame.set_primary(self._next)
+        frame.add_secondary([self._undo, self._frame, self._accept])
+        frame.add_overflow(self._flip)
+        frame.add_overflow(self._cancel, destructive=True)
+        frame.add_controls(self._build_points(frame))
+        frame.set_learn_more(docs_url("user-guide/index.html#placing-a-running-wheel"))
         guide = _wrapped(frame)
         guide.setText(
             tr(
@@ -311,16 +317,16 @@ class WheelPanel(QGroupBox):
                 "Rings are clicks; dashed diamonds are projected estimates."
             )
         )
-        review.addWidget(guide)
+        frame.add_more(guide)
         self._evidence = _wrapped(frame)
-        review.addWidget(self._evidence)
+        frame.add_more(self._evidence)
         form = QFormLayout()
         self._review_spec = _SpecFields(frame, form)
         for spin in (self._review_spec.bars, self._review_spec.radius):
             spin.valueChanged.connect(lambda _v: self._placement_edited())
         self._review_spec.units.currentIndexChanged.connect(lambda _i: self._placement_edited())
-        review.addLayout(form)
-        review.addWidget(self._summary)
+        frame.add_controls(form)
+        frame.add_controls(self._summary)
         return frame
 
     def _build_points(self, frame: QFrame) -> QGridLayout:
@@ -338,9 +344,8 @@ class WheelPanel(QGroupBox):
             self._point_buttons.append(button)
         return points
 
-    def _build_actions(self, frame: QFrame) -> QGridLayout:
+    def _build_actions(self, frame: QFrame) -> None:
         """Next Point, Undo Click, Flip Side, Go to Frame, Done Labelling, Discard Clicks."""
-        grid = QGridLayout()
         buttons: list[QPushButton] = []
         for text, description, signal in (
             (tr("Next Point"), tr("Select the next wheel bar endpoint"), self.next_end_requested),
@@ -370,13 +375,6 @@ class WheelPanel(QGroupBox):
             button.clicked.connect(signal)
             buttons.append(button)
         self._next, self._undo, self._flip, self._frame, self._accept, self._cancel = buttons
-        grid.addWidget(self._next, 0, 0)
-        grid.addWidget(self._undo, 0, 1)
-        grid.addWidget(self._flip, 1, 0)
-        grid.addWidget(self._frame, 1, 1)
-        grid.addWidget(self._accept, 2, 0)
-        grid.addWidget(self._cancel, 2, 1)
-        return grid
 
     def _placement_edited(self) -> None:
         self.placement_spec_changed.emit(*self._review_spec.values())
@@ -386,9 +384,10 @@ class WheelPanel(QGroupBox):
         if view is None:
             self._review.hide()
         else:
-            self._review_title.setText(
+            self._review.set_title(
                 tr("Placing {name} on frame {frame}").format(name=view.spec.name, frame=view.frame)
             )
+            self._review.set_progress(view.active_step + 1, len(self._point_buttons))
             self._instruction.setText(view.instruction)
             self._summary.setText(view.summary)
             self._evidence.setText(
