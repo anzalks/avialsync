@@ -325,7 +325,7 @@ error; a point seen by one camera stays 2D and is still kept. Steps stay in the 
 step** and **Remove step** edit one. AvialSync never forces rungs onto one level, so an irregular
 ladder is recorded as it is. For a regular ladder, click the ends of two neighbouring rungs, set
 **Rungs in total**, and choose **Extrapolate from first two rungs**. The remaining rungs are drawn
-dashed and labelled *(est.)*, with correct perspective in every camera where both rungs are visible;
+dashed, and the first and last estimates are labelled *(est.)*, with correct perspective in every camera where both rungs are visible;
 one camera is enough, and calibration is not needed for the camera view. Any rung you click replaces
 the estimate at that place, so click the irregular ones and let the rest be extrapolated, or click
 them all. Set **Rungs in total** to **Off** to show only clicked rungs. To click every rung in turn,

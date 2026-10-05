@@ -5764,7 +5764,9 @@ geometry: a small pill in the mark's colour on a dark translucent backing, tried
 around the mark (nearest first, right and above preferred), kept inside the visible picture, clear
 of other labels, marks, and the pane's name, timing and zoom chrome, and preferring the fewest
 crossed lines on a coarse occupancy grid. A label placed beyond the first ring keeps a faint leader
-line. When nothing is clear it uses the least-crowded position rather than hiding the name. Saved
+line. When every ring is taken, a bounded search finds the nearest free spot (a few per paint, so
+a dense frame stays fast); only then is the least-crowded position used rather than hiding the
+name. An extrapolated run is captioned at its first and last estimate only. Saved
 placement points are drawn as uncaptioned marks (`UNNAMED`); they are named only while being
 clicked. A clicked and a projected mark share one name and differ by solid versus dashed outline.
 

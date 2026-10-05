@@ -11,8 +11,10 @@ text goes:
   controls, and every mark. Among those, it prefers the one crossing the
   fewest drawn lines. A label pushed out past the first ring keeps a thin
   leader line to its mark.
-* When no position is clear, the least-crowded one is used rather than hiding
-  the label: a name that overlaps is still better than a click with no name.
+* When every position around the mark is taken, the nearest free spot in the
+  picture is used, with a leader line. Only when the picture is full is the
+  least-crowded position used rather than hiding the label: a name that
+  overlaps is still better than a click with no name.
 
 Line crossings are counted on a coarse occupancy grid, so a belt mesh of
 hundreds of segments costs a few thousand set lookups per paint, not a
@@ -48,6 +50,11 @@ _DIRECTIONS = (
 )
 # Outer rings are for crowded clusters; a label there keeps a leader line.
 _RINGS = (1.0, 2.6, 4.2, 6.0, 8.5, 11.5, 15.0)
+#: How far from its mark a crowded label may be moved, in pixels.
+_FALLBACK_REACH = 160.0
+#: Wide searches allowed per paint; past this, crowded labels take the
+#: least-crowded ring position so a dense frame still paints in milliseconds.
+_FALLBACK_BUDGET = 8
 
 
 @dataclass
@@ -78,6 +85,7 @@ class LabelLayout:
         self._marks: list[QRectF] = []
         self._cells: set[tuple[int, int]] = set()
         self._labels: list[_Label] = []
+        self._searches = 0
         font = QFont(painter.font())
         if font.pointSizeF() > 0:
             font.setPointSizeF(max(7.0, font.pointSizeF() * 0.9))
@@ -125,23 +133,78 @@ class LabelLayout:
                 rects.append(QRectF(left, top, width, height))
         return rects
 
+    def _nearest_free(
+        self, anchor: QPointF, width: float, height: float, placed: list[QRectF]
+    ) -> QRectF | None:
+        """The free spot nearest the mark when every ring position is taken.
+
+        Only crowded clusters get here, and larger system fonts make those more
+        likely. The search is confined to a window round the mark, against the
+        obstacles inside it, so a paint stays a few milliseconds however many
+        labels the frame carries.
+        """
+        reach = _FALLBACK_REACH
+        window = QRectF(
+            anchor.x() - reach - width,
+            anchor.y() - reach - height,
+            2 * (reach + width),
+            2 * (reach + height),
+        ).intersected(self._bounds)
+        near = [rect for rect in placed if rect.intersects(window)]
+        avoid = [rect for rect in self._avoid if rect.intersects(window)]
+        marks = [rect for rect in self._marks if rect.intersects(window)]
+        best: tuple[float, QRectF] | None = None
+        top = window.top()
+        while top + height <= window.bottom():
+            left = window.left()
+            while left + width <= window.right():
+                rect = QRectF(left, top, width, height)
+                spaced = rect.adjusted(-2.0, -2.0, 2.0, 2.0)
+                if not any(spaced.intersects(other) for other in near) and not any(
+                    rect.intersects(other) for other in avoid
+                ):
+                    centre = rect.center()
+                    cost = math.hypot(centre.x() - anchor.x(), centre.y() - anchor.y())
+                    cost += 40.0 * sum(rect.intersects(other) for other in marks)
+                    if best is None or cost < best[0]:
+                        best = (cost, rect)
+                left += max(8.0, width / 3.0)
+            top += height / 2.0
+        return None if best is None else best[1]
+
     def _place(self, label: _Label, placed: list[QRectF]) -> tuple[QRectF, bool]:
         width = self._metrics.horizontalAdvance(label.text) + 2 * _PAD_X
         height = self._metrics.height() + 2 * _PAD_Y
         best: tuple[float, int, QRectF] | None = None
         candidates = self._candidates(label.anchor, width, height)
+        # Only obstacles a candidate can reach are worth testing against.
+        reach = self._radius + _GAP * _RINGS[-1] + width + height
+        region = QRectF(label.anchor.x() - reach, label.anchor.y() - reach, 2 * reach, 2 * reach)
+        near = [rect for rect in placed if rect.intersects(region)]
+        avoid = [rect for rect in self._avoid if rect.intersects(region)]
+        marks = [rect for rect in self._marks if rect.intersects(region)]
         for index, rect in enumerate(candidates):
             if not self._bounds.contains(rect):
                 continue
             spaced = rect.adjusted(-2.0, -2.0, 2.0, 2.0)
-            blocked = sum(spaced.intersects(other) for other in placed)
-            blocked += sum(rect.intersects(other) for other in self._avoid)
-            covered = sum(rect.intersects(other) for other in self._marks)
-            cost = 1000.0 * blocked + 100.0 * covered + self._crossings(rect) + index * 0.5
+            if any(spaced.intersects(other) for other in near) or any(
+                rect.intersects(other) for other in avoid
+            ):
+                # Overlapping a label or the chrome is ruled out; no need to
+                # score how many marks or lines it would also cover.
+                cost = 1000.0 + index * 0.5
+            else:
+                covered = sum(rect.intersects(other) for other in marks)
+                cost = 100.0 * covered + self._crossings(rect) + index * 0.5
             if best is None or cost < best[0]:
                 best = (cost, index, rect)
             if cost < 1.0:
                 break
+        if (best is None or best[0] >= 1000.0) and self._searches < _FALLBACK_BUDGET:
+            self._searches += 1
+            free = self._nearest_free(label.anchor, width, height, placed)
+            if free is not None:
+                return free, True
         if best is None:
             rect = candidates[0]
             # Nothing fits inside the picture: clamp the nearest position in.

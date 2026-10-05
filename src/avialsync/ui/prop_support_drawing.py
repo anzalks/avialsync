@@ -69,14 +69,17 @@ def rung_pixels(ladder: Ladder, step_pixels: Sequence[Sequence[PropPixel]]) -> l
         ladder,
         [[None if p is None else (p[0], p[1]) for p in pixels] for pixels in step_pixels],
     )
+    shown = [(number, ends) for number, ends in layout.generated if any(ends)]
+    # A long run needs its extent named, not every rung: the first and last
+    # estimates are captioned, the rest are dashed rungs between them.
+    named = {shown[0][0], shown[-1][0]} if shown else set()
     drawings: list[PropDrawing] = [
         (
-            _rung_label(number),
+            _rung_label(number) if number in named else UNNAMED,
             tuple(None if p is None else (p[0], p[1], False) for p in ends),
             False,
         )
-        for number, ends in layout.generated
-        if any(p is not None for p in ends)
+        for number, ends in shown
     ]
     drawings.extend(
         ("", tuple(None if p is None else (p[0], p[1], False) for p in bar), False)
@@ -92,10 +95,15 @@ def _array(point: Position | None) -> np.ndarray | None:
 def rung_positions(ladder: Ladder) -> Scene:
     """Extrapolated rungs and support bars through a resolved ladder's 3D points."""
     layout = ladder_layout(ladder, [[point.xyz for point in step.points] for step in ladder.steps])
+    solved = [(number, ends) for number, ends in layout.generated if None not in ends]
+    named = {solved[0][0], solved[-1][0]} if solved else set()
     scene: Scene = [
-        (_rung_label(number), (_array(ends[0]), _array(ends[1])), False)
-        for number, ends in layout.generated
-        if None not in ends
+        (
+            _rung_label(number) if number in named else UNNAMED,
+            (_array(ends[0]), _array(ends[1])),
+            False,
+        )
+        for number, ends in solved
     ]
     scene.extend(
         ("", tuple(_array(p) for p in bar), False)

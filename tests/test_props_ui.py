@@ -1021,13 +1021,15 @@ def test_ladder_support_irregular_tags_and_clicking_every_rung(
     ladder = window.props_app.store.get("walkway")
     assert isinstance(ladder, Ladder) and ladder.pattern is not None
     assert ladder.pattern.count == 6
-    estimated = {
-        label: points
-        for label, points, _c in window.props_app.camera_drawing(VIDEOS["Right"], 0.0)
-        if label.endswith("(est.)")
-    }
-    assert sorted(estimated) == ["Rung 4 (est.)", "Rung 5 (est.)", "Rung 6 (est.)"]
-    assert all(not pixel[2] for points in estimated.values() for pixel in points if pixel)
+    right = window.props_app.camera_drawing(VIDEOS["Right"], 0.0)
+    estimated = {label: points for label, points, _c in right if label.endswith("(est.)")}
+    # A run is captioned at its first and last estimate; rungs between are dashed only.
+    assert sorted(estimated) == ["Rung 4 (est.)", "Rung 6 (est.)"]
+    between = [points for label, points, _c in right if label == UNNAMED and len(points) == 2]
+    assert len(between) == 1
+    assert all(
+        not pixel[2] for points in (*estimated.values(), *between) for pixel in points if pixel
+    )
     scene = {
         label: points
         for label, points, _c in window.props_app.scene_steps(0.0)
