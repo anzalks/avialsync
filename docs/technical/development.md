@@ -66,9 +66,10 @@ loads generated frame-strobe evidence and captures a completed preview. The Mess
 generated text attributed to `synthetic_rig_log.txt`.
 
 `tools/generate_feature_screenshots.py` writes the `feature_*` images from synthetic calibrated
-camera views. It actually clicks three horizontal ladder rungs, a mark on a measured two-roller
-belt, three ball landmarks, and wheel bar ends in two cameras, then captures the camera overlays
-and reconstructed 3D viewer. It also captures the Props editors, wheel fit review and acceptance,
+camera views. It actually clicks three ladder rungs (tagging one raised), sets side rails and
+extrapolates the run, places a measured two-roller belt from four top corners and a second belt
+from one camera's side view, tracks a belt mark and three ball landmarks, and clicks wheel bar
+ends in two cameras, then captures the camera overlays and reconstructed 3D viewer. It also captures the Props editors, wheel fit review and acceptance,
 Tasks, File → Cache, View → Overlays, the command palette, Preferences, and Light theme. It pins
 the appearance without changing saved preferences. The screenshots are reproducible from the
 script; their mesh and bar geometry comes from the accepted app models, not image annotations.

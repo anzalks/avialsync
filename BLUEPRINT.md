@@ -435,7 +435,9 @@ Generalize the existing wheel feature to the belt, ball, and horizontal ladder
 without treating their motion as an angle. `PHYSICAL_PROPS_PLAN.md` is the
 executable plan; D-149 settles the model and D-154 the unified Props inspector
 and generalized `_prop.toml` boundary; D-155 rejects legacy wheel-sidecar
-discovery. The work is complete only when each kind
+discovery. D-162–D-166 settle retained visual clicks, the measured two-roller belt,
+ladder support and irregular tags, four-click belt placement and rung extrapolation
+(3D or one camera), and overlay label layout. The work is complete only when each kind
 can be placed, reviewed, saved, reopened, and shown in the app with its evidence
 and missing information visible.
 

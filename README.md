@@ -49,9 +49,11 @@ pane draws. Nothing in AvialSync knows this lab's format.*
   corrected data or as a DeepLabCut retraining set.
 - Repair of a tracker that swapped two animals or left/right body parts, by accepting the crossings
   it proposes; the original pose file is never modified.
-- Physical apparatus — ladders and wheels placed from camera clicks, belts and balls with declared
-  geometry and measured sensor or camera-mark motion. Clicks stay saved when a belt path or ball
-  dimension is corrected; a mismatch is explained in Props.
+- Physical apparatus — wheels, ladders, treadmill belts and balls in one Props inspector. Ladders
+  are clicked rung by rung or extrapolated from two rungs, with rails or a centre beam; belts are
+  placed from four clicks in calibrated cameras or a single side view and sized by your
+  measurements; motion comes from encoder, displacement or orientation channels, or from camera
+  clicks. Clicks stay saved when a dimension is corrected; a mismatch is explained in Props.
 - Imported data cached in one per-user folder, never beside your recordings, and cleared from
   **File → Cache**.
 - Undo on every edit you make, a recovery snapshot written on quit, and no modal dialog standing

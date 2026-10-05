@@ -57,9 +57,9 @@ The built-in kinds have different state spaces and observation requirements:
 | Kind | Fixed structure | Material state | Evidence needed for motion |
 |---|---|---|---|
 | Wheel | Axle, radius, bars | Angle on S¹; keep the encoder's unwrapped angle for checks | Bar clicks on a reference frame; optional encoder and later bar checks |
-| Belt | Two level roller centres, radius, width and top direction; legacy paths remain readable | Signed distance on an exact closed loop; displayed surface wraps the rollers | Measured geometry and direction, plus a displacement source or repeated visual landmarks for motion |
+| Belt | Two level rollers sized by measured centre distance and radius, placed from four clicked top corners in 3D or from hubs and top in one camera's side plane; legacy paths remain readable | Signed distance on an exact closed loop; displayed surface wraps the rollers | Measured geometry and direction, plus a displacement source or repeated visual landmarks for motion |
 | Ball | Centre and radius | Orientation on SO(3), represented by a unit quaternion | Tracked surface landmarks or a sensor that genuinely gives orientation; one scalar cannot determine 3D orientation |
-| Horizontal ladder | Ordered, individually clicked footholds or rung ends; optional rails | Static singleton | Each clicked image point remains evidence; calibrated multi-view clicks can locate it in 3D |
+| Horizontal ladder | Ordered, individually clicked footholds or rung ends; side-rail or centre-beam support; an optional regular run extrapolated from two clicked rungs | Static singleton | Each clicked image point remains evidence; calibrated multi-view clicks can locate it in 3D |
 
 Wheel bars, belt texture, and ball surface markings are **material** features.
 The ladder and an unmarked sphere can still be drawn with no motion evidence.
@@ -87,13 +87,16 @@ Wheel, Belt, Ball, and Ladder. Its kind-sensitive Add control is the only way
 to start wheel placement; no separate Add Wheel menu or toolbar action remains.
 The existing wheel gesture and review fields are the Wheel page inside that
 inspector, not a separate top-level tab. Each kind asks for only its own geometry and evidence; every click is immediately labelled
-as an observation or a projection. New belt edits declare two roller centres,
-radius, width, top direction, units and optional travel direction. Old belt edits retain
-support-path vertices and loop state. Ball edits declare centre,
+as an observation or a projection. New belts take the measured centre distance,
+radius and width, then four placement clicks: top corners in two calibrated cameras
+(3D), or both hubs and the top above each in one camera (side view). Roller centres
+and top direction may also be typed. Old belt edits retain support-path vertices and
+loop state. Ball edits declare centre,
 radius, units, and optional surface marks. Both show unknown motion until actual
 motion evidence is bound. For a ladder, Add Step records a point or the two ends of a rung;
-the user can add, relabel, reorder, move, or remove individual steps without
-refitting its neighbours. The inspector shows the fit and ambiguity before an
+the user can add, relabel, reorder, move, tag as irregular, or remove individual steps
+without refitting its neighbours, choose the support, and extrapolate a regular run
+from the first two rungs. The inspector shows the fit and ambiguity before an
 explicit acceptance, then holds per-prop edits, source binding, verification,
 and Remove.
 
