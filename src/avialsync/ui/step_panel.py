@@ -17,6 +17,7 @@ from PySide6.QtGui import QAction, QDesktopServices
 from PySide6.QtWidgets import (
     QAbstractButton,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLayout,
@@ -66,7 +67,8 @@ class StepPanel(QFrame):
 
         self._primary_row = QHBoxLayout()
         layout.addLayout(self._primary_row)
-        self._secondary_row = QHBoxLayout()
+        # A column, so the panel never asks for more than a 280 px page (R3).
+        self._secondary_row = QGridLayout()
         self._secondary_row.setSpacing(gap)
         layout.addLayout(self._secondary_row)
         self._controls = QVBoxLayout()
@@ -148,11 +150,27 @@ class StepPanel(QFrame):
         button.show()
 
     def add_secondary(self, buttons: Sequence[QAbstractButton]) -> None:
-        """Ordinary choices, in one row beneath the primary."""
+        """Ordinary choices beneath the primary, one per line.
+
+        Side by side, two labels set the page's minimum width; stacked, the
+        widest single label does, which is what keeps a page inside 280 px.
+        """
         for button in buttons:
             button.setParent(self)
-            self._secondary_row.addWidget(button)
+            self._secondary_row.addWidget(button, self._secondary_row.rowCount(), 0)
             button.show()
+
+    def use_instruction_label(self, label: QLabel) -> None:
+        """Make a flow's existing status label the instruction line it already is."""
+        outer = self.layout()
+        assert isinstance(outer, QVBoxLayout)
+        index = outer.indexOf(self.instruction)
+        outer.removeWidget(self.instruction)
+        self.instruction.deleteLater()
+        label.setParent(self)
+        label.setWordWrap(True)
+        outer.insertWidget(index, label)
+        self.instruction = label
 
     def add_controls(self, item: QWidget | QLayout) -> None:
         """A flow's own control group (point pickers, fields) under the actions."""

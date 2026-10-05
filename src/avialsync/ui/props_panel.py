@@ -32,8 +32,10 @@ from avialsync.core.physical_props import (
     PropStore,
     StepIrregularity,
 )
+from avialsync.ui.about import docs_url
 from avialsync.ui.belt_placement_controls import BeltPlacementControls
 from avialsync.ui.i18n import tr
+from avialsync.ui.step_panel import StepPanel
 
 
 def support_text(support: LadderSupport) -> str:
@@ -98,7 +100,6 @@ class PropsPanel(QWidget):
         self.kind.addItem(tr("Ball"), "ball")
         self.kind.setAccessibleName(tr("Physical prop kind"))
         self.kind.setAccessibleDescription(tr("Choose the apparatus to add."))
-        root_layout.addWidget(self.kind)
         self.name = QLineEdit(self)
         self.name.setPlaceholderText(tr("Prop name"))
         self.name.setAccessibleName(tr("Physical prop name"))
@@ -113,12 +114,18 @@ class PropsPanel(QWidget):
         name_row.setContentsMargins(0, 0, 0, 0)
         name_row.addWidget(self.name)
         name_row.addWidget(self.create_button)
-        root_layout.addWidget(self.name_row)
         self.ladders = QComboBox(self)
         self.ladders.setAccessibleName(tr("Saved props of this kind"))
         self.ladders.setAccessibleDescription(tr("Select a saved prop of the selected kind."))
         self.ladders.currentIndexChanged.connect(self._selection_changed)
-        root_layout.addWidget(self.ladders)
+        # Labelled, in the order they are used: what kind, which saved one,
+        # or a name for a new one (D-176, F-16).
+        header = QFormLayout()
+        header.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        header.addRow(tr("Kind"), self.kind)
+        header.addRow(tr("Saved"), self.ladders)
+        header.addRow(tr("New"), self.name_row)
+        root_layout.addLayout(header)
         self.editor_stack = QStackedWidget(self)
         root_layout.addWidget(self.editor_stack)
         self.ladder_editor = QWidget(self.editor_stack)
@@ -162,7 +169,6 @@ class PropsPanel(QWidget):
             tr("Solid squares are your camera clicks; dashed marks are 3D projections."), self
         )
         legend.setWordWrap(True)
-        layout.addWidget(legend)
         form = QFormLayout()
         self.step_label = QLineEdit(self)
         self.step_label.setAccessibleName(tr("Step label"))
@@ -214,10 +220,28 @@ class PropsPanel(QWidget):
             self.remove_ladder,
         ):
             button.setAccessibleName(button.text())
-            layout.addWidget(button)
         self.status = QLabel(tr("Click each point in the cameras where it is visible."), self)
-        self.status.setWordWrap(True)
-        layout.addWidget(self.status)
+        # One primary, four ordinary choices, the rest in the overflow (D-176).
+        self.ladder_steps = StepPanel(tr("Ladder steps"), self.ladder_editor)
+        self.ladder_steps.use_instruction_label(self.status)
+        self.ladder_steps.set_primary(self.save_next_step)
+        self.ladder_steps.add_secondary(
+            [self.add_point, self.add_rung, self.next_point, self.save_step]
+        )
+        for button in (
+            self.cancel_step,
+            self.reclick_step,
+            self.relabel_step,
+            self.tag_step,
+            self.up,
+            self.down,
+        ):
+            self.ladder_steps.add_overflow(button)
+        for button in (self.remove_step, self.remove_ladder):
+            self.ladder_steps.add_overflow(button, destructive=True)
+        self.ladder_steps.add_more(legend)
+        self.ladder_steps.set_learn_more(docs_url("user-guide/index.html#physical-props"))
+        layout.addWidget(self.ladder_steps)
         self.add_point.clicked.connect(lambda: self._place(False))
         self.add_rung.clicked.connect(lambda: self._place(True))
         self.next_point.clicked.connect(self.next_point_requested)
@@ -434,7 +458,6 @@ class PropsPanel(QWidget):
             tr("Use the displayed frame as the reference for belt displacement.")
         )
         self.bind_belt.clicked.connect(self.belt_bind_requested)
-        layout.addWidget(self.bind_belt)
         self.check_belt = QPushButton(tr("Check belt mark on later frame"), self.belt_editor)
         self.check_belt.setAccessibleName(self.check_belt.text())
         self.check_belt.setAccessibleDescription(
@@ -443,7 +466,6 @@ class PropsPanel(QWidget):
         self.check_belt.clicked.connect(
             lambda: self.motion_check_requested.emit("belt", self.current_prop())
         )
-        layout.addWidget(self.check_belt)
         self.track_belt = QPushButton(tr("Track belt mark from camera clicks"), self.belt_editor)
         self.track_belt.setAccessibleName(self.track_belt.text())
         self.track_belt.setAccessibleDescription(
@@ -452,7 +474,6 @@ class PropsPanel(QWidget):
         self.track_belt.clicked.connect(
             lambda: self.visual_track_requested.emit("belt", self.current_prop())
         )
-        layout.addWidget(self.track_belt)
         lap_form = QFormLayout()
         self.belt_lap = QSpinBox(self.belt_editor)
         self.belt_lap.setRange(-1_000_000, 1_000_000)
@@ -467,23 +488,31 @@ class PropsPanel(QWidget):
         )
         lap_form.addRow(tr("Laps"), self.belt_lap)
         layout.addLayout(lap_form)
-        layout.addWidget(self.set_belt_lap)
         self.clear_belt_visual = QPushButton(tr("Clear belt visual track"), self.belt_editor)
         self.clear_belt_visual.setAccessibleName(self.clear_belt_visual.text())
         self.clear_belt_visual.clicked.connect(
             lambda: self.visual_clear_requested.emit("belt", self.current_prop())
         )
-        layout.addWidget(self.clear_belt_visual)
         self.save_belt = QPushButton(tr("Save belt geometry"), self.belt_editor)
         self.save_belt.setAccessibleName(self.save_belt.text())
         self.save_belt.clicked.connect(self.belt_save_requested)
-        layout.addWidget(self.save_belt)
         self.remove_belt = QPushButton(tr("Remove belt"), self.belt_editor)
         self.remove_belt.setAccessibleName(self.remove_belt.text())
         self.remove_belt.clicked.connect(
             lambda: self.remove_prop_requested.emit("belt", self.current_prop())
         )
-        layout.addWidget(self.remove_belt)
+        self.belt_steps = StepPanel(tr("Belt"), self.belt_editor)
+        self.belt_steps.set_instruction(
+            tr("Save the belt's path, then bind or track how its surface moves.")
+        )
+        self.belt_steps.set_primary(self.save_belt)
+        self.belt_steps.add_secondary(
+            [self.track_belt, self.bind_belt, self.check_belt, self.set_belt_lap]
+        )
+        self.belt_steps.add_overflow(self.clear_belt_visual, destructive=True)
+        self.belt_steps.add_overflow(self.remove_belt, destructive=True)
+        self.belt_steps.set_learn_more(docs_url("user-guide/index.html#physical-props"))
+        layout.addWidget(self.belt_steps)
         self.belt_add_vertex.clicked.connect(self._append_belt_vertex)
         self.belt_update_vertex.clicked.connect(self._replace_belt_vertex)
         self.belt_remove_vertex.clicked.connect(self._remove_belt_vertex)
@@ -546,7 +575,6 @@ class PropsPanel(QWidget):
             tr("Use four synchronized orientation readings on the displayed frame.")
         )
         self.bind_ball.clicked.connect(self.ball_bind_requested)
-        layout.addWidget(self.bind_ball)
         self.check_ball = QPushButton(tr("Check ball mark on later frame"), self.ball_editor)
         self.check_ball.setAccessibleName(self.check_ball.text())
         self.check_ball.setAccessibleDescription(
@@ -555,7 +583,6 @@ class PropsPanel(QWidget):
         self.check_ball.clicked.connect(
             lambda: self.motion_check_requested.emit("ball", self.current_prop())
         )
-        layout.addWidget(self.check_ball)
         self.ball_visual_mark = QComboBox(self.ball_editor)
         for index, label in enumerate(("A", "B", "C")):
             self.ball_visual_mark.addItem(tr("Surface mark {label}").format(label=label), index)
@@ -572,23 +599,29 @@ class PropsPanel(QWidget):
         self.track_ball.clicked.connect(
             lambda: self.visual_track_requested.emit("ball", self.current_prop())
         )
-        layout.addWidget(self.track_ball)
         self.clear_ball_visual = QPushButton(tr("Clear ball visual track"), self.ball_editor)
         self.clear_ball_visual.setAccessibleName(self.clear_ball_visual.text())
         self.clear_ball_visual.clicked.connect(
             lambda: self.visual_clear_requested.emit("ball", self.current_prop())
         )
-        layout.addWidget(self.clear_ball_visual)
         self.save_ball = QPushButton(tr("Save ball geometry"), self.ball_editor)
         self.save_ball.setAccessibleName(self.save_ball.text())
         self.save_ball.clicked.connect(self.ball_save_requested)
-        layout.addWidget(self.save_ball)
         self.remove_ball = QPushButton(tr("Remove ball"), self.ball_editor)
         self.remove_ball.setAccessibleName(self.remove_ball.text())
         self.remove_ball.clicked.connect(
             lambda: self.remove_prop_requested.emit("ball", self.current_prop())
         )
-        layout.addWidget(self.remove_ball)
+        self.ball_steps = StepPanel(tr("Ball"), self.ball_editor)
+        self.ball_steps.set_instruction(
+            tr("Save the ball's geometry, then bind or track how it turns.")
+        )
+        self.ball_steps.set_primary(self.save_ball)
+        self.ball_steps.add_secondary([self.track_ball, self.bind_ball, self.check_ball])
+        self.ball_steps.add_overflow(self.clear_ball_visual, destructive=True)
+        self.ball_steps.add_overflow(self.remove_ball, destructive=True)
+        self.ball_steps.set_learn_more(docs_url("user-guide/index.html#physical-props"))
+        layout.addWidget(self.ball_steps)
         # The stack is sized for the longer belt page. Keep the ball controls
         # together at the top instead of distributing the surplus between forms.
         layout.addStretch()
