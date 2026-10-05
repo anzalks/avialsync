@@ -68,6 +68,11 @@ _FONT_FAMILY_PROPERTY = "avialsync_font_family"
 _FONT_BOLD_PROPERTY = "avialsync_font_bold"
 
 
+def font_scale(app: QApplication) -> float:
+    """Return the selected application font scale for shared spacing tokens."""
+    return _font_scales.get(id(app), 1.0)
+
+
 def _is_dark_palette(palette: QPalette) -> bool:
     """Return whether a palette has a dark window surface."""
     return palette.color(QPalette.ColorRole.Window).lightnessF() < 0.5

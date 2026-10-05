@@ -5813,3 +5813,33 @@ the pin sits on the action. Wrapping glyphs would put untranslatable strings in 
 `reset_session_requested`, `EmptyState.open_videos_requested`, `open_data_requested` and
 `PlotHeader.reset_requested` are gone. A button's text can no longer be asserted on a standalone
 panel without installing an action first.
+
+---
+
+## 2026-10 · D-168 · Interface spacing and button roles come from shared tokens
+
+**Context.** The interface design audit found inconsistent spacing and no visible hierarchy between the next action, incidental tools, and destructive commands (F-24). Theme stylesheets would pin colours and change widget rendering.
+
+**Decision.** `ui/design_tokens.py` owns spacing, density, type, and control roles. Buttons default to secondary; each surface marks at most one primary action. Tool buttons use an icon with the action name in the tooltip and accessible name. Destructive controls use a removal or reset shape and the palette's error colour. `apply_role` uses native button properties, fonts, and palette-aware icons, never a stylesheet. Application font scaling also scales spacing tokens. Role assignment does not move a control or change its command.
+
+**Consequences.** A window-level role inventory can check that every button has a declared role and that each surface has at most one primary. Future controls use the same helper.
+
+---
+
+## 2026-10 · D-169 · AvialSync owns its small interface glyph set
+
+**Context.** Close, information, remove, playback, and zoom controls used different character and platform glyphs (F-10, F-23). The glyphs varied across operating systems and did not all remain legible across themes.
+
+**Decision.** Use original 24-unit SVG drawings for the interface glyphs, distributed as Python package data in `ui/icon_glyphs.py` and licensed AGPL-3.0-or-later with AvialSync. `ui/icons.py` re-inks each drawing from the button palette and refreshes it on appearance changes. No third-party icon dependency or external asset path is required.
+
+**Consequences.** The wheel and PyInstaller bundle carry the same icon definitions as source installations. Glyph-only controls retain a tooltip and accessible name.
+
+---
+
+## 2026-10 · D-170 · Playback, coverage, and status each have one home
+
+**Context.** At 1280×800, five full-width control strips below the videos leave too little height for plot rows (INTERFACE_DESIGN_PLAN F-01–F-06). Loop and rate controls sit in the Data Streams header, away from Play; application status is there as well, while the status bar only reports jobs. The bare seek slider does not show available coverage.
+
+**Decision.** The plot controls and time span share one row. Data Streams keeps its header and coverage lanes, with no playback or application status controls. The transport orders jump and frame controls, Play, editable time, a coverage-aware scrubber, end time, loop controls, and rate. The status bar owns a `StatusLine` beside the activity area; `Transport.set_status` and `status_text` remain forwarding APIs for existing callers. This amends D-126's bottom-row placement while retaining its video toolbar placement. The scrubber caches its coverage, annotation, and loop painting; cursor ticks only move its handle.
+
+**Consequences.** Tests that pin the old geometry are amended to assert the new ordering and the same signals. Existing seek, stepping, and timeline mapping semantics stay the same.

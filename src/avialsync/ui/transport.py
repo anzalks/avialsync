@@ -41,8 +41,9 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.ui.app_settings import app_settings
+from avialsync.ui.design_tokens import ControlRole, apply_role
 from avialsync.ui.i18n import tr
-from avialsync.ui.icons import set_glyph_icon
+from avialsync.ui.icons import set_glyph_icon, set_svg_icon
 from avialsync.ui.playback_rates import PLAYBACK_RATE_STEPS, rate_label
 from avialsync.ui.theme import (
     evidence_color,
@@ -969,7 +970,7 @@ class Transport(QWidget):
         # ── Play / Pause ──────────────────────────────────────────────
         self.play_btn = QPushButton(tr("Play"))
         self.play_btn.setCheckable(True)
-        set_glyph_icon(self.play_btn, QStyle.StandardPixmap.SP_MediaPlay)
+        apply_role(self.play_btn, ControlRole.PRIMARY, "play")
         # Wide enough for either label, so toggling playback does not reflow
         # the row under the pointer.
         self.play_btn.setText(tr("Pause"))
@@ -1203,10 +1204,7 @@ class Transport(QWidget):
         self.play_btn.blockSignals(True)
         self.play_btn.setChecked(playing)
         self.play_btn.setText(tr("Pause") if playing else tr("Play"))
-        set_glyph_icon(
-            self.play_btn,
-            QStyle.StandardPixmap.SP_MediaPause if playing else QStyle.StandardPixmap.SP_MediaPlay,
-        )
+        set_svg_icon(self.play_btn, "pause" if playing else "play")
         self.play_btn.setAccessibleName(tr("Pause playback") if playing else tr("Start playback"))
         self.play_btn.blockSignals(False)
 

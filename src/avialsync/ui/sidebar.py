@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 from avialsync.core.inspection import SourceInspection
 from avialsync.ui.action_button import ActionButton
 from avialsync.ui.channel_tree import group_prefixes, matches_filter, split_channel
+from avialsync.ui.design_tokens import ControlRole, apply_role
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
 from avialsync.ui.icons import set_status_icon
@@ -184,9 +185,11 @@ class SensorInfoWidget(QFrame):
         self._alignment_summary: str = ""
         self._has_accepted_alignment: bool = True
 
-        close_btn = QPushButton("✕")
+        close_btn = QPushButton(self)
         close_btn.setFixedSize(20, 20)
         close_btn.setToolTip(tr("Remove entire sensor source"))
+        close_btn.setAccessibleName(tr("Remove entire sensor source"))
+        apply_role(close_btn, ControlRole.DESTRUCTIVE, "remove")
         close_btn.clicked.connect(lambda: self.remove_requested.emit(self.path))
 
         header.addWidget(name_lbl, stretch=1)
@@ -708,8 +711,11 @@ class VideoInfoWidget(QFrame):
         name_lbl.setToolTip(path)
         set_bold(name_lbl)
 
-        close_btn = QPushButton("X")
+        close_btn = QPushButton(self)
         close_btn.setFixedSize(20, 20)
+        close_btn.setToolTip(tr("Remove video source"))
+        close_btn.setAccessibleName(tr("Remove video source"))
+        apply_role(close_btn, ControlRole.DESTRUCTIVE, "remove")
         close_btn.clicked.connect(lambda: self.remove_requested.emit(self.path))
 
         header_layout.addWidget(self.visibility_cb)
@@ -1059,6 +1065,9 @@ class SidebarPane(QWidget):
         self.btn_open_video.set_action(open_video)
         self.btn_open_sensor.set_action(open_sensor)
         self.btn_reset_session.set_action(reset)
+        apply_role(self.btn_open_video, ControlRole.PRIMARY, "open")
+        apply_role(self.btn_open_sensor, ControlRole.SECONDARY, "data")
+        apply_role(self.btn_reset_session, ControlRole.DESTRUCTIVE, "reset")
 
     def _apply_source_filter(self, text: str) -> None:
         """Filter source cards and channel rows across the whole inspector."""

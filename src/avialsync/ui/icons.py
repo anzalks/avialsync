@@ -7,7 +7,7 @@ contrast at all — while its text beside them was correctly light. The status
 icons fail the other way: the platform's warning bubble is a pale outline that
 all but disappears on the Light surface.
 
-Two helpers, one per kind of icon:
+Three helpers, one per kind of icon:
 
 * :func:`set_glyph_icon` keeps a standard icon's *shape* and repaints its ink in
   the button's own text colour, so the glyph reads exactly like the label next
@@ -17,7 +17,11 @@ Two helpers, one per kind of icon:
   the platform's message-box artwork happens to be. The badge carries a glyph as
   well as a colour, so severity is never told by colour alone (rule 17).
 
-Both reuse one follower per button, so switching an icon (Play to Pause, a new
+* :func:`set_svg_icon` draws one of AvialSync's own glyphs
+  (:mod:`avialsync.ui.icon_glyphs`, D-169) the same way, in the button's text
+  colour or, for a destructive command, the error colour beside its shape.
+
+All three reuse one follower per button, so switching an icon (Play to Pause, a new
 severity) replaces what it follows rather than stacking a second listener.
 """
 
@@ -25,11 +29,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import QEvent, QObject, QRectF, QSize, Qt
+from PySide6.QtCore import QByteArray, QEvent, QObject, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPalette, QPixmap
+from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QAbstractButton, QStyle
 from shiboken6 import isValid
 
+from avialsync.ui.icon_glyphs import svg
 from avialsync.ui.theme import status_color
 
 #: Builds the icon for a button from the palette it is about to be shown under.
@@ -155,3 +161,48 @@ def status_icon(button: QAbstractButton, palette: QPalette, severity: str) -> QI
 def set_status_icon(button: QAbstractButton, severity: str) -> None:
     """Show a *severity* badge on *button*, re-coloured on every appearance change."""
     _follow(button, lambda b, palette: status_icon(b, palette, severity))
+
+
+#: Tones a glyph may be inked in. ``danger`` marks a destructive command; the
+#: glyph's shape (a bin, a reset arrow) says so as well, never the hue alone.
+TONES = ("text", "danger")
+
+
+def _rendered(name: str, size: QSize, ratio: float) -> QPixmap:
+    """Render glyph *name* into a transparent pixmap of *size* logical pixels."""
+    pixmap = QPixmap(round(size.width() * ratio), round(size.height() * ratio))
+    pixmap.setDevicePixelRatio(ratio)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    renderer = QSvgRenderer(QByteArray(svg(name)))
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    renderer.render(painter, QRectF(0.0, 0.0, size.width(), size.height()))
+    painter.end()
+    return pixmap
+
+
+def svg_icon(button: QAbstractButton, palette: QPalette, name: str, tone: str = "text") -> QIcon:
+    """Return glyph *name* inked for *button* under *palette*."""
+    size = button.iconSize() if button.iconSize().isValid() else QSize(16, 16)
+    source = _rendered(name, size, _device_pixel_ratio(button))
+    icon = QIcon()
+    for mode, group in (
+        (QIcon.Mode.Normal, QPalette.ColorGroup.Active),
+        (QIcon.Mode.Active, QPalette.ColorGroup.Active),
+        (QIcon.Mode.Selected, QPalette.ColorGroup.Active),
+        (QIcon.Mode.Disabled, QPalette.ColorGroup.Disabled),
+    ):
+        ink = palette.color(group, QPalette.ColorRole.ButtonText)
+        if tone == "danger" and mode != QIcon.Mode.Disabled:
+            ink = status_color(palette, "error")
+        inked = _inked(source, ink)
+        for state in (QIcon.State.Off, QIcon.State.On):
+            icon.addPixmap(inked, mode, state)
+    return icon
+
+
+def set_svg_icon(button: QAbstractButton, name: str, tone: str = "text") -> None:
+    """Show AvialSync glyph *name* on *button*, re-inked on every appearance change."""
+    if tone not in TONES:
+        raise ValueError(f"unknown icon tone {tone!r}")
+    _follow(button, lambda b, palette: svg_icon(b, palette, name, tone))

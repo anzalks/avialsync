@@ -16,6 +16,7 @@ from PySide6.QtWidgets import QGraphicsProxyWidget, QToolButton
 from avialsync.core.channel_reader import MappedChannelReader
 from avialsync.core.pyramid import PyramidReader
 from avialsync.core.timeline import TimeMap
+from avialsync.ui.design_tokens import ControlRole, apply_role
 from avialsync.ui.i18n import tr
 from avialsync.ui.plot_sweep import SweepCurveItem
 from avialsync.ui.plot_theme import apply_coverage_region_palette, gap_marker_pen
@@ -214,11 +215,12 @@ def create_channel_plot(
     """
     reader = MappedChannelReader(PyramidReader(cache_dir, channel_name), time_map, source_id)
     close_button = QToolButton()
-    close_button.setText(tr("×"))
+    close_button.setText(tr("Hide plot"))
     close_button.setAutoRaise(True)
     close_button.setFixedSize(18, 18)
     close_button.setAccessibleName(f"Hide plot {channel_name}")
     close_button.setToolTip(f"Hide {channel_name}")
+    apply_role(close_button, ControlRole.TOOL, "close")
     close_button.setFocusPolicy(Qt.FocusPolicy.TabFocus)
     close_button.clicked.connect(
         lambda _checked=False, channel_id=channel_name: close_requested(channel_id)

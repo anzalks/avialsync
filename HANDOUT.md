@@ -5,7 +5,7 @@ Desktop tool for scrubbing time-synchronized multi-camera video with dense time-
 **License:** AGPL-3.0-or-later, single licence — no dual licence, no CLA (D-076).  
 **Env:** `conda run -n avialsync <cmd>` — every command without exception
 
-> **Next phase: interface design — read `INTERFACE_DESIGN_PLAN.md`.** Completed plans (including the
+> **Current phase: interface design — read `INTERFACE_DESIGN_PLAN.md`.** Completed plans (including the
 > finished libmpv → PyAV migration, `archive/plans/MIGRATION_PYAV.md`) are kept in `archive/plans/`
 > as record only.
 
@@ -302,7 +302,10 @@ Two product laws govern that phase and outrank convention:
   available in the Sync Wizard.
 
 ### Open items
-- **Next: Phase 9 interface design** — `INTERFACE_DESIGN_PLAN.md` (BLUEPRINT.md Phase 9).
+- **In progress: Phase 9 interface design** — `INTERFACE_DESIGN_PLAN.md` (BLUEPRINT.md Phase 9).
+  DS-0 isolated screenshots and fixed theme status/gutter defects; DS-1 made repeated buttons
+  action-backed and widened the translation gate (D-167). DS-2 adds shared control roles,
+  font-scaled spacing, and original palette-aware SVG glyphs (D-168, D-169).
 - **P4.6 plot review/sweep UX refinement — core implementation complete; certification remains
   (D-044):** `archive/plans/PLOT_UX_PLAN.md` remains the canonical contract. Review/Sweep/Scope, the shared
   continuous time-span control, master navigator viewport drag, one bottom axis and channel gutters,
@@ -617,6 +620,8 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/job_manager.py` | One owner for every background job: labels, watchdog, cancel, abandon-at-shutdown. **Every job now actually goes through it** — the four export registries, the import, the proxy and the video probes were migrated in D-107, and a raw `QThread` in `src/` fails `tests/test_feedback_surface.py` | `JobManager`, `Job`, `JobState`; reached through `MainWindow._run_job` |
 | `ui/feedback/notifications.py` | One message shown, the rest queued behind it (D-107). A sticky message is never displaced; a transient success never holds up a failure, and never queues behind another success — only the newest one is kept, so a three-file import is one line rather than eighteen seconds of them (D-134). The waiting count is shown, so a queue is never silent. An optional `on_dismiss` callback is distinct from the named action (D-118) | `NotificationStrip.show_success/show_warning/show_error()`, `clear()`, `clear_all()`, `pending_count` |
 | `ui/app_settings.py` | The one place the `QSettings` store is opened, in `QSettings.defaultFormat()` so the test and screenshot sandboxes reach it (Phase 9 F-36) | `app_settings()` |
+| `ui/design_tokens.py` | Phase 9 spacing, type, density, and button roles; uses Qt font and icon APIs, no stylesheet (D-168) | `SPACE`, `spacing()`, `TypeRole`, `ControlRole`, `apply_type_role()`, `apply_role()` |
+| `ui/icon_glyphs.py` / `ui/icons.py` | Original AGPL interface glyphs and palette-aware SVG re-inking (D-169) | `GLYPHS`, `set_svg_icon()` |
 | `ui/recovery.py` | App-data recovery snapshot and a fingerprint of the last dismissed offer. Dismiss preserves the snapshot and suppresses that state on later launches; changed work gets a new offer (D-118). The snapshot is always written; only the launch-time bar is a preference, and File → Recover Unsaved Work reaches the snapshot without it (D-133) | `write_recovery()`, `pending_recovery()`, `dismiss_recovery()`, `clear_recovery()` |
 | `ui/feedback/text_dialog.py` | The one modal for text the user asked to see — scrolling, selectable, copyable. Replaced five ad-hoc `QMessageBox`es that disagreed about both (D-107) | `TextDialog`, `show_text()` |
 | `ui/feedback/error_presenter.py` | Typed exception → title + cause + named recoveries. `ExportError` is the newest entry; the enumeration test fails if a `core/errors.py` type has no presenter | `present()`, `presentation_for()`, `PresentedError`, `Recovery` |
