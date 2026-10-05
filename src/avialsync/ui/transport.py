@@ -13,6 +13,7 @@ from PySide6.QtCore import (
     Signal,
 )
 from PySide6.QtGui import (
+    QAccessible,
     QColor,
     QFontDatabase,
     QKeyEvent,
@@ -41,6 +42,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.settings_schema import setting_for
+from avialsync.ui.accessible_views import register_painted
 from avialsync.ui.app_settings import app_settings
 from avialsync.ui.design_tokens import DENSITY_ROW_HEIGHT, ControlRole, Density, apply_role
 from avialsync.ui.feedback.status_line import StatusLine
@@ -208,6 +210,9 @@ class TimelineOverview(QWidget):
         self.setMouseTracking(True)
         self.setToolTip(tr("Data Streams. Click to seek."))
         self.setAccessibleName(tr("Data Streams lanes"))
+        register_painted(
+            self, QAccessible.Role.Chart, self.accessible_value, self.accessible_detail
+        )
         self.setAccessibleDescription(
             tr(
                 "Named data, synchronization, gap, identity-swap, and annotation "
@@ -416,6 +421,22 @@ class TimelineOverview(QWidget):
         """Display point/range annotations in their stored colors."""
         self._markers = tuple(markers)
         self._on_evidence_changed()
+
+    def accessible_value(self) -> str:
+        """The playhead, read when assistive technology asks (D-179)."""
+        return tr("Playhead at {time} s").format(time=f"{self._cursor:.3f}")
+
+    def accessible_detail(self) -> str:
+        """Each lane: a source's span, or how many events or markers it carries."""
+        parts: list[str] = []
+        for label, _kind, payload in self._lanes():
+            if isinstance(payload, _CoverageLane):
+                parts.append(f"{label}: {payload.start:.3f}–{payload.end:.3f} s")
+            elif isinstance(payload, _EventLane):
+                parts.append(tr("{lane}: {n} events").format(lane=label, n=len(payload.events)))
+            elif isinstance(payload, _AnnotationLane):
+                parts.append(tr("{lane}: {n} markers").format(lane=label, n=len(payload.markers)))
+        return "; ".join(parts) or tr("No sources are loaded.")
 
     def lane_labels(self) -> list[str]:
         """Return the currently populated lanes, in their rendered order.

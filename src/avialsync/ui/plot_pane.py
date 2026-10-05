@@ -8,11 +8,12 @@ from pathlib import Path
 
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QResizeEvent
+from PySide6.QtGui import QAccessible, QAction, QResizeEvent
 from PySide6.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
 
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.timeline import TimeMap
+from avialsync.ui.accessible_views import register_painted
 from avialsync.ui.annotations import AnnotationStore
 from avialsync.ui.app_settings import app_settings
 from avialsync.ui.i18n import tr
@@ -129,6 +130,13 @@ class PlotPane(QWidget):
         self.reset_button = self._plot_header.reset_button
 
         self.graphics_layout = pg.GraphicsLayoutWidget()
+        self.graphics_layout.setAccessibleName(tr("Plot rows"))
+        register_painted(
+            self.graphics_layout,
+            QAccessible.Role.Chart,
+            self.accessible_value,
+            self.accessible_detail,
+        )
         self.graphics_layout.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.graphics_layout.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         # The channel stack scrolls in an ordinary scroll area, not in the
@@ -923,6 +931,26 @@ class PlotPane(QWidget):
         if text != self._page_label_text:
             self._page_label_text = text
             self.page_label.setText(text)
+
+    def accessible_value(self) -> str:
+        """Each shown row's value at the playhead, read on query (D-179)."""
+        visible = [channel for channel in self.channels if channel.visible][:32]
+        if not visible or self.sweep_start is None:
+            return tr("No channels are shown.")
+        t = self.sweep_start + float(visible[0].cursor_line.value())
+        parts = []
+        for channel in visible:
+            sample = channel.reader.sample_at(t)
+            value = "—" if sample is None else f"{sample[1]:.4g}"
+            unit = f" {channel.unit}" if channel.unit else ""
+            parts.append(f"{channel.name}: {value}{unit}")
+        return "; ".join(parts)
+
+    def accessible_detail(self) -> str:
+        shown = sum(channel.visible for channel in self.channels)
+        return tr("{n} channel rows over a {window} s window").format(
+            n=shown, window=f"{self.window_duration:g}"
+        )
 
     def hide_channel_row(self, channel_id: str) -> None:
         """Hide a row as its close tool does, from the row's context menu (D-177)."""

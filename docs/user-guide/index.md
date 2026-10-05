@@ -550,6 +550,14 @@ channels loaded in that recording. Choose **Forget saved setup** in the dialog, 
 settings in **Preferences → Wheel Setup**, to clear those defaults. This does not remove any wheel
 already saved with a recording.
 
+## Screen readers and the keyboard
+
+The plots, the Data Streams lanes, each camera and the 3D view describe themselves to screen
+readers when asked: the plots read each shown channel's value at the playhead with its unit, the
+lanes read the playhead and each source's span, a camera reads its time and frame, and the 3D view
+reads how many points it shows and its viewing angles. Nothing is announced while playback runs.
+Every bold (primary) button is reachable with Tab, and Up and Down move between inspector pages.
+
 ## Appearance and font size
 
 Use **View → Theme** to choose System, Dark, or Light, and **View → Font Size** to select a

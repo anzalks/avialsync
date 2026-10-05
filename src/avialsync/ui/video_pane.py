@@ -34,6 +34,7 @@ from PySide6.QtCore import (
     Slot,
 )
 from PySide6.QtGui import (
+    QAccessible,
     QCloseEvent,
     QFontDatabase,
     QImage,
@@ -65,6 +66,7 @@ from avialsync.engine.display_pipeline import (
     to_display_array,
 )
 from avialsync.engine.pyav_reader import PyAVReader
+from avialsync.ui.accessible_views import register_painted
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
 from avialsync.ui.icons import set_svg_icon
@@ -636,6 +638,9 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._grid.addWidget(self.surface, 0, 0)
 
         self._build_overlay_chrome()
+        register_painted(
+            self, QAccessible.Role.Graphic, self.accessible_value, self.accessible_detail
+        )
         self.surface.view_changed.connect(self.paint_canvas.update)
         self._osd_update.connect(self._flush_osd_update)
         self.surface.installEventFilter(self)
@@ -1110,6 +1115,15 @@ class VideoPane(VideoTimingMixin, QWidget):
             0,
             Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignLeft,
         )
+
+    def accessible_value(self) -> str:
+        """Time and frame on screen, read on query (D-179)."""
+        return self.osd_text("compact")
+
+    def accessible_detail(self) -> str:
+        name = self._label_text or tr("Camera")
+        full = " · ".join(line for line in self.osd_text("full").splitlines() if line)
+        return f"{name}: {full}"
 
     def chrome_rects(self) -> tuple[QRect, ...]:
         """Rectangles, in pane coordinates, that labels drawn over video avoid.

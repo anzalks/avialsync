@@ -5940,3 +5940,13 @@ Ladder, belt and ball editors, identity review and the alignment dialog use the 
 **Decision.** No main toolbar. Every candidate already has a one-click home after DS-3–DS-8: Open is the split button at the top of Sources, Fullscreen is a glyph under the videos, Add Prop is the Props page's Add, and the Command Palette has its shortcut and Help → Commands…. A toolbar row would cost about 36 px, and the window's minimum height on macOS is 469 px against the 640×480 floor. The one entry without a home, Align → Synchronize TTL / events…, becomes a glyph `ActionButton` on that action beside Open in the Sources page, where the recordings it aligns are listed.
 
 **Alternatives.** A hidden-by-default toolbar would push the window over 480 px whenever it was shown; a status-bar Align button would sit away from the sources it acts on.
+
+---
+
+## 2026-10 · D-179 · Painted surfaces describe themselves on query
+
+**Context.** Plot rows, Data Streams lanes, video panes and the 3D view are painted, so assistive technology found nameless rectangles (INTERFACE_DESIGN_PLAN F-32).
+
+**Decision.** `ui/accessible_views.register_painted` records a role and describer functions per widget, and one `QAccessible.installFactory` factory returns a `QAccessibleWidget` subclass whose Value and Description call them when a client asks. Plots (Chart): each shown row's name, value at the playhead and unit, capped at 32 rows; lanes (Chart): the playhead, and each lane's span or event count; a camera (Graphic): time and frame, with the full readout as description; the 3D view (Graphic): point count and view angles. One interface per widget rather than per-row child interfaces: a Python-owned interface with no QObject behind it is deleted by Qt's accessibility cache, which is a crash waiting on a platform's timing. Nothing calls `QAccessible.updateAccessibility` on the clock tick. Every primary button takes Tab focus.
+
+**Alternatives.** Rewriting `accessibleDescription` on every tick would push values per frame, against the 60 Hz budget.

@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt
 from PySide6.QtGui import (
+    QAccessible,
     QAction,
     QColor,
     QMouseEvent,
@@ -36,6 +37,7 @@ from avialsync.core.channel_reader import MappedChannelReader
 from avialsync.core.pose import split_channel
 from avialsync.core.skeleton import SkeletonEstimate, frame_budget, infer_skeleton
 from avialsync.core.timeline import TimeMap
+from avialsync.ui.accessible_views import register_painted
 from avialsync.ui.action_button import ActionButton
 from avialsync.ui.cylinder_paint import draw_cylinders
 from avialsync.ui.design_tokens import spacing
@@ -273,6 +275,8 @@ class Tracking3DCanvas(QWidget):
         # `test_compact_viewport_keeps_every_workspace_surface_available`. A pane
         # minimum is the window's minimum by proxy.
         self.setMinimumHeight(88)
+        self.setAccessibleName(tr("3D tracking view"))
+        register_painted(self, QAccessible.Role.Graphic, self.accessible_value)
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAccessibleName(tr("Interactive 3D tracking plot"))
@@ -326,6 +330,14 @@ class Tracking3DCanvas(QWidget):
         #: the zoom, which is how the video panes behave.
         self._pan = QPointF()
         self._pan_origin: QPoint | None = None
+
+    def accessible_value(self) -> str:
+        """Points shown and the view angles, read on query (D-179)."""
+        return tr("{n} points; azimuth {az}°, elevation {el}°").format(
+            n=self.point_count,
+            az=f"{math.degrees(self._azimuth):.0f}",
+            el=f"{math.degrees(self._elevation):.0f}",
+        )
 
     @property
     def point_count(self) -> int:
