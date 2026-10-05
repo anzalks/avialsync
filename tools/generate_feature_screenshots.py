@@ -23,7 +23,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-from PySide6.QtWidgets import QApplication, QMenu, QTabWidget
+from PySide6.QtWidgets import QApplication, QMenu
 from scipy.spatial.transform import Rotation
 
 from avialsync.core.calibration import Calibration, CameraModel, write_calibration
@@ -52,13 +52,13 @@ DEFAULT_OUTPUT_DIR = REPOSITORY_ROOT / "docs" / "_static" / "screenshots"
 
 
 def _show_tab(window: MainWindow, app: QApplication, label: str) -> None:
-    tabs: QTabWidget = window._left_tabs
+    tabs = window._left_tabs
     for index in range(tabs.count()):
         if tabs.tabText(index) == label:
             tabs.setCurrentIndex(index)
             settle(app)
             return
-    raise RuntimeError(f"No sidebar tab called {label!r}.")
+    raise RuntimeError(f"No inspector page called {label!r}.")
 
 
 def _menu(window: MainWindow, title: str) -> QMenu:
@@ -408,8 +408,11 @@ def _generate(out_dir: Path, session: Path) -> None:
     settle(app)
 
     try:
-        _show_tab(window, app, "Tasks")
+        # Tasks opens from the status bar (D-172), so the shot is its popover.
+        window.tasks_button.show_popover()
+        settle(app)
         capture(window, out_dir / "feature_tasks_tab.png")
+        window.tasks_button.popover.close()
         _show_tab(window, app, "Sources")
 
         _capture_menu(window, app, "File", out_dir / "feature_menu_file.png")

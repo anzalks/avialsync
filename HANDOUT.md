@@ -309,7 +309,8 @@ Two product laws govern that phase and outrank convention:
   controls and time span, moves loop and rate controls beside Play, puts application status in the
   status bar, and paints cached evidence under the scrub handle (D-170). DS-4 gives Data Streams
   font-scaled lanes with an adjustable visible-row cap, vertical scrolling, and elided labels
-  with full-text hover (D-171).
+  with full-text hover (D-171). DS-6 replaces the inspector tabs with a vertically scrolling icon
+  and label rail and moves Tasks to a status-bar popover (D-172).
 - **P4.6 plot review/sweep UX refinement — core implementation complete; certification remains
   (D-044):** `archive/plans/PLOT_UX_PLAN.md` remains the canonical contract. Review/Sweep/Scope, the shared
   continuous time-span control, master navigator viewport drag, one bottom axis and channel gutters,
@@ -608,6 +609,8 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/plot_overlays.py` | Bounded page-local overlay drawing and plot context menu helpers | `redraw_annotations()`, `redraw_measure_lines()` |
 | `ui/tracking_3d_pane.py` | Current-pose XYZ projection from cached triplets; orbit/zoom/fit. Its header scrolls sideways on narrow displays so the controls cannot collapse the video column. `Tracking3DCanvas.render_scene(painter, w, h)` is the one painting authority — `paintEvent` calls it at the widget's size, a snapshot at its tile's (D-101). Draws hand-placed markers (rings) and wheels (bars + rims, not in the scene bounds) from sources asked on every cursor move (D-112, D-113) | `Tracking3DPane.set_readers()`, `set_cursor()`, `install_reprojection_action()`, `Tracking3DCanvas.render_scene()`, `set_custom_point_source()`, `set_wheel_source()` |
 | `ui/transport.py` | Master-time seek row with Play, glyph step controls, loop and rate; Data Streams has a title and font-scaled, vertically scrolling lanes (D-170, D-171). Status forwards to the status bar. `format_master_time()` owns the displayed time mode and epoch (D-020, D-101) | `set_time()`, `set_bounds()`, `format_master_time()`, `status_text()`, `set_source_coverage(source_id, t0, t1, kind, group="")` — a non-empty `group` merges the span into one shared lane (D-083); an empty span at the origin removes it — `set_ttl_events()`, `set_gap_events()`, `set_message_events()`, `set_annotation_markers()`, `set_status()` |
+| `ui/inspector_nav.py` | Inspector page rail: icon + label buttons that never elide, scrolling vertically when short; a `QTabWidget`-compatible surface (D-172) | `InspectorNav.addTab(page, label, icon=)`, `currentIndex()`, `setCurrentWidget()`, `button()`, `currentChanged` |
+| `ui/feedback/tasks_button.py` | Status-bar Tasks button whose popover hosts the `JobsPanel` (D-172) | `TasksButton.popover` |
 | `ui/scrub_bar.py` | Cached coverage, annotation, and loop track under the seek handle; cursor ticks reuse it (D-170) | `ScrubBar.set_track_data()`, `track_build_count` |
 | `ui/feedback/status_line.py` | Transient status in the status bar, painted from the current palette with severity labels (D-170) | `StatusLine.set_status()`, `status_text()`, `ink_color()` |
 | `ui/sidebar.py` | File management; video/channel visibility; WarningBadge; links to properties panels | `SidebarPane`, `VideoInfoWidget`, `SensorInfoWidget` |

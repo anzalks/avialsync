@@ -137,7 +137,7 @@ something else.
   snapshot is written, kept, and reachable from the File menu — the preference changes whether you
   are told, not whether you are protected.
 - **Long work is never modal.** Imports, proxy generation, and exports report in the status area and
-  the **Tasks** tab, with a cancel where the work supports one, and you can keep using the window
+  **Tasks** in the status bar, with a cancel where the work supports one, and you can keep using the window
   while they run.
 
 ## Preferences
@@ -174,7 +174,7 @@ and the **Fix Tracker handles**, because hiding them would leave that mode nothi
 ## Named layouts
 
 **View → Workspace → Save Current Layout…** stores the window geometry, every splitter position, and
-the selected inspector tab under a name; picking that name later restores it. Aligning two
+the selected inspector page under a name; picking that name later restores it. Aligning two
 recordings wants tall plots and small video, and checking a tracking overlay wants the opposite —
 this is so you do not rearrange the splitters each time.
 

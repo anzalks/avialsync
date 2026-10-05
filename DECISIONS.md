@@ -5853,3 +5853,15 @@ panel without installing an action first.
 **Decision.** Each lane's height follows the application font plus the shared density spacing token. Compact is the default. The overview keeps its complete lane list at that height; a vertical scroll viewport shows up to the configured number of lanes. Compact defaults to ten visible lanes, so four videos and six data sources fit without scrolling; comfortable defaults to eight. Density and each density's row cap live in the settings schema. Labels elide inside their gutter and reveal their full text on hover. Coverage spans retain their tinted bodies and solid 2 px end caps in both themes.
 
 **Consequences.** More lanes remain accessible by vertical scrolling without squeezing the rows or expanding the bottom area indefinitely. Changing font size or density recalculates lane height without changing timeline time or evidence.
+
+---
+
+## 2026-10 · D-172 · The inspector is a page rail; Tasks opens from the status bar
+
+**Context.** Six text tabs shared a 280 px inspector and elided to "Sour…", "Mess…" and "Tas" (INTERFACE_DESIGN_PLAN F-13); resizing the window made it worse, and there was no keyboard or palette path to a page other than clicking its tab.
+
+**Decision.** The pages are Sources, Values, Messages, Changes and Props, in that order, chosen from a vertical rail of icon-and-label buttons (`ui/inspector_nav.py`). The rail is as wide as its widest label, so no name elides at any font size, and it scrolls vertically when the window is too short rather than cropping a button or raising the window's minimum height. Up and Down move between pages; View → Inspector holds one live action per page, so the command palette reaches each. The page is persisted by name under the `inspector/page` setting; the pre-rail `inspector/tab` index is still read once. Tasks leaves the inspector for a status-bar tool button beside the activity area whose popover hosts the same `JobsPanel`.
+
+**Alternatives.** Scroll arrows on a `QTabBar` still elide one title and hide the rest; a combo box hides every page but one.
+
+**Consequences.** `InspectorNav` keeps the `QTabWidget` calls callers used (`addTab`, `currentIndex`, `setCurrentWidget`, `tabText`), so workspaces and screenshot tools are unchanged apart from Tasks, which is captured as a popover.

@@ -112,6 +112,15 @@ SETTINGS: tuple[Setting, ...] = (
         ),
     ),
     Setting(
+        key="inspector/page",
+        label="Inspector page",
+        group="Appearance",
+        default="sources",
+        kind=str,
+        choices=("sources", "values", "messages", "changes", "props"),
+        help_text="The inspector page shown when AvialSync opens; the last one used is kept.",
+    ),
+    Setting(
         key="palette/colour_vision_safe",
         label="Colour-vision-safe trace palette",
         group="Appearance",

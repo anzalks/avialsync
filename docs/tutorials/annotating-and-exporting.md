@@ -62,8 +62,8 @@ loaded signals, Export Trimmed Video Clip needs a video and a marked A/B range, 
 needs something on screen. Hover a greyed item and its tooltip names what is missing, so you find
 out before you commit to the gesture rather than after.
 
-**Exports run in the background and report when they finish.** Each one appears in the **Tasks**
-tab beside the sidebar while it runs, with a Cancel in the status area, and the result arrives as a
+**Exports run in the background and report when they finish.** Each one appears under **Tasks**
+in the status bar while it runs, with a Cancel in the status area, and the result arrives as a
 line at the bottom of the window rather than a dialog you have to dismiss. If several finish at
 once they queue: one message shows, a count beside it says how many are waiting, and Dismiss brings
 up the next. A failure stays until you dismiss it and keeps the technical detail behind **Show

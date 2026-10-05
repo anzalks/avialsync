@@ -11,7 +11,7 @@ import dataclasses
 import logging
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import numpy as np
 from PySide6.QtCore import QThread
@@ -74,8 +74,7 @@ def restore_geometry(window: MainWindow) -> None:
     content_state = settings.value("splitter/content")
     if content_state:
         window._content_splitter.restoreState(content_state)
-    tab_index = cast(int, settings.value("inspector/tab", 0, type=int))
-    window._left_tabs.setCurrentIndex(max(0, min(tab_index, window._left_tabs.count() - 1)))
+    window._left_tabs.restore_page(settings)
     # restoreState also restores the collapsible flag and may carry a zero
     # pane from an older layout; re-assert the policy and repair.
     window._enforce_splitter_policy()
@@ -97,7 +96,7 @@ def save_geometry(window: MainWindow) -> None:
         settings.setValue("splitter/vertical", window._v_splitter.saveState())
         settings.setValue("splitter/content", window._content_splitter.saveState())
     settings.setValue("splitter/media", window._media_splitter.saveState())
-    settings.setValue("inspector/tab", window._left_tabs.currentIndex())
+    window._left_tabs.save_page(settings)
 
 
 def build_session_state(window: MainWindow) -> SessionState:

@@ -224,7 +224,7 @@ closing comment has no place on the clock, and AvialSync shows those as untimed
 notes rather than pinning them to the start of the recording. Do not substitute
 `0.0`: that asserts a moment the file never recorded.
 
-Messages are displayed read-only, in their own Inspector tab and timeline lane.
+Messages are displayed read-only, in their own Inspector page and timeline lane.
 They are not annotations — the user's own markers are separate, editable, and
 exported as their work (see D-078).
 

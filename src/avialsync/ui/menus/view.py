@@ -24,6 +24,7 @@ def build_view_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMenu
     _view_modes(window, view_menu, _reg)
     _view_overlays(window, view_menu, _reg)
     _view_panels(window, view_menu, _reg)
+    _view_inspector(window, view_menu, _reg)
     _view_navigation(window, view_menu, _reg)
     return view_menu
 
@@ -127,6 +128,25 @@ def _view_panels(window: MainWindow, view_menu: QMenu, _reg: Register) -> None:
     # people doing it (WP-11).
     window._workspace_menu = view_menu.addMenu(tr("Workspace"))
     window._rebuild_workspace_menu()
+    view_menu.addSeparator()
+
+
+def _view_inspector(window: MainWindow, view_menu: QMenu, _reg: Register) -> None:
+    """One action per inspector page, so the palette and menu reach each (D-172)."""
+    inspector_menu = view_menu.addMenu(tr("Inspector"))
+    nav = window._left_tabs
+    window._inspector_actions = []
+    for index in range(nav.count()):
+        name = nav.tabText(index)
+        action = inspector_menu.addAction(tr("Show {page}").format(page=name))
+        action.setToolTip(tr("Show the {page} page in the inspector").format(page=name))
+        action.triggered.connect(lambda _checked=False, i=index: nav.setCurrentIndex(i))
+        window._inspector_actions.append(_reg(action, "View"))
+    tasks = inspector_menu.addAction(tr("Show Tasks"))
+    tasks.setToolTip(tr("Show running and recently finished background tasks"))
+    # Late-bound: the status bar is built after the menus.
+    tasks.triggered.connect(lambda: window.tasks_button.show_popover())
+    window._inspector_actions.append(_reg(tasks, "View"))
     view_menu.addSeparator()
 
 

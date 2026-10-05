@@ -15,12 +15,16 @@
 - **Data Streams** shows when every loaded file is available. A coloured span means the source has
   data; an empty span means it does not.
 - **Shared time bar** moves every view together.
-- **Left panel** has **Sources** (files, visibility, offsets, properties), **Values**,
-  **Messages** (prose the recording itself carries), **Changes** (everything you flagged,
-  labelled, or corrected), **Props** (physical apparatus), and **Tasks** (what is loading,
-  with a cancel where the work supports one).
+- **Left panel** has a page rail with **Sources** (files, visibility, offsets, properties),
+  **Values**, **Messages** (prose the recording itself carries), **Changes** (everything you
+  flagged, labelled, or corrected), and **Props** (physical apparatus). Every page name is shown
+  in full; on a short window the rail scrolls. Up and Down move between pages, and
+  **View → Inspector** or the command palette opens any of them. The last page used is restored
+  next time.
+- **Tasks** opens from the status bar and lists what is loading, with a cancel where the work
+  supports one.
 
-  ![The Tasks tab beside the video and plots](../_static/screenshots/feature_tasks_tab.png)
+  ![The Tasks popover beside the video and plots](../_static/screenshots/feature_tasks_tab.png)
 - **Tasks lists everything the application is doing** — imports, session saves and loads, proxy
   builds, every export, and the metadata probe each video runs when it opens. A job that has gone
   quiet for longer than it should is marked *not responding* rather than left looking busy, which

@@ -31,7 +31,6 @@ from PySide6.QtWidgets import (
     QMenu,
     QSizePolicy,
     QSplitter,
-    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -107,6 +106,7 @@ from avialsync.ui.coverage_lanes import SourceCoverage
 from avialsync.ui.empty_state import EmptyState
 from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
 from avialsync.ui.feedback.error_presenter import present
+from avialsync.ui.feedback.tasks_button import TasksButton
 from avialsync.ui.feedback.text_dialog import show_text
 from avialsync.ui.help_controller import HelpController
 from avialsync.ui.i18n import tr
@@ -114,6 +114,7 @@ from avialsync.ui.identity_braid import BraidModel
 from avialsync.ui.identity_group_dialog import IdentityGroupDialog
 from avialsync.ui.identity_model_worker import BraidBuildJob, BraidBuildWorker
 from avialsync.ui.identity_panel import IdentityWindow
+from avialsync.ui.inspector_nav import InspectorNav
 from avialsync.ui.job_manager import JobManager, on_ui_thread
 from avialsync.ui.levels_panel import LevelsPanel
 from avialsync.ui.mutation_target import WindowMutationTarget, marker_record
@@ -386,6 +387,7 @@ class MainWindow(QMainWindow):
 
         # Populated by the menu builders from the live QAction objects.
         self._all_actions: list[QAction] = []
+        self._inspector_actions: list[QAction] = []
         self._letter_shortcuts: set[str] = set()
         self._action_preconditions: list[tuple[QAction, Callable[[], bool], str, str]] = []
 
@@ -621,16 +623,15 @@ class MainWindow(QMainWindow):
         # annotations available without permanently consuming four stacked panes
         # of workspace height. Messages sit beside annotations because they
         # answer the same question — what happened here — from the rig's side.
-        self._left_tabs = QTabWidget(self)
+        # A rail rather than tabs, so no page name elides (D-172). Tasks is not
+        # a page: it opens from the status bar, beside the activity it lists.
+        self._left_tabs = InspectorNav(self)
         self._left_tabs.setAccessibleName(tr("Inspector"))
-        self._left_tabs.addTab(self.sidebar, tr("Sources"))
-        self._left_tabs.addTab(self.readout_panel, tr("Values"))
-        self._left_tabs.addTab(self.message_panel, tr("Messages"))
-        self._left_tabs.addTab(self.changes_panel, tr("Changes"))
-        self._left_tabs.addTab(self.props_app.make_panel(self.wheel_tab), tr("Props"))
-        # Last tab: consulted when something is taking longer than expected,
-        # which is not most of the time.
-        self._left_tabs.addTab(self.jobs_panel, tr("Tasks"))
+        self._left_tabs.addTab(self.sidebar, tr("Sources"), icon="sources")
+        self._left_tabs.addTab(self.readout_panel, tr("Values"), icon="values")
+        self._left_tabs.addTab(self.message_panel, tr("Messages"), icon="messages")
+        self._left_tabs.addTab(self.changes_panel, tr("Changes"), icon="changes")
+        self._left_tabs.addTab(self.props_app.make_panel(self.wheel_tab), tr("Props"), icon="props")
         # Display levels live under Sources, beside the camera they act on.
         # Hidden until a recording that has range to choose from is opened.
         self.sidebar.content_layout.addWidget(self.levels_panel)
@@ -1015,6 +1016,8 @@ class MainWindow(QMainWindow):
         """
         self.statusBar().addWidget(self.transport.status_line, 1)
         self.statusBar().addPermanentWidget(self.activity_bar)
+        self.tasks_button = TasksButton(self.jobs_panel, self)
+        self.statusBar().addPermanentWidget(self.tasks_button)
 
     def _cancel_active_task(self) -> None:
         """Stop whatever the activity bar is showing.

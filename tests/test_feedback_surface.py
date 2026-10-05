@@ -313,9 +313,16 @@ def test_the_window_has_a_feedback_surface(window: MainWindow) -> None:
     assert window.jobs_panel is not None
 
 
-def test_a_tasks_tab_exists(window: MainWindow) -> None:
+def test_tasks_open_from_the_status_bar(window: MainWindow) -> None:
+    """D-172: Tasks left the inspector for a status-bar popover beside the activity area."""
     titles = [window._left_tabs.tabText(i) for i in range(window._left_tabs.count())]
-    assert "Tasks" in titles
+    assert "Tasks" not in titles
+    button = window.tasks_button
+    assert button.parentWidget() is window.statusBar()
+    assert button.menu() is button.popover
+    holders = [a for a in button.popover.actions() if hasattr(a, "defaultWidget")]
+    assert [a.defaultWidget() for a in holders] == [window.jobs_panel]
+    assert button.accessibleName() and button.toolTip()
 
 
 def test_the_tasks_panel_empties_when_the_last_job_finishes(window: MainWindow) -> None:
