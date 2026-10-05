@@ -78,6 +78,9 @@ finds either no edges or every sample.
 
 ### Choose the strategy — or let the evidence choose
 
+The strategy, match tolerance, partial fit and manual mapping fields are behind **More…** in the
+dialog; most alignments never need them.
+
 ![The alignment strategy and index offset](../_static/screenshots/guide_sync_strategy.png)
 
 1. **Alignment strategy**

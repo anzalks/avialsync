@@ -254,6 +254,9 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path, session: 
             numbered=True,
         )
         _select_by_text(wizard._reference_combo, "cam_strobe")
+        # The fitting choices sit behind More… (D-176); open it for the shots.
+        wizard.steps.more_toggle.setChecked(True)
+        settle(app)
         wizard._strategy_combo.setCurrentIndex(wizard._strategy_combo.findData("auto"))
         capture(
             wizard,

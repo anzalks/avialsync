@@ -22,8 +22,10 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.sync import AlignmentMethod, SyncFit, SyncProposal
 from avialsync.engine.sync_worker import EvidenceSpec, SignalEvidenceSpec, SyncWorker
+from avialsync.ui.about import docs_url
 from avialsync.ui.coverage_lanes import SourceCoverage
 from avialsync.ui.i18n import tr
+from avialsync.ui.step_panel import StepPanel
 from avialsync.ui.sync_evidence_view import SyncEvidenceView
 
 
@@ -93,6 +95,8 @@ class SyncWizard(QDialog):
             lambda checked: self._threshold.setEnabled(not checked)
         )
         form.addRow("", self._use_all_times_chk)
+        # Fitting choices most alignments never touch: behind More… (D-176).
+        advanced = QFormLayout()
 
         self._strategy_combo = QComboBox(self)
         # Automatic first, and the default. A strategy dropdown asks the user to
@@ -110,7 +114,7 @@ class SyncWizard(QDialog):
                 "and an offset alone where it is not."
             )
         )
-        form.addRow(tr("Alignment strategy:"), self._strategy_combo)
+        advanced.addRow(tr("Alignment strategy:"), self._strategy_combo)
 
         self._index_offset = QSpinBox(self)
         self._index_offset.setRange(-1000000, 1000000)
@@ -122,7 +126,7 @@ class SyncWizard(QDialog):
                 self._strategy_combo.currentData() == "exact_index"
             )
         )
-        form.addRow(tr("Index Offset:"), self._index_offset)
+        advanced.addRow(tr("Index Offset:"), self._index_offset)
 
         # The number that decided which events counted, shown rather than
         # implied. Left at zero it is derived from the pulse rate -- a quarter
@@ -143,9 +147,9 @@ class SyncWizard(QDialog):
             )
         )
         self._tolerance.valueChanged.connect(self._on_tolerance_changed)
-        form.addRow(tr("Match tolerance:"), self._tolerance)
+        advanced.addRow(tr("Match tolerance:"), self._tolerance)
         self._effective_tolerance = QLabel(tr("Calculated when you preview the evidence."), self)
-        form.addRow(tr("Effective match tolerance:"), self._effective_tolerance)
+        advanced.addRow(tr("Effective match tolerance:"), self._effective_tolerance)
 
         self._restrict = QCheckBox(tr("Fit only part of the recording"))
         self._restrict.setToolTip(
@@ -156,7 +160,7 @@ class SyncWizard(QDialog):
             )
         )
         self._restrict.toggled.connect(self._on_restrict_toggled)
-        form.addRow("", self._restrict)
+        advanced.addRow("", self._restrict)
 
         self._manual_offset = QDoubleSpinBox(self)
         self._manual_offset.setRange(-1e9, 1e9)
@@ -166,19 +170,26 @@ class SyncWizard(QDialog):
         self._manual_drift.setRange(-1e6, 1e6)
         self._manual_drift.setDecimals(3)
         self._manual_drift.setSuffix(" ppm")
-        form.addRow(tr("Manual offset:"), self._manual_offset)
-        form.addRow(tr("Manual drift:"), self._manual_drift)
-        layout.addLayout(form)
-
+        advanced.addRow(tr("Manual offset:"), self._manual_offset)
+        advanced.addRow(tr("Manual drift:"), self._manual_drift)
+        # One step panel: the summary is the instruction, Preview the primary,
+        # manual mapping beside it, the advanced choices behind More… (D-176).
+        steps = StepPanel(tr("Align recordings"), self)
         self._summary = QLabel(tr("Choose evidence and preview the proposed fit."), self)
-        self._summary.setWordWrap(True)
-        layout.addWidget(self._summary)
+        steps.use_instruction_label(self._summary)
+        steps.add_controls(form)
         self._preview_button = QPushButton(tr("Preview alignment"), self)
         self._preview_button.clicked.connect(self._preview)
-        layout.addWidget(self._preview_button)
+        steps.set_primary(self._preview_button)
         self._manual_button = QPushButton(tr("Use manual mapping"), self)
         self._manual_button.clicked.connect(self._use_manual_mapping)
-        layout.addWidget(self._manual_button)
+        steps.add_secondary([self._manual_button])
+        advanced_box = QWidget(self)
+        advanced_box.setLayout(advanced)
+        steps.add_more(advanced_box)
+        steps.set_learn_more(docs_url("tutorials/synchronization.html"))
+        self.steps = steps
+        layout.addWidget(steps)
 
         self._buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok,
