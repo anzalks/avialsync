@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QMargins, Qt, Signal
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import QGridLayout, QLabel, QSizePolicy, QWidget
 
 from avialsync.ui.i18n import tr
@@ -198,6 +199,14 @@ class VideoGrid(GridOverlayMixin, QWidget):
         if on_file_loaded is not None:
             pane.file_loaded.connect(on_file_loaded)
         pane.right_clicked.connect(lambda pos, _p=path: self.pane_right_clicked.emit(_p, pos))
+        # Width by column stretch alone, so two cameras split the strip in
+        # proportion to their pictures rather than to their name labels (D-174).
+        policy = pane.sizePolicy()
+        policy.setHorizontalPolicy(QSizePolicy.Policy.Ignored)
+        pane.setSizePolicy(policy)
+        surface = getattr(pane, "surface", None)  # test doubles have none
+        if surface is not None:
+            surface.view_changed.connect(self._fit_panes_to_picture)
         self.panes.append(pane)
         self._paths.append(path)
         self._pane_enabled.append(True)
@@ -373,13 +382,60 @@ class VideoGrid(GridOverlayMixin, QWidget):
                 for r in range(rows):
                     self._layout.setRowStretch(r, 1)
             else:
-                # Horizontal strip: all in row 0
+                # Horizontal strip: all in row 0. One or two cameras are
+                # sized to their pictures by _fit_panes_to_picture (D-174).
                 for i, pane in enumerate(visible_panes):
                     self._layout.addWidget(pane, 0, i)
                     self._layout.setColumnStretch(i, 1)
                 self._layout.setRowStretch(0, 1)
         finally:
+            self._fit_panes_to_picture()
             self.setUpdatesEnabled(True)
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._fit_panes_to_picture()
+
+    def _fit_panes_to_picture(self) -> None:
+        """Size one or two strip panes to their pictures' aspect (D-174, F-11).
+
+        A lone camera otherwise fills the whole cell and draws small inside a
+        black letterbox, with its name and timecode in the letterbox corners.
+        The grid's margins shrink the strip to the pictures' combined shape and
+        the column stretches split it by each picture's aspect, so no pane gains
+        a minimum size and the grid's own floor is unchanged. Three or more
+        cameras, the NxN grid, and the fullscreen pane fill their cells as before.
+        """
+        if not hasattr(self, "_base_margins"):
+            self._base_margins = self._layout.contentsMargins()
+        base = self._base_margins
+        # Widgets only: a test double standing in for a pane is not laid out.
+        visible = [pane for pane in self.panes if isinstance(pane, QWidget) and pane.isVisible()]
+        sizes = [getattr(pane, "video_size", None) for pane in visible]
+        fit = 0 < len(visible) <= 2 and not self._grid_mode and self._fullscreen_pane is None
+        if not fit or any(size is None or not all(size) for size in sizes):
+            if self._layout.contentsMargins() != base:
+                self._layout.setContentsMargins(base)
+            return
+        aspects = [size[0] / size[1] for size in sizes if size is not None]
+        spacing = self._layout.horizontalSpacing() * (len(visible) - 1)
+        width = self.width() - base.left() - base.right()
+        height = self.height() - base.top() - base.bottom()
+        if width <= spacing or height <= 0:
+            return
+        row_height = min(float(height), (width - spacing) / sum(aspects))
+        spare_x = int((width - spacing - row_height * sum(aspects)) / 2)
+        spare_y = int((height - row_height) / 2)
+        margins = QMargins(
+            base.left() + spare_x,
+            base.top() + spare_y,
+            base.right() + spare_x,
+            base.bottom() + spare_y,
+        )
+        for column, aspect in enumerate(aspects):
+            self._layout.setColumnStretch(column, max(1, round(aspect * 1000)))
+        if self._layout.contentsMargins() != margins:
+            self._layout.setContentsMargins(margins)
 
     def _update_labels(self) -> None:
         """Update camera labels, disambiguating duplicate filenames."""

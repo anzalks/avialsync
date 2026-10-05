@@ -111,6 +111,11 @@ class HelpController(QObject):
             "timeline/comfortable_visible_lanes",
         }:
             self._window.data_streams.reload_preferences()
+        elif key == "overlays/osd_detail":
+            from avialsync.ui.video_pane import _saved_osd_detail
+
+            for pane in self._window.video_grid.panes:
+                pane.set_osd_detail(_saved_osd_detail())
 
     @Slot()
     def show_about(self) -> None:

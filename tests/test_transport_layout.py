@@ -196,12 +196,20 @@ def test_flag_button_emits_annotation_request(qtbot) -> None:
 
 
 def test_data_streams_header_buttons_have_explanatory_tooltips(qtbot) -> None:
-    """D-170: the lane header owns only its collapse control."""
+    """D-170: the lane header owns only its collapse control.
+
+    D-174: Snapshot and Fullscreen are glyph buttons on their menu actions, so
+    they carry a tooltip once those actions are installed, as the window does.
+    """
+    from PySide6.QtGui import QAction
+
     transport = Transport()
     qtbot.addWidget(transport)
 
     toolbar = ViewToolbar()
     qtbot.addWidget(toolbar)
+    toolbar.install_snapshot_action(QAction("Export Snapshot…", toolbar))
+    toolbar.install_fullscreen_action(QAction("Fullscreen", toolbar))
     for button in (
         transport.evidence.collapse_button,
         toolbar.flag_button,

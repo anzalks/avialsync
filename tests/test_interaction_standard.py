@@ -75,22 +75,33 @@ def test_jump_fwd_btn_emits_jump_requested(transport: Transport) -> None:
     assert received == [1.0], "Jump-fwd button must emit jump_requested(+1.0)"
 
 
-def test_snapshot_btn_emits_snapshot_requested(qtbot) -> None:
+def test_snapshot_btn_triggers_the_export_snapshot_action(qtbot) -> None:
+    """D-174: the glyph button is the File menu's action, not a signal of its own."""
     toolbar = ViewToolbar()
     qtbot.addWidget(toolbar)
+    action = QAction("Export Snapshot…", toolbar)
+    action.setShortcut("Ctrl+E")
     fired: list[Any] = []
-    toolbar.snapshot_requested.connect(lambda: fired.append(1))
+    action.triggered.connect(lambda: fired.append(1))
+    toolbar.install_snapshot_action(action)
     toolbar.snapshot_button.click()
-    assert fired, "Snapshot button must emit snapshot_requested"
+    assert fired, "Snapshot button must trigger Export Snapshot"
+    assert toolbar.snapshot_button.text() == ""
+    assert toolbar.snapshot_button.accessibleName() == "Export Snapshot"
+    assert toolbar.snapshot_button.toolTip().startswith("Export Snapshot (")
 
 
-def test_fullscreen_btn_emits_fullscreen_requested(qtbot) -> None:
+def test_fullscreen_btn_triggers_the_fullscreen_action(qtbot) -> None:
+    """D-174: one QAction behind View → Fullscreen and the glyph button."""
     toolbar = ViewToolbar()
     qtbot.addWidget(toolbar)
+    action = QAction("Fullscreen", toolbar)
     fired: list[Any] = []
-    toolbar.fullscreen_requested.connect(lambda: fired.append(1))
+    action.triggered.connect(lambda: fired.append(1))
+    toolbar.install_fullscreen_action(action)
     toolbar.fullscreen_button.click()
-    assert fired, "Fullscreen button must emit fullscreen_requested"
+    assert fired, "Fullscreen button must trigger View → Fullscreen"
+    assert toolbar.fullscreen_button.accessibleName() == "Fullscreen"
 
 
 # ── A/B active-state tests (D-022.5) ─────────────────────────────────────────

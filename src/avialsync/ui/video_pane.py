@@ -24,7 +24,9 @@ from PySide6.QtCore import (
     QMetaObject,
     QObject,
     QPointF,
+    QRect,
     QRectF,
+    QSize,
     Qt,
     QThread,
     QTimer,
@@ -48,6 +50,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -62,6 +65,7 @@ from avialsync.engine.display_pipeline import (
     to_display_array,
 )
 from avialsync.engine.pyav_reader import PyAVReader
+from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
 from avialsync.ui.icons import set_svg_icon
 from avialsync.ui.theme import set_font_family
@@ -523,6 +527,33 @@ class VideoSurface(QWidget):
         with the zoom that produced it.
         """
         return f"{self._zoom:.2f}×  x {self._pan.x():+.0f}  y {self._pan.y():+.0f}"
+
+
+_OSD_DETAILS = ("compact", "full")
+
+
+def _saved_osd_detail() -> str:
+    """The OSD detail level from Preferences, compact unless chosen otherwise."""
+    from avialsync.core.settings_schema import setting_for
+    from avialsync.ui.preferences_dialog import read_setting
+
+    setting = setting_for("overlays/osd_detail")
+    value = read_setting(setting) if setting is not None else "compact"
+    return value if value in _OSD_DETAILS else "compact"
+
+
+class _ChromeName(ElidedLabel):
+    """The camera name: elides when the pane is narrow, never asks for more."""
+
+    def __init__(self) -> None:
+        super().__init__("", None, Qt.TextElideMode.ElideMiddle)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+
+    def sizeHint(self) -> QSize:  # noqa: N802
+        """The full name's width, so a widened pane shows it again."""
+        margins = self.contentsMargins()
+        width = self.fontMetrics().horizontalAdvance(self.fullText())
+        return QSize(width + margins.left() + margins.right() + 2, super().sizeHint().height())
 
 
 class VideoPane(VideoTimingMixin, QWidget):
@@ -1001,10 +1032,12 @@ class VideoPane(VideoTimingMixin, QWidget):
         olayout = QVBoxLayout(self.overlay)
         olayout.setContentsMargins(0, 0, 0, 0)
 
-        self.lbl_name = QLabel("")
-        self.lbl_name.setStyleSheet(
-            "color: white; background-color: rgba(0,0,0,128); padding: 4px;"
-        )
+        # Chrome over the picture keeps fixed white-on-translucent colours: the
+        # video behind it, not the theme, decides what is legible (D-174, F-35).
+        chrome_style = "color: white; background-color: rgba(0,0,0,128);"
+        self.lbl_name = _ChromeName()
+        self.lbl_name.setStyleSheet(chrome_style)
+        self.lbl_name.setContentsMargins(4, 4, 4, 4)
         self.lbl_name.setVisible(False)
         # The chrome labels are readouts, not controls. Their container is
         # already transparent to the mouse but the attribute is per widget, so
@@ -1014,17 +1047,20 @@ class VideoPane(VideoTimingMixin, QWidget):
         # happens to sit under it).
         self.lbl_name.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
-        self.lbl_osd = QLabel(format_video_osd(0.0, 0.0, self._metadata))
+        self._osd_detail = _saved_osd_detail()
+        self.lbl_osd = QLabel(format_video_osd(0.0, 0.0, self._metadata, None, self._osd_detail))
         mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
-        self.lbl_osd.setStyleSheet("color: white; background-color: rgba(0,0,0,128); padding: 4px;")
+        self.lbl_osd.setStyleSheet(chrome_style)
+        self.lbl_osd.setContentsMargins(4, 4, 4, 4)
         self.lbl_osd.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         set_font_family(self.lbl_osd, mono_font)
 
+        # One header row: the name elides first, the timecode keeps its width.
         top_layout = QHBoxLayout()
         _top = Qt.AlignmentFlag.AlignTop
-        top_layout.addWidget(self.lbl_name, alignment=_top | Qt.AlignmentFlag.AlignLeft)
-        top_layout.addStretch()
-        top_layout.addWidget(self.lbl_osd, alignment=_top | Qt.AlignmentFlag.AlignRight)
+        top_layout.addWidget(self.lbl_name, 0, _top)
+        top_layout.addStretch(1)
+        top_layout.addWidget(self.lbl_osd, 0, _top | Qt.AlignmentFlag.AlignRight)
 
         olayout.addLayout(top_layout)
 
@@ -1042,15 +1078,14 @@ class VideoPane(VideoTimingMixin, QWidget):
         zoom_layout.setContentsMargins(4, 4, 4, 4)
         zoom_layout.setSpacing(0)
 
+        # Glyph-only: the "+" and "-" text beside the glyphs said the same twice.
         self.zoom_in_button = QPushButton(self.zoom_controls)
-        self.zoom_in_button.setText(tr("+"))
         self.zoom_in_button.setToolTip(tr("Zoom in"))
         self.zoom_in_button.setAccessibleName(tr("Zoom in"))
         set_svg_icon(self.zoom_in_button, "zoom-in")
         self.zoom_in_button.clicked.connect(lambda: self.surface.zoom_by(1.25))
 
         self.zoom_out_button = QPushButton(self.zoom_controls)
-        self.zoom_out_button.setText(tr("-"))
         self.zoom_out_button.setToolTip(tr("Zoom out"))
         self.zoom_out_button.setAccessibleName(tr("Zoom out"))
         set_svg_icon(self.zoom_out_button, "zoom-out")
@@ -1075,6 +1110,27 @@ class VideoPane(VideoTimingMixin, QWidget):
             0,
             Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignLeft,
         )
+
+    def chrome_rects(self) -> tuple[QRect, ...]:
+        """Rectangles, in pane coordinates, that labels drawn over video avoid.
+
+        The explicit contract ``PaintCanvas`` reads (D-174), replacing a lookup
+        of widgets by attribute name that a renamed widget broke silently. The
+        zoom tools' rectangle is always reserved, shown or not, so labels never
+        move when they appear.
+        """
+        rects = [
+            label.geometry()
+            for label in (self.lbl_name, self.lbl_osd)
+            if label.isVisible() and label.width() > 0
+        ]
+        rects.append(QRect(self.zoom_controls.pos(), self.zoom_controls.sizeHint()))
+        return tuple(rects)
+
+    def set_osd_detail(self, detail: str) -> None:
+        """Show the timecode as one compact line or the full block (D-174)."""
+        self._osd_detail = detail if detail in _OSD_DETAILS else "compact"
+        self._update_osd(self.time_pos, self._decoder_fps)
 
     # ── teardown ─────────────────────────────────────────────────────
 

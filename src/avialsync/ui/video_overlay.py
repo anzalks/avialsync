@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any, cast
 
 import numpy as np
-from PySide6.QtCore import QPoint, QPointF, QRectF, QSizeF, Qt
+from PySide6.QtCore import QPointF, QRectF, QSizeF, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
@@ -380,11 +380,12 @@ class PaintCanvas(MarkerOverlayMixin):
             picture = QRectF(offset_x, offset_y, size[0] * scale, size[1] * scale)
             area = area.intersected(picture.adjusted(2, 2, -2, -2))
         chrome: list[QRectF] = []
-        for name in ("lbl_name", "lbl_osd", "zoom_controls"):
-            widget = getattr(parent, name, None)
-            if isinstance(widget, QWidget) and widget.isVisible():
-                corner = self.mapFromGlobal(widget.mapToGlobal(QPoint(0, 0)))
-                chrome.append(QRectF(QPointF(corner), QSizeF(widget.size())).adjusted(-3, -3, 3, 3))
+        # The pane's declared contract (D-174), not its widgets looked up by name.
+        chrome_rects = getattr(parent, "chrome_rects", None)
+        if isinstance(parent, QWidget) and callable(chrome_rects):
+            for rect in chrome_rects():
+                corner = self.mapFrom(parent, rect.topLeft())
+                chrome.append(QRectF(QPointF(corner), QSizeF(rect.size())).adjusted(-3, -3, 3, 3))
         return area, tuple(chrome)
 
     def _draw_track(

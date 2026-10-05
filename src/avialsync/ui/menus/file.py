@@ -127,6 +127,7 @@ def _file_exports(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     window._act_snapshot.setShortcut(QKeySequence("Ctrl+E"))
     window._act_snapshot.triggered.connect(window._export_snapshot)
     _reg(window._act_snapshot, "File")
+    window.view_toolbar.install_snapshot_action(window._act_snapshot)
     window._require(
         window._act_snapshot,
         window._anything_loaded,

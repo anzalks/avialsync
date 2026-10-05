@@ -182,10 +182,12 @@ def _view_navigation(window: MainWindow, view_menu: QMenu, _reg: Register) -> No
     window.view_toolbar.install_fit_videos_action(window._act_fit_videos)
 
     # Fullscreen toggle — StandardKey.FullScreen = F11 / Ctrl+Cmd+F on macOS (D-022.2)
-    window._act_fullscreen = view_menu.addAction(tr("Toggle Pane Fullscreen"))
+    window._act_fullscreen = view_menu.addAction(tr("Fullscreen"))
     window._act_fullscreen.setShortcut(QKeySequence(QKeySequence.StandardKey.FullScreen))
     window._act_fullscreen.triggered.connect(window._toggle_fullscreen)
     _reg(window._act_fullscreen, "View")
+    window._act_fullscreen.setToolTip(tr("Show the selected camera alone, or every camera again"))
+    window.view_toolbar.install_fullscreen_action(window._act_fullscreen)
     window._require(
         window._act_fullscreen,
         lambda: bool(window.video_grid._paths),

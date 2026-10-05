@@ -153,8 +153,12 @@ def _osd_detail(pane: VideoPane) -> str:
     that decides how a frame number or rate is written (AGENTS rule 15).  On
     screen it is a stacked block clipped to the pane's width; here it has a full
     caption line, which is where the truncated "Time: 00:0" came from.
+
+    Always the full detail (D-174): the pane may show one compact line, but a
+    figure for a report keeps the rate and codec beside the frame.
     """
-    return " · ".join(line.strip() for line in pane.lbl_osd.text().splitlines() if line.strip())
+    text = pane.osd_text("full") if hasattr(pane, "osd_text") else pane.lbl_osd.text()
+    return " · ".join(line.strip() for line in text.splitlines() if line.strip())
 
 
 def capture_video_tile(pane: VideoPane, title: str) -> SnapshotTile | None:

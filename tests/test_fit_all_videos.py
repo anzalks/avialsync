@@ -33,7 +33,9 @@ def _zoomed_surface(window: MainWindow) -> VideoSurface:
 
 def test_fit_all_videos_is_greyed_until_a_video_is_open(window: MainWindow) -> None:
     button = window.view_toolbar.fit_videos_button
-    assert button.text() == window._act_fit_videos.text() == "Fit All Videos"
+    # D-174: a glyph button, named by its action rather than labelled.
+    assert window._act_fit_videos.text() == "Fit All Videos"
+    assert button.text() == "" and button.accessibleName() == "Fit All Videos"
     assert not button.isEnabled()
     assert "no videos" in button.toolTip()
 

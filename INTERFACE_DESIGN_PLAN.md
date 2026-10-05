@@ -1,7 +1,7 @@
 # AvialSync — Interface Design Plan (Phase 9)
 
-> **Status: IN PROGRESS.** Branch `feat/interface-design`; DS-0 to DS-4, DS-6 and DS-10 are complete.
-> DS-5, DS-7 to DS-9 and DS-11 to DS-14 remain. This is the only open phase plan. Completed plans are in
+> **Status: IN PROGRESS.** Branch `feat/interface-design`; DS-0 to DS-6 and DS-10 are complete.
+> DS-7 to DS-9 and DS-11 to DS-14 remain. This is the only open phase plan. Completed plans are in
 > `archive/plans/`; their settled outcomes are in DECISIONS.md.
 >
 > **Revision 2 (2026-10-05).** Rebased on `feat/physical-props` at `32c1839`, so it includes D-166

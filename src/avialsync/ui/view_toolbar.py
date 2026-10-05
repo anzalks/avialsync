@@ -27,8 +27,6 @@ class ViewToolbar(QWidget):
     """Flag Frame, Fix Tracker, Add 3D Marker | Snapshot, Fit All Videos, Fullscreen."""
 
     flag_requested = Signal()
-    snapshot_requested = Signal()
-    fullscreen_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -59,16 +57,27 @@ class ViewToolbar(QWidget):
         ):
             row.addWidget(button)
         row.addStretch(1)
-        self.snapshot_button = QPushButton(tr("Snapshot"), self)
-        self.snapshot_button.setToolTip(tr("Export snapshot (Ctrl+E)"))
-        self.snapshot_button.clicked.connect(self.snapshot_requested.emit)
-        row.addWidget(self.snapshot_button)
+        # Glyph buttons on the menu's own actions (D-174), which retires the
+        # D-126 exception that kept these two as text buttons of their own.
+        self.snapshot_button = ActionButton(self)
         self.fit_videos_button = ActionButton(self)
-        row.addWidget(self.fit_videos_button)
-        self.fullscreen_button = QPushButton(tr("Fullscreen Toggle"), self)
-        self.fullscreen_button.setToolTip(tr("Toggle the active video pane fullscreen (F11)"))
-        self.fullscreen_button.clicked.connect(self.fullscreen_requested.emit)
-        row.addWidget(self.fullscreen_button)
+        self.fullscreen_button = ActionButton(self)
+        for button in (self.snapshot_button, self.fit_videos_button, self.fullscreen_button):
+            row.addWidget(button)
+
+    def install_snapshot_action(self, action: QAction) -> None:
+        """Show Snapshot as a glyph, driven by File → Export Snapshot…."""
+        self.snapshot_button.set_action(action)
+        self.snapshot_button.set_icon_only("snapshot")
+        self.snapshot_button.setAccessibleDescription(tr("Export a figure of the current moment"))
+
+    def install_fullscreen_action(self, action: QAction) -> None:
+        """Show Fullscreen as a glyph, driven by View → Fullscreen."""
+        self.fullscreen_button.set_action(action)
+        self.fullscreen_button.set_icon_only("fullscreen")
+        self.fullscreen_button.setAccessibleDescription(
+            tr("Show the selected camera alone, or return to every camera")
+        )
 
     def install_fix_tracker_action(self, action: QAction) -> None:
         """Show the Fix Tracker toggle, driven by the menu's own QAction."""
@@ -94,8 +103,9 @@ class ViewToolbar(QWidget):
         )
 
     def install_fit_videos_action(self, action: QAction) -> None:
-        """Show Fit All Videos beside Fullscreen Toggle, driven by the View menu's QAction."""
+        """Show Fit All Videos beside Fullscreen as a glyph, driven by its View QAction."""
         self.fit_videos_button.set_action(action)
+        self.fit_videos_button.set_icon_only("fit")
         self.fit_videos_button.setAccessibleDescription(
             tr("Set every camera back to its whole frame, zoom 1.00x and no pan")
         )

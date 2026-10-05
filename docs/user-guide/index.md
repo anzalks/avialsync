@@ -117,7 +117,8 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
 ## Useful controls
 
 Controls sit with what they act on. Under the videos: **Flag Frame**, **Fix Tracker**, **Add 3D
-Marker**, **Play original**, **Snapshot**, **Fit All Videos** and **Fullscreen Toggle**. One row
+Marker**, **Play original**, **Snapshot**, **Fit All Videos** and **Fullscreen** (the last three as glyph buttons; hover
+for the name and shortcut). One row
 under the plots holds **Live**, **Time span** and its slider, **Fit Y**, row density (Compact,
 Comfortable or Large), and **Reset Plots**. Data Streams has a **Hide** control above its lanes.
 Its lane labels shorten when space is tight; hover to read the full name. Compact density shows
@@ -140,7 +141,11 @@ Streams areas stay small. The layout you had comes back when the first recording
   at the resolution it decoded at, the 3D pose, and the whole channel stack including rows you
   would have to scroll to see. It is composed rather than captured, so nothing is cut off at the
   edge of a pane and each camera is captioned with its own frame number, timecode, and format.
-- **Fullscreen Toggle** expands the selected video view.
+- **Fullscreen** expands the selected video view.
+- Each camera shows its name and a one-line timecode (time and frame number) at the top of the
+  picture; a long name shortens first. **Preferences → Overlays → Video timecode detail** switches
+  to the full block with rate, codec and size, and **View → Overlays** hides either. One or two
+  cameras are sized to their picture's shape instead of sitting in a black field.
 - **Fit All Videos** (**View → Fit All Videos**, `Ctrl+Shift+0`) sets every camera back to its
   whole frame: zoom 1.00×, no pan. Each camera's own reset button does the same for one camera.
   **Fit Y** under the plots is different: it fits the plots' vertical range.

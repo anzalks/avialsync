@@ -155,6 +155,18 @@ SETTINGS: tuple[Setting, ...] = (
     ),
     # ── Overlays ─────────────────────────────────────────────────────
     Setting(
+        key="overlays/osd_detail",
+        label="Video timecode detail",
+        group="Overlays",
+        default="compact",
+        kind=str,
+        choices=("compact", "full"),
+        help_text=(
+            "Compact shows time and frame on one line; full adds rate, codec and size. "
+            "Hide it with View > Overlays."
+        ),
+    ),
+    Setting(
         key="overlays/point_labels_default",
         label="Show body-part names by default",
         group="Overlays",

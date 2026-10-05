@@ -5877,3 +5877,20 @@ panel without installing an action first.
 **Not done.** DS-10 step 3 proposed fewer decimals on offsets for low-rate sources. `QDoubleSpinBox` rounds its stored value to the decimals it displays, and it is the one authority for an applied offset, so trimming display precision would round accepted sync offsets. Offsets keep six decimals.
 
 **Alternatives.** Following `QLocale` everywhere means overriding pyqtgraph's tick strings and every f-string readout, and mixing separators in text the user copies from the window.
+
+---
+
+## 2026-10 · D-174 · Video pane chrome: one header line, a declared label contract, picture-shaped panes
+
+**Context.** The OSD was a four-line block that clipped at three cameras, the camera name and OSD overlapped on narrow panes, a single camera sat small in a black field, and the D-166 label layout found the chrome to avoid by looking widgets up by attribute name, so renaming one would silently put labels back under the header (INTERFACE_DESIGN_PLAN F-08–F-12, F-35).
+
+**Decision.**
+- `VideoPane.chrome_rects()` is the contract `PaintCanvas._label_area` reads: the visible name and OSD, and the zoom tools' rectangle **always**, shown or not, so labels never move when the tools appear.
+- One header row: the camera name elides first; the OSD is one line, time and frame (`compact`), or the previous block (`full`), chosen by the `overlays/osd_detail` setting. Hiding it stays with the registered `camera.osd` layer.
+- Snapshot, Fit All Videos and Fullscreen are glyph `ActionButton`s on their menu actions (`ActionButton.set_icon_only`), which retires D-126's exception for two plain buttons. "Toggle Pane Fullscreen" is renamed "Fullscreen". The zoom tools drop their duplicate "+"/"-" text and stay raised buttons, because a flat glyph over video has no ground of its own.
+- One or two strip cameras are sized to their pictures' combined aspect through the grid's margins and column stretches; three or more, the NxN grid and fullscreen fill their cells as before. Panes take width by stretch only.
+- **Stated exception (F-35):** chrome painted over video keeps its fixed white-on-translucent-black stylesheet, because the picture behind it, not the theme, decides what is legible. It sets no font weight and no other chrome uses it.
+
+**Alternatives.** Painting the header text instead of labels would remove the stylesheet but duplicate eliding and accessibility the labels already have.
+
+**Consequences.** A snapshot caption always carries the full readout, formatted by the same `format_video_osd`, whatever the pane shows.

@@ -776,8 +776,6 @@ class MainWindow(QMainWindow):
         # Transport signals (D-022)
         self.transport.ab_loop_changed.connect(self._on_ab_loop_changed)
         self.view_toolbar.flag_requested.connect(self._on_annotate_requested)
-        self.view_toolbar.snapshot_requested.connect(self._export_snapshot)
-        self.view_toolbar.fullscreen_requested.connect(self._toggle_fullscreen)
         self.transport.jump_requested.connect(self._on_jump_requested)
 
         # Video pane right-click context menu (D-022)

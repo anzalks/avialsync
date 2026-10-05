@@ -67,8 +67,12 @@ def format_video_osd(
     current_fps: float,
     metadata: VideoMetadata,
     frame: tuple[int, int | None] | None = None,
+    detail: str = "full",
 ) -> str:
-    """Build the compact, timestamp-authoritative video-pane information block.
+    """Build the timestamp-authoritative video-pane information block.
+
+    ``detail`` is ``"compact"`` -- one line, time and frame, the default on a
+    pane (D-174) -- or ``"full"``, which adds the rate, codec and size lines.
 
     ``frame`` is ``(index, total)``, both counted the way every other frame
     number in the app is: zero-based, so what the overlay shows is the same
@@ -79,6 +83,13 @@ def format_video_osd(
     h = int(t // 3600)
     m = int((t % 3600) // 60)
     s = t % 60
+    if frame is None:
+        frame_text = "—"
+    else:
+        index, total = frame
+        frame_text = f"{index}" if total is None else f"{index} / {total - 1}"
+    if detail == "compact":
+        return f"{h:02d}:{m:02d}:{s:06.3f} · f {frame_text}"
     if metadata.is_vfr:
         rate_lines = (
             f"VFR: {metadata.min_frame_rate:.1f}–{metadata.max_frame_rate:.1f} fps"
@@ -89,11 +100,6 @@ def format_video_osd(
         measured = metadata.measured_fps or current_fps
         rate_lines = f"CFR: {metadata.nominal_fps:.3f} fps · measured {measured:.3f}"
     codec = metadata.codec.upper() if metadata.codec else "UNKNOWN"
-    if frame is None:
-        frame_text = "—"
-    else:
-        index, total = frame
-        frame_text = f"{index}" if total is None else f"{index} / {total - 1}"
     return (
         f"Time: {h:02d}:{m:02d}:{s:06.3f}\n"
         f"Frame: {frame_text}\n"
@@ -126,6 +132,8 @@ class VideoTimingMixin:
     frame_presented: Any
     lbl_osd: Any
     paint_canvas: Any
+    _osd_detail: str
+    _osd_last: tuple[float, float]
 
     def _queue_osd_update(self, t: float, fps: float) -> None:
         """Queue the concrete pane's coalesced UI-thread update."""
@@ -148,8 +156,14 @@ class VideoTimingMixin:
             return None
         return max(0, int(source_time * fps)), None
 
+    def osd_text(self, detail: str) -> str:
+        """The readout for the frame last shown, at *detail* (a snapshot asks for full)."""
+        t, fps = getattr(self, "_osd_last", (0.0, 0.0))
+        return format_video_osd(t, fps, self._metadata, self._source_frame(t), detail)
+
     def _update_osd(self, t: float, fps: float) -> None:
-        self.lbl_osd.setText(format_video_osd(t, fps, self._metadata, self._source_frame(t)))
+        self._osd_last = (t, fps)
+        self.lbl_osd.setText(self.osd_text(self._osd_detail))
         # The overlay's data readers expect master time (via MappedChannelReader)
         master_t = self.time_map.to_master(t)
         self.paint_canvas.update_time(master_t)
