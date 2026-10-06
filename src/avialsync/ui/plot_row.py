@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import weakref
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -200,14 +201,34 @@ class _RevealOnFocus(QObject):
 
     def __init__(self, proxy: QGraphicsProxyWidget, parent: QObject) -> None:
         super().__init__(parent)
-        self._proxy = proxy
+        # Weak, because the proxy owns the button that owns this filter: a strong
+        # reference closed a cycle only Python's collector could free, on
+        # whichever thread it next ran (see detach_row).
+        self._proxy = weakref.ref(proxy)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
-        if event.type() == QEvent.Type.FocusIn:
-            self._proxy.setOpacity(1.0)
-        elif event.type() == QEvent.Type.FocusOut:
-            self._proxy.setOpacity(0.0)
+        proxy = self._proxy()
+        if proxy is not None and event.type() == QEvent.Type.FocusIn:
+            proxy.setOpacity(1.0)
+        elif proxy is not None and event.type() == QEvent.Type.FocusOut:
+            proxy.setOpacity(0.0)
         return super().eventFilter(watched, event)
+
+
+def detach_row(graphics_layout: pg.GraphicsLayoutWidget, channel: ChannelPlot) -> None:
+    """Take a row out of the layout and have Qt delete its button, here.
+
+    The button sits in the scene through a ``QGraphicsProxyWidget``, which makes
+    it a hidden top-level window. Left to Python's cycle collector, it was
+    destroyed on whatever thread next collected -- a pyramid save worker, an
+    importer -- and a top-level window's destructor waits for the GUI thread to
+    flush window events. With the GUI thread waiting on that worker, both waited
+    forever (D-188). ``deleteLater`` runs the destructor on the GUI thread, from
+    its event loop, whatever happens to the Python wrapper afterwards.
+    """
+    graphics_layout.removeItem(channel.plot_item)
+    graphics_layout.removeItem(channel.close_proxy)
+    channel.close_proxy.deleteLater()
 
 
 def reveal_row_tools(channels: list[ChannelPlot], scene_y: float) -> None:

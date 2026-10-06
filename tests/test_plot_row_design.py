@@ -55,3 +55,29 @@ def test_rules_are_lighter_than_the_tick_numbers(qapp) -> None:
     assert colors.axis == text, "tick numbers keep full contrast"
     assert distance(colors.rule, canvas) < distance(text, canvas), "strokes recede"
     assert colors.grid_alpha <= 0.12
+
+
+def test_a_removed_row_s_button_is_deleted_by_qt_on_the_gui_thread(qtbot, tmp_path: Path) -> None:
+    """Left to Python's cycle collector, the proxied button was destroyed on whatever
+    thread next collected, and a top-level window's destructor waits on the GUI
+    thread: with the GUI thread waiting on that worker, both hung (D-188)."""
+    from shiboken6 import isValid
+
+    pane = _pane_with_channels(qtbot, tmp_path, 3, 1000, 700)
+    removed = pane.channels[0]
+    proxy, button = removed.close_proxy, removed.close_button
+
+    pane.remove_channel(removed.reader.key)
+    qtbot.waitUntil(lambda: not isValid(proxy), timeout=2_000)
+
+    assert not isValid(button), "the proxy took its button with it"
+
+
+def test_row_tools_hold_no_cycle_through_their_focus_filter(qtbot, tmp_path: Path) -> None:
+    import weakref
+
+    pane = _pane_with_channels(qtbot, tmp_path, 1, 1000, 700)
+    button = pane.channels[0].close_button
+    filters = [child for child in button.children() if hasattr(child, "_proxy")]
+
+    assert filters and all(isinstance(f._proxy, weakref.ref) for f in filters)

@@ -27,6 +27,7 @@ from avialsync.ui.plot_row import (
     apply_channel_palette,
     apply_channel_visibility,
     create_channel_plot,
+    detach_row,
     enforce_channel_visibility,
     fit_channel_y,
     point_budget_for_width,
@@ -379,8 +380,7 @@ class PlotPane(QWidget):
         """Remove every plotted source and its pending row work."""
         self.cancel_pending_rows()
         for channel in self.channels:
-            self.graphics_layout.removeItem(channel.plot_item)
-            self.graphics_layout.removeItem(channel.close_proxy)
+            detach_row(self.graphics_layout, channel)
         self.channels.clear()
         self._source_time_maps.clear()
         self._units.clear()
@@ -498,8 +498,7 @@ class PlotPane(QWidget):
         for ch in to_remove:
             self._units.pop(ch.reader.key, None)
         for ch in to_remove:
-            self.graphics_layout.removeItem(ch.plot_item)
-            self.graphics_layout.removeItem(ch.close_proxy)
+            detach_row(self.graphics_layout, ch)
             self.channels.remove(ch)
 
             if self._master_plot == ch.plot_item:
@@ -535,8 +534,7 @@ class PlotPane(QWidget):
         """Remove the row(s) identified by *channel*."""
         to_remove = self._matching(channel)
         for ch in to_remove:
-            self.graphics_layout.removeItem(ch.plot_item)
-            self.graphics_layout.removeItem(ch.close_proxy)
+            detach_row(self.graphics_layout, ch)
             self.channels.remove(ch)
 
             if self._master_plot == ch.plot_item:
