@@ -26,6 +26,7 @@ from avialsync.core.source import SessionItem, SessionLayout, SessionSource, Vid
 from avialsync.loaders import nwb_format
 from avialsync.loaders.nwb_imaging import default_imaging
 from avialsync.loaders.nwb_loader import NWBLoader
+from avialsync.loaders.nwb_roi_grid import NWBRoiGridSource, find_roi_grids
 from avialsync.loaders.nwb_stack import NWBStackSource
 from avialsync.loaders.nwb_storage import remote_url, source_label
 
@@ -118,9 +119,8 @@ class NWBSessionSource(SessionSource):
         nobody wants today is skipped.
         """
         chosen = default_imaging(contents)
-        if chosen is None:
-            return []
-        ordered = [chosen] + [info for info in contents.of_kind("imaging") if info is not chosen]
+        ordered = [chosen] if chosen is not None else []
+        ordered += [info for info in contents.of_kind("imaging") if info is not chosen]
         items: list[SessionItem] = []
         for info in ordered:
             items.append(
@@ -130,6 +130,26 @@ class NWBSessionSource(SessionSource):
                     config={},
                     label=f"{info.name} — imaging in {source_label(path)}",
                     kind=NWBStackSource.display_name(),
+                    source_epoch=epoch,
+                )
+            )
+        # Every ROI of each plane segmentation, tiled in one picture (D-193):
+        # the only way to see more than the one field -- or, for patch-scanned
+        # files, the one cell -- that an image series holds.
+        try:
+            grids = find_roi_grids(path, contents)
+        except (SourceOpenError, FileUnreadableError, OSError, KeyError, ValueError):
+            logger.warning("Could not look for ROI tables in %s", path, exc_info=True)
+            grids = []
+        for grid in grids:
+            what = "raw crops" if grid.mode == "raw" else "response on masks"
+            items.append(
+                SessionItem(
+                    path=nwb_format.object_path(path, grid.path),
+                    loader=NWBRoiGridSource,
+                    config={},
+                    label=f"{grid.name}: {grid.roi_count} ROIs ({what}) in {source_label(path)}",
+                    kind=NWBRoiGridSource.display_name(),
                     source_epoch=epoch,
                 )
             )

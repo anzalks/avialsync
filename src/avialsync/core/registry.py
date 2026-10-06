@@ -79,6 +79,7 @@ _BUILTIN_LOADERS: tuple[tuple[str, str], ...] = (
     ("avialsync.loaders.nwb_loader", "NWBLoader"),
     ("avialsync.loaders.nwb_imaging", "NWBImagingSource"),
     ("avialsync.loaders.nwb_stack", "NWBStackSource"),
+    ("avialsync.loaders.nwb_roi_grid", "NWBRoiGridSource"),
     ("avialsync.loaders.imaging_loader", "HDF5ImagingLoader"),
     ("avialsync.loaders.imaging_loader", "TIFFImagingLoader"),
 )

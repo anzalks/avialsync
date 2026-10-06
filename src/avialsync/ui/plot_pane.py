@@ -283,6 +283,11 @@ class PlotPane(QWidget):
         time_map.drift_ms_per_hour = float(drift_ms_per_hour)
 
         self._pending_rows.extend((cache_dir, name, time_map, source_id) for name in channel_names)
+        # Each slice yields to the event loop, and every yield used to repaint
+        # and re-lay-out every row built so far: a 234-ROI NWB file froze the
+        # window for ~11 s, quadratic in the row count. The view stays frozen
+        # (not the window) until the last row exists, then paints once.
+        self.graphics_layout.setUpdatesEnabled(False)
         self._build_pending_rows()
 
     def _build_pending_rows(self) -> None:
@@ -375,6 +380,7 @@ class PlotPane(QWidget):
         """
         self._pending_rows.clear()
         self._pending_refresh.clear()
+        self.graphics_layout.setUpdatesEnabled(True)
 
     def clear_sources(self) -> None:
         """Remove every plotted source and its pending row work."""
@@ -408,6 +414,7 @@ class PlotPane(QWidget):
         # the view's real size, which is what pushes geometry onto the item.
         # The stack's height is part of the geometry being pushed, so it is set
         # before the resize rather than with the rest of the row layout after it.
+        self.graphics_layout.setUpdatesEnabled(True)
         self._apply_stack_height()
         self.graphics_layout.resizeEvent(None)
         self.graphics_layout.ci.layout.activate()

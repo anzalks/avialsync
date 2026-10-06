@@ -116,6 +116,14 @@ An NWB file opens each of its image series here. In NWB a `TwoPhotonSeries` or `
 with a third frame axis holds depth planes, not channels, so AvialSync asks which plane to show;
 NWB records each optical channel as its own series, chosen from the list at the top of the pane.
 
+A file with segmented cells (a `PlaneSegmentation`) also offers an **ROI grid**: every ROI as one
+tile of a single picture, so hundreds of cells can be watched at once. When an image series on the
+same imaging plane covers the ROIs, each tile is that movie's pixels around the cell. When it does
+not -- patch-scanned recordings often store a movie for only one cell -- each tile is the cell's
+outline lit by its ΔF/F (or fluorescence) at that moment, and the source list says so: it is a map
+of the measured trace, not imaging. Levels, averaging, zoom and offset work on the grid as on any
+stack.
+
 Display changes are undoable and saved with the session; the raw pixels are never changed. Only
 the frames needed for the current picture are read from disk, so a stack does not need to fit in
 memory.

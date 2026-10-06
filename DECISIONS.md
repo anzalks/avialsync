@@ -6158,3 +6158,29 @@ does; NWB keeps optical channels in separate series, so overlaying planes as col
 *A shared zoom across panes*: the panes show different things at different scales. *Treating any
 third axis as channels*: true only of plain `ImageSeries` colour images, which keep that reading.
 
+---
+
+## 2026-10 · D-193 · NWB ROIs are shown together as a grid, and plot rows paint once per load
+
+**Decision.** `loaders/nwb_roi_grid.NWBRoiGridSource` is an `ImagingSource` that tiles every ROI
+of a `PlaneSegmentation` into one picture per frame, in reading order on a near-square grid with
+one-pixel NaN gutters. Each tile is the strongest evidence the file holds: raw pixels in the box
+around the ROI when an image series on the same imaging plane covers every mask, otherwise the
+mask with its pixels set to the ROI's value in that frame of the `RoiResponseSeries` (DfOverF
+before Fluorescence), labelled as such. Pixels outside a mask are NaN, so the levels are
+measured on cells. A tile is sized to the ROI's nonzero-weight pixels: some writers list a cell's
+whole scan patch with zero weights outside the cell, and boxing those left each cell a speck. The NWB session offers each such grid as an item next to the image series;
+its path is the segmentation's object path, and `can_open` claims only paths through
+`ImageSegmentation`. Masks are read once at open; a frame is one response row or one raw plane
+(about 0.6 ms for 231 ROIs).
+
+While queued plot rows are being built (D-060), the plot view has updates disabled and paints
+once in `_finish_loading`. Each slice used to repaint and re-lay-out every row built so far,
+which is quadratic: a 234-row NWB import blocked the UI thread for about 11 s, and the slicing
+did not help because the paint, not the construction, was the cost.
+
+**Alternatives rejected.** *Tiling separate image series*: patch-scanned files may store only one,
+which leaves nothing to tile. *Making up per-cell movies from the trace and the mask*: that would
+look like imaging; the trace on the mask is labelled as a map of the trace. *Building plot rows
+in larger slices*: the paint cost still grows with every row.
+

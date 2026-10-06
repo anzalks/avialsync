@@ -398,3 +398,30 @@ def test_a_slice_stops_before_a_row_would_overrun_it(qtbot, tmp_path, monkeypatc
     assert len(pane.channels) == 1, (
         f"a slice built {len(pane.channels)} rows when each one costs the whole budget"
     )
+
+
+def test_rows_are_painted_once_when_the_last_one_exists(qtbot, tmp_path, monkeypatch) -> None:
+    """Repainting every row at every slice made a 234-row NWB import freeze ~11 s."""
+    from avialsync.ui import plot_pane as plot_pane_module
+
+    cache = _pyramid_channels(tmp_path, 6)
+    pane = plot_pane_module.PlotPane()
+    qtbot.addWidget(pane)
+    pane.resize(900, 500)
+    pane.set_timeline_bounds(0.0, 10.0)
+    real_create = plot_pane_module.create_channel_plot
+
+    def slow_create(*args, **kwargs):
+        result = real_create(*args, **kwargs)
+        time.sleep(plot_pane_module._ROW_BUILD_SLICE_S)
+        return result
+
+    monkeypatch.setattr(plot_pane_module, "create_channel_plot", slow_create)
+    finished: list[int] = []
+    pane.channels_loaded.connect(lambda: finished.append(1))
+    pane.load_channels(cache, [f"ch{i}" for i in range(6)])
+
+    assert pane._pending_rows, "this test is only meaningful across several slices"
+    assert not pane.graphics_layout.updatesEnabled(), "a slice must not repaint every row"
+    qtbot.waitUntil(lambda: finished == [1], timeout=10_000)
+    assert pane.graphics_layout.updatesEnabled()

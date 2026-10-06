@@ -46,6 +46,10 @@ def _imaging(path: Path) -> str:
     return str(path / "acquisition" / "TwoPhotonSeries")
 
 
+def _grid(path: Path) -> str:
+    return str(path / "processing" / "ophys" / "ImageSegmentation" / "PlaneSegmentation")
+
+
 def _wait_loaded(window: MainWindow, qtbot, path: Path) -> None:
     qtbot.waitUntil(lambda: _imaging(path) in window.imaging_pane.source_paths(), timeout=20_000)
     qtbot.waitUntil(lambda: str(path) in window._sensor_cache_dirs, timeout=20_000)
@@ -85,7 +89,7 @@ def test_dropping_an_nwb_file_shows_its_imaging_and_its_series(
     _wait_loaded(window, qtbot, path)
 
     # Two sources, told apart: the imaging pane and the file's time series.
-    assert window.imaging_pane.source_paths() == (_imaging(path),)
+    assert set(window.imaging_pane.source_paths()) == {_imaging(path), _grid(path)}
     assert set(window._inspections) == {str(path)}
     window.imaging_pane.set_cursor(0.6)
     qtbot.waitUntil(
@@ -120,7 +124,7 @@ def test_an_nwb_session_saves_and_reopens(
     state.save(saved)
 
     reloaded = SessionState.load(saved)
-    assert [entry.path for entry in reloaded.imaging] == [_imaging(path)]
+    assert {entry.path for entry in reloaded.imaging} == {_imaging(path), _grid(path)}
     assert [sensor.path for sensor in reloaded.sensors] == [str(path)]
 
     again = MainWindow()
@@ -129,7 +133,8 @@ def test_an_nwb_session_saves_and_reopens(
     try:
         again._start_session_load(saved)
         _wait_loaded(again, qtbot, path)
-        assert again.imaging_pane.source_paths() == (_imaging(path),)
+        qtbot.waitUntil(lambda: _grid(path) in again.imaging_pane.source_paths(), timeout=20_000)
+        assert set(again.imaging_pane.source_paths()) == {_imaging(path), _grid(path)}
     finally:
         again.close()
 

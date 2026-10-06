@@ -16,6 +16,7 @@ from avialsync.core.source import TimeSeriesSource, VideoSource  # noqa: E402
 from avialsync.loaders import nwb_format  # noqa: E402
 from avialsync.loaders.nwb_imaging import NWBImagingSource, proxy_origin  # noqa: E402
 from avialsync.loaders.nwb_loader import NWBLoader  # noqa: E402
+from avialsync.loaders.nwb_roi_grid import NWBRoiGridSource  # noqa: E402
 from avialsync.loaders.nwb_session import NWBSessionSource  # noqa: E402
 from avialsync.loaders.nwb_stack import NWBStackSource  # noqa: E402
 from avialsync.loaders.video_standard import VideoStandardLoader  # noqa: E402
@@ -155,7 +156,7 @@ def test_a_file_lays_out_its_time_series_and_imaging_on_its_own_clock(tmp_path: 
     layout = NWBSessionSource().scan(path, LoaderRegistry())
 
     loaders = {item.loader for item in layout.items}
-    assert loaders == {NWBLoader, NWBStackSource}
+    assert loaders == {NWBLoader, NWBStackSource, NWBRoiGridSource}
     assert layout.session_epoch == pytest.approx(SESSION_EPOCH)
     assert all(item.source_epoch == pytest.approx(SESSION_EPOCH) for item in layout.items)
     series = next(item for item in layout.items if item.loader is NWBLoader)
@@ -362,7 +363,11 @@ def test_dropping_a_file_asks_the_session_scanners(tmp_path: Path, qapp) -> None
     worker.run()
 
     candidates, layout = results[0]
-    assert {loader for _path, loader, _config in candidates} == {NWBLoader, NWBStackSource}
+    assert {loader for _path, loader, _config in candidates} == {
+        NWBLoader,
+        NWBStackSource,
+        NWBRoiGridSource,
+    }
     assert layout.session_epoch == pytest.approx(SESSION_EPOCH)
 
 

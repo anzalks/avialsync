@@ -48,6 +48,10 @@ def loaded_window(qapp: QApplication, qtbot, dense_source) -> MainWindow:
     window._on_import_finished(
         "/tmp/dense.csv", str(cache), names, (0.0, (SAMPLES - 1) / RATE_HZ), None
     )
+    # Rows are built across event-loop turns (D-060) and painted once at the
+    # end (D-193); what is measured here is the loop after loading, so wait
+    # for the load rather than assume one turn completes it.
+    qtbot.waitUntil(lambda: len(window.plot_pane.channels) == len(names), timeout=10_000)
     qapp.processEvents()
     yield window
     # Qt may already have deleted it: pytest-qt runs processEvents()
