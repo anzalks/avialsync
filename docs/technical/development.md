@@ -88,10 +88,26 @@ conda run -n avialsync python tools/generate_stimulus_grid_demo.py
 It writes the event-selection and slow-motion screenshots, the exported-frame still, and the demo
 MP4 under `docs/_static/screenshots/`.
 
-The front-page GIF is different: the committed `aol_session_overview.gif` is described on the site
-as real AOL recording footage. Its source recording is not in the repository, so the exact public
-asset cannot be reproduced from a clean checkout. Do not rebuild that GIF from a local acquisition
-unless its use for public release is approved. The generator can read a supplied recording folder:
+The front-page GIF is different: the committed `aol_session_overview.gif` is real AOL recording
+footage, made from the `09-35-24` session kept (git-ignored) at the repository root. Its source
+recording is not in git, so the exact public asset cannot be reproduced from a clean checkout.
+Rebuild it from that folder:
+
+```bash
+conda run -n avialsync python tools/generate_session_screenshot.py 09-35-24 \
+    --out docs/_static/screenshots/aol_session_overview.gif
+```
+
+Writing to that path applies `HERO_PRESET` in the script, the view arranged by hand for the front
+page: window size and pane splits, the Props page on the saved wheel, the full video overlay with no
+body-part names, each camera's zoom and pan, the 3D up axis, azimuth, elevation and zoom, the start
+time (10.296 s), the 0.5x rate, and the wheel's encoder offset (0.121 s), with a check that the wheel
+turns in reverse. Options given on the command line override single values. To change the framing,
+arrange the view in the app, read the corner readouts, and edit `HERO_PRESET` rather than passing
+flags, so the next rebuild keeps it. The wheel's prop file names its encoder by absolute path, so
+open the recording where it was saved. The script reads the recording and writes only its `--out`
+file. Do not rebuild that GIF from any other acquisition unless its use for public release is
+approved. With another folder or output the generator applies none of the preset:
 
 ```bash
 conda run -n avialsync python tools/generate_session_screenshot.py            # the fixture session
@@ -99,14 +115,7 @@ conda run -n avialsync python tools/generate_session_screenshot.py <folder>  # y
 ```
 
 It opens the folder through the real drop-and-open path, so the layout in the image is the one a
-session plugin produced rather than a staged arrangement. It writes only its `--out` file and reads
-the session. To intentionally replace the public hero with a known, release-approved recording,
-specify its folder and the hero output path:
-
-```bash
-conda run -n avialsync python tools/generate_session_screenshot.py <recording folder> \
-    --out docs/_static/screenshots/aol_session_overview.gif
-```
+session plugin produced rather than a staged arrangement.
 
 Without `--out` the output is `docs/_static/screenshots/session_overview.gif`, which no page
 references; that default is a fixture smoke test, not a replacement for the public hero.
