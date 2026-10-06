@@ -1,6 +1,6 @@
 """Capture the screenshots for features the other generators do not cover.
 
-The Props tab (ladder, belt and ball steps), the Tasks tab, the File and View
+The Props tab (ladder, belt and ball steps), the Tasks tab, the Exports page, the File and View
 menus (including File → Cache and View → Overlays), the command palette,
 Preferences, and the light appearance.
 
@@ -379,8 +379,16 @@ def _capture_wheel_viewer(
         ),
         "the wheel fit",
     )
+    # The fit lands before the pane has its frame and calibration in hand on a
+    # loaded machine, so wait for the drawing rather than assert it at once.
+    wait_until(
+        app,
+        lambda: bool(
+            getattr(wheel_display.pane_drawing(window, paths["camera_1"], 0.0), "bars", ())
+        ),
+        "the fitted wheel drawn on camera 1",
+    )
     settle(app)
-    assert wheel_display.pane_drawing(window, paths["camera_1"], 0.0).bars
     capture(window, out_dir / "feature_props_wheel_review.png", (window.wheel_panel._accept,))
     capture(window, out_dir / "feature_props_wheel_preview.png", crop=window._media_splitter)
     window.wheel_panel._accept.click()
@@ -415,6 +423,10 @@ def _generate(out_dir: Path, session: Path) -> None:
         settle(app)
         capture(window.tasks_button.popover, out_dir / "feature_tasks_tab.png")
         window.tasks_button.popover.close()
+        # Every export is a button on its own page, following its File action
+        # (D-197) and greyed out until it has something to write.
+        _show_tab(window, app, "Exports")
+        capture(window, out_dir / "exports_inspector.png", crop=window._left_tabs)
         _show_tab(window, app, "Sources")
 
         _capture_menu(window, app, "File", out_dir / "feature_menu_file.png")

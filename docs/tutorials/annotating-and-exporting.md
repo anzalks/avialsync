@@ -45,7 +45,7 @@ it back.
 The **Exports** inspector page shows every output as a visible button. The same commands are in
 **File** and the command palette; their labels and availability come from the same actions.
 
-![The Exports inspector with its five output commands and guidance when nothing is loaded](../_static/screenshots/exports_inspector.png)
+![The Exports inspector: one button per export, each following its File command and greyed out until there is something to write](../_static/screenshots/exports_inspector.png)
 
 | Export | What you get | Use it for |
 |---|---|---|
