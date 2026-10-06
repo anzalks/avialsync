@@ -48,7 +48,7 @@ def test_an_imaging_lane_says_imaging() -> None:
 
 def test_every_open_action_has_a_sources_button(window) -> None:
     sidebar = window.sidebar
-    assert sidebar.btn_open_dandi.text() == window._act_open_dandi.text()
+    assert sidebar.btn_open_nwb.text() == window._act_open_nwb.text() == "Open NWB…"
     assert sidebar.btn_open_imaging.text() == "Open Imaging…"
     assert window._act_open_imaging.property("av_id") == "file_open_2p_imaging"
 

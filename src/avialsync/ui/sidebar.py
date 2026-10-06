@@ -992,7 +992,7 @@ class SidebarPane(QWidget):
         self.btn_open_video = ActionButton(actions_group)
         self.btn_open_sensor = ActionButton(actions_group)
         self.btn_open_imaging = ActionButton(actions_group)
-        self.btn_open_dandi = ActionButton(actions_group)
+        self.btn_open_nwb = ActionButton(actions_group)
         self.btn_open_session = ActionButton(actions_group)
         self.btn_align = ActionButton(actions_group)
         self.btn_reset_session = ActionButton(actions_group)
@@ -1000,7 +1000,7 @@ class SidebarPane(QWidget):
             self.btn_open_video,
             self.btn_open_sensor,
             self.btn_open_imaging,
-            self.btn_open_dandi,
+            self.btn_open_nwb,
             self.btn_open_session,
             self.btn_align,
         ):
@@ -1139,10 +1139,10 @@ class SidebarPane(QWidget):
         self.btn_open_imaging.set_action(action)
         apply_role(self.btn_open_imaging, ControlRole.SECONDARY, "imaging")
 
-    def install_open_dandi_action(self, action: QAction) -> None:
-        """Show File → Open NWB from DANDI… with the other ways in (D-181, D-189)."""
-        self.btn_open_dandi.set_action(action)
-        apply_role(self.btn_open_dandi, ControlRole.SECONDARY, "data")
+    def install_open_nwb_action(self, action: QAction) -> None:
+        """Show File → Open NWB… with the other ways in (D-181, D-189)."""
+        self.btn_open_nwb.set_action(action)
+        apply_role(self.btn_open_nwb, ControlRole.SECONDARY, "data")
 
     def install_open_session_action(self, action: QAction) -> None:
         """Show File → Open Session… with the other ways in."""

@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication, QDialog, QInputDialog
+from PySide6.QtWidgets import QApplication, QDialog
 from shiboken6 import isValid
 
 pytest.importorskip("h5py")
@@ -60,24 +60,37 @@ def test_dandi_menu_action_routes_asset_to_the_regular_open_path(
     window: MainWindow, qtbot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from avialsync.engine import dandi_worker
+    from avialsync.ui import dandi_open
 
     link = tmp_path / "remote.nwb-link"
     link.write_text('{"url": "https://api.dandiarchive.org/api/assets/123/download/"}')
-    monkeypatch.setattr(QInputDialog, "exec", lambda _dialog: QDialog.DialogCode.Accepted)
     monkeypatch.setattr(
-        QInputDialog,
-        "textValue",
-        lambda _dialog: "https://api.dandiarchive.org/api/assets/123/download/",
+        dandi_open,
+        "_ask_location",
+        lambda _window: "https://api.dandiarchive.org/api/assets/123/download/",
     )
     monkeypatch.setattr(dandi_worker, "create_remote_link", lambda _url: link)
     opened: list[Path] = []
     monkeypatch.setattr(window, "open_path", opened.append)
     file_menu = window.menuBar().actions()[0].menu()
     assert file_menu is not None
-    action = next(a for a in file_menu.actions() if "DANDI" in a.text())
+    action = next(a for a in file_menu.actions() if a.text() == "Open NWB…")
 
     action.trigger()
     qtbot.waitUntil(lambda: opened == [link], timeout=5000)
+
+
+def test_open_nwb_opens_a_local_file_directly(
+    window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from avialsync.ui import dandi_open
+
+    path = tmp_path / "session.nwb"
+    monkeypatch.setattr(dandi_open, "_ask_location", lambda _window: str(path))
+    opened: list[Path] = []
+    monkeypatch.setattr(window, "open_path", opened.append)
+    window._act_open_nwb.trigger()
+    assert opened == [path]
 
 
 def test_dropping_an_nwb_file_shows_its_imaging_and_its_series(

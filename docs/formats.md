@@ -157,8 +157,8 @@ is not beside it, and a start time recorded without a time zone (read as UTC).
 
 Versions: NWB 1.x and 2.x HDF5 files, and NWB Zarr v2/v3 folders. Extension types are recognised
 from the specification each file carries when available. NWB 1.x series under
-`acquisition/timeseries` use the same plotted and imaging routes. Choose **File → Open NWB from
-DANDI…** to paste a DANDI asset download URL or its public S3 content URL; the app streams the
+`acquisition/timeseries` use the same plotted and imaging routes. Choose **File → Open NWB…** and
+browse to a local file, or paste a DANDI asset download URL or its public S3 content URL; the app streams the
 requested HDF5 ranges or Zarr chunks and keeps a small link in your application-data folder for
 session restore. External videos referenced by a remote file must be opened locally. Imaging
 creates a lossless cached copy and shows percentage progress while it is encoded; that encoding
