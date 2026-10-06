@@ -29,7 +29,6 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QGroupBox,
-    QHBoxLayout,
     QHeaderView,
     QPushButton,
     QTableWidget,
@@ -138,7 +137,9 @@ class ChangesPanel(QGroupBox):
         )
         layout.addWidget(self._empty)
 
-        buttons = QHBoxLayout()
+        # Stacked, destructive last, as Open Files is (D-181): side by side the
+        # pair needed 294 px at 16 pt against the 280 px page.
+        buttons = QVBoxLayout()
         self._delete_button = QPushButton(tr("Delete"))
         self._delete_button.setToolTip(
             tr("Remove the selected annotation, correction, or identity swap")
@@ -150,8 +151,8 @@ class ChangesPanel(QGroupBox):
         # command from being named independently. Set by the window once the
         # menu exists.
         self._export_button = ActionButton(self)
-        buttons.addWidget(self._delete_button)
         buttons.addWidget(self._export_button)
+        buttons.addWidget(self._delete_button)
         layout.addLayout(buttons)
 
         self._annotations.changed.connect(self.refresh)

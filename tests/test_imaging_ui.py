@@ -128,6 +128,9 @@ def test_the_moving_average_is_centred_and_undoable(window, qtbot, tmp_path):
     _open(window, qtbot, path)
     pane = window.imaging_pane
     pane.controls._rows[1].shown.setChecked(False)
+    # Levels are measured on the first picture drawn. Every frame here is one
+    # flat value, so letting that race the seek made frame 2 read 0 or 255.
+    _picture(window, qtbot)
     window.player.seek(0.25)  # frame 2, green value 300
     raw = _picture(window, qtbot)[0, 0, 1]
     pane.controls.average.setValue(1)  # one frame either side
