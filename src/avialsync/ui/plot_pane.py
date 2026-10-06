@@ -184,6 +184,10 @@ class PlotPane(QWidget):
         self.channels: list[ChannelPlot] = []
         # One TimeMap per source cache dir, shared by all of that source's rows.
         self._source_time_maps: dict[Path, TimeMap] = {}
+        # Units arrive once, when the import finishes, but rows are built in
+        # slices across later event-loop turns; kept here so a row built after
+        # the units arrived still gets its own (D-186).
+        self._units: dict[ChannelKey | str, str] = {}
         self.follow_playhead = True
         self._playing = False
         self._scrubbing = False
@@ -319,6 +323,9 @@ class PlotPane(QWidget):
                     channel.plot_item.setXRange(0.0, self.window_duration, padding=0)
                 channel.plot_item.setXLink(self._master_plot)
             self.channels.append(channel)
+            unit = self._units.get(channel.reader.key) or self._units.get(name)
+            if unit:
+                set_channel_unit(channel, unit)
             # Fill this row in now rather than leaving all 64 pyramid queries to
             # the end, and inside the timed region so the slice budget covers it.
             self._refresh_rows([channel])
@@ -376,6 +383,7 @@ class PlotPane(QWidget):
             self.graphics_layout.removeItem(channel.close_proxy)
         self.channels.clear()
         self._source_time_maps.clear()
+        self._units.clear()
         self._master_plot = None
         self._link_x_axes()
         self._relayout_rows()
@@ -487,6 +495,8 @@ class PlotPane(QWidget):
         """Remove all channels associated with a specific cache_dir (source)."""
         self._source_time_maps.pop(cache_dir, None)
         to_remove = [ch for ch in self.channels if ch.reader.cache_dir == cache_dir]
+        for ch in to_remove:
+            self._units.pop(ch.reader.key, None)
         for ch in to_remove:
             self.graphics_layout.removeItem(ch.plot_item)
             self.graphics_layout.removeItem(ch.close_proxy)
@@ -693,6 +703,7 @@ class PlotPane(QWidget):
 
     def set_channel_unit(self, channel: ChannelKey | str, unit: str) -> None:
         """Update the fixed channel gutter after import metadata is available."""
+        self._units[channel] = unit
         for ch in self._matching(channel):
             set_channel_unit(ch, unit)
 

@@ -337,6 +337,8 @@ Two product laws govern that phase and outrank convention:
   one decimal (two where tenths hide 29.97), master times at ms. D-186: each loader's declared
   channel units ride `SourceInspection.channel_units` to the plot gutter and Values panel;
   `inspection.units()` merges import-wizard units over them, and an older cache is back-filled once.
+  D-187: `core.source.display_unit` gives every source one spelling (uV → µV, dimensionless →
+  none); neo's unit is never guessed; the plot pane keeps units for rows built after they arrive.
 - **P4.6 plot review/sweep UX refinement — core implementation complete; certification remains
   (D-044):** `archive/plans/PLOT_UX_PLAN.md` remains the canonical contract. Review/Sweep/Scope, the shared
   continuous time-span control, master navigator viewport drag, one bottom axis and channel gutters,

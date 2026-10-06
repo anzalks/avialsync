@@ -83,3 +83,44 @@ def test_a_unit_set_at_import_wins_over_the_declared_one() -> None:
         "CH2": "µV",
     }
     assert SourceInspection.from_dict({"path": "/old"}).channel_units is None
+
+
+def test_every_row_gets_its_unit_even_when_built_after_the_units_arrive(
+    qtbot, tmp_path: Path
+) -> None:
+    """Only CH1 showed µV: units were applied to the rows built so far.
+
+    Rows are built in slices across event-loop turns, and the import's units
+    arrive once, after the first slice. Every later row must still get its own.
+    """
+    from avialsync.core.channel_reader import ChannelKey
+    from avialsync.core.pyramid import PyramidBuilder
+    from avialsync.ui.plot_pane import PlotPane
+
+    cache = tmp_path / "ephys_cache"
+    cache.mkdir()
+    times = np.linspace(0.0, 1.0, 400)
+    names = [f"CH{index}" for index in range(1, 33)]
+    for index, name in enumerate(names):
+        PyramidBuilder(cache, name).build_and_save(times, np.sin(times * (index + 1)))
+    pane = PlotPane()
+    qtbot.addWidget(pane)
+    pane.resize(900, 600)
+    pane.load_channels(cache, names, source_id="/rec/ephys")
+    pane.set_channel_units({ChannelKey("/rec/ephys", name): "µV" for name in names})
+    pane.wait_for_pending_rows()
+
+    assert len(pane.channels) == len(names)
+    for channel in pane.channels:
+        label = channel.plot_item.getAxis("left").labelText
+        assert "(µV)" in label, f"{channel.name} lost its unit"
+
+
+def test_one_spelling_for_every_source() -> None:
+    from avialsync.core.source import display_unit
+
+    assert display_unit("uV") == "µV"
+    assert display_unit("µV") == "µV"
+    assert display_unit(" mV ") == "mV"
+    assert display_unit("dimensionless") == ""
+    assert display_unit("deg") == "deg"

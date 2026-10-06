@@ -23,6 +23,25 @@ class ChannelInfo:
     rate_hz: float | None  # None indicates irregular sampling
 
 
+#: Unit spellings formats use for "no unit", shown as nothing at all.
+_UNITLESS = {"", "dimensionless", "none", "1", "a.u.", "au"}
+#: ASCII stand-ins for the micro sign, written the way a reader expects.
+_MICRO = {"uv": "µV", "um": "µm", "us": "µs", "ua": "µA", "us/cm": "µS/cm"}
+
+
+def display_unit(unit: str) -> str:
+    """One spelling for a loader's declared unit, so every source reads alike (D-186).
+
+    ``uV`` from neo and ``µV`` from another format are the same unit; a
+    "dimensionless" quantity has no unit to show. Anything else is kept as the
+    file wrote it.
+    """
+    text = unit.strip()
+    if text.lower() in _UNITLESS:
+        return ""
+    return _MICRO.get(text.lower(), text)
+
+
 @dataclass(frozen=True, slots=True)
 class VideoMetadata:
     """Format-neutral video metadata exposed by every video source.

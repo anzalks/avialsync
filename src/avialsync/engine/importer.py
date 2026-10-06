@@ -18,6 +18,7 @@ from avialsync.core.errors import LoaderContractError, SourceOpenError
 from avialsync.core.inspection import ImportReport, IntegrityFlags, SourceInspection
 from avialsync.core.messages import Message, bounded
 from avialsync.core.pyramid import ChannelStage, PyramidBuilder, build_gap_mask, count_nan
+from avialsync.core.source import display_unit
 from avialsync.loaders.csv_loader import CSVLoader
 
 logger = logging.getLogger(__name__)
@@ -68,7 +69,8 @@ def _gap_locations(times: np.ndarray, gap_mask: np.ndarray) -> list[float]:
 
 def _declared_units(channels: Any) -> dict[str, str]:
     """Each named channel's declared unit, omitting the ones that declare none."""
-    return {str(ch.name): str(ch.unit) for ch in channels if getattr(ch, "unit", "")}
+    units = {str(ch.name): display_unit(str(getattr(ch, "unit", ""))) for ch in channels}
+    return {name: unit for name, unit in units.items() if unit}
 
 
 class ImportWorker(QObject):

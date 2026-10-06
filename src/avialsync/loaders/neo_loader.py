@@ -408,7 +408,10 @@ class NeoLoader(TimeSeriesSource):
                 length = int(asig.shape[0])
                 clocks.add((seg_idx, start, rate, length))
 
-                unit = "uV"
+                # The signal's own unit, as neo read it from the file -- never a
+                # guess: a default of "uV" labelled every unit-less stream as
+                # microvolts (D-186).
+                unit = ""
                 if hasattr(asig, "units") and hasattr(asig.units, "dimensionality"):
                     unit = str(asig.units.dimensionality.string)
                 dtype = str(getattr(asig, "dtype", np.dtype(np.float64)))
@@ -470,7 +473,8 @@ class NeoLoader(TimeSeriesSource):
                     stem = f"TTL-{label}" if label else event_name
                     name = self._unique(safe_channel_name(stem))
                     self._schema_channels.append(
-                        ChannelInfo(name=name, unit="TTL", dtype="float64", rate_hz=None)
+                        # A line's state, 0 or 1: no unit; the name says TTL.
+                        ChannelInfo(name=name, unit="", dtype="float64", rate_hz=None)
                     )
                     self._event_map[name] = (seg_idx, ev_idx, label)
 

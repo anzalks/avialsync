@@ -6027,3 +6027,11 @@ Ladder, belt and ball editors, identity review and the alignment dialog use the 
 **Decision.** The importer records the declared units on `SourceInspection.channel_units` (omitting channels that declare none), which rides the cache manifest so a cache hit keeps them. `SourceInspection.units()` merges import-wizard units over the declared ones; the import controller scopes them per source and hands them to the plot gutter (`name` then `(unit)`, D-181) and the Values panel. A manifest written before this field exists is back-filled once on its next open: the worker asks the loader for its channel list only -- no samples are parsed -- and rewrites the manifest. A loader that cannot answer leaves the bare name.
 
 **Consequences.** No cache version bump and no re-import; a unit appears the first time an existing recording is reopened.
+
+---
+
+## 2026-10 · D-187 · Units reach every row, in one spelling, and are never guessed
+
+**Context.** On an Open Ephys recording only CH1 showed µV. The import's units arrive once, when it finishes, but plot rows are built in slices across later event-loop turns (D-060), and units were applied only to rows that already existed. Separately, `NeoLoader` defaulted a signal's unit to "uV" before reading neo's, and gave TTL event channels the pseudo-unit "TTL".
+
+**Decision.** `PlotPane` keeps the units it is given, keyed per source, and applies them to each row as it is built. `NeoLoader` takes the unit only from neo's quantity (empty when it has none) and gives event lines no unit -- their name already says TTL. `core.source.display_unit` is the one normalising step every loader's declared unit passes through at import: "dimensionless" and similar read as no unit, and ASCII micro spellings (`uV`, `um`, `us`) read as `µV`, `µm`, `µs`. All electrophysiology still enters through `NeoLoader`; Open Ephys sessions hand each stream to it, and `open_ephys_format` reads only what neo does not expose.
