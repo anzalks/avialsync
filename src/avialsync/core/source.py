@@ -481,6 +481,12 @@ class ImagingMetadata:
     timing_source: str
     dataset: str = ""
     channel_count: int = 1
+    #: The stored dimensions and the order they were read in (D-194), so the
+    #: viewer can offer the other valid orders. Empty when the source has none.
+    shape: tuple[int, ...] = ()
+    axes: str = ""
+    #: Depth planes the stack holds; the pane offers a plane choice above one.
+    depth_planes: int = 1
     tail_duration: float = field(init=False)
 
     def __post_init__(self) -> None:

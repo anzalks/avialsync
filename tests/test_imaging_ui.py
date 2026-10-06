@@ -219,3 +219,35 @@ def test_the_imaging_picture_zooms_like_the_video(window, qtbot, tmp_path):
     strip.reset_zoom_button.click()
     assert view.zoom() == 1.0
     assert window.tracking_3d_pane.canvas.zoom_controls is not strip, "each pane zooms alone"
+
+
+def test_a_stack_opens_with_a_default_reading_that_can_be_changed_and_undone(
+    window, qtbot, tmp_path
+):
+    """No axis question: the data shows at once, and the pane corrects the reading."""
+    import h5py
+
+    from avialsync.loaders.imaging_loader import HDF5ImagingLoader
+
+    path = tmp_path / "stack.h5"
+    with h5py.File(path, "w") as handle:
+        handle.create_dataset("images", data=np.zeros((6, 2, 8, 10), np.uint16))
+    window.load_imaging(path, HDF5ImagingLoader, {"fps": 10.0})
+    pane = window.imaging_pane
+    qtbot.waitUntil(lambda: str(path) in pane.source_paths(), timeout=_TIMEOUT)
+    assert pane.metadata_for(str(path)).axes == "TCYX"
+    assert pane.layout_row.isVisible()
+    assert pane.axes_choice.currentText() == "Time 6 · Channels 2"
+
+    pane.axes_choice.activated.emit(pane.axes_choice.findData("CTYX"))
+    qtbot.waitUntil(
+        lambda: str(path) in pane.source_paths() and pane.metadata_for(str(path)).axes == "CTYX",
+        timeout=_TIMEOUT,
+    )
+    assert pane.metadata_for(str(path)).frame_count == 2
+    assert window.document.undo(window._mutations)
+    qtbot.waitUntil(
+        lambda: str(path) in pane.source_paths() and pane.metadata_for(str(path)).axes == "TCYX",
+        timeout=_TIMEOUT,
+    )
+    assert pane.source_config(str(path))[1]["fps"] == 10.0, "other choices are kept"

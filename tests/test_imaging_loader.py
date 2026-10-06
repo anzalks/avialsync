@@ -34,21 +34,23 @@ def test_hdf5_reads_only_selected_plane_and_explicit_times(tmp_path):
     reader.close()
 
 
-def test_hdf5_asks_for_axes_then_reads_each_channel(tmp_path):
-    """A channel dimension is never silently read as time or space."""
+def test_hdf5_opens_with_a_default_reading_and_offers_the_others(tmp_path):
+    """Untagged dimensions open at once (D-194); the pane offers the other orders."""
     path = tmp_path / "stack.hdf5"
     stack = np.arange(3 * 2 * 4 * 5, dtype=np.uint16).reshape(3, 2, 4, 5)
     with h5py.File(path, "w") as handle:
         handle.create_dataset("images", data=stack)
     reader = HDF5ImagingLoader()
-    with pytest.raises(ImagingChoiceRequired) as asked:
-        reader.open(path, {"dataset": "images", "fps": 10})
-    assert asked.value.choice == "axes"
-    info = reader.open(path, {"axes": "TCYX", "fps": 10})
+    info = reader.open(path, {"dataset": "images", "fps": 10})
+    assert info.axes == "TCYX", "the largest leading dimension is time, a small one channels"
+    assert info.shape == (3, 2, 4, 5)
     assert info.channel_count == 2
     assert info.frame_times.tolist() == [0.0, 0.1, 0.2]
     np.testing.assert_array_equal(reader.read_frame(1, 0), stack[1, 0])
     np.testing.assert_array_equal(reader.read_frame(1, 1), stack[1, 1])
+    info = reader.open(path, {"axes": "CTYX", "fps": 10})
+    assert (info.frame_count, info.channel_count) == (2, 3)
+    np.testing.assert_array_equal(reader.read_frame(1, 2), stack[2, 1])
     reader.close()
 
 
@@ -64,16 +66,15 @@ def test_hdf5_lists_datasets_when_more_than_one_could_be_the_stack(tmp_path):
     assert set(asked.value.options) == {"raw", "registered"}
 
 
-def test_hdf5_asks_for_a_depth_plane_and_reads_only_that_plane(tmp_path):
+def test_hdf5_shows_the_first_depth_plane_until_another_is_picked(tmp_path):
     path = tmp_path / "volume.h5"
     stack = np.arange(3 * 4 * 2 * 6 * 7, dtype=np.uint16).reshape(3, 4, 2, 6, 7)
     with h5py.File(path, "w") as handle:
         handle.create_dataset("images", data=stack).attrs["axes"] = "TZCYX"
     reader = HDF5ImagingLoader()
-    with pytest.raises(ImagingChoiceRequired) as asked:
-        reader.open(path, {"fps": 2})
-    assert asked.value.choice == "z"
-    assert asked.value.options == ("0", "1", "2", "3")
+    info = reader.open(path, {"fps": 2})
+    assert info.depth_planes == 4
+    np.testing.assert_array_equal(reader.read_frame(1, 1), stack[1, 0, 1])
     reader.open(path, {"fps": 2, "z": 2})
     np.testing.assert_array_equal(reader.read_frame(1, 1), stack[1, 2, 1])
     reader.close()
@@ -189,3 +190,20 @@ def test_registry_routes_hdf5_and_tiff_to_imaging_sources(tmp_path):
     registry = LoaderRegistry(plugin_dirs=[])
     assert registry.find_best_loader(tmp_path / "stack.h5") is HDF5ImagingLoader
     assert registry.find_best_loader(tmp_path / "stack.tif") is TIFFImagingLoader
+
+
+def test_an_imagej_slice_stack_opens_as_a_movie(tmp_path):
+    """ImageJ tags plain slices Z; a 3D stack has one valid reading, time first."""
+    path = tmp_path / "slices.tif"
+    stack = np.stack([np.full((6, 8), index, np.uint16) for index in range(5)])
+    tifffile.imwrite(path, stack, imagej=True, metadata={"axes": "ZYX", "fps": 60.0})
+    reader = TIFFImagingLoader()
+    with pytest.raises(ImagingChoiceRequired) as asked:
+        reader.open(path, {})
+    assert asked.value.choice == "fps", "ImageJ's fps is playback speed, not acquisition timing"
+    info = reader.open(path, {"fps": 10.0})
+    assert info.axes == "TYX"
+    assert info.frame_count == 5
+    assert info.frame_times[1] == pytest.approx(0.1)
+    assert reader.read_frame(3)[0, 0] == 3
+    reader.close()

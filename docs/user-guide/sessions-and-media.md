@@ -93,8 +93,13 @@ whatever the session declared.
 Open an `.h5`, `.hdf5`, `.tif` or `.tiff` stack with **Open 2P Imaging…** on the Sources page or
 in the File menu, or drop it on the window. The imaging pane appears below the 3D view (or alone
 in that column) and shows the frame whose acquisition interval contains the playhead, exactly as
-a video pane does. If the file leaves something open — which dataset, the axis order, which depth
-plane, or the frame rate — AvialSync asks once and saves your answer with the session.
+a video pane does. The stack opens straight away with a reading of its dimensions: the file's own
+axis labels when they make sense, otherwise the largest dimension as time and a small one (up to
+four) as channels, showing the first depth plane. When another reading is possible, **Axes** lists
+each one by what it would mean — for example *Time 2000 · Channels 2* — and **Plane** picks the
+depth plane; both are undoable and saved with the session. Only what cannot be read off the file
+is asked: which dataset, when it holds several, and the frame rate, when it records none
+(ImageJ's *fps* tag is a playback speed, not the acquisition rate).
 
 - **Ch 1, Ch 2, …** show or hide each channel. Visible channels are added together in the colour
   named beside each (green and magenta by default for two), so signal present in both appears

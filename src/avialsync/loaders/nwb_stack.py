@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 
-from avialsync.core.errors import ImagingChoiceRequired, SourceOpenError
+from avialsync.core.errors import SourceOpenError
 from avialsync.core.source import ImagingMetadata, ImagingSource
 from avialsync.loaders import nwb_format, nwb_read
 from avialsync.loaders.nwb_format import SeriesInfo
@@ -70,6 +70,7 @@ class NWBStackSource(ImagingSource):
                 timing_source="NWB timestamps" if info.has_timestamps else "NWB frame rate",
                 dataset=series,
                 channel_count=channels,
+                depth_planes=info.frame_shape[2] if self._depth is not None else 1,
             )
         except BaseException:
             self.close()
@@ -104,20 +105,12 @@ class NWBStackSource(ImagingSource):
 
 
 def _depth(info: SeriesInfo, config: dict[str, Any]) -> int | None:
-    """Return the depth plane to show from a volumetric series, asking when unsettled."""
+    """Return the depth plane to show from a volumetric series."""
     if len(info.frame_shape) != 3 or info.neurodata_type not in _VOLUME_TYPES:
         return None
     planes = info.frame_shape[2]
-    chosen = config.get("z")
-    if chosen is None and planes == 1:
-        return 0
-    if chosen is None:
-        raise ImagingChoiceRequired(
-            "z",
-            f"{info.name} has {planes} depth planes. Choose one to show.",
-            tuple(str(index) for index in range(planes)),
-        )
-    depth = int(chosen)
+    # The first plane until the user picks another in the pane (D-194).
+    depth = int(config.get("z") or 0)
     if not 0 <= depth < planes:
         raise SourceOpenError(f"{info.name} has no depth plane {depth}.")
     return depth

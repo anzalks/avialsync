@@ -195,6 +195,9 @@ class MutationTarget(Protocol):
     def set_ladder_layout(self, name: str, layout: LadderLayout) -> None:
         """Change one ladder's support and rung pattern, keeping every click."""
 
+    def set_imaging_layout(self, source_id: str, layout: dict[str, Any]) -> None:
+        """Reopen an imaging stack with *layout*'s ``axes`` and ``z`` import choices."""
+
     def set_imaging_view(self, source_id: str, view: dict[str, Any]) -> None:
         """Show an imaging stack with *view*: channels, levels and averaging.
 

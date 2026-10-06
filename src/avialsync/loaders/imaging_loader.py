@@ -19,6 +19,7 @@ import numpy as np
 import tifffile
 
 from avialsync.core.errors import ImagingChoiceRequired, SourceOpenError
+from avialsync.core.imaging_axes import default_axes, valid_axes
 from avialsync.core.source import ImagingMetadata, ImagingSource
 
 #: Axis letters a stack may carry. T, Y and X are required.
@@ -85,21 +86,25 @@ def _validate_axes(shape: tuple[int, ...], axes: str) -> None:
         raise ImagingChoiceRequired("axes", "Imaging axes must include T, Y, X and may add C or Z.")
 
 
+def _axes_for(shape: tuple[int, ...], config: dict[str, Any], tagged: str) -> str:
+    """The configured axis order, else the file's valid tag, else an inferred one (D-194)."""
+    chosen = _text(config.get("axes") or "").upper()
+    if chosen:
+        if not valid_axes(shape, chosen):
+            raise SourceOpenError(f"Imaging axes {chosen!r} do not fit a stack of shape {shape}.")
+        return chosen
+    axes = default_axes(shape, tagged)
+    if not axes:
+        raise SourceOpenError(f"An imaging stack of shape {shape} has no time axis to show.")
+    return axes
+
+
 def _depth(shape: tuple[int, ...], axes: str, config: dict[str, Any]) -> int:
-    """Return the chosen Z plane, asking when the stack has more than one."""
+    """Return the chosen Z plane; the first until the user picks another (D-194)."""
     if "Z" not in axes:
         return 0
     planes = shape[axes.index("Z")]
-    chosen = config.get("z")
-    if chosen is None and planes == 1:
-        return 0
-    if chosen is None:
-        raise ImagingChoiceRequired(
-            "z",
-            f"This stack has {planes} depth planes. Choose one to show.",
-            tuple(str(index) for index in range(planes)),
-        )
-    number = int(chosen)
+    number = int(config.get("z") or 0)
     if not 0 <= number < planes:
         raise SourceOpenError(
             f"Imaging depth plane {number} is outside the stack (0-{planes - 1})."
@@ -209,11 +214,8 @@ class HDF5ImagingLoader(ImagingSource):
             handle = h5py.File(path, "r")
             self._file = handle
             dataset, chosen = self._dataset_for(handle, config)
-            axes = _text(config.get("axes", dataset.attrs.get("axes", ""))).upper()
-            if not axes and dataset.ndim == 3:
-                axes = "TYX"
             shape = tuple(int(length) for length in dataset.shape)
-            _validate_axes(shape, axes)
+            axes = _axes_for(shape, config, _text(dataset.attrs.get("axes", "")))
             count, height, width, channels = _shape_info(shape, axes)
             selection: list[Any] = [slice(None)] * len(shape)
             if "Z" in axes:
@@ -226,7 +228,17 @@ class HDF5ImagingLoader(ImagingSource):
             times, origin = _times(count, config, attrs)
             self._dataset, self._selection, self._axes = dataset, selection, axes
             return ImagingMetadata(
-                count, height, width, str(dataset.dtype), times, origin, chosen, channels
+                count,
+                height,
+                width,
+                str(dataset.dtype),
+                times,
+                origin,
+                chosen,
+                channels,
+                shape=shape,
+                axes=axes,
+                depth_planes=shape[axes.index("Z")] if "Z" in axes else 1,
             )
         except SourceOpenError:
             self.close()
@@ -338,13 +350,18 @@ class TIFFImagingLoader(ImagingSource):
             axes = str(series.axes).upper()
             shape = tuple(int(size) for size in series.shape)
             attrs: dict[str, Any] = {}
-            if handle.is_scanimage and axes in {"IYX", "QYX", "TYX"}:
+            if config.get("axes"):
+                axes = _axes_for(shape, config, axes)
+            elif handle.is_scanimage and axes in {"IYX", "QYX", "TYX"}:
                 axes, page_shape, rate = _scanimage_layout(handle, len(series.pages))
                 shape = page_shape + shape[-2:]
                 if rate > 0:
                     attrs["fps"] = rate
             else:
-                axes = "TYX" if axes in {"QYX", "IYX"} else axes
+                # ImageJ tags plain slices Z and unknown axes Q or I whether they
+                # were time or depth; a valid tag is kept, anything else gets the
+                # inferred default and the pane offers the alternatives (D-194).
+                axes = _axes_for(shape, config, axes)
             if not axes.endswith("YX"):
                 raise SourceOpenError(f"TIFF axes {axes!r} do not expose 2D grayscale pages.")
             _validate_axes(shape, axes)
@@ -359,7 +376,17 @@ class TIFFImagingLoader(ImagingSource):
             self._series, self._frame_count, self._channel_count = series, count, channels
             self._page_shape, self._page_axes, self._depth = page_shape, axes[:-2], depth
             return ImagingMetadata(
-                count, height, width, str(series.dtype), times, origin, "", channels
+                count,
+                height,
+                width,
+                str(series.dtype),
+                times,
+                origin,
+                "",
+                channels,
+                shape=shape,
+                axes=axes,
+                depth_planes=shape[axes.index("Z")] if "Z" in axes else 1,
             )
         except SourceOpenError:
             self.close()

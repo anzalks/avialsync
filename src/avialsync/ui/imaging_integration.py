@@ -9,7 +9,11 @@ from typing import TYPE_CHECKING, Any
 from PySide6.QtCore import QEvent, QObject, Qt, QThread
 from PySide6.QtWidgets import QFileDialog, QInputDialog
 
-from avialsync.core.commands import RemoveSourceCommand, SetImagingViewCommand
+from avialsync.core.commands import (
+    RemoveSourceCommand,
+    SetImagingLayoutCommand,
+    SetImagingViewCommand,
+)
 from avialsync.core.errors import SourceOpenError
 from avialsync.core.imaging_display import ImagingView
 from avialsync.core.source import ImagingMetadata, ImagingSource, source_exists
@@ -57,6 +61,7 @@ def install(
     pane.view_changed.connect(
         lambda path, before, after, aspect: record_view(window, path, before, after, aspect)
     )
+    pane.layout_requested.connect(lambda path, layout: request_layout(window, path, layout))
     pane.error.connect(
         lambda message: window.report_failure(
             SourceOpenError(message), doing=tr("Reading imaging frame")
@@ -120,6 +125,49 @@ def record_view(
 def apply_view(window: MainWindow, path: str, view: dict[str, Any]) -> None:
     """Show *path* with a stored view, for undo and redo."""
     window.imaging_pane.set_view(path, ImagingView.from_dict(view))
+
+
+#: Import choices the pane's axis and plane controls change (D-194).
+_LAYOUT_KEYS = ("axes", "z")
+
+
+def request_layout(window: MainWindow, path: str, layout: dict[str, Any]) -> None:
+    """Reopen *path* with the axis order or plane the user picked, and log it (rule 14)."""
+    if path not in window.imaging_pane.source_paths():
+        return
+    _loader, config, _mapping = window.imaging_pane.source_config(path)
+    before = {key: config.get(key) for key in _LAYOUT_KEYS}
+    after = {**before, **{key: layout[key] for key in _LAYOUT_KEYS if key in layout}}
+    if before == after:
+        return
+    apply_layout(window, path, after)
+    window._record(SetImagingLayoutCommand(path, before, after, display_name=Path(path).name))
+
+
+def apply_layout(window: MainWindow, path: str, layout: dict[str, Any]) -> None:
+    """Reopen *path* with *layout*'s choices, keeping its time mapping.
+
+    The display starts afresh: levels measured on one arrangement of the
+    dimensions say nothing about another, and the channel count may change.
+    """
+    pane = window.imaging_pane
+    if path not in pane.source_paths():
+        return
+    loader, config, mapping = pane.source_config(path)
+    average = pane.view_for(path).average
+    config = {key: value for key, value in config.items() if key not in _LAYOUT_KEYS}
+    config.update({key: value for key, value in layout.items() if value is not None})
+    pane.remove_source(path)
+    load_imaging(
+        window,
+        Path(path),
+        loader,
+        config,
+        offset=mapping.offset,
+        drift_ms_per_hour=mapping.drift_ms_per_hour,
+        view=ImagingView(average=average),
+        reloading=True,
+    )
 
 
 def restore_geometry(window: MainWindow, settings: QSettings) -> None:
@@ -280,8 +328,13 @@ def load_imaging(
     drift_ms_per_hour: float = 0.0,
     view: ImagingView | None = None,
     restoring: bool = False,
+    reloading: bool = False,
 ) -> None:
-    """Probe asynchronously, then register a lazy reader in the lower pane."""
+    """Probe asynchronously, then register a lazy reader in the lower pane.
+
+    *reloading* reopens a stack already in the session with other import
+    choices: the command that asked for it is the undo step, not a new source.
+    """
     chosen = dict(config or {})
     source_id = str(path)
     if source_id in window.imaging_pending:
@@ -310,7 +363,8 @@ def load_imaging(
         window._recorded_mappings[source_id] = (offset, drift_ms_per_hour)
         _reveal(window)
         _show_coverage(window, source_id, metadata, TimeMap(offset, drift_ms_per_hour))
-        window._note_source_loaded(source_id, "imaging")
+        if not reloading:
+            window._note_source_loaded(source_id, "imaging")
         window._refresh_empty_state()
         window.imaging_pane.set_cursor(window.clock.state.t)
 
@@ -332,6 +386,7 @@ def load_imaging(
             offset=offset,
             drift_ms_per_hour=drift_ms_per_hour,
             view=view,
+            reloading=reloading,
         )
 
     def failed(message: str) -> None:

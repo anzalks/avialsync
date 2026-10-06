@@ -323,6 +323,10 @@ class WindowMutationTarget:
         with self.replaying():
             imaging_integration.apply_view(self._window, source_id, view)
 
+    def set_imaging_layout(self, source_id: str, layout: dict[str, Any]) -> None:
+        with self.replaying():
+            imaging_integration.apply_layout(self._window, source_id, layout)
+
     # ── sources ──────────────────────────────────────────────────────
 
     def add_source(self, record: SourceRecord) -> None:

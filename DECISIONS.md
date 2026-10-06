@@ -6184,3 +6184,24 @@ which leaves nothing to tile. *Making up per-cell movies from the trace and the 
 look like imaging; the trace on the mask is labelled as a map of the trace. *Building plot rows
 in larger slices*: the paint cost still grows with every row.
 
+---
+
+## 2026-10 · D-194 · An imaging stack opens with a default reading; the pane corrects it
+
+**Amends D-190.** A stack no longer asks for its axis order or depth plane before it opens. The
+loaders use the configured order, else the file's tag when it forms a valid order (T present,
+YX last, leading axes from T/C/Z), else `core/imaging_axes.default_axes`: the largest leading
+dimension is time, one of at most four is channels, the rest depth. The first depth plane is shown
+until another is picked. `ImagingMetadata` carries the stored `shape`, the `axes` used and
+`depth_planes`, and the imaging pane offers every other valid order in an **Axes** list named by
+meaning and size ("Time 2000 · Channels 2") and a **Plane** box, shown only when there is a choice.
+A pick is a `SetImagingLayoutCommand` that reopens the stack with the new `axes`/`z` import choices
+(kept in the session), its time mapping intact and its levels re-measured; undo reopens it as
+before. The reopen is not a new source and records no `AddSourceCommand`.
+
+Users who could not say what "TCYX" meant were stuck at the question with no data on screen; the
+data itself is the best help in choosing. A wrong default is visible at once (frames that are
+channels flicker, a channel axis shows a few frames), unlike a wrong frame rate, which is still
+asked: it shifts every event with nothing looking wrong. ImageJ's `fps` tag is not read as the
+acquisition rate; it is the playback speed the file was saved with.
+

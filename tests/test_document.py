@@ -60,6 +60,7 @@ class FakeTarget:
         self.props = PropStore()
         self.sources: dict[str, SourceRecord] = {}
         self.imaging_views: dict[str, dict[str, Any]] = {}
+        self.imaging_layouts: dict[str, dict[str, Any]] = {}
         self.sync_evidence: dict[str, Any] = {}
         self.cleared = 0
         self.captures = 0
@@ -155,6 +156,9 @@ class FakeTarget:
 
     def set_imaging_view(self, source_id: str, view: dict[str, Any]) -> None:
         self.imaging_views[source_id] = view
+
+    def set_imaging_layout(self, source_id: str, layout: dict[str, Any]) -> None:
+        self.imaging_layouts[source_id] = layout
 
     def add_source(self, record: SourceRecord) -> None:
         self.sources[record.source_id] = record

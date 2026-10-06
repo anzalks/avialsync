@@ -24,10 +24,12 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QSizePolicy,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
+from avialsync.core.imaging_axes import axis_choices, describe_axes
 from avialsync.core.imaging_display import ImagingView
 from avialsync.core.session import ImagingEntry
 from avialsync.core.source import ImagingMetadata, ImagingSource
@@ -68,6 +70,8 @@ class ImagingPane(QWidget):
     mapping_changed = Signal(str, float, float)
     #: ``(path, before, after, aspect)`` as view dicts, after a display edit.
     view_changed = Signal(str, object, object, str)
+    #: ``(path, {"axes": ..., "z": ...})`` when the user picks another reading.
+    layout_requested = Signal(str, object)
     decode_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -136,6 +140,9 @@ class ImagingPane(QWidget):
         mapping_row.setSpacing(6)
         self._build_mapping_row(mapping_row)
         layout.addLayout(mapping_row)
+        self.layout_row = QWidget(self)
+        self._build_layout_row(self.layout_row)
+        layout.addWidget(self.layout_row)
 
     def _build_mapping_row(self, row: QHBoxLayout) -> None:
         """Offset and drift for the shown stack, on their own row."""
@@ -163,6 +170,74 @@ class ImagingPane(QWidget):
         row.addStretch(1)
         self.offset_spin.valueChanged.connect(self._mapping_edited)
         self.drift_spin.valueChanged.connect(self._mapping_edited)
+
+    def _build_layout_row(self, row_widget: QWidget) -> None:
+        """Which dimension is time, channel or depth, and which plane: shown when it can vary.
+
+        A stack opens with a default reading so the data is visible at once
+        (D-194); these are where that reading is corrected. Each order is named
+        by what its dimensions would be and their sizes, not by axis letters.
+        """
+        row = QHBoxLayout(row_widget)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(6)
+        self._axes_label = QLabel(tr("Axes"), row_widget)
+        row.addWidget(self._axes_label)
+        self.axes_choice = QComboBox(row_widget)
+        self.axes_choice.setAccessibleName(tr("Imaging axis order"))
+        self.axes_choice.setAccessibleDescription(
+            tr("Choose which dimension of the stack is time, channels or depth")
+        )
+        self.axes_choice.setToolTip(
+            tr("The stack opened with this reading of its dimensions; pick another if it is wrong")
+        )
+        self.axes_choice.activated.connect(self._axes_picked)
+        row.addWidget(self.axes_choice, 1)
+        self._plane_label = QLabel(tr("Plane"), row_widget)
+        row.addWidget(self._plane_label)
+        self.plane_spin = QSpinBox(row_widget)
+        self.plane_spin.setAccessibleName(tr("Imaging depth plane"))
+        self.plane_spin.setAccessibleDescription(tr("Depth plane of the stack to show"))
+        self.plane_spin.setKeyboardTracking(False)
+        self.plane_spin.valueChanged.connect(self._plane_picked)
+        row.addWidget(self.plane_spin)
+        row_widget.setVisible(False)
+
+    def _show_layout(self, stack: _Stack) -> None:
+        """Offer the other readings of *stack*'s dimensions, if it has any."""
+        info = stack.info
+        choices = axis_choices(info.shape) if info.axes else []
+        blocked = self.axes_choice.blockSignals(True)
+        self.axes_choice.clear()
+        for axes in choices:
+            self.axes_choice.addItem(describe_axes(info.shape, axes), axes)
+        self.axes_choice.setCurrentIndex(max(self.axes_choice.findData(info.axes), 0))
+        self.axes_choice.blockSignals(blocked)
+        many_orders = len(choices) > 1
+        self._axes_label.setVisible(many_orders)
+        self.axes_choice.setVisible(many_orders)
+        planes = info.depth_planes > 1
+        blocked = self.plane_spin.blockSignals(True)
+        self.plane_spin.setRange(0, max(info.depth_planes - 1, 0))
+        self.plane_spin.setValue(int(stack.config.get("z") or 0))
+        self.plane_spin.blockSignals(blocked)
+        self._plane_label.setVisible(planes)
+        self.plane_spin.setVisible(planes)
+        self.layout_row.setVisible(many_orders or planes)
+
+    @Slot(int)
+    def _axes_picked(self, index: int) -> None:
+        path = self.source_choice.currentData()
+        axes = self.axes_choice.itemData(index)
+        if path in self._sources and axes and axes != self._sources[path].info.axes:
+            # A new order can drop the depth axis or change its size.
+            self.layout_requested.emit(path, {"axes": axes, "z": None})
+
+    @Slot(int)
+    def _plane_picked(self, plane: int) -> None:
+        path = self.source_choice.currentData()
+        if path in self._sources:
+            self.layout_requested.emit(path, {"z": plane})
 
     # ── registered stacks ────────────────────────────────────────────
 
@@ -235,6 +310,7 @@ class ImagingPane(QWidget):
         self.controls.set_view(ImagingView())
         self._show_message(tr("No imaging source"))
         self.status_label.clear()
+        self.layout_row.setVisible(False)
 
     def shutdown(self) -> None:
         """Stop the reader before Qt destroys the pane."""
@@ -354,6 +430,7 @@ class ImagingPane(QWidget):
         self.frame_label.reset_view()
         self._show_message(tr("Loading imaging frame…"))
         self._show_mapping(stack.mapping)
+        self._show_layout(stack)
         self.controls.set_view(stack.view)
         worker = ImagingReadWorker(Path(path), stack.loader, stack.config, stack.info.frame_count)
         thread = QThread(self)

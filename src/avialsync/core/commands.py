@@ -128,6 +128,32 @@ class SetImagingViewCommand:
 
 
 @dataclasses.dataclass
+class SetImagingLayoutCommand:
+    """Read an imaging stack with another axis order or depth plane (D-194).
+
+    *before* and *after* hold the ``axes`` and ``z`` import choices. A stack
+    opens with a default order so it is visible at once; this is how the user
+    corrects it, and how that correction is undone.
+    """
+
+    source_id: str
+    before: dict[str, Any]
+    after: dict[str, Any]
+    display_name: str = ""
+    command_id: str = "imaging.layout"
+
+    @property
+    def label(self) -> str:
+        return f"Change axes for {self.display_name or self.source_id}"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_imaging_layout(self.source_id, self.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_imaging_layout(self.source_id, self.before)
+
+
+@dataclasses.dataclass
 class AddMarkerCommand:
     """Add an annotation marker."""
 
