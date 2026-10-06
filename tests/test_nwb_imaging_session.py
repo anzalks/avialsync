@@ -26,6 +26,7 @@ from tests.nwb_fixture import (  # noqa: E402
     _imaging_frames,
     write_nwb,
     write_nwb1,
+    write_zarr_nwb,
 )
 
 
@@ -246,23 +247,36 @@ def test_a_zone_less_start_time_is_reported(tmp_path: Path) -> None:
     assert any("time zone" in warning for warning in layout.warnings)
 
 
-def test_an_unreadable_file_is_claimed_and_explained(tmp_path: Path) -> None:
+def test_nwb1_session_includes_signal_and_imaging(tmp_path: Path) -> None:
     layout = NWBSessionSource().scan(write_nwb1(tmp_path / "old.nwb"), LoaderRegistry())
 
-    assert layout.items == []
-    assert "NWB 1" in layout.warnings[0]
+    assert len(layout.items) == 2
+    assert layout.anchor_epoch == SESSION_EPOCH
+    assert layout.items[1].path.name == "camera"
 
 
 def test_session_claims_nwb_files_and_zarr_folders_only(tmp_path: Path) -> None:
     path = write_nwb(tmp_path / "s.nwb")
-    zarr = tmp_path / "z.nwb.zarr"
-    zarr.mkdir()
-    (zarr / ".zgroup").write_text("{}", encoding="utf-8")
+    zarr = write_zarr_nwb(tmp_path / "z.nwb.zarr")
 
     assert NWBSessionSource.can_open(path) > 0
     assert NWBSessionSource.can_open(zarr) > 0
     assert NWBSessionSource.can_open(tmp_path) == 0.0
-    assert "Zarr" in NWBSessionSource().scan(zarr, LoaderRegistry()).warnings[0]
+    assert len(NWBSessionSource().scan(zarr, LoaderRegistry()).items) == 2
+
+
+def test_zarr_and_nwb1_imaging_proxies_keep_exact_frames(tmp_path: Path) -> None:
+    for path in (
+        write_zarr_nwb(tmp_path / "z.nwb.zarr"),
+        write_nwb1(tmp_path / "old.nwb"),
+    ):
+        source = _prepared(path)
+        frames = _decode(source.media_path(), "gray16le")
+        assert len(frames) == 3
+        assert all(
+            np.array_equal(actual, expected)
+            for actual, expected in zip(frames, _imaging_frames("uint16")[:3], strict=True)
+        )
 
 
 # ── Resolution and intake ─────────────────────────────────────────────────

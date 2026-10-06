@@ -1064,7 +1064,7 @@ class MainWindow(QMainWindow):
             show_text(self, presented.title, presented.details, lead=message)
 
     def _refresh_jobs_panel(self) -> None:
-        running = [(job.label, job.state.value, job.elapsed) for job in self._job_manager.jobs()]
+        running = [job.panel_row() for job in self._job_manager.jobs()]
         self.jobs_panel.refresh(running)
 
     def _on_jobs_changed(self) -> None:
@@ -3896,6 +3896,11 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(self, "Open Sensor/Ephys Data")
         if path:
             self.open_path(Path(path))
+
+    def _open_dandi(self) -> None:
+        from avialsync.ui.dandi_open import open_dandi
+
+        open_dandi(self)
 
     def _start_data_import(
         self,

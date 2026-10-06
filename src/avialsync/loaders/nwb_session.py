@@ -26,6 +26,7 @@ from avialsync.core.source import SessionItem, SessionLayout, SessionSource, Vid
 from avialsync.loaders import nwb_format
 from avialsync.loaders.nwb_imaging import NWBImagingSource, default_imaging, proxy_origin
 from avialsync.loaders.nwb_loader import NWBLoader
+from avialsync.loaders.nwb_storage import remote_url, source_label
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,7 @@ class NWBSessionSource(SessionSource):
             return SessionLayout(warnings=[str(error)])
 
         epoch = contents.reference_epoch
+        label = source_label(path)
         warnings: list[str] = []
         items: list[SessionItem] = []
 
@@ -66,6 +68,7 @@ class NWBSessionSource(SessionSource):
                     path=path,
                     loader=NWBLoader,
                     kind=NWBLoader.display_name(),
+                    label=label,
                     source_epoch=epoch,
                 )
             )
@@ -75,16 +78,16 @@ class NWBSessionSource(SessionSource):
 
         if contents.reference_is_naive:
             warnings.append(
-                f"{path.name} records its start time without a time zone; it is read as UTC."
+                f"{label} records its start time without a time zone; it is read as UTC."
             )
         if contents.declined:
             listed = list(contents.declined[:_MAX_LISTED])
             more = len(contents.declined) - len(listed)
             warnings.extend(listed)
             if more:
-                warnings.append(f"…and {more} more objects in {path.name} that cannot be shown.")
+                warnings.append(f"…and {more} more objects in {label} that cannot be shown.")
         if not items:
-            warnings.append(f"{path.name} holds nothing AvialSync can show.")
+            warnings.append(f"{label} holds nothing AvialSync can show.")
 
         logger.info(
             "NWB session %s (NWB %s): %d items, %d warnings",
@@ -131,7 +134,7 @@ class NWBSessionSource(SessionSource):
                     path=nwb_format.object_path(path, info.path),
                     loader=NWBImagingSource,
                     config=config,
-                    label=f"{info.name} — imaging in {path.name}",
+                    label=f"{info.name} — imaging in {source_label(path)}",
                     kind=NWBImagingSource.display_name(),
                     source_epoch=epoch,
                 )
@@ -154,6 +157,9 @@ class NWBSessionSource(SessionSource):
         """
         items: list[SessionItem] = []
         for info in contents.of_kind("external"):
+            if remote_url(path) is not None:
+                warnings.append(f"{info.path} names an external video; open it locally to view it.")
+                continue
             target = (path.parent / info.external_files[0]).resolve()
             if len(info.external_files) > 1:
                 warnings.append(

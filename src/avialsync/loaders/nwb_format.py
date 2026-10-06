@@ -1,4 +1,4 @@
-"""What an NWB 2.x file holds, and how to read it, with h5py alone (D-188).
+"""What an NWB file holds, independent of its HDF5 or Zarr storage (D-188).
 
 Neurodata Without Borders stores one session per file: one subject, one
 ``session_start_time``, one clock, and every recording made in that session --
@@ -16,17 +16,10 @@ cached inside the file when it names an extension -- only refines *how* a
 recognised series is read: an ``ElectricalSeries`` names its columns after its
 electrodes, an ``ImageSeries`` is pictures, an ``IntervalSeries`` is on/off.
 
-**Why not pynwb.** Its HDF5 data layer is h5py, so it reads samples no faster,
-and it refuses files whose cached specification conflicts with the installed
-schema -- including real DANDI files -- unless namespaces are not loaded, which
-is the very feature it would have been here for. It also builds the whole object
-tree before returning anything and pulls pandas in with it. The structural
-reading above keeps extension types working without either cost.
-
-What is not read, and said so rather than skipped silently: NWB 1.x files (a
-different schema, which pynwb does not read either), Zarr-backed NWB (h5py cannot
-open it), and series whose data has no time-series shape this application can
-show (``SpikeEventSeries`` waveforms, ``DecompositionSeries`` bands).
+PyNWB-compatible HDF5 and Zarr layouts share the series structure read here.
+NWB 1.x uses the same data/time arrays under ``acquisition/timeseries`` and a
+different version/epoch location; those differences are handled explicitly.
+Unknown objects are reported rather than silently skipped.
 
 No PySide6 import here: this runs on import and scan threads.
 """
@@ -46,6 +39,15 @@ import numpy as np
 
 from avialsync.core.errors import FileUnreadableError, SourceOpenError
 from avialsync.core.source import container_of
+from avialsync.loaders.nwb_storage import (
+    LINK_SUFFIX,
+    is_dataset,
+    is_group,
+    is_remote_zarr,
+    open_remote,
+    open_zarr,
+    remote_url,
+)
 from avialsync.loaders.nwb_text import text
 from avialsync.loaders.nwb_types import is_a, type_ancestry
 
@@ -169,11 +171,11 @@ class FileContents:
 
 def is_nwb_path(path: Path) -> bool:
     """Whether *path* is named like an NWB file. Cheap: no I/O beyond a stat."""
-    return path.suffix.lower() == NWB_SUFFIX and path.is_file()
+    return path.is_file() and (path.suffix.lower() == NWB_SUFFIX or path.name.endswith(LINK_SUFFIX))
 
 
 def is_zarr_nwb(path: Path) -> bool:
-    """Whether *path* is an NWB file stored as Zarr, which h5py cannot open."""
+    """Whether *path* is an NWB file stored as local Zarr."""
     if not path.is_dir():
         return False
     name = path.name.lower()
@@ -194,40 +196,59 @@ def object_path(file: Path, object_name: str) -> Path:
 def split_object_path(path: Path) -> tuple[Path, str] | None:
     """Return ``(nwb_file, "/object/path")`` for a path made by :func:`object_path`."""
     container = container_of(path)
-    if container is None or container.suffix.lower() != NWB_SUFFIX:
+    if container is None or not (is_nwb_path(container) or is_zarr_nwb(container)):
         return None
     return container, "/" + path.relative_to(container).as_posix()
 
 
-def open_file(path: Path) -> h5py.File:
+def open_file(path: Path) -> Any:
     """Open *path* read-only, raising a typed error that says what it is.
 
     ``locking=False`` because nothing here writes, and HDF5's advisory lock is
     refused on some network shares and read-only media -- where a recording
     that can perfectly well be read would otherwise fail to open.
     """
-    if path.is_dir():
-        if is_zarr_nwb(path):
-            raise NWBFormatError(
-                f"{path.name} is NWB stored as Zarr, which AvialSync does not read yet. "
-                "Convert it to HDF5 NWB (for example with NWB Inspector's or hdmf-zarr's export)."
-            )
+    handle: Any
+    if is_zarr_nwb(path):
+        handle = open_zarr(path)
+    elif path.name.endswith(LINK_SUFFIX):
+        url = remote_url(path)
+        assert url is not None
+        handle = open_zarr(url) if is_remote_zarr(url) else open_remote(path)
+    elif path.is_dir():
         raise FileUnreadableError(f"{path.name} is a folder, not an NWB file.")
+    else:
+        try:
+            handle = h5py.File(path, "r", locking=False)
+        except (OSError, ValueError) as error:
+            raise FileUnreadableError(
+                f"{path.name} could not be opened as HDF5 ({error})."
+            ) from error
+    opened = handle.root if hasattr(handle, "root") else handle
     try:
-        handle = h5py.File(path, "r", locking=False)
-    except (OSError, ValueError) as error:
-        raise FileUnreadableError(f"{path.name} could not be opened as HDF5 ({error}).") from error
-    version = text(handle.attrs.get("nwb_version", ""))
-    if version.upper().startswith("NWB-1") or (not version and "acquisition/timeseries" in handle):
-        handle.close()
-        raise NWBFormatError(
-            f"{path.name} is NWB 1.x ({version or 'no version attribute'}), whose layout "
-            "predates NWB 2. Convert it to NWB 2 to open it."
+        version = _version(opened)
+        valid = bool(
+            version or "acquisition/timeseries" in opened or "session_start_time" in opened
         )
-    if not version and "session_start_time" not in handle:
-        handle.close()
-        raise NWBFormatError(f"{path.name} is HDF5 but not NWB: it has no nwb_version.")
+        if not valid:
+            raise NWBFormatError(f"{path.name} is HDF5 but not NWB: it has no nwb_version.")
+    except BaseException:
+        close = getattr(handle, "close", None)
+        if callable(close):
+            close()
+        raise
     return handle
+
+
+def _version(handle: Any) -> str:
+    version = text(handle.attrs.get("nwb_version", ""))
+    if version:
+        return version
+    for key in ("nwb_version", "general/nwb_version"):
+        value = handle.get(key)
+        if is_dataset(value):
+            return text(value[()])
+    return ""
 
 
 def scan(path: Path) -> FileContents:
@@ -236,7 +257,7 @@ def scan(path: Path) -> FileContents:
         return _scan_open(handle)
 
 
-def _scan_open(handle: h5py.File) -> FileContents:
+def _scan_open(handle: Any) -> FileContents:
     ancestry = type_ancestry(handle)
     declined: list[str] = []
     series: list[SeriesInfo] = []
@@ -248,12 +269,12 @@ def _scan_open(handle: h5py.File) -> FileContents:
         root = handle.get(section)
         if root is None:
             continue
-        if isinstance(root, h5py.Group) and _is_units(root):
+        if is_group(root) and _is_units(root):
             table = _units_table(root, "units", names)
             if table is not None:
                 units.append(table)
             continue
-        if not isinstance(root, h5py.Group):
+        if not is_group(root):
             continue
         for group, relative in _walk(root):
             if not (_is_units(group) or _is_interval_table(group) or _is_time_series(group)):
@@ -275,7 +296,7 @@ def _scan_open(handle: h5py.File) -> FileContents:
 
     epoch, naive = _reference_epoch(handle)
     return FileContents(
-        version=text(handle.attrs.get("nwb_version", "")),
+        version=_version(handle),
         reference_epoch=epoch,
         reference_is_naive=naive,
         series=tuple(series),
@@ -285,7 +306,7 @@ def _scan_open(handle: h5py.File) -> FileContents:
     )
 
 
-def _walk(root: h5py.Group, depth: int = 0, relative: str = "") -> Iterator[tuple[h5py.Group, str]]:
+def _walk(root: Any, depth: int = 0, relative: str = "") -> Iterator[tuple[Any, str]]:
     """Yield every group below *root* that may be an object, outermost first.
 
     Soft-linked groups are not followed: a series linked from two places is one
@@ -296,11 +317,12 @@ def _walk(root: h5py.Group, depth: int = 0, relative: str = "") -> Iterator[tupl
     if depth > _MAX_DEPTH:
         return
     for key in sorted(root.keys()):
-        link = root.get(key, getlink=True)
-        if not isinstance(link, h5py.HardLink):
-            continue
+        if isinstance(root, h5py.Group):
+            link = root.get(key, getlink=True)
+            if not isinstance(link, h5py.HardLink):
+                continue
         child = root.get(key)
-        if not isinstance(child, h5py.Group):
+        if not is_group(child):
             continue
         path = f"{relative}/{key}" if relative else key
         yield child, path
@@ -309,39 +331,52 @@ def _walk(root: h5py.Group, depth: int = 0, relative: str = "") -> Iterator[tupl
         yield from _walk(child, depth + 1, path)
 
 
-def _is_time_series(group: h5py.Group) -> bool:
-    return isinstance(group.get("data"), h5py.Dataset) and (
-        isinstance(group.get("timestamps"), h5py.Dataset)
-        or isinstance(group.get("starting_time"), h5py.Dataset)
+def _is_time_series(group: Any) -> bool:
+    return is_dataset(group.get("data")) and (
+        is_dataset(group.get("timestamps")) or is_dataset(group.get("starting_time"))
     )
 
 
-def _is_interval_table(group: h5py.Group) -> bool:
+def _is_interval_table(group: Any) -> bool:
     return (
-        isinstance(group.get("start_time"), h5py.Dataset)
-        and isinstance(group.get("stop_time"), h5py.Dataset)
+        is_dataset(group.get("start_time"))
+        and is_dataset(group.get("stop_time"))
         and "data" not in group
     )
 
 
-def _is_units(group: h5py.Group) -> bool:
-    return isinstance(group.get("spike_times"), h5py.Dataset) and isinstance(
-        group.get("spike_times_index"), h5py.Dataset
-    )
+def _is_units(group: Any) -> bool:
+    return is_dataset(group.get("spike_times")) and is_dataset(group.get("spike_times_index"))
+
+
+def _series_type(group: Any) -> str:
+    """Read the type from NWB 2 metadata or NWB 1 ancestry."""
+    declared = text(group.attrs.get("neurodata_type", ""))
+    if declared:
+        return declared
+    ancestry = group.attrs.get("ancestry")
+    if ancestry is None:
+        value = group.get("ancestry")
+        ancestry = value[()] if is_dataset(value) else None
+    if ancestry is not None:
+        parts = [text(value) for value in np.atleast_1d(ancestry)]
+        if parts:
+            return parts[-1]
+    return "TimeSeries"
 
 
 # ── Describing one series ──────────────────────────────────────────────────
 
 
 def _describe_series(
-    handle: h5py.File,
-    group: h5py.Group,
+    handle: Any,
+    group: Any,
     stem: str,
     ancestry: dict[str, str],
     declined: list[str],
 ) -> SeriesInfo | None:
     data = group["data"]
-    neurodata_type = text(group.attrs.get("neurodata_type", "TimeSeries")) or "TimeSeries"
+    neurodata_type = _series_type(group)
     label = f"{group.name} ({neurodata_type})"
 
     for base, reason in _DECLINED.items():
@@ -414,17 +449,17 @@ def _describe_series(
     return SeriesInfo(kind=kind, length=length, columns=columns, **common)
 
 
-def _time_axis(group: h5py.Group) -> tuple[float | None, float, bool, int]:
+def _time_axis(group: Any) -> tuple[float | None, float, bool, int]:
     """Return ``(rate, start, has_timestamps, timestamp_count)`` for a series."""
     timestamps = group.get("timestamps")
-    if isinstance(timestamps, h5py.Dataset) and timestamps.ndim == 1 and timestamps.shape[0] > 0:
+    if is_dataset(timestamps) and timestamps.ndim == 1 and timestamps.shape[0] > 0:
         first = float(timestamps[0])
         return None, first, True, int(timestamps.shape[0])
     starting = group.get("starting_time")
-    if isinstance(starting, h5py.Dataset):
+    if is_dataset(starting):
         rate = float(starting.attrs.get("rate", 0.0) or 0.0)
         if rate > 0.0 and np.isfinite(rate):
-            return rate, float(starting[()]), False, -1
+            return rate, float(np.asarray(starting[()]).reshape(-1)[0]), False, -1
     return None, 0.0, False, 0
 
 
@@ -447,7 +482,7 @@ def _paired_length(data_length: int, time_length: int, has_timestamps: bool) -> 
 
 
 def _column_names(
-    handle: h5py.File, group: h5py.Group, neurodata_type: str, ancestry: dict[str, str]
+    handle: Any, group: Any, neurodata_type: str, ancestry: dict[str, str]
 ) -> tuple[str, ...]:
     """Name each column of a 2-D series after what it measures, when the file says."""
     width = int(group["data"].shape[1])
@@ -460,7 +495,7 @@ def _column_names(
     return tuple(f"c{index}" for index in range(width))
 
 
-def _region_ids(handle: h5py.File, group: h5py.Group, name: str, width: int) -> list[str] | None:
+def _region_ids(handle: Any, group: Any, name: str, width: int) -> list[str] | None:
     """Return the ids of the table rows a ``DynamicTableRegion`` points at.
 
     Each column of an ``ElectricalSeries`` is one row of the electrodes table,
@@ -469,7 +504,7 @@ def _region_ids(handle: h5py.File, group: h5py.Group, name: str, width: int) -> 
     17 in every other tool that reads the file.
     """
     region = group.get(name)
-    if not isinstance(region, h5py.Dataset) or region.ndim != 1 or region.shape[0] != width:
+    if not is_dataset(region) or region.ndim != 1 or region.shape[0] != width:
         return None
     try:
         table = handle[region.attrs["table"]]
@@ -491,9 +526,9 @@ def _deduplicated(names: list[str]) -> tuple[str, ...]:
     return tuple(result)
 
 
-def _external_files(group: h5py.Group) -> tuple[str, ...]:
+def _external_files(group: Any) -> tuple[str, ...]:
     external = group.get("external_file")
-    if not isinstance(external, h5py.Dataset) or external.size == 0:
+    if not is_dataset(external) or external.size == 0:
         return ()
     return tuple(text(value) for value in np.atleast_1d(external[()]))
 
@@ -511,6 +546,8 @@ def _channel_stem(prefix: str, relative: str) -> str:
     repeated by its parent (``dff_timeseries/dff_timeseries``) says nothing the
     first one did not, and is written once.
     """
+    if relative.startswith("timeseries/"):
+        relative = relative[len("timeseries/") :]
     segments = [
         _UNSAFE_SEGMENT.sub("_", part).strip("_ ") or "series" for part in relative.split("/")
     ]
@@ -533,7 +570,7 @@ def _unique(stem: str, taken: set[str]) -> str:
 # ── Session clock ──────────────────────────────────────────────────────────
 
 
-def _reference_epoch(handle: h5py.File) -> tuple[float | None, bool]:
+def _reference_epoch(handle: Any) -> tuple[float | None, bool]:
     """Return the Unix time every timestamp counts from, and whether it was naive.
 
     ``timestamps_reference_time`` when present -- the schema's own zero for
@@ -542,9 +579,9 @@ def _reference_epoch(handle: h5py.File) -> tuple[float | None, bool]:
     silently trusted: internal alignment is unaffected, but the wall clock shown
     may be hours off.
     """
-    for key in ("timestamps_reference_time", "session_start_time"):
+    for key in ("timestamps_reference_time", "session_start_time", "general/session_start_time"):
         value = handle.get(key)
-        if not isinstance(value, h5py.Dataset):
+        if not is_dataset(value):
             continue
         parsed = parse_iso_time(text(value[()]))
         if parsed is not None:
@@ -570,13 +607,13 @@ def parse_iso_time(text: str) -> tuple[float, bool] | None:
     return moment.timestamp(), naive
 
 
-def _units_table(group: h5py.Group, name: str, taken: set[str]) -> UnitsTable | None:
+def _units_table(group: Any, name: str, taken: set[str]) -> UnitsTable | None:
     ends = np.asarray(group["spike_times_index"][()], dtype=np.int64)
     count = int(ends.shape[0])
     ids = group.get("id")
     all_ids = (
         [int(value) for value in ids[:count]]
-        if isinstance(ids, h5py.Dataset) and ids.shape[0] >= count
+        if is_dataset(ids) and ids.shape[0] >= count
         else list(range(count))
     )
     # A unit that never fired has no samples to import, and a channel with none

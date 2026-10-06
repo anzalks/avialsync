@@ -69,7 +69,13 @@ def container_of(path: Path) -> Path | None:
     """
     for parent in path.parents:
         if parent.exists():
-            return parent if parent.is_file() else None
+            if parent.is_file():
+                return parent
+            # A Zarr store is a directory that behaves as one recording.
+            # Its children may name logical sources rather than disk paths.
+            if (parent / "zarr.json").is_file() or (parent / ".zgroup").is_file():
+                return parent
+            return None
     return None
 
 
@@ -482,6 +488,10 @@ class VideoSource(_Nameable, ABC):
     def prepare(self, progress_cb: Callable[[float], None]) -> Path:
         """Produce a playable cached proxy and report progress in ``[0, 1]``."""
         pass
+
+    def prepare_is_atomic(self) -> bool:
+        """Whether an in-progress conversion must finish before it can be abandoned."""
+        return False
 
     @abstractmethod
     def media_path(self) -> Path:

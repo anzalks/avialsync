@@ -132,7 +132,7 @@ class NWBImagingSource(VideoSource):
         """
         if nwb_format.split_object_path(path) is not None:
             return 0.95
-        return 0.85 if nwb_format.is_nwb_path(path) else 0.0
+        return 0.85 if nwb_format.is_nwb_path(path) or nwb_format.is_zarr_nwb(path) else 0.0
 
     def open(self, path: Path, config: dict[str, Any]) -> None:
         named = nwb_format.split_object_path(path)
@@ -173,6 +173,10 @@ class NWBImagingSource(VideoSource):
     # ── Proxy ──────────────────────────────────────────────────────────────
 
     def needs_conversion(self) -> bool:
+        return True
+
+    def prepare_is_atomic(self) -> bool:
+        """Encoding writes one indexed video and completes before publishing it."""
         return True
 
     def prepare(self, progress_cb: Callable[[float], None]) -> Path:

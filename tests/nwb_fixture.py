@@ -411,8 +411,45 @@ def _cache_extension_spec(f: h5py.File) -> None:
 
 
 def write_nwb1(path: Path) -> Path:
-    """Write a file laid out as NWB 1.x: a version string and a timeseries group."""
+    """Write NWB 1.x series in its acquisition/timeseries layout."""
     with h5py.File(path, "w") as f:
         f.create_dataset("nwb_version", data="NWB-1.0.6")
-        f.create_group("acquisition/timeseries")
+        f.create_dataset("general/session_start_time", data=SESSION_START)
+        root = f.create_group("acquisition/timeseries")
+        voltage = root.create_group("voltage")
+        voltage.attrs["ancestry"] = np.array(["TimeSeries", "ElectricalSeries"], dtype="S")
+        data = voltage.create_dataset("data", data=np.arange(10, dtype=np.int16))
+        data.attrs["unit"] = "volts"
+        data.attrs["conversion"] = 1e-6
+        starting = voltage.create_dataset("starting_time", data=0.25)
+        starting.attrs["rate"] = 1000.0
+        imaging = root.create_group("camera")
+        imaging.attrs["ancestry"] = np.array(["TimeSeries", "ImageSeries"], dtype="S")
+        frames = imaging.create_dataset("data", data=_imaging_frames("uint16")[:3])
+        frames.attrs["unit"] = "n.a."
+        imaging.create_dataset("timestamps", data=np.array([0.5, 0.6, 0.7]))
+    return path
+
+
+def write_zarr_nwb(path: Path, *, zarr_format: int = 3) -> Path:
+    """Write the NWB series layout used by PyNWB's Zarr backend."""
+    import zarr
+
+    root = zarr.open_group(str(path), mode="w", zarr_format=zarr_format)
+    root.attrs["nwb_version"] = "2.11.0"
+    root.create_array("session_start_time", data=np.asarray(SESSION_START))
+    root.create_array("timestamps_reference_time", data=np.asarray(SESSION_START))
+    acquisition = root.create_group("acquisition")
+    signal = acquisition.create_group("voltage")
+    signal.attrs["neurodata_type"] = "TimeSeries"
+    data = signal.create_array("data", data=np.arange(10, dtype=np.int16))
+    data.attrs["unit"] = "volts"
+    data.attrs["conversion"] = 1e-6
+    start = signal.create_array("starting_time", data=np.asarray(0.25))
+    start.attrs["rate"] = 1000.0
+    imaging = acquisition.create_group("camera")
+    imaging.attrs["neurodata_type"] = "ImageSeries"
+    frames = imaging.create_array("data", data=_imaging_frames("uint16")[:3])
+    frames.attrs["unit"] = "n.a."
+    imaging.create_array("timestamps", data=np.array([0.5, 0.6, 0.7]))
     return path

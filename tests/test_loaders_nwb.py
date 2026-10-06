@@ -85,9 +85,20 @@ def test_an_extension_type_is_recognised_through_the_cached_spec(tmp_path: Path)
     assert by_name["LabScope"].kind == "imaging"
 
 
-def test_nwb1_is_refused_by_name(tmp_path: Path) -> None:
-    with pytest.raises(nwb_format.NWBFormatError, match="NWB 1"):
-        nwb_format.scan(write_nwb1(tmp_path / "old.nwb"))
+def test_nwb1_reads_its_series_and_session_clock(tmp_path: Path) -> None:
+    path = write_nwb1(tmp_path / "old.nwb")
+    contents = nwb_format.scan(path)
+    assert contents.version == "NWB-1.0.6"
+    assert contents.reference_epoch == SESSION_EPOCH
+    assert {info.name: info.kind for info in contents.series} == {
+        "camera": "imaging",
+        "voltage": "signal",
+    }
+    loader = NWBLoader()
+    loader.open(path, {})
+    times, values = _read_all(loader, "voltage")
+    np.testing.assert_allclose(times[:2], [0.25, 0.251])
+    np.testing.assert_allclose(values[:2], [0, 1e-6])
 
 
 def test_plain_hdf5_is_not_mistaken_for_nwb(tmp_path: Path) -> None:
@@ -107,14 +118,22 @@ def test_a_file_that_is_not_hdf5_says_so(tmp_path: Path) -> None:
         nwb_format.scan(path)
 
 
-def test_zarr_nwb_is_named_rather_than_misread(tmp_path: Path) -> None:
-    folder = tmp_path / "session.nwb.zarr"
-    folder.mkdir()
-    (folder / ".zgroup").write_text("{}", encoding="utf-8")
+@pytest.mark.parametrize("zarr_format", [2, 3])
+def test_zarr_nwb_reads_series_without_conversion(tmp_path: Path, zarr_format: int) -> None:
+    from tests.nwb_fixture import write_zarr_nwb
 
+    folder = write_zarr_nwb(tmp_path / "session.nwb.zarr", zarr_format=zarr_format)
     assert nwb_format.is_zarr_nwb(folder)
-    with pytest.raises(nwb_format.NWBFormatError, match="Zarr"):
-        nwb_format.open_file(folder)
+    contents = nwb_format.scan(folder)
+    assert {info.name: info.kind for info in contents.series} == {
+        "camera": "imaging",
+        "voltage": "signal",
+    }
+    loader = NWBLoader()
+    loader.open(folder, {})
+    times, values = _read_all(loader, "voltage")
+    np.testing.assert_allclose(times[:2], [0.25, 0.251])
+    np.testing.assert_allclose(values[:2], [0, 1e-6])
 
 
 @pytest.mark.parametrize(

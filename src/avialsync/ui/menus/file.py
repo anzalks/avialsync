@@ -47,6 +47,10 @@ def _file_open(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     act.triggered.connect(window._open_data)
     _reg(act, "File")
 
+    act = file_menu.addAction(tr("Open NWB from DANDI…"))
+    act.triggered.connect(window._open_dandi)
+    _reg(act, "File")
+
     file_menu.addSeparator()
 
     window._act_save_session = file_menu.addAction(tr("Save Session…"))

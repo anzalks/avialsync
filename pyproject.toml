@@ -62,6 +62,13 @@ dependencies = [
     # MATLAB v7.3, which is HDF5 -- scipy.io handles v7.2 and below only, so
     # the preferred export surface is unreadable without this.
     "h5py",
+    # MIT, pip wheels on all targets. Reads NWB Zarr v2/v3 stores lazily;
+    # no conversion or full-store download is needed.
+    "zarr>=3.0,<4",
+    # BSD-3-Clause and Apache-2.0. Zarr's HTTPS store uses fsspec and its
+    # asynchronous HTTP transport to stream DANDI HDF5 ranges and Zarr chunks.
+    "fsspec>=2025.3",
+    "aiohttp>=3.11",
     "neo",
     # Not imported by us: a floor on neo's own dependency. Up to and including
     # 0.16.2, `quantities` decorates a method with `@with_doc(np.ndarray.ptp)`,

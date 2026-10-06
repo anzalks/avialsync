@@ -126,9 +126,14 @@ What cannot be shown is listed when the file opens rather than skipped silently:
 not a signal over time (spike waveforms, frequency decompositions), a video the file names but that
 is not beside it, and a start time recorded without a time zone (read as UTC).
 
-Versions: NWB 2.x files stored as HDF5, including types from extensions, which are recognised from
-the specification each file carries. **NWB 1.x** and **Zarr-backed NWB** are named as such when
-dropped, with what to convert them to; files on DANDI must be downloaded first.
+Versions: NWB 1.x and 2.x HDF5 files, and NWB Zarr v2/v3 folders. Extension types are recognised
+from the specification each file carries when available. NWB 1.x series under
+`acquisition/timeseries` use the same plotted and imaging routes. Choose **File → Open NWB from
+DANDI…** to paste a DANDI asset download URL or its public S3 content URL; the app streams the
+requested HDF5 ranges or Zarr chunks and keeps a small link in your application-data folder for
+session restore. External videos referenced by a remote file must be opened locally. Imaging
+creates a lossless cached copy and shows percentage progress while it is encoded; that encoding
+finishes once started.
 
 ## Trigger and TTL files
 

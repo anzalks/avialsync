@@ -81,7 +81,7 @@ class NWBLoader(TimeSeriesSource):
 
     @classmethod
     def can_open(cls, path: Path) -> float:
-        return 0.9 if nwb_format.is_nwb_path(path) else 0.0
+        return 0.9 if nwb_format.is_nwb_path(path) or nwb_format.is_zarr_nwb(path) else 0.0
 
     def open(self, path: Path, config: dict[str, Any]) -> None:
         self._path = path

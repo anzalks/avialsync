@@ -15,6 +15,6 @@ def text(value: Any) -> str:
     """Return *value* as text, decoding bytes as UTF-8."""
     if isinstance(value, bytes | np.bytes_):
         return bytes(value).decode("utf-8", errors="replace")
-    if isinstance(value, np.ndarray) and value.shape == ():
-        return text(value.item())
+    if isinstance(value, np.ndarray) and value.size == 1:
+        return text(value.reshape(-1)[0])
     return str(value) if value is not None else ""

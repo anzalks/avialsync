@@ -12,12 +12,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import h5py
-
+from avialsync.loaders.nwb_storage import children, is_dataset, is_group
 from avialsync.loaders.nwb_text import text
 
 
-def type_ancestry(handle: h5py.File) -> dict[str, str]:
+def type_ancestry(handle: Any) -> dict[str, str]:
     """Map each type the file's cached specifications define to its parent.
 
     Core types are listed too, from the core namespace the file carries, so a
@@ -27,16 +26,16 @@ def type_ancestry(handle: h5py.File) -> dict[str, str]:
     """
     parents = dict(CORE_PARENTS)
     specifications = handle.get("specifications")
-    if not isinstance(specifications, h5py.Group):
+    if not is_group(specifications):
         return parents
-    for namespace in specifications.values():
-        if not isinstance(namespace, h5py.Group):
+    for namespace in children(specifications):
+        if not is_group(namespace):
             continue
-        for version in namespace.values():
-            if not isinstance(version, h5py.Group):
+        for version in children(namespace):
+            if not is_group(version):
                 continue
-            for document in version.values():
-                if not isinstance(document, h5py.Dataset):
+            for document in children(version):
+                if not is_dataset(document):
                     continue
                 try:
                     spec = json.loads(text(document[()]))

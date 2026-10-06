@@ -1956,8 +1956,12 @@ looks the same: one `ChannelInfo` shape, one chunk contract, one place a rate or
 wrong. A second reader for the format we happen to have data for today is a second place for all of
 that to drift, and the next lab's Neuralynx or SpikeGLX folder gets nothing from it.
 
-**Decision:** every ephys sample AvialSync reads comes through `neo`. `NeoLoader` is the only
-time-series loader for acquisition formats, and a format-specific plugin may not read samples.
+**Decision:** every ephys sample from an acquisition format comes through `neo`. `NeoLoader` is the
+only time-series loader for acquisition formats, and a format-specific plugin may not read samples.
+NWB is the sole container exception: its electrophysiology, imaging, behaviour, intervals and units
+share one file and one declared clock, so its regular chunked NWB reader covers all of them (D-188,
+D-189). A failure or cycle in neo/PyNWB never switches another acquisition format to a second sample
+reader.
 
 What neo does **not** model is deliberately excluded from that rule and lives beside it in
 `loaders/open_ephys_format.py`:
@@ -6058,4 +6062,28 @@ Ladder, belt and ball editors, identity review and the alignment dialog use the 
 
 **Measured** (`tests/benchmarks/test_bench_nwb.py`, Apple Silicon): 32 ch × 30 kHz × 60 s gzip ephys imports in 3.8 s; 600 ROI channels × 50 000 samples in 2.2 s (13.5 s before `ChannelStage.materialize` wrote and returned one-chunk channels without a memory map: creating, flushing and re-mapping each fresh file cost ~17 ms per channel on macOS); a 512×512 16-bit proxy encodes at ~230 frames/s on incompressible data; scanning a file's structure 1.3 ms; a second open (import and proxy cached) 57 ms. Budgets are in BLUEPRINT.md.
 
-**Not covered.** Zarr NWB, NWB 1.x, streaming from DANDI without downloading, ndx-pose as a pose schema (pose series load as plain channels), ragged trial columns as message text, and external videos' per-frame timestamps (an external video is placed by its series' start, not frame by frame). Encoding a proxy cannot be cancelled mid-series; its progress is reported.
+**Superseded by D-189 for storage support.** ndx-pose as a pose schema, ragged trial columns as
+message text, and external videos' per-frame timestamps remain outside this decision.
+
+## 2026-10 · D-189 · NWB 1.x, Zarr and DANDI streams use the NWB chunk reader
+
+**Decision.** D-070's only sample-reader exception remains NWB. A small storage adapter gives the
+D-188 structural scanner and chunk reader local HDF5, NWB 1.x HDF5, Zarr v2/v3, and remote DANDI
+HDF5/Zarr handles. NWB 1.x places series under `acquisition/timeseries`, may put version and epoch
+in datasets, and may declare its type through `ancestry`; these are read explicitly. PyNWB-compatible
+NWB 2 files keep the D-188 structure, scaling and timing semantics. The reader does not build an
+eager PyNWB/neo object tree for every source, so a cached extension specification conflict does not
+refuse the rest of a session.
+
+**Streaming.** File → Open NWB from DANDI accepts a DANDI asset download URL or its public S3
+content URL. A small `.nwb-link` containing that address lives under the per-user application-data
+folder, outside the derived-data cache, so saved sessions can reopen it. `fsspec` reads HDF5 by
+HTTP ranges and Zarr by metadata and requested chunks over HTTPS. Older hdmf-zarr v2 stores with a
+numeric fill value for object arrays are corrected in memory at the Zarr store boundary only.
+External videos named by a streamed NWB remain local-file references and are reported as such.
+
+**Dependencies.** `zarr` (MIT), `fsspec` (BSD-3-Clause), and `aiohttp` (MIT AND Apache-2.0)
+are pip-installable on Windows, macOS and Linux and compatible with AGPL-3.0-or-later.
+Each is needed for lazy local Zarr or remote range/chunk reads; none requires an OS package. Proxy
+encoding remains one atomic operation: a cancellation requested during encoding takes effect only
+before it starts, while its percentage appears in the status area and Tasks panel.

@@ -14,6 +14,7 @@ import h5py
 import numpy as np
 
 from avialsync.loaders.nwb_format import IntervalTable, SeriesInfo, UnitsTable
+from avialsync.loaders.nwb_storage import is_dataset
 from avialsync.loaders.nwb_text import text
 
 
@@ -39,7 +40,7 @@ def read_values(handle: h5py.File, info: SeriesInfo, start: int, stop: int) -> n
     if block.ndim == 1:
         block = block.reshape(-1, 1)
     per_column = group.get("channel_conversion")
-    if isinstance(per_column, h5py.Dataset) and per_column.shape == (block.shape[1],):
+    if is_dataset(per_column) and per_column.shape == (block.shape[1],):
         block *= np.asarray(per_column[()], dtype=np.float64)[np.newaxis, :]
     conversion = float(data.attrs.get("conversion", 1.0))
     offset = float(data.attrs.get("offset", 0.0))
@@ -80,13 +81,13 @@ def interval_rows(handle: h5py.File, table: IntervalTable) -> Iterator[tuple[flo
     group = handle[table.path]
     starts, stops = read_intervals(handle, table)
     ids = group.get("id")
-    row_ids = np.asarray(ids[()]) if isinstance(ids, h5py.Dataset) else np.arange(len(starts))
+    row_ids = np.asarray(ids[()]) if is_dataset(ids) else np.arange(len(starts))
     columns: list[tuple[str, np.ndarray]] = []
     for key in _column_order(group):
         if key in ("start_time", "stop_time", "id") or key.endswith("_index"):
             continue
         dataset = group.get(key)
-        if not isinstance(dataset, h5py.Dataset) or f"{key}_index" in group:
+        if not is_dataset(dataset) or f"{key}_index" in group:
             continue
         if (
             dataset.ndim != 1

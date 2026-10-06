@@ -49,10 +49,13 @@ class VideoOpenWorker(QObject):
                 return
 
             if loader.needs_conversion():
+                # Encoding an NWB imaging copy is atomic work. The converter
+                # reports progress and commits its cache entry on completion;
+                # a cancellation request made during that call cannot stop it.
                 media_path = loader.prepare(self._emit_progress)
             else:
                 media_path = loader.media_path()
-            if self._cancelled:
+            if self._cancelled and not loader.prepare_is_atomic():
                 self.cancelled.emit()
                 return
             self.progress.emit(100)

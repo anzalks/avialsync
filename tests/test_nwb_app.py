@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication, QDialog
+from PySide6.QtWidgets import QApplication, QDialog, QInputDialog
 from shiboken6 import isValid
 
 pytest.importorskip("h5py")
@@ -50,6 +50,30 @@ def _wait_loaded(window: MainWindow, qtbot, path: Path) -> None:
     qtbot.waitUntil(lambda: _imaging(path) in window.video_grid.pane_paths(), timeout=20_000)
     qtbot.waitUntil(lambda: str(path) in window._sensor_cache_dirs, timeout=20_000)
     qtbot.waitUntil(lambda: window.video_grid.panes[0].has_media, timeout=20_000)
+
+
+def test_dandi_menu_action_routes_asset_to_the_regular_open_path(
+    window: MainWindow, qtbot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from avialsync.engine import dandi_worker
+
+    link = tmp_path / "remote.nwb-link"
+    link.write_text('{"url": "https://api.dandiarchive.org/api/assets/123/download/"}')
+    monkeypatch.setattr(QInputDialog, "exec", lambda _dialog: QDialog.DialogCode.Accepted)
+    monkeypatch.setattr(
+        QInputDialog,
+        "textValue",
+        lambda _dialog: "https://api.dandiarchive.org/api/assets/123/download/",
+    )
+    monkeypatch.setattr(dandi_worker, "create_remote_link", lambda _url: link)
+    opened: list[Path] = []
+    monkeypatch.setattr(window, "open_path", opened.append)
+    file_menu = window.menuBar().actions()[0].menu()
+    assert file_menu is not None
+    action = next(a for a in file_menu.actions() if "DANDI" in a.text())
+
+    action.trigger()
+    qtbot.waitUntil(lambda: opened == [link], timeout=5000)
 
 
 def test_dropping_an_nwb_file_shows_its_imaging_and_its_series(
