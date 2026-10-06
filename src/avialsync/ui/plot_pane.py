@@ -262,7 +262,7 @@ class PlotPane(QWidget):
         cache_dir: Path,
         channel_names: list[str],
         offset: float = 0.0,
-        drift_ppm: float = 0.0,
+        drift_ms_per_hour: float = 0.0,
         source_id: str = "",
     ) -> None:
         """Load multiple data sources from cache and build plot rows.
@@ -275,7 +275,7 @@ class PlotPane(QWidget):
 
         time_map = self._source_time_maps.setdefault(cache_dir, TimeMap())
         time_map.offset = float(offset)
-        time_map.drift_ppm = float(drift_ppm)
+        time_map.drift_ms_per_hour = float(drift_ms_per_hour)
 
         self._pending_rows.extend((cache_dir, name, time_map, source_id) for name in channel_names)
         self._build_pending_rows()
@@ -427,7 +427,7 @@ class PlotPane(QWidget):
         # that asked to wait needs it applied before it continues.
         self._finish_loading()
 
-    def set_source_mapping(self, cache_dir: Path, offset: float, drift_ppm: float) -> None:
+    def set_source_mapping(self, cache_dir: Path, offset: float, drift_ms_per_hour: float) -> None:
         """Re-align one time-series source against the master clock.
 
         The rows keep their readers; only the shared ``TimeMap`` changes, so this
@@ -437,7 +437,7 @@ class PlotPane(QWidget):
         if time_map is None:
             return
         time_map.offset = float(offset)
-        time_map.drift_ppm = float(drift_ppm)
+        time_map.drift_ms_per_hour = float(drift_ms_per_hour)
         for channel in self.channels:
             if channel.reader.cache_dir == cache_dir:
                 channel.coverage_bounds = channel.reader.coverage()
@@ -445,11 +445,11 @@ class PlotPane(QWidget):
         self._interactions.redraw_annotations()
 
     def source_mapping(self, cache_dir: Path) -> tuple[float, float]:
-        """Return the ``(offset, drift_ppm)`` currently applied to a source."""
+        """Return the ``(offset, drift_ms_per_hour)`` currently applied to a source."""
         time_map = self._source_time_maps.get(cache_dir)
         if time_map is None:
             return 0.0, 0.0
-        return time_map.offset, time_map.drift_ppm
+        return time_map.offset, time_map.drift_ms_per_hour
 
     def source_bounds(self, cache_dir: Path) -> tuple[float, float] | None:
         """Return one source's master-time coverage across all of its channels."""

@@ -32,13 +32,13 @@ class ReaderReference:
     cache_dir: Path
     channel_id: str
     offset: float = 0.0
-    drift_ppm: float = 0.0
+    drift_ms_per_hour: float = 0.0
 
     def open(self) -> MappedChannelReader:
         """Open a fresh mmap reader owned by the calling thread."""
         return MappedChannelReader(
             PyramidReader(self.cache_dir, self.channel_id),
-            TimeMap(self.offset, self.drift_ppm),
+            TimeMap(self.offset, self.drift_ms_per_hour),
         )
 
 

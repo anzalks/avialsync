@@ -5999,3 +5999,21 @@ Ladder, belt and ball editors, identity review and the alignment dialog use the 
 - One properties dialog for badge, card and picture: the source's properties panel as text first (now with Bit depth), then the import report when there is one. It opens whether or not a report exists.
 
 **Amends** D-174 ("compact is one line").
+
+---
+
+## 2026-10 · D-184 · Clock drift is milliseconds gained per hour, everywhere
+
+**Context.** Drift was held, stored, fitted and shown in parts per million, a dimensionless scale that says nothing about time to someone aligning recordings, and the user asked for it to be removed in favour of time or sample units.
+
+**Decision.** One unit end to end: `drift_ms_per_hour`, the milliseconds a source's clock gains on master time per hour of recording. `TimeMap` multiplies by `drift / 3,600,000` (seconds per second); the sync fit reports `(scale − 1) × 3,600,000`; sessions write `drift_ms_per_hour` and the schema becomes 12; the drift fields hold and show ms/h with two decimals and give the same drift in frames per hour in their tooltip when the rate is known; every message uses `core.drift.describe_drift` (`+54.0 ms/h`, `+3.6 s/h` past a second an hour). The plausibility limit is 720 ms/h. Files from before schema 12 stored the drift ×1e6 under the old key; `core/drift.drift_from_legacy_entry` converts it on read (× 3.6), the only place the old key appears, and it is never written again.
+
+**Consequences.** Earlier entries in this log quote drifts in the old unit; multiply them by 3.6 for ms/h. Every time mapping is unchanged numerically; tests that encode a drift's physics were converted by the same factor, not loosened.
+
+---
+
+## 2026-10 · D-185 · Display precision follows what a reader can use
+
+**Context.** Several readouts carried more digits than the quantity supports: frame rates at three decimals, master times on hover at microseconds, thresholds and event times at six decimals.
+
+**Decision.** Frame and sample rates show one decimal, or two when tenths would hide the difference (29.97 against 30 is 3.6 s per hour), through `time_format.format_rate`: overlay, Video Properties, source cards. Times a person reads -- Data Streams hover, metadata start, stimulus-grid events and windows, nudge messages -- show milliseconds. Threshold fields take three decimals. Kept at full precision on purpose: offsets (the spin box rounds what it stores, D-173), alignment residuals, the copyable Values text summary, props coordinates and calibration factors, and the stimulus grid's custom speed (30/230 real-time slow motion needs it).

@@ -375,7 +375,7 @@ def test_evidence_event_detail_identifies_type_source_and_time(qtbot) -> None:
     detail = transport.overview._event_detail(x, lane_height + 5)
 
     assert "Accepted sync / TTL event" in detail
-    assert "40.000000 s" in detail
+    assert "40.000 s" in detail  # D-185: ms is the readable unit
     assert "camera.mp4" in detail
 
     transport.set_gap_events([(50.0, "Source: sensors.csv")])

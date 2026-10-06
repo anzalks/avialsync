@@ -33,8 +33,8 @@ def test_dialog_shows_first_event_window_and_limits_selected_events(qtbot, tmp_p
 
     assert len(dialog.selected_events()) == 12
     assert dialog.selected_events()[0] == 1.0
-    assert "1.000000 s" in dialog.event_details.text()
-    assert "0.500000 to 2.500000 s" in dialog.event_details.text()
+    assert "1.000 s" in dialog.event_details.text()  # D-185: ms is the readable unit
+    assert "0.500 to 2.500 s" in dialog.event_details.text()
     assert "Video length: 2.00 s at 1x" in dialog.event_details.text()
     assert dialog.custom_speed_spin.isHidden()
     assert dialog.fps_spin.value() == 10
@@ -57,7 +57,7 @@ def test_dialog_shows_first_event_window_and_limits_selected_events(qtbot, tmp_p
 
     dialog.before_spin.setValue(0.25)
     dialog.after_spin.setValue(0.75)
-    assert "0.750000 to 1.750000 s" in dialog.event_details.text()
+    assert "0.750 to 1.750 s" in dialog.event_details.text()
 
     first = dialog.event_table.item(0, 0)
     extra = dialog.event_table.item(12, 0)

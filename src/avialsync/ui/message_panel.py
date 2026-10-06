@@ -73,12 +73,12 @@ class MessageStore(QObject):
         self._by_source[source_id] = tuple(messages)
         self.changed.emit()
 
-    def set_source_mapping(self, source_id: str, offset: float, drift_ppm: float) -> None:
+    def set_source_mapping(self, source_id: str, offset: float, drift_ms_per_hour: float) -> None:
         """Re-place one source's messages after its alignment changed."""
-        if source_id not in self._by_source and offset == 0.0 and drift_ppm == 0.0:
+        if source_id not in self._by_source and offset == 0.0 and drift_ms_per_hour == 0.0:
             self._maps.pop(source_id, None)
             return
-        self._maps[source_id] = TimeMap(offset=offset, drift_ppm=drift_ppm)
+        self._maps[source_id] = TimeMap(offset=offset, drift_ms_per_hour=drift_ms_per_hour)
         if source_id in self._by_source:
             self.changed.emit()
 

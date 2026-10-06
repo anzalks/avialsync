@@ -745,7 +745,7 @@ class TimelineOverview(QWidget):
             return ""
         lanes = self._lanes()
         if not lanes:
-            return f"Navigator\nMaster time: {self._time_at_x(x):.6f} s"
+            return f"Navigator\nMaster time: {self._time_at_x(x):.3f} s"
         lane_height = self.lane_height()
         lane_index = min(len(lanes) - 1, int(y // lane_height))
         label, kind, payload = lanes[lane_index]
@@ -756,7 +756,7 @@ class TimelineOverview(QWidget):
                 source = Path(payload.source_id).name
                 if payload.members > 1:
                     source = f"{source} ({payload.members} sources)"
-                return f"Coverage\nSource: {source}\nMaster time: {time:.6f} s"
+                return f"Coverage\nSource: {source}\nMaster time: {time:.3f} s"
         if kind in {"ttl", "gap", "message", "identity"}:
             if kind == "identity":
                 candidate = self._nearest_event("identity_candidate", time, tolerance)
@@ -764,7 +764,7 @@ class TimelineOverview(QWidget):
                 if candidate is not None and (
                     accepted is None or abs(candidate[0] - time) < abs(accepted[0] - time)
                 ):
-                    return tr("Possible identity swap\nMaster time: {time:.6f} s\n{detail}").format(
+                    return tr("Possible identity swap\nMaster time: {time:.3f} s\n{detail}").format(
                         time=candidate[0], detail=candidate[1]
                     )
             nearest = self._nearest_event(kind, time, tolerance)
@@ -776,12 +776,12 @@ class TimelineOverview(QWidget):
                     "identity": "Accepted identity swap",
                 }[kind]
                 extra = f"\n{nearest[1]}" if nearest[1] else ""
-                return f"{event_name}\nMaster time: {nearest[0]:.6f} s{extra}"
+                return f"{event_name}\nMaster time: {nearest[0]:.3f} s{extra}"
         if isinstance(payload, _AnnotationLane):
             for start, end, _ in payload.markers:
                 if start - tolerance <= time <= (end if end is not None else start) + tolerance:
-                    return f"Annotation\nMaster time: {start:.6f} s"
-        return f"{label}\nMaster time: {time:.6f} s"
+                    return f"Annotation\nMaster time: {start:.3f} s"
+        return f"{label}\nMaster time: {time:.3f} s"
 
 
 class TimelineEvidence(QWidget):

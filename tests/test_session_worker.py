@@ -55,7 +55,7 @@ def test_save_worker_writes_the_session(qtbot, tmp_path: Path, state: SessionSta
     _run_in_thread(worker, qtbot)
 
     assert done == [True]
-    assert json.loads(path.read_text())["version"] == 11
+    assert json.loads(path.read_text())["version"] == 12
 
 
 def test_save_worker_reports_an_unwritable_path(qtbot, tmp_path: Path, state) -> None:
@@ -144,7 +144,7 @@ def test_ui_heartbeat_survives_a_large_session_write(qtbot, tmp_path: Path) -> N
                 reference_id="sensor:ttl",
                 target_id="video:cam",
                 offset=0.0,
-                drift_ppm=0.0,
+                drift_ms_per_hour=0.0,
                 rms_residual=0.0,
                 max_residual=0.0,
                 matched_count=len(master),

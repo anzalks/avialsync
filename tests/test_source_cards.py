@@ -19,7 +19,10 @@ def test_timing_sits_behind_a_disclosure_over_the_same_spin_boxes(qtbot) -> None
     assert not card.timing.is_open()
     assert not card.offset_spin.isVisible()
     card.offset_spin.setValue(0.25)
-    assert card.timing.summary() == "+0.250000 s · 0.0 ppm"
+    assert card.timing.summary() == "+0.250000 s · 0 ms/h"
+    card.drift_spin.setValue(54.0)
+    assert card.timing.summary() == "+0.250000 s · +54.0 ms/h"
+    assert "frames/h" in card.drift_spin.toolTip(), "the drift in frames, at this camera's rate"
     card.timing.set_open(True)
     assert card.offset_spin.isVisible() and card.drift_spin.isVisible()
     assert card.timing.body.isAncestorOf(card.offset_spin), "the one authority, not a copy"

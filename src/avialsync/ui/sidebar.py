@@ -28,6 +28,7 @@ from avialsync.core.inspection import SourceInspection
 from avialsync.ui.action_button import ActionButton
 from avialsync.ui.channel_tree import group_prefixes, matches_filter, split_channel
 from avialsync.ui.design_tokens import ControlRole, apply_role, spacing
+from avialsync.ui.drift_spin import DriftSpinBox
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
 from avialsync.ui.icons import set_status_icon
@@ -41,6 +42,7 @@ from avialsync.ui.source_card import (
 )
 from avialsync.ui.source_properties import VideoPropertiesPanel
 from avialsync.ui.theme import follow_palette, separator_color, set_bold
+from avialsync.ui.time_format import format_rate
 
 _W = TypeVar("_W", bound=QWidget)
 
@@ -161,7 +163,7 @@ class SensorInfoWidget(QFrame):
     badge_clicked = Signal(str)  # path
     report_requested = Signal(str)  # path
     # Source-to-master mapping, mirroring VideoInfoWidget.offset_changed (P3.5).
-    mapping_changed = Signal(str, float, float)  # path, offset_s, drift_ppm
+    mapping_changed = Signal(str, float, float)  # path, offset_s, drift_ms_per_hour
 
     def __init__(self, path: str, channels: list[str], parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -293,16 +295,13 @@ class SensorInfoWidget(QFrame):
         self.offset_spin.valueChanged.connect(self._on_mapping_changed)
         sync_form.addRow(tr("Offset:"), self.offset_spin)
 
-        self.drift_spin = QDoubleSpinBox()
-        self.drift_spin.setRange(-100000.0, 100000.0)
-        self.drift_spin.setDecimals(1)
-        self.drift_spin.setSingleStep(10.0)
-        self.drift_spin.setSuffix(" ppm")
+        # Milliseconds gained per hour, the unit the mapping uses (D-184).
+        self.drift_spin = DriftSpinBox()
         self.drift_spin.setMinimumWidth(90)
         self.drift_spin.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.drift_spin.setAccessibleName(f"Clock drift for {Path(path).name}")
-        self.drift_spin.setToolTip(
-            tr("Rate difference between this source's clock and master time.")
+        self.drift_spin.set_base_tooltip(
+            tr("How much this source's clock gains on master time per hour of recording.")
         )
         _commit_on_edit(self.drift_spin)
         self.drift_spin.valueChanged.connect(self._on_mapping_changed)
@@ -630,15 +629,15 @@ class SensorInfoWidget(QFrame):
     def _on_mapping_changed(self, _value: float) -> None:
         self.mapping_changed.emit(self.path, self.offset_spin.value(), self.drift_spin.value())
 
-    def set_mapping(self, offset: float, drift_ppm: float) -> None:
+    def set_mapping(self, offset: float, drift_ms_per_hour: float) -> None:
         """Show a restored mapping without re-emitting it back to the caller."""
-        for spin, value in ((self.offset_spin, offset), (self.drift_spin, drift_ppm)):
+        for spin, value in ((self.offset_spin, offset), (self.drift_spin, drift_ms_per_hour)):
             blocked = spin.blockSignals(True)
             _show_value(spin, value)
             spin.blockSignals(blocked)
 
     def mapping(self) -> tuple[float, float]:
-        """Return the displayed ``(offset_s, drift_ppm)``."""
+        """Return the displayed ``(offset_s, drift_ms_per_hour)``."""
         return self.offset_spin.value(), self.drift_spin.value()
 
     def set_inspection(self, inspection: SourceInspection) -> None:
@@ -711,7 +710,7 @@ class VideoInfoWidget(QFrame):
 
     remove_requested = Signal(str)  # Emits the file path
     offset_changed = Signal(str, float)  # Emits path, new offset
-    mapping_changed = Signal(str, float, float)  # path, offset_s, drift_ppm
+    mapping_changed = Signal(str, float, float)  # path, offset_s, drift_ms_per_hour
     visibility_changed = Signal(str, bool)  # Emits path, is_visible
     badge_clicked = Signal(str)  # path
 
@@ -764,7 +763,11 @@ class VideoInfoWidget(QFrame):
         is_vfr = metadata.get("is_vfr", False)
         measured_fps = metadata.get("measured_fps", fps)
 
-        timing = f"VFR {measured_fps:.2f} avg (nominal {fps:.2f})" if is_vfr else f"CFR {fps:.2f}"
+        timing = (
+            f"VFR {format_rate(measured_fps)} avg (nominal {format_rate(fps)})"
+            if is_vfr
+            else f"CFR {format_rate(fps)}"
+        )
         size = f" | {file_size / 1_048_576:.1f} MB" if file_size else ""
         self._meta_text = f"{codec.upper()} | {timing} | {duration:.1f}s{size}"
         meta_lbl = QLabel(self._meta_text)
@@ -809,17 +812,16 @@ class VideoInfoWidget(QFrame):
         # reach it through an accepted fit. A user watching a camera slip
         # against the sensor had to drift the *sensor* instead, which moves it
         # relative to every other camera at the same time.
-        self.drift_spin = QDoubleSpinBox()
-        self.drift_spin.setRange(-100000.0, 100000.0)
-        self.drift_spin.setDecimals(1)
-        self.drift_spin.setSingleStep(10.0)
-        self.drift_spin.setSuffix(" ppm")
+        # Milliseconds gained per hour, the unit the mapping uses (D-184).
+        self.drift_spin = DriftSpinBox()
         self.drift_spin.setMinimumWidth(90)
         self.drift_spin.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.drift_spin.setAccessibleName(f"Clock drift for {Path(path).name}")
-        self.drift_spin.setToolTip(
-            tr("Rate difference between this camera's clock and master time.")
+        self.drift_spin.set_base_tooltip(
+            tr("How much this camera's clock gains on master time per hour of recording.")
         )
+        if fps:
+            self.drift_spin.set_sample_rate(float(fps), tr("frames"))
         _commit_on_edit(self.drift_spin)
         self.drift_spin.valueChanged.connect(self._on_mapping_changed)
         sync_form.addRow(tr("Drift:"), self.drift_spin)
@@ -864,12 +866,12 @@ class VideoInfoWidget(QFrame):
         self.mapping_changed.emit(self.path, self.offset_spin.value(), self.drift_spin.value())
 
     def mapping(self) -> tuple[float, float]:
-        """Return the displayed ``(offset_s, drift_ppm)``."""
+        """Return the displayed ``(offset_s, drift_ms_per_hour)``."""
         return self.offset_spin.value(), self.drift_spin.value()
 
-    def set_mapping(self, offset: float, drift_ppm: float) -> None:
+    def set_mapping(self, offset: float, drift_ms_per_hour: float) -> None:
         """Show a mapping without re-emitting it, as :meth:`set_offset` does."""
-        for spin, value in ((self.offset_spin, offset), (self.drift_spin, drift_ppm)):
+        for spin, value in ((self.offset_spin, offset), (self.drift_spin, drift_ms_per_hour)):
             blocked = spin.blockSignals(True)
             try:
                 _show_value(spin, value)
@@ -952,12 +954,12 @@ class SidebarPane(QWidget):
     """The left sidebar for file management and metadata."""
 
     video_offset_changed = Signal(str, float)
-    video_mapping_changed = Signal(str, float, float)  # path, offset_s, drift_ppm
+    video_mapping_changed = Signal(str, float, float)  # path, offset_s, drift_ms_per_hour
     video_remove_requested = Signal(str)
     video_visibility_changed = Signal(str, bool)
     video_badge_clicked = Signal(str)  # path
     sensor_remove_requested = Signal(str)
-    sensor_mapping_changed = Signal(str, float, float)  # path, offset_s, drift_ppm
+    sensor_mapping_changed = Signal(str, float, float)  # path, offset_s, drift_ms_per_hour
     sensor_badge_clicked = Signal(str)  # path
     sensor_report_requested = Signal(str)  # path
     channel_remove_requested = Signal(str, str)  # sensor_path, channel_name
@@ -1256,11 +1258,11 @@ class SidebarPane(QWidget):
         if widget is not None:
             widget.set_identity_count(count)
 
-    def set_sensor_mapping(self, path: str, offset: float, drift_ppm: float) -> None:
+    def set_sensor_mapping(self, path: str, offset: float, drift_ms_per_hour: float) -> None:
         """Show a restored sensor mapping without re-emitting it."""
         widget = self.sensor_widget(path)
         if widget is not None:
-            widget.set_mapping(offset, drift_ppm)
+            widget.set_mapping(offset, drift_ms_per_hour)
 
     def set_video_offset(self, path: str, offset: float) -> None:
         """Show a restored or undone video offset, mirroring the sensor path.
@@ -1278,7 +1280,7 @@ class SidebarPane(QWidget):
         widget = self._video_widgets.get(path)
         return widget.offset_spin.value() if widget is not None else 0.0
 
-    def set_video_mapping(self, path: str, offset: float, drift_ppm: float) -> None:
+    def set_video_mapping(self, path: str, offset: float, drift_ms_per_hour: float) -> None:
         """Show a video's offset and drift together, without re-emitting either.
 
         `set_video_offset` moves one control; this moves both, for the callers
@@ -1287,10 +1289,10 @@ class SidebarPane(QWidget):
         """
         widget = self._video_widgets.get(path)
         if widget is not None:
-            widget.set_mapping(offset, drift_ppm)
+            widget.set_mapping(offset, drift_ms_per_hour)
 
     def video_mapping(self, path: str) -> tuple[float, float]:
-        """Return the displayed ``(offset_s, drift_ppm)`` for *path*."""
+        """Return the displayed ``(offset_s, drift_ms_per_hour)`` for *path*."""
         widget = self._video_widgets.get(path)
         return widget.mapping() if widget is not None else (0.0, 0.0)
 
@@ -1301,7 +1303,7 @@ class SidebarPane(QWidget):
             widget.set_visible(visible)
 
     def sensor_mapping(self, path: str) -> tuple[float, float]:
-        """Return the displayed ``(offset_s, drift_ppm)`` for *path*."""
+        """Return the displayed ``(offset_s, drift_ms_per_hour)`` for *path*."""
         widget = self.sensor_widget(path)
         return widget.mapping() if widget is not None else (0.0, 0.0)
 

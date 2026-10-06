@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.core.drift import describe_drift
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
 from avialsync.ui.icons import set_svg_icon
@@ -102,7 +103,7 @@ def _danger_icon(owner: QAbstractButton):  # noqa: ANN202 -- QIcon, imported laz
 
 
 class TimingDisclosure(QWidget):
-    """``▸ Timing  +0.000000 s · 0.0 ppm`` over the card's own spin boxes."""
+    """``▸ Timing  +0.000000 s · +54.0 ms/h`` over the card's own spin boxes."""
 
     def __init__(
         self,
@@ -153,10 +154,10 @@ class TimingDisclosure(QWidget):
         """The values the closed disclosure shows inline."""
         offset = self._offset.value()
         sign = "+" if offset >= 0 else "−"
-        return tr("{sign}{offset} s · {drift} ppm").format(
+        return tr("{sign}{offset} s · {drift}").format(
             sign=sign,
             offset=format_number(abs(offset), self._offset.decimals()),
-            drift=format_number(self._drift.value(), self._drift.decimals()),
+            drift=describe_drift(self._drift.value()),
         )
 
     def _refresh(self, *_args: object) -> None:

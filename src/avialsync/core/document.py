@@ -84,7 +84,7 @@ class SourceRecord:
     path: str
     kind: str
     offset: float = 0.0
-    drift_ppm: float = 0.0
+    drift_ms_per_hour: float = 0.0
     visible: bool = True
     payload: dict[str, Any] = dataclasses.field(default_factory=dict)
 
@@ -101,11 +101,11 @@ class MutationTarget(Protocol):
     architecture rule 3 applies to undo as much as to anything else.
     """
 
-    def set_source_mapping(self, source_id: str, offset: float, drift_ppm: float) -> None:
-        """Apply a source-to-master ``offset`` and ``drift_ppm``."""
+    def set_source_mapping(self, source_id: str, offset: float, drift_ms_per_hour: float) -> None:
+        """Apply a source-to-master ``offset`` and ``drift_ms_per_hour``."""
 
     def source_mapping(self, source_id: str) -> tuple[float, float]:
-        """Return the current ``(offset, drift_ppm)`` for *source_id*."""
+        """Return the current ``(offset, drift_ms_per_hour)`` for *source_id*."""
 
     def add_marker(self, marker: MarkerRecord) -> None:
         """Insert *marker* into the annotation store."""
@@ -201,7 +201,9 @@ class MutationTarget(Protocol):
     def remove_source(self, source_id: str) -> None:
         """Unload a source from the workspace."""
 
-    def apply_sync(self, source_id: str, offset: float, drift_ppm: float, evidence: Any) -> None:
+    def apply_sync(
+        self, source_id: str, offset: float, drift_ms_per_hour: float, evidence: Any
+    ) -> None:
         """Apply an accepted synchronization proposal, retaining its evidence."""
 
     def capture_workspace(self) -> Any:

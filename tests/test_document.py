@@ -62,8 +62,8 @@ class FakeTarget:
         self.cleared = 0
         self.captures = 0
 
-    def set_source_mapping(self, source_id: str, offset: float, drift_ppm: float) -> None:
-        self.mappings[source_id] = (offset, drift_ppm)
+    def set_source_mapping(self, source_id: str, offset: float, drift_ms_per_hour: float) -> None:
+        self.mappings[source_id] = (offset, drift_ms_per_hour)
 
     def source_mapping(self, source_id: str) -> tuple[float, float]:
         return self.mappings.get(source_id, (0.0, 0.0))
@@ -157,8 +157,10 @@ class FakeTarget:
     def remove_source(self, source_id: str) -> None:
         self.sources.pop(source_id, None)
 
-    def apply_sync(self, source_id: str, offset: float, drift_ppm: float, evidence: Any) -> None:
-        self.mappings[source_id] = (offset, drift_ppm)
+    def apply_sync(
+        self, source_id: str, offset: float, drift_ms_per_hour: float, evidence: Any
+    ) -> None:
+        self.mappings[source_id] = (offset, drift_ms_per_hour)
         self.sync_evidence[source_id] = evidence
 
     def capture_workspace(self) -> Any:

@@ -12,6 +12,8 @@ from typing import Any
 
 import numpy as np
 
+from avialsync.core.drift import drift_from_legacy_entry
+
 _EXACT_MAPPING_INLINE_LIMIT = 500
 
 #: Appended to a session's stem for the folder holding its large exact-sync
@@ -35,7 +37,7 @@ class VideoEntry:
 
     path: str
     offset: float = 0.0
-    drift_ppm: float = 0.0
+    drift_ms_per_hour: float = 0.0
     integrity_flags: dict[str, object] = dataclasses.field(default_factory=dict)
     metadata: dict[str, object] = dataclasses.field(default_factory=dict)
 
@@ -53,7 +55,7 @@ class SensorEntry:
     #: offset/drift treatment as video so a sensor recorded on its own clock can
     #: be aligned without rewriting cached samples.
     offset: float = 0.0
-    drift_ppm: float = 0.0
+    drift_ms_per_hour: float = 0.0
     #: Per-tracker presentation choices (schema v11).  They are intentionally
     #: per source: a 2D pose file may be compared against raw footage without
     #: hiding another camera's tracker, and a dense pose need not occupy plots.
@@ -78,7 +80,7 @@ class SyncProvenance:
     reference_id: str
     target_id: str
     offset: float
-    drift_ppm: float
+    drift_ms_per_hour: float
     rms_residual: float
     max_residual: float
     matched_count: int
@@ -187,7 +189,7 @@ class SessionState:
     show_original_tracker: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict (always writes version 11)."""
+        """Serialise to a JSON-compatible dict (always writes version 12)."""
         provenance = []
         for item in self.sync_provenance:
             encoded = dataclasses.asdict(item)
@@ -203,7 +205,7 @@ class SessionState:
             )
             provenance.append(encoded)
         return {
-            "version": 11,
+            "version": 12,
             "videos": [dataclasses.asdict(v) for v in self.videos],
             "sensors": [dataclasses.asdict(s) for s in self.sensors],
             "markers": [dataclasses.asdict(m) for m in self.markers],
@@ -223,21 +225,25 @@ class SessionState:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SessionState:
-        """Deserialise from a parsed JSON dict (accepts v1 through v11).
+        """Deserialise from a parsed JSON dict (accepts v1 through v12).
+
+        Schema 12 (D-184) stores clock drift as ``drift_ms_per_hour``; earlier
+        versions stored a rate per million, converted on read by
+        :func:`avialsync.core.drift.drift_from_legacy_entry`.
 
         Every added field is optional with a default, so an older file loads and
         renders exactly as it did before the bump -- that equivalence is the
         migration test, not an aspiration.
         """
         version = data.get("version", 1)
-        if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11):
+        if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12):
             raise ValueError(f"Unsupported session file version: {version}")
 
         videos = [
             VideoEntry(
                 path=v["path"],
                 offset=v.get("offset", 0.0),
-                drift_ppm=v.get("drift_ppm", 0.0),
+                drift_ms_per_hour=drift_from_legacy_entry(v),
                 integrity_flags=v.get("integrity_flags", {}),
                 metadata=v.get("metadata", {}),
             )
@@ -252,7 +258,7 @@ class SessionState:
                 import_report=s.get("import_report"),
                 # Pre-v6 sessions have no sensor mapping; identity is correct.
                 offset=float(s.get("offset", 0.0)),
-                drift_ppm=float(s.get("drift_ppm", 0.0)),
+                drift_ms_per_hour=drift_from_legacy_entry(s),
                 tracking_overlay_visible=bool(s.get("tracking_overlay_visible", False)),
                 tracking_plot_visible=bool(s.get("tracking_plot_visible", False)),
             )
@@ -272,7 +278,7 @@ class SessionState:
                 reference_id=str(item["reference_id"]),
                 target_id=str(item["target_id"]),
                 offset=float(item["offset"]),
-                drift_ppm=float(item["drift_ppm"]),
+                drift_ms_per_hour=drift_from_legacy_entry(item),
                 rms_residual=float(item["rms_residual"]),
                 max_residual=float(item["max_residual"]),
                 matched_count=int(item["matched_count"]),

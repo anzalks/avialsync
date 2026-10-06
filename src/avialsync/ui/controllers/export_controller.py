@@ -62,7 +62,7 @@ def reader_references(window: MainWindow) -> list[ReaderReference]:
             channel.reader.cache_dir,
             channel.reader.channel_id,
             channel.reader.time_map.offset,
-            channel.reader.time_map.drift_ppm,
+            channel.reader.time_map.drift_ms_per_hour,
         )
         for channel in window.plot_pane.channels
     ]
@@ -346,7 +346,7 @@ def export_stimulus_grid(window: MainWindow) -> None:
                 channel.reader.cache_dir,
                 channel.reader.channel_id,
                 channel.reader.time_map.offset,
-                channel.reader.time_map.drift_ppm,
+                channel.reader.time_map.drift_ms_per_hour,
             ),
             channel.reader,
         )

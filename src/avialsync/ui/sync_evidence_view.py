@@ -4,7 +4,7 @@ BLUEPRINT principle 8 requires that TTL/event alignment "presents the matched
 evidence, offset/drift fit, residuals, and confidence before the user accepts
 it". What it actually presented was one sentence:
 
-    47 matched events; 3 unmatched; offset 1.240000 s; drift 12.400 ppm;
+    47 matched events; 3 unmatched; offset 1.240000 s; drift +44.6 ms/h;
     maximum residual 3.100 ms.
 
 Those four numbers are a *summary*. They cannot show whether the residuals are
@@ -32,6 +32,7 @@ from pyqtgraph.GraphicsScene.mouseEvents import MouseClickEvent
 from PySide6.QtCore import QEvent, Qt, Signal, Slot
 from PySide6.QtWidgets import QLabel, QSplitter, QVBoxLayout, QWidget
 
+from avialsync.core.drift import describe_drift
 from avialsync.core.sync import SyncProposal
 from avialsync.ui.axis_nav import AxisNav, NavigableViewBox
 from avialsync.ui.coverage_lanes import CoverageLanes, SourceCoverage
@@ -280,7 +281,7 @@ class SyncEvidenceView(QWidget):
         fit = proposal.fit
         self._headline.setText(
             f"{fit.matched_count} matched, {fit.rejected_count} rejected · "
-            f"offset {fit.offset:.6f} s · drift {fit.drift_ppm:.3f} ppm · "
+            f"offset {fit.offset:.6f} s · drift {describe_drift(fit.drift_ms_per_hour)} · "
             f"RMS {fit.rms_residual * 1000:.3f} ms · worst {fit.max_residual * 1000:.3f} ms"
         )
 

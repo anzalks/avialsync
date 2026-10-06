@@ -47,7 +47,7 @@ delegates to `avialsync demo`, so both paths behave identically.
 
 `avialsync demo` creates three 30 fps CFR cameras, one VFR camera, a four-channel sensor trace, a
 dense ephys/TTL trace with gaps, and DLC-style tracking in your platform application-data folder.
-Camera 2 has a known +1.234 s mapping and camera 3 a known 1000 ppm drift mapping, so alignment
+Camera 2 has a known +1.234 s mapping and camera 3 a known 3600 ms/h (3.6 s per hour) drift mapping, so alignment
 tools have a verifiable answer. First-run generation is shown in the progress-and-log dialog; later
 runs validate and reuse the cached files.
 

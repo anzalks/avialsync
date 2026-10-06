@@ -18,7 +18,7 @@ Deterministic (seeded), regenerated in CI, gitignored. Produces:
   binary pixel strip, NOT OCR — read back with a 10-line numpy decoder). Variants:
   30 fps h264 8-bit short-GOP; 30 fps h265 10-bit long-GOP; 12-bit greyscale h265; 3-camera set
   with known, different start offsets (e.g. +0.000 s, +1.234 s, +7.500 s) and one with drift
-  (+2 ppm) baked into metadata JSON alongside.
+  (+7.2 ms/h) baked into metadata JSON alongside.
 - **Time series**: 50 kHz × 16-bit, 4 channels, 10 min (and a 1 h "big" variant built only for
   benchmarks): sine sweeps + a step event at exactly known t on each channel; written as CSV
   (several timestamp formats: epoch s, epoch ns, ISO8601, relative) + expected-values JSON.
@@ -35,7 +35,7 @@ The non-negotiable invariant: *when the app says t, every pane shows t.*
 3. Assert readout panel value == expected signal value at t (± interpolation tolerance).
 4. Frame-step test: 10 steps forward = exactly 10 frame indices advanced, no skips/repeats.
 5. Offset test: change offset by +0.5 s in UI → frame indices shift by exactly 15 frames @30fps.
-6. Drift test: source with 2 ppm drift stays ≤ 1 frame error across the full fixture duration.
+6. Drift test: source with 7.2 ms/h drift stays ≤ 1 frame error across the full fixture duration.
 
 ### 3a. TTL/event synchronization golden tests (D-026)
 

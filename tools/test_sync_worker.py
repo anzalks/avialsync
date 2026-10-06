@@ -30,7 +30,7 @@ worker = SyncWorker(ref_spec, tgt_spec, "affine")
 
 def on_finished(proposal):
     print("Finished! Offset:", proposal.fit.offset)
-    print("Drift PPM:", proposal.fit.drift_ppm)
+    print("Drift (ms/h):", proposal.fit.drift_ms_per_hour)
     print("Matched count:", proposal.fit.matched_count)
     app.quit()
 

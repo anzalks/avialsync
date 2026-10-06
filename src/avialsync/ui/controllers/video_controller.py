@@ -47,11 +47,11 @@ def load_video(
     window: MainWindow,
     path: Path,
     offset: float = 0.0,
-    drift_ppm: float = 0.0,
+    drift_ms_per_hour: float = 0.0,
     config: dict[str, Any] | None = None,
 ) -> None:
     """Queue a video source for probing and, in request order, pane creation."""
-    window.video_load_state.pending.append((path, offset, drift_ppm, config))
+    window.video_load_state.pending.append((path, offset, drift_ms_per_hour, config))
     window.video_load_state.request_order.append(str(path))
     window._start_next_video_load()
 
@@ -78,10 +78,10 @@ def start_one_video_probe(window: MainWindow) -> None:
     """Spawn a single off-thread metadata/timestamp probe."""
     from avialsync.engine.video_worker import VideoOpenWorker
 
-    path, offset, drift_ppm, config = window.video_load_state.pending.popleft()
+    path, offset, drift_ms_per_hour, config = window.video_load_state.pending.popleft()
     worker = VideoOpenWorker(path, config)
     window.video_load_state.offsets[str(path)] = offset
-    window.video_load_state.drifts[str(path)] = drift_ppm
+    window.video_load_state.drifts[str(path)] = drift_ms_per_hour
     remaining = len(window.video_load_state.pending)
     suffix = f" ({remaining} queued)" if remaining else ""
 
@@ -118,7 +118,7 @@ def set_video_coverage(
     path: str,
     source_bounds: tuple[float, float],
     offset: float,
-    drift_ppm: float,
+    drift_ms_per_hour: float,
     exact_master: np.ndarray | None = None,
     exact_source: np.ndarray | None = None,
 ) -> None:
@@ -138,19 +138,19 @@ def set_video_coverage(
     # moved 1.77e9 s to reach master zero: the pane's own TimeMap never heard,
     # and the first hand nudge overwrote the whole mapping with the nudge.
     base = window.declare_base_offset(path, source_bounds[0])
-    if offset == 0.0 and drift_ppm == 0.0 and exact_master is None:
+    if offset == 0.0 and drift_ms_per_hour == 0.0 and exact_master is None:
         offset = base
 
     if exact_master is not None and exact_source is not None and len(exact_master) >= 2:
         master_bounds = (float(exact_master[0]), float(exact_master[-1]))
     else:
-        mapping = TimeMap(offset, drift_ppm)
+        mapping = TimeMap(offset, drift_ms_per_hour)
         master_bounds = (
             mapping.to_master(source_bounds[0]),
             mapping.to_master(source_bounds[1]),
         )
     window._video_source_bounds[path] = source_bounds
-    window._video_time_mappings[path] = (offset, drift_ppm)
+    window._video_time_mappings[path] = (offset, drift_ms_per_hour)
     # Coverage first: the master timeline is derived from the registered spans,
     # so re-placing a camera has to replace its span before the bounds are
     # recomputed, or the timeline keeps the span it had at the old offset.
@@ -230,7 +230,7 @@ def create_video_pane(
 ) -> None:
     """Create UI state only after asynchronous source opening succeeds."""
     offset = window.video_load_state.offsets.pop(original_path, 0.0)
-    drift_ppm = window.video_load_state.drifts.pop(original_path, 0.0)
+    drift_ms_per_hour = window.video_load_state.drifts.pop(original_path, 0.0)
     exact_mapping = window._pending_exact_mappings.pop(original_path, None)
     if not isinstance(loader, VideoSource):
         window._on_video_open_error(original_path, "Selected loader is not a VideoSource.")
@@ -247,7 +247,7 @@ def create_video_pane(
         original_path,
         bounds,
         offset,
-        drift_ppm,
+        drift_ms_per_hour,
         exact_master,
         exact_source,
     )
@@ -291,7 +291,9 @@ def create_video_pane(
     # whose pane never heard that placement decodes at master time zero against
     # frames stamped 1.77e9 -- which is to say it shows the "No Footage"
     # placeholder and looks like it failed to open.
-    effective, effective_drift = window._video_time_mappings.get(original_path, (offset, drift_ppm))
+    effective, effective_drift = window._video_time_mappings.get(
+        original_path, (offset, drift_ms_per_hour)
+    )
     if effective or effective_drift or exact_mapping is not None:
         window.video_grid.set_sync_mapping(
             original_path,
@@ -332,7 +334,7 @@ def create_video_pane(
         loader_id=type(loader).__name__,
         integrity_flags=IntegrityFlags(
             is_vfr=is_vfr,
-            drift_nonzero=bool(drift_ppm),
+            drift_nonzero=bool(drift_ms_per_hour),
             frames_dropped=video_metadata.dropped_frames > 0,
         ),
     )

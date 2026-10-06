@@ -27,7 +27,7 @@ def _provenance(master: list[float], source: list[float]) -> SyncProvenance:
         reference_id="ttl",
         target_id="cam",
         offset=0.0,
-        drift_ppm=0.0,
+        drift_ms_per_hour=0.0,
         rms_residual=0.0,
         max_residual=0.0,
         matched_count=len(master),
@@ -117,9 +117,9 @@ class TestExactTimeMapRate:
     """Playback rate through a VFR interval comes from the exact mapping."""
 
     def test_rate_without_an_exact_mapping_is_the_drift_scale(self) -> None:
-        mapping = TimeMap(offset=0.0, drift_ppm=1000.0)
+        mapping = TimeMap(offset=0.0, drift_ms_per_hour=3600.0)
 
-        assert mapping.rate_scale_at(5.0) == pytest.approx(1.0 + 1000.0 * 1e-6)
+        assert mapping.rate_scale_at(5.0) == pytest.approx(1.0 + 3600.0 / 3_600_000.0)
 
     def test_rate_inside_an_exact_mapping_follows_the_samples(self) -> None:
         """A doubled source interval is a half-rate stretch of master time."""
@@ -229,7 +229,7 @@ class TestSyncInternals:
 
         mapping = ExactSyncFit(
             offset=1.0,
-            drift_ppm=0.0,
+            drift_ms_per_hour=0.0,
             rms_residual=0.0,
             max_residual=0.0,
             matched_count=3,

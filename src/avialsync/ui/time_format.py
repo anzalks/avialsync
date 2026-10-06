@@ -31,6 +31,17 @@ def apply_number_locale() -> None:
     QLocale.setDefault(number_locale())
 
 
+def format_rate(rate_hz: float) -> str:
+    """A frame or sample rate for reading: ``30.0``, or ``29.97`` when tenths hide it.
+
+    One decimal is enough to tell rates apart, except where the second decimal
+    is the difference -- 29.97 against 30 is 3.6 s an hour -- so it is shown
+    only then (D-185).
+    """
+    value = float(rate_hz)
+    return f"{value:.1f}" if abs(value - round(value, 1)) < 0.005 else f"{value:.2f}"
+
+
 def format_number(value: float, decimals: int) -> str:
     """Format *value* with *decimals* places under the number policy."""
     return number_locale().toString(float(value), "f", decimals)

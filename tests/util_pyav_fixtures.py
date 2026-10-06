@@ -23,7 +23,7 @@ import numpy as np
 from tests.util_framestrip import encode_frame_index
 
 #: Timestamps are written on a 90 kHz grid, the MPEG convention.  It divides
-#: 30 fps exactly and 230 fps to within 0.4 ppm, so a fixture's nominal
+#: 30 fps exactly and 230 fps to within 1.4 ms/h, so a fixture's nominal
 #: timestamps are not themselves a source of rounding error under test.
 TIME_BASE = Fraction(1, 90_000)
 

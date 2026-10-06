@@ -113,14 +113,14 @@ class MappedChannelReader:
         """The source-to-master mapping applied by every method here."""
         return self._time_map
 
-    def set_mapping(self, offset: float, drift_ppm: float) -> None:
+    def set_mapping(self, offset: float, drift_ms_per_hour: float) -> None:
         """Replace the offset/drift mapping in place.
 
         Existing plot rows and readout rows keep their reader object, so a live
         offset edit is a mapping change rather than a channel reload.
         """
         self._time_map.offset = float(offset)
-        self._time_map.drift_ppm = float(drift_ppm)
+        self._time_map.drift_ms_per_hour = float(drift_ms_per_hour)
 
     # ── Bounded read API, all in master time ──────────────────────────
 

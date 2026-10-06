@@ -153,7 +153,7 @@ class SyncWorker(QObject):
             reconciliation=self._reconciliation(reference_times, target_times),
             matched_count=proposal.fit.matched_count,
             span=span,
-            drift_ppm=proposal.fit.drift_ppm,
+            drift_ms_per_hour=proposal.fit.drift_ms_per_hour,
             noise=proposal.fit.rms_residual,
         )
 

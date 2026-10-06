@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from avialsync.core.drift import LEGACY_DRIFT_KEY
 from avialsync.core.session import (
     MarkerEntry,
     SensorEntry,
@@ -57,7 +58,7 @@ def test_v1_session_roundtrips_as_v7(tmp_path: Path) -> None:
     state.save(out)
 
     data = json.loads(out.read_text())
-    assert data["version"] == 11
+    assert data["version"] == 12
     assert data["videos"][0]["offset"] == 0.5
     assert data["sensors"][0]["channels"] == ["ch1", "ch2"]
     assert data["sensors"][0]["import_report"] is None
@@ -147,7 +148,7 @@ def test_v7_roundtrip_with_inspection_and_sync_fields(tmp_path: Path) -> None:
             VideoEntry(
                 path="/tmp/vid.mp4",
                 offset=1.5,
-                drift_ppm=2.5,
+                drift_ms_per_hour=2.5,
                 integrity_flags={"is_vfr": True, "has_gaps": False},
                 metadata={"container": "mp4", "width": 640},
             )
@@ -172,7 +173,7 @@ def test_v7_roundtrip_with_inspection_and_sync_fields(tmp_path: Path) -> None:
                 reference_id="sensor:ttl",
                 target_id="video:cam1",
                 offset=1.25,
-                drift_ppm=3.5,
+                drift_ms_per_hour=3.5,
                 rms_residual=0.001,
                 max_residual=0.002,
                 matched_count=12,
@@ -190,17 +191,17 @@ def test_v7_roundtrip_with_inspection_and_sync_fields(tmp_path: Path) -> None:
     state.save(out)
 
     data = json.loads(out.read_text())
-    assert data["version"] == 11
+    assert data["version"] == 12
 
     loaded = SessionState.load(out)
     assert loaded.videos[0].integrity_flags == {"is_vfr": True, "has_gaps": False}
-    assert loaded.videos[0].drift_ppm == pytest.approx(2.5)
+    assert loaded.videos[0].drift_ms_per_hour == pytest.approx(2.5)
     assert loaded.videos[0].metadata["container"] == "mp4"
     assert loaded.sensors[0].loader_id == "CSVLoader"
     assert loaded.sensors[0].import_config == {"fps": 30.0}
     assert loaded.sensors[0].import_report == {"rows_parsed": 100, "gap_count": 2}
     assert loaded.markers[0].video_frames[0]["frame_index"] == 30
-    assert loaded.sync_provenance[0].drift_ppm == pytest.approx(3.5)
+    assert loaded.sync_provenance[0].drift_ms_per_hour == pytest.approx(3.5)
     assert loaded.sync_provenance[0].matches[0]["target_time"] == pytest.approx(2.25)
     assert loaded.sync_provenance[0].exact_master == [1.0, 2.0, 3.0]
     assert loaded.sync_provenance[0].exact_source == [2.25, 3.25, 4.25]
@@ -238,7 +239,7 @@ def test_large_exact_mapping_is_stored_in_a_validated_binary_sidecar(tmp_path: P
                 reference_id="sensor:ttl",
                 target_id="video:cam1",
                 offset=2.5,
-                drift_ppm=0.0,
+                drift_ms_per_hour=0.0,
                 rms_residual=0.0,
                 max_residual=0.0,
                 matched_count=len(master),
@@ -279,7 +280,7 @@ def test_a_v8_session_reads_back_as_the_affine_fit_it_recorded(tmp_path: Path) -
     """
     v8 = {
         "version": 8,
-        "videos": [{"path": "/tmp/cam.mp4", "offset": 1.25, "drift_ppm": 3.5}],
+        "videos": [{"path": "/tmp/cam.mp4", "offset": 1.25, LEGACY_DRIFT_KEY: 3.5}],
         "sensors": [],
         "markers": [],
         "sync_provenance": [
@@ -287,7 +288,7 @@ def test_a_v8_session_reads_back_as_the_affine_fit_it_recorded(tmp_path: Path) -
                 "reference_id": "sensor:ttl",
                 "target_id": "/tmp/cam.mp4",
                 "offset": 1.25,
-                "drift_ppm": 3.5,
+                LEGACY_DRIFT_KEY: 3.5,
                 "rms_residual": 0.002,
                 "max_residual": 0.004,
                 "matched_count": 47,
@@ -309,6 +310,9 @@ def test_a_v8_session_reads_back_as_the_affine_fit_it_recorded(tmp_path: Path) -
 
     assert provenance.method == "affine"
     assert provenance.offset == pytest.approx(1.25)
+    # D-184: the per-million rate an old file stored reads back as ms/h.
+    assert provenance.drift_ms_per_hour == pytest.approx(3.5 * 3.6)
+    assert loaded.videos[0].drift_ms_per_hour == pytest.approx(3.5 * 3.6)
     assert provenance.matched_count == 47
     # The v9-only fields take defaults that claim nothing: no counts to state a
     # rate from, no measured uncertainty, and no rival to have beaten.
@@ -320,9 +324,11 @@ def test_a_v8_session_reads_back_as_the_affine_fit_it_recorded(tmp_path: Path) -
     out = tmp_path / "resaved.avv"
     loaded.save(out)
     resaved = json.loads(out.read_text())
-    assert resaved["version"] == 11
+    assert resaved["version"] == 12
     assert resaved["sync_provenance"][0]["method"] == "affine"
     assert resaved["sync_provenance"][0]["matched_count"] == 47
+    assert resaved["sync_provenance"][0]["drift_ms_per_hour"] == pytest.approx(12.6)
+    assert LEGACY_DRIFT_KEY not in resaved["sync_provenance"][0], "never written again"
 
 
 def test_a_manual_mapping_is_recorded_as_manual(tmp_path: Path) -> None:
@@ -335,7 +341,7 @@ def test_a_manual_mapping_is_recorded_as_manual(tmp_path: Path) -> None:
                 reference_id="sensor:ttl",
                 target_id="/tmp/cam.mp4",
                 offset=1.25,
-                drift_ppm=0.0,
+                drift_ms_per_hour=0.0,
                 rms_residual=0.0,
                 max_residual=0.0,
                 matched_count=0,

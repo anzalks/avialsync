@@ -20,10 +20,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.core.drift import describe_drift
 from avialsync.core.sync import AlignmentMethod, SyncFit, SyncProposal
 from avialsync.engine.sync_worker import EvidenceSpec, SignalEvidenceSpec, SyncWorker
 from avialsync.ui.about import docs_url
 from avialsync.ui.coverage_lanes import SourceCoverage
+from avialsync.ui.drift_spin import DriftSpinBox
 from avialsync.ui.i18n import tr
 from avialsync.ui.step_panel import StepPanel
 from avialsync.ui.sync_evidence_view import SyncEvidenceView
@@ -79,7 +81,7 @@ class SyncWizard(QDialog):
         form.addRow(tr("Target video evidence:"), self._target_combo)
         self._threshold = QDoubleSpinBox(self)
         self._threshold.setRange(-1e12, 1e12)
-        self._threshold.setDecimals(6)
+        self._threshold.setDecimals(3)
         self._threshold.setValue(0.5)
         self._threshold.setToolTip(tr("Logical high threshold for a signal-channel TTL reference"))
         form.addRow(tr("TTL high threshold:"), self._threshold)
@@ -166,10 +168,8 @@ class SyncWizard(QDialog):
         self._manual_offset.setRange(-1e9, 1e9)
         self._manual_offset.setDecimals(6)
         self._manual_offset.setSuffix(" s")
-        self._manual_drift = QDoubleSpinBox(self)
-        self._manual_drift.setRange(-1e6, 1e6)
-        self._manual_drift.setDecimals(3)
-        self._manual_drift.setSuffix(" ppm")
+        # Milliseconds gained per hour, the unit the mapping uses (D-184).
+        self._manual_drift = DriftSpinBox(self)
         advanced.addRow(tr("Manual offset:"), self._manual_offset)
         advanced.addRow(tr("Manual drift:"), self._manual_drift)
         # One step panel: the summary is the instruction, Preview the primary,
@@ -304,7 +304,7 @@ class SyncWizard(QDialog):
             target_id=self._target_combo.currentText(),
             fit=SyncFit(
                 offset=self._manual_offset.value(),
-                drift_ppm=self._manual_drift.value(),
+                drift_ms_per_hour=self._manual_drift.value(),
                 rms_residual=0.0,
                 max_residual=0.0,
                 matched_count=0,
@@ -318,10 +318,13 @@ class SyncWizard(QDialog):
         self._evidence.show_proposal(None)
         self._summary.setText(
             tr(
-                "Manual mapping: offset {offset:+.6f} s, drift {drift:+.3f} ppm. This is "
+                "Manual mapping: offset {offset:+.6f} s, drift {drift}. This is "
                 "recorded as set by hand, with no evidence behind it, and will be reported "
                 "that way wherever the alignment is shown."
-            ).format(offset=self._manual_offset.value(), drift=self._manual_drift.value())
+            ).format(
+                offset=self._manual_offset.value(),
+                drift=describe_drift(self._manual_drift.value()),
+            )
         )
         self._effective_tolerance.setText(tr("Not used for a manual mapping."))
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)

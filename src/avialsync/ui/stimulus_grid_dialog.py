@@ -76,7 +76,7 @@ class StimulusGridDialog(QDialog):
             self.channel_combo.addItem(channel.label)
         self.threshold_spin = QDoubleSpinBox(self)
         self.threshold_spin.setRange(-1_000_000_000, 1_000_000_000)
-        self.threshold_spin.setDecimals(6)
+        self.threshold_spin.setDecimals(3)
         self.threshold_spin.setSingleStep(0.1)
         self.threshold_spin.setValue(0.5)
         self.threshold_spin.setKeyboardTracking(False)
@@ -285,7 +285,7 @@ class StimulusGridDialog(QDialog):
             use.setCheckState(
                 Qt.CheckState.Checked if row < MAX_GRID_EVENTS else Qt.CheckState.Unchecked
             )
-            time_item = QTableWidgetItem(f"{event_time:.6f}")
+            time_item = QTableWidgetItem(f"{event_time:.3f}")
             time_item.setData(Qt.ItemDataRole.UserRole, event_time)
             time_item.setFlags(time_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             self.event_table.setItem(row, 0, use)
@@ -385,7 +385,7 @@ class StimulusGridDialog(QDialog):
         output_duration = (self.before_spin.value() + self.after_spin.value()) / speed
         self.event_details.setText(
             tr(
-                "First selected event: {time:.6f} s. Export window: {start:.6f} to {end:.6f} s. "
+                "First selected event: {time:.3f} s. Export window: {start:.3f} to {end:.3f} s. "
                 "Video length: {duration:.2f} s at {speed:g}x."
             ).format(time=event_time, start=start, end=end, duration=output_duration, speed=speed)
         )

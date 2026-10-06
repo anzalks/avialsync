@@ -28,7 +28,7 @@ def generate_video(
     frames: int,
     variant: str = "base",
     offset: float = 0.0,
-    drift_ppm: float = 0.0,
+    drift_ms_per_hour: float = 0.0,
     width: int = 640,
     height: int = 360,
 ) -> None:
@@ -242,7 +242,7 @@ def generate_video(
         "fps": fps,
         "frames_total": len(actual_frames),
         "offset": offset,
-        "drift_ppm": drift_ppm,
+        "drift_ms_per_hour": drift_ms_per_hour,
         "expected_indices": actual_frames,
     }
 
@@ -696,7 +696,7 @@ def main() -> None:
 
     generate_video(vid_dir / "camera_1.mp4", fps, frames)
     generate_video(vid_dir / "camera_2.mp4", fps, frames, offset=2.5)
-    generate_video(vid_dir / "camera_3.mp4", fps, frames, offset=-1.0, drift_ppm=100.0)
+    generate_video(vid_dir / "camera_3.mp4", fps, frames, offset=-1.0, drift_ms_per_hour=360.0)
 
     generate_video(vid_dir / "high_10bit.mp4", fps, frames, "high_10bit")
     generate_video(vid_dir / "mono_12bit.mp4", fps, frames, "mono_12bit")

@@ -28,7 +28,7 @@ def test_seek_group_fans_out_commands_without_marking_panes_stuck() -> None:
     """Dispatching a request must not itself mark a pane as settled or stuck."""
     first = _Pane()
     second = _Pane()
-    second.time_map.set_mapping(offset=1.25, drift_ppm=0.0)
+    second.time_map.set_mapping(offset=1.25, drift_ms_per_hour=0.0)
 
     group = SeekGroup([first, second])
     group.seek(4.0, exact=True)

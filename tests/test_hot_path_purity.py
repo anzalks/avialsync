@@ -108,7 +108,7 @@ class TestTheLineFitIsClosedForm:
         slope, offset = _fit_affine(reference, target)
         expected_slope, expected_offset = np.polyfit(reference, target, 1)
 
-        # Far tighter than the 1e-5 ppm the fit's own tests assert.
+        # Far tighter than the 3.6e-5 ms/h the fit's own tests assert.
         assert slope == pytest.approx(expected_slope, abs=1e-12)
         assert offset == pytest.approx(expected_offset, abs=1e-9)
 

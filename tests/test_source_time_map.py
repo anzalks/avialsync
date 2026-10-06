@@ -45,21 +45,21 @@ def shifted(cache_dir: Path) -> MappedChannelReader:
 
 
 def test_to_master_array_matches_the_scalar_conversion() -> None:
-    time_map = TimeMap(offset=3.0, drift_ppm=250.0)
+    time_map = TimeMap(offset=3.0, drift_ms_per_hour=250.0)
     source = np.linspace(0.0, 100.0, 41)
     expected = [time_map.to_master(value) for value in source]
     assert time_map.to_master_array(source) == pytest.approx(expected)
 
 
 def test_to_source_array_matches_the_scalar_conversion() -> None:
-    time_map = TimeMap(offset=-2.5, drift_ppm=-80.0)
+    time_map = TimeMap(offset=-2.5, drift_ms_per_hour=-80.0)
     master = np.linspace(0.0, 100.0, 41)
     expected = [time_map.to_source(value) for value in master]
     assert time_map.to_source_array(master) == pytest.approx(expected)
 
 
 def test_array_conversions_round_trip() -> None:
-    time_map = TimeMap(offset=7.25, drift_ppm=1_000.0)
+    time_map = TimeMap(offset=7.25, drift_ms_per_hour=1_000.0)
     master = np.linspace(0.0, 500.0, 101)
     assert time_map.to_master_array(time_map.to_source_array(master)) == pytest.approx(master)
 
@@ -153,9 +153,9 @@ def test_set_mapping_remaps_in_place_without_reopening(shifted: MappedChannelRea
 
 def test_drift_is_applied_to_the_query(cache_dir: Path) -> None:
     reader = MappedChannelReader(
-        PyramidReader(cache_dir, "sig"), TimeMap(offset=0.0, drift_ppm=10_000.0)
+        PyramidReader(cache_dir, "sig"), TimeMap(offset=0.0, drift_ms_per_hour=36_000.0)
     )
-    # 1 % faster source clock: master t=10 lands at source t=10.1.
+    # 36 s gained per hour, a 1 % faster clock: master t=10 lands at source t=10.1.
     index, _value = reader.sample_at(10.0)
     assert index == pytest.approx(int(10.1 * RATE_HZ), abs=1)
 
@@ -164,12 +164,14 @@ def test_drift_is_applied_to_the_query(cache_dir: Path) -> None:
 
 
 def test_sensor_mapping_survives_a_session_round_trip(tmp_path: Path) -> None:
-    state = SessionState(sensors=[SensorEntry(path="/tmp/a.csv", offset=1.25, drift_ppm=-40.0)])
+    state = SessionState(
+        sensors=[SensorEntry(path="/tmp/a.csv", offset=1.25, drift_ms_per_hour=-40.0)]
+    )
     path = tmp_path / "s.avv"
     state.save(path)
     restored = SessionState.load(path)
     assert restored.sensors[0].offset == pytest.approx(1.25)
-    assert restored.sensors[0].drift_ppm == pytest.approx(-40.0)
+    assert restored.sensors[0].drift_ms_per_hour == pytest.approx(-40.0)
 
 
 def test_pre_v6_sensor_entries_default_to_the_identity_mapping() -> None:
@@ -177,4 +179,4 @@ def test_pre_v6_sensor_entries_default_to_the_identity_mapping() -> None:
         {"version": 5, "sensors": [{"path": "/tmp/a.csv", "channels": ["x"]}]}
     )
     assert state.sensors[0].offset == 0.0
-    assert state.sensors[0].drift_ppm == 0.0
+    assert state.sensors[0].drift_ms_per_hour == 0.0

@@ -445,7 +445,7 @@ def test_adopting_does_not_discard_what_another_source_already_loaded() -> None:
 def test_the_saved_file_writes_the_current_schema_version(tmp_path: Path) -> None:
     path = tmp_path / "session.avv"
     SessionState().save(path)
-    assert json.loads(path.read_text())["version"] == 11
+    assert json.loads(path.read_text())["version"] == 12
 
 
 def test_a_version_7_session_loads_with_no_corrections(tmp_path: Path) -> None:

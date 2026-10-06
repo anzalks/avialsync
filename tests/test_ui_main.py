@@ -181,7 +181,7 @@ def test_accepted_sync_mapping_updates_video_and_session(main_window: MainWindow
     proposal = SyncProposal(
         reference_id="sensor:ttl",
         target_id="/fake/camera.mp4",
-        fit=SyncFit(1.25, 3.5, 0.0, 0.0, 4, 0),
+        fit=SyncFit(1.25, 12.6, 0.0, 0.0, 4, 0),
         matches=(SyncMatch(0.0, 1.25, 0.0),),
         tolerance=0.01,
     )
@@ -190,7 +190,7 @@ def test_accepted_sync_mapping_updates_video_and_session(main_window: MainWindow
 
     assert pane.time_map.to_source(100.0) == pytest.approx(101.25035)
     state = main_window._build_session_state()
-    assert state.videos[0].drift_ppm == pytest.approx(3.5)
+    assert state.videos[0].drift_ms_per_hour == pytest.approx(12.6)
     assert state.sync_provenance[0].target_id == "/fake/camera.mp4"
 
 
@@ -208,7 +208,7 @@ def test_session_restore_queues_exact_mapping_for_async_video_open(
                 reference_id="trigger",
                 target_id=str(video),
                 offset=0.0,
-                drift_ppm=0.0,
+                drift_ms_per_hour=0.0,
                 rms_residual=0.0,
                 max_residual=0.0,
                 matched_count=3,
@@ -624,7 +624,7 @@ def test_video_coverage_is_projected_onto_master_time(main_window: MainWindow, m
     coverage = MagicMock()
     monkeypatch.setattr(main_window.transport, "set_source_coverage", coverage)
 
-    main_window._set_video_coverage("camera.mp4", (0.0, 10.0), offset=1.0, drift_ppm=0.0)
+    main_window._set_video_coverage("camera.mp4", (0.0, 10.0), offset=1.0, drift_ms_per_hour=0.0)
 
     coverage.assert_called_once_with("camera.mp4", -1.0, 9.0, "video")
 

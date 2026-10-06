@@ -53,7 +53,8 @@ def _sensor_widget(window: MainWindow) -> SensorInfoWidget:
 def test_sidebar_offers_offset_and_drift_for_a_sensor(window: MainWindow) -> None:
     widget = _sensor_widget(window)
     assert widget.offset_spin.suffix() == " s"
-    assert widget.drift_spin.suffix() == " ppm"
+    # D-184: drift is time gained per hour of recording.
+    assert widget.drift_spin.suffix() == " ms/h"
     assert widget.mapping() == (0.0, 0.0)
 
 
@@ -87,7 +88,7 @@ def test_editing_the_drift_reaches_the_readers(window: MainWindow) -> None:
     _sensor_widget(window).drift_spin.setValue(150.0)
 
     for channel in window.plot_pane.channels:
-        assert channel.reader.time_map.drift_ppm == pytest.approx(150.0)
+        assert channel.reader.time_map.drift_ms_per_hour == pytest.approx(150.0)
 
 
 def test_readout_follows_the_new_mapping(window: MainWindow) -> None:
@@ -109,7 +110,7 @@ def test_mapping_is_written_into_the_saved_session(window: MainWindow) -> None:
 
     entry = next(s for s in state.sensors if s.path == SENSOR_PATH)
     assert entry.offset == pytest.approx(1.5)
-    assert entry.drift_ppm == pytest.approx(-25.0)
+    assert entry.drift_ms_per_hour == pytest.approx(-25.0)
 
 
 def test_restored_mapping_is_applied_when_the_import_reports_back(

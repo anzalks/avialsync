@@ -27,7 +27,9 @@ Every source carries its own **Offset** and **Drift** in the left panel, behind 
 
 1. **Offset** shifts the whole recording along the shared timeline, in seconds. Positive moves it
    later. Use this when a camera started before or after the others.
-2. **Drift** corrects a clock that runs fast or slow, in parts per million. Use it when the
+2. **Drift** corrects a clock that runs fast or slow, as milliseconds gained per hour of
+   recording (ms/h). A clock that gains 54 ms every hour has a drift of +54 ms/h; hovering the
+   field also gives it in frames per hour for a camera. Use it when the
    recordings agree at the start and separate towards the end — a fixed offset cannot fix that,
    because the error grows with time. Cameras have this field too, so a camera that slips against
    the sensor is corrected where the problem is, rather than by drifting the sensor and moving it
@@ -122,7 +124,7 @@ If you already know the numbers — from the rig's documentation, or a previous 
 directly instead of fitting.
 
 1. **Manual offset**, in seconds.
-2. **Manual drift**, in parts per million.
+2. **Manual drift**, in milliseconds gained per hour (ms/h).
 3. **Use manual mapping** applies them as a proposal, which you still accept explicitly.
 
 A manual mapping is recorded as set by hand, and reported that way everywhere afterwards. It is

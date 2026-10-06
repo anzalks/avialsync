@@ -1984,7 +1984,7 @@ class MainWindow(QMainWindow):
         self.sidebar.set_video_offset(path, new_offset)
         self._on_video_offset_changed(path, new_offset)
         self.transport.set_status(
-            f"{Path(path).name} offset {new_offset:+.4f} s ({direction:+d} frame)", "info"
+            f"{Path(path).name} offset {new_offset:+.3f} s ({direction:+d} frame)", "info"
         )
 
     def _supersede_alignment(
@@ -2068,7 +2068,7 @@ class MainWindow(QMainWindow):
 
         return SyncFit(
             offset=entry.offset,
-            drift_ppm=entry.drift_ppm,
+            drift_ms_per_hour=entry.drift_ms_per_hour,
             rms_residual=entry.rms_residual,
             max_residual=entry.max_residual,
             matched_count=entry.matched_count,
@@ -2734,10 +2734,10 @@ class MainWindow(QMainWindow):
             return
         self.document.record(command)  # type: ignore[arg-type]
 
-    def _record_mapping_change(self, source_id: str, offset: float, drift_ppm: float) -> None:
+    def _record_mapping_change(self, source_id: str, offset: float, drift: float) -> None:
         """Record an offset/drift change against whatever it was before."""
         before = self._recorded_mappings.get(source_id, (0.0, 0.0))
-        after = (offset, drift_ppm)
+        after = (offset, drift)
         if before == after:
             return
         self._recorded_mappings[source_id] = after
@@ -2793,13 +2793,13 @@ class MainWindow(QMainWindow):
             self.document.mark_dirty()
 
     def _source_record(self, source_id: str, kind: str) -> SourceRecord:
-        offset, drift_ppm = self._recorded_mappings.get(source_id, (0.0, 0.0))
+        offset, drift_ms_per_hour = self._recorded_mappings.get(source_id, (0.0, 0.0))
         return SourceRecord(
             source_id=source_id,
             path=source_id,
             kind=kind,
             offset=offset,
-            drift_ppm=drift_ppm,
+            drift_ms_per_hour=drift_ms_per_hour,
         )
 
     # ── Session identity and dirty state ─────────────────────────────
@@ -3144,10 +3144,10 @@ class MainWindow(QMainWindow):
         self,
         path: Path,
         offset: float = 0.0,
-        drift_ppm: float = 0.0,
+        drift_ms_per_hour: float = 0.0,
         config: dict[str, Any] | None = None,
     ) -> None:
-        video_controller.load_video(self, path, offset, drift_ppm, config)
+        video_controller.load_video(self, path, offset, drift_ms_per_hour, config)
 
     def _start_next_video_load(self) -> None:
         video_controller.start_next_video_load(self)
@@ -3160,12 +3160,12 @@ class MainWindow(QMainWindow):
         path: str,
         source_bounds: tuple[float, float],
         offset: float,
-        drift_ppm: float,
+        drift_ms_per_hour: float,
         exact_master: np.ndarray | None = None,
         exact_source: np.ndarray | None = None,
     ) -> None:
         video_controller.set_video_coverage(
-            self, path, source_bounds, offset, drift_ppm, exact_master, exact_source
+            self, path, source_bounds, offset, drift_ms_per_hour, exact_master, exact_source
         )
 
     @Slot(str, object, str)
@@ -3333,8 +3333,8 @@ class MainWindow(QMainWindow):
         """
         coverage: list[SourceCoverage] = []
         for path, bounds in self._video_source_bounds.items():
-            offset, drift_ppm = self._video_time_mappings.get(path, (0.0, 0.0))
-            mapping = TimeMap(offset, drift_ppm)
+            offset, drift_ms_per_hour = self._video_time_mappings.get(path, (0.0, 0.0))
+            mapping = TimeMap(offset, drift_ms_per_hour)
             coverage.append(
                 SourceCoverage(
                     label=Path(path).name,
@@ -3369,7 +3369,7 @@ class MainWindow(QMainWindow):
         return None
 
     @Slot(str, float, float)
-    def _on_video_mapping_changed(self, path: str, offset: float, drift_ppm: float) -> None:
+    def _on_video_mapping_changed(self, path: str, offset: float, drift: float) -> None:
         """Re-map one camera against the master clock, rate included.
 
         `_on_video_offset_changed` keeps whatever drift was already recorded,
@@ -3380,13 +3380,13 @@ class MainWindow(QMainWindow):
         every other camera at once.
         """
         _, previous_drift = self._recorded_mappings.get(path, (0.0, 0.0))
-        if drift_ppm == previous_drift:
+        if drift == previous_drift:
             return  # `_on_video_offset_changed` already handled the position.
-        self._record_mapping_change(path, offset, drift_ppm)
+        self._record_mapping_change(path, offset, drift)
         effective = self.effective_offset(path, offset)
-        self.video_grid.set_sync_mapping(path, effective, drift_ppm, None, None)
+        self.video_grid.set_sync_mapping(path, effective, drift, None, None)
         if path in self._video_source_bounds:
-            self._set_video_coverage(path, self._video_source_bounds[path], effective, drift_ppm)
+            self._set_video_coverage(path, self._video_source_bounds[path], effective, drift)
         self.player.seek(self.clock.state.t, exact=True)
 
     def restore_trigger_sources(self, entries: list[TriggerEntry]) -> None:
@@ -3521,14 +3521,14 @@ class MainWindow(QMainWindow):
         exact_source = getattr(fit, "exact_source", None)
 
         self.video_grid.set_sync_mapping(
-            target_path, fit.offset, fit.drift_ppm, exact_master, exact_source
+            target_path, fit.offset, fit.drift_ms_per_hour, exact_master, exact_source
         )
         if target_path in self._video_source_bounds:
             self._set_video_coverage(
                 target_path,
                 self._video_source_bounds[target_path],
                 fit.offset,
-                fit.drift_ppm,
+                fit.drift_ms_per_hour,
                 exact_master,
                 exact_source,
             )
@@ -3536,7 +3536,7 @@ class MainWindow(QMainWindow):
             reference_id=proposal.reference_id,
             target_id=target_path,
             offset=fit.offset,
-            drift_ppm=fit.drift_ppm,
+            drift_ms_per_hour=fit.drift_ms_per_hour,
             rms_residual=fit.rms_residual,
             max_residual=fit.max_residual,
             matched_count=fit.matched_count,
@@ -3581,7 +3581,7 @@ class MainWindow(QMainWindow):
             AcceptSyncCommand(
                 source_id=target_path,
                 before=self._recorded_mappings.get(target_path, (0.0, 0.0)),
-                after=(self.user_offset(target_path, fit.offset), fit.drift_ppm),
+                after=(self.user_offset(target_path, fit.offset), fit.drift_ms_per_hour),
                 evidence=provenance,
                 before_evidence=previous_provenance,
             )
@@ -3590,8 +3590,8 @@ class MainWindow(QMainWindow):
         # work in residuals, so it is converted once, here, and the control the
         # user would nudge next now shows what the fit actually left them at.
         accepted_residual = self.user_offset(target_path, fit.offset)
-        self.sidebar.set_video_mapping(target_path, accepted_residual, fit.drift_ppm)
-        self._recorded_mappings[target_path] = (accepted_residual, fit.drift_ppm)
+        self.sidebar.set_video_mapping(target_path, accepted_residual, fit.drift_ms_per_hour)
+        self._recorded_mappings[target_path] = (accepted_residual, fit.drift_ms_per_hour)
         self.refresh_alignment_badges()
         self.transport.set_status(f"Aligned · {fit.describe()}", "info")
         self.transport.set_ttl_events(
@@ -3665,7 +3665,7 @@ class MainWindow(QMainWindow):
         self.transport.set_source_coverage(path, 0.0, 0.0, "data")
         self._recompute_bounds()
 
-    def _on_sensor_mapping_changed(self, path: str, offset: float, drift_ppm: float) -> None:
+    def _on_sensor_mapping_changed(self, path: str, offset: float, drift: float) -> None:
         """Re-align one time-series source against the master clock.
 
         This only changes the source's ``TimeMap`` — cached samples are never
@@ -3674,15 +3674,15 @@ class MainWindow(QMainWindow):
         cache_dir = self._sensor_cache_dirs.get(path)
         if cache_dir is None:
             return
-        self._record_mapping_change(path, offset, drift_ppm)
+        self._record_mapping_change(path, offset, drift)
         # *offset* is the sidebar residual; the readers need the whole mapping,
         # session placement included, or a wall-clock source jumps back to its
         # raw epoch the moment the user touches the control.
         effective = self.effective_offset(path, offset)
-        self.plot_pane.set_source_mapping(cache_dir, effective, drift_ppm)
+        self.plot_pane.set_source_mapping(cache_dir, effective, drift)
         # A note moves with the samples it describes; leaving it behind would
         # put an experimenter's "stimulus on" beside the wrong trace.
-        self.message_store.set_source_mapping(path, effective, drift_ppm)
+        self.message_store.set_source_mapping(path, effective, drift)
         bounds = self.plot_pane.source_bounds(cache_dir)
         if bounds is not None:
             # Coverage first, then bounds: the timeline is derived from the
@@ -3750,7 +3750,7 @@ class MainWindow(QMainWindow):
         source = self._tracking_plot_sources.get(path)
         if source is None:
             return
-        cache_dir, channels, offset, drift_ppm = source
+        cache_dir, channels, offset, drift_ms_per_hour = source
         visible = self._tracking_visibility.get(path, {}).get("plot", False)
         card = self.sidebar.sensor_widget(path)
         selected = set(card.checked_channels()) if card is not None else set(channels)
@@ -3764,7 +3764,9 @@ class MainWindow(QMainWindow):
                 channel for channel in channels if channel in selected and channel not in existing
             ]
             if missing:
-                self.plot_pane.load_channels(cache_dir, missing, offset, drift_ppm, source_id=path)
+                self.plot_pane.load_channels(
+                    cache_dir, missing, offset, drift_ms_per_hour, source_id=path
+                )
         for channel in channels:
             self.plot_pane.set_channel_visible(
                 ChannelKey(path, channel), visible and channel in selected
@@ -3941,10 +3943,10 @@ class MainWindow(QMainWindow):
         role: str,
         inspection: object,
         offset: float = 0.0,
-        drift_ppm: float = 0.0,
+        drift_ms_per_hour: float = 0.0,
     ) -> None:
         import_controller.register_tracking_source(
-            self, path, cache_dir, channels, role, inspection, offset, drift_ppm
+            self, path, cache_dir, channels, role, inspection, offset, drift_ms_per_hour
         )
 
     def _refresh_pose_3d(self) -> None:

@@ -72,8 +72,10 @@ Three routes, in the order to try them — all covered field by field, with anno
 - **Offset** (left panel, per source) shifts a recording along the shared timeline in seconds.
   **Align → Nudge selected source earlier / later** (`Ctrl+Shift+Left` / `Right`) does the same by
   one step without leaving the keyboard, on whichever source is selected.
-- **Drift** (left panel, per source) corrects a clock running fast or slow, in ppm. Reach for it
-  when recordings agree at the start and separate by the end — a fixed offset cannot express that.
+- **Drift** (left panel, per source) corrects a clock running fast or slow, as the time it gains
+  per hour of recording, in ms/h: a camera whose clock gains 54 ms every hour has a drift of
+  +54 ms/h. Hover the field to see the same drift in frames per hour. Reach for it when recordings
+  agree at the start and separate by the end — a fixed offset cannot express that.
 - **Align → Synchronize TTL / events…** fits the mapping from TTL pulses or frame triggers. Choose reference and target
   evidence, set the **TTL high threshold** (or tick **Use all samples as events** when the reference
   is already a list of event times), then leave **Alignment strategy** (under **More…**) on **Automatic** unless you

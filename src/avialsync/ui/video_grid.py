@@ -285,7 +285,7 @@ class VideoGrid(GridOverlayMixin, QWidget):
         self,
         path: str,
         offset: float,
-        drift_ppm: float,
+        drift_ms_per_hour: float,
         exact_master: np.ndarray | None = None,
         exact_source: np.ndarray | None = None,
     ) -> None:
@@ -293,7 +293,7 @@ class VideoGrid(GridOverlayMixin, QWidget):
         try:
             idx = self._paths.index(path)
             pane = self.panes[idx]
-            pane.time_map.set_mapping(offset, drift_ppm)
+            pane.time_map.set_mapping(offset, drift_ms_per_hour)
             if exact_master is not None and exact_source is not None:
                 pane.time_map.set_exact_mapping(exact_master, exact_source)
         except ValueError:

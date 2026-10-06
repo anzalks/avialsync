@@ -14,6 +14,7 @@ from avialsync.core.timeline import TimeMap
 # the same call this readout names it with — one authority, never two (D-075).
 # Re-exported here because this is the import path the UI already knows.
 from avialsync.core.video_timing import adjacent_frame_time, frame_index_at
+from avialsync.ui.time_format import format_rate
 
 
 def instantaneous_frame_rate(frame_times: np.ndarray | None, t: float, fallback: float) -> float:
@@ -138,13 +139,15 @@ def format_video_osd(
         return f"{compact}\n{picture}" if picture else compact
     if metadata.is_vfr:
         rate_lines = (
-            f"VFR: {metadata.min_frame_rate:.1f}–{metadata.max_frame_rate:.1f} fps"
-            f" · now {current_fps:.1f}\n"
-            f"Nominal CFR: {metadata.nominal_fps:.1f} fps"
+            f"VFR: {format_rate(metadata.min_frame_rate)}–"
+            f"{format_rate(metadata.max_frame_rate)} fps · now {format_rate(current_fps)}\n"
+            f"Nominal CFR: {format_rate(metadata.nominal_fps)} fps"
         )
     else:
         measured = metadata.measured_fps or current_fps
-        rate_lines = f"CFR: {metadata.nominal_fps:.3f} fps · measured {measured:.3f}"
+        rate_lines = (
+            f"CFR: {format_rate(metadata.nominal_fps)} fps · measured {format_rate(measured)}"
+        )
     codec = metadata.codec.upper() if metadata.codec else "UNKNOWN"
     return (
         f"Time: {h:02d}:{m:02d}:{s:06.3f}\n"

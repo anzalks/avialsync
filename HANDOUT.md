@@ -261,7 +261,7 @@ Two product laws govern that phase and outrank convention:
   Collapsible section inside existing VideoInfoWidget / SensorInfoWidget — extend, not parallel.
 - **Load Provenance** (B): loader_id + import_config stored in SourceInspection; persisted to
   session schema v2; shown in properties panel.
-- **Sync Provenance** (C): metadata start_time and drift_ppm surfaced in VideoPropertiesPanel
+- **Sync Provenance** (C): metadata start_time and clock drift surfaced in VideoPropertiesPanel
   (set_drift() API); offsets_panel.py left as stub — offset editing stays in
   VideoInfoWidget.offset_spin (one place only); no duplicate offset UI.
 - **Precision Readouts** (D): ReadoutPanel shows per-channel value + unit + sample index;
@@ -331,7 +331,10 @@ Two product laws govern that phase and outrank convention:
   menu without the platform's arrow), and the Props editor sizes to the page on show. D-182: the
   workspace column scrolls when the window is shorter than it, so 640x480 holds at any font.
   D-183: the overlay names resolution and bit depth and wraps instead of clipping; the properties
-  dialog leads with the source's properties and always opens.
+  dialog leads with the source's properties and always opens. D-184: clock drift is
+  `drift_ms_per_hour` everywhere -- core, sessions (schema 12), fits, fields and text -- with
+  `core/drift.py` the one place that reads an older file's per-million rate. D-185: rates read at
+  one decimal (two where tenths hide 29.97), master times at ms.
 - **P4.6 plot review/sweep UX refinement — core implementation complete; certification remains
   (D-044):** `archive/plans/PLOT_UX_PLAN.md` remains the canonical contract. Review/Sweep/Scope, the shared
   continuous time-span control, master navigator viewport drag, one bottom axis and channel gutters,
@@ -374,7 +377,7 @@ Two product laws govern that phase and outrank convention:
   into every coarser level; CSV enforces an explicit timestamp schema with cross-chunk
   chronology/duplicate validation and the wizard timezone. Every time-series source now has a
   `TimeMap` (D-045): `MappedChannelReader` presents cached channels on the master clock, session
-  schema v6 persists sensor `offset`/`drift_ppm`, and the sidebar offers the same offset/drift
+  schema v6 persists sensor `offset` and drift (`drift_ms_per_hour` since schema 12, D-184), and the sidebar offers the same offset/drift
   controls video already had. Re-aligning a source is a redraw, never a re-import.
 - **P0 streaming — done.** `ChannelStage` stages parser chunks to disk and materialises once, so
   peak import memory is one chunk per channel instead of the whole recording. `NeoLoader` reads
@@ -641,6 +644,8 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/inspector_dock.py` | The inspector as a `QDockWidget` (left/right, floating, closable) with `QMainWindow.saveState` persistence and the one-time migration of `splitter/horizontal` (D-180) | `install_inspector_dock()`, `restore_dock_state()`, `save_dock_state()`, `inspector_width_from_splitter_state()` |
 | `ui/menu_button.py` | `MenuGlyphButton`: a flat glyph push button that pops its own menu, so no platform drop-down arrow is drawn (D-181) | `MenuGlyphButton.menu()`, `show_menu()` |
 | `ui/workspace_scroll.py` | Wraps the workspace column so a short window scrolls it rather than raising the window minimum (D-182) | `scroll_when_short()` |
+| `core/drift.py` | Clock drift as ms gained per hour: `MS_PER_HOUR`, `rate_from_drift()`, `drift_from_rate()`, `describe_drift()`, and `drift_from_legacy_entry()` for pre-schema-12 sessions (D-184) | `describe_drift()`, `drift_from_legacy_entry()` |
+| `ui/drift_spin.py` | `DriftSpinBox`: the drift field in ms/h, with frames or samples per hour in its tooltip (D-184) | `set_sample_rate()`, `set_base_tooltip()` |
 | `ui/source_card.py` | Card pieces: `TimingDisclosure` over the card's own spin boxes, `overflow_button`, `open_split_button`, `kind_glyph`, `short_path` (D-175) | `TimingDisclosure`, `short_path()` |
 | `ui/source_properties.py` | Collapsible detail for video + sensor sources; copy-as-text (D-020) Video rows include Bit depth, from the decoded frame once one exists (D-183). | `VideoPropertiesPanel`, `SensorPropertiesPanel` |
 | `ui/annotations.py` | Markers, and **the** definition of their CSV layout — three copies existed (D-100) | `AnnotationStore`, `Marker`, `marker_rows()`, `write_marker_rows()`, `MARKER_COLUMNS` |
@@ -956,7 +961,7 @@ behaviour work. `extract_ttl_edges` takes one direction and throws that away;
 `triggers.extract_pulses` is what new code should use.
 
 And a rate needs a span to be measured over. `drift_is_identifiable` gates it:
-7,200 ppm across one second is seven milliseconds, indistinguishable from
+25,920 ms/h across one second is seven milliseconds, indistinguishable from
 jitter, while across four hundred seconds it is three seconds and real. A drift
 fitted over a span too short to show it is noise in a parameter, quoted to
 three decimals — `demote_to_shift` drops it rather than reporting it.

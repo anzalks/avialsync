@@ -204,7 +204,7 @@ def _ends(window: MainWindow, wheel: Wheel, t_master: float) -> np.ndarray | Non
     mapping = None
     if wheel.binding is not None:
         encoder = _encoder_map(window, wheel.binding.source_id)
-        mapping = None if encoder is None else (encoder[1].offset, encoder[1].drift_ppm)
+        mapping = None if encoder is None else (encoder[1].offset, encoder[1].drift_ms_per_hour)
     key = (frame, mapping)
     cached = window.wheel_state.cache.get(wheel.name)
     if cached is not None and cached[0] == key:

@@ -110,7 +110,7 @@ def build_session_state(window: MainWindow) -> SessionState:
             VideoEntry(
                 path=p,
                 offset=pane.time_map.offset,
-                drift_ppm=pane.time_map.drift_ppm,
+                drift_ms_per_hour=pane.time_map.drift_ms_per_hour,
                 integrity_flags=ins.integrity_flags.as_dict() if ins else {},
                 metadata=ins.import_config if ins else {},
             )
@@ -127,7 +127,7 @@ def build_session_state(window: MainWindow) -> SessionState:
                 # mapping, so it reopens correctly whatever declares the zero
                 # next time. Saving the spin's value alone would drop a
                 # wall-clock source's placement on every save-and-reopen.
-                user_offset, drift_ppm = w.mapping()
+                user_offset, drift_ms_per_hour = w.mapping()
                 offset = window.effective_offset(w.path, user_offset)
                 tracking = window._tracking_visibility.get(w.path, {})
                 sensors.append(
@@ -140,7 +140,7 @@ def build_session_state(window: MainWindow) -> SessionState:
                             ins.import_report.as_dict() if ins and ins.import_report else None
                         ),
                         offset=offset,
-                        drift_ppm=drift_ppm,
+                        drift_ms_per_hour=drift_ms_per_hour,
                         tracking_overlay_visible=tracking.get("overlay", True),
                         tracking_plot_visible=tracking.get("plot", False),
                     )
@@ -543,7 +543,7 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     for ve in state.videos:
         p = Path(relink_map.get(ve.path, ve.path))
         if p.exists():
-            window._load_video(p, offset=ve.offset, drift_ppm=ve.drift_ppm)
+            window._load_video(p, offset=ve.offset, drift_ms_per_hour=ve.drift_ms_per_hour)
             if ve.integrity_flags or ve.metadata:
                 from avialsync.core.inspection import IntegrityFlags
 
@@ -559,7 +559,7 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
         if p.exists():
             # Import is asynchronous, so the accepted mapping is held until
             # the worker reports the cache back (see _on_import_finished).
-            window._pending_sensor_mappings[str(p)] = (se.offset, se.drift_ppm)
+            window._pending_sensor_mappings[str(p)] = (se.offset, se.drift_ms_per_hour)
             window._pending_tracking_visibility[str(p)] = {
                 "overlay": se.tracking_overlay_visible,
                 "plot": se.tracking_plot_visible,

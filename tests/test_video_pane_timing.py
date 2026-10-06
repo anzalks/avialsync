@@ -63,7 +63,8 @@ def test_cfr_osd_shows_measured_timestamp_rate() -> None:
 
     text = format_video_osd(0.0, 29.97, metadata)
 
-    assert "CFR: 29.970 fps · measured 29.969" in text
+    # D-185: two decimals where tenths would hide 29.97 against 30.
+    assert "CFR: 29.97 fps · measured 29.97" in text
     assert "Codec: HEVC · Size: 1.5 KB" in text
 
 

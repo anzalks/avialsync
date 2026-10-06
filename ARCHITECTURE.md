@@ -82,7 +82,7 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   ├── transport.py              # two-row timeline + named evidence lanes, controls, status, A/B loop
 │   │   ├── import_wizard.py          # timestamp col/format/tz/unit/sentinel preview dialog
 │   │   ├── sync_wizard.py            # evidence selection, residual preview, explicit acceptance (D-026)
-│   │   ├── offsets_panel.py          # per-source offset + drift ppm, live preview (D-020)
+│   │   ├── offsets_panel.py          # per-source offset + drift in ms/h, live preview (D-020, D-184)
 │   │   ├── recent_files.py           # recent-session list in QSettings — kept out of core/ (rule 2)
 │   │   ├── annotations.py            # point/range markers panel + CSV export
 │   │   ├── readout_panel.py          # nearest-sample values at t_master + units + sample index + Δ section

@@ -16,6 +16,7 @@ import numpy as np
 from PySide6.QtCore import QThread, QTimer
 
 from avialsync.core.channel_reader import ChannelKey
+from avialsync.core.drift import drift_from_legacy_entry
 from avialsync.core.errors import FileUnreadableError, LoaderContractError, SourceOpenError
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.pose import PoseSchema
@@ -249,7 +250,7 @@ def on_import_finished(
     window.activity_bar.end()
     window._active_cancel = None
     window.notifications.show_success(f"Imported {Path(path).name}")
-    offset, drift_ppm = window._pending_sensor_mappings.pop(path, (0.0, 0.0))
+    offset, drift = window._pending_sensor_mappings.pop(path, (0.0, 0.0))
 
     role = ""
     if isinstance(inspection, SourceInspection):
@@ -257,8 +258,8 @@ def on_import_finished(
         # If the config explicitly provides an offset (e.g. from drop_worker or wizard), use it.
         if "offset" in inspection.import_config and offset == 0.0:
             offset = float(inspection.import_config["offset"])
-        if "drift_ppm" in inspection.import_config and drift_ppm == 0.0:
-            drift_ppm = float(inspection.import_config["drift_ppm"])
+        if drift == 0.0:  # an older import config may carry it per million (D-184)
+            drift = drift_from_legacy_entry(inspection.import_config)
 
     combined_role = "pose3d_overlay2d"
     if role in ("pose3d", "overlay2d", combined_role):
@@ -315,19 +316,19 @@ def on_import_finished(
             "plot": (bool(restored.get("plot", False)) if restored is not None else False),
         }
         window._tracking_visibility[path] = tracking_state
-        window._tracking_plot_sources[path] = (Path(cache_dir), list(channels), offset, drift_ppm)
+        window._tracking_plot_sources[path] = (Path(cache_dir), list(channels), offset, drift)
         window._register_tracking_source(
-            path, Path(cache_dir), channels, role, inspection, offset, drift_ppm
+            path, Path(cache_dir), channels, role, inspection, offset, drift
         )
-        if offset != 0.0 or drift_ppm != 0.0:
+        if offset != 0.0 or drift != 0.0:
             from avialsync.core.timeline import TimeMap
 
-            tm = TimeMap(offset=offset, drift_ppm=drift_ppm)
+            tm = TimeMap(offset=offset, drift_ms_per_hour=drift)
             mapped = (tm.to_master(bounds[0]), tm.to_master(bounds[1]))
         else:
             mapped = bounds
     else:
-        window.plot_pane.load_channels(Path(cache_dir), channels, offset, drift_ppm, source_id=path)
+        window.plot_pane.load_channels(Path(cache_dir), channels, offset, drift, source_id=path)
         window._sensor_cache_dirs[path] = Path(cache_dir)
         # Rows are built across several event-loop turns so the window stays
         # usable during a large selection (D-060), so reader-derived bounds
@@ -350,9 +351,9 @@ def on_import_finished(
         )
         window._sync_tracking_plot(path)
     window.sidebar.set_sensor_identity_count(path, window.identity_swaps.count_for(path))
-    if user_offset or drift_ppm:
-        window.sidebar.set_sensor_mapping(path, user_offset, drift_ppm)
-    window._recorded_mappings[path] = (user_offset, drift_ppm)
+    if user_offset or drift:
+        window.sidebar.set_sensor_mapping(path, user_offset, drift)
+    window._recorded_mappings[path] = (user_offset, drift)
 
     if isinstance(inspection, SourceInspection):
         window._inspections[path] = inspection
@@ -362,7 +363,7 @@ def on_import_finished(
         # them the other way round would emit a change the panel renders at the
         # unmapped position before the correction lands.
         if inspection.messages:
-            window.message_store.set_source_mapping(path, offset, drift_ppm)
+            window.message_store.set_source_mapping(path, offset, drift)
             window.message_store.set_source_messages(path, inspection.messages)
         # Extract per-channel units from import config ("units" key → dict or mapping)
         units_cfg = inspection.import_config.get("units", {})
@@ -400,7 +401,7 @@ def register_tracking_source(
     role: str,
     inspection: object,
     offset: float = 0.0,
-    drift_ppm: float = 0.0,
+    drift_ms_per_hour: float = 0.0,
 ) -> None:
     """Route imported pose data to the overlay or the 3D view.
 
@@ -416,7 +417,7 @@ def register_tracking_source(
     if isinstance(inspection, SourceInspection):
         config = dict(inspection.import_config)
 
-    time_map = TimeMap(offset=offset, drift_ppm=drift_ppm)
+    time_map = TimeMap(offset=offset, drift_ms_per_hour=drift_ms_per_hour)
 
     combined_role = "pose3d_overlay2d"
     if role in ("pose3d", combined_role):

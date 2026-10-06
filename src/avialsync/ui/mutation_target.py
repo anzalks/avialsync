@@ -86,15 +86,15 @@ class WindowMutationTarget:
 
     # ── source mapping ───────────────────────────────────────────────
 
-    def set_source_mapping(self, source_id: str, offset: float, drift_ppm: float) -> None:
+    def set_source_mapping(self, source_id: str, offset: float, drift_ms_per_hour: float) -> None:
         window = self._window
         with self.replaying():
             if source_id in window.video_grid.pane_paths():
                 window.sidebar.set_video_offset(source_id, offset)
                 window._on_video_offset_changed(source_id, offset)
             else:
-                window.sidebar.set_sensor_mapping(source_id, offset, drift_ppm)
-                window._on_sensor_mapping_changed(source_id, offset, drift_ppm)
+                window.sidebar.set_sensor_mapping(source_id, offset, drift_ms_per_hour)
+                window._on_sensor_mapping_changed(source_id, offset, drift_ms_per_hour)
 
     def source_mapping(self, source_id: str) -> tuple[float, float]:
         """The mapping in the domain :meth:`set_source_mapping` replays into.
@@ -324,7 +324,7 @@ class WindowMutationTarget:
         window = self._window
         with self.replaying():
             if record.kind == "video":
-                window._load_video(Path(record.path), record.offset, record.drift_ppm)
+                window._load_video(Path(record.path), record.offset, record.drift_ms_per_hour)
             else:
                 window._start_data_import(Path(record.path))
 
@@ -336,7 +336,9 @@ class WindowMutationTarget:
             else:
                 window._on_sensor_remove_requested(source_id)
 
-    def apply_sync(self, source_id: str, offset: float, drift_ppm: float, evidence: Any) -> None:
+    def apply_sync(
+        self, source_id: str, offset: float, drift_ms_per_hour: float, evidence: Any
+    ) -> None:
         """Re-apply or reverse an accepted alignment.
 
         Reversing restores the plain offset/drift mapping the source had before
@@ -351,8 +353,8 @@ class WindowMutationTarget:
             effective = window.effective_offset(source_id, offset)
             window.video_grid.set_offset(source_id, effective)
             window.sidebar.set_video_offset(source_id, offset)
-            window._video_time_mappings[source_id] = (effective, drift_ppm)
-            window._recorded_mappings[source_id] = (offset, drift_ppm)
+            window._video_time_mappings[source_id] = (effective, drift_ms_per_hour)
+            window._recorded_mappings[source_id] = (offset, drift_ms_per_hour)
             window._sync_provenance = [
                 entry for entry in window._sync_provenance if entry.target_id != source_id
             ]

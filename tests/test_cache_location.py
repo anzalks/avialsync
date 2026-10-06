@@ -391,7 +391,7 @@ def test_large_sync_mappings_live_with_the_session_not_in_the_cache(tmp_path: Pa
                 reference_id="a",
                 target_id="b",
                 offset=0.0,
-                drift_ppm=0.0,
+                drift_ms_per_hour=0.0,
                 rms_residual=0.0,
                 max_residual=0.0,
                 matched_count=len(master),

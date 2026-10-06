@@ -24,7 +24,7 @@ def test_sync_wizard_requires_preview_before_acceptance(qtbot) -> None:
 
     assert wizard.proposal is not None
     assert accept.isEnabled()
-    # Ten pulses across nine seconds cannot support a rate -- 1 ppm over that
+    # Ten pulses across nine seconds cannot support a rate -- 3.6 ms/h over that
     # span is nine microseconds -- so the automatic ladder reports the offset it
     # measured and declines to quote a drift it cannot resolve.
     summary = wizard._summary.text()
@@ -45,7 +45,7 @@ def test_sync_wizard_allows_explicit_manual_fallback(qtbot) -> None:
 
     assert wizard.proposal is not None
     assert wizard.proposal.fit.offset == 1.25
-    assert wizard.proposal.fit.drift_ppm == 4.0
+    assert wizard.proposal.fit.drift_ms_per_hour == 4.0
 
 
 def test_a_manual_mapping_counts_nothing_and_claims_nothing(qtbot) -> None:

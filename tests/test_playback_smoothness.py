@@ -60,7 +60,7 @@ class DecodingPane:
     def __init__(self, *, decode_ticks: int = 0, offset: float = 0.0) -> None:
         self.time_map = TimeMap()
         if offset:
-            self.time_map.set_mapping(offset=offset, drift_ppm=0.0)
+            self.time_map.set_mapping(offset=offset, drift_ms_per_hour=0.0)
         self.has_media = True
         self.is_seeking = False
         self.time_pos = 0.0
