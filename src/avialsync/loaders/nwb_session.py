@@ -27,7 +27,7 @@ from avialsync.loaders import nwb_format
 from avialsync.loaders.nwb_imaging import default_imaging
 from avialsync.loaders.nwb_loader import NWBLoader
 from avialsync.loaders.nwb_roi_grid import NWBRoiGridSource, find_roi_grids
-from avialsync.loaders.nwb_stack import NWBStackSource
+from avialsync.loaders.nwb_stack import NWBStackSource, channel_groups
 from avialsync.loaders.nwb_storage import remote_url, source_label
 
 logger = logging.getLogger(__name__)
@@ -109,7 +109,7 @@ class NWBSessionSource(SessionSource):
     def _imaging_items(
         path: Path, contents: nwb_format.FileContents, epoch: float | None
     ) -> list[SessionItem]:
-        """One lazy imaging source per image series stored in the file.
+        """One lazy imaging source per acquisition, its series read as channels (D-195).
 
         Each is named by its own path inside the file
         (:func:`nwb_format.object_path`): the file's path already names its time
@@ -119,16 +119,25 @@ class NWBSessionSource(SessionSource):
         nobody wants today is skipped.
         """
         chosen = default_imaging(contents)
-        ordered = [chosen] if chosen is not None else []
-        ordered += [info for info in contents.of_kind("imaging") if info is not chosen]
+        try:
+            groups = channel_groups(path, contents)
+        except (SourceOpenError, FileUnreadableError, OSError, KeyError, ValueError):
+            logger.warning("Could not compare imaging series in %s", path, exc_info=True)
+            groups = []
+        grouped = {info.path for group in groups for info in group}
+        groups += [[info] for info in contents.of_kind("imaging") if info.path not in grouped]
+        # Series of one acquisition -- one plane, shape and clock -- are its
+        # channels and open as one stack to show alone or overlaid (D-195).
+        groups.sort(key=lambda group: chosen not in group)
         items: list[SessionItem] = []
-        for info in ordered:
+        for group in groups:
+            names = " + ".join(info.name for info in group)
             items.append(
                 SessionItem(
-                    path=nwb_format.object_path(path, info.path),
+                    path=nwb_format.object_path(path, group[0].path),
                     loader=NWBStackSource,
-                    config={},
-                    label=f"{info.name} — imaging in {source_label(path)}",
+                    config={"channels": [info.path for info in group]} if len(group) > 1 else {},
+                    label=f"{names} — imaging in {source_label(path)}",
                     kind=NWBStackSource.display_name(),
                     source_epoch=epoch,
                 )

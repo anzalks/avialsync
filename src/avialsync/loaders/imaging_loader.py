@@ -131,6 +131,30 @@ def _seconds(value: str, unit: str) -> float:
     return float(value) * scales[unit]
 
 
+def _ome_channel_names(ome: str, channels: int) -> tuple[str, ...]:
+    """The OME ``Channel`` names, when the file gives one per channel (D-195)."""
+    try:
+        root = ET.fromstring(ome)
+    except ET.ParseError:
+        return ()
+    pixels = next((node for node in root.iter() if node.tag.endswith("Pixels")), None)
+    if pixels is None:
+        return ()
+    names = tuple(
+        (node.get("Name") or "").strip() for node in pixels if node.tag.endswith("Channel")
+    )
+    return names if len(names) == channels and all(names) else ()
+
+
+def _hdf5_channel_names(attrs: Any, channels: int) -> tuple[str, ...]:
+    """A dataset's ``channel_names`` attribute, when it names every channel."""
+    raw = attrs.get("channel_names")
+    if raw is None:
+        return ()
+    names = tuple(_text(name).strip() for name in np.atleast_1d(raw))
+    return names if len(names) == channels and all(names) else ()
+
+
 def _ome_plane_times(pixels: Any, axes: str, depth: int, count: int) -> np.ndarray | None:
     """Use per-plane OME ``DeltaT`` for the chosen depth and the first channel.
 
@@ -239,6 +263,7 @@ class HDF5ImagingLoader(ImagingSource):
                 shape=shape,
                 axes=axes,
                 depth_planes=shape[axes.index("Z")] if "Z" in axes else 1,
+                channel_names=_hdf5_channel_names(dataset.attrs, channels),
             )
         except SourceOpenError:
             self.close()
@@ -387,6 +412,9 @@ class TIFFImagingLoader(ImagingSource):
                 shape=shape,
                 axes=axes,
                 depth_planes=shape[axes.index("Z")] if "Z" in axes else 1,
+                channel_names=(
+                    _ome_channel_names(handle.ome_metadata, channels) if handle.ome_metadata else ()
+                ),
             )
         except SourceOpenError:
             self.close()

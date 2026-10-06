@@ -549,7 +549,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `engine/imaging_probe.py` | Registered background metadata probe; emits `finished`, `needs_choice` or `error` | `ImagingProbeWorker` |
 | `engine/imaging_reader.py` | The pane's reader thread: coalesced requests, byte-bounded raw-plane cache, render off the UI thread | `ImagingReadWorker` |
 | `ui/imaging_pane.py` | Imaging viewer below the 3D view, following the master clock; owns the reader thread | `ImagingPane` |
-| `ui/imaging_controls.py` | Channel rows (show, colour named in words, brightness, contrast) and the centred average as a half-width (Off, ±1 … ±15 frames); `apply_auto_levels` re-measures | `ImagingControls` |
+| `ui/imaging_controls.py` | Headed Channel / Colour / Brightness / Contrast grid: a named tick box per acquired channel (always shown), its display colour apart; Average (Off, ±1 … ±15 frames) and Auto levels below | `ImagingControls` |
 | `loaders/nwb_roi_grid.py` | Every ROI of an NWB plane segmentation as one tile of a grid image per frame: raw crops when an image series on that plane covers the masks, else the ROI's ΔF/F (or fluorescence) on its mask; offered by the NWB session beside the series | `NWBRoiGridSource`, `find_roi_grids` |
 | `ui/imaging_frame_view.py` | The imaging picture with its own zoom and pan, or a message in its place; replaces the QLabel that could not shrink below its last pixmap | `ImagingFrameView` |
 | `ui/zoom_controls.py` | Zoom in / zoom out / reset glyph strip shared by the video, imaging and 3D panes; each owner keeps its own zoom | `ZoomControls`, `ZOOM_STEP` |

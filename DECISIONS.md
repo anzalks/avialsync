@@ -6205,3 +6205,25 @@ channels flicker, a channel axis shows a few frames), unlike a wrong frame rate,
 asked: it shifts every event with nothing looking wrong. ImageJ's `fps` tag is not read as the
 acquisition rate; it is the playback speed the file was saved with.
 
+---
+
+## 2026-10 · D-195 · Acquired channels are named and chosen apart from their display colour
+
+**Decision.** The imaging controls are a headed grid -- Channel, Colour, Brightness, Contrast --
+with one tick box per *acquired* channel, labelled with the name the file gives it
+(`ImagingMetadata.channel_names`: OME `Channel@Name`, an HDF5 `channel_names` attribute, NWB
+series names or the plane's single `OpticalChannel`; `Ch N` otherwise). The tick box is shown even
+for one channel. The colour list beside it is only the display colour. With one channel the box used
+to be hidden and the row read "Image [Grey]", so the only control in sight was the colour, and it
+was taken for the channel selector.
+
+`NWBStackSource` reads series that share an imaging plane (compared as objects), a frame shape,
+a length and identical frame times as the channels of one stack; the NWB session offers each such
+group as one item whose path is its first series, with the others in the `channels` import choice.
+NWB stores each optical channel as its own series, so without this a green and a red recording
+could only be viewed one at a time. Merged channels are named by what distinguishes their series
+(`TwoPhotonSeriesGreen`/`Red` -> `Green`/`Red`).
+
+**Kept.** Default colours stay green/magenta (D-190) even for channels named Red: red/green is the
+pair colour-vision deficiencies lose.
+

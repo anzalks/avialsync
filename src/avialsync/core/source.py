@@ -487,6 +487,9 @@ class ImagingMetadata:
     axes: str = ""
     #: Depth planes the stack holds; the pane offers a plane choice above one.
     depth_planes: int = 1
+    #: What the file calls each acquired channel (D-195): an OME channel name,
+    #: an NWB optical channel or series. Empty where the file names none.
+    channel_names: tuple[str, ...] = ()
     tail_duration: float = field(init=False)
 
     def __post_init__(self) -> None:

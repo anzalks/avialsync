@@ -101,9 +101,13 @@ depth plane; both are undoable and saved with the session. Only what cannot be r
 is asked: which dataset, when it holds several, and the frame rate, when it records none
 (ImageJ's *fps* tag is a playback speed, not the acquisition rate).
 
-- **Ch 1, Ch 2, …** show or hide each channel. Visible channels are added together in the colour
-  named beside each (green and magenta by default for two), so signal present in both appears
-  white. Change a channel's colour from its list.
+- **Channel** lists each acquired channel by the name the file gives it (an OME channel name, an
+  NWB optical channel or series, otherwise *Ch 1*, *Ch 2*, …). Its tick box chooses which recorded
+  signals are drawn: tick one to see it alone, several to overlay them. Ticked channels are added
+  together, so signal present in both appears white.
+- **Colour** is only the colour a channel is drawn in (green and magenta by default for two, a
+  pair that stays distinct under colour-vision deficiencies). Changing it never changes which data
+  is shown.
 - **Brightness** and **Contrast** act per channel. Both start from levels measured from the data,
   ignoring the brightest and darkest 0.5 % of pixels; **Auto levels** measures again from the
   picture now shown and returns the sliders to the middle.
@@ -119,7 +123,9 @@ is asked: which dataset, when it holds several, and the frame rate, when it reco
 
 An NWB file opens each of its image series here. In NWB a `TwoPhotonSeries` or `OnePhotonSeries`
 with a third frame axis holds depth planes, not channels, so AvialSync asks which plane to show;
-NWB records each optical channel as its own series, chosen from the list at the top of the pane.
+NWB records each optical channel as its own series; series on the same imaging plane with the same
+frame shape and frame times open together as the channels of one stack, so a green and a red
+recording can be shown alone or overlaid like the channels of a TIFF.
 
 A file with segmented cells (a `PlaneSegmentation`) also offers an **ROI grid**: every ROI as one
 tile of a single picture, so hundreds of cells can be watched at once. When an image series on the

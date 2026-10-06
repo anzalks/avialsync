@@ -251,3 +251,32 @@ def test_a_stack_opens_with_a_default_reading_that_can_be_changed_and_undone(
         timeout=_TIMEOUT,
     )
     assert pane.source_config(str(path))[1]["fps"] == 10.0, "other choices are kept"
+
+
+def test_each_acquired_channel_has_a_named_switch_apart_from_its_colour(window, qtbot, tmp_path):
+    """Choosing which recorded channel to see is not choosing a display colour."""
+    path = tmp_path / "ramp.ome.tif"
+    _two_channel_stack(path)
+    _open(window, qtbot, path)
+    controls = window.imaging_pane.controls
+    assert [heading.text() for heading in controls._headings] == [
+        "Channel",
+        "Colour",
+        "Brightness",
+        "Contrast",
+    ]
+    assert [row.shown.text() for row in controls._rows] == ["Ch 1", "Ch 2"]
+    assert all(not row.shown.isHidden() for row in controls._rows)
+    controls.set_channel_names(("GCaMP", "tdTom"))
+    assert [row.shown.text() for row in controls._rows] == ["GCaMP", "tdTom"]
+    assert [c.visible for c in controls.view().channels] == [True, True], "names keep the view"
+
+
+def test_one_channel_still_shows_its_switch(window, qtbot, tmp_path):
+    path = tmp_path / "calcium.tif"
+    tifffile.imwrite(path, np.zeros((4, 6, 8), np.uint16), photometric="minisblack")
+    _open(window, qtbot, path, {"fps": 10.0})
+    rows = window.imaging_pane.controls._rows
+    assert len(rows) == 1
+    assert not rows[0].shown.isHidden()
+    assert rows[0].shown.text() == "Ch 1"

@@ -126,14 +126,7 @@ class ImagingPane(QWidget):
         self.status_label.setAccessibleName(tr("Imaging frame status"))
         self.status_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         status_row.addWidget(self.status_label, 1)
-        self.auto_button = QPushButton(tr("Auto levels"), self)
-        self.auto_button.setAccessibleName(tr("Automatic display levels"))
-        self.auto_button.setAccessibleDescription(
-            tr("Measure each visible channel's levels from the picture now shown")
-        )
-        self.auto_button.setToolTip(tr("Measure levels from this picture and reset the sliders"))
-        self.auto_button.clicked.connect(self.controls.apply_auto_levels)
-        status_row.addWidget(self.auto_button)
+        self.auto_button = self.controls.auto_button
         layout.addLayout(status_row)
         layout.addWidget(self.controls)
         mapping_row = QHBoxLayout()
@@ -431,6 +424,7 @@ class ImagingPane(QWidget):
         self._show_message(tr("Loading imaging frame…"))
         self._show_mapping(stack.mapping)
         self._show_layout(stack)
+        self.controls.set_channel_names(stack.info.channel_names)
         self.controls.set_view(stack.view)
         worker = ImagingReadWorker(Path(path), stack.loader, stack.config, stack.info.frame_count)
         thread = QThread(self)

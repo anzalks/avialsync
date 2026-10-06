@@ -19,7 +19,9 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QGridLayout,
+    QHBoxLayout,
     QLabel,
+    QPushButton,
     QSlider,
     QSpinBox,
     QVBoxLayout,
@@ -62,25 +64,28 @@ def _swatch(color: str) -> QIcon:
 class _ChannelRow:
     """The widgets for one channel, placed into the shared grid."""
 
-    def __init__(self, parent: QWidget, channel: int, single: bool) -> None:
+    def __init__(self, parent: QWidget, channel: int, name: str) -> None:
         number = channel + 1
-        self.shown = QCheckBox(tr("Ch {number}").format(number=number), parent)
-        self.shown.setAccessibleName(tr("Show channel {number}").format(number=number))
+        # The tick box is the *acquired* channel -- which recorded signal is
+        # drawn -- and carries the name the file gives it. The colour list
+        # beside it only says what colour that signal is drawn in. Shown even
+        # for a single channel, so the two are never confused (D-195).
+        self.shown = QCheckBox(name, parent)
+        self.shown.setAccessibleName(tr("Show acquired channel {name}").format(name=name))
         self.shown.setAccessibleDescription(
-            tr("Include channel {number} in the overlay").format(number=number)
+            tr("Include the {name} channel in the picture").format(name=name)
         )
-        # One channel cannot be hidden from itself; a row label says what the
-        # sliders belong to without offering a switch that blanks the pane.
-        self.shown.setVisible(not single)
-        self.label = QLabel(tr("Image"), parent)
-        self.label.setVisible(single)
+        self.shown.setToolTip(tr("Acquired channel {number} of the stack").format(number=number))
         self.color = QComboBox(parent)
         for key, name in _color_names().items():
             self.color.addItem(_swatch(key), name, key)
-        self.color.setAccessibleName(tr("Channel {number} colour").format(number=number))
+        self.color.setAccessibleName(tr("Display colour of {name}").format(name=name))
         self.color.setAccessibleDescription(
-            tr("Colour channel {number} is drawn in").format(number=number)
+            tr("Colour the {name} channel is drawn in; does not change which data is shown").format(
+                name=name
+            )
         )
+        self.color.setToolTip(tr("Display colour only; the tick box chooses the channel"))
         self.brightness = self._slider(
             parent,
             tr("Channel {number} brightness").format(number=number),
@@ -91,7 +96,7 @@ class _ChannelRow:
             tr("Channel {number} contrast").format(number=number),
             tr("Narrow the display window for more contrast, widen it for less"),
         )
-        self.widgets = (self.shown, self.label, self.color, self.brightness, self.contrast)
+        self.widgets = (self.shown, self.color, self.brightness, self.contrast)
 
     @staticmethod
     def _slider(parent: QWidget, name: str, description: str) -> QSlider:
@@ -121,6 +126,7 @@ class ImagingControls(QWidget):
         self.setAccessibleName(tr("Imaging display controls"))
         self._view = ImagingView()
         self._rows: list[_ChannelRow] = []
+        self._names: tuple[str, ...] = ()
         self._updating = False
 
         layout = QVBoxLayout(self)
@@ -131,9 +137,24 @@ class ImagingControls(QWidget):
         self._grid.setVerticalSpacing(2)
         self._grid.setColumnStretch(3, 1)
         self._grid.setColumnStretch(5, 1)
-        # The averaging control fills the corner above the channel names, so the
-        # slider headings cost no row of their own.
-        self._grid.addWidget(QLabel(tr("Average"), self), 0, 0)
+        # One heading per column, so "which channel" and "what colour" are
+        # read as the two different questions they are (D-195).
+        self._headings = [
+            QLabel(tr("Channel"), self),
+            QLabel(tr("Colour"), self),
+            QLabel(tr("Brightness"), self),
+            QLabel(tr("Contrast"), self),
+        ]
+        for heading, (column, span) in zip(
+            self._headings, ((0, 1), (1, 1), (2, 2), (4, 2)), strict=True
+        ):
+            self._grid.addWidget(heading, 0, column, 1, span)
+        layout.addLayout(self._grid)
+
+        average_row = QHBoxLayout()
+        average_row.setContentsMargins(0, 4, 0, 0)
+        average_row.setSpacing(6)
+        average_row.addWidget(QLabel(tr("Average"), self))
         # The average is centred, so its length is always odd (D-190). The box
         # counts the frames either side -- Off, ±1, ±2 ... -- so every value it
         # accepts is a real window; a frame count would have to reject or
@@ -154,18 +175,38 @@ class ImagingControls(QWidget):
             tr("Centred on the current frame, so averaging never shifts an event in time")
         )
         self.average.valueChanged.connect(self._on_average)
-        self._grid.addWidget(self.average, 0, 1)
-        self._brightness_heading = QLabel(tr("Brightness"), self)
-        self._contrast_heading = QLabel(tr("Contrast"), self)
-        self._grid.addWidget(self._brightness_heading, 0, 2, 1, 2)
-        self._grid.addWidget(self._contrast_heading, 0, 4, 1, 2)
-        layout.addLayout(self._grid)
+        average_row.addWidget(self.average)
+        average_row.addStretch(1)
+        self.auto_button = QPushButton(tr("Auto levels"), self)
+        self.auto_button.setAccessibleName(tr("Automatic display levels"))
+        self.auto_button.setAccessibleDescription(
+            tr("Measure each visible channel's levels from the picture now shown")
+        )
+        self.auto_button.setToolTip(tr("Measure levels from this picture and reset the sliders"))
+        self.auto_button.clicked.connect(self.apply_auto_levels)
+        average_row.addWidget(self.auto_button)
+        layout.addLayout(average_row)
 
     # ── state in ─────────────────────────────────────────────────────
 
     def view(self) -> ImagingView:
         """Return the view these controls show."""
         return self._view
+
+    def set_channel_names(self, names: tuple[str, ...]) -> None:
+        """Name each acquired channel as the file does; ``Ch N`` where it is silent."""
+        if names == self._names:
+            return
+        self._names = names
+        # Rebuilt rather than relabelled: names arrive with a new stack, whose
+        # rows are about to be replaced anyway.
+        self._rebuild(len(self._rows))
+        self.set_view(self._view)
+
+    def _channel_name(self, channel: int) -> str:
+        if channel < len(self._names) and self._names[channel]:
+            return self._names[channel]
+        return tr("Ch {number}").format(number=channel + 1)
 
     def set_view(self, view: ImagingView) -> None:
         """Show *view* without reporting it as an edit."""
@@ -188,10 +229,9 @@ class ImagingControls(QWidget):
                 widget.deleteLater()
         self._rows = []
         for channel in range(count):
-            row = _ChannelRow(self, channel, single=count == 1)
+            row = _ChannelRow(self, channel, self._channel_name(channel))
             grid_row = channel + 1
             self._grid.addWidget(row.shown, grid_row, 0)
-            self._grid.addWidget(row.label, grid_row, 0)
             self._grid.addWidget(row.color, grid_row, 1)
             self._grid.addWidget(row.brightness, grid_row, 2, 1, 2)
             self._grid.addWidget(row.contrast, grid_row, 4, 1, 2)
@@ -213,8 +253,8 @@ class ImagingControls(QWidget):
             )
             self._rows.append(row)
         has_channels = count > 0
-        self._brightness_heading.setVisible(has_channels)
-        self._contrast_heading.setVisible(has_channels)
+        for heading in self._headings:
+            heading.setVisible(has_channels)
 
     # ── edits out ────────────────────────────────────────────────────
 

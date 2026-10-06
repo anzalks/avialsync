@@ -47,6 +47,8 @@ class NWBSpec:
     imaging_dtype: str = "uint16"
     imaging_start: float = 0.5
     second_imaging: bool = False
+    #: A red channel recorded with the green: same plane, shape and timestamps.
+    red_channel: bool = False
     fluorescence: bool = True
     intervals: bool = True
     trials: bool = True
@@ -230,6 +232,20 @@ def write_nwb(path: Path, spec: NWBSpec | None = None) -> Path:
                     rate=IMAGING_RATE,
                 )
                 green["imaging_plane"] = h5py.SoftLink(plane.name)
+            if spec.red_channel:
+                red = _series(
+                    acquisition,
+                    "TwoPhotonSeriesRed",
+                    "TwoPhotonSeries",
+                    red_frames(),
+                    "n.a.",
+                    timestamps=times,
+                )
+                red["imaging_plane"] = h5py.SoftLink(plane.name)
+                optical = plane.create_group("red")
+                _attrs(optical, "OpticalChannel")
+                optical.create_dataset("description", data="red")
+                optical.create_dataset("emission_lambda", data=610.0)
 
         if spec.extension_imaging:
             frames = _imaging_frames("uint16")
@@ -453,3 +469,8 @@ def write_zarr_nwb(path: Path, *, zarr_format: int = 3) -> Path:
     frames.attrs["unit"] = "n.a."
     imaging.create_array("timestamps", data=np.array([0.5, 0.6, 0.7]))
     return path
+
+
+def red_frames() -> np.ndarray:
+    """The red channel's frames: the green ones offset, so the two never match."""
+    return (_imaging_frames("uint16").astype(np.int64) + 1000).astype(np.uint16)
