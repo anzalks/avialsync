@@ -245,7 +245,7 @@ class _JobWorker(Protocol):
 
 
 class MainWindow(QMainWindow):
-    _open_dandi = dandi_open.open_dandi
+    _open_nwb = dandi_open.open_nwb
     _open_imaging = imaging_integration.open_dialog
     _on_imaging_remove_requested = imaging_integration.remove
     _rebuild_workspace_menu = workspaces.rebuild_menu
@@ -263,7 +263,7 @@ class MainWindow(QMainWindow):
     _act_open_video: QAction
     _act_open_sensor: QAction
     _act_open_imaging: QAction
-    _act_open_dandi: QAction
+    _act_open_nwb: QAction
     _act_save_session: QAction
     _act_reset_session: QAction
     _act_export_changes: QAction

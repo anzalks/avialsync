@@ -100,10 +100,13 @@ def _file_imaging(window: MainWindow, file_menu: QMenu, reg: Register) -> None:
 
 def _file_dandi(window: MainWindow, file_menu: QMenu, reg: Register) -> None:
     """Expose streamed NWB assets through the ordinary file menu."""
-    window._act_open_dandi = file_menu.addAction(tr("Open NWB from DANDI…"))
-    act = window._act_open_dandi
-    act.setToolTip(tr("Stream an NWB asset from the DANDI archive by its address"))
-    act.triggered.connect(window._open_dandi)
+    window._act_open_nwb = file_menu.addAction(tr("Open NWB…"))
+    act = window._act_open_nwb
+    # Renamed from "Open NWB from DANDI…": it opens local files too. Keep that
+    # label's id so a remapped shortcut survives.
+    act.setProperty("av_id", "file_open_nwb_from_dandi")
+    act.setToolTip(tr("Open a local NWB file, or stream one from DANDI by its address"))
+    act.triggered.connect(window._open_nwb)
     reg(act, "File")
 
 
@@ -121,7 +124,7 @@ def _file_reset(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     _reg(act, "File")
     window.sidebar.install_open_actions(window._act_open_video, window._act_open_sensor, act)
     window.sidebar.install_open_imaging_action(window._act_open_imaging)
-    window.sidebar.install_open_dandi_action(window._act_open_dandi)
+    window.sidebar.install_open_nwb_action(window._act_open_nwb)
     # Empty pages offer the command that fills them (D-176).
     window.message_panel.install_empty_action(window._act_open_sensor)
     window.readout_panel.install_empty_action(window._act_open_sensor)

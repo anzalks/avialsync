@@ -6252,7 +6252,7 @@ dialogs or f-strings.
 - "Open 2P Imaging…" is **Open Imaging…** (id pinned as `file_open_2p_imaging`); loader names say
   the kind of data with the format in brackets, not the rig. Open dialogs take their title from
   their action and accept several files, and none filters by extension, since a plugin may claim
-  any (rule 5). Open NWB from DANDI… has a Sources button (D-181).
+  any (rule 5). Open NWB from DANDI… becomes **Open NWB…** (id pinned as `file_open_nwb_from_dandi`), taking a local file or folder or a DANDI asset URL in one field, with a Sources button (D-181).
 - A malformed axis order is reported, not asked for as letters (D-194); the unreachable plane
   prompt is gone.
 - `i18n.untranslated_calls` also reads `notifications.show_*`, `QInputDialog`/`QFileDialog`
