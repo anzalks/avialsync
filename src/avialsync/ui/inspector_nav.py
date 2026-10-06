@@ -35,7 +35,7 @@ __all__ = ["INSPECTOR_PAGES", "InspectorNav"]
 
 #: Inspector pages by their persisted name, in rail order. A name, not an
 #: index, so reordering or adding a page never restores the wrong one.
-INSPECTOR_PAGES = ("sources", "values", "messages", "changes", "props")
+INSPECTOR_PAGES = ("sources", "values", "messages", "changes", "props", "exports")
 
 
 class InspectorNav(QWidget):

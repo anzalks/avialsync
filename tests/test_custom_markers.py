@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from avialsync.core import custom_markers
@@ -50,6 +51,10 @@ def test_the_2d_file_round_trips_in_dlc_layout(tmp_path) -> None:
     assert lines[0].startswith("scorer,")
     assert lines[1].startswith("bodyparts,") and lines[2].startswith("coords,")
     assert custom_markers.read_2d(target) == {("rung", 4): (10.5, 20.25), ("paw", 9): (5.0, 6.0)}
+    companion = target.with_name("SideCam_eks_custom_markers_avialsync.json")
+    metadata = json.loads(companion.read_text(encoding="utf-8"))
+    assert metadata["format"] == "avialsync-custom-markers-2d/1"
+    assert metadata["edit_counts"] == {"markers": 2}
 
 
 def test_a_marker_absent_from_a_frame_is_blank_never_zero(tmp_path) -> None:
@@ -77,6 +82,9 @@ def test_the_3d_file_round_trips_in_anipose_layout(tmp_path) -> None:
     assert header[:6] == ["rung_x", "rung_y", "rung_z", "rung_error", "rung_ncams", "rung_score"]
     assert header[-1] == "fnum"
     assert custom_markers.read_3d(target) == {("rung", 4): ((1.0, 2.0, 3.0), 0.75)}
+    companion = target.with_name("_eks_custom_markers_avialsync.json")
+    metadata = json.loads(companion.read_text(encoding="utf-8"))
+    assert metadata["format"] == "avialsync-custom-markers-3d/1"
 
 
 def test_missing_files_read_as_empty(tmp_path) -> None:

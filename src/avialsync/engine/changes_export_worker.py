@@ -37,6 +37,8 @@ class AnnotationJob:
 
     target: Path
     rows: list[list[Any]]
+    sources: tuple[Path, ...] = ()
+    session: Path | None = None
 
 
 @dataclasses.dataclass
@@ -117,7 +119,7 @@ class ChangesExportWorker(QObject):
         # No mkdir: a missing parent means the user typed a path that is not
         # there, and inventing the folder hides the typo instead of reporting
         # it. The retraining set is the exception, and says why.
-        write_marker_rows(job.target, job.rows)
+        write_marker_rows(job.target, job.rows, sources=job.sources, session=job.session)
         return f"{len(job.rows)} annotation row(s) → {job.target.name}"
 
     @staticmethod
@@ -136,7 +138,12 @@ class ChangesExportWorker(QObject):
 
     def _write_retraining_set(self, job: RetrainingJob) -> str:
         report = dlc_export.write_labeled_data(
-            job.target, job.video_stem, job.scorer, job.bodyparts, job.frames
+            job.target,
+            job.video_stem,
+            job.scorer,
+            job.bodyparts,
+            job.frames,
+            sources=(job.video,),
         )
         line = f"{report.frames} labelled frame(s) → {job.target.name}"
         if not job.write_images:
@@ -193,4 +200,21 @@ def _save_png(rgb: np.ndarray, path: Path) -> bool:
     else:
         height, width, _ = rgb.shape
         image = QImage(rgb.data, width, height, rgb.strides[0], QImage.Format.Format_RGB888)
-    return bool(image.save(str(path), b"PNG"))
+    from avialsync.core.artifact_io import publish
+    from avialsync.core.artifact_provenance import record
+
+    metadata = record("dlc-frame")
+    from avialsync.engine.snapshot import PNG_CREATION_TIME_KEY, PNG_SOFTWARE_KEY
+
+    image.setText(PNG_SOFTWARE_KEY, str(metadata["software"]))
+    image.setText(PNG_CREATION_TIME_KEY, str(metadata["written"]))
+
+    def write(temporary: Path) -> None:
+        if not image.save(str(temporary), b"PNG"):
+            raise OSError(f"Could not save {path.name}")
+
+    try:
+        publish(path, write, kind="dlc-frame")
+    except OSError:
+        return False
+    return True

@@ -5,8 +5,8 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
-import os
 import uuid
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -384,10 +384,14 @@ class SessionState:
             sidecar_dir.mkdir(parents=True, exist_ok=True)
             filename = f"exact-sync-{index}-{uuid.uuid4().hex}.npz"
             mapping_path = sidecar_dir / filename
-            temporary_path = sidecar_dir / f".{filename}.tmp.npz"
-            np.savez_compressed(temporary_path, master=master, source=source)
-            digest = hashlib.sha256(temporary_path.read_bytes()).hexdigest()
-            os.replace(temporary_path, mapping_path)
+            from avialsync.core.artifact_io import publish
+
+            publish(
+                mapping_path,
+                partial(np.savez_compressed, master=master, source=source),
+                kind="sync-array",
+            )
+            digest = hashlib.sha256(mapping_path.read_bytes()).hexdigest()
             item = payload["sync_provenance"][index]
             item["exact_master"] = []
             item["exact_source"] = []
@@ -396,10 +400,20 @@ class SessionState:
                 "sha256": digest,
                 "count": int(len(master)),
             }
-        tmp = path.with_suffix(".avv.tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2)
-        tmp.replace(path)
+        from avialsync.core.artifact_io import publish
+        from avialsync.core.artifact_provenance import record
+
+        source_paths = tuple(entry.path for entry in self.videos)
+        source_paths += tuple(entry.path for entry in self.sensors)
+        source_paths += tuple(entry.path for entry in self.imaging)
+        payload["format"] = "avialsync-session/13"
+        payload["provenance"] = record("session", source_paths, session=path)
+
+        def write(temporary: Path) -> None:
+            with open(temporary, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, indent=2)
+
+        publish(path, write, kind="session", sources=source_paths)
 
     @classmethod
     def load(cls, path: Path) -> SessionState:

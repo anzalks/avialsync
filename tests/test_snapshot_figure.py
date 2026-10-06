@@ -24,6 +24,7 @@ import pytest
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QColor, QImage, QPalette
 
+from avialsync.core.errors import ExportError
 from avialsync.engine.export_worker import SnapshotWorker
 from avialsync.engine.snapshot import (
     SnapshotFigure,
@@ -341,6 +342,15 @@ def test_saving_to_an_unwritable_path_raises(qapp, tmp_path: Path) -> None:
         save_figure(_figure(), tmp_path / "missing" / "snapshot.png")
 
 
+def test_snapshot_cannot_replace_a_loaded_source(qapp, tmp_path: Path) -> None:
+    del qapp
+    source = tmp_path / "camera.png"
+    source.write_bytes(b"original")
+    with pytest.raises(ExportError, match="loaded source"):
+        save_figure(_figure(), source, sources=(source,))
+    assert source.read_bytes() == b"original"
+
+
 # ── the theme is the workspace's, read off the palette ───────────────
 
 
@@ -465,12 +475,10 @@ def test_export_snapshot_reports_instead_of_asking_where_to_write_nothing(
     """
     from avialsync.ui.controllers import export_controller
 
-    class _NoDialog:
-        @staticmethod
-        def getSaveFileName(*args, **kwargs):  # pragma: no cover - must not run
-            raise AssertionError("a filename was asked for with nothing to save")
+    def no_dialog(*args, **kwargs):  # pragma: no cover - must not run
+        raise AssertionError("a filename was asked for with nothing to save")
 
-    monkeypatch.setattr(export_controller, "QFileDialog", _NoDialog)
+    monkeypatch.setattr(export_controller, "choose_file", no_dialog)
 
     export_controller.export_snapshot(main_window)
 
@@ -541,15 +549,13 @@ def test_a_pane_snapshot_is_captured_before_the_filename_is_chosen(
     pane.surface.set_frame(red)
     qtbot.wait(50)
 
-    class _AdvancingDialog:
-        @staticmethod
-        def getSaveFileName(*args, **kwargs):
-            green = np.zeros((240, 320, 3), dtype=np.uint8)
-            green[:, :] = (30, 200, 30)
-            pane.surface.set_frame(green)
-            return str(tmp_path / "snapshot.png"), "PNG Images (*.png)"
+    def advancing_dialog(*args, **kwargs):
+        green = np.zeros((240, 320, 3), dtype=np.uint8)
+        green[:, :] = (30, 200, 30)
+        pane.surface.set_frame(green)
+        return tmp_path / "snapshot.png"
 
-    monkeypatch.setattr(export_controller, "QFileDialog", _AdvancingDialog)
+    monkeypatch.setattr(export_controller, "choose_file", advancing_dialog)
 
     recorded: list = []
     export_controller.export_snapshot_for_pane(_stub_window(pane, recorded, qtbot), "camera_1.mp4")
@@ -578,12 +584,10 @@ def test_a_pane_with_no_drawable_surface_reports_rather_than_writing_a_blank(
 
     from avialsync.ui.controllers import export_controller
 
-    class _NoDialog:
-        @staticmethod
-        def getSaveFileName(*args, **kwargs):  # pragma: no cover - must not run
-            raise AssertionError("a filename was asked for with nothing to save")
+    def no_dialog(*args, **kwargs):  # pragma: no cover - must not run
+        raise AssertionError("a filename was asked for with nothing to save")
 
-    monkeypatch.setattr(export_controller, "QFileDialog", _NoDialog)
+    monkeypatch.setattr(export_controller, "choose_file", no_dialog)
 
     recorded: list = []
     window = _stub_window(pane, recorded, qtbot)

@@ -42,7 +42,10 @@ it back.
 
 ## Export
 
-Everything is under **File**, and each export is a distinct job:
+The **Exports** inspector page shows every output as a visible button. The same commands are in
+**File** and the command palette; their labels and availability come from the same actions.
+
+![The Exports inspector with its five output commands and guidance when nothing is loaded](../_static/screenshots/exports_inspector.png)
 
 | Export | What you get | Use it for |
 |---|---|---|
@@ -68,6 +71,18 @@ line at the bottom of the window rather than a dialog you have to dismiss. If se
 once they queue: one message shows, a count beside it says how many are waiting, and Dismiss brings
 up the next. A failure stays until you dismiss it and keeps the technical detail behind **Show
 details**, ready to paste into a bug report.
+Each successful export has a **Reveal** action that opens its containing folder. The save dialog
+remembers a separate last folder for each export kind. A failed or cancelled write leaves an
+existing output intact, and a destination that names a loaded source or the disposable cache is
+rejected before writing.
+
+Exports carry an `avialsync` schema ID, program version, UTC write time, and source names and sizes
+where their format permits it. Corrected pose and DeepLabCut retraining CSVs keep their strict
+three-row headers and get a sibling `<name>_avialsync.json` provenance file. Annotation CSVs also
+get a JSON companion. Data slice CSVs have a final provenance comment; Parquet embeds the record
+in schema metadata; PNG snapshots carry PNG text fields; MP4 clips record their actual keyframe
+start in the container comment. CSV files use UTF-8 without a BOM. A DeepLabCut workflow that
+requires `CollectedData_<scorer>.h5` can run DeepLabCut's `convertcsv2h5` on the exported CSV.
 
 **A snapshot is composed, not grabbed.** Every displayed camera goes in at the resolution it decoded
 at, with the 3D pose and the whole channel stack including rows you would have to scroll to reach —
@@ -107,8 +122,8 @@ Saving over an existing MP4 replaces it when the export finishes. AvialSync conf
 replacement in its notification strip. If that MP4 is already open in a video player, reopen it
 to see the new version. Choose an output path separate from the camera source videos; AvialSync
 rejects source/output collisions. A cancelled or failed export leaves the existing file intact.
-While encoding, a visible `.exporting.*.part.mp4` file is written beside the target and renamed to
-the final MP4 only after a successful encode.
+While encoding, a temporary `.tmp.mp4` file is written beside the target and renamed to the final
+MP4 only after a successful encode.
 
 ![The export dialog at a 30 fps base rate and a custom 0.130435x playback speed, previewing a 15.33-second MP4](../_static/screenshots/stimulus_grid_slow_motion.png)
 

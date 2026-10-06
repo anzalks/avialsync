@@ -50,11 +50,12 @@ import bisect
 import csv
 import itertools
 import logging
-import os
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from avialsync.core.artifact_io import publish
+from avialsync.core.artifact_provenance import record, write_companion
 from avialsync.core.pose_header import parse_pose_header
 
 logger = logging.getLogger(__name__)
@@ -136,10 +137,25 @@ def write_corrected_copy(
             header[0] = _renamed_scorers(header[0])
 
         rows = itertools.chain(peeked[header_block.rows :], reader)
-        temporary = target_path.with_name(f".{target_path.name}.tmp")
-        report = _stream(rows, temporary, header, columns, corrections, tuple(routes))
+        result: list[CorrectedCopyReport] = []
 
-    os.replace(temporary, target_path)
+        def write(temporary: Path) -> None:
+            result.append(_stream(rows, temporary, header, columns, corrections, tuple(routes)))
+
+        publish(target_path, write, kind="corrected-pose", sources=(source_path,))
+        report = result[0]
+    write_companion(
+        target_path,
+        record(
+            "corrected-pose",
+            (source_path,),
+            edit_counts={
+                "corrected_points": report.corrected_points,
+                "swapped_rows": report.swapped_rows,
+            },
+        ),
+        sources=(source_path,),
+    )
     return report
 
 

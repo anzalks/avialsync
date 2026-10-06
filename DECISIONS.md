@@ -6263,3 +6263,39 @@ dialogs or f-strings.
 **Not done.** The imaging pane has no Fullscreen of its own; only video panes do. `main_window.py`
 remains far above D-148's 1 000-line target.
 
+---
+
+## 2026-10 · D-197 · One publication path for authored files and exports
+
+**Decision.** `core/artifacts.py` names every authored file and requested export by stable ID,
+destination class, schema, provenance carrier, overwrite policy and read-back status. Cache entries
+stay outside this registry: they are disposable and `cache_store` remains their deletion authority
+(D-160). `core/artifact_io.py` stages a unique sibling, syncs it and its containing folder where
+supported, and publishes it atomically. It protects every loaded source and the cache root, and
+rejects names Windows cannot represent. Failure or cancellation removes only its own stage. A
+locked destination is an `ExportError` with the recovery of closing it in the other program and
+retrying.
+
+Authored sidecars are queued as plain-data jobs through `MainWindow._run_job`; while one path is
+being written, later revisions of that path coalesce to the newest. Export files use the same
+publication boundary. The Exports inspector is the visible home for requested outputs; File menu
+actions remain live `QAction`s and supply their labels and enablement (D-092). This amends D-100's
+choice to keep recording exports outside its dialog: that dialog continues to group a person's
+changes, while the inspector provides the shared entry point.
+
+Where an external format has no extensible metadata field, a sibling `<name>_avialsync.json`
+records provenance. CSV remains UTF-8 without a BOM, because the strict DeepLabCut header and
+non-Excel parsers depend on its first cell. BIDS physio is outside this decision. A retraining CSV
+remains DeepLabCut's three-row layout; a lab can use DeepLabCut's `convertcsv2h5` to produce
+`CollectedData_<scorer>.h5`, avoiding a new pandas/PyTables runtime dependency. The app does not
+claim the CSV alone is a complete HDF5 training package.
+
+Custom-marker sidecars retain the existing DeepLabCut stem-based filenames
+(`FaceCam_eks.csv` → `FaceCam_eks_custom_markers.csv`) so saved sessions and
+anipose scans keep finding them. Their naming rule is explicit in the registry;
+other source-derived sidecars use D-160's full-name encoding.
+
+**Consequences.** A writer that needs a new format gets one registry entry and uses `publish` or
+`publish_dir`. Format metadata records `avialsync <version>`, schema, UTC write time, source names
+and sizes, session and accepted TimeMap when supplied, and edit counts. The publication boundary
+protects source files even when a caller's save dialog gives back a loaded source's path.

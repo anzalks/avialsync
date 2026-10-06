@@ -160,20 +160,29 @@ def persist(window: MainWindow, source_id: str) -> None:
         return
     events = list(window.identity_swaps.events_for(source_id))
     groups = list(window.identity_swaps.groups_for(source_id))
-    try:
-        written = identity_sidecar.write(Path(source_id), events, groups)
-    except OSError as error:
-        _fall_back_to_the_session(window, source_id, error)
-        return
+    source = Path(source_id)
+    target = identity_sidecar.sidecar_path(source)
+    storage = window._swap_storage
+    storage[source_id] = SESSION
 
-    window._swap_storage[source_id] = SIDECAR
-    if source_id not in window._announced_swap_files:
-        window._announced_swap_files.add(source_id)
-        window.notifications.show_success(
-            tr("Identity swaps for {source} are saved beside it, in {file}.").format(
-                source=Path(source_id).name, file=written.name
+    def success(written: Path) -> None:
+        if not window.artifact_writes.has_newer(target):
+            storage[source_id] = SIDECAR
+        if source_id not in window._announced_swap_files:
+            window._announced_swap_files.add(source_id)
+            window.notifications.show_success(
+                tr("Identity swaps for {source} are saved beside it, in {file}.").format(
+                    source=source.name, file=written.name
+                )
             )
-        )
+
+    window.artifact_writes.enqueue(
+        target,
+        label=tr("Saving identity swaps"),
+        write=lambda: identity_sidecar.write(source, events, groups),
+        success=success,
+        failure=lambda error: _fall_back_to_the_session(window, source_id, OSError(error)),
+    )
 
 
 def _fall_back_to_the_session(window: MainWindow, source_id: str, error: OSError) -> None:

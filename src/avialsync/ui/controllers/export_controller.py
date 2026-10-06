@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QThread
-from PySide6.QtWidgets import QDialog, QFileDialog
+from PySide6.QtWidgets import QDialog
 
 from avialsync.core.errors import ExportError
 from avialsync.engine.export_worker import ReaderReference
@@ -45,7 +45,10 @@ from avialsync.engine.stimulus_grid_worker import (
     StimulusEventScanWorker,
     StimulusGridExportWorker,
 )
+from avialsync.ui.controllers.artifact_write_controller import loaded_sources, show_exported
+from avialsync.ui.export_destinations import choose_file, choose_folder
 from avialsync.ui.i18n import tr
+from avialsync.ui.job_manager import on_ui_thread
 from avialsync.ui.snapshot_capture import capture_figure, capture_pane_figure
 from avialsync.ui.stimulus_grid_dialog import StimulusChannelOption, StimulusGridDialog
 
@@ -63,6 +66,7 @@ def reader_references(window: MainWindow) -> list[ReaderReference]:
             channel.reader.channel_id,
             channel.reader.time_map.offset,
             channel.reader.time_map.drift_ms_per_hour,
+            channel.reader.source_id,
         )
         for channel in window.plot_pane.channels
     ]
@@ -132,15 +136,16 @@ def export_snapshot_for_pane(window: MainWindow, path: str) -> None:
             tr("There is nothing to snapshot in {name} yet.").format(name=Path(path).name)
         )
         return
-    out_path, _ = QFileDialog.getSaveFileName(
+    out_path = choose_file(
         window,
+        "snapshot",
         tr("Snapshot — {name}").format(name=Path(path).name),
-        f"snapshot_{Path(path).stem}.png",
+        Path(f"snapshot_{Path(path).stem}.png"),
         tr("PNG Images (*.png)"),
     )
     if not out_path:
         return
-    window._start_snapshot_export(figure, Path(out_path))
+    window._start_snapshot_export(figure, out_path)
 
 
 def export_snapshot(window: MainWindow) -> None:
@@ -157,23 +162,24 @@ def export_snapshot(window: MainWindow) -> None:
         )
         return
 
-    path, _ = QFileDialog.getSaveFileName(
+    path = choose_file(
         window,
+        "snapshot",
         tr("Export Snapshot"),
-        "snapshot.png",
+        Path("snapshot.png"),
         tr("PNG Images (*.png)"),
     )
     if not path:
         return
 
-    window._start_snapshot_export(figure, Path(path))
+    window._start_snapshot_export(figure, path)
 
 
 def start_snapshot_export(window: MainWindow, figure: SnapshotFigure, path: Path) -> None:
     """Hand an immutable captured figure to a background composer and encoder."""
     from avialsync.engine.export_worker import SnapshotWorker
 
-    worker = SnapshotWorker(figure, path)
+    worker = SnapshotWorker(figure, path, loaded_sources(window), window.session_runtime.path)
 
     def _wire(thread: QThread) -> None:
         worker.finished.connect(window._on_snapshot_finished)
@@ -188,7 +194,7 @@ def start_snapshot_export(window: MainWindow, figure: SnapshotFigure, path: Path
 
 def on_snapshot_finished(window: MainWindow, path: str) -> None:
     """Report background snapshot completion on the UI thread."""
-    window.notifications.show_success(tr("Snapshot saved: {name}").format(name=Path(path).name))
+    show_exported(window, tr("Snapshot saved: {name}").format(name=Path(path).name), Path(path))
 
 
 def on_snapshot_error(window: MainWindow, error: str) -> None:
@@ -210,23 +216,26 @@ def export_data_slice(window: MainWindow) -> None:
         t0 = min(window.player._ab_in, window.player._ab_out)
         t1 = max(window.player._ab_in, window.player._ab_out)
 
-    path, filt = QFileDialog.getSaveFileName(
+    path = choose_file(
         window,
+        "data-slice",
         tr("Export Data Slice"),
-        "data_export.csv",
+        Path("data_export.csv"),
         tr("CSV files (*.csv);;Parquet files (*.parquet)"),
     )
     if not path:
         return
 
-    window._start_data_export(t0, t1, Path(path))
+    window._start_data_export(t0, t1, path)
 
 
 def start_data_export(window: MainWindow, t0: float, t1: float, path: Path) -> None:
     """Write a cached data slice on a worker thread."""
     from avialsync.engine.export_worker import DataExportWorker
 
-    worker = DataExportWorker(window._reader_references(), t0, t1, path)
+    worker = DataExportWorker(
+        window._reader_references(), t0, t1, path, window.session_runtime.path
+    )
 
     def _wire(thread: QThread) -> None:
         worker.finished.connect(window._on_data_export_finished)
@@ -241,7 +250,7 @@ def start_data_export(window: MainWindow, t0: float, t1: float, path: Path) -> N
 
 def on_data_export_finished(window: MainWindow, path: str) -> None:
     """Report a completed data export on the UI thread."""
-    window.notifications.show_success(tr("Data exported to {name}").format(name=Path(path).name))
+    show_exported(window, tr("Data exported to {name}").format(name=Path(path).name), Path(path))
 
 
 def on_data_export_error(window: MainWindow, error: str) -> None:
@@ -270,25 +279,22 @@ def export_video_clip(window: MainWindow) -> None:
         t0, t1 = t1, t0
 
     if len(window.video_grid._paths) == 1:
-        path, _ = QFileDialog.getSaveFileName(
+        path = choose_file(
             window,
+            "clip",
             tr("Export Trimmed Video"),
-            "",
+            Path("clip.mp4"),
             tr("Video files (*.mp4 *.mkv *.mov *.avi)"),
         )
         if not path:
             return
-        clips = [
-            (window.video_grid.media_path_for(window.video_grid._paths[0]), t0, t1, Path(path))
-        ]
+        clips = [(window.video_grid.media_path_for(window.video_grid._paths[0]), t0, t1, path)]
     else:
-        dir_path = QFileDialog.getExistingDirectory(
-            window, tr("Select Directory for Trimmed Clips")
+        out_dir = choose_folder(
+            window, "clip", tr("Select Directory for Trimmed Clips"), Path.home()
         )
-        if not dir_path:
+        if not out_dir:
             return
-
-        out_dir = Path(dir_path)
         # Read from what each pane decodes -- a proxy, for a source that has one
         # (D-188) -- and named after the recording it shows.
         media = {path: window.video_grid.media_path_for(path) for path in window.video_grid._paths}
@@ -313,7 +319,14 @@ def start_video_clip_export(
     worker = VideoClipWorker(clips)
 
     def _wire(thread: QThread) -> None:
-        worker.finished.connect(window._on_video_clip_finished)
+        worker.finished.connect(
+            on_ui_thread(
+                lambda successful, total: on_video_clip_finished(
+                    window, successful, total, clips[0][3]
+                ),
+                window,
+            )
+        )
         worker.error.connect(window._on_video_clip_error)
 
     label = (
@@ -324,10 +337,16 @@ def start_video_clip_export(
     window._run_job(worker, label=label, configure=_wire)
 
 
-def on_video_clip_finished(window: MainWindow, successful: int, total: int) -> None:
+def on_video_clip_finished(
+    window: MainWindow, successful: int, total: int, path: Path | None = None
+) -> None:
     """Show ffmpeg trim results once all worker jobs finish."""
     if successful == total:
-        window.notifications.show_success(tr("Exported {count} clips.").format(count=successful))
+        message = tr("Exported {count} clips.").format(count=successful)
+        if path is not None:
+            show_exported(window, message, path)
+        else:
+            window.notifications.show_success(message)
     else:
         window.notifications.show_warning(
             tr("Exported {done} of {total} clips.").format(done=successful, total=total)
@@ -376,15 +395,16 @@ def export_stimulus_grid(window: MainWindow) -> None:
     events = dialog.selected_events()
     if not events:
         return
-    destination, _ = QFileDialog.getSaveFileName(
+    destination = choose_file(
         window,
+        "stimulus-grid",
         tr("Export Stimulus Grid"),
-        "stimulus_grid.mp4",
+        Path("stimulus_grid.mp4"),
         tr("MP4 Video (*.mp4)"),
     )
     if not destination:
         return
-    destination_path = _mp4_output_path(destination)
+    destination_path = _mp4_output_path(str(destination))
     channel = dialog.channel_option()
     signal = GridSignal(channel.reference, channel.label, dialog.threshold_spin.value())
     start_stimulus_grid_export(
@@ -461,14 +481,16 @@ def on_stimulus_grid_export_finished(window: MainWindow, path: str, replaced: bo
     """Report the completed comparison video through the notification strip."""
     output_path = str(Path(path).resolve())
     if replaced:
-        window.notifications.show_success(
+        show_exported(
+            window,
             tr("Replaced stimulus grid at {path}. Reopen the video to see the new export.").format(
                 path=output_path
-            )
+            ),
+            Path(path),
         )
     else:
-        window.notifications.show_success(
-            tr("Stimulus grid exported to {path}").format(path=output_path)
+        show_exported(
+            window, tr("Stimulus grid exported to {path}").format(path=output_path), Path(path)
         )
 
 

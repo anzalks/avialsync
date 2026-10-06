@@ -125,20 +125,30 @@ def persist(window: MainWindow, source_id: str) -> None:
         )
         for index, point, x, y, shown in window.point_edits.for_source(source_id)
     ]
-    try:
-        written = point_edit_sidecar.write(Path(source_id), rows)
-    except OSError as error:
-        _fall_back_to_the_session(window, source_id, error)
-        return
+    source = Path(source_id)
+    target = point_edit_sidecar.sidecar_path(source)
+    # Until the newest revision lands, a session snapshot must carry the rows.
+    storage = window._point_edit_storage
+    storage[source_id] = SESSION
 
-    window._point_edit_storage[source_id] = SIDECAR
-    if source_id not in window._announced_correction_files:
-        window._announced_correction_files.add(source_id)
-        window.notifications.show_success(
-            tr("Corrections for {source} are saved beside it, in {file}.").format(
-                source=Path(source_id).name, file=written.name
+    def success(written: Path) -> None:
+        if not window.artifact_writes.has_newer(target):
+            storage[source_id] = SIDECAR
+        if source_id not in window._announced_correction_files:
+            window._announced_correction_files.add(source_id)
+            window.notifications.show_success(
+                tr("Corrections for {source} are saved beside it, in {file}.").format(
+                    source=source.name, file=written.name
+                )
             )
-        )
+
+    window.artifact_writes.enqueue(
+        target,
+        label=tr("Saving tracking corrections"),
+        write=lambda: point_edit_sidecar.write(source, rows),
+        success=success,
+        failure=lambda error: _fall_back_to_the_session(window, source_id, OSError(error)),
+    )
 
 
 def _fall_back_to_the_session(window: MainWindow, source_id: str, error: OSError) -> None:

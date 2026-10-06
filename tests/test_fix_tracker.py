@@ -656,7 +656,9 @@ def test_an_unregistered_source_falls_back_to_the_index(window: MainWindow) -> N
     assert corrections_controller.index_for(window, "/nowhere.csv", 7) == 7
 
 
-def test_a_correction_is_written_at_the_video_frame_it_names(window: MainWindow, tmp_path) -> None:
+def test_a_correction_is_written_at_the_video_frame_it_names(
+    window: MainWindow, tmp_path, qtbot
+) -> None:
     pose = _pose_file(tmp_path)
     _register_pose_source(window, str(pose), [10.0, 10.1, 10.2, 10.3], rate=10.0)
 
@@ -664,6 +666,7 @@ def test_a_correction_is_written_at_the_video_frame_it_names(window: MainWindow,
         PointMove(key=PointKey(str(pose), "nose", 1), before=None, after=(5.0, 6.0))
     )
 
+    qtbot.waitUntil(lambda: point_edit_sidecar.read(pose) is not None, timeout=5000)
     written = point_edit_sidecar.read(pose)
     assert written is not None
     assert [entry.frame for entry in written.entries] == [101]
@@ -709,7 +712,7 @@ def _pose_file(tmp_path) -> Path:
     return path
 
 
-def test_a_correction_is_written_beside_its_pose_file(window: MainWindow, tmp_path) -> None:
+def test_a_correction_is_written_beside_its_pose_file(window: MainWindow, tmp_path, qtbot) -> None:
     """A correction is a fact about the recording, so it lives with it (D-099).
 
     Not on Ctrl+S: two hundred careful drags are collected data, and leaving
@@ -721,13 +724,15 @@ def test_a_correction_is_written_beside_its_pose_file(window: MainWindow, tmp_pa
 
     window.video_grid.point_moved.emit(PointMove(key=key, before=None, after=(12.5, 34.5)))
 
+    qtbot.waitUntil(lambda: point_edit_sidecar.read(pose) is not None, timeout=5000)
     written = point_edit_sidecar.read(pose)
     assert written is not None
     assert [(e.frame, e.bodypart, e.x, e.y) for e in written.entries] == [(120, "nose", 12.5, 34.5)]
+    qtbot.waitUntil(lambda: "eks.csv" in window.notifications.message, timeout=5000)
     assert "eks.csv" in window.notifications.message
 
 
-def test_undoing_a_correction_reaches_the_file_too(window: MainWindow, tmp_path) -> None:
+def test_undoing_a_correction_reaches_the_file_too(window: MainWindow, tmp_path, qtbot) -> None:
     """Undo is a correction like any other, and takes the same route to disk."""
     pose = _pose_file(tmp_path)
     key = PointKey(str(pose), "nose", 120)
@@ -735,17 +740,25 @@ def test_undoing_a_correction_reaches_the_file_too(window: MainWindow, tmp_path)
 
     window.document.undo(window._mutations)
 
+    qtbot.waitUntil(
+        lambda: (held := point_edit_sidecar.read(pose)) is not None and held.entries == [],
+        timeout=5000,
+    )
     written = point_edit_sidecar.read(pose)
     assert written is not None
     assert written.entries == [], "the file is emptied, never deleted"
     assert point_edit_sidecar.sidecar_path(pose).exists()
 
 
-def test_the_session_records_a_count_not_the_coordinates(window: MainWindow, tmp_path) -> None:
+def test_the_session_records_a_count_not_the_coordinates(
+    window: MainWindow, tmp_path, qtbot
+) -> None:
     """One authority. The count is what makes a lost sidecar reportable."""
     pose = _pose_file(tmp_path)
     key = PointKey(str(pose), "nose", 120)
     window.video_grid.point_moved.emit(PointMove(key=key, before=None, after=(12.5, 34.5)))
+
+    qtbot.waitUntil(lambda: window._point_edit_storage.get(str(pose)) == "sidecar", timeout=5000)
 
     state = window._build_session_state()
 
@@ -753,7 +766,7 @@ def test_the_session_records_a_count_not_the_coordinates(window: MainWindow, tmp
 
 
 def test_a_folder_that_cannot_be_written_keeps_the_work_in_the_session(
-    window: MainWindow, tmp_path
+    window: MainWindow, tmp_path, qtbot
 ) -> None:
     """An archived acquisition on read-only media is the ordinary case."""
     missing = tmp_path / "not-a-folder" / "eks.csv"
@@ -773,6 +786,7 @@ def test_a_folder_that_cannot_be_written_keeps_the_work_in_the_session(
             "shown_as": "nose",
         }
     ]
+    qtbot.waitUntil(lambda: "could not be written" in window.notifications.message, timeout=5000)
     assert "could not be written" in window.notifications.message
 
 

@@ -32,10 +32,13 @@ import dataclasses
 import io
 import logging
 import math
-import os
 from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 
+from avialsync.core.artifact_io import publish
+from avialsync.core.artifact_provenance import record as provenance_record
+from avialsync.core.artifact_provenance import write_companion
+from avialsync.core.artifacts import get_kind
 from avialsync.core.pose import split_channel
 
 logger = logging.getLogger(__name__)
@@ -186,8 +189,7 @@ class CustomMarkerStore:
 
 def marker_file_for(pose_file: Path | str) -> Path:
     """The custom-marker file that sits beside *pose_file*."""
-    path = Path(pose_file)
-    return path.with_name(path.stem + MARKER_SUFFIX)
+    return get_kind("custom-markers-2d").target_for(pose_file)
 
 
 def is_custom_marker_path(path: Path | str) -> bool:
@@ -201,12 +203,28 @@ def is_custom_marker_path(path: Path | str) -> bool:
     return Path(path).name.lower().endswith(MARKER_SUFFIX)
 
 
-def _atomic_write(target: Path, rows: list[list[str]]) -> Path:
+def _atomic_write(
+    target: Path,
+    rows: list[list[str]],
+    *,
+    kind: str,
+    sources: tuple[Path | str, ...],
+    session: Path | None,
+    marker_count: int,
+) -> Path:
     buffer = io.StringIO()
     csv.writer(buffer, lineterminator="\n").writerows(rows)
-    temporary = target.with_name(f".{target.name}.tmp")
-    temporary.write_text(buffer.getvalue(), encoding="utf-8")
-    os.replace(temporary, target)
+    publish(
+        target,
+        lambda temporary: temporary.write_text(buffer.getvalue(), encoding="utf-8"),
+        kind=kind,
+        sources=sources,
+    )
+    write_companion(
+        target,
+        provenance_record(kind, sources, session=session, edit_counts={"markers": marker_count}),
+        sources=sources,
+    )
     return target
 
 
@@ -218,7 +236,14 @@ def _ordered_names(markers: Iterable[CustomMarker]) -> list[str]:
     return sorted({marker.name for marker in markers})
 
 
-def write_2d(target: Path | str, camera: str, markers: Iterable[CustomMarker]) -> Path:
+def write_2d(
+    target: Path | str,
+    camera: str,
+    markers: Iterable[CustomMarker],
+    *,
+    sources: tuple[Path | str, ...] = (),
+    session: Path | None = None,
+) -> Path:
     """Write every marker placed in *camera* as a DeepLabCut-layout CSV.
 
     One row per frame holding any marker; a marker absent from a frame is an
@@ -245,7 +270,14 @@ def write_2d(target: Path | str, camera: str, markers: Iterable[CustomMarker]) -
             view = by_frame[frame].get(name)
             row += ["", "", ""] if view is None else [_number(view[0]), _number(view[1]), "1.0"]
         rows.append(row)
-    return _atomic_write(Path(target), rows)
+    return _atomic_write(
+        Path(target),
+        rows,
+        kind="custom-markers-2d",
+        sources=sources,
+        session=session,
+        marker_count=len(placed),
+    )
 
 
 def read_2d(source: Path | str) -> dict[tuple[str, int], tuple[float, float]]:
@@ -296,7 +328,13 @@ _IDENTITY_TRANSFORM = [f"M_{i}{j}" for i in range(3) for j in range(3)] + [
 _IDENTITY_VALUES = ["1.0" if i == j else "0.0" for i in range(3) for j in range(3)] + ["0.0"] * 3
 
 
-def write_3d(target: Path | str, markers: Iterable[CustomMarker]) -> Path:
+def write_3d(
+    target: Path | str,
+    markers: Iterable[CustomMarker],
+    *,
+    sources: tuple[Path | str, ...] = (),
+    session: Path | None = None,
+) -> Path:
     """Write triangulated markers in anipose's ``pose-3d`` CSV layout.
 
     ``<name>_x/_y/_z/_error/_ncams/_score`` per marker, anipose's identity
@@ -322,7 +360,14 @@ def write_3d(target: Path | str, markers: Iterable[CustomMarker]) -> Path:
                 row += [_number(v) for v in entry.xyz]
                 row += [_number(entry.error), str(len(entry.views)), "1.0"]
         rows.append(row + _IDENTITY_VALUES + [str(frame)])
-    return _atomic_write(Path(target), rows)
+    return _atomic_write(
+        Path(target),
+        rows,
+        kind="custom-markers-3d",
+        sources=sources,
+        session=session,
+        marker_count=len(solved),
+    )
 
 
 def read_3d(

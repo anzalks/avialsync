@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from avialsync.core.drift import LEGACY_DRIFT_KEY
+from avialsync.core.errors import ExportError
 from avialsync.core.session import (
     MarkerEntry,
     SensorEntry,
@@ -64,6 +65,15 @@ def test_v1_session_roundtrips_as_v7(tmp_path: Path) -> None:
     assert data["sensors"][0]["import_report"] is None
     # v3 markers carry video_frames
     assert data["markers"][0]["video_frames"] == []
+
+
+def test_session_cannot_replace_a_loaded_source(tmp_path: Path) -> None:
+    source = tmp_path / "recording.avv"
+    source.write_text("original", encoding="utf-8")
+    state = SessionState(videos=[VideoEntry(path=str(source))])
+    with pytest.raises(ExportError, match="loaded source"):
+        state.save(source)
+    assert source.read_text(encoding="utf-8") == "original"
 
 
 def test_tracking_presentation_choices_round_trip(tmp_path: Path) -> None:

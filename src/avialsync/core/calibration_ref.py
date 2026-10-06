@@ -30,12 +30,12 @@ then one in the session folder itself -- where anipose users keep it.
 from __future__ import annotations
 
 import datetime as _datetime
-import os
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path, PureWindowsPath
 
+from avialsync.core.artifact_io import publish
 from avialsync.core.calibration import Calibration
 
 __all__ = [
@@ -133,26 +133,29 @@ def write_ref(folder: Path | str, sources: Sequence[str], calibration: Path | st
     folder.mkdir(parents=True, exist_ok=True)
     target = folder / REF_NAME
     lines = [_SOURCES_HEADER, *sources, "", _CALIBRATION_HEADER, f'"{Path(calibration)}"']
-    temporary = target.with_name(f".{target.name}.tmp")
-    temporary.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    os.replace(temporary, target)
-    return target
+    return publish(
+        target,
+        lambda temporary: temporary.write_text("\n".join(lines) + "\n", encoding="utf-8"),
+        kind="calibration-ref",
+    )
 
 
 def keep_aside(folder: Path | str) -> Path | None:
-    """Move an existing ``calibration_ref.txt`` aside under a dated name; where it went.
+    """Keep a copy of an existing reference under a dated name; where it went.
 
     Labs edit these by hand and copy them between experiments, so replacing
     one outright -- even one naming a file that no longer exists -- loses what
-    it said. Renamed, not copied: the new file takes the name and the old one
-    keeps its content. None when there was nothing to keep.
+    it said. The current reference remains usable if writing its replacement
+    fails. None when there was nothing to keep.
     """
     current = Path(folder) / REF_NAME
     if not current.exists():
         return None
     stamp = _datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     target = unused_name(Path(folder) / f"calibration_ref.{stamp}.txt")
-    current.rename(target)
+    import shutil
+
+    publish(target, lambda temporary: shutil.copyfile(current, temporary), kind="calibration-ref")
     return target
 
 

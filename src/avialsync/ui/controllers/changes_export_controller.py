@@ -157,8 +157,14 @@ def export_changes(window: MainWindow) -> None:
     worker = ChangesExportWorker(jobs)
 
     def on_finished(results: list) -> None:
-        window.notifications.show_success(
-            tr("Exported: {summary}").format(summary="; ".join(str(line) for line in results))
+        from avialsync.ui.controllers.artifact_write_controller import show_exported
+
+        # One notification lists the results; its action opens the first
+        # destination's folder when the user chose several locations.
+        show_exported(
+            window,
+            tr("Exported: {summary}").format(summary="; ".join(str(line) for line in results)),
+            chosen[0].target,
         )
 
     def on_error(message: str) -> None:
@@ -186,14 +192,12 @@ def _job_for(window: MainWindow, item: ExportItem) -> object | None:
     reader, widget, or store is touched from the worker (rule 3).
     """
     from avialsync.engine.changes_export_worker import (
-        AnnotationJob,
         CorrectedPoseJob,
         RetrainingJob,
     )
 
     if item.kind == ANNOTATIONS:
-        rows = marker_rows(window.annotation_store.markers)
-        return AnnotationJob(target=item.target, rows=rows) if rows else None
+        return _annotation_job(window, item)
 
     if item.kind == CORRECTED_POSE:
         program = identity_controller.program_for(window, item.source_id)
@@ -230,3 +234,19 @@ def _job_for(window: MainWindow, item: ExportItem) -> object | None:
             write_images=video.exists(),
         )
     return None
+
+
+def _annotation_job(window: MainWindow, item: ExportItem) -> object | None:
+    """Capture annotation rows and source identity before starting the worker."""
+    from avialsync.engine.changes_export_worker import AnnotationJob
+    from avialsync.ui.controllers.artifact_write_controller import loaded_sources
+
+    rows = marker_rows(window.annotation_store.markers)
+    if not rows:
+        return None
+    return AnnotationJob(
+        target=item.target,
+        rows=rows,
+        sources=loaded_sources(window),
+        session=window.session_runtime.path,
+    )

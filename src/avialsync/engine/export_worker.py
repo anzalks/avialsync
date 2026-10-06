@@ -33,12 +33,14 @@ class ReaderReference:
     channel_id: str
     offset: float = 0.0
     drift_ms_per_hour: float = 0.0
+    source_id: str = ""
 
     def open(self) -> MappedChannelReader:
         """Open a fresh mmap reader owned by the calling thread."""
         return MappedChannelReader(
             PyramidReader(self.cache_dir, self.channel_id),
             TimeMap(self.offset, self.drift_ms_per_hour),
+            self.source_id,
         )
 
 
@@ -54,12 +56,14 @@ class DataExportWorker(QObject):
         t0: float,
         t1: float,
         path: Path,
+        session: Path | None = None,
     ) -> None:
         super().__init__()
         self._readers = readers
         self._t0 = t0
         self._t1 = t1
         self._path = path
+        self._session = session
 
     @Slot()
     def run(self) -> None:
@@ -67,9 +71,13 @@ class DataExportWorker(QObject):
         try:
             readers = [reference.open() for reference in self._readers]
             if self._path.suffix.lower() == ".parquet":
-                export_data_slice_parquet(readers, self._t0, self._t1, self._path)
+                export_data_slice_parquet(
+                    readers, self._t0, self._t1, self._path, session=self._session
+                )
             else:
-                export_data_slice_csv(readers, self._t0, self._t1, self._path)
+                export_data_slice_csv(
+                    readers, self._t0, self._t1, self._path, session=self._session
+                )
             self.finished.emit(str(self._path))
         except (AvialSyncError, OSError, RuntimeError, ValueError) as error:
             self.error.emit(str(error))
@@ -139,16 +147,24 @@ class SnapshotWorker(QObject):
     finished = Signal(str)
     error = Signal(str)
 
-    def __init__(self, figure: SnapshotFigure, path: Path) -> None:
+    def __init__(
+        self,
+        figure: SnapshotFigure,
+        path: Path,
+        sources: tuple[Path, ...] = (),
+        session: Path | None = None,
+    ) -> None:
         super().__init__()
         self._figure = figure
         self._path = path
+        self._sources = sources
+        self._session = session
 
     @Slot()
     def run(self) -> None:
         """Compose and save the immutable image copies on this worker thread."""
         try:
-            save_figure(self._figure, self._path)
+            save_figure(self._figure, self._path, sources=self._sources, session=self._session)
             self.finished.emit(str(self._path))
-        except OSError as error:
+        except (AvialSyncError, OSError) as error:
             self.error.emit(str(error))

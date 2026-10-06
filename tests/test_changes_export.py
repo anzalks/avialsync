@@ -19,6 +19,7 @@ from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
 from avialsync.core.dlc_export import LabeledFrame
+from avialsync.core.errors import ExportError
 from avialsync.core.identity_groups import ANIMALS, groups_for_schema
 from avialsync.core.identity_swaps import SwapEvent
 from avialsync.core.point_edits import PointKey, PointMove
@@ -30,7 +31,13 @@ from avialsync.engine.changes_export_worker import (
     RetrainingJob,
 )
 from avialsync.ui import recovery
-from avialsync.ui.annotations import MARKER_COLUMNS, AnnotationStore, VideoFrame, marker_rows
+from avialsync.ui.annotations import (
+    MARKER_COLUMNS,
+    AnnotationStore,
+    VideoFrame,
+    marker_rows,
+    write_marker_rows,
+)
 from avialsync.ui.controllers import changes_export_controller
 from avialsync.ui.export_dialog import ANNOTATIONS, CORRECTED_POSE, RETRAINING_SET
 from avialsync.ui.main_window import MainWindow
@@ -106,6 +113,14 @@ def test_the_layout_is_defined_once(tmp_path: Path, qtbot) -> None:
     _run(worker, qtbot)
 
     assert target.read_text(encoding="utf-8").splitlines()[0] == ",".join(MARKER_COLUMNS)
+
+
+def test_annotations_cannot_replace_a_loaded_source(tmp_path: Path) -> None:
+    source = tmp_path / "tracking.csv"
+    source.write_text("original", encoding="utf-8")
+    with pytest.raises(ExportError, match="loaded source"):
+        write_marker_rows(source, [["a", "", 1.0, "", "", ""]], sources=(source,))
+    assert source.read_text(encoding="utf-8") == "original"
 
 
 def test_the_worker_cannot_see_later_edits_to_the_store(tmp_path: Path, qtbot) -> None:

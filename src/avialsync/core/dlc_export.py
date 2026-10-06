@@ -25,9 +25,11 @@ from __future__ import annotations
 
 import csv
 import logging
-import os
 from dataclasses import dataclass
 from pathlib import Path
+
+from avialsync.core.artifact_io import publish
+from avialsync.core.artifact_provenance import record, write_companion
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +83,8 @@ def write_labeled_data(
     scorer: str,
     bodyparts: list[str],
     frames: list[LabeledFrame],
+    *,
+    sources: tuple[Path | str, ...] = (),
 ) -> LabeledDataReport:
     """Write *frames* as a DLC ``CollectedData`` CSV at *target*.
 
@@ -103,24 +107,32 @@ def write_labeled_data(
 
     labelled = 0
     missing = 0
-    temporary = target_path.with_name(f".{target_path.name}.tmp")
-    with open(temporary, "w", newline="", encoding="utf-8") as handle:
-        writer = csv.writer(handle)
-        writer.writerow(scorer_row)
-        writer.writerow(bodypart_row)
-        writer.writerow(coord_row)
-        for item in sorted(frames, key=lambda frame: frame.frame):
-            row: list[str] = [image_relative_path(video_stem, item.frame)]
-            for part in bodyparts:
-                position = item.positions.get(part)
-                if position is None:
-                    # Empty, never 0,0 -- see the module docstring.
-                    row += ["", ""]
-                    missing += 1
-                    continue
-                row += [repr(float(position[0])), repr(float(position[1]))]
-                labelled += 1
-            writer.writerow(row)
-    os.replace(temporary, target_path)
+
+    def write(temporary: Path) -> None:
+        nonlocal labelled, missing
+        with open(temporary, "w", newline="", encoding="utf-8") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(scorer_row)
+            writer.writerow(bodypart_row)
+            writer.writerow(coord_row)
+            for item in sorted(frames, key=lambda frame: frame.frame):
+                row: list[str] = [image_relative_path(video_stem, item.frame)]
+                for part in bodyparts:
+                    position = item.positions.get(part)
+                    if position is None:
+                        # Empty, never 0,0 -- see the module docstring.
+                        row += ["", ""]
+                        missing += 1
+                        continue
+                    row += [repr(float(position[0])), repr(float(position[1]))]
+                    labelled += 1
+                writer.writerow(row)
+
+    publish(target_path, write, kind="dlc-retraining", sources=sources)
+    write_companion(
+        target_path,
+        record("dlc-retraining", sources, edit_counts={"labelled_frames": len(frames)}),
+        sources=sources,
+    )
 
     return LabeledDataReport(frames=len(frames), labelled_points=labelled, missing_points=missing)

@@ -423,6 +423,12 @@ def test_a_custom_group_is_undoable_and_persisted(qtbot, window, pose_source) ->
     )
     window.document.execute(SetIdentityGroupCommand(source, group), window._mutations)
     assert window.identity_swaps.group(source, group.name) == group
+    qtbot.waitUntil(
+        lambda: (
+            (saved := identity_sidecar.read(pose_source[0])) is not None and group in saved.groups
+        ),
+        timeout=5000,
+    )
     held = identity_sidecar.read(pose_source[0])
     assert held is not None and group in held.groups
 

@@ -84,6 +84,7 @@ from avialsync.ui.accessibility import apply_accessibility, install_show_time_sw
 from avialsync.ui.annotations import AnnotationStore, Marker
 from avialsync.ui.changes_panel import ChangeRow, ChangesPanel
 from avialsync.ui.controllers import (
+    artifact_write_controller,
     calibration_controller,
     changes_export_controller,
     corrections_controller,
@@ -105,6 +106,7 @@ from avialsync.ui.controllers.video_load_state import VideoLoadState
 from avialsync.ui.controllers.wheel_state import WheelState
 from avialsync.ui.coverage_lanes import SourceCoverage
 from avialsync.ui.empty_state import EmptyState
+from avialsync.ui.export_panel import ExportPanel
 from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
 from avialsync.ui.feedback.error_presenter import present
 from avialsync.ui.feedback.tasks_button import TasksButton
@@ -482,16 +484,15 @@ class MainWindow(QMainWindow):
         self._pending_sensor_mappings: dict[str, tuple[float, float]] = {}
         self._time_mode = TimeDisplayMode.RELATIVE
         self._save_in_progress = False
-
         # One owner for background work: names it for the status bar, watches it
         # for stalls, and abandons it at shutdown so the window always closes.
         self._job_manager = JobManager(self)
         self._job_manager.jobs_changed.connect(self._on_jobs_changed)
+        self.artifact_writes = artifact_write_controller.ArtifactWriteQueue(self)
         # Off-thread work is only half the guarantee; this notices when the UI
         # thread blocks anyway and says so instead of just feeling laggy.
         self._heartbeat = UiHeartbeat(self)
         self._heartbeat.stalled.connect(self._on_ui_stalled)
-
         # Core
         self.clock = MasterClock()
 
@@ -643,7 +644,6 @@ class MainWindow(QMainWindow):
         self.message_store.changed.connect(self._update_timeline_messages)
         self.message_panel = MessagePanel(self.message_store, self)
         self.message_panel.seek_requested.connect(self._on_message_seek_requested)
-
         # One compact inspector keeps source management, values, messages, and
         # annotations available without permanently consuming four stacked panes
         # of workspace height. Messages sit beside annotations because they
@@ -657,13 +657,13 @@ class MainWindow(QMainWindow):
         self._left_tabs.addTab(self.message_panel, tr("Messages"), icon="messages")
         self._left_tabs.addTab(self.changes_panel, tr("Changes"), icon="changes")
         self._left_tabs.addTab(self.props_app.make_panel(self.wheel_tab), tr("Props"), icon="props")
+        self.export_panel = ExportPanel(self)
+        self._left_tabs.addTab(self.export_panel, tr("Exports"), icon="exports")
         # Display levels live under Sources, beside the camera they act on.
         # Hidden until a recording that has range to choose from is opened.
         self.sidebar.content_layout.addWidget(self.levels_panel)
-
         # A dock, not a splitter pane: either side, floating, or closed (D-180).
         self.inspector_dock = install_inspector_dock(self, self._left_tabs)
-
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
         right_layout.setContentsMargins(0, 0, 0, 0)

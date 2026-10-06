@@ -136,6 +136,7 @@ def _file_changes(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     act = window._act_export_changes
     act.triggered.connect(window._export_changes)
     window.changes_panel.set_export_action(act)
+    window.export_panel.bind("changes", act)
     window._require(
         act,
         lambda: (
@@ -158,6 +159,7 @@ def _file_exports(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     window._act_snapshot = file_menu.addAction(tr("Export Snapshot…"))
     window._act_snapshot.setShortcut(QKeySequence("Ctrl+E"))
     window._act_snapshot.triggered.connect(window._export_snapshot)
+    window.export_panel.bind("snapshot", window._act_snapshot)
     _reg(window._act_snapshot, "File")
     window.view_toolbar.install_snapshot_action(window._act_snapshot)
     window._require(
@@ -168,6 +170,7 @@ def _file_exports(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
 
     act = file_menu.addAction(tr("Export Trimmed Video Clip…"))
     act.triggered.connect(window._export_video_clip)
+    window.export_panel.bind("clip", act)
     window._require(
         act,
         lambda: bool(window.video_grid._paths) and window.transport._ab_in_t is not None,
@@ -176,6 +179,7 @@ def _file_exports(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
 
     act = file_menu.addAction(tr("Export Stimulus Grid…"))
     act.triggered.connect(window._export_stimulus_grid)
+    window.export_panel.bind("stimulus-grid", act)
     _reg(act, "File")
     window._require(
         act,
@@ -185,6 +189,7 @@ def _file_exports(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
 
     act = file_menu.addAction(tr("Export Data Slice…"))
     act.triggered.connect(window._export_data_slice)
+    window.export_panel.bind("data-slice", act)
     window._require(
         act,
         lambda: bool(window.plot_pane.channels),

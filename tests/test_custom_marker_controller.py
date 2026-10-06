@@ -107,21 +107,29 @@ def test_delete_is_undoable(window: MainWindow, videos, monkeypatch) -> None:
 
 
 def test_markers_are_written_in_pose3d_never_beside_the_videos(
-    window: MainWindow, videos, monkeypatch, pose3d: Path
+    window: MainWindow, videos, monkeypatch, pose3d: Path, qtbot
 ) -> None:
     _place(window, videos, monkeypatch)
     rec = Path(next(iter(videos.values()))).parent
     beside_videos = [p for p in rec.iterdir() if p.is_file()]
     assert beside_videos == [], "the recording folder is the acquisition's"
     for name in CAMERAS:
-        read = custom_markers.read_2d(pose3d / f"{name}{custom_markers.MARKER_SUFFIX}")
+        path = pose3d / f"{name}{custom_markers.MARKER_SUFFIX}"
+        qtbot.waitUntil(lambda path=path: ("rung", FRAME) in custom_markers.read_2d(path))
+        read = custom_markers.read_2d(path)
         assert ("rung", FRAME) in read
-    assert ("rung", FRAME) in custom_markers.read_3d(pose3d / "pose_custom_markers.csv")
+    path_3d = pose3d / "pose_custom_markers.csv"
+    qtbot.waitUntil(lambda: ("rung", FRAME) in custom_markers.read_3d(path_3d))
+    assert ("rung", FRAME) in custom_markers.read_3d(path_3d)
 
 
-def test_markers_on_disk_are_adopted(window: MainWindow, videos, monkeypatch) -> None:
+def test_markers_on_disk_are_adopted(
+    window: MainWindow, videos, monkeypatch, pose3d, qtbot
+) -> None:
     _place(window, videos, monkeypatch)
     marker = window.custom_markers.get("rung", FRAME)
+    path = pose3d / "pose_custom_markers.csv"
+    qtbot.waitUntil(lambda: ("rung", FRAME) in custom_markers.read_3d(path))
     window.custom_markers.clear()
     markers.adopt(window)
     assert window.custom_markers.get("rung", FRAME) == marker

@@ -11,10 +11,11 @@ Headless (architecture rule 2).
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import numpy as np
+
+from avialsync.core.artifact_io import publish
 
 __all__ = ["toml_value", "write_atomic"]
 
@@ -38,13 +39,14 @@ def toml_value(value: object) -> str:
     raise TypeError(f"Cannot write {type(value).__name__} to TOML")
 
 
-def write_atomic(path: Path, lines: list[str]) -> Path:
+def write_atomic(path: Path, lines: list[str], *, kind: str = "prop") -> Path:
     """Write *lines* to *path* through a temporary file and one rename.
 
     A reader never sees half a file, and a failed write leaves the previous
     version where it was.
     """
-    temporary = path.with_name(f".{path.name}.tmp")
-    temporary.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    os.replace(temporary, path)
-    return path
+    return publish(
+        path,
+        lambda temporary: temporary.write_text("\n".join(lines) + "\n", encoding="utf-8"),
+        kind=kind,
+    )

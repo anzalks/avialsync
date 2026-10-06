@@ -118,7 +118,7 @@ def test_an_unreadable_value_falls_back_to_the_default() -> None:
 
 def test_every_setting_gets_an_editor(dialog: PreferencesDialog) -> None:
     """Generated, so a new setting cannot ship without a control."""
-    assert set(dialog._editors) == {setting.key for setting in SETTINGS}
+    assert set(dialog._editors) == {setting.key for setting in SETTINGS if setting.visible}
 
 
 @pytest.mark.parametrize(

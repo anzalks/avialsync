@@ -47,6 +47,8 @@ from avialsync.ui.custom_marker_dialogs import ask_marker_name
 from avialsync.ui.i18n import tr
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from avialsync.ui.main_window import MainWindow
 
 logger = logging.getLogger(__name__)
@@ -295,39 +297,67 @@ def points_at(window: MainWindow, t_master: float) -> list[tuple[str, np.ndarray
     ]
 
 
+def _enqueue(window: MainWindow, target: Path, write: Callable[[], Path]) -> None:
+    """Queue one marker file; announce the first save and warn on a failed one."""
+
+    def success(written: Path) -> None:
+        if not window._announced_marker_files:
+            window._announced_marker_files = True
+            window.notifications.show_success(
+                tr(
+                    "3D markers are saved beside the pose files, in {file} and its siblings."
+                ).format(file=written.name)
+            )
+
+    def failure(error: str) -> None:
+        logger.warning("Could not write custom markers: %s", error)
+        window.notifications.show_warning(
+            tr("3D markers could not be saved beside the data."), details=error
+        )
+
+    window.artifact_writes.enqueue(
+        target, label=tr("Saving custom markers"), write=write, success=success, failure=failure
+    )
+
+
 def persist(window: MainWindow) -> None:
-    """Write every camera's marker file and the 3D one, now.
+    """Queue every camera's marker file and the 3D one, now.
 
     Called only from the mutation funnel, so reading the files back in never
     echoes them straight out again (the D-099 rule for corrections).
     """
     markers = list(window.custom_markers)
-    written: list[Path] = []
-    try:
-        for video in rig_paths.open_videos(window.rig_paths):
-            target_2d = _marker_file_2d(window, video)
-            # The pose-3d fallback may not exist yet; a pose file's folder does.
-            target_2d.parent.mkdir(parents=True, exist_ok=True)
-            written.append(
-                custom_markers.write_2d(target_2d, rig_paths.camera_name(video), markers)
-            )
-        target = _marker_file_3d(window)
-        if target is not None:
+    for video in rig_paths.open_videos(window.rig_paths):
+        target_2d = _marker_file_2d(window, video)
+        camera = rig_paths.camera_name(video)
+        pose = rig_paths.pose_2d_file(window.rig_paths, video)
+        sources_2d = (Path(video),) if pose is None else (Path(video), pose)
+        session = window.session_runtime.path
+
+        def write_2d(
+            target: Path = target_2d,
+            name: str = camera,
+            source_files: tuple[Path, ...] = sources_2d,
+            session_file: Path | None = session,
+        ) -> Path:
             target.parent.mkdir(parents=True, exist_ok=True)
-            written.append(custom_markers.write_3d(target, markers))
-    except OSError as error:
-        logger.warning("Could not write custom markers", exc_info=True)
-        window.notifications.show_warning(
-            tr("3D markers could not be saved beside the data."), details=str(error)
-        )
-        return
-    if written and not window._announced_marker_files:
-        window._announced_marker_files = True
-        window.notifications.show_success(
-            tr("3D markers are saved beside the pose files, in {file} and its siblings.").format(
-                file=written[-1].name
+            return custom_markers.write_2d(
+                target, name, markers, sources=source_files, session=session_file
             )
-        )
+
+        _enqueue(window, target_2d, write_2d)
+    target_3d = _marker_file_3d(window)
+    if target_3d is not None:
+        sources_3d = tuple(Path(path) for path in window.rig_paths.pose_sources)
+        session_3d = window.session_runtime.path
+
+        def write_3d() -> Path:
+            target_3d.parent.mkdir(parents=True, exist_ok=True)
+            return custom_markers.write_3d(
+                target_3d, markers, sources=sources_3d, session=session_3d
+            )
+
+        _enqueue(window, target_3d, write_3d)
 
 
 def adopt(window: MainWindow) -> None:

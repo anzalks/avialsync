@@ -209,9 +209,26 @@ def marker_rows(markers: list[Marker]) -> list[list[Any]]:
     return rows
 
 
-def write_marker_rows(path: Path, rows: list[list[Any]]) -> None:
+def write_marker_rows(
+    path: Path,
+    rows: list[list[Any]],
+    *,
+    sources: tuple[Path, ...] = (),
+    session: Path | None = None,
+) -> None:
     """Write annotation *rows* to *path* with the standard header."""
-    with open(path, "w", newline="", encoding="utf-8") as handle:
-        writer = csv.writer(handle)
-        writer.writerow(list(MARKER_COLUMNS))
-        writer.writerows(rows)
+    from avialsync.core.artifact_io import publish
+    from avialsync.core.artifact_provenance import record, write_companion
+
+    def write(temporary: Path) -> None:
+        with open(temporary, "w", newline="", encoding="utf-8") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(list(MARKER_COLUMNS))
+            writer.writerows(rows)
+
+    publish(path, write, kind="annotations", sources=sources)
+    write_companion(
+        path,
+        record("annotations", sources, session=session, edit_counts={"annotations": len(rows)}),
+        sources=sources,
+    )

@@ -152,6 +152,12 @@ tests but cannot replace time, signal, accessibility, and performance assertions
   hover a TTL/gap/annotation event to verify its type, source, and exact master time. Collapse,
   resize, restart, and confirm the view preference restores without changing session data.
 - [ ] Frame-step through the event; annotate it; export region; reopen session — everything restored.
+- [ ] In Exports, write a data slice, snapshot, clip and edited pose copy. Check each appears in
+  Tasks while running, the success notice reveals its folder, and the last folder is remembered
+  separately for each kind. Cancel or fail an overwrite and verify the previous file still opens.
+- [ ] Accept several rapid point edits and identity swaps on a slow data drive, quit and reopen;
+  the latest sidecars or recovery session must retain the edits without a frozen window. Open one
+  export in another program and verify the locked-file message offers closing it and retrying.
 - [ ] Kill app mid-import; relaunch; cache not corrupted.
 - [ ] Try it on the weakest machine you own; note anything sluggish as an issue.
 - [ ] P4.6: pause/scrub shows a complete Review page; Sweep overwrites behind a narrow eraser gap;

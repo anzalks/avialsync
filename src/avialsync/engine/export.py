@@ -7,11 +7,14 @@ figure rather than saving a widget grab.
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+from avialsync.core.artifact_io import publish
+from avialsync.core.artifact_provenance import record
 from avialsync.engine.transcode import remux_clip
 
 
@@ -32,6 +35,8 @@ def export_data_slice_csv(
     t0: float,
     t1: float,
     path: Path,
+    *,
+    session: Path | None = None,
 ) -> None:
     """Export the raw data for all channels in [t0, t1] to CSV.
 
@@ -39,20 +44,31 @@ def export_data_slice_csv(
     merged into shared rows: sources sampled at different rates, or offset
     against each other, do not share a time axis (P3.5 P1 identity).
     """
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
 
-        for reader in readers:
-            t_slice, v_slice, _ = _raw_slice(reader, t0, t1)
-            if len(t_slice) == 0:
-                continue
+    def write(temporary: Path) -> None:
+        with open(temporary, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
 
-            writer.writerow([f"# Source: {_source_label(reader)}"])
-            writer.writerow([f"# Channel: {reader.channel_id}"])
-            writer.writerow(["time", reader.channel_id])
-            for t_val, v_val in zip(t_slice, v_slice, strict=False):
-                writer.writerow([f"{t_val:.9g}", f"{v_val:.9g}"])
-            writer.writerow([])
+            for reader in readers:
+                t_slice, v_slice, _ = _raw_slice(reader, t0, t1)
+                if len(t_slice) == 0:
+                    continue
+
+                writer.writerow([f"# Source: {_source_label(reader)}"])
+                writer.writerow([f"# Channel: {reader.channel_id}"])
+                writer.writerow(["time", reader.channel_id])
+                for t_val, v_val in zip(t_slice, v_slice, strict=False):
+                    writer.writerow([f"{t_val:.9g}", f"{v_val:.9g}"])
+                writer.writerow([])
+            provenance = record(
+                "data-slice-csv",
+                _source_paths(readers),
+                session=session,
+                time_maps=_time_maps(readers),
+            )
+            writer.writerow(["# avialsync: " + json.dumps(provenance)])
+
+    publish(path, write, kind="data-slice-csv", sources=_source_paths(readers))
 
 
 def export_data_slice_parquet(
@@ -60,6 +76,8 @@ def export_data_slice_parquet(
     t0: float,
     t1: float,
     path: Path,
+    *,
+    session: Path | None = None,
 ) -> None:
     """Export the raw data for all channels in [t0, t1] to Parquet.
 
@@ -70,7 +88,7 @@ def export_data_slice_parquet(
         import pyarrow.parquet as pq
     except ImportError:
         csv_path = path.with_suffix(".csv")
-        export_data_slice_csv(readers, t0, t1, csv_path)
+        export_data_slice_csv(readers, t0, t1, csv_path, session=session)
         return
 
     source_columns: list[np.ndarray] = []
@@ -102,7 +120,39 @@ def export_data_slice_parquet(
             "gap_before": np.concatenate(gap_columns),
         }
     )
-    pq.write_table(table, str(path))
+    metadata = dict(table.schema.metadata or {})
+    metadata[b"avialsync"] = json.dumps(
+        record(
+            "data-slice-parquet",
+            _source_paths(readers),
+            session=session,
+            time_maps=_time_maps(readers),
+        )
+    ).encode("utf-8")
+    table = table.replace_schema_metadata(metadata)
+    publish(
+        path,
+        lambda temporary: pq.write_table(table, str(temporary)),
+        kind="data-slice-parquet",
+        sources=_source_paths(readers),
+    )
+
+
+def _source_paths(readers: list) -> tuple[Path, ...]:
+    """Return real source paths, omitting synthetic readers without one."""
+    return tuple(Path(reader.source_id) for reader in readers if getattr(reader, "source_id", ""))
+
+
+def _time_maps(readers: list) -> dict[str, dict[str, float]]:
+    """Record each exported source's accepted mapping in its original units."""
+    return {
+        str(reader.source_id): {
+            "offset_seconds": float(reader.time_map.offset),
+            "drift_ms_per_hour": float(reader.time_map.drift_ms_per_hour),
+        }
+        for reader in readers
+        if getattr(reader, "source_id", "") and getattr(reader, "time_map", None) is not None
+    }
 
 
 def compute_region_stats(

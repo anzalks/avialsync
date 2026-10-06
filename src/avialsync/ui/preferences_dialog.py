@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -217,6 +218,14 @@ class PreferencesDialog(QDialog):
             combo.setAccessibleName(tr(setting.label))
             combo.currentTextChanged.connect(lambda text, s=setting: self._store_value(s, text))
             return combo
+
+        if setting.kind is str:
+            field = QLineEdit(str(value))
+            field.setAccessibleName(tr(setting.label))
+            field.editingFinished.connect(
+                lambda s=setting, editor=field: self._store_value(s, editor.text())
+            )
+            return field
 
         if setting.kind is float:
             float_spin = QDoubleSpinBox()

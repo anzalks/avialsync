@@ -31,7 +31,6 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
-    QFileDialog,
     QHeaderView,
     QLabel,
     QPushButton,
@@ -41,6 +40,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.ui.export_destinations import choose_file, remember, suggested
 from avialsync.ui.i18n import tr
 from avialsync.ui.tables import ThemedTable
 
@@ -114,7 +114,7 @@ class ExportChangesDialog(QDialog):
             title.setToolTip(item.detail)
             self._table.setItem(row, 0, title)
 
-            destination = QTableWidgetItem(str(item.target))
+            destination = QTableWidgetItem(str(suggested("changes", item.target)))
             destination.setToolTip(str(item.target))
             self._table.setItem(row, 1, destination)
 
@@ -139,12 +139,16 @@ class ExportChangesDialog(QDialog):
         item = self._table.item(index, 1)
         if item is None:
             return
-        chosen, _ = QFileDialog.getSaveFileName(
-            self, tr("Export To"), item.text(), tr("CSV files (*.csv);;All files (*)")
+        chosen = choose_file(
+            self,
+            "changes",
+            tr("Export To"),
+            Path(item.text()),
+            tr("CSV files (*.csv);;All files (*)"),
         )
         if chosen:
-            item.setText(chosen)
-            item.setToolTip(chosen)
+            item.setText(str(chosen))
+            item.setToolTip(str(chosen))
 
     def selected_items(self) -> list[ExportItem]:
         """Return the ticked artifacts, each with the destination as edited."""
@@ -159,5 +163,7 @@ class ExportChangesDialog(QDialog):
             text = destination.text().strip()
             if not text:
                 continue
-            chosen.append(dataclasses.replace(item, target=Path(text), selected=True))
+            target = Path(text)
+            remember("changes", target)
+            chosen.append(dataclasses.replace(item, target=target, selected=True))
         return chosen

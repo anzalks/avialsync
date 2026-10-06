@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Iterator, Sequence
 from contextlib import ExitStack
@@ -251,17 +252,39 @@ def export_stimulus_grid(
             if progress is not None:
                 progress(min(1.0, seconds / output_duration))
 
-        encode_video(
-            destination,
-            frames(),
-            rate=Fraction(fps, 1),
-            time_base=Fraction(1, _OUTPUT_TICKS_PER_SECOND),
-            end_seconds=output_duration,
-            encoder_preset="ultrafast",
-            encoder_crf="17",
-            progress=report_progress if progress is not None else None,
-            should_cancel=should_cancel,
-        )
+        from avialsync.core.artifact_io import publish
+
+        def write(temporary: Path) -> None:
+            from avialsync.core.artifact_provenance import record
+
+            provenance = record(
+                "stimulus-grid",
+                tuple(video.path for video in videos),
+                time_maps={
+                    video.label: {
+                        "offset_seconds": video.time_map.offset,
+                        "drift_ms_per_hour": video.time_map.drift_ms_per_hour,
+                    }
+                    for video in videos
+                },
+            )
+            encode_video(
+                temporary,
+                frames(),
+                rate=Fraction(fps, 1),
+                time_base=Fraction(1, _OUTPUT_TICKS_PER_SECOND),
+                end_seconds=output_duration,
+                encoder_preset="ultrafast",
+                encoder_crf="17",
+                progress=report_progress if progress is not None else None,
+                should_cancel=should_cancel,
+                metadata={
+                    "creation_time": str(provenance["written"]),
+                    "comment": json.dumps(provenance),
+                },
+            )
+
+        publish(destination, write, kind="stimulus-grid", sources=(v.path for v in videos))
         if progress is not None:
             progress(1.0)
 

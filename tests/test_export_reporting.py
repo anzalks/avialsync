@@ -247,12 +247,10 @@ def test_exporting_a_slice_with_no_data_warns_without_asking_for_a_filename(
     instead of raising the "No Data" box it used to.
     """
 
-    class _NoDialog:
-        @staticmethod
-        def getSaveFileName(*args, **kwargs):  # pragma: no cover - must not run
-            raise AssertionError("a filename was asked for with nothing to export")
+    def no_dialog(*args, **kwargs):  # pragma: no cover - must not run
+        raise AssertionError("a filename was asked for with nothing to export")
 
-    monkeypatch.setattr(export_controller, "QFileDialog", _NoDialog)
+    monkeypatch.setattr(export_controller, "choose_file", no_dialog)
 
     export_controller.export_data_slice(window)
 
@@ -262,12 +260,10 @@ def test_exporting_a_slice_with_no_data_warns_without_asking_for_a_filename(
 def test_exporting_a_clip_with_no_loop_says_which_keys_set_one(
     window: MainWindow, monkeypatch
 ) -> None:
-    class _NoDialog:
-        @staticmethod
-        def getSaveFileName(*args, **kwargs):  # pragma: no cover - must not run
-            raise AssertionError("a filename was asked for with no range marked")
+    def no_dialog(*args, **kwargs):  # pragma: no cover - must not run
+        raise AssertionError("a filename was asked for with no range marked")
 
-    monkeypatch.setattr(export_controller, "QFileDialog", _NoDialog)
+    monkeypatch.setattr(export_controller, "choose_file", no_dialog)
     window.video_grid._paths.append("cam1.mp4")
     window.transport._ab_in_t = None
 

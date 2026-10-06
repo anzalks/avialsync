@@ -29,11 +29,12 @@ from __future__ import annotations
 import csv
 import datetime as _datetime
 import logging
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from avialsync.core import sidecar_names
+from avialsync.core.artifact_io import publish
+from avialsync.core.artifact_provenance import record as provenance_record
 
 logger = logging.getLogger(__name__)
 
@@ -177,6 +178,9 @@ def write(source: Path | str, entries: list[Correction]) -> Path:
         lines.append(f"# source_bytes: {source_bytes}")
     written = _datetime.datetime.now(_datetime.UTC).isoformat(timespec="seconds")
     lines.append(f"# written: {written}")
+    metadata = provenance_record("pointfix", (path,), edit_counts={"corrections": len(entries)})
+    lines.append(f"# format: {metadata['format']}")
+    lines.append(f"# software: {metadata['software']}")
     if not entries:
         lines.append("# no corrections recorded")
     lines.append(",".join(_COLUMNS))
@@ -187,7 +191,9 @@ def write(source: Path | str, entries: list[Correction]) -> Path:
     # Same atomic shape as the session writer: a temporary file in the target's
     # own directory, then one rename. A half-written corrections file is the one
     # outcome that would lose work rather than merely fail.
-    temporary = target.with_name(f".{target.name}.tmp")
-    temporary.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    os.replace(temporary, target)
-    return target
+    return publish(
+        target,
+        lambda temporary: temporary.write_text("\n".join(lines) + "\n", encoding="utf-8"),
+        kind="pointfix",
+        sources=(path,),
+    )

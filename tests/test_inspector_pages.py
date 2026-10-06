@@ -39,7 +39,7 @@ def test_every_empty_page_says_what_fills_it(window: MainWindow) -> None:
     assert window.message_panel.findChild(EmptyNote).button.action is window._act_open_sensor
 
 
-@pytest.mark.parametrize("index", range(5))
+@pytest.mark.parametrize("index", range(6))
 def test_no_inspector_page_needs_sideways_scrolling(window: MainWindow, index: int) -> None:
     """R3: text wraps or elides; the horizontal bar is a backstop, not a fixture.
 

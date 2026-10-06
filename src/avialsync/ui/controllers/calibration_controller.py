@@ -176,21 +176,33 @@ def _import_calibration(window: MainWindow, folder: Path) -> bool:
     sources = tuple(Path(v).name for v in rig_paths.open_videos(window.rig_paths))
     if not _load_calibration(window, Path(chosen), sources):
         return False
-    try:
-        kept = calibration_ref.keep_aside(folder)
-        written = calibration_ref.write_ref(folder, sources, chosen)
-    except OSError as error:
+    kept: list[Path | None] = []
+
+    def write() -> Path:
+        kept.append(calibration_ref.keep_aside(folder))
+        return calibration_ref.write_ref(folder, sources, chosen)
+
+    def failure(error: str) -> None:
         window.notifications.show_warning(
             tr("The calibration is in use, but {file} could not be written.").format(
                 file=calibration_ref.REF_NAME
             ),
-            details=str(error),
+            details=error,
         )
-        return True
-    message = tr("Calibration linked in {file}. Copy it to other experiments from this rig.")
-    if kept is not None:
-        message += " " + tr("The previous one is kept as {old}.").format(old=kept.name)
-    window.notifications.show_success(message.format(file=written))
+
+    def success(written: Path) -> None:
+        message = tr("Calibration linked in {file}. Copy it to other experiments from this rig.")
+        if kept and kept[0] is not None:
+            message += " " + tr("The previous one is kept as {old}.").format(old=kept[0].name)
+        window.notifications.show_success(message.format(file=written))
+
+    window.artifact_writes.enqueue(
+        folder / calibration_ref.REF_NAME,
+        label=tr("Saving calibration reference"),
+        write=write,
+        success=success,
+        failure=failure,
+    )
     return True
 
 

@@ -40,6 +40,8 @@ class Setting:
     #: Bounds for a numeric setting.
     minimum: float | None = None
     maximum: float | None = None
+    #: Remembered state may be schema-owned without appearing in Preferences.
+    visible: bool = True
 
 
 #: Groups, in the order a Preferences dialog should show them: what people
@@ -56,6 +58,18 @@ GROUP_ORDER = (
 
 
 SETTINGS: tuple[Setting, ...] = (
+    *(
+        Setting(
+            key=f"export/last_folder/{kind}",
+            label=f"Last {kind.replace('-', ' ')} export folder",
+            group="Storage",
+            default="",
+            kind=str,
+            help_text="Folder last chosen for this kind of export.",
+            visible=False,
+        )
+        for kind in ("changes", "snapshot", "clip", "stimulus-grid", "data-slice")
+    ),
     # ── Appearance ───────────────────────────────────────────────────
     Setting(
         key="theme/preference",
@@ -117,7 +131,7 @@ SETTINGS: tuple[Setting, ...] = (
         group="Appearance",
         default="sources",
         kind=str,
-        choices=("sources", "values", "messages", "changes", "props"),
+        choices=("sources", "values", "messages", "changes", "props", "exports"),
         help_text="The inspector page shown when AvialSync opens; the last one used is kept.",
     ),
     Setting(
@@ -266,6 +280,8 @@ def settings_by_group() -> dict[str, list[Setting]]:
     """Settings grouped for display, in :data:`GROUP_ORDER`."""
     grouped: dict[str, list[Setting]] = {}
     for setting in SETTINGS:
+        if not setting.visible:
+            continue
         grouped.setdefault(setting.group, []).append(setting)
     ordered = {group: grouped[group] for group in GROUP_ORDER if group in grouped}
     # Anything in a group nobody listed still shows, at the end, rather than

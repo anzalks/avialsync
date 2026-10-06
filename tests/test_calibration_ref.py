@@ -98,8 +98,9 @@ def test_an_existing_reference_is_kept_aside_not_replaced(tmp_path) -> None:
     _ref(folder, original)
     kept = calibration_ref.keep_aside(folder)
     assert kept is not None and kept.read_text(encoding="utf-8") == original
-    assert not (folder / calibration_ref.REF_NAME).exists()
-    assert calibration_ref.keep_aside(folder) is None
+    assert (folder / calibration_ref.REF_NAME).read_text(encoding="utf-8") == original
+    again = calibration_ref.keep_aside(folder)
+    assert again is not None and again != kept
 
 
 def test_an_unused_name_never_collides(tmp_path) -> None:

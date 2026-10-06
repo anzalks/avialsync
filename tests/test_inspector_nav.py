@@ -13,7 +13,7 @@ from avialsync.ui.controllers import session_controller
 from avialsync.ui.inspector_nav import InspectorNav
 from avialsync.ui.main_window import MainWindow
 
-PAGES = ("Sources", "Values", "Messages", "Changes", "Props")
+PAGES = ("Sources", "Values", "Messages", "Changes", "Props", "Exports")
 
 
 @pytest.fixture
@@ -95,6 +95,21 @@ def test_menu_and_palette_reach_every_page_and_tasks(window: MainWindow) -> None
     assert all(action in window._all_actions for action in window._inspector_actions)
     window._inspector_actions[3].trigger()
     assert window._left_tabs.currentWidget() is window.changes_panel
+
+
+def test_export_buttons_follow_the_live_file_actions(window: MainWindow) -> None:
+    """The visible page adds no second label or enablement authority."""
+    owner = next(action for action in window.menuBar().actions() if action.text() == "File")
+    file_menu = owner.menu()
+    assert file_menu is not None
+    menu_actions = {action.text(): action for action in file_menu.actions()}
+    for key in ("changes", "snapshot", "clip", "stimulus-grid", "data-slice"):
+        button = window.export_panel.button(key)
+        action = button.action
+        assert action is not None
+        assert menu_actions[action.text()] is action
+        assert button.text() == action.text()
+        assert button.isEnabled() == action.isEnabled()
 
 
 def test_the_page_is_persisted_by_name(window: MainWindow) -> None:

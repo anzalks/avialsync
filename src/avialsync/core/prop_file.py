@@ -343,7 +343,7 @@ def write_prop(folder: Path | str, prop: PropRecord, *, overwrite_existing: bool
     if active and not overwrite_existing:
         raise PropModelError("A saved prop already uses this name; its evidence was kept.")
     folder.mkdir(parents=True, exist_ok=True)
-    lines = [_HEADER]
+    lines = ['format = "avialsync-prop/1"', _HEADER]
     lines += _table(
         "[prop]",
         [
@@ -401,6 +401,7 @@ def write_removed(
     if active and not overwrite_existing:
         raise PropModelError("A saved prop already uses this name; its evidence was kept.")
     lines = [
+        'format = "avialsync-prop/1"',
         _HEADER,
         *_table(
             "[prop]",
@@ -688,6 +689,8 @@ def _parse_ball(head: Mapping[str, Any], document: Mapping[str, Any]) -> BallPro
 def _parse(
     document: Mapping[str, Any], path: Path
 ) -> tuple[PropRecord | None, PropFileIssue | None]:
+    if document.get("format", "avialsync-prop/1") != "avialsync-prop/1":
+        return None, PropFileIssue(path.name, "unsupported_version", str(document["format"]))
     head = _mapping(document["prop"])
     version = _integer(head["version"])
     if version != _VERSION:

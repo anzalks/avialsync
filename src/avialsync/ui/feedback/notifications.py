@@ -143,9 +143,15 @@ class NotificationStrip(QWidget):
 
     # ── posting ──────────────────────────────────────────────────────
 
-    def show_success(self, message: str) -> None:
-        """Report something that worked. Dismisses itself."""
-        self._post(message, _TRANSIENT, details="")
+    def show_success(
+        self,
+        message: str,
+        *,
+        action_label: str = "",
+        on_action: Callable[[], None] | None = None,
+    ) -> None:
+        """Report something that worked, optionally offering one action."""
+        self._post(message, _TRANSIENT, details="", action_label=action_label, on_action=on_action)
 
     def show_warning(
         self,

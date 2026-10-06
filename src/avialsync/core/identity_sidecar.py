@@ -26,11 +26,12 @@ import csv
 import datetime as _datetime
 import json
 import logging
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from avialsync.core import sidecar_names
+from avialsync.core.artifact_io import publish
+from avialsync.core.artifact_provenance import record as provenance_record
 from avialsync.core.identity_groups import is_custom
 from avialsync.core.identity_swaps import SwapEvent, SwapGroup
 
@@ -199,6 +200,9 @@ def write(
         lines.append(f"# source_bytes: {source_bytes}")
     written = _datetime.datetime.now(_datetime.UTC).isoformat(timespec="seconds")
     lines.append(f"# written: {written}")
+    metadata = provenance_record("identity-swap", (path,), edit_counts={"swaps": len(events)})
+    lines.append(f"# format: {metadata['format']}")
+    lines.append(f"# software: {metadata['software']}")
     if carried:
         lines.append("# groups: " + json.dumps([group.as_dict() for group in carried]))
     if not events:
@@ -211,7 +215,9 @@ def write(
     # Same atomic shape as the corrections writer: a temporary file in the
     # target's own directory, then one rename. A half-written sidecar is the
     # one outcome that would lose work rather than merely fail.
-    temporary = target.with_name(f".{target.name}.tmp")
-    temporary.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    os.replace(temporary, target)
-    return target
+    return publish(
+        target,
+        lambda temporary: temporary.write_text("\n".join(lines) + "\n", encoding="utf-8"),
+        kind="identity-swap",
+        sources=(path,),
+    )

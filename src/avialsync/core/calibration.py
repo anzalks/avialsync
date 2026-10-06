@@ -235,7 +235,7 @@ def write_calibration(path: Path | str, calibration: Calibration) -> Path:
         ]
     lines.append("[metadata]")
     lines += [f"{key} = {toml_value(value)}" for key, value in calibration.metadata.items()]
-    return write_atomic(path, lines)
+    return write_atomic(path, lines, kind="calibration")
 
 
 # ── triangulation ────────────────────────────────────────────────────

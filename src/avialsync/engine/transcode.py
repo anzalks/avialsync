@@ -13,6 +13,7 @@ was started from.
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Callable, Iterable
 from fractions import Fraction
@@ -21,6 +22,8 @@ from pathlib import Path
 import av
 import numpy as np
 
+from avialsync.core.artifact_io import publish
+from avialsync.core.artifact_provenance import record
 from avialsync.core.errors import ExportError
 
 logger = logging.getLogger(__name__)
@@ -69,16 +72,21 @@ def remux_clip(source: Path | str, destination: Path | str, start: float, end: f
         True when at least one packet was written.
     """
     source, destination = Path(source), Path(destination)
-    written = 0
-    try:
+
+    class EmptyClip(Exception):
+        """No packet can be committed to this clip."""
+
+    def write(temporary: Path) -> None:
+        written = 0
         with av.open(str(source)) as input_container:
             stream = input_container.streams.video[0]
             time_base = stream.time_base
             if time_base is None:
-                logger.warning("Cannot trim %s: the stream declares no time base", source)
-                return False
-            with av.open(str(destination), mode="w") as output_container:
+                raise EmptyClip
+            with av.open(str(temporary), mode="w") as output_container:
                 output_stream = output_container.add_stream_from_template(stream)
+                provenance = record("clip", (source,))
+                output_container.metadata["creation_time"] = str(provenance["written"])
                 input_container.seek(
                     int(start / time_base), stream=stream, backward=True, any_frame=False
                 )
@@ -90,18 +98,23 @@ def remux_clip(source: Path | str, destination: Path | str, start: float, end: f
                         break
                     if first_pts is None:
                         first_pts = packet.pts
-                    # Rebase onto zero so the clip starts at its own beginning
-                    # rather than carrying the source's offset.
+                        provenance["actual_start_seconds"] = float(first_pts * time_base)
+                        output_container.metadata["comment"] = json.dumps(provenance)
                     packet.pts -= first_pts
                     if packet.dts is not None:
                         packet.dts -= first_pts
                     packet.stream = output_stream
                     output_container.mux(packet)
                     written += 1
-    except (av.FFmpegError, OSError, IndexError, ValueError):
+        if not written:
+            raise EmptyClip
+
+    try:
+        publish(destination, write, kind="clip", sources=(source,))
+    except (av.FFmpegError, OSError, IndexError, ValueError, EmptyClip):
         logger.warning("Could not trim %s to %s", source, destination, exc_info=True)
         return False
-    return written > 0
+    return True
 
 
 def encode_proxy(
@@ -182,6 +195,7 @@ def encode_video(
     encoder_crf: str | None = None,
     progress: ProgressCallback | None = None,
     should_cancel: CancelCheck | None = None,
+    metadata: dict[str, str] | None = None,
 ) -> None:
     """Encode ``(rgb_frame, seconds)`` pairs into an H.264 file.
 
@@ -213,6 +227,8 @@ def encode_video(
     destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
     container = av.open(str(destination), mode="w")
+    if metadata:
+        container.metadata.update(metadata)
     try:
         stream: av.VideoStream | None = None
         last_time = 0.0
