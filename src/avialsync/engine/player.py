@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     # ARCHITECTURE §1 layering: the engine must not depend on the UI at module
     # scope, or `engine` cannot be imported or tested headlessly.  These names
     # are used purely as annotations, so deferring them costs nothing.
+    from avialsync.ui.imaging_pane import ImagingPane
     from avialsync.ui.plot_pane import PlotPane
     from avialsync.ui.readout_panel import ReadoutPanel
     from avialsync.ui.tracking_3d_pane import Tracking3DPane
@@ -72,6 +73,7 @@ class Player(QObject):
         parent: QObject | None = None,
         *,
         tracking_3d_pane: Tracking3DPane | None = None,
+        imaging_pane: ImagingPane | None = None,
     ):
         super().__init__(parent)
         self.clock = clock
@@ -79,6 +81,7 @@ class Player(QObject):
         self.plot_pane = plot_pane
         self.transport = transport
         self.tracking_3d_pane = tracking_3d_pane
+        self.imaging_pane = imaging_pane
         self._readout_panel: ReadoutPanel | None = None
         self.seeker = SeekGroup(self.video_grid.panes)
 
@@ -332,6 +335,9 @@ class Player(QObject):
         # stale cursor would be a lie rather than a deferred repaint.
         self.plot_pane.set_cursor(t_master, immediate=force)
         self.transport.set_time(t_master)
+        imaging_pane = getattr(self, "imaging_pane", None)
+        if imaging_pane is not None and imaging_pane.isVisible():
+            imaging_pane.set_cursor(t_master)
 
         if not force and (now - self._last_presentation_at) < _PRESENTATION_INTERVAL_S:
             return

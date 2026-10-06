@@ -254,9 +254,27 @@ offset always takes precedence.
 Override it to return `VideoMetadata` when the format exposes codec, byte size, and
 timestamp-derived CFR/VFR evidence.
 
+## Imaging plugins
+
+Subclass `ImagingSource` for a time-indexed image stack that is not a video container.
+`open(path, config)` returns `ImagingMetadata` with a one-dimensional, strictly increasing
+`frame_times` array in source seconds, image shape, pixel dtype, and `channel_count`.
+`read_frame(index, channel=0)` returns one two-dimensional NumPy plane at that presentation index
+and channel, in the file's own pixel units. `close()` releases the handle. The application opens
+and reads the source on a background thread, requests only the planes the current picture needs,
+and coalesces requests during playback. A plugin should use native slice or page reads and must
+not materialize the entire stack. Publish it under `avialsync.loaders`.
+
+When the file does not settle something only the user can answer — a frame rate, which dataset or
+series, the axis order, a depth plane — raise `avialsync.core.errors.ImagingChoiceRequired` with
+the config key as `choice` (`fps`, `dataset`, `series`, `axes` or `z`) and the valid answers as
+`options` when the file lists them. The application asks, adds the answer to `config`, opens
+again, and saves the answer with the session. Never substitute a default. The HDF5/TIFF built-ins
+demonstrate the contract; a session plugin can also provide these choices in `SessionItem.config`.
+
 ## Trigger plugins
 
-A trigger plugin is the third source kind, beside time-series and video, and it
+A trigger plugin is another source kind beside time-series, video, and imaging, and it
 answers a different question from either: not *what* was recorded but *when
 things happened*, and what those instants are evidence **of**.
 

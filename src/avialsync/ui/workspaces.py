@@ -47,7 +47,7 @@ _GROUP = "workspaces"
 
 #: The splitters that make up a layout, by the attribute that holds each. The
 #: inspector is a dock now (D-180); its place is in ``dock_state``.
-_SPLITTERS = ("_v_splitter", "_media_splitter", "_content_splitter")
+_SPLITTERS = ("_v_splitter", "_media_splitter", "imaging_splitter", "_content_splitter")
 #: Where a workspace saved before D-180 kept the inspector's width.
 _LEGACY_INSPECTOR = "_h_splitter"
 

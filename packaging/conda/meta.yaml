@@ -44,6 +44,7 @@ requirements:
     # The toolbox's exported per-camera .mat is MATLAB v7.3, which is HDF5;
     # scipy.io handles v7.2 and below only.
     - h5py
+    - tifffile >=2024.9.20
     - neo
     # A floor on neo's own dependency: through 0.16.2 `quantities` reads the
     # `np.ndarray.ptp` method that NumPy 2 removed, so `import neo` raises.

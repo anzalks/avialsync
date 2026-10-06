@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.document import MarkerRecord, SourceRecord
 from avialsync.core.point_edits import PointKey
+from avialsync.ui import imaging_integration
 from avialsync.ui.annotations import Marker
 
 if TYPE_CHECKING:
@@ -92,6 +93,8 @@ class WindowMutationTarget:
             if source_id in window.video_grid.pane_paths():
                 window.sidebar.set_video_offset(source_id, offset)
                 window._on_video_offset_changed(source_id, offset)
+            elif source_id in window.imaging_pane.source_paths():
+                window._on_imaging_mapping_changed(source_id, offset, drift_ms_per_hour)
             else:
                 window.sidebar.set_sensor_mapping(source_id, offset, drift_ms_per_hour)
                 window._on_sensor_mapping_changed(source_id, offset, drift_ms_per_hour)
@@ -107,6 +110,9 @@ class WindowMutationTarget:
         window = self._window
         if source_id in window.video_grid.pane_paths():
             return window.sidebar.video_mapping(source_id)
+        if source_id in window.imaging_pane.source_paths():
+            _loader, _config, mapping = window.imaging_pane.source_config(source_id)
+            return mapping.offset, mapping.drift_ms_per_hour
         return window.sidebar.sensor_mapping(source_id)
 
     # ── annotations ──────────────────────────────────────────────────
@@ -311,6 +317,12 @@ class WindowMutationTarget:
             if self._window.props_app.store.set_layout(name, layout):
                 self._window.props_app.persist(name)
 
+    # ── imaging display ──────────────────────────────────────────────
+
+    def set_imaging_view(self, source_id: str, view: dict[str, Any]) -> None:
+        with self.replaying():
+            imaging_integration.apply_view(self._window, source_id, view)
+
     # ── sources ──────────────────────────────────────────────────────
 
     def add_source(self, record: SourceRecord) -> None:
@@ -325,6 +337,8 @@ class WindowMutationTarget:
         with self.replaying():
             if record.kind == "video":
                 window._load_video(Path(record.path), record.offset, record.drift_ms_per_hour)
+            elif record.kind == "imaging":
+                imaging_integration.restore_record(window, record)
             else:
                 window._start_data_import(Path(record.path))
 
@@ -333,6 +347,8 @@ class WindowMutationTarget:
         with self.replaying():
             if source_id in window.video_grid.pane_paths():
                 window._on_video_remove_requested(source_id)
+            elif source_id in window.imaging_pane.source_paths():
+                window._on_imaging_remove_requested(source_id)
             else:
                 window._on_sensor_remove_requested(source_id)
 
@@ -374,6 +390,7 @@ class WindowMutationTarget:
         return {
             "state": window._build_session_state(),
             "videos": list(window.video_grid.pane_paths()),
+            "imaging": list(window.imaging_pane.source_paths()),
             "sensors": list(window._sensor_cache_dirs),
         }
 
@@ -382,9 +399,11 @@ class WindowMutationTarget:
         with self.replaying():
             for path in snapshot.get("videos", []):
                 window._load_video(Path(path))
+            state = snapshot.get("state")
+            if state is not None:
+                imaging_integration.restore_entries(window, state.imaging, {})
             for path in snapshot.get("sensors", []):
                 window._start_data_import(Path(path))
-            state = snapshot.get("state")
             if state is not None:
                 for entry in state.markers:
                     if entry.t_end is None:

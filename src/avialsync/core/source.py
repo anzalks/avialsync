@@ -135,7 +135,7 @@ class SessionItem:
     """
 
     path: Path
-    loader: type["TimeSeriesSource | VideoSource"] | None = None
+    loader: type["TimeSeriesSource | VideoSource | ImagingSource"] | None = None
     config: dict[str, Any] = field(default_factory=dict)
 
     #: What to call this item in the import dialog, when its filename is not
@@ -395,6 +395,61 @@ class TimeSeriesSource(_Nameable, ABC):
         manifest persists, so a cache hit still knows what its channels mean.
         """
         return None
+
+
+@dataclass(frozen=True, slots=True)
+class ImagingMetadata:
+    """Shape and source-local presentation times for a two-photon image stack.
+
+    ``frame_times`` are source seconds, one per time point, strictly increasing.
+    ``timing_source`` names the evidence they came from, so a stack timed by a
+    typed frame rate can be told apart from one timed by its own timestamps.
+    Channels are read separately and overlaid by the viewer, so a C axis is not
+    an import choice; a Z axis is, because a depth plane is a different
+    acquisition rather than another view of the same one.
+    """
+
+    frame_count: int
+    height: int
+    width: int
+    dtype: str
+    frame_times: np.ndarray
+    timing_source: str
+    dataset: str = ""
+    channel_count: int = 1
+    tail_duration: float = field(init=False)
+
+    def __post_init__(self) -> None:
+        """Compute the final frame's display interval once, off the UI thread."""
+        duration = float(np.median(np.diff(self.frame_times))) if self.frame_count > 1 else 0.0
+        object.__setattr__(self, "tail_duration", duration)
+
+
+class ImagingSource(_Nameable, ABC):
+    """Random-access image planes on the master timeline, separate from video.
+
+    A reader is opened, read and closed on one background thread. ``read_frame``
+    returns one two-dimensional plane in the file's own pixel units; callers
+    never request a whole acquisition, and an implementation must not
+    materialise one (D-186).
+    """
+
+    @classmethod
+    @abstractmethod
+    def can_open(cls, path: Path) -> float:
+        """Return a cheap confidence score in ``[0, 1]``."""
+
+    @abstractmethod
+    def open(self, path: Path, config: dict[str, Any]) -> ImagingMetadata:
+        """Open the stack and return its timing and shape metadata."""
+
+    @abstractmethod
+    def read_frame(self, index: int, channel: int = 0) -> np.ndarray:
+        """Read exactly one 2D plane by presentation index and channel."""
+
+    @abstractmethod
+    def close(self) -> None:
+        """Release the file handle on its owning thread."""
 
 
 class VideoSource(_Nameable, ABC):

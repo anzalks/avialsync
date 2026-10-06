@@ -42,7 +42,8 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
 
 - Python 3.11–3.12 · PySide6 (never PyQt5/PyQt6 — license) · PyAV (`av` on PyPI, import `av`) for
   ALL video decoding and probing (never QtMultimedia, never OpenCV, never libmpv — D-075)
-  · pyqtgraph for plots · numpy + polars for data · hatchling build
+  · pyqtgraph for plots · numpy + polars for data · h5py + tifffile for 2P image stacks
+  · hatchling build
   · pytest / pytest-qt / pytest-benchmark / hypothesis.
 - **`pip install avialsync` must need no OS-level install step on any platform.** A change that
   reintroduces one is rejected. The single documented exception is Qt's own floor: PySide6 needs
@@ -68,7 +69,8 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
 4. Plotting only via the decimation pyramid (`core/pyramid.py`). Never pass raw full-resolution
    arrays to pyqtgraph for datasets > 100 k samples.
 5. All data sources go through the plugin ABCs in `core/source.py` (`TimeSeriesSource`,
-   `VideoSource`). Built-in CSV/video support are plugins too. Do not special-case formats in UI code.
+   `VideoSource`, `ImagingSource`). Built-in CSV/video/HDF5/TIFF support are plugins too.
+   Do not special-case formats in UI code.
 6. Playback: sync correctness beats frame completeness (drop frames, never drift). Paused/stepping:
    exact seeks only. **The frame shown for master time `t` is the one whose presentation interval
    contains `t` — the last frame with `pts <= t`, per `core/video_timing.py::frame_index_at`.** A

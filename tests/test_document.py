@@ -23,6 +23,7 @@ from avialsync.core.commands import (
     SetChannelVisibleCommand,
     SetIdentityGroupCommand,
     SetIdentitySwapCommand,
+    SetImagingViewCommand,
     SetOriginalTrackerVisibleCommand,
     SetOverlayVisibleCommand,
     SetSourceMappingCommand,
@@ -58,6 +59,7 @@ class FakeTarget:
         self.wheels: dict[str, Any] = {}
         self.props = PropStore()
         self.sources: dict[str, SourceRecord] = {}
+        self.imaging_views: dict[str, dict[str, Any]] = {}
         self.sync_evidence: dict[str, Any] = {}
         self.cleared = 0
         self.captures = 0
@@ -151,6 +153,9 @@ class FakeTarget:
     def set_ladder_layout(self, name: str, layout: Any) -> None:
         self.props.set_layout(name, layout)
 
+    def set_imaging_view(self, source_id: str, view: dict[str, Any]) -> None:
+        self.imaging_views[source_id] = view
+
     def add_source(self, record: SourceRecord) -> None:
         self.sources[record.source_id] = record
 
@@ -227,6 +232,9 @@ def _all_commands() -> list[Any]:
                 parts=("tail",),
                 members=(("A", "tail", "a_tail"), ("B", "tail", "b_tail")),
             ),
+        ),
+        SetImagingViewCommand(
+            "gcamp.tif", before={"average": 1}, after={"average": 5}, aspect="averaging"
         ),
         AcceptSyncCommand("cam1", before=(0.0, 0.0), after=(0.5, 1.0), evidence={"n": 47}),
         AddSourceCommand(_source("cam9")),
@@ -372,6 +380,24 @@ def test_a_drag_does_not_merge_across_sources(target: FakeTarget) -> None:
     doc.execute(SetSourceMappingCommand("cam1", (0.0, 0.0), (1.0, 0.0)), target)
     doc.execute(SetSourceMappingCommand("cam2", (0.0, 0.0), (1.0, 0.0)), target)
     assert len(doc) == 2
+
+
+def test_an_imaging_brightness_drag_is_one_step_and_contrast_another(
+    target: FakeTarget,
+) -> None:
+    """D-186: one drag per control merges; a second control starts its own step."""
+    doc = Document()
+    views = [{"brightness": step / 10} for step in range(6)]
+    for before, after in zip(views, views[1:], strict=False):
+        doc.execute(SetImagingViewCommand("gcamp.tif", before, after, "brightness"), target)
+    doc.execute(
+        SetImagingViewCommand("gcamp.tif", views[-1], {"contrast": 0.5}, "contrast"), target
+    )
+    assert len(doc) == 2
+    doc.undo(target)
+    assert target.imaging_views["gcamp.tif"] == views[-1]
+    doc.undo(target)
+    assert target.imaging_views["gcamp.tif"] == views[0], "undo returns to the drag's start"
 
 
 def test_typing_a_label_is_one_undo_step(target: FakeTarget) -> None:

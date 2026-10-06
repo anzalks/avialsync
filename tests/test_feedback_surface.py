@@ -122,6 +122,10 @@ _UNMANAGED_THREAD_FILES = {
     # living as long as it. It has no completion to report and is stopped by
     # `VideoGrid.shutdown()`, whose ordering the D-062 notes in that file pin.
     "src/avialsync/ui/video_pane.py",
+    # One persistent lazy reader for the selected imaging stack. Like the
+    # video decoder it coalesces time requests, has no completion event, and
+    # is joined explicitly by ImagingPane.shutdown() at window close.
+    "src/avialsync/ui/imaging_pane.py",
     # Owned by a modal the user explicitly opened, which is its own progress
     # and cancel surface (AGENTS rule 11 permits exactly this). Neither can
     # outlive its dialog, so neither can strand the window.

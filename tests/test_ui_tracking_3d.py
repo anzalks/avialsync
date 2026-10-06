@@ -204,7 +204,10 @@ def test_main_window_places_3d_view_beside_video_grid(qtbot, monkeypatch) -> Non
     # The videos share their column with the video tools under them (D-126).
     assert splitter.widget(0) is window._video_column
     assert window.video_grid.parentWidget() is window._video_column
-    assert splitter.widget(1) is window.tracking_3d_pane
+    # The 3D view shares the right column with the imaging pane below it (D-186).
+    assert splitter.widget(1) is window.imaging_splitter
+    assert window.imaging_splitter.orientation() == Qt.Orientation.Vertical
+    assert window.imaging_splitter.widget(0) is window.tracking_3d_pane
     assert window.player.tracking_3d_pane is window.tracking_3d_pane
 
     window.close()

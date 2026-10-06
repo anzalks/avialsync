@@ -46,7 +46,8 @@ them.
 3. Time-series data is read in chunks and stored in a cache with display pyramids.
 4. The UI receives source metadata, coverage, integrity information, and a path to the cache.
 5. At a selected master time, the player asks every source for the corresponding source time.
-   A video pane seeks to that video time and a plot queries only the appropriate display level.
+   A video pane seeks to that video time, an imaging pane requests one image plane, and a plot
+   queries only the appropriate display level.
 
 Video is decoded in-process with PyAV, one worker thread per pane, and the decoded frame is blitted
 by the pane itself — the same path on every platform. Dense traces use precomputed decimation pyramids instead of

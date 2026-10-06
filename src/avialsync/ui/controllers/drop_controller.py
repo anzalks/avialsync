@@ -17,7 +17,7 @@ from PySide6.QtCore import QThread
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 
 from avialsync.core.errors import FileUnreadableError
-from avialsync.core.source import SessionLayout, TimeSeriesSource, VideoSource
+from avialsync.core.source import ImagingSource, SessionLayout, TimeSeriesSource, VideoSource
 from avialsync.ui.time_format import TimeDisplayMode
 
 if TYPE_CHECKING:
@@ -181,7 +181,7 @@ def on_drop_scan_finished(
 def route_import_candidate(
     window: MainWindow,
     path: Path,
-    loader_cls: type[TimeSeriesSource | VideoSource],
+    loader_cls: type[TimeSeriesSource | VideoSource | ImagingSource],
     config: dict | None = None,
 ) -> None:
     """Route one capability-resolved source through its normal loader path."""
@@ -195,6 +195,8 @@ def route_import_candidate(
             config = dict(config)
             del config["offset"]
         window._load_video(path, offset=offset, config=config)
+    elif issubclass(loader_cls, ImagingSource):
+        window.load_imaging(path, loader_cls, config)
     else:
         window._start_data_import(path, loader_cls, pre_config=config)
 

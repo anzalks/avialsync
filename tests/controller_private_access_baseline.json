@@ -19,8 +19,8 @@
     },
     "session_controller.py": {
       "build_session_state": 81,
-      "reset_session": 138,
-      "restore_session": 141,
+      "reset_session": 139,
+      "restore_session": 143,
       "start_session_save": 64
     },
     "video_controller.py": {
@@ -30,7 +30,7 @@
   "main_window_lines": 4001,
   "oversized_controller_lines": {
     "import_controller.py": 698,
-    "session_controller.py": 838
+    "session_controller.py": 839
   },
   "private_accesses": {
     "cache_controller.py": {

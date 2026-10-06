@@ -24,6 +24,22 @@ class SourceOpenError(AvialSyncError):
     pass
 
 
+class ImagingChoiceRequired(SourceOpenError):
+    """An imaging stack needs a scientific choice its file does not settle (D-186).
+
+    ``choice`` names the import-config key that answers it -- ``fps``,
+    ``dataset``, ``series``, ``axes`` or ``z`` -- and ``options`` lists the valid
+    answers when the file enumerates them. The UI asks rather than guesses: a
+    frame rate or an axis order invented on the user's behalf would put every
+    plane at the wrong time without anything looking wrong.
+    """
+
+    def __init__(self, choice: str, message: str, options: tuple[str, ...] = ()) -> None:
+        self.choice = choice
+        self.options = options
+        super().__init__(message)
+
+
 class CacheError(AvialSyncError):
     """Raised when the binary import cache encounters an error."""
 

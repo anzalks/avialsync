@@ -6017,3 +6017,41 @@ Ladder, belt and ball editors, identity review and the alignment dialog use the 
 **Context.** Several readouts carried more digits than the quantity supports: frame rates at three decimals, master times on hover at microseconds, thresholds and event times at six decimals.
 
 **Decision.** Frame and sample rates show one decimal, or two when tenths would hide the difference (29.97 against 30 is 3.6 s per hour), through `time_format.format_rate`: overlay, Video Properties, source cards. Times a person reads -- Data Streams hover, metadata start, stimulus-grid events and windows, nudge messages -- show milliseconds. Threshold fields take three decimals. Kept at full precision on purpose: offsets (the spin box rounds what it stores, D-173), alignment residuals, the copyable Values text summary, props coordinates and calibration factors, and the stimulus grid's custom speed (30/230 real-time slow motion needs it).
+
+---
+
+## 2026-10 · D-186 · Two-photon stacks are imaging sources with their own viewer
+
+**Context.** A two-photon acquisition is a time-indexed array, not a camera container. Feeding
+HDF5 or TIFF stacks through PyAV would lose dataset axes, channels and acquisition timing, and
+eagerly loading a stack would exceed the idle-RAM budget. Users need to adjust brightness and
+contrast, smooth noisy frames, and overlay channels -- and none of that may move a frame in time.
+
+**Decision.** `ImagingSource` is a third file-source plugin contract alongside the frozen
+`TimeSeriesSource` and `VideoSource`: `open(path, config) -> ImagingMetadata` (frame times,
+shape, dtype, channel count) and `read_frame(index, channel=0)` returning one 2D plane. The
+HDF5 reader reads one hyperslab, the TIFF reader one page (plain, OME, and ScanImage's
+channel-interleaved pages with its scan rate as timing). Channels are a view choice; a dataset,
+axis order, depth plane or missing frame rate is an import choice, raised as
+`ImagingChoiceRequired`, asked once, and saved in the session -- never guessed. A typed frame
+rate beats the file's.
+
+The viewer sits in the lower half of a vertical split beneath the 3D pane and picks the frame
+whose presentation interval contains master `t`, like video. One reader thread per shown stack
+coalesces requests, caches raw planes under a 128 MiB byte budget (strided to ≤ 1024 px), and
+renders there, not on the UI thread (the D-093 rule for video): each channel has a measured
+reference window (0.5/99.5 percentiles) plus brightness (moves the centre by up to one
+reference width) and contrast (scales the width by up to 16× either way); the moving average
+is **centred and odd-length (1–31)**, truncated at the stack ends, so averaging never shifts an
+event in time; visible channels add in named colours (defaults green/magenta/cyan/yellow,
+CVD-checked, colour named beside each swatch). Display edits are undoable
+`SetImagingViewCommand`s that merge per stack and control; a measured reference window is
+stored with the view so a reopened session draws the same picture. `.avv` schema 13 records
+loader, import choices, time mapping (ms/h, D-184) and display view per stack. File → Open 2P
+Imaging… has a button on the Sources page (D-181).
+
+**Dependencies.** Existing `h5py` and new `tifffile` are BSD-3-Clause and compatible with
+AGPL-3.0-or-later. `tifffile` is pure Python and pip-installable on Windows, macOS, and Linux.
+`napari`, `Dask`, and `imagecodecs` are not runtime dependencies; a page needing an absent
+codec is reported for that page. PyAV remains the decoder for videos. The PyInstaller bundle
+collects the installed `h5py` and `tifffile` licence notices under `licenses/`.

@@ -19,12 +19,13 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.registry import LoaderRegistry
 from avialsync.core.rig_naming import match_label
-from avialsync.core.source import TimeSeriesSource, VideoSource
+from avialsync.core.source import ImagingSource, TimeSeriesSource, VideoSource
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
 from avialsync.ui.tables import ThemedTable
 
 logger = logging.getLogger(__name__)
+SourceLoader = type[TimeSeriesSource | VideoSource | ImagingSource]
 
 
 class BatchImportDialog(QDialog):
@@ -32,7 +33,7 @@ class BatchImportDialog(QDialog):
 
     def __init__(
         self,
-        candidates: Sequence[tuple[Path, type[TimeSeriesSource | VideoSource] | None, dict | None]],
+        candidates: Sequence[tuple[Path, SourceLoader | None, dict | None]],
         parent: QWidget | None = None,
         labels: Mapping[str, str] | None = None,
         kinds: Mapping[str, str] | None = None,
@@ -59,7 +60,7 @@ class BatchImportDialog(QDialog):
         # Group by detected type, then by the name actually shown, so a session's
         # rows sort the way they are read rather than by a path the user cannot see.
         def sort_key(
-            item: tuple[Path, type[TimeSeriesSource | VideoSource] | None, dict | None],
+            item: tuple[Path, SourceLoader | None, dict | None],
         ) -> tuple[str, str]:
             path, loader_cls, _config = item
             type_name = loader_cls.__name__ if loader_cls else "zzz_none"
@@ -287,7 +288,7 @@ class BatchImportDialog(QDialog):
 
     def _build_category_map(self) -> None:
         """Map semantic labels to actual loader classes."""
-        self._categories: list[tuple[str, type[TimeSeriesSource | VideoSource]]] = []
+        self._categories: list[tuple[str, SourceLoader]] = []
         available_loaders = self._registry.loaders()
 
         # Add predefined semantic mappings for built-in loaders
@@ -367,7 +368,7 @@ class BatchImportDialog(QDialog):
 
     def get_selections(
         self,
-    ) -> list[tuple[Path, type[TimeSeriesSource | VideoSource], dict | None]]:
+    ) -> list[tuple[Path, SourceLoader, dict | None]]:
         """Return the user-approved (Path, Loader, Config) tuples."""
         results = []
         for (path, _, config), combo, role_combo, calibration_combo in zip(
