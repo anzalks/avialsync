@@ -1,8 +1,9 @@
 # AvialSync — Interface Design Plan (Phase 9)
 
-> **Status: IN PROGRESS.** Branch `feat/interface-design`; DS-0 to DS-14 are complete.
-> Screenshots in `docs/_static/screenshots/` are regenerated with the isolated harness (DS-13 step 3). This is the only open phase plan. Completed plans are in
-> `archive/plans/`; their settled outcomes are in DECISIONS.md.
+> **Status: COMPLETE (2026-10-06), archived.** Branch `feat/interface-design`; DS-0 to DS-14
+> shipped as D-167 – D-182. Where a package's decision chose differently from this plan (no main
+> toolbar, D-178; only the inspector docked, D-180; offsets keep six decimals, D-173) the decision
+> is what stands. Kept as record only; do not work from it.
 >
 > **Revision 2 (2026-10-05).** Rebased on `feat/physical-props` at `32c1839`, so it includes D-166
 > overlay label layout (`3c5b1c0`, `173bc4f`, `32c1839`). Every finding is now traced to a file and

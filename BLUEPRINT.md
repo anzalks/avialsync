@@ -98,6 +98,7 @@ behaviour, traps), git history, and `archive/plans/` (the executable plans, kept
 | 8 Alignment on evidence | Session zero, method on the record (schema v9), trigger evidence, model ladder, trigger plugins, non-modal evidence dialog | D-108 |
 | Identity repair | Accepted identity flips over declared lanes, one edit program, braid UI, single corrected pose export | D-141 – D-145 |
 | Physical props | Wheel, belt, ball, ladder in one Props inspector and `_prop.toml` sidecar; on `feat/physical-props` | D-149, D-154 – D-157, D-162 – D-166 |
+| 9 Interface design | Inspector rail and dock, status-bar Tasks, three bottom strips, density-sized Data Streams, compact video headers with a label contract, compact source cards, one Open Files list, shared step panels and empty states, minimal plot gutters, one decimal separator, accessible painted surfaces, First Session Tutorial, scrolling workspace; on `feat/interface-design` | D-167 – D-182 |
 
 ### Standing requirements carried forward from delivered phases
 
@@ -128,50 +129,15 @@ capability you do not have.
 | Physical props merge | Merge `feat/physical-props` and run its release gate (archived plan §4 slice 6). |
 | Shipped translations | Machinery and 100 % wrapping exist; no `.qm` catalogue ships yet. Needs a translator, not code. |
 | Native synchronization plugin API (D-026) | Native plugin event providers remain unfrozen. |
+| Phase 9 manual check | Run the TESTING.md §6 smoke checklist on real field data with `feat/interface-design` before merging; agents cannot. |
+| Docking beyond the inspector (D-180) | Only the inspector is a dock; the workspace column keeps its splitters by decision. Revisit only with a dock-aware form of `PaneProportions` and D-127. |
 
 ---
 
-## Phase 9 — Interface design (NEXT)
+## Next phase
 
-**Goal:** make existing capability legible and dense enough for a 4-camera, 128-channel session on
-a laptop, without removing any command, shortcut, evidence lane, or persisted state. Suggested
-branch `feat/interface-design`. **The executable plan is `INTERFACE_DESIGN_PLAN.md`**; this section
-is the summary.
-
-The engine and the interaction layer are correct; the visual design has not kept pace. Five
-full-width control strips sit under the plots, six inspector tabs are elided to "Sour…", guided
-placement panels overflow sideways and explain themselves in paragraphs, nothing distinguishes a
-primary action from a destructive one, traces are told apart by colour alone, and the window mixes
-decimal separators.
-
-The plan carries a findings register (F-01 … F-36, each traced to a file and line), target
-wireframes, a dependency graph and schedule, a risk matrix, the existing tests each package must
-amend, and the ten DECISIONS entries the phase needs. It builds on D-166 overlay label layout:
-`PaintCanvas._label_area` finds the pane chrome by widget name, so DS-5 replaces that with an
-explicit contract before any chrome moves.
-
-| | Package | Delivers |
-|---|---|---|
-| DS-0 | Isolated baseline | screenshot harness isolated from real settings/recovery; amber-status and Light gutter defects triaged |
-| DS-1 | Authority and strings | sidebar/header buttons action-backed (rule 15); Reset Session menu action; constructor literals gated for `tr()` |
-| DS-2 | Tokens, roles, icons | spacing/type/density tokens, primary/secondary/tool/destructive roles without QSS, bundled SVG icons |
-| DS-3 | Bottom chrome | five strips → three; loop and speed join the transport; status to the status bar; scrubber shows coverage |
-| DS-4 | Data Streams density | lane height follows density; capped, scrollable |
-| DS-5 | Video pane chrome | `chrome_rects()` contract for LabelLayout first; compact OSD, aspect-sized panes, action-backed tools |
-| DS-6 | Inspector navigation | icon + label rail; Tasks to a status-bar popover |
-| DS-7 | Source cards | compact cards, timing behind a disclosure, one Open button, Reset Session out of the Open group |
-| DS-8 | Guided workflows | shared step panel for wheel, props, identity, alignment; empty states |
-| DS-9 | Plot rows | legible gutters, hover row tools, lighter grid, redundant trace encoding |
-| DS-10 | Numbers and time | one decimal-separator policy |
-| DS-11 | Entry points | decide on a slim main toolbar |
-| DS-12 | Painted-surface a11y | `QAccessibleInterface` for plots, lanes, video, 3D |
-| DS-13 | Onboarding | First Session Tutorial in Help, contextual docs links |
-| DS-14 | Docking | splitters → docks, workspaces (carried from Phase 7 WP-11) |
-
-**Exit criteria, all enforced by tests:** every control the phase moves is the same `QAction`
-before and after; no stylesheet added for colour or weight; 640×480 and the empty layout still
-hold; no inspector page scrolls horizontally; every visible trace carries a non-colour
-identifier; plot and cursor benchmarks within 20 %; golden sync untouched.
+None is planned. Phase 9 (interface design) is delivered; its plan is archived in
+`archive/plans/INTERFACE_DESIGN_PLAN.md` and its open items are in the table above.
 
 ---
 
