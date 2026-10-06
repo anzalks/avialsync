@@ -203,6 +203,9 @@ class Job:
 
     def can_cancel(self) -> bool:
         """Whether the worker offers a cooperative cancel."""
+        available = getattr(self.worker, "can_cancel", None)
+        if callable(available):
+            return bool(available())
         return callable(getattr(self.worker, "cancel", None))
 
     def panel_row(self) -> tuple[str, str, float]:

@@ -16,6 +16,7 @@ from avialsync.loaders import nwb_format  # noqa: E402
 from avialsync.loaders.nwb_imaging import NWBImagingSource, proxy_origin  # noqa: E402
 from avialsync.loaders.nwb_loader import NWBLoader  # noqa: E402
 from avialsync.loaders.nwb_session import NWBSessionSource  # noqa: E402
+from avialsync.loaders.nwb_stack import NWBStackSource  # noqa: E402
 from avialsync.loaders.video_standard import VideoStandardLoader  # noqa: E402
 from tests.nwb_fixture import (  # noqa: E402
     IMAGING_FRAMES,
@@ -153,11 +154,11 @@ def test_a_file_lays_out_its_time_series_and_imaging_on_its_own_clock(tmp_path: 
     layout = NWBSessionSource().scan(path, LoaderRegistry())
 
     loaders = {item.loader for item in layout.items}
-    assert loaders == {NWBLoader, NWBImagingSource}
+    assert loaders == {NWBLoader, NWBStackSource}
     assert layout.session_epoch == pytest.approx(SESSION_EPOCH)
     assert all(item.source_epoch == pytest.approx(SESSION_EPOCH) for item in layout.items)
     series = next(item for item in layout.items if item.loader is NWBLoader)
-    imaging = next(item for item in layout.items if item.loader is NWBImagingSource)
+    imaging = next(item for item in layout.items if item.loader is NWBStackSource)
     assert series.path == path
     # Its own name inside the file, so the two are two sources, not one.
     assert imaging.path == path / "acquisition" / "TwoPhotonSeries"
@@ -178,7 +179,7 @@ def test_every_imaging_series_is_offered_raw_acquisition_first(tmp_path: Path) -
 
     layout = NWBSessionSource().scan(path, LoaderRegistry())
 
-    imaging = [item.path.name for item in layout.items if item.loader is NWBImagingSource]
+    imaging = [item.path.name for item in layout.items if item.loader is NWBStackSource]
     # The longer of two acquisition series is the one a file is shown with.
     assert imaging == ["TwoPhotonSeries", "TwoPhotonSeriesGreen"]
 
@@ -191,6 +192,31 @@ def test_an_imaging_path_opens_the_series_it_names(tmp_path: Path) -> None:
     assert NWBImagingSource.can_open(tmp_path / "missing.nwb" / "acquisition" / "X") == 0.0
     source = _prepared(named)
     assert len(source.frame_times()) == 5 and source.label() == "TwoPhotonSeriesGreen"
+
+
+@pytest.mark.parametrize("storage", ["hdf5", "zarr2", "zarr3"])
+def test_nwb_stack_reads_raw_planes_and_timestamps(tmp_path: Path, storage: str) -> None:
+    if storage == "hdf5":
+        container = write_nwb(tmp_path / "s.nwb")
+        series = "TwoPhotonSeries"
+        second_time = 0.5 + 1 / IMAGING_RATE
+    else:
+        container = write_zarr_nwb(
+            tmp_path / "s.nwb.zarr", zarr_format=2 if storage == "zarr2" else 3
+        )
+        series = "camera"
+        second_time = 0.6
+    source = NWBStackSource()
+    try:
+        metadata = source.open(container / "acquisition" / series, {})
+        assert metadata.frame_times[1] == pytest.approx(second_time)
+        assert metadata.channel_count == 1
+        assert metadata.dtype == "uint16"
+        assert np.array_equal(source.read_frame(1), _imaging_frames("uint16")[1])
+        with pytest.raises(IndexError):
+            source.read_frame(metadata.frame_count)
+    finally:
+        source.close()
 
 
 def test_a_path_inside_a_file_is_a_source_that_exists(tmp_path: Path) -> None:
@@ -212,8 +238,14 @@ def test_negative_imaging_start_is_placed_by_offset(tmp_path: Path) -> None:
 
     layout = NWBSessionSource().scan(path, LoaderRegistry())
 
-    imaging = next(item for item in layout.items if item.loader is NWBImagingSource)
-    assert imaging.config["offset"] == pytest.approx(0.2)
+    imaging = next(item for item in layout.items if item.loader is NWBStackSource)
+    assert imaging.config == {}
+    source = NWBStackSource()
+    try:
+        metadata = source.open(imaging.path, {})
+        assert metadata.frame_times[0] == pytest.approx(-0.2)
+    finally:
+        source.close()
 
 
 def test_an_external_video_beside_the_file_is_laid_out_at_its_start(tmp_path: Path) -> None:
@@ -289,7 +321,7 @@ def test_a_kind_picks_between_the_two_readers_of_one_file(tmp_path: Path) -> Non
     assert registry.find_best_loader(path) is NWBLoader
     assert registry.find_best_loader(path, kind=TimeSeriesSource) is NWBLoader
     assert registry.find_best_loader(path, kind=VideoSource) is NWBImagingSource
-    assert registry.find_best_loader(path / "acquisition" / "TwoPhotonSeries") is NWBImagingSource
+    assert registry.find_best_loader(path / "acquisition" / "TwoPhotonSeries") is NWBStackSource
     assert registry.find_best_session(path) is NWBSessionSource
 
 
@@ -304,7 +336,7 @@ def test_dropping_a_file_asks_the_session_scanners(tmp_path: Path, qapp) -> None
     worker.run()
 
     candidates, layout = results[0]
-    assert {loader for _path, loader, _config in candidates} == {NWBLoader, NWBImagingSource}
+    assert {loader for _path, loader, _config in candidates} == {NWBLoader, NWBStackSource}
     assert layout.session_epoch == pytest.approx(SESSION_EPOCH)
 
 

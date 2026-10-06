@@ -47,8 +47,12 @@ def _file_open(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     act.triggered.connect(window._open_data)
     _reg(act, "File")
 
-    act = file_menu.addAction(tr("Open NWB from DANDI…"))
-    act.triggered.connect(window._open_dandi)
+    _file_dandi(window, file_menu, _reg)
+
+    window._act_open_imaging = file_menu.addAction(tr("Open 2P Imaging…"))
+    act = window._act_open_imaging
+    act.setToolTip(tr("Open a two-photon HDF5 or TIFF stack on the shared timeline"))
+    act.triggered.connect(window._open_imaging)
     _reg(act, "File")
 
     file_menu.addSeparator()
@@ -85,6 +89,13 @@ def _file_open(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     )
 
 
+def _file_dandi(window: MainWindow, file_menu: QMenu, reg: Register) -> None:
+    """Expose streamed NWB assets through the ordinary file menu."""
+    act = file_menu.addAction(tr("Open NWB from DANDI…"))
+    act.triggered.connect(window._open_dandi)
+    reg(act, "File")
+
+
 def _file_reset(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     """Reset Session, and the buttons that reach Open and Reset outside the menu.
 
@@ -98,6 +109,7 @@ def _file_reset(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     act.triggered.connect(window._reset_session)
     _reg(act, "File")
     window.sidebar.install_open_actions(window._act_open_video, window._act_open_sensor, act)
+    window.sidebar.install_open_imaging_action(window._act_open_imaging)
     # Empty pages offer the command that fills them (D-176).
     window.message_panel.install_empty_action(window._act_open_sensor)
     window.readout_panel.install_empty_action(window._act_open_sensor)

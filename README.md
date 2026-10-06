@@ -38,6 +38,8 @@ pane draws. Nothing in AvialSync knows this lab's format.*
 
 - Several camera recordings playing together on one clock.
 - Sensor, electrode, and tracking traces beside the video, up to 50 kHz across many channels.
+- Two-photon HDF5, OME-TIFF and ScanImage stacks on the same clock, with channel overlays,
+  brightness/contrast, and a centred moving average, read one image plane at a time.
 - Alignment by offset, drift, or TTL/event evidence, with the original files left unchanged.
 - Notes the acquisition system itself recorded — read out of the file, placed on the same clock,
   and kept read-only so they never mix with your own marks.
@@ -95,7 +97,8 @@ That generates and opens a complete sample session — four cameras, sensor and 
 tracking — so you can confirm the install and try everything before touching your own data. With
 your own recordings:
 
-1. Drag video and data files onto the window, or use **Open Videos** and **Open Sensor/Ephys Data**.
+1. Drag video and data files onto the window, or use **Open Videos**, **Open Sensor/Ephys Data**,
+   and **Open 2P Imaging**.
 2. Video appears at the top, traces below it.
 3. Drag the shared time bar to inspect one moment across every recording.
 4. If recordings do not line up, use the synchronization tools to align a visible event or TTL pulse.

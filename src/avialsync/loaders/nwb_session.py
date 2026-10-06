@@ -24,8 +24,9 @@ from typing import Any
 from avialsync.core.errors import FileUnreadableError, SourceOpenError
 from avialsync.core.source import SessionItem, SessionLayout, SessionSource, VideoSource
 from avialsync.loaders import nwb_format
-from avialsync.loaders.nwb_imaging import NWBImagingSource, default_imaging, proxy_origin
+from avialsync.loaders.nwb_imaging import default_imaging
 from avialsync.loaders.nwb_loader import NWBLoader
+from avialsync.loaders.nwb_stack import NWBStackSource
 from avialsync.loaders.nwb_storage import remote_url, source_label
 
 logger = logging.getLogger(__name__)
@@ -107,7 +108,7 @@ class NWBSessionSource(SessionSource):
     def _imaging_items(
         path: Path, contents: nwb_format.FileContents, epoch: float | None
     ) -> list[SessionItem]:
-        """One video pane per imaging series stored in the file.
+        """One lazy imaging source per image series stored in the file.
 
         Each is named by its own path inside the file
         (:func:`nwb_format.object_path`): the file's path already names its time
@@ -122,20 +123,13 @@ class NWBSessionSource(SessionSource):
         ordered = [chosen] + [info for info in contents.of_kind("imaging") if info is not chosen]
         items: list[SessionItem] = []
         for info in ordered:
-            config: dict[str, Any] = {}
-            origin = proxy_origin(info.start)
-            if origin:
-                # The proxy counts from its first frame when that frame is before
-                # the session's zero (nwb_imaging.proxy_origin); `t_source =
-                # t_master + offset`, so its frame 0 belongs at master `origin`.
-                config["offset"] = -origin
             items.append(
                 SessionItem(
                     path=nwb_format.object_path(path, info.path),
-                    loader=NWBImagingSource,
-                    config=config,
+                    loader=NWBStackSource,
+                    config={},
                     label=f"{info.name} — imaging in {source_label(path)}",
-                    kind=NWBImagingSource.display_name(),
+                    kind=NWBStackSource.display_name(),
                     source_epoch=epoch,
                 )
             )

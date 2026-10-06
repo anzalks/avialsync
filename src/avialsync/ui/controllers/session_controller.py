@@ -28,7 +28,7 @@ from avialsync.core.session import (
 )
 from avialsync.core.settings_schema import setting_for
 from avialsync.core.source import source_exists
-from avialsync.ui import recovery
+from avialsync.ui import imaging_integration, recovery
 from avialsync.ui.app_settings import app_settings
 from avialsync.ui.controllers import (
     corrections_controller,
@@ -71,6 +71,7 @@ def restore_geometry(window: MainWindow) -> None:
     media_state = settings.value("splitter/media")
     if media_state:
         window._media_splitter.restoreState(media_state)
+    imaging_integration.restore_geometry(window, settings)
     content_state = settings.value("splitter/content")
     if content_state:
         window._content_splitter.restoreState(content_state)
@@ -96,6 +97,7 @@ def save_geometry(window: MainWindow) -> None:
         settings.setValue("splitter/vertical", window._v_splitter.saveState())
         settings.setValue("splitter/content", window._content_splitter.saveState())
     settings.setValue("splitter/media", window._media_splitter.saveState())
+    imaging_integration.save_geometry(window, settings)
     window._left_tabs.save_page(settings)
 
 
@@ -116,7 +118,6 @@ def build_session_state(window: MainWindow) -> SessionState:
                 metadata=ins.import_config if ins else {},
             )
         )
-
     sensors: list[SensorEntry] = []
     for i in range(window.sidebar.sensors_layout.count()):
         item = window.sidebar.sensors_layout.itemAt(i)
@@ -163,6 +164,7 @@ def build_session_state(window: MainWindow) -> SessionState:
 
     return SessionState(
         videos=videos,
+        imaging=window.imaging_pane.session_entries(),
         sensors=sensors,
         markers=markers,
         sync_provenance=list(window._sync_provenance),
@@ -381,6 +383,7 @@ def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
     window.player.reset()
     for path in list(window.video_grid.pane_paths()):
         window.video_grid.remove_pane(path)
+    imaging_integration.clear_session(window)
     window.sidebar.clear_sources()
     window.plot_pane.clear_sources()
     window.plot_pane.clear_measure()
@@ -503,6 +506,7 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
         if not source_exists(Path(se.path)):
             missing.append(se.path)
             kind_labels[se.path] = "sensor"
+    imaging_integration.collect_missing(state.imaging, missing, kind_labels)
 
     relink_map: dict[str, str] = {}
     if missing:
@@ -555,6 +559,7 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
                 )
                 window._inspections[str(p)] = ins
 
+    imaging_integration.restore_entries(window, state.imaging, relink_map)
     for se in state.sensors:
         p = Path(relink_map.get(se.path, se.path))
         if source_exists(p):
@@ -826,7 +831,6 @@ def open_recent(window: MainWindow, path: str) -> None:
     if not p.exists():
         # Open Recent is one of the four paths rule 10 names: it may not put a
         # modal in front of the user, not even to say the file is gone. The
-        # presenter's Locate action is the useful half of that message anyway.
         window.report_failure(
             SourceOpenError(f"Session file no longer exists: {path}"),
             doing=f"opening {p.name}",

@@ -69,6 +69,9 @@ dependencies = [
     # asynchronous HTTP transport to stream DANDI HDF5 ranges and Zarr chunks.
     "fsspec>=2025.3",
     "aiohttp>=3.11",
+    # BSD-3-Clause, pure Python, pip-installable on Windows/macOS/Linux.
+    # Reads individual TIFF pages without materializing an image stack.
+    "tifffile>=2024.9.20",
     "neo",
     # Not imported by us: a floor on neo's own dependency. Up to and including
     # 0.16.2, `quantities` decorates a method with `@with_doc(np.ndarray.ptp)`,
@@ -117,6 +120,8 @@ avialsync = "avialsync.__main__:main"
 [project.entry-points."avialsync.loaders"]
 csv = "avialsync.loaders.csv_loader:CSVLoader"
 video = "avialsync.loaders.video_standard:VideoStandardLoader"
+hdf5_imaging = "avialsync.loaders.imaging_loader:HDF5ImagingLoader"
+tiff_imaging = "avialsync.loaders.imaging_loader:TIFFImagingLoader"
 tracking = "avialsync.loaders.tracking_loader:TrackingLoader"
 neo = "avialsync.loaders.neo_loader:NeoLoader"
 aol_encoder = "avialsync.loaders.aol_encoder_loader:AOLEncoderLoader"
@@ -126,6 +131,7 @@ aol_video_extraction = "avialsync.loaders.aol_video_extraction_loader:AOLVideoEx
 vicon_c3d = "avialsync.loaders.vicon_c3d_loader:ViconC3DLoader"
 nwb = "avialsync.loaders.nwb_loader:NWBLoader"
 nwb_imaging = "avialsync.loaders.nwb_imaging:NWBImagingSource"
+nwb_stack = "avialsync.loaders.nwb_stack:NWBStackSource"
 
 # Session scanners lay out a whole recording folder (D-068). A lab adds support
 # for its own directory layout by publishing here; nothing in the application

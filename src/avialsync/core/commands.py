@@ -29,6 +29,7 @@ __all__ = [
     "RemoveMarkerCommand",
     "RelabelMarkerCommand",
     "SetSourceVisibleCommand",
+    "SetImagingViewCommand",
     "SetChannelVisibleCommand",
     "SetChannelGroupVisibleCommand",
     "SetOverlayVisibleCommand",
@@ -88,6 +89,40 @@ class SetSourceMappingCommand:
         if not isinstance(other, SetSourceMappingCommand):
             return None
         if other.source_id != self.source_id:
+            return None
+        return dataclasses.replace(self, after=other.after)
+
+
+@dataclasses.dataclass
+class SetImagingViewCommand:
+    """Change how an imaging stack is shown: channels, levels, averaging (D-190).
+
+    Merges with the next change to the same *aspect* of the same stack, so a
+    brightness drag is one undo step while a brightness drag followed by a
+    contrast drag stays two.
+    """
+
+    source_id: str
+    before: dict[str, Any]
+    after: dict[str, Any]
+    aspect: str
+    display_name: str = ""
+    command_id: str = "imaging.view"
+
+    @property
+    def label(self) -> str:
+        return f"Change {self.aspect} for {self.display_name or self.source_id}"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_imaging_view(self.source_id, self.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_imaging_view(self.source_id, self.before)
+
+    def merge_with(self, other: object) -> SetImagingViewCommand | None:
+        if not isinstance(other, SetImagingViewCommand):
+            return None
+        if (other.source_id, other.aspect) != (self.source_id, self.aspect):
             return None
         return dataclasses.replace(self, after=other.after)
 

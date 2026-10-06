@@ -384,6 +384,14 @@ make a Windows runner behave like a desktop.
 
 ## 4. Plugin contract (frozen at Phase 5 as API v1)
 
+The original `TimeSeriesSource` and `VideoSource` contracts remain frozen.
+`ImagingSource` is an independent random-access contract for time-indexed 2D planes
+(D-190); its readers never enter the PyAV video pipeline. `read_frame(index, channel)`
+returns one plane; its HDF5/TIFF built-ins read one hyperslab/page on the imaging pane's
+reader thread (`engine/imaging_reader.py`), which also averages, windows and overlays
+channels (`core/imaging_display.py`) under a byte-bounded raw-plane cache, while the
+master clock chooses the presentation index exactly as it does for video.
+
 ```python
 class TimeSeriesSource(ABC):
     @classmethod

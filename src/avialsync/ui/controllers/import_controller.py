@@ -620,7 +620,7 @@ def update_tracking_pane_visibility(window: MainWindow) -> None:
         or window.wheel_state.placement is not None
         or window.props_app.has_scene_geometry()
     )
-    if window.tracking_3d_pane.isVisible() == has_points:
+    if window.tracking_3d_pane.isHidden() != has_points:  # isVisible lies in a hidden column
         return
     window.tracking_3d_pane.setVisible(has_points)
     if has_points:

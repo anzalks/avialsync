@@ -77,10 +77,11 @@ def test_constructed_window_has_declared_roles(qtbot) -> None:
     open_buttons = (
         sidebar.btn_open_video,
         sidebar.btn_open_sensor,
+        sidebar.btn_open_imaging,
         sidebar.btn_open_session,
         sidebar.btn_align,
         sidebar.btn_reset_session,
     )
     primaries = [role_of(button) is ControlRole.PRIMARY for button in open_buttons]
-    assert primaries == [True, False, False, False, False]
+    assert primaries == [True, False, False, False, False, False]
     window.close()

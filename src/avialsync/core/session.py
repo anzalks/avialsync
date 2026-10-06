@@ -43,6 +43,26 @@ class VideoEntry:
 
 
 @dataclasses.dataclass
+class ImagingEntry:
+    """Persisted imaging stack, its import choices, mapping and display (schema v13).
+
+    ``import_config`` holds the scientific choices made at import -- dataset,
+    axis order, depth plane, a typed frame rate -- so a reopened session reads
+    the same planes at the same times without asking again. ``display`` holds
+    the viewer's channel, level and averaging choices
+    (:class:`avialsync.core.imaging_display.ImagingView`); it never changes
+    which plane is shown when.
+    """
+
+    path: str
+    loader_id: str
+    import_config: dict[str, Any] = dataclasses.field(default_factory=dict)
+    offset: float = 0.0
+    drift_ms_per_hour: float = 0.0
+    display: dict[str, Any] = dataclasses.field(default_factory=dict)
+
+
+@dataclasses.dataclass
 class SensorEntry:
     """Persisted state for one loaded sensor CSV."""
 
@@ -149,6 +169,7 @@ class SessionState:
     """
 
     videos: list[VideoEntry] = dataclasses.field(default_factory=list)
+    imaging: list[ImagingEntry] = dataclasses.field(default_factory=list)
     sensors: list[SensorEntry] = dataclasses.field(default_factory=list)
     markers: list[MarkerEntry] = dataclasses.field(default_factory=list)
     sync_provenance: list[SyncProvenance] = dataclasses.field(default_factory=list)
@@ -189,7 +210,7 @@ class SessionState:
     show_original_tracker: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict (always writes version 12)."""
+        """Serialise to a JSON-compatible dict (always writes version 13)."""
         provenance = []
         for item in self.sync_provenance:
             encoded = dataclasses.asdict(item)
@@ -205,8 +226,9 @@ class SessionState:
             )
             provenance.append(encoded)
         return {
-            "version": 12,
+            "version": 13,
             "videos": [dataclasses.asdict(v) for v in self.videos],
+            "imaging": [dataclasses.asdict(v) for v in self.imaging],
             "sensors": [dataclasses.asdict(s) for s in self.sensors],
             "markers": [dataclasses.asdict(m) for m in self.markers],
             "sync_provenance": provenance,
@@ -225,18 +247,19 @@ class SessionState:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SessionState:
-        """Deserialise from a parsed JSON dict (accepts v1 through v12).
+        """Deserialise from a parsed JSON dict (accepts v1 through v13).
 
         Schema 12 (D-184) stores clock drift as ``drift_ms_per_hour``; earlier
         versions stored a rate per million, converted on read by
-        :func:`avialsync.core.drift.drift_from_legacy_entry`.
+        :func:`avialsync.core.drift.drift_from_legacy_entry`. Schema 13 (D-190)
+        adds two-photon imaging stacks; an older file has none.
 
         Every added field is optional with a default, so an older file loads and
         renders exactly as it did before the bump -- that equivalence is the
         migration test, not an aspiration.
         """
         version = data.get("version", 1)
-        if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12):
+        if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13):
             raise ValueError(f"Unsupported session file version: {version}")
 
         videos = [
@@ -311,6 +334,17 @@ class SessionState:
 
         return cls(
             videos=videos,
+            imaging=[
+                ImagingEntry(
+                    path=str(item["path"]),
+                    loader_id=str(item.get("loader_id", "")),
+                    import_config=dict(item.get("import_config", {})),
+                    offset=float(item.get("offset", 0.0)),
+                    drift_ms_per_hour=float(item.get("drift_ms_per_hour", 0.0)),
+                    display=dict(item.get("display", {})),
+                )
+                for item in data.get("imaging", [])
+            ],
             sensors=sensors,
             markers=markers,
             sync_provenance=sync_provenance,

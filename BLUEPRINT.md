@@ -45,6 +45,8 @@
 | Plot pan/zoom frame time ★ | ≤ 16 ms |
 | Full populated cursor update per tick ★ | ≤ 2 ms |
 | 3D pose sample (128 XYZ points) ★ | ≤ 2 ms |
+| Lazy imaging random plane (chunked HDF5, 512×512, warm file cache) ★ | ≤ 50 ms |
+| Imaging render, 2 channels × 15-frame average, 512×512, sliding by one frame ★ | ≤ 33 ms |
 | Cached session open (3 cams + 4×50 kHz ch) | ≤ 3 s |
 | First CSV import 1 GB (with progress) | ≤ 60 s |
 | Pyramid build 180 M samples ★ | ≤ 2.5 s (revised, D-024) |

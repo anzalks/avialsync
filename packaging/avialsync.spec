@@ -1,6 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 import re
 import sys
+from importlib.metadata import distribution
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_submodules
@@ -18,11 +19,31 @@ hidden_imports = []
 hidden_imports += collect_submodules('avialsync')
 hidden_imports += ['PySide6', 'pyqtgraph', 'av', 'polars', 'numpy']
 
+
+def license_datas(package):
+    """Bundle the installed wheel's actual license notices with its code."""
+    dist = distribution(package)
+    notices = []
+    for relative in dist.files or []:
+        parts = relative.parts
+        if "licenses" not in parts:
+            continue
+        suffix = Path(*parts[parts.index("licenses") + 1 :])
+        notices.append((str(dist.locate_file(relative)), str(Path("licenses") / package / suffix.parent)))
+    if not notices:
+        raise RuntimeError(f"{package} has no installed license files to bundle")
+    return notices
+
 a = Analysis(
     [str(project_root / 'src' / 'avialsync' / '__main__.py')],
     pathex=[str(project_root / 'src')],
     binaries=[],
-    datas=[(str(project_root / "src" / "avialsync" / "resources" / "avialsync.png"), "avialsync/resources")],
+    datas=[(str(project_root / "src" / "avialsync" / "resources" / "avialsync.png"), "avialsync/resources")]
+    + license_datas("h5py")
+    + license_datas("tifffile")
+    + license_datas("zarr")
+    + license_datas("fsspec")
+    + license_datas("aiohttp"),
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},

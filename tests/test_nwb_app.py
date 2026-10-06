@@ -47,9 +47,9 @@ def _imaging(path: Path) -> str:
 
 
 def _wait_loaded(window: MainWindow, qtbot, path: Path) -> None:
-    qtbot.waitUntil(lambda: _imaging(path) in window.video_grid.pane_paths(), timeout=20_000)
+    qtbot.waitUntil(lambda: _imaging(path) in window.imaging_pane.source_paths(), timeout=20_000)
     qtbot.waitUntil(lambda: str(path) in window._sensor_cache_dirs, timeout=20_000)
-    qtbot.waitUntil(lambda: window.video_grid.panes[0].has_media, timeout=20_000)
+    qtbot.waitUntil(lambda: window.imaging_pane.metadata_for(_imaging(path)).frame_count == 12)
 
 
 def test_dandi_menu_action_routes_asset_to_the_regular_open_path(
@@ -85,10 +85,18 @@ def test_dropping_an_nwb_file_shows_its_imaging_and_its_series(
     _wait_loaded(window, qtbot, path)
 
     # Two sources, told apart: the imaging pane and the file's time series.
-    assert window.video_grid.pane_paths() == [_imaging(path)]
-    assert set(window._inspections) == {str(path), _imaging(path)}
+    assert window.imaging_pane.source_paths() == (_imaging(path),)
+    assert set(window._inspections) == {str(path)}
+    window.imaging_pane.set_cursor(0.6)
+    qtbot.waitUntil(
+        lambda: (
+            window.imaging_pane.status_label.text().startswith("Frame 4/12")
+            and window.imaging_pane._image is not None
+        ),
+        timeout=20_000,
+    )
     coverage = window.transport.overview._coverage
-    assert coverage[_imaging(path)][2] == "video"
+    assert coverage[_imaging(path)][2] == "data"
     assert coverage[str(path)][2] == "data"
     # Every series' rows, named by where they sit in the file.
     qtbot.waitUntil(lambda: len(window.plot_pane.channels) > 10, timeout=20_000)
@@ -112,7 +120,7 @@ def test_an_nwb_session_saves_and_reopens(
     state.save(saved)
 
     reloaded = SessionState.load(saved)
-    assert [video.path for video in reloaded.videos] == [_imaging(path)]
+    assert [entry.path for entry in reloaded.imaging] == [_imaging(path)]
     assert [sensor.path for sensor in reloaded.sensors] == [str(path)]
 
     again = MainWindow()
@@ -121,7 +129,7 @@ def test_an_nwb_session_saves_and_reopens(
     try:
         again._start_session_load(saved)
         _wait_loaded(again, qtbot, path)
-        assert again.video_grid.pane_paths() == [_imaging(path)]
+        assert again.imaging_pane.source_paths() == (_imaging(path),)
     finally:
         again.close()
 
@@ -133,13 +141,12 @@ def test_nudging_the_series_leaves_the_imaging_where_it_is(
     path = write_nwb(tmp_path / "session.nwb")
     window.open_path(path)
     _wait_loaded(window, qtbot, path)
-    pane = window.video_grid.panes[0]
-    before = pane.time_map.offset
+    before = window.imaging_pane.source_config(_imaging(path))[2].offset
 
     window._on_sensor_mapping_changed(str(path), 0.25, 0.0)
     qtbot.wait(50)
 
-    assert pane.time_map.offset == before
+    assert window.imaging_pane.source_config(_imaging(path))[2].offset == before
     rows = [c for c in window.plot_pane.channels if c.name == "ElectricalSeries.ch10"]
     assert rows and rows[0].reader.time_map.offset == pytest.approx(0.25)
 
@@ -147,7 +154,7 @@ def test_nudging_the_series_leaves_the_imaging_where_it_is(
 def test_imaging_frames_land_at_their_nwb_times(
     window: MainWindow, qtbot, tmp_path: Path, accept_review: None
 ) -> None:
-    """The proxy's frame times are the file's, and the series' coverage is all of it."""
+    """The lazy reader's frame times and coverage follow the file's timestamps."""
     path = write_nwb(tmp_path / "session.nwb")
     window.open_path(path)
     _wait_loaded(window, qtbot, path)
@@ -155,7 +162,7 @@ def test_imaging_frames_land_at_their_nwb_times(
 
     # Twelve frames at 30 Hz from 0.5 s, relative to the file's own start.
     assert coverage[_imaging(path)][:2] == pytest.approx((0.5, 0.9), abs=1e-3)
-    assert window.video_grid.panes[0].time_map.offset == pytest.approx(0.0)
+    assert window.imaging_pane.source_config(_imaging(path))[2].offset == pytest.approx(0.0)
     # The last trial ends at 9 s: the series' span is every group's, not the first's.
     qtbot.waitUntil(lambda: coverage[str(path)][1] >= 9.0, timeout=20_000)
     assert coverage[str(path)][0] == pytest.approx(0.0, abs=1e-3)

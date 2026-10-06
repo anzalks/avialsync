@@ -16,7 +16,13 @@ from avialsync.core.custom_markers import is_custom_marker_path
 from avialsync.core.identity_sidecar import is_swap_path
 from avialsync.core.point_edit_sidecar import is_correction_path
 from avialsync.core.prop_file import is_prop_path
-from avialsync.core.source import SessionSource, TimeSeriesSource, TriggerSource, VideoSource
+from avialsync.core.source import (
+    ImagingSource,
+    SessionSource,
+    TimeSeriesSource,
+    TriggerSource,
+    VideoSource,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +78,9 @@ _BUILTIN_LOADERS: tuple[tuple[str, str], ...] = (
     ("avialsync.loaders.neo_loader", "NeoLoader"),
     ("avialsync.loaders.nwb_loader", "NWBLoader"),
     ("avialsync.loaders.nwb_imaging", "NWBImagingSource"),
+    ("avialsync.loaders.nwb_stack", "NWBStackSource"),
+    ("avialsync.loaders.imaging_loader", "HDF5ImagingLoader"),
+    ("avialsync.loaders.imaging_loader", "TIFFImagingLoader"),
 )
 
 #: The built-in trigger providers. A third kind beside loaders and sessions,
@@ -94,7 +103,7 @@ class LoaderRegistry:
     """Discovers and loads source plugins."""
 
     def __init__(self, plugin_dirs: Iterable[Path] | None = None) -> None:
-        self._loaders: list[type[TimeSeriesSource | VideoSource]] = []
+        self._loaders: list[type[TimeSeriesSource | VideoSource | ImagingSource]] = []
         self._sessions: list[type[SessionSource]] = []
         self._triggers: list[type[TriggerSource]] = []
         #: Plugins that were found but could not be used, as ``(source, reason)``.
@@ -298,8 +307,8 @@ class LoaderRegistry:
                 if not isinstance(candidate, type):
                     continue
                 if (
-                    candidate not in (TimeSeriesSource, VideoSource)
-                    and issubclass(candidate, (TimeSeriesSource, VideoSource))
+                    candidate not in (TimeSeriesSource, VideoSource, ImagingSource)
+                    and issubclass(candidate, (TimeSeriesSource, VideoSource, ImagingSource))
                     and candidate not in self._loaders
                 ):
                     self._loaders.append(candidate)
@@ -314,13 +323,14 @@ class LoaderRegistry:
             if exported == 0:
                 logger.warning(
                     "Plugin %s exported no TimeSeriesSource, VideoSource, or SessionSource "
-                    "subclass.",
+                    "subclass (nor ImagingSource).",
                     path.name,
                 )
                 self._plugin_errors.append(
                     (
                         path.name,
-                        "exported no TimeSeriesSource, VideoSource, or SessionSource subclass",
+                        "exported no TimeSeriesSource, VideoSource, or SessionSource "
+                        "subclass (nor ImagingSource)",
                     )
                 )
 
@@ -387,8 +397,8 @@ class LoaderRegistry:
     def find_best_loader(
         self,
         path: Path,
-        kind: type[TimeSeriesSource] | type[VideoSource] | None = None,
-    ) -> type[TimeSeriesSource | VideoSource] | None:
+        kind: type[TimeSeriesSource] | type[VideoSource] | type[ImagingSource] | None = None,
+    ) -> type[TimeSeriesSource | VideoSource | ImagingSource] | None:
         """Return the loader with the highest can_open() score > 0.
 
         *kind* limits the answer to time-series or video loaders. One file can
@@ -421,7 +431,7 @@ class LoaderRegistry:
         self.ensure_discovered()
         return self._best_by_capability(self._sessions, path, "session")
 
-    def loaders(self) -> list[type[TimeSeriesSource | VideoSource]]:
+    def loaders(self) -> list[type[TimeSeriesSource | VideoSource | ImagingSource]]:
         """Return all discovered source loaders."""
         self.ensure_discovered()
         return list(self._loaders)

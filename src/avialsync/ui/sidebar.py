@@ -1006,12 +1006,14 @@ class SidebarPane(QWidget):
         self._open_column = QVBoxLayout(actions_group)
         self.btn_open_video = ActionButton(actions_group)
         self.btn_open_sensor = ActionButton(actions_group)
+        self.btn_open_imaging = ActionButton(actions_group)
         self.btn_open_session = ActionButton(actions_group)
         self.btn_align = ActionButton(actions_group)
         self.btn_reset_session = ActionButton(actions_group)
         for button in (
             self.btn_open_video,
             self.btn_open_sensor,
+            self.btn_open_imaging,
             self.btn_open_session,
             self.btn_align,
         ):
@@ -1132,6 +1134,11 @@ class SidebarPane(QWidget):
         apply_role(self.btn_open_video, ControlRole.PRIMARY, "video")
         apply_role(self.btn_open_sensor, ControlRole.SECONDARY, "data")
         apply_role(self.btn_reset_session, ControlRole.DESTRUCTIVE, "reset")
+
+    def install_open_imaging_action(self, action: QAction) -> None:
+        """Show File → Open 2P Imaging… beside the other data sources (D-181, D-190)."""
+        self.btn_open_imaging.set_action(action)
+        apply_role(self.btn_open_imaging, ControlRole.SECONDARY, "imaging")
 
     def install_open_session_action(self, action: QAction) -> None:
         """Show File → Open Session… with the other ways in."""

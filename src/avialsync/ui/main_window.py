@@ -56,7 +56,7 @@ from avialsync.core.commands import (
     SetTrackingVisibleCommand,
 )
 from avialsync.core.custom_markers import CustomMarkerStore
-from avialsync.core.document import Document, SourceRecord
+from avialsync.core.document import Document
 from avialsync.core.identity_swaps import SwapGroup, SwapStore
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.point_edits import PointEditStore, PointKey, PointMove
@@ -72,13 +72,14 @@ from avialsync.core.session_time import (
     source_epoch_for,
     unix_start,
 )
-from avialsync.core.source import TimeSeriesSource, VideoSource
+from avialsync.core.source import ImagingSource, TimeSeriesSource, VideoSource
 from avialsync.core.timeline import MasterClock, TimeMap
 from avialsync.core.triggers import TriggerKind
 from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
 from avialsync.engine.snapshot import SnapshotFigure
+from avialsync.ui import dandi_open, imaging_integration
 from avialsync.ui.accessibility import apply_accessibility, install_show_time_sweep
 from avialsync.ui.annotations import AnnotationStore, Marker
 from avialsync.ui.changes_panel import ChangeRow, ChangesPanel
@@ -125,6 +126,7 @@ from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.props_app import PropsApp
 from avialsync.ui.readout_panel import ReadoutPanel
 from avialsync.ui.shortcut_overrides import apply_overrides
+from avialsync.ui.source_records import anything_loaded, source_record
 from avialsync.ui.splitter import PaneSplitter
 from avialsync.ui.time_format import TimeDisplayMode
 from avialsync.ui.tracking_3d_pane import Tracking3DPane
@@ -241,11 +243,20 @@ class _JobWorker(Protocol):
 
 
 class MainWindow(QMainWindow):
+    _open_dandi = dandi_open.open_dandi
+    _open_imaging = imaging_integration.open_dialog
+    _on_imaging_remove_requested = imaging_integration.remove
+    _on_imaging_mapping_changed = imaging_integration.change_mapping
+    load_imaging = imaging_integration.load_imaging
+    _source_record = source_record
+    _anything_loaded = anything_loaded
+
     # Built by ui.menus. These are declared here so every caller sees their
     # types, while the live QAction remains the sole source of command text,
     # shortcut, and enablement (D-092).
     _act_open_video: QAction
     _act_open_sensor: QAction
+    _act_open_imaging: QAction
     _act_save_session: QAction
     _act_reset_session: QAction
     _act_export_changes: QAction
@@ -507,6 +518,10 @@ class MainWindow(QMainWindow):
             )
         )
         self.tracking_3d_pane = Tracking3DPane(self)
+        self.imaging_pane, self.imaging_splitter, self._imaging_visibility_filter = (
+            imaging_integration.install(self, self.tracking_3d_pane)
+        )
+        self.imaging_pending: set[str] = set()
         self.tracking_3d_pane.canvas.set_custom_point_source(
             lambda t: custom_marker_controller.points_at(self, t)
         )
@@ -543,6 +558,7 @@ class MainWindow(QMainWindow):
             self.transport,
             self,
             tracking_3d_pane=self.tracking_3d_pane,
+            imaging_pane=self.imaging_pane,
         )
 
         # Annotations
@@ -658,13 +674,9 @@ class MainWindow(QMainWindow):
         video_column_layout.addWidget(self.video_grid, 1)
         video_column_layout.addWidget(self.view_toolbar)
         self._media_splitter.addWidget(self._video_column)
-        self._media_splitter.addWidget(self.tracking_3d_pane)
+        self._media_splitter.addWidget(self.imaging_splitter)
         self._media_splitter.setStretchFactor(0, 2)
         self._media_splitter.setStretchFactor(1, 1)
-        # The 3D pane only earns workspace once a source actually has XYZ
-        # triplets; otherwise an empty pane holds width the video needs.
-        self.tracking_3d_pane.setVisible(False)
-
         v_splitter = PaneSplitter(Qt.Orientation.Vertical)
         v_splitter.addWidget(self._media_splitter)
         v_splitter.addWidget(self.plot_pane)
@@ -696,6 +708,7 @@ class MainWindow(QMainWindow):
             self._video_column,
             self.video_grid,
             self.tracking_3d_pane,
+            self.imaging_pane,
             self.plot_pane,
             self.view_toolbar,
             self.data_streams,
@@ -717,6 +730,7 @@ class MainWindow(QMainWindow):
             self._content_splitter,
             self._v_splitter,
             self._media_splitter,
+            self.imaging_splitter,
         )
         self._pane_resize_timer = QTimer(self)
         self._pane_resize_timer.setSingleShot(True)
@@ -867,10 +881,6 @@ class MainWindow(QMainWindow):
 
     # ── Action availability (D-107) ──────────────────────────────────
 
-    def _anything_loaded(self) -> bool:
-        """Whether the workspace holds any recording at all."""
-        return bool(self.video_grid.pane_paths()) or bool(self._sensor_cache_dirs)
-
     def _has_alignment_evidence(self) -> bool:
         """Whether both halves of a TTL/event fit are present.
 
@@ -946,7 +956,7 @@ class MainWindow(QMainWindow):
         empty_state = getattr(self, "empty_state", None)
         if empty_state is None:
             return
-        nothing_loaded = not self.video_grid.pane_paths() and not self._sensor_cache_dirs
+        nothing_loaded = not self._anything_loaded()
         empty_state.setVisible(nothing_loaded)
         if self._empty_layout_ready:
             self._apply_empty_layout(nothing_loaded)
@@ -1096,6 +1106,7 @@ class MainWindow(QMainWindow):
             self._content_splitter,
             self._v_splitter,
             self._media_splitter,
+            self.imaging_splitter,
         )
 
     def _enforce_splitter_policy(self) -> None:
@@ -1147,6 +1158,7 @@ class MainWindow(QMainWindow):
             # With three video columns, a quarter-width 3D pane is no wider
             # than one video column in the documented session layout.
             (self._media_splitter, (750, 250)),
+            (self.imaging_splitter, (300, 300)),
         )
         for splitter, sizes in defaults:
             splitter.setSizes(list(sizes))
@@ -1712,6 +1724,7 @@ class MainWindow(QMainWindow):
         self._close_step("writing the final autosave", self._autosave_before_close)
         self._close_step("stopping background jobs", self._job_manager.shutdown)
         self._close_step("shutting down video panes", self.video_grid.shutdown)
+        self._close_step("shutting down imaging pane", self.imaging_pane.shutdown)
         super().closeEvent(event)
 
     def _remove_app_event_filter(self) -> None:
@@ -1847,7 +1860,7 @@ class MainWindow(QMainWindow):
     def _route_import_candidate(
         self,
         path: Path,
-        loader_cls: type[TimeSeriesSource | VideoSource],
+        loader_cls: type[TimeSeriesSource | VideoSource | ImagingSource],
         config: dict | None = None,
     ) -> None:
         drop_controller.route_import_candidate(self, path, loader_cls, config)
@@ -2782,7 +2795,7 @@ class MainWindow(QMainWindow):
         if not self.session_runtime.restoring:
             self._record(AddSourceCommand(self._source_record(source_id, kind)))
             return
-        if self.video_load_state.pending or self.import_state.pending:
+        if self.video_load_state.pending or self.import_state.pending or self.imaging_pending:
             return
         # The restore has drained. Everything on the log describes the file that
         # was just opened, so the session is clean by definition.
@@ -2791,16 +2804,6 @@ class MainWindow(QMainWindow):
         self._mark_session_saved()
         if self.session_runtime.take_dirty_after_restore():
             self.document.mark_dirty()
-
-    def _source_record(self, source_id: str, kind: str) -> SourceRecord:
-        offset, drift_ms_per_hour = self._recorded_mappings.get(source_id, (0.0, 0.0))
-        return SourceRecord(
-            source_id=source_id,
-            path=source_id,
-            kind=kind,
-            offset=offset,
-            drift_ms_per_hour=drift_ms_per_hour,
-        )
 
     # ── Session identity and dirty state ─────────────────────────────
 
@@ -3896,11 +3899,6 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(self, "Open Sensor/Ephys Data")
         if path:
             self.open_path(Path(path))
-
-    def _open_dandi(self) -> None:
-        from avialsync.ui.dandi_open import open_dandi
-
-        open_dandi(self)
 
     def _start_data_import(
         self,

@@ -15,6 +15,7 @@ import pytest
 
 from avialsync.loaders import nwb_format, nwb_storage
 from avialsync.loaders.nwb_loader import NWBLoader
+from avialsync.loaders.nwb_stack import NWBStackSource
 from tests.nwb_fixture import NWBSpec, write_nwb, write_zarr_nwb
 
 
@@ -121,6 +122,13 @@ def test_remote_zarr_reads_consolidated_metadata_and_chunks(
         times, values = next(loader.read_chunks("voltage"))
         assert times[1] == pytest.approx(0.251)
         assert values[1] == pytest.approx(1e-6)
+        imaging = NWBStackSource()
+        try:
+            metadata = imaging.open(link / "acquisition" / "camera", {})
+            assert metadata.frame_times.tolist() == pytest.approx([0.5, 0.6, 0.7])
+            assert imaging.read_frame(1).shape == (9, 7)
+        finally:
+            imaging.close()
     finally:
         server.shutdown()
         server.server_close()

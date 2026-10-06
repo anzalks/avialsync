@@ -33,6 +33,33 @@ Those timestamps decide whether a recording is treated as CFR or VFR, where a fr
 which frame is named at any moment. They are cached in the per-user cache folder after the first read, so
 opening it again does not walk the file a second time.
 
+## Two-photon imaging
+
+Open `.h5`, `.hdf5`, `.tif`, or `.tiff` through **File → Open 2P Imaging** or drag the stack into
+the window. Imaging is a separate time-indexed source, shown below the 3D view when both are present.
+It follows the same master playhead as video and plots. PyAV continues to decode camera videos only.
+
+The HDF5 reader selects a three-dimensional `TYX` dataset when the file has exactly one plausible
+stack; otherwise it lists the candidates to choose from. Four- and five-dimensional datasets need an
+axis order (`T`, `C`, `Z`, `Y`, `X`, from an `axes` attribute or asked at import). A `Z` axis with
+more than one plane asks which depth to show; a `C` axis is shown as overlaid channels. The TIFF
+reader supports page-per-time `TYX`, `QYX`, or `IYX` series, OME series with `T`, optional `C`/`Z`,
+then `YX` axes, and ScanImage files, whose channel- and slice-interleaved pages are separated using
+ScanImage's own frame data. Other TIFF layouts need a format plugin. These choices are saved in the
+session file.
+
+Timing comes from, in order: a frame-time table you supply, a per-frame timestamp table in the file
+(an HDF5 `frame_times`, `timestamps` or `time` dataset beside the images, or OME per-plane
+`DeltaT`), a frame rate you typed, and finally a rate the file states (HDF5 `fps`/`frame_rate`/`dt`
+attributes, OME `TimeIncrement`, ScanImage's scan frame or volume rate). A stack with none of these
+asks for its frame rate rather than guessing one.
+
+The viewer reads only the requested HDF5 hyperslab or TIFF page on a background thread and keeps
+recently read planes under a fixed memory budget, so large stacks do not need to fit in RAM.
+Brightness, contrast, channel colours and moving averages change the displayed picture only; the
+raw pixels are unchanged. TIFF compression that needs an unavailable codec is reported for the
+affected page.
+
 ## Sensor and tracking data
 
 Delimited text data can be imported through the guided importer. It lets you identify the time
@@ -107,9 +134,11 @@ AvialSync opens it as one. Drop the file (or choose it with **File → Open**) a
   theirs (`roi12`), spatial series by axis. Values are scaled by the file's `conversion`,
   `channel_conversion` and `offset`, and shown in its units (`volts` reads as V).
 - **NWB Imaging**: each imaging series stored in the file (two-photon, one-photon, any
-  `ImageSeries`) as its own video pane, named after the series. The frames are written once into a
-  lossless copy in the cache, pixel for pixel, so 16-bit data keeps its full range for the
-  display-level controls. The first open takes a moment per series; later opens are immediate.
+  `ImageSeries`) opens in the imaging viewer, named after the series. It reads one plane at a time
+  in its stored pixel type, so channels, display levels and centred averaging work without making
+  a copy of the full stack. The separate video-compatible proxy reader remains available to
+  plugins; its lossless copy reports progress and completes an in-progress encoding before a
+  cancellation takes effect.
 - **Videos the file points to**: an `ImageSeries` that names an external video file is opened from
   beside the NWB file, placed at the time the series says its first frame was.
 

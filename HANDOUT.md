@@ -537,12 +537,19 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `core/cache.py` | Binary cache in one per-user folder, content-hash key; entry naming and its `source.json` ownership record (D-160) | `CacheManager`, `cache_root()`, `cache_dir_for()` |
 | `core/cache_store.py` | The only code that deletes from the cache: lists entries, finds a trial's, removes them only inside `sources/` and only with our record (D-160) | `list_entries()`, `entries_under()`, `remove_entries()`, `remove_all()`, `working_folders()` |
 | `core/sidecar_names.py` | How a sidecar beside a source is named: full name, dots → `_`, plus a tag (D-160) | `beside()`, `flat_name()` |
-| `core/source.py` | Plugin ABCs — frozen API plus additive optional hooks (`messages()`, `exact_time_mapping()`, `video_metadata()`, `pose_roles()`, `VideoSource.prepare_is_atomic()`). **Three kinds, not two**: `TriggerSource` returns instants and declares what they are evidence *of* | `TimeSeriesSource`, `VideoSource`, `TriggerSource`, `VideoMetadata` |
+| `core/source.py` | Plugin ABCs — time-series/video APIs plus `ImagingSource` for random-access 2D frames; `VideoSource.prepare_is_atomic()` marks an uncancellable conversion; `TriggerSource` returns evidence instants | `TimeSeriesSource`, `VideoSource`, `ImagingSource`, `ImagingMetadata`, `TriggerSource` |
 | `ui/coverage_lanes.py` | Where each source has data, where its alignment is **measured** rather than extended past the last sync point, and where it stops and resumes. Always the whole session — never auto-ranged to the overlap | `CoverageLanes`, `SourceCoverage`, `SourceCoverage.extrapolated()` |
 | `ui/trigger_dialog.py` | Where the user says what each trigger column **is**. Leads with the kind, because the difference between a strobe and a trigger is the difference between an exact mapping and a fitted one | `TriggerEvidenceDialog`, `TrainChoice` |
 | `engine/trigger_worker.py` | Reads every declared train in one job, off the UI thread. All or nothing — a partial set leaves the user to notice which train went missing | `TriggerReadWorker`, `TriggerTrainResult` |
 | `loaders/trigger_csv.py` | Trigger evidence from a delimited file, either a sampled line or a column of event times. The config declares each train's `TriggerKind` — `suggest_trains` never guesses `frame_strobe` | `TriggerCSVSource`, `LEVEL`, `TIMESTAMPS` |
-| `core/session.py` | `.avv` session JSON, schema v10: accepted identity-swap counts or fallback events and the Play original view choice (D-141, D-145); v9 added trigger declarations and richer sync evidence; v8 added point-edit counts (D-099) | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
+| `core/session.py` | `.avv` session JSON, schema v13: imaging stacks with their import choices, time map and display view (D-190); v12 holds drift as ms/h (D-184); earlier versions retain their defaults | `SessionState`, `VideoEntry`, `ImagingEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
+| `loaders/imaging_loader.py` | Lazy HDF5 hyperslab and TIFF page readers (plain, OME, ScanImage-interleaved); per-channel reads; a missing dataset/axes/depth/frame rate raises `ImagingChoiceRequired` rather than being guessed | `HDF5ImagingLoader`, `TIFFImagingLoader` |
+| `core/imaging_display.py` | Headless display maths: per-channel reference window + brightness/contrast, centred odd-length moving average, additive colour overlay | `ImagingView`, `ChannelView`, `compose()`, `average_range()`, `auto_window()` |
+| `engine/imaging_probe.py` | Registered background metadata probe; emits `finished`, `needs_choice` or `error` | `ImagingProbeWorker` |
+| `engine/imaging_reader.py` | The pane's reader thread: coalesced requests, byte-bounded raw-plane cache, render off the UI thread | `ImagingReadWorker` |
+| `ui/imaging_pane.py` | Imaging viewer below the 3D view, following the master clock; owns the reader thread | `ImagingPane` |
+| `ui/imaging_controls.py` | Channel rows (show, colour named in words, brightness, contrast), average length, Auto levels | `ImagingControls` |
+| `ui/imaging_integration.py` | Import, choice prompts, mapping, coverage, undo and session placement for imaging sources | `load_imaging()`, `restore_entries()`, `record_view()` |
 | `core/inspection.py` | Headless dataclasses for import stats + integrity (D-020); carries recorded messages into the sidecar manifest (D-078) | `ImportReport`, `IntegrityFlags`, `SourceInspection` |
 | `core/messages.py` | Headless record for free text the rig stored with the data (D-078) | `Message`, `clean()`, `bounded()`, `MAX_MESSAGES` |
 | `core/triggers.py` | What a TTL train is evidence **of**, which depends on which way the wire ran. Keeps both edges, so a strobe is timestamped at its exposure midpoint and carries its duration | `TriggerKind`, `TriggerTrain`, `extract_pulses()`, `locate_drops()`, `reconcile_with_frames()` |
@@ -702,6 +709,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `loaders/nwb_read.py` / `nwb_types.py` / `nwb_text.py` | Slices of samples, frames, intervals and spikes from an open file (`data × channel_conversion × conversion + offset`); type ancestry from the file's cached specifications; HDF5 text as `str` | `read_values()`, `read_times()`, `type_ancestry()`, `is_a()` |
 | `loaders/nwb_loader.py` | Every time series, interval and unit in a file as one source, imported as **channel groups** (one per series, its own clock, one stored timestamp array). Intervals become 0/1 on a regular grid; spikes become exact-time pulses; trial rows and annotations become messages | `NWBLoader`, `interval_grid()`, `spike_pulses()` |
 | `loaders/nwb_imaging.py` | One imaging series as video: a lossless FFV1 MP4 proxy in the cache, presentation times = NWB timestamps. Works from HDF5, Zarr or a DANDI link; encoding is atomic and reports progress | `NWBImagingSource`, `default_imaging()`, `proxy_origin()` |
+| `loaders/nwb_stack.py` | Opens an NWB image series in the 2P viewer and slices one raw plane per request, including from Zarr and DANDI streams; the session scanner chooses this path by default | `NWBStackSource` |
 | `loaders/nwb_session.py` | Lays out an NWB file, Zarr store or DANDI link as a session: time series and each imaging series, plus local external videos; every item on the file's reference time | `NWBSessionSource` |
 | `loaders/open_ephys_format.py` | What neo does not model: recording discovery (`structure.oebin`), the software-time epoch, and the rig UTC offset derived from the local session directory name (D-070). Also reads event **prose**, which neo models badly — per-stream timestamp rule, and `"U"`/`"S"` text alike (D-085) | `find_recordings()`, `anchor_epoch()`, `recording_utc_offset()`, `stream_folder_names()`, `read_messages()`, `event_stream_defects()`, `EventStreamDefect` |
 | `loaders/open_ephys_legacy.py` | The **original** `.continuous` format's `messages.events`, which neo filters out by name and never implements. Plain ASCII, no 1024-byte header. **Traps:** the rate comes from the `start time:` line, never the 1 MHz `Software time:` one; times are `stamp / rate` with no rebasing on the first sample, matching neo's `_segment_t_start` (D-085) | `is_legacy_recording()`, `read_messages()`, `MESSAGES_NAME` |
@@ -1416,12 +1424,12 @@ Open Ephys stream is pointed at its own `continuous/<stream>` directory and `Neo
 
 ### 0g-bis. Two sources from one file need two paths (D-188)
 A source is identified by its path in the sidebar, coverage lanes, `_inspections`, `_recorded_mappings`
-and the mutation targets, and dispatch asks "is this id a video pane?" first. An NWB file's time series
-and its imaging under the same path were one source to all of them: one coverage lane, one inspection,
+and the mutation targets. An NWB file's time series and its imaging under the same path were one
+source to all of them: one coverage lane, one inspection,
 and a nudge to the series' offset moved the imaging. The imaging is therefore named *inside* the file
 (`session.nwb/acquisition/TwoPhotonSeries`). That path does not exist on disk; check presence with
-`core.source.source_exists`, never `Path.exists()`, and read a pane's frames from
-`VideoGrid.media_path_for(path)`, never from its name.
+`core.source.source_exists`, never `Path.exists()`. The imaging viewer reads planes through
+`NWBStackSource`; video-compatible proxy consumers use `VideoGrid.media_path_for(path)`.
 
 ### 0h. Cache files are shared inodes — never write to one in place (D-071)
 `_finalize_bulk_channels` hard links each channel's `_t.npy` and `_gap.npy` to one staged copy, so a

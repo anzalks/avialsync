@@ -88,6 +88,29 @@ claimed. Names are never used to decide anatomy. Use **Bones:** in the pane head
 detected skeleton (`Detected`), turn bones off entirely (`Off`), or return to `Auto`, which prefers
 whatever the session declared.
 
+## Two-photon imaging
+
+Open an `.h5`, `.hdf5`, `.tif` or `.tiff` stack with **Open 2P Imaging…** on the Sources page or
+in the File menu, or drop it on the window. The imaging pane appears below the 3D view (or alone
+in that column) and shows the frame whose acquisition interval contains the playhead, exactly as
+a video pane does. If the file leaves something open — which dataset, the axis order, which depth
+plane, or the frame rate — AvialSync asks once and saves your answer with the session.
+
+- **Ch 1, Ch 2, …** show or hide each channel. Visible channels are added together in the colour
+  named beside each (green and magenta by default for two), so signal present in both appears
+  white. Change a channel's colour from its list.
+- **Brightness** and **Contrast** act per channel. Both start from levels measured from the data,
+  ignoring the brightest and darkest 0.5 % of pixels; **Auto levels** measures again from the
+  picture now shown and returns the sliders to the middle.
+- **Average** shows the mean of that many frames, centred on the current one (1, 3, 5, … up to 31).
+  Because the window is centred, averaging smooths noise without moving any event in time; at
+  the start and end of the stack it uses the frames that exist.
+- **Offset** and **Drift** place the stack on the session clock, like any other source.
+
+Display changes are undoable and saved with the session; the raw pixels are never changed. Only
+the frames needed for the current picture are read from disk, so a stack does not need to fit in
+memory.
+
 ## Plot navigation
 
 Plots are a fixed oscilloscope-style window, not a scrolling strip. The trace fills left to

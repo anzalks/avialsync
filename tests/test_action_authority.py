@@ -36,6 +36,7 @@ def test_open_and_reset_buttons_are_the_file_menus_actions(window: MainWindow) -
     pairs = (
         (sidebar.btn_open_video, window._act_open_video),
         (sidebar.btn_open_sensor, window._act_open_sensor),
+        (sidebar.btn_open_imaging, window._act_open_imaging),
         (sidebar.btn_reset_session, window._act_reset_session),
         (sidebar.btn_align, window._act_synchronize),
         (window.empty_state.open_videos_button, window._act_open_video),

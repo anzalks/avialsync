@@ -57,10 +57,12 @@ def test_every_way_in_is_one_visible_button_and_reset_stands_apart(qtbot) -> Non
     qtbot.addWidget(pane)
     open_video = QAction("Open Videos…", pane)
     open_sensor = QAction("Open Sensor/Ephys Data…", pane)
+    open_imaging = QAction("Open 2P Imaging…", pane)
     open_session = QAction("Open Session…", pane)
     sync = QAction("Synchronize TTL / events…", pane)
     reset = QAction("Reset Session", pane)
     pane.install_open_actions(open_video, open_sensor, reset)
+    pane.install_open_imaging_action(open_imaging)
     pane.install_open_session_action(open_session)
     pane.install_align_action(sync)
     pane.resize(280, 600)
@@ -68,11 +70,19 @@ def test_every_way_in_is_one_visible_button_and_reset_stands_apart(qtbot) -> Non
     buttons = [
         pane.btn_open_video,
         pane.btn_open_sensor,
+        pane.btn_open_imaging,
         pane.btn_open_session,
         pane.btn_align,
         pane.btn_reset_session,
     ]
-    assert [b.action for b in buttons] == [open_video, open_sensor, open_session, sync, reset]
+    assert [b.action for b in buttons] == [
+        open_video,
+        open_sensor,
+        open_imaging,
+        open_session,
+        sync,
+        reset,
+    ]
     assert all(b.isVisible() and b.text() == b.action.text() for b in buttons)
     tops = [b.geometry().top() for b in buttons]
     assert tops == sorted(tops), "stacked in the order a session is built"

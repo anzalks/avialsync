@@ -6062,7 +6062,7 @@ Ladder, belt and ball editors, identity review and the alignment dialog use the 
 
 **Measured** (`tests/benchmarks/test_bench_nwb.py`, Apple Silicon): 32 ch × 30 kHz × 60 s gzip ephys imports in 3.8 s; 600 ROI channels × 50 000 samples in 2.2 s (13.5 s before `ChannelStage.materialize` wrote and returned one-chunk channels without a memory map: creating, flushing and re-mapping each fresh file cost ~17 ms per channel on macOS); a 512×512 16-bit proxy encodes at ~230 frames/s on incompressible data; scanning a file's structure 1.3 ms; a second open (import and proxy cached) 57 ms. Budgets are in BLUEPRINT.md.
 
-**Superseded by D-189 for storage support.** ndx-pose as a pose schema, ragged trial columns as
+**Superseded by D-189 for storage support and D-191 for the default imaging viewer.** ndx-pose as a pose schema, ragged trial columns as
 message text, and external videos' per-frame timestamps remain outside this decision.
 
 ## 2026-10 · D-189 · NWB 1.x, Zarr and DANDI streams use the NWB chunk reader
@@ -6085,5 +6085,55 @@ External videos named by a streamed NWB remain local-file references and are rep
 **Dependencies.** `zarr` (MIT), `fsspec` (BSD-3-Clause), and `aiohttp` (MIT AND Apache-2.0)
 are pip-installable on Windows, macOS and Linux and compatible with AGPL-3.0-or-later.
 Each is needed for lazy local Zarr or remote range/chunk reads; none requires an OS package. Proxy
-encoding remains one atomic operation: a cancellation requested during encoding takes effect only
-before it starts, while its percentage appears in the status area and Tasks panel.
+encoding remains one atomic operation: cancellation is available before encoding and disabled
+while the copy is being written, while its percentage appears in the status area and Tasks panel.
+
+---
+
+## 2026-10 · D-190 · Two-photon stacks are imaging sources with their own viewer
+
+**Context.** A two-photon acquisition is a time-indexed array, not a camera container. Feeding
+HDF5 or TIFF stacks through PyAV would lose dataset axes, channels and acquisition timing, and
+eagerly loading a stack would exceed the idle-RAM budget. Users need to adjust brightness and
+contrast, smooth noisy frames, and overlay channels -- and none of that may move a frame in time.
+
+**Decision.** `ImagingSource` is a third file-source plugin contract alongside the frozen
+`TimeSeriesSource` and `VideoSource`: `open(path, config) -> ImagingMetadata` (frame times,
+shape, dtype, channel count) and `read_frame(index, channel=0)` returning one 2D plane. The
+HDF5 reader reads one hyperslab, the TIFF reader one page (plain, OME, and ScanImage's
+channel-interleaved pages with its scan rate as timing). Channels are a view choice; a dataset,
+axis order, depth plane or missing frame rate is an import choice, raised as
+`ImagingChoiceRequired`, asked once, and saved in the session -- never guessed. A typed frame
+rate beats the file's.
+
+The viewer sits in the lower half of a vertical split beneath the 3D pane and picks the frame
+whose presentation interval contains master `t`, like video. One reader thread per shown stack
+coalesces requests, caches raw planes under a 128 MiB byte budget (strided to ≤ 1024 px), and
+renders there, not on the UI thread (the D-093 rule for video): each channel has a measured
+reference window (0.5/99.5 percentiles) plus brightness (moves the centre by up to one
+reference width) and contrast (scales the width by up to 16× either way); the moving average
+is **centred and odd-length (1–31)**, truncated at the stack ends, so averaging never shifts an
+event in time; visible channels add in named colours (defaults green/magenta/cyan/yellow,
+CVD-checked, colour named beside each swatch). Display edits are undoable
+`SetImagingViewCommand`s that merge per stack and control; a measured reference window is
+stored with the view so a reopened session draws the same picture. `.avv` schema 13 records
+loader, import choices, time mapping (ms/h, D-184) and display view per stack. File → Open 2P
+Imaging… has a button on the Sources page (D-181).
+
+**Dependencies.** Existing `h5py` and new `tifffile` are BSD-3-Clause and compatible with
+AGPL-3.0-or-later. `tifffile` is pure Python and pip-installable on Windows, macOS, and Linux.
+`napari`, `Dask`, and `imagecodecs` are not runtime dependencies; a page needing an absent
+codec is reported for that page. PyAV remains the decoder for videos. The PyInstaller bundle
+collects the installed `h5py` and `tifffile` licence notices under `licenses/`.
+
+---
+
+## 2026-10 · D-191 · NWB image series use the two-photon viewer by default
+
+**Decision.** An NWB session offers each embedded `ImageSeries` as an `ImagingSource` in the
+two-photon viewer. `NWBStackSource` opens the selected HDF5, Zarr or DANDI container and slices
+one stored image plane per frame request. NWB timestamps remain the source frame times, so the
+series keeps its position against the file's time series on the master clock. A named series path
+is still the source identity for undo, coverage, save and relink. The existing `NWBImagingSource`
+video proxy remains available for video-compatible consumers; encoding it reports progress and
+finishes an in-progress copy before publishing its cache entry.

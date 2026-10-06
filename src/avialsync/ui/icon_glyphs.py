@@ -69,6 +69,9 @@ GLYPHS: dict[str, str] = {
     # Kinds of source and inspector pages
     "video": '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/>',
     "data": '<path d="M3 12c2-6 4-6 6 0s4 6 6 0 4-6 6 0"/>',
+    # A field of view with two cells in it: an imaging stack, not a camera.
+    "imaging": '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="10" r="2.5"/>'
+    '<circle cx="15.5" cy="15" r="2"/>',
     "sources": '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
     "values": '<path d="M4 6h3"/><path d="M11 6h9"/><path d="M4 12h3"/><path d="M11 12h9"/>'
     '<path d="M4 18h3"/><path d="M11 18h9"/>',

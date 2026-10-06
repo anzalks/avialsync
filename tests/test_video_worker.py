@@ -75,7 +75,14 @@ def test_atomic_proxy_finishes_when_cancel_is_requested_during_encoding(monkeypa
     worker = VideoOpenWorker(Path("camera.raw"))
     opened: list[str] = []
     cancelled: list[bool] = []
-    worker.progress.connect(lambda value: worker.cancel() if value == 50 else None)
+    cancellable_at_half: list[bool] = []
+
+    def halfway(value: int) -> None:
+        if value == 50:
+            cancellable_at_half.append(Job("Encoding", worker, QThread()).can_cancel())
+            worker.cancel()
+
+    worker.progress.connect(halfway)
     worker.opened.connect(lambda _original, _loader, media: opened.append(media))
     worker.cancelled.connect(lambda: cancelled.append(True))
 
@@ -83,6 +90,7 @@ def test_atomic_proxy_finishes_when_cancel_is_requested_during_encoding(monkeypa
 
     assert opened == ["camera.proxy.mp4"]
     assert not cancelled
+    assert cancellable_at_half == [False]
 
 
 def test_job_status_shows_reported_proxy_progress(qapp) -> None:
