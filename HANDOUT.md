@@ -334,7 +334,9 @@ Two product laws govern that phase and outrank convention:
   dialog leads with the source's properties and always opens. D-184: clock drift is
   `drift_ms_per_hour` everywhere -- core, sessions (schema 12), fits, fields and text -- with
   `core/drift.py` the one place that reads an older file's per-million rate. D-185: rates read at
-  one decimal (two where tenths hide 29.97), master times at ms.
+  one decimal (two where tenths hide 29.97), master times at ms. D-186: each loader's declared
+  channel units ride `SourceInspection.channel_units` to the plot gutter and Values panel;
+  `inspection.units()` merges import-wizard units over them, and an older cache is back-filled once.
 - **P4.6 plot review/sweep UX refinement — core implementation complete; certification remains
   (D-044):** `archive/plans/PLOT_UX_PLAN.md` remains the canonical contract. Review/Sweep/Scope, the shared
   continuous time-span control, master navigator viewport drag, one bottom axis and channel gutters,

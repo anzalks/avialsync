@@ -6017,3 +6017,13 @@ Ladder, belt and ball editors, identity review and the alignment dialog use the 
 **Context.** Several readouts carried more digits than the quantity supports: frame rates at three decimals, master times on hover at microseconds, thresholds and event times at six decimals.
 
 **Decision.** Frame and sample rates show one decimal, or two when tenths would hide the difference (29.97 against 30 is 3.6 s per hour), through `time_format.format_rate`: overlay, Video Properties, source cards. Times a person reads -- Data Streams hover, metadata start, stimulus-grid events and windows, nudge messages -- show milliseconds. Threshold fields take three decimals. Kept at full precision on purpose: offsets (the spin box rounds what it stores, D-173), alignment residuals, the copyable Values text summary, props coordinates and calibration factors, and the stimulus grid's custom speed (30/230 real-time slow motion needs it).
+
+---
+
+## 2026-10 · D-186 · Plot labels carry the unit the file declares
+
+**Context.** Loaders declare each channel's unit (`ChannelInfo.unit`: µV or mV from Neo/Open Ephys, deg and rpm from the AOL encoder, px from 2D tracking), but only units typed into the import wizard reached the plots, so an encoder velocity row read "encoder_velocity" with no unit.
+
+**Decision.** The importer records the declared units on `SourceInspection.channel_units` (omitting channels that declare none), which rides the cache manifest so a cache hit keeps them. `SourceInspection.units()` merges import-wizard units over the declared ones; the import controller scopes them per source and hands them to the plot gutter (`name` then `(unit)`, D-181) and the Values panel. A manifest written before this field exists is back-filled once on its next open: the worker asks the loader for its channel list only -- no samples are parsed -- and rewrites the manifest. A loader that cannot answer leaves the bare name.
+
+**Consequences.** No cache version bump and no re-import; a unit appears the first time an existing recording is reopened.

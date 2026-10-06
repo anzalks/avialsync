@@ -1,5 +1,6 @@
 """Asynchronous data source importer pipeline."""
 
+import dataclasses
 import json
 import logging
 import os
@@ -65,6 +66,11 @@ def _gap_locations(times: np.ndarray, gap_mask: np.ndarray) -> list[float]:
     return [float(value) for value in times[indices]]
 
 
+def _declared_units(channels: Any) -> dict[str, str]:
+    """Each named channel's declared unit, omitting the ones that declare none."""
+    return {str(ch.name): str(ch.unit) for ch in channels if getattr(ch, "unit", "")}
+
+
 class ImportWorker(QObject):
     """Background worker for parsing and building pyramids from time-series sources."""
 
@@ -89,6 +95,8 @@ class ImportWorker(QObject):
             cached = self._cached_result(cache_mgr)
             if cached is not None:
                 cache_dir, channels, bounds, inspection = cached
+                if inspection.channel_units is None:
+                    inspection = self._backfill_units(cache_dir, channels, bounds, inspection)
                 self.progress.emit(100)
                 self.finished.emit(str(self.path), str(cache_dir), channels, bounds, inspection)
                 return
@@ -156,6 +164,7 @@ class ImportWorker(QObject):
                 integrity_flags=flags,
                 fps_binding=fps_binding,
                 messages=self._collect_messages(loader),
+                channel_units=_declared_units(channels),
             )
 
             self._write_manifest(temp_dir, channel_names, (t0, t1), inspection)
@@ -167,6 +176,41 @@ class ImportWorker(QObject):
         except Exception as e:
             traceback.print_exc()
             self.error.emit(str(e))
+
+    def _backfill_units(
+        self,
+        cache_dir: Path,
+        channels: list[str],
+        bounds: tuple[float, float],
+        inspection: SourceInspection,
+    ) -> SourceInspection:
+        """Read the units a cache written before they were recorded never kept.
+
+        Only the channel list is asked for -- no samples are parsed -- and the
+        manifest is rewritten so this happens once per cached source. A loader
+        that cannot say is not an error: the plots show the bare channel name.
+        """
+        units: dict[str, str] = {}
+        loader = None
+        try:
+            loader = self.loader_class()
+            loader.open(self.path, self.config)
+            units = _declared_units(loader.channels())
+        except Exception:  # noqa: BLE001 - optional metadata from a plugin boundary
+            logger.info("Could not read channel units for %s", self.path, exc_info=True)
+        finally:
+            close = getattr(loader, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception:  # noqa: BLE001 - closing a reader we only asked for names
+                    logger.debug("Closing %s after reading units failed", self.path)
+        updated: SourceInspection = dataclasses.replace(inspection, channel_units=units)
+        try:
+            self._write_manifest(cache_dir, channels, bounds, updated)
+        except OSError:
+            logger.info("Could not record channel units in the cache for %s", self.path)
+        return updated
 
     @staticmethod
     def _collect_messages(loader: Any) -> tuple[Message, ...]:

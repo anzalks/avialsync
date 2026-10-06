@@ -183,7 +183,10 @@ Streams areas stay small. The layout you had comes back when the first recording
 - Each row's hide button appears when the pointer is over the row or the button has keyboard
   focus; right-click a row and choose **Hide** for the same command. Every trace is named in its
   own row's gutter, so colour is never the only way to tell traces apart. The gutter says what the
-  axis is, the channel and its unit; the tick numbers give its range.
+  axis is, the channel and its unit; the tick numbers give its range. The unit is the one the file
+  declares -- µV or mV for electrophysiology, deg and rpm for an encoder, px for 2D tracking --
+  unless you set one in the import wizard, which wins. A channel whose file declares none shows
+  its name alone. The **Values** page uses the same units.
 - On a short window or with a large font, the video, plot and Data Streams column scrolls
   vertically instead of the window refusing to shrink.
 - The playback row's loop buttons mark an A/B range for inspection or export: **Set In** (`[` or `I`)

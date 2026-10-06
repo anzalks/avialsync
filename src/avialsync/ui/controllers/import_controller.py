@@ -365,18 +365,13 @@ def on_import_finished(
         if inspection.messages:
             window.message_store.set_source_mapping(path, offset, drift)
             window.message_store.set_source_messages(path, inspection.messages)
-        # Extract per-channel units from import config ("units" key → dict or mapping)
-        units_cfg = inspection.import_config.get("units", {})
-        if isinstance(units_cfg, dict):
-            # Units are source-scoped: two files may both declare "force_z"
-            # in different units and neither may relabel the other's row.
-            scoped: dict[ChannelKey | str, str] = {
-                ChannelKey(path, str(channel)): str(unit) for channel, unit in units_cfg.items()
-            }
-            window._channel_units.update(
-                {key: unit for key, unit in scoped.items() if isinstance(key, ChannelKey)}
-            )
-            window.plot_pane.set_channel_units(scoped)
+        # Declared by the loader, overridden by the import wizard (D-186); source-
+        # scoped, so two files' "force_z" never relabel each other's row.
+        scoped: dict[ChannelKey | str, str] = {
+            ChannelKey(path, channel): unit for channel, unit in inspection.units().items()
+        }
+        window._channel_units.update({k: u for k, u in scoped.items() if isinstance(k, ChannelKey)})
+        window.plot_pane.set_channel_units(scoped)
         # Overlay gap markers on each channel from this source
         rep = inspection.import_report
         if rep and rep.gap_locations:
