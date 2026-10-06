@@ -62,17 +62,58 @@ def human_file_size(size_bytes: int) -> str:
     return "0 B"
 
 
+#: Pixel formats whose name does not carry a depth but whose samples are 8-bit.
+_EIGHT_BIT_FORMATS = ("gray", "rgb24", "bgr24", "rgba", "bgra", "argb", "abgr", "nv12", "nv21")
+
+
+def bit_depth_of(pixel_format: str) -> int | None:
+    """Bits per sample named by an FFmpeg pixel format, or None when it says nothing.
+
+    ``gray12le`` and ``yuv420p10le`` carry the depth in the name; ``yuv420p``
+    and ``gray`` are 8-bit; ``rgb48le`` is 16. A decoded frame is still the
+    authority (``SourceFormat.bits``); this is for before the first frame.
+    """
+    import re
+
+    name = pixel_format.lower().strip()
+    if not name:
+        return None
+    if name.startswith(("rgb48", "bgr48", "rgba64", "bgra64")):
+        return 16
+    match = re.search(r"(?:gray|p|f)(\d{1,2})(?:le|be)?$", name)
+    if match and 8 <= int(match.group(1)) <= 32:
+        return int(match.group(1))
+    if name in _EIGHT_BIT_FORMATS or re.fullmatch(r"yuv[aj]?4[0-4][0-4]p", name):
+        return 8
+    return None
+
+
+def format_picture(metadata: VideoMetadata, bits: int | None = None) -> str:
+    """``1440×1080 · 12-bit``: what the picture is, for the overlay and properties."""
+    depth = bits if bits is not None else bit_depth_of(metadata.pixel_format)
+    parts = []
+    if metadata.width and metadata.height:
+        parts.append(f"{metadata.width}×{metadata.height}")
+    if depth is not None:
+        parts.append(f"{depth}-bit")
+    return " · ".join(parts)
+
+
 def format_video_osd(
     t: float,
     current_fps: float,
     metadata: VideoMetadata,
     frame: tuple[int, int | None] | None = None,
     detail: str = "full",
+    bits: int | None = None,
 ) -> str:
     """Build the timestamp-authoritative video-pane information block.
 
-    ``detail`` is ``"compact"`` -- one line, time and frame, the default on a
-    pane (D-174) -- or ``"full"``, which adds the rate, codec and size lines.
+    ``detail`` is ``"compact"`` -- time and frame, then resolution and bit
+    depth on a second line, the default on a pane (D-174, D-183) -- or
+    ``"full"``, which adds
+    the rate, codec, pixel format and size lines. ``bits`` is the decoded
+    frame's depth when known; otherwise it is read from the pixel format.
 
     ``frame`` is ``(index, total)``, both counted the way every other frame
     number in the app is: zero-based, so what the overlay shows is the same
@@ -88,8 +129,13 @@ def format_video_osd(
     else:
         index, total = frame
         frame_text = f"{index}" if total is None else f"{index} / {total - 1}"
+    picture = format_picture(metadata, bits)
     if detail == "compact":
-        return f"{h:02d}:{m:02d}:{s:06.3f} · f {frame_text}"
+        # Two short lines rather than one long one: when; then what the picture
+        # is. One long line wrapped wherever the pane ran out, and squeezed the
+        # camera name beside it.
+        compact = f"{h:02d}:{m:02d}:{s:06.3f} · f {frame_text}"
+        return f"{compact}\n{picture}" if picture else compact
     if metadata.is_vfr:
         rate_lines = (
             f"VFR: {metadata.min_frame_rate:.1f}–{metadata.max_frame_rate:.1f} fps"
@@ -105,6 +151,8 @@ def format_video_osd(
         f"Frame: {frame_text}\n"
         f"{rate_lines}\n"
         f"Codec: {codec} · Size: {human_file_size(metadata.file_size_bytes)}"
+        + (f"\nPicture: {picture}" if picture else "")
+        + (f" · {metadata.pixel_format}" if picture and metadata.pixel_format else "")
     )
 
 
@@ -159,7 +207,10 @@ class VideoTimingMixin:
     def osd_text(self, detail: str) -> str:
         """The readout for the frame last shown, at *detail* (a snapshot asks for full)."""
         t, fps = getattr(self, "_osd_last", (0.0, 0.0))
-        return format_video_osd(t, fps, self._metadata, self._source_frame(t), detail)
+        # The decoded frame's depth when there is one: the file's pixel format
+        # only names what the encoder was asked for.
+        bits = getattr(getattr(self, "source_format", None), "bits", None)
+        return format_video_osd(t, fps, self._metadata, self._source_frame(t), detail, bits)
 
     def _update_osd(self, t: float, fps: float) -> None:
         self._osd_last = (t, fps)

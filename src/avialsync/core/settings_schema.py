@@ -162,7 +162,8 @@ SETTINGS: tuple[Setting, ...] = (
         kind=str,
         choices=("compact", "full"),
         help_text=(
-            "Compact shows time and frame on one line; full adds rate, codec and size. "
+            "Compact shows time and frame, then resolution and bit depth; full adds rate, "
+            "codec, pixel format and size. "
             "Hide it with View > Overlays."
         ),
     ),

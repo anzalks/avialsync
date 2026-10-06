@@ -21,6 +21,7 @@ from pathlib import Path
 import numpy as np
 from PySide6.QtCore import (
     Q_ARG,
+    QEvent,
     QMetaObject,
     QObject,
     QPointF,
@@ -544,6 +545,51 @@ def _saved_osd_detail() -> str:
     return value if value in _OSD_DETAILS else "compact"
 
 
+class _ChromeOsd(QLabel):
+    """The timecode block: its natural width when it fits, wrapped when not (D-183).
+
+    It used to keep its natural width at any pane size, so at three cameras the
+    full block ran off the right edge. Now it takes the room the pane has left
+    after the camera name's shortest form, and wraps at its spaces when that is
+    less, so every word stays on screen.
+    """
+
+    def __init__(self, reserve: Callable[[], int]) -> None:
+        super().__init__()
+        self.setWordWrap(True)
+        self._reserve = reserve
+        self._longest = -1
+
+    def setText(self, text: str) -> None:  # noqa: N802
+        super().setText(text)
+        longest = max((len(line) for line in text.splitlines()), default=0)
+        if longest != self._longest:
+            # Refitted only when the longest line changes length: the text is
+            # rewritten every displayed frame, its width almost never.
+            self._longest = longest
+            self.fit()
+
+    def fit(self) -> None:
+        """Size to the longest line, or to the pane's free width if that is less."""
+        host = self.parentWidget()
+        if host is None or self._longest < 0:
+            return
+        margins = self.contentsMargins()
+        natural = (
+            self.fontMetrics().horizontalAdvance("0" * self._longest)
+            + margins.left()
+            + margins.right()
+            + 2
+        )
+        free = max(48, host.width() - self._reserve())
+        self.setFixedWidth(min(natural, free))
+
+    def changeEvent(self, event: QEvent) -> None:
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.FontChange:
+            self.fit()
+
+
 class _ChromeName(ElidedLabel):
     """The camera name: elides when the pane is narrow, never asks for more."""
 
@@ -683,6 +729,8 @@ class VideoPane(VideoTimingMixin, QWidget):
         if isinstance(source_format, SourceFormat):
             self.source_format = source_format
             self.source_format_detected.emit(source_format)
+            # The decoded depth replaces the one read from the pixel format.
+            self.lbl_osd.setText(self.osd_text(self._osd_detail))
 
     def set_display_levels(self, levels: DisplayLevels) -> None:
         """Apply a display window to this camera.
@@ -955,6 +1003,7 @@ class VideoPane(VideoTimingMixin, QWidget):
             self.lbl_name.setVisible(True)
         else:
             self.lbl_name.setVisible(False)
+        self.lbl_osd.fit()
 
     def apply_overlay_visibility(self, visibility: dict[str, bool]) -> None:
         """Show or hide each registered overlay layer on this pane (D-090).
@@ -1053,7 +1102,8 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.lbl_name.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         self._osd_detail = _saved_osd_detail()
-        self.lbl_osd = QLabel(format_video_osd(0.0, 0.0, self._metadata, None, self._osd_detail))
+        self.lbl_osd = _ChromeOsd(self._osd_reserve)
+        self.lbl_osd.setText(format_video_osd(0.0, 0.0, self._metadata, None, self._osd_detail))
         mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
         self.lbl_osd.setStyleSheet(chrome_style)
         self.lbl_osd.setContentsMargins(4, 4, 4, 4)
@@ -1140,6 +1190,17 @@ class VideoPane(VideoTimingMixin, QWidget):
         ]
         rects.append(QRect(self.zoom_controls.pos(), self.zoom_controls.sizeHint()))
         return tuple(rects)
+
+    def _osd_reserve(self) -> int:
+        """Width the timecode leaves for the camera name's shortest form."""
+        if not self.lbl_name.isVisible():
+            return 8
+        return int(self.lbl_name.minimumSizeHint().width()) + 16
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        if hasattr(self, "lbl_osd"):
+            self.lbl_osd.fit()
 
     def set_osd_detail(self, detail: str) -> None:
         """Show the timecode as one compact line or the full block (D-174)."""

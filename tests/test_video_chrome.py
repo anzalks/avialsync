@@ -96,3 +96,52 @@ def test_one_or_two_cameras_are_sized_to_their_picture(qtbot, qapp, count: int) 
         assert panes[0].maximumWidth() == 16777215, "three or more cameras fill their cells"
     finally:
         grid.shutdown()
+
+
+@pytest.mark.parametrize(
+    ("pix_fmt", "bits"),
+    [
+        ("gray12le", 12),
+        ("yuv420p10le", 10),
+        ("yuv420p", 8),
+        ("yuvj422p", 8),
+        ("gray", 8),
+        ("rgb48le", 16),
+        ("gray16be", 16),
+        ("", None),
+    ],
+)
+def test_bit_depth_is_read_from_the_pixel_format(pix_fmt: str, bits: int | None) -> None:
+    from avialsync.ui.video_timing import bit_depth_of
+
+    assert bit_depth_of(pix_fmt) == bits
+
+
+def test_overlay_names_resolution_and_bit_depth() -> None:
+    """D-183: what the picture is, beside when it is, at both detail levels."""
+    metadata = VideoMetadata(width=1440, height=1080, pixel_format="gray12le", codec="h264")
+    compact = format_video_osd(1.0, 30.0, metadata, (30, 120), "compact")
+    assert compact == "00:00:01.000 · f 30 / 119\n1440×1080 · 12-bit"
+    full = format_video_osd(1.0, 30.0, metadata, (30, 120), "full")
+    assert "Picture: 1440×1080 · 12-bit · gray12le" in full.splitlines()
+    # A decoded frame's depth outranks the file's pixel format.
+    assert "1440×1080 · 10-bit" in format_video_osd(1.0, 30.0, metadata, (30, 120), "compact", 10)
+
+
+@pytest.mark.parametrize("detail", ["compact", "full"])
+def test_overlay_text_wraps_inside_a_narrow_pane(qtbot, qapp: QApplication, detail: str) -> None:
+    """Nothing in the overlay runs off the pane: lines wrap, the name elides."""
+    pane = _pane(qtbot, 240, detail)
+    try:
+        pane.set_video_metadata(
+            VideoMetadata(width=1440, height=1080, pixel_format="gray12le", codec="h264")
+        )
+        pane.set_osd_detail(detail)
+        qapp.processEvents()
+        osd = pane.lbl_osd
+        assert osd.geometry().right() <= pane.width()
+        assert osd.geometry().left() >= 0
+        assert osd.height() >= osd.heightForWidth(osd.width()), "every wrapped line is shown"
+        assert "1440×1080" in osd.text() and "12-bit" in osd.text()
+    finally:
+        pane.close()

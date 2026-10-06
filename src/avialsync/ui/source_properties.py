@@ -27,6 +27,7 @@ from avialsync.core.inspection import SourceInspection
 from avialsync.core.source import VideoMetadata
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import follow_palette
+from avialsync.ui.video_timing import bit_depth_of
 
 if TYPE_CHECKING:
     pass
@@ -181,6 +182,8 @@ class VideoPropertiesPanel(_PropertiesBase):
         w = metadata.width
         h = metadata.height
         self._add_row("Resolution", f"{w}×{h}" if w and h else "—")
+        depth = bit_depth_of(metadata.pixel_format)
+        self._add_row("Bit depth", f"{depth}-bit" if depth is not None else "—")
         self._add_row("Timing", "VFR" if metadata.is_vfr else "CFR")
         self._add_row("Nominal CFR", f"{metadata.nominal_fps:.3f} fps")
         if metadata.is_vfr:
@@ -219,6 +222,11 @@ class VideoPropertiesPanel(_PropertiesBase):
             return
         self._update_row("Decoder fps", f"{pane.displayed_frame_rate_now():.3f}")
         self._update_row("Decode mode", "software (PyAV)")
+        # The decoded frame is the authority on depth; the pixel format only
+        # names what the encoder was asked for.
+        decoded = getattr(pane, "source_format", None)
+        if decoded is not None:
+            self._update_row("Bit depth", f"{decoded.bits}-bit ({decoded.pix_fmt})")
 
     def _toggle(self) -> None:
         super()._toggle()

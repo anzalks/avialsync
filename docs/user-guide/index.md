@@ -153,10 +153,16 @@ Streams areas stay small. The layout you had comes back when the first recording
   would have to scroll to see. It is composed rather than captured, so nothing is cut off at the
   edge of a pane and each camera is captioned with its own frame number, timecode, and format.
 - **Fullscreen** expands the selected video view.
-- Each camera shows its name and a one-line timecode (time and frame number) at the top of the
-  picture; a long name shortens first. **Preferences → Overlays → Video timecode detail** switches
-  to the full block with rate, codec and size, and **View → Overlays** hides either. One or two
-  cameras are sized to their picture's shape instead of sitting in a black field.
+- Each camera shows its name at the top left of the picture and, at the top right, its time and
+  frame number with its resolution and bit depth beneath. A long name shortens first, and on a
+  narrow pane the readout wraps rather than running off the edge. **Preferences → Overlays →
+  Video timecode detail** switches to the full block with rate, codec, pixel format and size, and
+  **View → Overlays** hides either. One or two cameras are sized to their picture's shape instead
+  of sitting in a black field.
+- A camera's properties (container, codec, resolution, bit depth, pixel format, rates, frame
+  count, duration) open from its card's quality badge, from **Properties** in the card's **⋯**
+  menu, or by right-clicking the picture and choosing **Properties…**; the import report follows
+  them. The bit depth shown is the decoded frame's own.
 - **Fit All Videos** (**View → Fit All Videos**, `Ctrl+Shift+0`) sets every camera back to its
   whole frame: zoom 1.00×, no pan. Each camera's own reset button does the same for one camera.
   **Fit Y** under the plots is different: it fits the plots' vertical range.

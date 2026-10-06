@@ -1244,26 +1244,22 @@ class MainWindow(QMainWindow):
     # ── Inspection / properties dialogs ─────────────────────────────
 
     def _show_video_properties(self, path: str) -> None:
-        """Show the VideoPropertiesPanel for a video (triggered by badge click)."""
-        ins = self._inspections.get(path)
-        if ins is None:
-            return
-        from avialsync.ui.import_report import ImportReportDialog
-
-        dlg = ImportReportDialog(ins, self)
-        dlg.setWindowTitle(f"Video Properties — {Path(path).name}")
-        dlg.exec()
+        """What this camera is -- resolution, depth, codec, rates -- and its import report."""
+        self._show_source_properties(path, tr("Video Properties — {name}"))
 
     def _show_sensor_properties(self, path: str) -> None:
-        """Show sensor properties for a data source."""
-        ins = self._inspections.get(path)
-        if ins is None:
-            return
+        self._show_source_properties(path, tr("Sensor Properties — {name}"))
+
+    def _show_source_properties(self, path: str, title: str) -> None:
+        """Properties first, then the import report; shown even when no report exists."""
         from avialsync.ui.import_report import ImportReportDialog
 
-        dlg = ImportReportDialog(ins, self)
-        dlg.setWindowTitle(f"Sensor Properties — {Path(path).name}")
-        dlg.exec()
+        properties = self.sidebar.properties_text(path)
+        ins = self._inspections.get(path)
+        if not properties and ins is None:
+            return
+        name = Path(path).name
+        ImportReportDialog(ins, self, properties=properties, title=title.format(name=name)).exec()
 
     def _show_import_report(self, path: str) -> None:
         """Show the full ImportReport dialog for a data source."""

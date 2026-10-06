@@ -167,7 +167,10 @@ OVERLAY_LAYERS: tuple[OverlayLayer, ...] = (
         label="Timecode and format readout",
         group="Camera chrome",
         default_visible=True,
-        description="Time, frame number, declared and measured rate, codec, and size.",
+        description=(
+            "Time, frame number, resolution and bit depth; at full detail also the rate, "
+            "codec, pixel format and size."
+        ),
     ),
     OverlayLayer(
         overlay_id="camera.no_footage",

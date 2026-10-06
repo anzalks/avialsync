@@ -5986,3 +5986,16 @@ Ladder, belt and ball editors, identity review and the alignment dialog use the 
 **Decision.** The workspace column (notifications, videos and 3D, plots, Data Streams, transport) sits in a frameless scroll area. When the window is at least the column's minimum, the column fills the viewport exactly as before; below it, a vertical scrollbar appears. The window minimum therefore no longer depends on font size. The inspector dock is unaffected; its pages scroll on their own.
 
 **Alternatives.** Lowering every pane's floor further would make panes unusable at small fonts to fit large ones; refusing to shrink is what this replaces.
+
+---
+
+## 2026-10 · D-183 · The overlay says what the picture is; properties always open; nothing clips
+
+**Context.** A camera's resolution and bit depth were only in the collapsed card panel. The quality badge and the picture's Properties… opened an import-report dialog that listed no properties and returned silently when no report was recorded, so properties seemed lost. The full OSD block kept its natural width and ran off narrow panes.
+
+**Decision.**
+- The compact overlay is two lines: time and frame, then resolution and bit depth (`1440×1080 · 12-bit`). The full block adds a Picture line with the pixel format. Depth comes from the decoded frame (`SourceFormat.bits`) once one exists, before that from the pixel format (`video_timing.bit_depth_of`).
+- The timecode label takes its natural width when the pane has room and wraps at its spaces when it does not, leaving the camera name its shortest form; the name elides first. Every word stays inside the pane.
+- One properties dialog for badge, card and picture: the source's properties panel as text first (now with Bit depth), then the import report when there is one. It opens whether or not a report exists.
+
+**Amends** D-174 ("compact is one line").

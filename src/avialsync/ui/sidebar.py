@@ -902,12 +902,15 @@ class VideoInfoWidget(QFrame):
         self._loader = loader
         from avialsync.ui.source_properties import VideoPropertiesPanel
 
-        self._props_panel.setParent(None)
-        self._props_panel.deleteLater()
+        old = self._props_panel
         self._props_panel = VideoPropertiesPanel(loader=loader, parent=self)
         panel_layout = self.layout()
         if panel_layout is not None:
-            panel_layout.addWidget(self._props_panel)
+            # Replaced in place: setParent(None) would make the old panel a
+            # top-level window for the moment before it is deleted.
+            panel_layout.replaceWidget(old, self._props_panel)
+        old.hide()
+        old.deleteLater()
 
     def set_pane(self, pane: object) -> None:
         """Attach the VideoPane so its live decode state can be shown."""
@@ -1203,6 +1206,17 @@ class SidebarPane(QWidget):
         w = self._video_widgets.get(path)
         if w:
             w.set_loader(loader)
+
+    def properties_text(self, path: str) -> str:
+        """The source's properties panel as plain text, read now; empty if unknown."""
+        widget: QWidget | None = self._video_widgets.get(path) or self.sensor_widget(path)
+        panel = getattr(widget, "_props_panel", None)
+        if panel is None:
+            return ""
+        refresh = getattr(panel, "refresh_live", None)
+        if callable(refresh):
+            refresh()
+        return str(panel.as_plain_text())
 
     def set_video_pane(self, path: str, pane: object) -> None:
         """Forward VideoPane reference to VideoInfoWidget for live decode state."""
