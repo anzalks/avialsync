@@ -6299,3 +6299,8 @@ other source-derived sidecars use D-160's full-name encoding.
 `publish_dir`. Format metadata records `avialsync <version>`, schema, UTC write time, source names
 and sizes, session and accepted TimeMap when supplied, and edit counts. The publication boundary
 protects source files even when a caller's save dialog gives back a loaded source's path.
+
+Export prompts follow D-196: a save or folder prompt takes its title from its File action, and
+`i18n.untranslated_calls` reads the titles passed to `choose_file` and `choose_folder`. The Exports
+page has no heading of its own, since its tab names it, and uses its sibling pages' margins. A
+folder prompt opens in that kind's last folder.

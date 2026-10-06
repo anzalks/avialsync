@@ -315,6 +315,8 @@ def test_the_new_modules_are_fully_wrapped() -> None:
         "props_panel.py",
         "props_app.py",
         "prop_overlay.py",
+        "export_panel.py",
+        "export_destinations.py",
     ):
         path = Path("src/avialsync/ui") / name
         assert untranslated_calls(path) == [], f"{name} has unwrapped user-facing text"

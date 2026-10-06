@@ -166,7 +166,17 @@ USER_FACING_DIALOG_ARGUMENTS = {
     "getOpenFileNames": (1,),
     "getSaveFileName": (1,),
     "getExistingDirectory": (1,),
+    # ui.export_destinations wraps the two save prompts; after (parent, kind).
+    "choose_file": (2,),
+    "choose_folder": (2,),
 }
+
+
+def _called_name(func: ast.expr) -> str | None:
+    """``QFileDialog.getSaveFileName`` and a bare ``choose_file`` alike."""
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return func.id if isinstance(func, ast.Name) else None
 
 
 def _user_facing_arguments(tree: ast.AST) -> list[tuple[int, ast.AST]]:
@@ -185,8 +195,8 @@ def _user_facing_arguments(tree: ast.AST) -> list[tuple[int, ast.AST]]:
             found.append((node.lineno, node.args[0]))
         elif isinstance(func, ast.Attribute) and func.attr in USER_FACING_MESSAGES and node.args:
             found.append((node.lineno, node.args[0]))
-        elif isinstance(func, ast.Attribute) and func.attr in USER_FACING_DIALOG_ARGUMENTS:
-            positions = USER_FACING_DIALOG_ARGUMENTS[func.attr]
+        elif (name := _called_name(func)) in USER_FACING_DIALOG_ARGUMENTS:
+            positions = USER_FACING_DIALOG_ARGUMENTS[name]
             found += [(node.lineno, node.args[i]) for i in positions if i < len(node.args)]
     return found
 

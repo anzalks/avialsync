@@ -282,7 +282,7 @@ def export_video_clip(window: MainWindow) -> None:
         path = choose_file(
             window,
             "clip",
-            tr("Export Trimmed Video"),
+            tr("Export Trimmed Video Clip"),
             Path("clip.mp4"),
             tr("Video files (*.mp4 *.mkv *.mov *.avi)"),
         )
@@ -290,9 +290,7 @@ def export_video_clip(window: MainWindow) -> None:
             return
         clips = [(window.video_grid.media_path_for(window.video_grid._paths[0]), t0, t1, path)]
     else:
-        out_dir = choose_folder(
-            window, "clip", tr("Select Directory for Trimmed Clips"), Path.home()
-        )
+        out_dir = choose_folder(window, "clip", tr("Export Trimmed Video Clip"), Path.home())
         if not out_dir:
             return
         # Read from what each pane decodes -- a proxy, for a source that has one
