@@ -64,6 +64,7 @@ def _file_open(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     act.setShortcut(QKeySequence(QKeySequence.StandardKey.Open))
     act.triggered.connect(window._open_session)
     _reg(act, "File")
+    window.sidebar.install_open_session_action(act)
 
     # The way to the recovery snapshot that does not depend on a launch-time
     # notification. The snapshot is written on every quit whether or not the

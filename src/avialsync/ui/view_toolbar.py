@@ -18,6 +18,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
 from avialsync.ui.action_button import ActionButton, ActionCheckBox
+from avialsync.ui.design_tokens import ControlRole, apply_role
 from avialsync.ui.i18n import tr
 
 __all__ = ["ViewToolbar"]
@@ -40,6 +41,8 @@ class ViewToolbar(QWidget):
         # Flag Frame marks the frame on screen: a video gesture, like the rest.
         self.flag_button = QPushButton(tr("Flag Frame"), self)
         self.flag_button.setToolTip(tr("Flag the current frame (M)"))
+        # One look for the whole row: every video tool is a glyph (D-181).
+        apply_role(self.flag_button, ControlRole.TOOL, "flag")
         self.flag_button.clicked.connect(self.flag_requested.emit)
         row.addWidget(self.flag_button)
         # Filled by the install_* methods once the window has built the
@@ -82,6 +85,7 @@ class ViewToolbar(QWidget):
     def install_fix_tracker_action(self, action: QAction) -> None:
         """Show the Fix Tracker toggle, driven by the menu's own QAction."""
         self.fix_tracker_button.set_action(action)
+        self.fix_tracker_button.set_icon_only("edit")
         self.fix_tracker_button.setAccessibleDescription(
             tr("Toggle dragging of tracked points in every video pane")
         )
@@ -98,6 +102,7 @@ class ViewToolbar(QWidget):
     def install_add_marker_action(self, action: QAction) -> None:
         """Show the Add 3D Marker toggle beside Fix Tracker, driven by its QAction."""
         self.add_marker_button.set_action(action)
+        self.add_marker_button.set_icon_only("marker")
         self.add_marker_button.setAccessibleDescription(
             tr("Name a new marker, then click it once in each camera to place it in 3D")
         )

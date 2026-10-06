@@ -522,7 +522,10 @@ def test_the_menu_entry_and_the_button_are_the_same_action(window: MainWindow) -
     button = window.view_toolbar.fix_tracker_button
 
     assert button.action is action
-    assert button.text() == action.text()
+    # D-181: a glyph, so the action's name is the button's accessible name; the
+    # tooltip is still the action's own.
+    assert button.text() == ""
+    assert button.accessibleName() == action.text().replace("&", "").rstrip("…").strip()
     assert button.toolTip() == action.toolTip()
     assert action.isCheckable() and button.isCheckable()
 

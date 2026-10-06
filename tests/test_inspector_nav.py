@@ -110,8 +110,13 @@ def test_a_pre_rail_tab_index_still_restores(window: MainWindow) -> None:
     settings = app_settings()
     settings.remove("inspector/page")
     settings.setValue("inspector/tab", 4)
-    session_controller.restore_geometry(window)
-    assert window._left_tabs.currentWidget() is window.props_app.tab
+    try:
+        session_controller.restore_geometry(window)
+        assert window._left_tabs.currentWidget() is window.props_app.tab
+    finally:
+        # Later windows in the session would otherwise open on Props.
+        settings.remove("inspector/tab")
+        settings.remove("inspector/page")
 
 
 def test_show_tasks_opens_the_popover_without_blocking(window: MainWindow, qtbot) -> None:

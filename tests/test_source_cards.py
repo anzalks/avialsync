@@ -40,18 +40,42 @@ def test_remove_is_in_the_overflow_last_and_marked(qtbot) -> None:
     assert "camera_1.mp4" in QApplication.clipboard().text()
 
 
-def test_one_split_open_button_and_reset_apart(qtbot) -> None:
+def test_every_way_in_is_one_visible_button_and_reset_stands_apart(qtbot) -> None:
+    """D-181: one full-width button per way to open, none behind a menu.
+
+    D-175's split button showed only Open Videos; Sensor/Ephys Data, Session and
+    Synchronize hid behind its arrow. Each is visible again, and each is its
+    menu's own QAction (rule 15). Reset Session is last, after a gap, marked
+    destructive by glyph as well as place.
+    """
+    from avialsync.ui.design_tokens import ControlRole, role_of
+
     pane = SidebarPane()
     qtbot.addWidget(pane)
     open_video = QAction("Open Videos…", pane)
     open_sensor = QAction("Open Sensor/Ephys Data…", pane)
+    open_session = QAction("Open Session…", pane)
+    sync = QAction("Synchronize TTL / events…", pane)
     reset = QAction("Reset Session", pane)
     pane.install_open_actions(open_video, open_sensor, reset)
-    assert pane.btn_open is not None and pane.session_menu_button is not None
-    assert pane.btn_open.defaultAction() is open_video
-    assert pane.btn_open.menu().actions() == [open_video, open_sensor]
-    assert pane.session_menu_button.menu().actions() == [reset]
-    assert reset not in pane.btn_open.menu().actions()
+    pane.install_open_session_action(open_session)
+    pane.install_align_action(sync)
+    pane.resize(280, 600)
+    pane.show()
+    buttons = [
+        pane.btn_open_video,
+        pane.btn_open_sensor,
+        pane.btn_open_session,
+        pane.btn_align,
+        pane.btn_reset_session,
+    ]
+    assert [b.action for b in buttons] == [open_video, open_sensor, open_session, sync, reset]
+    assert all(b.isVisible() and b.text() == b.action.text() for b in buttons)
+    tops = [b.geometry().top() for b in buttons]
+    assert tops == sorted(tops), "stacked in the order a session is built"
+    assert role_of(pane.btn_open_video) is ControlRole.PRIMARY
+    assert role_of(pane.btn_reset_session) is ControlRole.DESTRUCTIVE
+    assert pane._scroll_area.horizontalScrollBar().maximum() == 0
 
 
 def test_paths_show_their_folder_not_the_whole_tree(qtbot) -> None:
@@ -90,7 +114,7 @@ def test_four_cameras_and_twelve_files_show_every_name_and_badge(qtbot, qapp) ->
 
 
 def test_align_has_a_one_click_entry_beside_open_and_no_toolbar(qtbot) -> None:
-    """D-178: no main toolbar; Align → Synchronize is a glyph beside Open."""
+    """D-178: no main toolbar; Align → Synchronize sits with the open buttons (D-181)."""
     from PySide6.QtWidgets import QToolBar
 
     from avialsync.ui.main_window import MainWindow
@@ -100,5 +124,5 @@ def test_align_has_a_one_click_entry_beside_open_and_no_toolbar(qtbot) -> None:
     assert window.findChildren(QToolBar) == []
     button = window.sidebar.btn_align
     assert button.action is window._act_synchronize
-    assert button.text() == "" and button.accessibleName() == "Synchronize TTL / events"
+    assert button.text() == window._act_synchronize.text()
     window.close()

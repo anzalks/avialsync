@@ -135,6 +135,7 @@ from avialsync.ui.video_grid import VideoGrid
 from avialsync.ui.view_toolbar import ViewToolbar
 from avialsync.ui.wheel_panel import WheelPanel
 from avialsync.ui.wheel_tab import WheelTab
+from avialsync.ui.workspace_scroll import scroll_when_short
 
 logger = logging.getLogger(__name__)
 
@@ -725,7 +726,7 @@ class MainWindow(QMainWindow):
         self._enforce_splitter_policy()
         self._apply_default_splitter_sizes()
 
-        layout.addWidget(right_widget)
+        layout.addWidget(scroll_when_short(right_widget))  # D-182
 
         # Child widgets receive drag events before QMainWindow. Forward those
         # events to the single capability-routing implementation below.

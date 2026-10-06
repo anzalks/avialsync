@@ -8,7 +8,7 @@ The parts of day-to-day use that are not alignment, annotation, or import.
 drift, any accepted mappings and the evidence behind them, your annotations, and the layout. **File
 → Open Session…** restores it, and **File → Recent Sessions** lists the ones you opened last.
 
-Use **File → Reset Session** (also in the **⋯** menu beside **Open** on the **Sources** page) to close every
+Use **File → Reset Session** (also the last button under **Open Files** on the **Sources** page) to close every
 loaded source and clear annotations, messages, synchronization evidence, and timeline state before opening or dropping a
 different recording. It does not modify your recordings, their cache, or an already-saved `.avv` file,
 and **Edit → Undo** brings the workspace back.

@@ -18,7 +18,6 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QSpinBox,
-    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -61,12 +60,55 @@ def irregular_text(tag: StepIrregularity) -> str:
 
 
 class _NarrowList(QListWidget):
-    """A list that prefers the page's wrap width, not Qt's 256 px default (R3)."""
+    """A list that prefers the page's wrap width, not Qt's 256 px default (R3).
+
+    Preferred, not Expanding, vertically: an empty step list took every spare
+    pixel of the page, so the controls below it sat under a screen of nothing.
+    """
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
 
     def sizeHint(self) -> QSize:  # noqa: N802
         hint = super().sizeHint()
         hint.setWidth(min(hint.width(), WRAP_WIDTH_PX))
+        hint.setHeight(min(hint.height(), _LIST_ROWS * max(1, self.sizeHintForRow(0), 20)))
         return hint
+
+
+#: Rows a list shows before it scrolls; more is a page of empty rows when new.
+_LIST_ROWS = 4
+
+
+class _CurrentPageStack(QWidget):
+    """Editor pages where only the page on show takes space.
+
+    A ``QStackedWidget`` sizes to its tallest page, and its layout answers the
+    parent's height-for-width with every page's wrapped text: the belt editor
+    is twice the ladder editor's height, so the ladder page carried the belt's
+    height as a screen of empty list. Hidden widgets take no part in a box
+    layout, so showing one page at a time sizes the stack to that page.
+    """
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._layout = QVBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        self._pages: list[QWidget] = []
+
+    def addWidget(self, page: QWidget) -> int:  # noqa: N802 -- QStackedWidget's name
+        self._pages.append(page)
+        self._layout.addWidget(page)
+        page.setVisible(len(self._pages) == 1)
+        return len(self._pages) - 1
+
+    def setCurrentWidget(self, page: QWidget) -> None:  # noqa: N802
+        for candidate in self._pages:
+            candidate.setVisible(candidate is page)
+
+    def currentWidget(self) -> QWidget | None:  # noqa: N802
+        return next((page for page in self._pages if not page.isHidden()), None)
 
 
 class PropsPanel(QWidget):
@@ -140,7 +182,7 @@ class PropsPanel(QWidget):
             tr("No props yet. Choose a kind, type a name, and press Add to place one."), self
         )
         root_layout.addWidget(self.empty_note)
-        self.editor_stack = QStackedWidget(self)
+        self.editor_stack = _CurrentPageStack(self)
         root_layout.addWidget(self.editor_stack)
         self.ladder_editor = QWidget(self.editor_stack)
         layout = QVBoxLayout(self.ladder_editor)
@@ -1141,6 +1183,8 @@ class PropsTab(QScrollArea):
             panel.kind.currentIndexChanged.connect(
                 lambda _index: wheel_tab.setVisible(panel.kind.currentData() == "wheel")
             )
+        # Spare height goes below the controls, never into them.
+        layout.addStretch(1)
         self.setWidget(content)
         self.setAccessibleName(tr("Props"))
         self.setAccessibleDescription(tr("Inspect and edit physical apparatus in this recording."))

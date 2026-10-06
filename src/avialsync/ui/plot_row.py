@@ -137,19 +137,16 @@ def fit_channel_y(channel: ChannelPlot) -> None:
 
 
 def _update_channel_gutter(channel: ChannelPlot) -> None:
-    """Keep name, unit, and stable scale together in the fixed row gutter.
+    """Name the axis: the channel, and its unit when it has one (D-181).
 
-    Joined with ``<br/>`` rather than ``\\n``: pyqtgraph wraps an axis label in
-    a ``<span>`` and hands it to ``setHtml``, where a newline is whitespace.
-    The three parts therefore rendered as one long rotated line that ran over
-    the tick numbers instead of stacking above them.
+    The fitted range was a third line here. The tick numbers already state the
+    limits, so it repeated them in a crowded gutter; the label says only what
+    the axis means. Joined with ``<br/>`` rather than ``\\n``: pyqtgraph wraps
+    an axis label in a ``<span>`` for ``setHtml``, where a newline is whitespace.
     """
     lines = [html.escape(channel.name)]
     if channel.unit:
-        lines.append(html.escape(channel.unit))
-    if channel.y_range is not None:
-        low, high = channel.y_range
-        lines.append(html.escape(f"{low:.3g}…{high:.3g}"))
+        lines.append(html.escape(f"({channel.unit})"))
     channel.plot_item.setLabel("left", "<br/>".join(lines))
 
 

@@ -35,7 +35,7 @@ def test_every_empty_page_says_what_fills_it(window: MainWindow) -> None:
         assert notes, f"the {nav.tabText(index)} page has no empty state"
         assert all(len(n.text().split()) >= 6 for n in notes), "a sentence, not a word"
     assert window.jobs_panel.empty_note.isVisibleTo(window.jobs_panel)
-    assert window.sidebar.btn_open is not None
+    assert window.sidebar.btn_open_video.action is window._act_open_video
     assert window.message_panel.findChild(EmptyNote).button.action is window._act_open_sensor
 
 

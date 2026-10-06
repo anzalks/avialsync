@@ -5,7 +5,7 @@ Desktop tool for scrubbing time-synchronized multi-camera video with dense time-
 **License:** AGPL-3.0-or-later, single licence — no dual licence, no CLA (D-076).  
 **Env:** `conda run -n avialsync <cmd>` — every command without exception
 
-> **Current phase: interface design — read `INTERFACE_DESIGN_PLAN.md`.** Completed plans (including the
+> **No phase is open; Phase 9 interface design is delivered (D-167 – D-182).** Completed plans (including the
 > finished libmpv → PyAV migration, `archive/plans/MIGRATION_PYAV.md`) are kept in `archive/plans/`
 > as record only.
 
@@ -302,7 +302,8 @@ Two product laws govern that phase and outrank convention:
   available in the Sync Wizard.
 
 ### Open items
-- **In progress: Phase 9 interface design** — `INTERFACE_DESIGN_PLAN.md` (BLUEPRINT.md Phase 9).
+- **Delivered: Phase 9 interface design** — `archive/plans/INTERFACE_DESIGN_PLAN.md`; the TESTING.md
+  §6 manual check on field data is open (BLUEPRINT.md).
   DS-0 isolated screenshots and fixed theme status/gutter defects; DS-1 made repeated buttons
   action-backed and widened the translation gate (D-167). DS-2 adds shared control roles,
   font-scaled spacing, and original palette-aware SVG glyphs (D-168, D-169). DS-3 joins the plot
@@ -324,7 +325,11 @@ Two product laws govern that phase and outrank convention:
   plots, lanes, video panes and 3D view describe themselves to assistive technology on query
   (D-179). DS-13 adds Help → First Session Tutorial and Learn more links from step panels, all
   built on `[project.urls]` through `about.docs_url`. DS-14 makes the inspector a dock with
-  saved state and a one-time migration; the workspace column keeps its splitters (D-180).
+  saved state and a one-time migration; the workspace column keeps its splitters (D-180). Follow-up
+  (D-181): every open command is a visible full-width button again, plot gutters show name and unit
+  only, glyph buttons are flat push buttons throughout (`ui/menu_button.MenuGlyphButton` opens a
+  menu without the platform's arrow), and the Props editor sizes to the page on show. D-182: the
+  workspace column scrolls when the window is shorter than it, so 640x480 holds at any font.
 - **P4.6 plot review/sweep UX refinement — core implementation complete; certification remains
   (D-044):** `archive/plans/PLOT_UX_PLAN.md` remains the canonical contract. Review/Sweep/Scope, the shared
   continuous time-span control, master navigator viewport drag, one bottom axis and channel gutters,
@@ -632,6 +637,8 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/empty_note.py` | What an empty inspector page says fills it, with an optional `ActionButton` on that command (D-176) | `EmptyNote.set_action()`, `WRAP_WIDTH_PX` |
 | `ui/accessible_views.py` | Accessible interfaces for painted surfaces, answered on query through `QAccessible.installFactory`; plots, lanes, video panes and the 3D view register a describer (D-179) | `register_painted(widget, role, value, detail)` |
 | `ui/inspector_dock.py` | The inspector as a `QDockWidget` (left/right, floating, closable) with `QMainWindow.saveState` persistence and the one-time migration of `splitter/horizontal` (D-180) | `install_inspector_dock()`, `restore_dock_state()`, `save_dock_state()`, `inspector_width_from_splitter_state()` |
+| `ui/menu_button.py` | `MenuGlyphButton`: a flat glyph push button that pops its own menu, so no platform drop-down arrow is drawn (D-181) | `MenuGlyphButton.menu()`, `show_menu()` |
+| `ui/workspace_scroll.py` | Wraps the workspace column so a short window scrolls it rather than raising the window minimum (D-182) | `scroll_when_short()` |
 | `ui/source_card.py` | Card pieces: `TimingDisclosure` over the card's own spin boxes, `overflow_button`, `open_split_button`, `kind_glyph`, `short_path` (D-175) | `TimingDisclosure`, `short_path()` |
 | `ui/source_properties.py` | Collapsible detail for video + sensor sources; copy-as-text (D-020) | `VideoPropertiesPanel`, `SensorPropertiesPanel` |
 | `ui/annotations.py` | Markers, and **the** definition of their CSV layout — three copies existed (D-100) | `AnnotationStore`, `Marker`, `marker_rows()`, `write_marker_rows()`, `MARKER_COLUMNS` |

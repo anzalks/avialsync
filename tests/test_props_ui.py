@@ -44,6 +44,37 @@ def window(qapp: QApplication, qtbot, monkeypatch, tmp_path: Path) -> MainWindow
         win.close()
 
 
+class _InertItem:
+    """A plot item that is never on screen, for rows that only carry a reader."""
+
+    def isVisible(self) -> bool:  # noqa: N802
+        return False
+
+    def minimumHeight(self) -> int:  # noqa: N802
+        return 0
+
+    def maximumHeight(self) -> int:  # noqa: N802
+        return 0
+
+    def __getattr__(self, _name: str):
+        return lambda *_args, **_kwargs: None
+
+
+def _hidden_row(reader: object) -> SimpleNamespace:
+    """A plot row stand-in that survives a plot-pane resize (D-182 layouts resize it).
+
+    Hidden, with inert graphics items, so ``enforce_channel_visibility`` has
+    nothing to do; the props code under test reads only ``reader``.
+    """
+    return SimpleNamespace(
+        reader=reader,
+        visible=False,
+        row_height=0,
+        plot_item=_InertItem(),
+        close_proxy=_InertItem(),
+    )
+
+
 def _fake_panes(window: MainWindow, monkeypatch) -> None:
     paths = list(VIDEOS.values())
     pane = SimpleNamespace(
@@ -290,7 +321,7 @@ def test_belt_and_ball_bind_verify_and_persist_later_frame_evidence(
             cache_dir=Path(f"/cache/{cache}"),
             available_sample_at=lambda t, values=values: (int(t), values[int(t)]),
         )
-        rows.append(SimpleNamespace(reader=reader))
+        rows.append(_hidden_row(reader))
     monkeypatch.setattr(window.plot_pane, "channels", rows)
     window.props_app.show("belt")
     panel.name.setText("belt")

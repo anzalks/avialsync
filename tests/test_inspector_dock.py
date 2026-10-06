@@ -77,6 +77,7 @@ def test_a_workspace_round_trips_where_the_dock_is(window: MainWindow, qapp) -> 
     window.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
     qapp.processEvents()
     loaded = workspaces.load("right inspector")
+    workspaces.remove("right inspector")
     assert loaded is not None and not loaded.dock_state.isEmpty()
     workspaces.apply(window, loaded)
     qapp.processEvents()
@@ -90,6 +91,7 @@ def test_a_splitter_era_workspace_keeps_its_inspector_width(window: MainWindow, 
     store.setValue("splitter__h_splitter", _legacy_state(330, 900))
     store.endGroup()
     loaded = workspaces.load("old layout")
+    workspaces.remove("old layout")
     assert loaded is not None and loaded.legacy_inspector_width == 330
     workspaces.apply(window, loaded)
     qapp.processEvents()

@@ -21,8 +21,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLayout,
-    QMenu,
-    QToolButton,
+    QPushButton,
     QVBoxLayout,
     QWidget,
 )
@@ -31,6 +30,7 @@ from avialsync.ui.design_tokens import ControlRole, apply_role, spacing
 from avialsync.ui.empty_note import WRAP_WIDTH_PX
 from avialsync.ui.i18n import tr
 from avialsync.ui.icons import set_svg_icon
+from avialsync.ui.menu_button import MenuGlyphButton
 from avialsync.ui.theme import set_bold
 
 __all__ = ["StepPanel"]
@@ -70,27 +70,21 @@ class StepPanel(QFrame):
         layout.addLayout(self._primary_row)
         # A column, so the panel never asks for more than a 280 px page (R3).
         self._secondary_row = QGridLayout()
-        self._secondary_row.setSpacing(gap)
+        # The platform's own button spacing, as every other stack of buttons in
+        # the window uses; a 4 px gap packed them tighter than anywhere else.
+        self._secondary_row.setSpacing(-1)
         layout.addLayout(self._secondary_row)
         self._controls = QVBoxLayout()
         self._controls.setSpacing(gap)
         layout.addLayout(self._controls)
         self._overflow_sources: list[tuple[QAbstractButton, QAction]] = []
 
-        self.overflow = QToolButton(self)
-        self.overflow.setAutoRaise(True)
-        self.overflow.setAccessibleName(tr("More choices"))
-        self.overflow.setToolTip(tr("More choices"))
-        self.overflow.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        set_svg_icon(self.overflow, "more")
-        self.overflow.setMenu(QMenu(self.overflow))
+        self.overflow = MenuGlyphButton("more", tr("More choices"), self)
         self.overflow.hide()
 
-        self.more_toggle = QToolButton(self)
+        self.more_toggle = QPushButton(tr("More…"), self)
         self.more_toggle.setCheckable(True)
-        self.more_toggle.setAutoRaise(True)
-        self.more_toggle.setText(tr("More…"))
-        self.more_toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.more_toggle.setFlat(True)
         self.more_toggle.setAccessibleName(tr("More detail"))
         self.more_toggle.setAccessibleDescription(tr("Show or hide the explanation for this step"))
         set_svg_icon(self.more_toggle, "chevron-right")

@@ -116,12 +116,10 @@ def test_reset_session_button_requests_a_clean_workspace(main_window: MainWindow
     main_window.transport.set_source_coverage(video_path, 0.0, 2.0, "video")
     main_window.transport.set_gap_events([(1.0, "gap")])
 
-    # The sidebar's session overflow holds File → Reset Session's own action
-    # (rule 15, D-175), apart from Open.
-    menu = main_window.sidebar.session_menu_button.menu()
-    assert menu.actions() == [main_window._act_reset_session]
+    # The button is File → Reset Session's own action (rule 15, D-181).
+    assert main_window.sidebar.btn_reset_session.action is main_window._act_reset_session
     with qtbot.waitSignal(main_window._act_reset_session.triggered):
-        menu.actions()[0].trigger()
+        main_window.sidebar.btn_reset_session.click()
 
     assert main_window.session_runtime.path is None
     assert main_window.session_runtime.generation == 1

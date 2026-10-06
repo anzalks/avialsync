@@ -191,7 +191,9 @@ def test_flag_button_emits_annotation_request(qtbot) -> None:
 
     toolbar.flag_button.click()
 
-    assert toolbar.flag_button.text() == "Flag Frame"
+    # D-181: a glyph, named by its accessible name and tooltip.
+    assert toolbar.flag_button.accessibleName() == "Flag Frame"
+    assert toolbar.flag_button.toolTip() == "Flag the current frame (M)"
     assert requests == [True]
 
 
@@ -481,9 +483,15 @@ def test_data_streams_cap_and_density_follow_preferences(qtbot) -> None:
     settings = app_settings()
     settings.setValue("interface/density", "comfortable")
     settings.setValue("timeline/comfortable_visible_lanes", 3)
-    transport.evidence.reload_preferences()
-    assert transport.overview.lane_height() > compact_height
-    assert transport.evidence.lane_scroll.height() == 3 * transport.overview.lane_height()
+    try:
+        transport.evidence.reload_preferences()
+        assert transport.overview.lane_height() > compact_height
+        assert transport.evidence.lane_scroll.height() == 3 * transport.overview.lane_height()
+    finally:
+        # Shared by every later test in the session; a leftover Comfortable
+        # density made the empty-window layout test fail at large fonts.
+        settings.remove("interface/density")
+        settings.remove("timeline/comfortable_visible_lanes")
 
 
 def test_data_streams_long_label_elides_but_hover_reveals_it(qtbot) -> None:

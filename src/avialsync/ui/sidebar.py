@@ -15,11 +15,9 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
-    QMenu,
     QPushButton,
     QScrollArea,
     QSizePolicy,
-    QToolButton,
     QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -29,16 +27,15 @@ from PySide6.QtWidgets import (
 from avialsync.core.inspection import SourceInspection
 from avialsync.ui.action_button import ActionButton
 from avialsync.ui.channel_tree import group_prefixes, matches_filter, split_channel
-from avialsync.ui.design_tokens import ControlRole, apply_role
+from avialsync.ui.design_tokens import ControlRole, apply_role, spacing
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
-from avialsync.ui.icons import set_status_icon, set_svg_icon, svg_icon
+from avialsync.ui.icons import set_status_icon
 from avialsync.ui.quality_badge import findings_for, worst_severity
 from avialsync.ui.source_card import (
     TimingDisclosure,
     copy_to_clipboard,
     kind_glyph,
-    open_split_button,
     overflow_button,
     short_path,
 )
@@ -994,18 +991,33 @@ class SidebarPane(QWidget):
         self.content_layout = QVBoxLayout(scroll_content)
         self.content_layout.setContentsMargins(5, 5, 5, 5)
 
-        # Row 1: one split Open button and a session overflow (D-175). Both
-        # hold the File menu's own QActions, so nothing here has text of its
-        # own (rule 15, D-092); the window installs them. Reset Session is in
-        # the overflow, apart from Open, marked destructive.
-        self._open_row = QHBoxLayout()
-        self._open_row.setContentsMargins(0, 0, 0, 0)
-        self.btn_open: QToolButton | None = None
-        self.session_menu_button: QToolButton | None = None
-        # Align's one-click entry (D-178): a glyph on Align → Synchronize, beside
-        # Open, rather than a main toolbar the 640x480 floor has no height for.
-        self.btn_align = ActionButton(self)
-        self.content_layout.addLayout(self._open_row)
+        # Row 1: every way to bring data in, one full-width button each, in
+        # the order a session is built (D-181, amends D-175's split button,
+        # which hid all but one). Each is the File or Align menu's own QAction
+        # (rule 15, D-092); the window installs them. Stacked, so the longest
+        # label sets no width the sidebar cannot give. Reset Session sits apart
+        # at the end, marked destructive by glyph and place.
+        actions_group = QGroupBox(tr("Open Files"))
+        self._open_column = QVBoxLayout(actions_group)
+        self.btn_open_video = ActionButton(actions_group)
+        self.btn_open_sensor = ActionButton(actions_group)
+        self.btn_open_session = ActionButton(actions_group)
+        self.btn_align = ActionButton(actions_group)
+        self.btn_reset_session = ActionButton(actions_group)
+        for button in (
+            self.btn_open_video,
+            self.btn_open_sensor,
+            self.btn_open_session,
+            self.btn_align,
+        ):
+            button.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+            button.setMinimumWidth(120)
+            self._open_column.addWidget(button)
+        self._open_column.addSpacing(spacing("m", self))
+        self.btn_reset_session.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.btn_reset_session.setMinimumWidth(120)
+        self._open_column.addWidget(self.btn_reset_session)
+        self.content_layout.addWidget(actions_group)
 
         self._source_filter = QLineEdit()
         self._source_filter.setPlaceholderText(tr("Filter sources and channels…"))
@@ -1103,33 +1115,28 @@ class SidebarPane(QWidget):
         self._apply_source_filter(self._source_filter.text())
 
     def install_open_actions(
-        self, open_video: QAction, open_sensor: QAction, reset: QAction
+        self,
+        open_video: QAction,
+        open_sensor: QAction,
+        reset: QAction,
     ) -> None:
-        """Show the Open button and session overflow, driven by the File menu's actions."""
-        self.btn_open = open_split_button(self, open_video, [open_sensor])
-        apply_role(self.btn_open, ControlRole.PRIMARY)
-        self.btn_open.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        self.session_menu_button = QToolButton(self)
-        self.session_menu_button.setAutoRaise(True)
-        self.session_menu_button.setAccessibleName(tr("Session actions"))
-        self.session_menu_button.setToolTip(tr("Session actions"))
-        self.session_menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        set_svg_icon(self.session_menu_button, "more")
-        session_menu = QMenu(self.session_menu_button)
-        session_menu.setAccessibleName(tr("Session actions"))
-        session_menu.addAction(reset)
-        reset.setProperty("av_role", "destructive")
-        # Marked by glyph as well as place; the File menu shows the same icon.
-        reset.setIcon(svg_icon(self.session_menu_button, self.palette(), "reset", "danger"))
-        self.session_menu_button.setMenu(session_menu)
-        self._open_row.addWidget(self.btn_open, 1)
-        self._open_row.addWidget(self.btn_align)
-        self._open_row.addWidget(self.session_menu_button)
+        """Show the Open Files buttons, driven by the File menu's own actions."""
+        self.btn_open_video.set_action(open_video)
+        self.btn_open_sensor.set_action(open_sensor)
+        self.btn_reset_session.set_action(reset)
+        apply_role(self.btn_open_video, ControlRole.PRIMARY, "video")
+        apply_role(self.btn_open_sensor, ControlRole.SECONDARY, "data")
+        apply_role(self.btn_reset_session, ControlRole.DESTRUCTIVE, "reset")
+
+    def install_open_session_action(self, action: QAction) -> None:
+        """Show File → Open Session… with the other ways in."""
+        self.btn_open_session.set_action(action)
+        apply_role(self.btn_open_session, ControlRole.SECONDARY, "open")
 
     def install_align_action(self, action: QAction) -> None:
-        """Show Align → Synchronize as a glyph beside Open (D-178)."""
+        """Show Align → Synchronize beside the open buttons (D-178, D-181)."""
         self.btn_align.set_action(action)
-        self.btn_align.set_icon_only("align")
+        apply_role(self.btn_align, ControlRole.SECONDARY, "align")
         self.btn_align.setAccessibleDescription(
             tr("Fit an offset from events both recordings share")
         )

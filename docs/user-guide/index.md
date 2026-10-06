@@ -21,8 +21,9 @@
   in full; on a short window the rail scrolls. Up and Down move between pages, and
   **View → Inspector** or the command palette opens any of them. The last page used is restored
   next time.
-- The **Align** glyph beside **Open** on the Sources page runs **Align → Synchronize TTL /
-  events…**.
+- **Open Files** at the top of the Sources page lists every way in, one button each: **Open
+  Videos…**, **Open Sensor/Ephys Data…**, **Open Session…**, **Synchronize TTL / events…**, and,
+  set apart, **Reset Session**.
 - **Tasks** opens from the status bar and lists what is loading, with a cancel where the work
   supports one.
 - The left panel is a dock: drag its title to the other side of the window, float it onto a
@@ -127,8 +128,8 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
 ## Useful controls
 
 Controls sit with what they act on. Under the videos: **Flag Frame**, **Fix Tracker**, **Add 3D
-Marker**, **Play original**, **Snapshot**, **Fit All Videos** and **Fullscreen** (the last three as glyph buttons; hover
-for the name and shortcut). One row
+Marker**, **Play original**, **Snapshot**, **Fit All Videos** and **Fullscreen**, all glyph buttons
+except **Play original**; hover for the name and shortcut. One row
 under the plots holds **Live**, **Time span** and its slider, **Fit Y**, row density (Compact,
 Comfortable or Large), and **Reset Plots**. Data Streams has a **Hide** control above its lanes.
 Its lane labels shorten when space is tight; hover to read the full name. Compact density shows
@@ -173,7 +174,10 @@ Streams areas stay small. The layout you had comes back when the first recording
   rows fit), Comfortable, or Large.
 - Each row's hide button appears when the pointer is over the row or the button has keyboard
   focus; right-click a row and choose **Hide** for the same command. Every trace is named in its
-  own row's gutter, so colour is never the only way to tell traces apart.
+  own row's gutter, so colour is never the only way to tell traces apart. The gutter says what the
+  axis is, the channel and its unit; the tick numbers give its range.
+- On a short window or with a large font, the video, plot and Data Streams column scrolls
+  vertically instead of the window refusing to shrink.
 - The playback row's loop buttons mark an A/B range for inspection or export: **Set In** (`[` or `I`)
   and **Set Out** (`]` or `O`) at the playhead; **Clear Loop** removes it. The rate selector sets
   playback speed. The scrubber shows loaded coverage, annotation ticks and the active loop span.

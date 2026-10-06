@@ -47,7 +47,8 @@ def test_the_gutter_separates_its_parts_with_a_line_break(pane_with_channel: Plo
 
     assert "<br/>" in label
     assert "\n" not in label, "a newline is whitespace in an HTML axis label"
-    assert label.count("<br/>") == 2, "name, unit, and range are three lines"
+    # D-181: the ticks state the limits, so the gutter is name and unit only.
+    assert label.count("<br/>") == 1, "name and unit are two lines"
 
 
 def test_the_gutter_still_carries_every_part(pane_with_channel: PlotPane) -> None:
@@ -61,7 +62,7 @@ def test_the_gutter_still_carries_every_part(pane_with_channel: PlotPane) -> Non
 
     assert "Electrode_1" in label
     assert "mV" in label
-    assert "…" in label, "the stable Y range belongs in the gutter"
+    assert "…" not in label, "the ticks already show the range (D-181)"
 
 
 def test_a_channel_name_with_markup_characters_survives(pane_with_channel: PlotPane) -> None:

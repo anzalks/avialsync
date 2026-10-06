@@ -48,6 +48,9 @@ GLYPHS: dict[str, str] = {
     "snapshot": '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
     "eye": '<path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/>'
     '<circle cx="12" cy="12" r="3"/>',
+    "edit": '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>',
+    "marker": '<circle cx="12" cy="12" r="5"/><path d="M12 2v5"/><path d="M12 17v5"/>'
+    '<path d="M2 12h5"/><path d="M17 12h5"/>',
     "flag": '<path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/>',
     # Commands
     "close": '<path d="M6 6l12 12"/><path d="M18 6L6 18"/>',

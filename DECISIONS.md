@@ -5962,3 +5962,27 @@ Ladder, belt and ball editors, identity review and the alignment dialog use the 
 **Alternatives.** Docking every pane would replace the proportion and empty-layout contracts with `QMainWindow`'s dock layout, which has no notion of either, and nested bottom docks cannot hold the transport full width under the plots.
 
 **Consequences.** `MainWindow._h_splitter` is gone; tests that pinned it assert the dock instead. The default dock width is the page rail plus the old 280 px, so a page keeps its full width (the first cut left Sources 190 px against its 200 px minimum). `PaneProportions.distribute` now honours each pane's maximum as well as its minimum: Data Streams, sized by its lanes (D-171), keeps exactly that height and the surplus goes to video and plots instead of a blank band. The content split is therefore sized by content, not by a remembered ratio; the hand-set-ratio guarantee is asserted on the video/plot handle. The 640×480 floor and the empty layout hold.
+
+---
+
+## 2026-10 · D-181 · Every way in is visible; minimal axis labels; one look for glyph buttons
+
+**Context.** After DS-7 only Open Videos was visible; Sensor/Ephys Data sat behind a split button's arrow and Reset Session behind `⋯`, and the user found loading slower than with the old stacked buttons. Plot gutters stacked name, unit and fitted range although the ticks already state the range. Glyph buttons were a mix of `QToolButton`s, which macOS draws boxed and with a drop-down arrow when they carry a menu, and flat push buttons; the video tools mixed text and glyphs. The Props page carried the belt editor's height under the ladder editor as an empty list.
+
+**Decision.**
+- The Sources page opens with **Open Files**: Open Videos… (primary), Open Sensor/Ephys Data…, Open Session…, Synchronize TTL / events…, then, after a gap, Reset Session marked destructive. One full-width button each, each its menu's own QAction; stacked, so no label widens the page. This amends D-175's split button and session overflow and D-178's Align glyph.
+- A plot gutter names the axis: channel, and unit in parentheses. The range line is gone (amends the PLOT_UX_PLAN three-line gutter).
+- Glyph buttons are flat `QPushButton`s throughout. `MenuGlyphButton` keeps its menu to itself and pops it on click, so no platform arrow appears. Every video tool is a glyph, names in tooltips and accessible names. Nav rail buttons stay tool buttons, as a distinct navigation control.
+- The Props editor pages are shown one at a time in a plain container, so the container is the page's height, and lists stop at four rows.
+
+**Consequences.** Tests that pinned the split button, the session overflow, the three-line gutter and the text toolbar buttons assert the new policy.
+
+---
+
+## 2026-10 · D-182 · The workspace column scrolls when the window is shorter than it
+
+**Context.** The window's minimum height is the sum of the workspace panes' floors. It fitted 640×480 at the default font, but needed 487 px at 16 pt and 545 px at 20 pt, and a minimum taller than the display leaves the window unresizable with its bottom out of reach. The panes were already near their floors.
+
+**Decision.** The workspace column (notifications, videos and 3D, plots, Data Streams, transport) sits in a frameless scroll area. When the window is at least the column's minimum, the column fills the viewport exactly as before; below it, a vertical scrollbar appears. The window minimum therefore no longer depends on font size. The inspector dock is unaffected; its pages scroll on their own.
+
+**Alternatives.** Lowering every pane's floor further would make panes unusable at small fonts to fit large ones; refusing to shrink is what this replaces.

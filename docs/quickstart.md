@@ -32,12 +32,12 @@ progress; later runs validate and reuse the application-data cache.
 
 ## Open files
 
-Start AvialSync. Drag files onto the main window, or use the **Open** button at the top of the
-left panel.
+Start AvialSync. Drag files onto the main window, or use the **Open Files** buttons at the top of
+the left panel.
 
-- Click **Open Videos…** for camera recordings.
-- Use the button's arrow and choose **Open Sensor/Ephys Data…** for tables, recordings, tracking
-  files, or lab formats.
+- Use **Open Videos…** for camera recordings.
+- Use **Open Sensor/Ephys Data…** for tables, recordings, tracking files, or lab formats.
+- Use **Open Session…** to reopen a saved `.avv` session.
 
 The program examines each file and chooses the appropriate built-in or lab plugin. Large recordings
 are prepared in the background, so you can keep using the window while they load.

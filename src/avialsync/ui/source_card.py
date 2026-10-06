@@ -14,13 +14,12 @@ from collections.abc import Callable
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
+    QAbstractButton,
     QApplication,
     QDoubleSpinBox,
     QHBoxLayout,
-    QMenu,
-    QToolButton,
+    QPushButton,
     QVBoxLayout,
     QWidget,
 )
@@ -28,12 +27,12 @@ from PySide6.QtWidgets import (
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
 from avialsync.ui.icons import set_svg_icon
+from avialsync.ui.menu_button import MenuGlyphButton
 from avialsync.ui.time_format import format_number
 
 __all__ = [
     "TimingDisclosure",
     "kind_glyph",
-    "open_split_button",
     "overflow_button",
     "short_path",
 ]
@@ -56,10 +55,11 @@ def short_path(path: str, base: str | None = None) -> str:
     return target.name
 
 
-def kind_glyph(name: str, accessible_name: str, parent: QWidget | None = None) -> QToolButton:
+def kind_glyph(name: str, accessible_name: str, parent: QWidget | None = None) -> QPushButton:
     """A palette-inked glyph naming a source's kind; inert, never a control."""
-    glyph = QToolButton(parent)
-    glyph.setAutoRaise(True)
+    glyph = QPushButton(parent)
+    glyph.setFlat(True)
+    glyph.setProperty("av_role", "tool")
     glyph.setFocusPolicy(Qt.FocusPolicy.NoFocus)
     glyph.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
     glyph.setIconSize(QSize(16, 16))
@@ -73,20 +73,14 @@ def overflow_button(
     parent: QWidget,
     accessible_name: str,
     items: list[tuple[str, Callable[[], None], bool]],
-) -> QToolButton:
+) -> MenuGlyphButton:
     """A ``⋯`` button whose menu holds *items*: ``(label, slot, destructive)``.
 
     Destructive items sit last, after a separator, and carry the bin glyph as
     well as their label, so they are told apart by shape and place, not hue.
     """
-    button = QToolButton(parent)
-    button.setAutoRaise(True)
-    button.setAccessibleName(accessible_name)
-    button.setToolTip(accessible_name)
-    button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-    set_svg_icon(button, "more")
-    menu = QMenu(button)
-    menu.setAccessibleName(accessible_name)
+    button = MenuGlyphButton("more", accessible_name, parent)
+    menu = button.menu()
     ordinary = [item for item in items if not item[2]]
     destructive = [item for item in items if item[2]]
     for label, slot, _ in ordinary:
@@ -98,35 +92,13 @@ def overflow_button(
         action.setProperty("av_role", "destructive")
         action.setIcon(_danger_icon(button))
         action.triggered.connect(slot)
-    button.setMenu(menu)
     return button
 
 
-def _danger_icon(owner: QToolButton):  # noqa: ANN202 -- QIcon, imported lazily
+def _danger_icon(owner: QAbstractButton):  # noqa: ANN202 -- QIcon, imported lazily
     from avialsync.ui.icons import svg_icon
 
     return svg_icon(owner, owner.palette(), "remove", "danger")
-
-
-def open_split_button(parent: QWidget, primary: QAction, others: list[QAction]) -> QToolButton:
-    """One Open button: a click runs *primary*, the arrow offers every open action.
-
-    The button *is* *primary* (``setDefaultAction``), so its label is the
-    action's own (rule 15); the arrow's menu holds the same QAction objects.
-    """
-    button = QToolButton(parent)
-    button.setDefaultAction(primary)
-    button.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
-    button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-    menu = QMenu(button)
-    menu.setAccessibleName(tr("Open sources"))
-    for action in [primary, *others]:
-        menu.addAction(action)
-    button.setMenu(menu)
-    button.setAccessibleName(primary.text().replace("&", ""))
-    button.setAccessibleDescription(tr("Open videos; the arrow offers every kind of source"))
-    set_svg_icon(button, "open")
-    return button
 
 
 class TimingDisclosure(QWidget):
@@ -143,10 +115,9 @@ class TimingDisclosure(QWidget):
         self._offset = offset_spin
         self._drift = drift_spin
         self.body = body
-        self.toggle = QToolButton(self)
+        self.toggle = QPushButton(self)
         self.toggle.setCheckable(True)
-        self.toggle.setAutoRaise(True)
-        self.toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.toggle.setFlat(True)
         self.toggle.setAccessibleName(tr("Timing"))
         self.toggle.setAccessibleDescription(tr("Show or hide this source's offset and drift"))
         self.toggle.setText(tr("Timing"))

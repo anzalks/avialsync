@@ -61,7 +61,7 @@ def test_roles_keep_tool_names_and_mark_destructive_shape(qtbot) -> None:
 
 
 def test_constructed_window_has_declared_roles(qtbot) -> None:
-    """Every existing button has a role; the Open row has one primary (D-175)."""
+    """Every existing button has a role; the Open buttons have one primary (D-181)."""
     window = MainWindow()
     qtbot.addWidget(window)
     window.show()
@@ -73,6 +73,14 @@ def test_constructed_window_has_declared_roles(qtbot) -> None:
         if not button.objectName().startswith("qt_") and not button.property("av_role")
     ]
     assert not missing, missing
-    open_row = (window.sidebar.btn_open, window.sidebar.session_menu_button)
-    assert [role_of(button) is ControlRole.PRIMARY for button in open_row] == [True, False]
+    sidebar = window.sidebar
+    open_buttons = (
+        sidebar.btn_open_video,
+        sidebar.btn_open_sensor,
+        sidebar.btn_open_session,
+        sidebar.btn_align,
+        sidebar.btn_reset_session,
+    )
+    primaries = [role_of(button) is ControlRole.PRIMARY for button in open_buttons]
+    assert primaries == [True, False, False, False, False]
     window.close()

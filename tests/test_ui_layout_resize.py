@@ -293,3 +293,38 @@ def test_video_keeps_the_full_media_width_without_tracking_data(
     qapp.processEvents()
 
     assert window.video_grid.width() == window._media_splitter.width()
+
+
+def test_a_large_font_scrolls_the_workspace_instead_of_outgrowing_640x480(
+    qapp: QApplication, qtbot
+) -> None:
+    """D-182: at 20 pt the column needs more than 480 px, so it scrolls.
+
+    The panes' floors summed to 545 px at 20 pt; a minimum taller than the
+    display leaves the window unresizable. The workspace column scrolls instead,
+    and every surface stays reachable.
+    """
+    from PySide6.QtWidgets import QScrollArea
+
+    original = qapp.font()
+    large = qapp.font()
+    large.setPointSizeF(20.0)
+    qapp.setFont(large)
+    try:
+        win = MainWindow()
+        qtbot.addWidget(win)
+        win.tracking_3d_pane.setVisible(True)
+        win.resize(640, 480)
+        win.show()
+        qapp.processEvents()
+        assert win.minimumSizeHint().height() <= 480
+        scroll = win.findChild(QScrollArea, "workspace_scroll")
+        assert scroll is not None
+        column = scroll.widget()
+        assert column.minimumSizeHint().height() > scroll.viewport().height()
+        assert scroll.verticalScrollBar().maximum() > 0, "the rest is a scroll away"
+        for pane in (win.video_grid, win.tracking_3d_pane, win.plot_pane, win.transport):
+            assert pane.width() > 0 and pane.height() > 0
+        win.close()
+    finally:
+        qapp.setFont(original)
