@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.empty_note import EmptyNote
 from avialsync.ui.i18n import tr
 from avialsync.ui.tables import ThemedTable
@@ -50,7 +51,7 @@ class JobsPanel(QGroupBox):
         self._history: list[FinishedJob] = []
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
 
         self._table = ThemedTable(0, 3)
         self._table.setHorizontalHeaderLabels(["Task", "State", "Time"])

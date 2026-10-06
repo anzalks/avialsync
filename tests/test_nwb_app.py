@@ -94,13 +94,13 @@ def test_dropping_an_nwb_file_shows_its_imaging_and_its_series(
     window.imaging_pane.set_cursor(0.6)
     qtbot.waitUntil(
         lambda: (
-            window.imaging_pane.status_label.text().startswith("Frame 4/12")
+            window.imaging_pane.status_label.text().count(" · f 3 / 11 · ") == 1
             and window.imaging_pane._image is not None
         ),
         timeout=20_000,
     )
     coverage = window.transport.overview._coverage
-    assert coverage[_imaging(path)][2] == "data"
+    assert coverage[_imaging(path)][2] == "imaging"
     assert coverage[str(path)][2] == "data"
     # Every series' rows, named by where they sit in the file.
     qtbot.waitUntil(lambda: len(window.plot_pane.channels) > 10, timeout=20_000)

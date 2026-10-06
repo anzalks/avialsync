@@ -50,7 +50,7 @@ class AOLEksLoader(TimeSeriesSource):
 
     @classmethod
     def display_name(cls) -> str:
-        return "AOL 3D Tracking"
+        return "3D Tracking (EKS)"
 
     @classmethod
     def pose_roles(cls) -> tuple[str, ...]:

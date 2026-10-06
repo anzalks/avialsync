@@ -42,6 +42,7 @@ from PySide6.QtWidgets import (
 from avialsync.core.wheel import Wheel, WheelSpec
 from avialsync.ui.about import docs_url
 from avialsync.ui.bar_diameter_field import BarDiameterField
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 from avialsync.ui.step_panel import StepPanel
 from avialsync.ui.theme import set_bold
@@ -132,7 +133,7 @@ class _WheelRow(QFrame):
         self.name = name
         self.setFrameStyle(QFrame.Shape.StyledPanel | QFrame.Shadow.Raised)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
         title = QLabel(name, self)
         set_bold(title)
         layout.addWidget(title)
@@ -280,7 +281,7 @@ class WheelPanel(QGroupBox):
         self.setAccessibleName(tr("Wheels"))
         self.setAccessibleDescription(tr("Wheels placed through Props, and their settings"))
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
 
         self._review = self._build_review()
         layout.addWidget(self._review)

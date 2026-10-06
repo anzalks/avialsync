@@ -47,8 +47,12 @@ __all__ = [
 SPACE = {"xs": 2, "s": 4, "m": 8, "l": 12, "xl": 16, "xxl": 24}
 
 
-def spacing(step: str, widget: QWidget) -> int:
-    """Return a spacing step scaled with the widget's selected font size."""
+def spacing(step: str, widget: QWidget | None = None) -> int:
+    """Return a spacing step scaled with the application's selected font size.
+
+    *widget* is accepted for call sites that name the surface they size; the
+    scale is the application's, so it does not change the result.
+    """
     app = QApplication.instance()
     if isinstance(app, QApplication):
         return max(1, round(SPACE[step] * font_scale(app)))

@@ -29,8 +29,10 @@ import dataclasses
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QByteArray, QSettings, Qt
+from PySide6.QtWidgets import QInputDialog
 
 from avialsync.ui.app_settings import app_settings
+from avialsync.ui.i18n import tr
 from avialsync.ui.inspector_dock import (
     apply_dock_state,
     default_dock_width,
@@ -208,3 +210,82 @@ def names() -> list[str]:
 
 def remove(name: str) -> None:
     _store().remove(f"{_GROUP}/{name}")
+
+
+# ── View → Workspace commands (WP-11) ────────────────────────────────
+
+
+def rebuild_menu(window: MainWindow) -> None:
+    """Regenerate the Workspace menu from what is actually stored."""
+    menu = window._workspace_menu
+    menu.clear()
+    saved = names()
+    if saved:
+        for name in saved:
+            act = menu.addAction(name)
+            act.triggered.connect(lambda _c, n=name: apply_named(window, n))
+    else:
+        act = menu.addAction(tr("(no saved layouts)"))
+        act.setEnabled(False)
+    menu.addSeparator()
+    act = menu.addAction(tr("Save Current Layout…"))
+    act.triggered.connect(lambda: save_current(window))
+    if saved:
+        act = menu.addAction(tr("Delete Layout…"))
+        act.triggered.connect(lambda: delete_one(window))
+
+
+def save_current(window: MainWindow) -> None:
+    """Name the current arrangement and store it."""
+    name, accepted = QInputDialog.getText(window, tr("Save Layout"), tr("Name this layout:"))
+    if not accepted or not name.strip():
+        return
+    save(name, capture(window))
+    rebuild_menu(window)
+    window.notifications.show_success(tr("Layout saved as “{name}”.").format(name=name.strip()))
+
+
+def apply_named(window: MainWindow, name: str) -> None:
+    """Arrange the window as the stored layout *name*."""
+    workspace = load(name)
+    if workspace is None:
+        window.notifications.show_warning(
+            tr("Layout “{name}” is no longer stored.").format(name=name)
+        )
+        rebuild_menu(window)
+        return
+    apply(window, workspace)
+
+
+def delete_one(window: MainWindow) -> None:
+    """Delete a saved layout, and offer it back for as long as the message shows.
+
+    The deletion happens and the layout is offered back under Undo on the
+    notification strip rather than behind an "are you sure?" gate: never
+    block, always inform (D-107).
+    """
+    saved = names()
+    if not saved:
+        return
+    name, accepted = QInputDialog.getItem(
+        window, tr("Delete Layout"), tr("Layout:"), saved, 0, False
+    )
+    if not (accepted and name):
+        return
+    removed = load(name)
+    remove(name)
+    rebuild_menu(window)
+    if removed is None:
+        window.notifications.show_warning(tr("Layout “{name}” was already gone.").format(name=name))
+        return
+
+    def _restore() -> None:
+        save(name, removed)
+        rebuild_menu(window)
+        window.notifications.show_success(tr("Layout “{name}” is back.").format(name=name))
+
+    window.notifications.show_warning(
+        tr("Deleted layout “{name}”.").format(name=name),
+        action_label=tr("Undo"),
+        on_action=_restore,
+    )

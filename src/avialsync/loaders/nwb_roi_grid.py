@@ -226,7 +226,7 @@ class NWBRoiGridSource(ImagingSource):
 
     @classmethod
     def display_name(cls) -> str:
-        return "ROI grid"
+        return "ROI Grid (NWB)"
 
     @classmethod
     def can_open(cls, path: Path) -> float:
@@ -236,7 +236,7 @@ class NWBRoiGridSource(ImagingSource):
     def label(self) -> str:
         """Say what the tiles are: raw pixels, or a trace drawn on masks."""
         if self._info is None:
-            return "ROI grid"
+            return "ROI Grid (NWB)"
         response = self._info.path.rstrip("/").split("/")[-2]
         what = "raw crops" if self._mode == "raw" else f"{response} on ROI masks"
         return f"{len(self._crops)} ROIs — {what}"

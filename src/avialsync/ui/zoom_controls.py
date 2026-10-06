@@ -11,6 +11,7 @@ from __future__ import annotations
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 from avialsync.ui.icons import set_svg_icon
 
@@ -30,7 +31,7 @@ class ZoomControls(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
         layout.setSpacing(0)
 
         # Glyph-only: the "+" and "-" text beside the glyphs said the same twice.

@@ -71,7 +71,7 @@ class NWBLoader(TimeSeriesSource):
 
     @classmethod
     def display_name(cls) -> str:
-        return "NWB Time Series"
+        return "Time Series (NWB)"
 
     def __init__(self) -> None:
         self._path: Path | None = None

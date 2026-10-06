@@ -46,6 +46,7 @@ from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSizePolicy, QWidget
 
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import follow_palette, status_color
 
@@ -100,8 +101,8 @@ class NotificationStrip(QWidget):
         self._queue: deque[_Pending] = deque()
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 4, 8, 4)
-        layout.setSpacing(8)
+        layout.setContentsMargins(spacing("m"), spacing("s"), spacing("m"), spacing("s"))
+        layout.setSpacing(spacing("m"))
 
         self._label = QLabel("")
         self._label.setWordWrap(True)

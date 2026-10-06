@@ -16,13 +16,11 @@ from typing import Any
 
 import numpy as np
 from PySide6.QtCore import QObject, Qt, QThread, Signal, Slot
-from PySide6.QtGui import QImage
+from PySide6.QtGui import QAccessible, QImage
 from PySide6.QtWidgets import (
     QComboBox,
-    QDoubleSpinBox,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QSizePolicy,
     QSpinBox,
     QVBoxLayout,
@@ -36,14 +34,13 @@ from avialsync.core.source import ImagingMetadata, ImagingSource
 from avialsync.core.timeline import TimeMap
 from avialsync.core.video_timing import frame_index_at
 from avialsync.engine.imaging_reader import ImagingReadWorker
-from avialsync.ui.design_tokens import ControlRole, apply_role
-from avialsync.ui.drift_spin import DriftSpinBox
+from avialsync.ui.accessible_views import register_painted
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
+from avialsync.ui.imaging_card import describe_picture
 from avialsync.ui.imaging_controls import ImagingControls
 from avialsync.ui.imaging_frame_view import ImagingFrameView
-
-#: A day either way, the same bound as the sidebar's offset fields.
-_OFFSET_LIMIT_S = 86_400.0
+from avialsync.ui.video_timing import format_clock
 
 # Threads stopped without waiting are kept referenced until they finish, so
 # Python never drops a running QThread (which aborts the process).
@@ -62,12 +59,13 @@ class _Stack:
 
 
 class ImagingPane(QWidget):
-    """Shows one of the session's imaging stacks at the master playhead."""
+    """Shows one of the session's imaging stacks at the master playhead.
+
+    Offset, drift, properties and removal live on the stack's Sources card
+    (D-196); this pane is the picture and how it is drawn.
+    """
 
     error = Signal(str)
-    remove_requested = Signal(str)
-    #: ``(path, offset, drift_ms_per_hour)`` after the user edits the mapping.
-    mapping_changed = Signal(str, float, float)
     #: ``(path, before, after, aspect)`` as view dicts, after a display edit.
     view_changed = Signal(str, object, object, str)
     #: ``(path, {"axes": ..., "z": ...})`` when the user picks another reading.
@@ -76,7 +74,7 @@ class ImagingPane(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setAccessibleName(tr("Two-photon imaging viewer"))
+        self.setAccessibleName(tr("Imaging viewer"))
         self.setAccessibleDescription(tr("Shows the imaging frame at the master timeline position"))
         self._sources: dict[str, _Stack] = {}
         self._thread: QThread | None = None
@@ -87,41 +85,31 @@ class ImagingPane(QWidget):
         self._out_of_range = False
         self._reported_frame_failure = False
 
-        # The picture takes the height; header and controls stay one line each.
+        # The picture takes the height; the stack choice and controls stay one line each.
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(4)
-        header = QHBoxLayout()
-        header.setSpacing(6)
-        header.addWidget(QLabel(tr("2P imaging"), self))
+        gap = spacing("s", self)
+        layout.setContentsMargins(gap, gap, gap, gap)
+        layout.setSpacing(gap)
         self.source_choice = QComboBox(self)
         self.source_choice.setAccessibleName(tr("Imaging source"))
         self.source_choice.setAccessibleDescription(tr("Choose the imaging stack to display"))
         self.source_choice.currentIndexChanged.connect(self._activate_selected)
-        header.addWidget(self.source_choice, 1)
-        self.remove_button = QPushButton(tr("Remove"), self)
-        self.remove_button.setAccessibleName(tr("Remove selected imaging source"))
-        self.remove_button.setAccessibleDescription(
-            tr("Remove the selected imaging stack from this session")
-        )
-        apply_role(self.remove_button, ControlRole.DESTRUCTIVE)
-        self.remove_button.clicked.connect(
-            lambda: self.remove_requested.emit(str(self.source_choice.currentData()))
-        )
-        header.addWidget(self.remove_button)
-        layout.addLayout(header)
+        layout.addWidget(self.source_choice)
 
         self.frame_label = ImagingFrameView(self)
         self.frame_label.setText(tr("No imaging source"))
         self.frame_label.setAccessibleName(tr("Imaging frame"))
-        self.frame_label.setAccessibleDescription(tr("Current two-photon image plane"))
+        self.frame_label.setAccessibleDescription(tr("Current image plane"))
+        register_painted(
+            self.frame_label, QAccessible.Role.Graphic, lambda: self.status_label.text()
+        )
         layout.addWidget(self.frame_label, 1)
 
         # Controls sit under the picture they adjust.
         self.controls = ImagingControls(self)
         self.controls.view_edited.connect(self._on_view_edited)
         status_row = QHBoxLayout()
-        status_row.setSpacing(6)
+        status_row.setSpacing(gap)
         self.status_label = QLabel("", self)
         self.status_label.setAccessibleName(tr("Imaging frame status"))
         self.status_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
@@ -129,40 +117,9 @@ class ImagingPane(QWidget):
         self.auto_button = self.controls.auto_button
         layout.addLayout(status_row)
         layout.addWidget(self.controls)
-        mapping_row = QHBoxLayout()
-        mapping_row.setSpacing(6)
-        self._build_mapping_row(mapping_row)
-        layout.addLayout(mapping_row)
         self.layout_row = QWidget(self)
         self._build_layout_row(self.layout_row)
         layout.addWidget(self.layout_row)
-
-    def _build_mapping_row(self, row: QHBoxLayout) -> None:
-        """Offset and drift for the shown stack, on their own row."""
-        row.addWidget(QLabel(tr("Offset"), self))
-        self.offset_spin = QDoubleSpinBox(self)
-        self.offset_spin.setRange(-_OFFSET_LIMIT_S, _OFFSET_LIMIT_S)
-        # Six decimals like every other offset field: a frame at 30 Hz is 33 ms,
-        # but the sync fit reports offsets to six places (see ui/sidebar.py).
-        self.offset_spin.setDecimals(6)
-        self.offset_spin.setSingleStep(0.05)
-        self.offset_spin.setSuffix(tr(" s"))
-        self.offset_spin.setAccessibleName(tr("Imaging time offset in seconds"))
-        self.offset_spin.setAccessibleDescription(
-            tr("Shift this stack's timestamps against the master timeline")
-        )
-        row.addWidget(self.offset_spin)
-        row.addWidget(QLabel(tr("Drift"), self))
-        self.drift_spin = DriftSpinBox(self)
-        self.drift_spin.setAccessibleName(tr("Imaging clock drift in milliseconds per hour"))
-        self.drift_spin.setAccessibleDescription(
-            tr("Correct gradual clock-rate differences against the master timeline")
-        )
-        self.drift_spin.set_base_tooltip(tr("Milliseconds this stack's clock gains per hour"))
-        row.addWidget(self.drift_spin)
-        row.addStretch(1)
-        self.offset_spin.valueChanged.connect(self._mapping_edited)
-        self.drift_spin.valueChanged.connect(self._mapping_edited)
 
     def _build_layout_row(self, row_widget: QWidget) -> None:
         """Which dimension is time, channel or depth, and which plane: shown when it can vary.
@@ -173,7 +130,7 @@ class ImagingPane(QWidget):
         """
         row = QHBoxLayout(row_widget)
         row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(6)
+        row.setSpacing(spacing("s", self))
         self._axes_label = QLabel(tr("Axes"), row_widget)
         row.addWidget(self._axes_label)
         self.axes_choice = QComboBox(row_widget)
@@ -319,7 +276,6 @@ class ImagingPane(QWidget):
         mapping.offset = offset
         mapping.drift_ms_per_hour = drift_ms_per_hour
         if self.source_choice.currentData() == path:
-            self._show_mapping(mapping)
             self._last_index = None
             self.set_cursor(self._last_time)
 
@@ -332,21 +288,6 @@ class ImagingPane(QWidget):
         if self.source_choice.currentData() == path:
             self.controls.set_view(stack.view)
             self._rerender()
-
-    def _show_mapping(self, mapping: TimeMap) -> None:
-        for spin, value in (
-            (self.offset_spin, mapping.offset),
-            (self.drift_spin, mapping.drift_ms_per_hour),
-        ):
-            blocked = spin.blockSignals(True)
-            spin.setValue(value)
-            spin.blockSignals(blocked)
-
-    @Slot()
-    def _mapping_edited(self) -> None:
-        path = self.source_choice.currentData()
-        if path in self._sources:
-            self.mapping_changed.emit(path, self.offset_spin.value(), self.drift_spin.value())
 
     @Slot(object, str)
     def _on_view_edited(self, view: object, aspect: str) -> None:
@@ -422,9 +363,12 @@ class ImagingPane(QWidget):
         # A zoom chosen for one field of view means nothing on another.
         self.frame_label.reset_view()
         self._show_message(tr("Loading imaging frame…"))
-        self._show_mapping(stack.mapping)
         self._show_layout(stack)
         self.controls.set_channel_names(stack.info.channel_names)
+        kind = np.dtype(stack.info.dtype)
+        self.controls.set_value_range(
+            (float(np.iinfo(kind).min), float(np.iinfo(kind).max)) if kind.kind in "ui" else None
+        )
         self.controls.set_view(stack.view)
         worker = ImagingReadWorker(Path(path), stack.loader, stack.config, stack.info.frame_count)
         thread = QThread(self)
@@ -482,7 +426,7 @@ class ImagingPane(QWidget):
         if path != self.source_choice.currentData() or index != self._last_index:
             return
         self._show_message(tr("Imaging frame unavailable"))
-        self.status_label.setText(tr("Frame {index} could not be read").format(index=index + 1))
+        self.status_label.setText(tr("Frame {index} could not be read").format(index=index))
         # Once per shown stack: playing through a damaged stretch must not raise
         # a notification per frame. The status line names every frame it hits.
         if not self._reported_frame_failure:
@@ -506,8 +450,12 @@ class ImagingPane(QWidget):
         self._image = QImage(image.data, width, height, image.strides[0], image_format).copy()
         self._show_image()
         average = stack.view.average
-        status = tr("Frame {index}/{total} · {time:.3f} s").format(
-            index=index + 1, total=stack.info.frame_count, time=float(stack.info.frame_times[index])
+        # The video overlay's own shape (D-183): when, the zero-based frame an
+        # exported row carries, then what the picture is.
+        info = stack.info
+        status = (
+            f"{format_clock(float(info.frame_times[index]))} · f {index} / "
+            f"{info.frame_count - 1} · {describe_picture(info)}"
         )
         if average > 1:
             status += " · " + tr("mean of {count}").format(count=average)

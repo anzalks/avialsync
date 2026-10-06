@@ -34,6 +34,7 @@ from avialsync.core.imaging_display import (
     ChannelView,
     ImagingView,
 )
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 
 __all__ = ["ImagingControls"]
@@ -88,12 +89,12 @@ class _ChannelRow:
         self.color.setToolTip(tr("Display colour only; the tick box chooses the channel"))
         self.brightness = self._slider(
             parent,
-            tr("Channel {number} brightness").format(number=number),
+            tr("{name} brightness").format(name=name),
             tr("Move the display window down to brighten, up to darken"),
         )
         self.contrast = self._slider(
             parent,
-            tr("Channel {number} contrast").format(number=number),
+            tr("{name} contrast").format(name=name),
             tr("Narrow the display window for more contrast, widen it for less"),
         )
         self.widgets = (self.shown, self.color, self.brightness, self.contrast)
@@ -127,14 +128,15 @@ class ImagingControls(QWidget):
         self._view = ImagingView()
         self._rows: list[_ChannelRow] = []
         self._names: tuple[str, ...] = ()
+        self._value_range: tuple[float, float] | None = None
         self._updating = False
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         self._grid = QGridLayout()
-        self._grid.setHorizontalSpacing(6)
-        self._grid.setVerticalSpacing(2)
+        self._grid.setHorizontalSpacing(spacing("s", self))
+        self._grid.setVerticalSpacing(spacing("xs", self))
         self._grid.setColumnStretch(3, 1)
         self._grid.setColumnStretch(5, 1)
         # One heading per column, so "which channel" and "what colour" are
@@ -152,8 +154,8 @@ class ImagingControls(QWidget):
         layout.addLayout(self._grid)
 
         average_row = QHBoxLayout()
-        average_row.setContentsMargins(0, 4, 0, 0)
-        average_row.setSpacing(6)
+        average_row.setContentsMargins(0, spacing("s", self), 0, 0)
+        average_row.setSpacing(spacing("s", self))
         average_row.addWidget(QLabel(tr("Average"), self))
         # The average is centred, so its length is always odd (D-190). The box
         # counts the frames either side -- Off, ±1, ±2 ... -- so every value it
@@ -177,14 +179,20 @@ class ImagingControls(QWidget):
         self.average.valueChanged.connect(self._on_average)
         average_row.addWidget(self.average)
         average_row.addStretch(1)
-        self.auto_button = QPushButton(tr("Auto levels"), self)
+        # Auto and Full range, the same pair the video's Display Levels offers.
+        self.auto_button = QPushButton(tr("Auto"), self)
         self.auto_button.setAccessibleName(tr("Automatic display levels"))
         self.auto_button.setAccessibleDescription(
             tr("Measure each visible channel's levels from the picture now shown")
         )
-        self.auto_button.setToolTip(tr("Measure levels from this picture and reset the sliders"))
+        self.auto_button.setToolTip(tr("Choose black and white from what this frame contains"))
         self.auto_button.clicked.connect(self.apply_auto_levels)
         average_row.addWidget(self.auto_button)
+        self.full_range_button = QPushButton(tr("Full range"), self)
+        self.full_range_button.setAccessibleName(tr("Full display range"))
+        self.full_range_button.setToolTip(tr("Show the whole recorded range"))
+        self.full_range_button.clicked.connect(self.apply_full_range)
+        average_row.addWidget(self.full_range_button)
         layout.addLayout(average_row)
 
     # ── state in ─────────────────────────────────────────────────────
@@ -202,6 +210,11 @@ class ImagingControls(QWidget):
         # rows are about to be replaced anyway.
         self._rebuild(len(self._rows))
         self.set_view(self._view)
+
+    def set_value_range(self, value_range: tuple[float, float] | None) -> None:
+        """The stored sample range Full range shows; None for float data, which has none."""
+        self._value_range = value_range
+        self.full_range_button.setEnabled(value_range is not None)
 
     def _channel_name(self, channel: int) -> str:
         if channel < len(self._names) and self._names[channel]:
@@ -285,6 +298,22 @@ class ImagingControls(QWidget):
         """Re-measure each visible channel's window and reset its sliders."""
         channels = tuple(
             dataclasses.replace(c, auto_low=None, auto_high=None, brightness=0.0, contrast=0.0)
+            if c.visible
+            else c
+            for c in self._view.channels
+        )
+        view = dataclasses.replace(self._view, channels=channels)
+        self.set_view(view)
+        self._emit(view, "levels")
+
+    @Slot()
+    def apply_full_range(self) -> None:
+        """Window each visible channel over the whole stored range and reset its sliders."""
+        if self._value_range is None:
+            return
+        low, high = self._value_range
+        channels = tuple(
+            dataclasses.replace(c, auto_low=low, auto_high=high, brightness=0.0, contrast=0.0)
             if c.visible
             else c
             for c in self._view.channels

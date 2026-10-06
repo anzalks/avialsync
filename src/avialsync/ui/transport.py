@@ -44,7 +44,7 @@ from PySide6.QtWidgets import (
 from avialsync.core.settings_schema import setting_for
 from avialsync.ui.accessible_views import register_painted
 from avialsync.ui.app_settings import app_settings
-from avialsync.ui.design_tokens import DENSITY_ROW_HEIGHT, ControlRole, Density, apply_role
+from avialsync.ui.design_tokens import DENSITY_ROW_HEIGHT, ControlRole, Density, apply_role, spacing
 from avialsync.ui.feedback.status_line import StatusLine
 from avialsync.ui.i18n import tr
 from avialsync.ui.icons import set_svg_icon
@@ -454,7 +454,7 @@ class TimelineOverview(QWidget):
 
     @staticmethod
     def _coverage_label(source_id: str, kind: str) -> str:
-        kind_label = "Video" if kind == "video" else "Data"
+        kind_label = {"video": tr("Video"), "imaging": tr("Imaging")}.get(kind, tr("Data"))
         return f"{kind_label} · {Path(source_id).name}"
 
     def _coverage_lanes(
@@ -794,8 +794,8 @@ class TimelineEvidence(QWidget):
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(0)
         header = QHBoxLayout()
-        header.setContentsMargins(2, 0, 2, 0)
-        header.setSpacing(6)
+        header.setContentsMargins(spacing("xs"), 0, spacing("xs"), 0)
+        header.setSpacing(spacing("s"))
         self.title = QLabel(tr("Data Streams"), self)
         self.title.setAccessibleName(tr("Data Streams title"))
         header.addWidget(self.title)
@@ -922,10 +922,12 @@ class Transport(QWidget):
         super().__init__(parent)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._root_layout = QVBoxLayout(self)
-        self._root_layout.setContentsMargins(5, 3, 5, 5)
-        self._root_layout.setSpacing(2)
+        self._root_layout.setContentsMargins(
+            spacing("s"), spacing("xs"), spacing("s"), spacing("s")
+        )
+        self._root_layout.setSpacing(spacing("xs"))
         self._timeline_layout = QHBoxLayout()
-        self._timeline_layout.setSpacing(5)
+        self._timeline_layout.setSpacing(spacing("s"))
         self.evidence = TimelineEvidence(self)
         self.status_line = StatusLine(self)
         self.overview = self.evidence.overview

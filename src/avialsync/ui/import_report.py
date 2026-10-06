@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.inspection import SourceInspection
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import set_font_family
 
@@ -40,7 +41,7 @@ class ImportReportDialog(QDialog):
         self.resize(520, 380)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setContentsMargins(spacing("m"), spacing("m"), spacing("m"), spacing("m"))
 
         self._text = QTextEdit()
         self._text.setReadOnly(True)

@@ -221,7 +221,7 @@ class StepPanel(QFrame):
 
     def set_learn_more(self, url: str) -> None:
         """Link the step to its page in the user guide (DS-13)."""
-        self.learn_more.setText(f'<a href="{url}">{tr("Learn more")}</a>')
+        self.learn_more.setText("".join(('<a href="', url, '">', tr("Learn more"), "</a>")))
         self.learn_more.setToolTip(url)
         self.learn_more.show()
 

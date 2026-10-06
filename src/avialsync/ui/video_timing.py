@@ -100,6 +100,13 @@ def format_picture(metadata: VideoMetadata, bits: int | None = None) -> str:
     return " · ".join(parts)
 
 
+def format_clock(t: float) -> str:
+    """``HH:MM:SS.mmm``, the clock every picture overlay shows."""
+    h = int(t // 3600)
+    m = int((t % 3600) // 60)
+    return f"{h:02d}:{m:02d}:{t % 60:06.3f}"
+
+
 def format_video_osd(
     t: float,
     current_fps: float,
@@ -122,9 +129,7 @@ def format_video_osd(
     when the rate is unknown, because a guessed frame number would be indistin-
     guishable from a measured one.
     """
-    h = int(t // 3600)
-    m = int((t % 3600) // 60)
-    s = t % 60
+    clock = format_clock(t)
     if frame is None:
         frame_text = "—"
     else:
@@ -135,7 +140,7 @@ def format_video_osd(
         # Two short lines rather than one long one: when; then what the picture
         # is. One long line wrapped wherever the pane ran out, and squeezed the
         # camera name beside it.
-        compact = f"{h:02d}:{m:02d}:{s:06.3f} · f {frame_text}"
+        compact = f"{clock} · f {frame_text}"
         return f"{compact}\n{picture}" if picture else compact
     if metadata.is_vfr:
         rate_lines = (
@@ -150,7 +155,7 @@ def format_video_osd(
         )
     codec = metadata.codec.upper() if metadata.codec else "UNKNOWN"
     return (
-        f"Time: {h:02d}:{m:02d}:{s:06.3f}\n"
+        f"Time: {clock}\n"
         f"Frame: {frame_text}\n"
         f"{rate_lines}\n"
         f"Codec: {codec} · Size: {human_file_size(metadata.file_size_bytes)}"

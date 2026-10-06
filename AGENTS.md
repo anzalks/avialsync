@@ -101,8 +101,8 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
     actions (D-091). **Start background work with `MainWindow._run_job` and nothing else** — that
     registration is what gives a job its name in the Tasks panel, its stall watchdog, and its
     orderly abandonment at shutdown. A raw `QThread` in `src/` fails
-    `tests/test_feedback_surface.py`; the three permitted exceptions are listed there with their
-    reasons, and adding a fourth means arguing for it in that list (D-107).
+    `tests/test_feedback_surface.py`; the permitted exceptions (`_UNMANAGED_THREAD_FILES`) are
+    listed there with their reasons, and adding one means arguing for it in that list (D-107).
 12. **Errors are presented, never dumped.** Typed exceptions from `core/errors.py` reach the user
     as title + plain-language cause + named recovery actions, through the single presenter in
     `ui/feedback/error_presenter.py`. Never `f"Could not do X:\n{exception}"` in a bare

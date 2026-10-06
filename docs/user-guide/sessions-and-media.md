@@ -90,7 +90,7 @@ whatever the session declared.
 
 ## Two-photon imaging
 
-Open an `.h5`, `.hdf5`, `.tif` or `.tiff` stack with **Open 2P Imaging…** on the Sources page or
+Open an `.h5`, `.hdf5`, `.tif` or `.tiff` stack with **Open Imaging…** on the Sources page or
 in the File menu, or drop it on the window. The imaging pane appears below the 3D view (or alone
 in that column) and shows the frame whose acquisition interval contains the playhead, exactly as
 a video pane does. The stack opens straight away with a reading of its dimensions: the file's own

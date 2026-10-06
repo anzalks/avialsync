@@ -68,7 +68,11 @@ def test_imaging_follows_master_time_below_the_3d_view(window, qtbot, tmp_path):
     assert window.imaging_splitter.widget(1) is pane
     assert window.sidebar.btn_open_imaging.isVisible()
     window.player.seek(0.25)
-    qtbot.waitUntil(lambda: pane.status_label.text().startswith("Frame 3/4"), timeout=_TIMEOUT)
+    # The video overlay's readout (D-183, D-196): zero-based frame, then the picture.
+    qtbot.waitUntil(
+        lambda: pane.status_label.text() == "00:00:00.200 · f 2 / 3 · 32×24 · 16-bit",
+        timeout=_TIMEOUT,
+    )
     pane._on_frame_failed(str(path), pane._last_index, "damaged page")
     assert pane._image is None
     assert pane.frame_label.text() == "Imaging frame unavailable"
@@ -115,7 +119,7 @@ def test_brightness_contrast_and_auto_levels_change_only_the_picture(window, qtb
     assert row.brightness.value() == 0 and row.contrast.value() == 0
     np.testing.assert_allclose(_picture(window, qtbot)[0, :, 0], before, atol=1)
     status = pane.status_label.text()
-    assert status.startswith("Frame 1/3")
+    assert " · f 0 / 2 · " in status
 
 
 def test_the_moving_average_is_centred_and_undoable(window, qtbot, tmp_path):
@@ -146,11 +150,14 @@ def test_session_keeps_choices_mapping_and_display(qtbot, window, tmp_path):
     pane = window.imaging_pane
     pane.controls._rows[0].color.setCurrentIndex(pane.controls._rows[0].color.findData("green"))
     pane.controls.average.setValue(2)
-    pane.offset_spin.setValue(0.05)
+    card = window.sidebar.imaging_widget(str(path))
+    assert card is not None, "an imaging stack has a Sources card like a camera (D-196)"
+    card.offset_spin.setValue(0.05)
     assert pane.source_config(str(path))[2].offset == 0.05
     assert window.document.undo(window._mutations)
     assert pane.source_config(str(path))[2].offset == 0.0
-    pane.offset_spin.setValue(0.05)
+    assert card.offset_spin.value() == 0.0, "undo shows on the card"
+    card.offset_spin.setValue(0.05)
 
     restored = SessionState.from_dict(window._build_session_state().to_dict())
     entry = restored.imaging[0]
@@ -162,6 +169,9 @@ def test_session_keeps_choices_mapping_and_display(qtbot, window, tmp_path):
 
     window._on_imaging_remove_requested(str(path))
     assert not pane.source_paths()
+    assert window.sidebar.imaging_widget(str(path)) is None
+    assert window.sidebar.imaging_widget(str(path)) is None
+    assert window.sidebar.imaging_widget(str(path)) is None
     assert window.document.undo(window._mutations)
     qtbot.waitUntil(lambda: str(path) in pane.source_paths(), timeout=_TIMEOUT)
     assert pane.view_for(str(path)).average == 5, "undoing a removal brings its display back"
@@ -175,7 +185,7 @@ def test_session_keeps_choices_mapping_and_display(qtbot, window, tmp_path):
     assert reopened.imaging_pane.metadata_for(str(path)).frame_count == 4
     assert reopened.imaging_pane.view_for(str(path)).channels[0].color == "green"
     assert reopened.imaging_pane.controls.average.value() == 2
-    assert reopened.imaging_pane.offset_spin.value() == 0.05
+    assert reopened.sidebar.imaging_widget(str(path)).offset_spin.value() == 0.05
     reopened.close()
 
 

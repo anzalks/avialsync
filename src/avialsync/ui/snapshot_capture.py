@@ -212,6 +212,15 @@ def capture_tracking_tile(pane: Any) -> SnapshotTile | None:
     return SnapshotTile(image, "3D Tracking", pane.status_label.text())
 
 
+def capture_imaging_tile(pane: Any) -> SnapshotTile | None:
+    """The imaging picture as rendered, with its readout, or None when none is shown."""
+    image = getattr(pane, "_image", None)
+    if image is None or pane.isHidden():
+        return None
+    title = pane.source_choice.currentText() or "Imaging"
+    return SnapshotTile(image.copy(), title, pane.status_label.text())
+
+
 def plot_aspect(plot_pane: Any) -> float | None:
     """Width over height of the whole channel stack, or None when there is none.
 
@@ -306,16 +315,20 @@ def _title(window: MainWindow) -> str:
 def capture_figure(window: MainWindow) -> SnapshotFigure:
     """Capture every displayed surface into one layout-planned figure."""
     tiles = _video_tiles(window)
-    tracking = capture_tracking_tile(window.tracking_3d_pane)
-    if tracking is not None:
-        tiles.append(tracking)
+    cameras = len(tiles)
+    for extra in (
+        capture_tracking_tile(window.tracking_3d_pane),
+        capture_imaging_tile(window.imaging_pane),
+    ):
+        if extra is not None:
+            tiles.append(extra)
 
     layout = plan_media_layout(tiles, plot_aspect(window.plot_pane))
     return SnapshotFigure(
         layout=layout,
         plot=capture_plot_image(window.plot_pane, layout.content_width),
         title=_title(window),
-        subtitle=_subtitle(window, len(tiles) - (1 if tracking is not None else 0)),
+        subtitle=_subtitle(window, cameras),
         footer=_footer(window),
         theme=capture_theme(),
     )

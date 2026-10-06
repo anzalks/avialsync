@@ -42,6 +42,7 @@ from avialsync.core.identity_swaps import SwapEvent, SwapStore
 from avialsync.core.point_edits import PointEditStore, PointKey
 from avialsync.ui.action_button import ActionButton
 from avialsync.ui.annotations import AnnotationStore
+from avialsync.ui.design_tokens import ControlRole, apply_role, spacing
 from avialsync.ui.empty_note import EmptyNote
 from avialsync.ui.i18n import tr
 from avialsync.ui.tables import ThemedTable
@@ -107,7 +108,7 @@ class ChangesPanel(QGroupBox):
         self._resolver: Any = None
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
 
         self._table = ThemedTable(0, len(_COLUMNS))
         self._table.setHorizontalHeaderLabels([tr(name) for name in _COLUMNS])
@@ -142,6 +143,7 @@ class ChangesPanel(QGroupBox):
         self._delete_button.setToolTip(
             tr("Remove the selected annotation, correction, or identity swap")
         )
+        apply_role(self._delete_button, ControlRole.DESTRUCTIVE)
         self._delete_button.clicked.connect(self._on_delete)
         # The same QAction the File menu carries, not a second button with its
         # own wording: rule 15 forbids a menu item and a button that invoke one

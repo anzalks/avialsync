@@ -13,6 +13,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QLabel, QScrollArea, QVBoxLayout, QWidget
 
 from avialsync.ui.action_button import ActionCheckBox
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 from avialsync.ui.wheel_panel import WheelPanel
 
@@ -36,7 +37,7 @@ class WheelTab(QWidget):
             scroll.horizontalScrollBar().setAccessibleName(tr("Scroll wheel controls sideways"))
         content = QWidget(scroll or self)
         column = QVBoxLayout(content)
-        column.setContentsMargins(5, 5, 5, 5)
+        column.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
         # View -> Overlays' own wheel entries, repeated here (rules 13 and 15).
         self.show_wheel = ActionCheckBox(content)
         self.show_hidden_bars = ActionCheckBox(content)

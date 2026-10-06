@@ -79,11 +79,9 @@ def _times(count: int, config: dict[str, Any], attrs: dict[str, Any]) -> tuple[n
 
 def _validate_axes(shape: tuple[int, ...], axes: str) -> None:
     if len(shape) != len(axes) or len(set(axes)) != len(axes):
-        raise ImagingChoiceRequired(
-            "axes", f"Imaging axes must name each of the {len(shape)} dimensions once."
-        )
+        raise SourceOpenError(f"Imaging axes must name each of the {len(shape)} dimensions once.")
     if not {"T", "Y", "X"}.issubset(set(axes)) or set(axes) - set(_AXES):
-        raise ImagingChoiceRequired("axes", "Imaging axes must include T, Y, X and may add C or Z.")
+        raise SourceOpenError("Imaging axes must include T, Y, X and may add C or Z.")
 
 
 def _axes_for(shape: tuple[int, ...], config: dict[str, Any], tagged: str) -> str:
@@ -224,7 +222,7 @@ class HDF5ImagingLoader(ImagingSource):
     @classmethod
     def display_name(cls) -> str:
         """Label this source by its data kind."""
-        return "Two-photon imaging (HDF5)"
+        return "Imaging Stack (HDF5)"
 
     @classmethod
     def can_open(cls, path: Path) -> float:
@@ -358,7 +356,7 @@ class TIFFImagingLoader(ImagingSource):
     @classmethod
     def display_name(cls) -> str:
         """Label this source by its data kind."""
-        return "Two-photon imaging (TIFF)"
+        return "Imaging Stack (TIFF)"
 
     @classmethod
     def can_open(cls, path: Path) -> float:

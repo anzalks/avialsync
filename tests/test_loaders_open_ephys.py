@@ -726,8 +726,8 @@ def test_a_rig_plugin_is_named_system_then_kind() -> None:
     from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
     from avialsync.loaders.aol_session_loader import AOLSessionSource
 
-    assert AOLEncoderLoader.display_name() == "AOL Encoder Log"
-    assert AOLEksLoader.display_name() == "AOL 3D Tracking"
+    assert AOLEncoderLoader.display_name() == "Rotary Encoder Log"
+    assert AOLEksLoader.display_name() == "3D Tracking (EKS)"
     assert AOLSessionSource.display_name() == "AOL Session"
 
     assert OpenEphysSessionSource.display_name() == "Open Ephys Session"

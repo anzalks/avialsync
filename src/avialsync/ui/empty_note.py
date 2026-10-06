@@ -12,6 +12,7 @@ from PySide6.QtGui import QAction, QPalette
 from PySide6.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from avialsync.ui.action_button import ActionButton
+from avialsync.ui.design_tokens import spacing
 
 __all__ = ["WRAP_WIDTH_PX", "EmptyNote"]
 
@@ -27,7 +28,7 @@ class EmptyNote(QWidget):
         super().__init__(parent)
         self.setObjectName("empty_note")
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 12, 4, 12)
+        layout.setContentsMargins(spacing("s"), spacing("l"), spacing("s"), spacing("l"))
         self.label = QLabel(text, self)
         self.label.setWordWrap(True)
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)

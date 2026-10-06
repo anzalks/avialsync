@@ -43,7 +43,7 @@ class NWBStackSource(ImagingSource):
 
     @classmethod
     def display_name(cls) -> str:
-        return "Imaging"
+        return "Imaging Stack (NWB)"
 
     @classmethod
     def can_open(cls, path: Path) -> float:

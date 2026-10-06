@@ -18,7 +18,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
 from avialsync.ui.action_button import ActionButton, ActionCheckBox
-from avialsync.ui.design_tokens import ControlRole, apply_role
+from avialsync.ui.design_tokens import ControlRole, apply_role, spacing
 from avialsync.ui.i18n import tr
 
 __all__ = ["ViewToolbar"]
@@ -36,8 +36,8 @@ class ViewToolbar(QWidget):
             tr("Flag frames, correct tracking, place markers, and change how the videos are shown")
         )
         row = QHBoxLayout(self)
-        row.setContentsMargins(2, 2, 2, 2)
-        row.setSpacing(6)
+        row.setContentsMargins(spacing("xs"), spacing("xs"), spacing("xs"), spacing("xs"))
+        row.setSpacing(spacing("s"))
         # Flag Frame marks the frame on screen: a video gesture, like the rest.
         self.flag_button = QPushButton(tr("Flag Frame"), self)
         self.flag_button.setToolTip(tr("Flag the current frame (M)"))

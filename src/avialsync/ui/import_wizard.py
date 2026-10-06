@@ -170,7 +170,7 @@ class ImportWizard(QDialog):
 
     def __init__(self, path: Path, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle(f"Import — {path.name}")
+        self.setWindowTitle(tr("Import — {name}").format(name=path.name))
         self.setMinimumSize(750, 550)
         self._path = path
 

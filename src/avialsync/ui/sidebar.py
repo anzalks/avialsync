@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.inspection import SourceInspection
+from avialsync.core.source import ImagingMetadata
 from avialsync.ui.action_button import ActionButton
 from avialsync.ui.channel_tree import group_prefixes, matches_filter, split_channel
 from avialsync.ui.design_tokens import ControlRole, apply_role, spacing
@@ -32,13 +33,16 @@ from avialsync.ui.drift_spin import DriftSpinBox
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
 from avialsync.ui.icons import set_status_icon
+from avialsync.ui.imaging_card import ImagingInfoWidget
 from avialsync.ui.quality_badge import findings_for, worst_severity
 from avialsync.ui.source_card import (
     TimingDisclosure,
+    commit_on_edit,
     copy_to_clipboard,
     kind_glyph,
     overflow_button,
     short_path,
+    show_value,
 )
 from avialsync.ui.source_properties import VideoPropertiesPanel
 from avialsync.ui.theme import follow_palette, separator_color, set_bold
@@ -78,40 +82,6 @@ def _children_of(item: QTreeWidgetItem) -> list[QTreeWidgetItem]:
 
 #: Channel count above which the per-source filter is worth its own row.
 _FILTER_THRESHOLD = 8
-
-
-def _commit_on_edit(spin: QDoubleSpinBox) -> None:
-    """Emit one value per edit, not one per keystroke.
-
-    Qt spin boxes track the keyboard by default, so typing ``123`` emits 1,
-    then 12, then 123. Each of those is a complete re-alignment of a source:
-    three remaps, three coverage updates, and -- while the master timeline was
-    still an accumulator -- three permanent stretches of it. Typing a
-    four-digit offset walked the session through every prefix of it and kept
-    the widest.
-
-    Off, the value commits on Return, on Tab, on focus loss, and on the arrow
-    keys and the step buttons, which is every gesture that means "I have
-    decided". The digits in between are not decisions.
-    """
-    spin.setKeyboardTracking(False)
-
-
-def _show_value(spin: QDoubleSpinBox, value: float) -> None:
-    """Display *value* in *spin*, widening its range rather than clamping.
-
-    A Qt spin box silently substitutes its own limit for anything outside its
-    range, and `mapping()` then reports the substitute as fact -- which is how
-    a session came to be saved with an offset nobody chose (D-026). These
-    controls carry a hand correction, so the declared range is the right one to
-    *type* in; a value that arrives from a restored session or an accepted fit
-    is shown as it is, whatever it is.
-    """
-    value = float(value)
-    minimum, maximum = spin.minimum(), spin.maximum()
-    if value < minimum or value > maximum:
-        spin.setRange(min(minimum, value), max(maximum, value))
-    spin.setValue(value)
 
 
 def _issues_button(parent: QWidget) -> QPushButton:
@@ -172,8 +142,8 @@ class SensorInfoWidget(QFrame):
         self.setFrameStyle(QFrame.Shape.StyledPanel | QFrame.Shadow.Raised)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
-        layout.setSpacing(3)
+        layout.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
+        layout.setSpacing(spacing("xs"))
 
         # ── Header: filename + badge + remove whole source ──────────
         header = QHBoxLayout()
@@ -250,7 +220,11 @@ class SensorInfoWidget(QFrame):
         layout.addWidget(path_lbl)
 
         n_ch = len(channels)
-        ch_count_lbl = QLabel(f"{n_ch} channel{'s' if n_ch != 1 else ''}")
+        ch_count_lbl = QLabel(
+            tr("{count} channel").format(count=n_ch)
+            if n_ch == 1
+            else tr("{count} channels").format(count=n_ch)
+        )
         layout.addWidget(ch_count_lbl)
 
         # ── Sync controls: same offset/drift treatment as video (P3.5) ─
@@ -287,11 +261,13 @@ class SensorInfoWidget(QFrame):
         # dragging the whole panel out of shape.
         self.offset_spin.setMinimumWidth(90)
         self.offset_spin.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
-        self.offset_spin.setAccessibleName(f"Time offset for {Path(path).name}")
+        self.offset_spin.setAccessibleName(
+            tr("Time offset for {name}").format(name=Path(path).name)
+        )
         self.offset_spin.setToolTip(
             tr("Shift this source against the master clock. Cached samples are never rewritten.")
         )
-        _commit_on_edit(self.offset_spin)
+        commit_on_edit(self.offset_spin)
         self.offset_spin.valueChanged.connect(self._on_mapping_changed)
         sync_form.addRow(tr("Offset:"), self.offset_spin)
 
@@ -299,11 +275,11 @@ class SensorInfoWidget(QFrame):
         self.drift_spin = DriftSpinBox()
         self.drift_spin.setMinimumWidth(90)
         self.drift_spin.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
-        self.drift_spin.setAccessibleName(f"Clock drift for {Path(path).name}")
+        self.drift_spin.setAccessibleName(tr("Clock drift for {name}").format(name=Path(path).name))
         self.drift_spin.set_base_tooltip(
             tr("How much this source's clock gains on master time per hour of recording.")
         )
-        _commit_on_edit(self.drift_spin)
+        commit_on_edit(self.drift_spin)
         self.drift_spin.valueChanged.connect(self._on_mapping_changed)
         sync_form.addRow(tr("Drift:"), self.drift_spin)
         # Behind a disclosure that shows the values inline (D-175, F-25): the
@@ -340,7 +316,9 @@ class SensorInfoWidget(QFrame):
         self._filter = QLineEdit()
         self._filter.setPlaceholderText(tr("Filter channels…"))
         self._filter.setClearButtonEnabled(True)
-        self._filter.setAccessibleName(f"Filter the channels of {Path(path).name}")
+        self._filter.setAccessibleName(
+            tr("Filter the channels of {name}").format(name=Path(path).name)
+        )
         self._external_filter = ""
         self._filter.textChanged.connect(self._on_local_filter_changed)
         if len(channels) > _FILTER_THRESHOLD:
@@ -633,7 +611,7 @@ class SensorInfoWidget(QFrame):
         """Show a restored mapping without re-emitting it back to the caller."""
         for spin, value in ((self.offset_spin, offset), (self.drift_spin, drift_ms_per_hour)):
             blocked = spin.blockSignals(True)
-            _show_value(spin, value)
+            show_value(spin, value)
             spin.blockSignals(blocked)
 
     def mapping(self) -> tuple[float, float]:
@@ -720,7 +698,7 @@ class VideoInfoWidget(QFrame):
         self.setFrameStyle(QFrame.Shape.StyledPanel | QFrame.Shadow.Raised)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
 
         # Header: Checkbox, Name, and Close button
         from PySide6.QtWidgets import QCheckBox
@@ -800,11 +778,13 @@ class VideoInfoWidget(QFrame):
         # dragging the whole panel out of shape.
         self.offset_spin.setMinimumWidth(90)
         self.offset_spin.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
-        self.offset_spin.setAccessibleName(f"Time offset for {Path(path).name}")
+        self.offset_spin.setAccessibleName(
+            tr("Time offset for {name}").format(name=Path(path).name)
+        )
         self.offset_spin.setToolTip(
             tr("Shift this camera against the master clock. The recording is never rewritten.")
         )
-        _commit_on_edit(self.offset_spin)
+        commit_on_edit(self.offset_spin)
         self.offset_spin.valueChanged.connect(self._on_offset_changed)
         sync_form.addRow(tr("Offset:"), self.offset_spin)
 
@@ -816,13 +796,13 @@ class VideoInfoWidget(QFrame):
         self.drift_spin = DriftSpinBox()
         self.drift_spin.setMinimumWidth(90)
         self.drift_spin.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
-        self.drift_spin.setAccessibleName(f"Clock drift for {Path(path).name}")
+        self.drift_spin.setAccessibleName(tr("Clock drift for {name}").format(name=Path(path).name))
         self.drift_spin.set_base_tooltip(
             tr("How much this camera's clock gains on master time per hour of recording.")
         )
         if fps:
             self.drift_spin.set_sample_rate(float(fps), tr("frames"))
-        _commit_on_edit(self.drift_spin)
+        commit_on_edit(self.drift_spin)
         self.drift_spin.valueChanged.connect(self._on_mapping_changed)
         sync_form.addRow(tr("Drift:"), self.drift_spin)
         # Behind a disclosure that shows the values inline (D-175, F-25): the
@@ -874,7 +854,7 @@ class VideoInfoWidget(QFrame):
         for spin, value in ((self.offset_spin, offset), (self.drift_spin, drift_ms_per_hour)):
             blocked = spin.blockSignals(True)
             try:
-                _show_value(spin, value)
+                show_value(spin, value)
             finally:
                 spin.blockSignals(blocked)
 
@@ -887,7 +867,7 @@ class VideoInfoWidget(QFrame):
         """
         blocked = self.offset_spin.blockSignals(True)
         try:
-            _show_value(self.offset_spin, offset)
+            show_value(self.offset_spin, offset)
         finally:
             self.offset_spin.blockSignals(blocked)
 
@@ -967,6 +947,9 @@ class SidebarPane(QWidget):
     channel_group_visibility_changed = Signal(str, str, list, bool)
     tracking_visibility_changed = Signal(str, str, bool)  # source_path, surface, is_visible
     grid_mode_changed = Signal(bool)  # True = NxN grid, False = strip
+    imaging_mapping_changed = Signal(str, float, float)  # path, offset_s, drift_ms_per_hour
+    imaging_remove_requested = Signal(str)
+    imaging_properties_requested = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -994,7 +977,9 @@ class SidebarPane(QWidget):
 
         scroll_content = QWidget()
         self.content_layout = QVBoxLayout(scroll_content)
-        self.content_layout.setContentsMargins(5, 5, 5, 5)
+        self.content_layout.setContentsMargins(
+            spacing("s"), spacing("s"), spacing("s"), spacing("s")
+        )
 
         # Row 1: every way to bring data in, one full-width button each, in
         # the order a session is built (D-181, amends D-175's split button,
@@ -1007,6 +992,7 @@ class SidebarPane(QWidget):
         self.btn_open_video = ActionButton(actions_group)
         self.btn_open_sensor = ActionButton(actions_group)
         self.btn_open_imaging = ActionButton(actions_group)
+        self.btn_open_dandi = ActionButton(actions_group)
         self.btn_open_session = ActionButton(actions_group)
         self.btn_align = ActionButton(actions_group)
         self.btn_reset_session = ActionButton(actions_group)
@@ -1014,6 +1000,7 @@ class SidebarPane(QWidget):
             self.btn_open_video,
             self.btn_open_sensor,
             self.btn_open_imaging,
+            self.btn_open_dandi,
             self.btn_open_session,
             self.btn_align,
         ):
@@ -1049,10 +1036,20 @@ class SidebarPane(QWidget):
         videos_top.addStretch()
         videos_top.addWidget(self._grid_chk)
         self.videos_layout = QVBoxLayout(self.videos_group)
-        self.videos_layout.setContentsMargins(5, 5, 5, 5)
+        self.videos_layout.setContentsMargins(
+            spacing("s"), spacing("s"), spacing("s"), spacing("s")
+        )
         self.videos_layout.addLayout(videos_top)
         self.content_layout.addWidget(self.videos_group)
         self._video_widgets: dict[str, VideoInfoWidget] = {}
+
+        # Imaging stacks: a card each, like a camera's (D-196). Hidden while
+        # there are none, so a session without imaging carries no empty group.
+        self.imaging_group = QGroupBox(tr("Imaging"))
+        self.imaging_layout = QVBoxLayout(self.imaging_group)
+        self.imaging_group.setVisible(False)
+        self.content_layout.addWidget(self.imaging_group)
+        self._imaging_widgets: dict[str, ImagingInfoWidget] = {}
 
         # Row 3: Sensors
         self.sensors_group = QGroupBox(tr("Sensor Data"))
@@ -1091,6 +1088,8 @@ class SidebarPane(QWidget):
     def clear_sources(self) -> None:
         """Remove every source summary from the sidebar."""
         self._source_filter.clear()
+        for path in list(self._imaging_widgets):
+            self.remove_imaging(path)
         for path in list(self._video_widgets):
             self.remove_video(path)
         for widget in _widgets_of(self.sensors_layout, SensorInfoWidget):
@@ -1136,9 +1135,14 @@ class SidebarPane(QWidget):
         apply_role(self.btn_reset_session, ControlRole.DESTRUCTIVE, "reset")
 
     def install_open_imaging_action(self, action: QAction) -> None:
-        """Show File → Open 2P Imaging… beside the other data sources (D-181, D-190)."""
+        """Show File → Open Imaging… beside the other data sources (D-181, D-190)."""
         self.btn_open_imaging.set_action(action)
         apply_role(self.btn_open_imaging, ControlRole.SECONDARY, "imaging")
+
+    def install_open_dandi_action(self, action: QAction) -> None:
+        """Show File → Open NWB from DANDI… with the other ways in (D-181, D-189)."""
+        self.btn_open_dandi.set_action(action)
+        apply_role(self.btn_open_dandi, ControlRole.SECONDARY, "data")
 
     def install_open_session_action(self, action: QAction) -> None:
         """Show File → Open Session… with the other ways in."""
@@ -1156,7 +1160,7 @@ class SidebarPane(QWidget):
     def _apply_source_filter(self, text: str) -> None:
         """Filter source cards and channel rows across the whole inspector."""
         needle = text.strip().lower()
-        for path, widget in self._video_widgets.items():
+        for path, widget in (*self._video_widgets.items(), *self._imaging_widgets.items()):
             widget.setVisible(not needle or needle in path.lower())
 
         for sensor_widget in _widgets_of(self.sensors_layout, SensorInfoWidget):
@@ -1216,8 +1220,43 @@ class SidebarPane(QWidget):
         if w:
             w.set_loader(loader)
 
+    def add_imaging(self, path: str, info: ImagingMetadata, offset: float, drift: float) -> None:
+        """Show an imaging stack's card, or update it when the stack was reopened."""
+        widget = self._imaging_widgets.get(path)
+        if widget is None:
+            widget = ImagingInfoWidget(path, info)
+            widget.mapping_changed.connect(self.imaging_mapping_changed)
+            widget.remove_requested.connect(self.imaging_remove_requested)
+            widget.properties_requested.connect(self.imaging_properties_requested)
+            self.imaging_layout.addWidget(widget)
+            self._imaging_widgets[path] = widget
+        widget.set_info(info)
+        widget.set_mapping(offset, drift)
+        self.imaging_group.setVisible(True)
+        self._apply_source_filter(self._source_filter.text())
+
+    def remove_imaging(self, path: str) -> None:
+        """Remove an imaging stack's card."""
+        widget = self._imaging_widgets.pop(path, None)
+        if widget is not None:
+            self.imaging_layout.removeWidget(widget)
+            widget.deleteLater()
+        self.imaging_group.setVisible(bool(self._imaging_widgets))
+
+    def imaging_widget(self, path: str) -> ImagingInfoWidget | None:
+        """The card for one imaging stack, if it has one."""
+        return self._imaging_widgets.get(path)
+
+    def set_imaging_mapping(self, path: str, offset: float, drift: float) -> None:
+        """Show an imaging stack's mapping without re-emitting it."""
+        widget = self._imaging_widgets.get(path)
+        if widget is not None:
+            widget.set_mapping(offset, drift)
+
     def properties_text(self, path: str) -> str:
         """The source's properties panel as plain text, read now; empty if unknown."""
+        if path in self._imaging_widgets:
+            return self._imaging_widgets[path].properties_text()
         widget: QWidget | None = self._video_widgets.get(path) or self.sensor_widget(path)
         panel = getattr(widget, "_props_panel", None)
         if panel is None:

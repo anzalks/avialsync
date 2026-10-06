@@ -98,7 +98,7 @@ tracking — so you can confirm the install and try everything before touching y
 your own recordings:
 
 1. Drag video and data files onto the window, or use **Open Videos**, **Open Sensor/Ephys Data**,
-   and **Open 2P Imaging**.
+   and **Open Imaging**.
 2. Video appears at the top, traces below it.
 3. Drag the shared time bar to inspect one moment across every recording.
 4. If recordings do not line up, use the synchronization tools to align a visible event or TTL pulse.

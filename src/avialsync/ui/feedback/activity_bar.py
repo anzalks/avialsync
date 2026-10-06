@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from avialsync.ui.design_tokens import ControlRole, apply_role
+from avialsync.ui.design_tokens import ControlRole, apply_role, spacing
 from avialsync.ui.i18n import tr
 
 #: Nobody can read a changing percentage faster than this, and every extra
@@ -69,8 +69,8 @@ class ActivityBar(QWidget):
         self._cancellable = False
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(6, 0, 6, 0)
-        layout.setSpacing(8)
+        layout.setContentsMargins(spacing("s"), 0, spacing("s"), 0)
+        layout.setSpacing(spacing("m"))
 
         self._label = QLabel("")
         self._label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
@@ -156,7 +156,7 @@ class ActivityBar(QWidget):
             self._eta.setText(_format_duration(elapsed))
             return
         remaining = elapsed * (1.0 - self._fraction) / self._fraction
-        self._eta.setText(f"{_format_duration(remaining)} left")
+        self._eta.setText(tr("{duration} left").format(duration=_format_duration(remaining)))
 
     # ── for tests and diagnostics ────────────────────────────────────
 

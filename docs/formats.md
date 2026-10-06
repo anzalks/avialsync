@@ -35,7 +35,7 @@ opening it again does not walk the file a second time.
 
 ## Two-photon imaging
 
-Open `.h5`, `.hdf5`, `.tif`, or `.tiff` through **File → Open 2P Imaging** or drag the stack into
+Open `.h5`, `.hdf5`, `.tif`, `.tiff` or `.nwb` through **File → Open Imaging** or drag the stack into
 the window. Imaging is a separate time-indexed source, shown below the 3D view when both are present.
 It follows the same master playhead as video and plots. PyAV continues to decode camera videos only.
 

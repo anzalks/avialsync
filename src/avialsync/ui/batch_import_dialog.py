@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 from avialsync.core.registry import LoaderRegistry
 from avialsync.core.rig_naming import match_label
 from avialsync.core.source import ImagingSource, TimeSeriesSource, VideoSource
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
 from avialsync.ui.tables import ThemedTable
@@ -133,7 +134,7 @@ class BatchImportDialog(QDialog):
             # files. The item above stays for anything reading the table.
             name_label = ElidedLabel(self._row_name(path), self._table)
             name_label.setToolTip(str(path))
-            name_label.setContentsMargins(4, 0, 4, 0)
+            name_label.setContentsMargins(spacing("s"), 0, spacing("s"), 0)
             self._table.setCellWidget(row, 0, name_label)
 
             combo = QComboBox()

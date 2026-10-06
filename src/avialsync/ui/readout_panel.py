@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.channel_reader import ChannelKey, MappedChannelReader, disambiguate
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.empty_note import EmptyNote
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import set_bold, set_font_family
@@ -96,8 +97,9 @@ class _StatsRow(QWidget):
             self._stats_lbl.setText(tr("—"))
             return
         self._stats_lbl.setText(
-            f"min={stats['min']:.4g}  max={stats['max']:.4g}  "
-            f"mean={stats['mean']:.4g}  rms={stats['rms']:.4g}"
+            tr("min={min}  max={max}  mean={mean}  rms={rms}").format(
+                **{key: f"{stats[key]:.4g}" for key in ("min", "max", "mean", "rms")}
+            )
         )
 
 
@@ -182,7 +184,7 @@ class ReadoutPanel(QGroupBox):
         super().__init__("Channel Values", parent)
         self.setAccessibleName(tr("Channel values and camera frames"))
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(4, 4, 4, 4)
+        outer.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
 
         self._text_summary_button = QPushButton(tr("Text view…"), self)
         self._text_summary_button.setAccessibleName(tr("Show a text summary of current values"))
@@ -213,7 +215,7 @@ class ReadoutPanel(QGroupBox):
         self._content = QWidget()
         self._layout = QVBoxLayout(self._content)
         self._layout.setContentsMargins(0, 0, 0, 0)
-        self._layout.setSpacing(2)
+        self._layout.setSpacing(spacing("xs"))
         self._layout.addStretch()
         self._scroll.setWidget(self._content)
         # After setWidget, which switches the content's own fill back on.
@@ -392,7 +394,7 @@ class ReadoutPanel(QGroupBox):
         self._clear_delta()
         dt = t_b - t_a
         self._delta_label.setVisible(True)
-        self._delta_t_lbl.setText(f"Δt = {dt:+.3f} s")
+        self._delta_t_lbl.setText(tr("Δt = {dt} s").format(dt=f"{dt:+.3f}"))
         self._layout.insertWidget(self._layout.count() - 1, self._delta_label)
         self._layout.insertWidget(self._layout.count() - 1, self._delta_t_lbl)
 
@@ -419,7 +421,7 @@ class ReadoutPanel(QGroupBox):
             self._layout.insertWidget(self._layout.count() - 1, fps_row)
             for label, _tp, fps in camera_states:
                 n = int(round(dt * fps)) if fps > 0 else "—"
-                r = QLabel(f"  {label}: {n} frames")
+                r = QLabel(tr("  {label}: {count} frames").format(label=label, count=n))
                 self._layout.insertWidget(self._layout.count() - 1, r)
 
     def clear_region_stats(self) -> None:

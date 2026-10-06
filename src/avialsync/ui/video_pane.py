@@ -67,6 +67,7 @@ from avialsync.engine.display_pipeline import (
 )
 from avialsync.engine.pyav_reader import PyAVReader
 from avialsync.ui.accessible_views import register_painted
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import set_font_family
@@ -799,7 +800,7 @@ class VideoPane(VideoTimingMixin, QWidget):
     def _on_open_failed(self, reason: str) -> None:
         """Leave a pane that says why it is empty rather than one that lies."""
         logger.warning("Video pane could not open its source: %s", reason)
-        self.lbl_no_footage.setText(f"Video unavailable\n{reason}")
+        self.lbl_no_footage.setText(tr("Video unavailable") + "\n" + reason)
         self.lbl_no_footage.setVisible(True)
         self.open_failed.emit(reason)
 
@@ -1095,7 +1096,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         chrome_style = "color: white; background-color: rgba(0,0,0,128);"
         self.lbl_name = _ChromeName()
         self.lbl_name.setStyleSheet(chrome_style)
-        self.lbl_name.setContentsMargins(4, 4, 4, 4)
+        self.lbl_name.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
         self.lbl_name.setVisible(False)
         # The chrome labels are readouts, not controls. Their container is
         # already transparent to the mouse but the attribute is per widget, so
@@ -1110,7 +1111,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.lbl_osd.setText(format_video_osd(0.0, 0.0, self._metadata, None, self._osd_detail))
         mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
         self.lbl_osd.setStyleSheet(chrome_style)
-        self.lbl_osd.setContentsMargins(4, 4, 4, 4)
+        self.lbl_osd.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
         self.lbl_osd.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         set_font_family(self.lbl_osd, mono_font)
 

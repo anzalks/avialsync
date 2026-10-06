@@ -6227,3 +6227,39 @@ could only be viewed one at a time. Merged channels are named by what distinguis
 **Kept.** Default colours stay green/magenta (D-190) even for channels named Red: red/green is the
 pair colour-vision deficiencies lose.
 
+---
+
+## 2026-10 · D-196 · Imaging is a source like any other; one vocabulary per concept
+
+**Context.** The imaging and NWB work (D-188 – D-195) postdated Phase 9 and did not adopt its
+patterns: stacks had no Sources card, so no Properties, Copy details or overflow Remove, and their
+offset and drift were edited on the pane, a second home beside the cards' spin boxes (D-175). Data
+Streams labelled them "Data"; the pane counted frames from one and printed raw seconds where the
+video overlay counts from zero (the integer an exported row carries) and shows `HH:MM:SS.mmm`;
+video and imaging levels offered different buttons; "Open Video(s)" survived as a dialog title;
+DANDI had no Sources button; and the translation gate did not read notifications, standard
+dialogs or f-strings.
+
+**Decision.**
+- Each stack has an `ImagingInfoWidget` card in an Imaging group on the Sources page (hidden when
+  empty), with the camera card's header, overflow and Timing disclosure. The pane keeps the stack
+  choice, the picture and its display controls. Data Streams labels the lane Imaging.
+- The pane's readout is the video overlay's: `format_clock` time, zero-based `f i / n-1`, then
+  `describe_picture` (`512×512 · 16-bit`). Export Snapshot includes the imaging picture.
+- Both levels panels offer **Auto** and **Full range**. Their slider models stay: Black/White/Gamma
+  on 8–16-bit video, Brightness/Contrast on imaging, both standard (ImageJ shows both) and both
+  stored in session files.
+- "Open 2P Imaging…" is **Open Imaging…** (id pinned as `file_open_2p_imaging`); loader names say
+  the kind of data with the format in brackets, not the rig. Open dialogs take their title from
+  their action and accept several files, and none filters by extension, since a plugin may claim
+  any (rule 5). Open NWB from DANDI… has a Sources button (D-181).
+- A malformed axis order is reported, not asked for as letters (D-194); the unreachable plane
+  prompt is gone.
+- `i18n.untranslated_calls` also reads `notifications.show_*`, `QInputDialog`/`QFileDialog`
+  titles and prompts, and f-strings in every scanned position.
+- Margins and gaps use `design_tokens.spacing` throughout `ui/`; off-scale values rounded down so
+  no minimum grows. The saved-layout commands moved from `MainWindow` to `ui/workspaces.py`.
+
+**Not done.** The imaging pane has no Fullscreen of its own; only video panes do. `main_window.py`
+remains far above D-148's 1 000-line target.
+

@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 
 #: Slider resolution. Independent of the source's bit depth on purpose: the
@@ -39,17 +40,18 @@ class LevelsPanel(QGroupBox):
     auto_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("Display Levels", parent)
+        super().__init__(tr("Display Levels"), parent)
         self._source: SourceFormat | None = None
         self._levels = DisplayLevels()
         self._emitting = True
 
         layout = QGridLayout(self)
-        layout.setContentsMargins(6, 6, 6, 6)
+        margin = spacing("s", self)
+        layout.setContentsMargins(margin, margin, margin, margin)
 
-        self._black = self._make_slider("Black", layout, row=0)
-        self._white = self._make_slider("White", layout, row=1)
-        self._gamma = self._make_slider("Gamma", layout, row=2)
+        self._black = self._make_slider(tr("Black"), layout, row=0)
+        self._white = self._make_slider(tr("White"), layout, row=1)
+        self._gamma = self._make_slider(tr("Gamma"), layout, row=2)
 
         self._black.setValue(0)
         self._white.setValue(_STEPS)
@@ -71,7 +73,7 @@ class LevelsPanel(QGroupBox):
         label = QLabel(name)
         slider = QSlider(Qt.Orientation.Horizontal)
         slider.setRange(0, _STEPS)
-        slider.setAccessibleName(f"{name} point")
+        slider.setAccessibleName(tr("{name} point").format(name=name))
         value = QLabel("")
         slider.valueChanged.connect(lambda _v: self._on_changed())
         slider.valueChanged.connect(lambda _v, lbl=value, s=slider: self._update_readout(lbl, s))
@@ -92,7 +94,7 @@ class LevelsPanel(QGroupBox):
         self._source = source
         self.setVisible(bool(source and source.needs_windowing))
         if source is not None:
-            self.setTitle(f"Display Levels — {source.bits}-bit")
+            self.setTitle(tr("Display Levels — {bits}-bit").format(bits=source.bits))
         self._refresh_readouts()
 
     # ── values ───────────────────────────────────────────────────────

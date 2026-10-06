@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.drift import describe_drift
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
 from avialsync.ui.icons import set_svg_icon
@@ -132,7 +133,7 @@ class TimingDisclosure(QWidget):
         header.addWidget(self.summary_label, 1)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(2)
+        layout.setSpacing(spacing("xs"))
         layout.addLayout(header)
         layout.addWidget(body)
         offset_spin.valueChanged.connect(self._refresh)
@@ -170,3 +171,37 @@ def copy_to_clipboard(text: str) -> None:
     clipboard = QApplication.clipboard()
     if clipboard is not None:
         clipboard.setText(text)
+
+
+def commit_on_edit(spin: QDoubleSpinBox) -> None:
+    """Emit one value per edit, not one per keystroke.
+
+    Qt spin boxes track the keyboard by default, so typing ``123`` emits 1,
+    then 12, then 123. Each of those is a complete re-alignment of a source:
+    three remaps, three coverage updates, and -- while the master timeline was
+    still an accumulator -- three permanent stretches of it. Typing a
+    four-digit offset walked the session through every prefix of it and kept
+    the widest.
+
+    Off, the value commits on Return, on Tab, on focus loss, and on the arrow
+    keys and the step buttons, which is every gesture that means "I have
+    decided". The digits in between are not decisions.
+    """
+    spin.setKeyboardTracking(False)
+
+
+def show_value(spin: QDoubleSpinBox, value: float) -> None:
+    """Display *value* in *spin*, widening its range rather than clamping.
+
+    A Qt spin box silently substitutes its own limit for anything outside its
+    range, and `mapping()` then reports the substitute as fact -- which is how
+    a session came to be saved with an offset nobody chose (D-026). These
+    controls carry a hand correction, so the declared range is the right one to
+    *type* in; a value that arrives from a restored session or an accepted fit
+    is shown as it is, whatever it is.
+    """
+    value = float(value)
+    minimum, maximum = spin.minimum(), spin.maximum()
+    if value < minimum or value > maximum:
+        spin.setRange(min(minimum, value), max(maximum, value))
+    spin.setValue(value)

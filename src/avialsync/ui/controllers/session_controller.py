@@ -187,7 +187,7 @@ def build_session_state(window: MainWindow) -> SessionState:
 def save_session(window: MainWindow) -> None:
     path, _ = QFileDialog.getSaveFileName(
         window,
-        "Save Session",
+        tr("Save Session"),
         "",
         "AvialSync Session (*.avv)",
     )
@@ -268,7 +268,7 @@ def start_session_save(window: MainWindow, path: Path, is_autosave: bool = False
 def open_session(window: MainWindow) -> None:
     path, _ = QFileDialog.getOpenFileName(
         window,
-        "Open Session",
+        tr("Open Session"),
         "",
         "AvialSync Session (*.avv)",
     )

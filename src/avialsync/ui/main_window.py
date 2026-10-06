@@ -79,7 +79,7 @@ from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
 from avialsync.engine.snapshot import SnapshotFigure
-from avialsync.ui import dandi_open, imaging_integration
+from avialsync.ui import dandi_open, imaging_integration, workspaces
 from avialsync.ui.accessibility import apply_accessibility, install_show_time_sweep
 from avialsync.ui.annotations import AnnotationStore, Marker
 from avialsync.ui.changes_panel import ChangeRow, ChangesPanel
@@ -246,6 +246,10 @@ class MainWindow(QMainWindow):
     _open_dandi = dandi_open.open_dandi
     _open_imaging = imaging_integration.open_dialog
     _on_imaging_remove_requested = imaging_integration.remove
+    _rebuild_workspace_menu = workspaces.rebuild_menu
+    _save_workspace = workspaces.save_current
+    _apply_workspace = workspaces.apply_named
+    _delete_workspace = workspaces.delete_one
     _on_imaging_mapping_changed = imaging_integration.change_mapping
     load_imaging = imaging_integration.load_imaging
     _source_record = source_record
@@ -257,6 +261,7 @@ class MainWindow(QMainWindow):
     _act_open_video: QAction
     _act_open_sensor: QAction
     _act_open_imaging: QAction
+    _act_open_dandi: QAction
     _act_save_session: QAction
     _act_reset_session: QAction
     _act_export_changes: QAction
@@ -593,6 +598,7 @@ class MainWindow(QMainWindow):
         # cost everything since the last autosave.
         self.video_grid.pane_detached.connect(self._write_session_snapshot)
         self.sidebar.video_visibility_changed.connect(self._on_video_visibility_changed)
+        imaging_integration.connect_sidebar(self)
         self.sidebar.sensor_remove_requested.connect(self._on_sensor_remove_requested)
         self.sidebar.sensor_mapping_changed.connect(self._on_sensor_mapping_changed)
         self.sidebar.channel_remove_requested.connect(self._on_channel_remove_requested)
@@ -1878,95 +1884,6 @@ class MainWindow(QMainWindow):
 
         build_menus(self)
 
-    # ── Workspaces (WP-11) ───────────────────────────────────────────
-
-    def _rebuild_workspace_menu(self) -> None:
-        """Regenerate the Workspace menu from what is actually stored."""
-        from avialsync.ui import workspaces
-
-        self._workspace_menu.clear()
-        saved = workspaces.names()
-        if saved:
-            for name in saved:
-                act = self._workspace_menu.addAction(name)
-                act.triggered.connect(lambda _c, n=name: self._apply_workspace(n))
-        else:
-            act = self._workspace_menu.addAction(tr("(no saved layouts)"))
-            act.setEnabled(False)
-        self._workspace_menu.addSeparator()
-
-        act = self._workspace_menu.addAction(tr("Save Current Layout…"))
-        act.triggered.connect(self._save_workspace)
-        if saved:
-            act = self._workspace_menu.addAction(tr("Delete Layout…"))
-            act.triggered.connect(self._delete_workspace)
-
-    def _save_workspace(self) -> None:
-        from PySide6.QtWidgets import QInputDialog
-
-        from avialsync.ui import workspaces
-
-        name, accepted = QInputDialog.getText(self, "Save Layout", "Name this layout:")
-        if not accepted or not name.strip():
-            return
-        workspaces.save(name, workspaces.capture(self))
-        self._rebuild_workspace_menu()
-        self.notifications.show_success(f"Layout saved as “{name.strip()}”.")
-
-    def _apply_workspace(self, name: str) -> None:
-        from avialsync.ui import workspaces
-
-        workspace = workspaces.load(name)
-        if workspace is None:
-            self.notifications.show_warning(f"Layout “{name}” is no longer stored.")
-            self._rebuild_workspace_menu()
-            return
-        workspaces.apply(self, workspace)
-
-    def _delete_workspace(self) -> None:
-        """Delete a saved layout, and offer it back for as long as the message shows.
-
-        Saving a layout said so and deleting one said nothing, which is the
-        wrong way round: the destructive half is the one that needs an answer
-        (D-107). Rather than a "are you sure?" gate in front of a reversible
-        act, the deletion happens and the layout is held here, offered back
-        under Undo on the notification strip — the same shape as the recovery
-        offer, and the same reason: never block, always inform.
-        """
-        from PySide6.QtWidgets import QInputDialog
-
-        from avialsync.ui import workspaces
-
-        saved = workspaces.names()
-        if not saved:
-            return
-        name, accepted = QInputDialog.getItem(
-            self, tr("Delete Layout"), tr("Layout:"), saved, 0, False
-        )
-        if not (accepted and name):
-            return
-
-        removed = workspaces.load(name)
-        workspaces.remove(name)
-        self._rebuild_workspace_menu()
-
-        if removed is None:
-            self.notifications.show_warning(
-                tr("Layout “{name}” was already gone.").format(name=name)
-            )
-            return
-
-        def _restore() -> None:
-            workspaces.save(name, removed)
-            self._rebuild_workspace_menu()
-            self.notifications.show_success(tr("Layout “{name}” is back.").format(name=name))
-
-        self.notifications.show_warning(
-            tr("Deleted layout “{name}”.").format(name=name),
-            action_label=tr("Undo"),
-            on_action=_restore,
-        )
-
     # ── Alignment (WP-10) ────────────────────────────────────────────
 
     def _nudge_alignment(self, direction: int) -> None:
@@ -1983,10 +1900,10 @@ class MainWindow(QMainWindow):
                 # Several cameras and none chosen. Guessing moved the wrong
                 # one silently, which is worse than saying so.
                 self.notifications.show_warning(
-                    "Click the camera you want to move first, or open one fullscreen."
+                    tr("Click the camera you want to move first, or open one fullscreen.")
                 )
             else:
-                self.notifications.show_warning("Load a video before nudging its alignment.")
+                self.notifications.show_warning(tr("Load a video before nudging its alignment."))
             return
 
         fps = self._video_fps.get(path, 0.0)
@@ -2820,7 +2737,7 @@ class MainWindow(QMainWindow):
         name = (
             self.session_runtime.path.stem if self.session_runtime.path is not None else "Untitled"
         )
-        self.setWindowTitle(f"{name}[*] — AvialSync")
+        self.setWindowTitle(tr("{name}[*] — AvialSync").format(name=name))
         self.setWindowModified(self.document.is_dirty)
 
     def _on_dirty_changed(self, dirty: bool) -> None:
@@ -3134,12 +3051,12 @@ class MainWindow(QMainWindow):
     def _on_proxy_finished(self, orig: str, proxy: str) -> None:
         self.activity_bar.end()
         self._active_cancel = None
-        self.notifications.show_success(f"Proxy ready: {Path(proxy).name}")
+        self.notifications.show_success(tr("Proxy ready: {name}").format(name=Path(proxy).name))
 
     def _on_proxy_error(self, err: str) -> None:
         self.activity_bar.end()
         self._active_cancel = None
-        self.notifications.show_error("Could not generate the proxy", details=err)
+        self.notifications.show_error(tr("Could not generate the proxy"), details=err)
 
     # ── Source loading ───────────────────────────────────────────────
 
@@ -3889,15 +3806,16 @@ class MainWindow(QMainWindow):
         )
         self.video_grid.set_pane_visible(path, is_visible)
 
+    # No file filters: a plugin may claim any extension (rule 5). Titles are
+    # the actions' own text (rule 15).
     def _open_video(self) -> None:
-        paths, _ = QFileDialog.getOpenFileNames(self, "Open Video(s)")
+        paths, _ = QFileDialog.getOpenFileNames(self, self._act_open_video.text().rstrip("…"))
         for path in paths:
-            if path:
-                self._load_video(Path(path))
+            self._load_video(Path(path))
 
     def _open_data(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Open Sensor/Ephys Data")
-        if path:
+        paths, _ = QFileDialog.getOpenFileNames(self, self._act_open_sensor.text().rstrip("…"))
+        for path in paths:
             self.open_path(Path(path))
 
     def _start_data_import(

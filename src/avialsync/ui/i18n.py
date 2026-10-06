@@ -151,6 +151,24 @@ USER_FACING_CONSTRUCTORS = frozenset(
 USER_FACING_FIRST_ARGUMENT = frozenset({"addItem", "addRow"})
 
 
+#: Methods whose *first* argument is a message the notification strip shows.
+USER_FACING_MESSAGES = frozenset({"show_success", "show_warning", "show_error", "show_info"})
+
+#: Standard dialogs, and which positional arguments (after the parent) are a
+#: title or a prompt. "Save Layout" sat untranslated here because only widget
+#: setters and constructors were scanned.
+USER_FACING_DIALOG_ARGUMENTS = {
+    "getText": (1, 2),
+    "getItem": (1, 2),
+    "getInt": (1, 2),
+    "getDouble": (1, 2),
+    "getOpenFileName": (1,),
+    "getOpenFileNames": (1,),
+    "getSaveFileName": (1,),
+    "getExistingDirectory": (1,),
+}
+
+
 def _user_facing_arguments(tree: ast.AST) -> list[tuple[int, ast.AST]]:
     """Every argument the application shows as text, with its line number."""
     found: list[tuple[int, ast.AST]] = []
@@ -165,6 +183,11 @@ def _user_facing_arguments(tree: ast.AST) -> list[tuple[int, ast.AST]]:
             or (isinstance(func, ast.Attribute) and func.attr in USER_FACING_FIRST_ARGUMENT)
         ):
             found.append((node.lineno, node.args[0]))
+        elif isinstance(func, ast.Attribute) and func.attr in USER_FACING_MESSAGES and node.args:
+            found.append((node.lineno, node.args[0]))
+        elif isinstance(func, ast.Attribute) and func.attr in USER_FACING_DIALOG_ARGUMENTS:
+            positions = USER_FACING_DIALOG_ARGUMENTS[func.attr]
+            found += [(node.lineno, node.args[i]) for i in positions if i < len(node.args)]
     return found
 
 
@@ -177,6 +200,16 @@ def _literal(argument: ast.AST) -> str | None:
     if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
         letters = sum(character.isalpha() for character in argument.value)
         return argument.value if letters >= 2 else None
+    if isinstance(argument, ast.JoinedStr):
+        # An f-string cannot be extracted by lupdate: it is counted, so that it
+        # gets restructured as ``tr("... {name}").format(name=...)``.
+        fixed = "".join(
+            part.value
+            for part in argument.values
+            if isinstance(part, ast.Constant) and isinstance(part.value, str)
+        )
+        if sum(character.isalpha() for character in fixed) >= 2:
+            return "f" + repr(fixed)
     return None
 
 
@@ -192,7 +225,8 @@ def untranslated_calls(path: Path) -> list[tuple[int, str]]:
 
     Returns ``(line, snippet)``. An empty string is ignored -- clearing a label
     is not text a person reads -- and so is an f-string, which cannot be
-    extracted by ``lupdate`` and needs restructuring rather than wrapping.
+    extracted by ``lupdate``, is reported too: it needs restructuring as
+    ``tr("... {name}").format(name=...)``, not wrapping.
     """
     tree = _parse(path)
     if tree is None:

@@ -72,7 +72,7 @@ class AOLEncoderLoader(TimeSeriesSource):
 
     @classmethod
     def display_name(cls) -> str:
-        return "AOL Encoder Log"
+        return "Rotary Encoder Log"
 
     def __init__(self) -> None:
         self._path: Path | None = None

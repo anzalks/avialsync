@@ -108,7 +108,7 @@ class RelinkDialog(QDialog):
         start_dir = str(orig_parent) if orig_parent.exists() else ""
         path, _ = QFileDialog.getOpenFileName(
             self,
-            f"Locate {Path(original).name}",
+            tr("Locate {name}").format(name=Path(original).name),
             start_dir,
             filter_str,
         )

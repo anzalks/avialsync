@@ -1145,9 +1145,9 @@ class Tracking3DPane(QWidget):
 
         header = QWidget(self)
         header_layout = QGridLayout(header)
-        header_layout.setContentsMargins(8, 4, 8, 4)
-        header_layout.setHorizontalSpacing(4)
-        header_layout.setVerticalSpacing(2)
+        header_layout.setContentsMargins(spacing("m"), spacing("s"), spacing("m"), spacing("s"))
+        header_layout.setHorizontalSpacing(spacing("s"))
+        header_layout.setVerticalSpacing(spacing("xs"))
         self.title_label = QLabel(tr("3D Tracking"), header)
         self.status_label = QLabel(tr("No XYZ tracking channels"), header)
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)

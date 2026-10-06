@@ -11,6 +11,7 @@ from PySide6.QtCore import QMargins, Qt, Signal
 from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import QGridLayout, QLabel, QSizePolicy, QWidget
 
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 from avialsync.ui.video_grid_overlays import GridOverlayMixin
 from avialsync.ui.video_pane import VideoPane
@@ -67,7 +68,7 @@ class VideoGrid(GridOverlayMixin, QWidget):
 
         self._layout = QGridLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
-        self._layout.setSpacing(2)
+        self._layout.setSpacing(spacing("xs"))
 
         self.lbl_empty = QLabel(
             tr(

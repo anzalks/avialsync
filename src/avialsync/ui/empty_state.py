@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.ui.action_button import ActionButton
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import follow_palette
 
@@ -49,7 +50,7 @@ class EmptyState(QWidget):
 
         layout = QVBoxLayout(content)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.setSpacing(10)
+        layout.setSpacing(spacing("m"))
 
         headline = QLabel(tr("Drop recordings here"))
         headline.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -88,7 +89,7 @@ class EmptyState(QWidget):
 
         layout.addWidget(headline)
         layout.addWidget(detail)
-        layout.addSpacing(8)
+        layout.addSpacing(spacing("m"))
         for button in (open_videos, open_data, demo):
             button.setMinimumWidth(240)
             layout.addWidget(button, alignment=Qt.AlignmentFlag.AlignCenter)

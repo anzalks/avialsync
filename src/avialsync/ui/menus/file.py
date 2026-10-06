@@ -44,16 +44,13 @@ def _file_open(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     window._act_open_sensor = file_menu.addAction(tr("Open Sensor/Ephys Data…"))
     act = window._act_open_sensor
     act.setShortcut(QKeySequence("Ctrl+Shift+D"))
+    act.setToolTip(tr("Open CSV, electrophysiology, tracking or NWB files"))
     act.triggered.connect(window._open_data)
     _reg(act, "File")
 
     _file_dandi(window, file_menu, _reg)
 
-    window._act_open_imaging = file_menu.addAction(tr("Open 2P Imaging…"))
-    act = window._act_open_imaging
-    act.setToolTip(tr("Open a two-photon HDF5 or TIFF stack on the shared timeline"))
-    act.triggered.connect(window._open_imaging)
-    _reg(act, "File")
+    _file_imaging(window, file_menu, _reg)
 
     file_menu.addSeparator()
 
@@ -89,9 +86,23 @@ def _file_open(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     )
 
 
+def _file_imaging(window: MainWindow, file_menu: QMenu, reg: Register) -> None:
+    """Open imaging stacks: HDF5, TIFF, and NWB image series."""
+    window._act_open_imaging = file_menu.addAction(tr("Open Imaging…"))
+    act = window._act_open_imaging
+    # Renamed from "Open 2P Imaging…": it opens one-photon, NWB and ROI-grid
+    # stacks too. Keep that label's id so a remapped shortcut survives.
+    act.setProperty("av_id", "file_open_2p_imaging")
+    act.setToolTip(tr("Open an HDF5, TIFF or NWB imaging stack on the shared timeline"))
+    act.triggered.connect(window._open_imaging)
+    reg(act, "File")
+
+
 def _file_dandi(window: MainWindow, file_menu: QMenu, reg: Register) -> None:
     """Expose streamed NWB assets through the ordinary file menu."""
-    act = file_menu.addAction(tr("Open NWB from DANDI…"))
+    window._act_open_dandi = file_menu.addAction(tr("Open NWB from DANDI…"))
+    act = window._act_open_dandi
+    act.setToolTip(tr("Stream an NWB asset from the DANDI archive by its address"))
     act.triggered.connect(window._open_dandi)
     reg(act, "File")
 
@@ -110,6 +121,7 @@ def _file_reset(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     _reg(act, "File")
     window.sidebar.install_open_actions(window._act_open_video, window._act_open_sensor, act)
     window.sidebar.install_open_imaging_action(window._act_open_imaging)
+    window.sidebar.install_open_dandi_action(window._act_open_dandi)
     # Empty pages offer the command that fills them (D-176).
     window.message_panel.install_empty_action(window._act_open_sensor)
     window.readout_panel.install_empty_action(window._act_open_sensor)

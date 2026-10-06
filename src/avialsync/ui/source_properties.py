@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 from avialsync.core.drift import describe_drift
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.source import VideoMetadata
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import follow_palette
 from avialsync.ui.time_format import format_rate
@@ -66,8 +67,8 @@ class _PropertiesBase(QGroupBox):
         self._collapsed = True
 
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(4, 4, 4, 4)
-        outer.setSpacing(2)
+        outer.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
+        outer.setSpacing(spacing("xs"))
 
         hdr = QHBoxLayout()
         self._toggle_btn = QPushButton("▶ " + title)
@@ -104,8 +105,8 @@ class _PropertiesBase(QGroupBox):
 
         self._body = QWidget()
         self._form = QFormLayout(self._body)
-        self._form.setContentsMargins(4, 2, 4, 2)
-        self._form.setSpacing(2)
+        self._form.setContentsMargins(spacing("s"), spacing("xs"), spacing("s"), spacing("xs"))
+        self._form.setSpacing(spacing("xs"))
         # Below the width where label and value both fit, put the value on
         # its own line rather than letting the pair force the panel wider.
         self._form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)

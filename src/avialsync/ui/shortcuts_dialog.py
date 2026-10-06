@@ -158,7 +158,11 @@ class ShortcutsDialog(QDialog):
         # it renders back as nothing, so a round trip through `toString` is the
         # check -- verified against 'not a key', 'zzzz' and 'Ctrl+'.
         if typed and not sequence.toString():
-            self._notice.setText(f"{typed!r} is not a key sequence. The shortcut is unchanged.")
+            self._notice.setText(
+                tr("{typed} is not a key sequence. The shortcut is unchanged.").format(
+                    typed=repr(typed)
+                )
+            )
             self._show_live_key(item, act)
             return
 
@@ -172,7 +176,9 @@ class ShortcutsDialog(QDialog):
             # can legitimately share a key, and rebinding a set passes through
             # conflicting states on the way to a consistent one.
             self._notice.setText(
-                f"{typed} is also bound to '{clash.text()}'. Both will respond to it."
+                tr("{typed} is also bound to '{action}'. Both will respond to it.").format(
+                    typed=typed, action=clash.text()
+                )
             )
         else:
             self._notice.setText("")

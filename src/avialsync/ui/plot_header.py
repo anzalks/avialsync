@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.ui.action_button import ActionButton
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
 from avialsync.ui.plot_sweep import PlotPresentation
@@ -30,8 +31,8 @@ class PlotHeader(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 2, 8, 2)
-        layout.setSpacing(6)
+        layout.setContentsMargins(spacing("m"), spacing("xs"), spacing("m"), spacing("xs"))
+        layout.setSpacing(spacing("s"))
         layout.addWidget(QLabel(tr("Live"), self))
 
         self.presentation_combo = QComboBox(self)

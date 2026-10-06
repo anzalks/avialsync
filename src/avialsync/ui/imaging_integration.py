@@ -56,8 +56,6 @@ def install(
 ) -> tuple[ImagingPane, PaneSplitter, QObject]:
     """Build the lower imaging pane and its 3D/imaging split."""
     pane = ImagingPane(window)
-    pane.remove_requested.connect(window._on_imaging_remove_requested)
-    pane.mapping_changed.connect(window._on_imaging_mapping_changed)
     pane.view_changed.connect(
         lambda path, before, after, aspect: record_view(window, path, before, after, aspect)
     )
@@ -83,15 +81,27 @@ def install(
 
 
 def open_dialog(window: MainWindow) -> None:
-    """Choose a stack through the same intake path as drag and drop."""
-    path, _ = QFileDialog.getOpenFileName(
+    """Choose stacks through the same intake path as drag and drop."""
+    paths, _ = QFileDialog.getOpenFileNames(
         window,
-        tr("Open 2P Imaging"),
-        "",
-        tr("Imaging stacks (*.h5 *.hdf5 *.tif *.tiff);;All files (*)"),
+        window._act_open_imaging.text().rstrip("…"),
     )
-    if path:
+    for path in paths:
         window.open_path(Path(path))
+
+
+def connect_sidebar(window: MainWindow) -> None:
+    """Offset, drift, properties and removal are the Sources card's (D-196)."""
+    window.sidebar.imaging_remove_requested.connect(window._on_imaging_remove_requested)
+    window.sidebar.imaging_mapping_changed.connect(window._on_imaging_mapping_changed)
+    window.sidebar.imaging_properties_requested.connect(lambda path: show_properties(window, path))
+
+
+def show_properties(window: MainWindow, path: str) -> None:
+    """Open the stack's properties, the same dialog a camera's card opens (D-183)."""
+    from avialsync.ui.feedback.text_dialog import show_text
+
+    show_text(window, tr("Imaging Properties"), window.sidebar.properties_text(path))
 
 
 def source_payload(window: MainWindow, path: str) -> tuple[dict[str, Any], float, float]:
@@ -185,7 +195,8 @@ def save_geometry(window: MainWindow, settings: QSettings) -> None:
 def clear_session(window: MainWindow) -> None:
     """Stop and hide imaging, and clear its coverage, when the session is reset."""
     for path in window.imaging_pane.source_paths():
-        window.transport.set_source_coverage(path, 0.0, 0.0, "data")
+        window.transport.set_source_coverage(path, 0.0, 0.0, "imaging")
+        window.sidebar.remove_imaging(path)
     window.imaging_pane.clear_sources()
     window.imaging_pane.setVisible(False)
     window.imaging_pending.clear()
@@ -233,7 +244,8 @@ def remove(window: MainWindow, path: str) -> None:
         return
     window._record(RemoveSourceCommand(window._source_record(path, "imaging")))
     window.imaging_pane.remove_source(path)
-    window.transport.set_source_coverage(path, 0.0, 0.0, "data")
+    window.sidebar.remove_imaging(path)
+    window.transport.set_source_coverage(path, 0.0, 0.0, "imaging")
     window.imaging_pane.setVisible(bool(window.imaging_pane.source_paths()))
     window._recompute_bounds()
     window._refresh_empty_state()
@@ -245,6 +257,7 @@ def change_mapping(window: MainWindow, path: str, offset: float, drift_ms_per_ho
         return
     window._record_mapping_change(path, offset, drift_ms_per_hour)
     window.imaging_pane.set_mapping(path, offset, drift_ms_per_hour)
+    window.sidebar.set_imaging_mapping(path, offset, drift_ms_per_hour)
     info = window.imaging_pane.metadata_for(path)
     _show_coverage(window, path, info, TimeMap(offset, drift_ms_per_hour))
 
@@ -301,20 +314,6 @@ def ask_choice(
         item, accepted = QInputDialog.getItem(window, title, message, list(options), 0, False)
         if accepted:
             updated[choice] = item if choice == "dataset" else int(item.split(":", 1)[0])
-    elif choice == "z" and options:
-        plane, accepted = QInputDialog.getInt(
-            window, tr("Imaging depth plane"), message, 0, 0, len(options) - 1
-        )
-        if accepted:
-            updated["z"] = plane
-    elif choice == "axes":
-        axes, accepted = QInputDialog.getText(
-            window,
-            tr("Imaging axes"),
-            message + "\n" + tr("Dimension order, such as TYX or TCZYX"),
-        )
-        if accepted and axes.strip():
-            updated["axes"] = axes.strip().upper()
     return None if updated == config else updated
 
 
@@ -360,6 +359,7 @@ def load_imaging(
         window.imaging_pane.add_source(
             source_id, loader_cls, chosen, metadata, offset, drift_ms_per_hour, view
         )
+        window.sidebar.add_imaging(source_id, metadata, offset, drift_ms_per_hour)
         window._recorded_mappings[source_id] = (offset, drift_ms_per_hour)
         _reveal(window)
         _show_coverage(window, source_id, metadata, TimeMap(offset, drift_ms_per_hour))
@@ -423,5 +423,5 @@ def _show_coverage(
     """Put the stack's span on the coverage lanes and widen the session bounds."""
     first = mapping.to_master(float(info.frame_times[0]))
     last = mapping.to_master(float(info.frame_times[-1]) + info.tail_duration)
-    window.transport.set_source_coverage(source_id, first, last, "data")
+    window.transport.set_source_coverage(source_id, first, last, "imaging")
     window._recompute_bounds()

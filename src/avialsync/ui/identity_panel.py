@@ -47,6 +47,7 @@ from avialsync.core.identity_groups import ANIMALS, CUSTOM, SIDES, split_group_i
 from avialsync.core.identity_swaps import ALL_PARTS, SwapEvent, SwapGroup
 from avialsync.ui.about import docs_url
 from avialsync.ui.axis_nav import NavigableViewBox
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 from avialsync.ui.identity_braid import BraidModel, BraidNode, draw_braid, draw_separation
 from avialsync.ui.plot_theme import apply_canvas_palette
@@ -159,7 +160,7 @@ class IdentityPanel(QWidget):
         self._video_available = False
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
         layout.addLayout(self._build_controls())
         instruction = QLabel(
             tr("Choose a crossing below, or drag a lane line onto another row at its time."), self
@@ -894,8 +895,8 @@ class _DockTitleBar(QWidget):
         super().__init__(dock)
         self._dock = dock
         row = QHBoxLayout(self)
-        row.setContentsMargins(6, 2, 4, 2)
-        row.setSpacing(4)
+        row.setContentsMargins(spacing("s"), spacing("xs"), spacing("s"), spacing("xs"))
+        row.setSpacing(spacing("s"))
 
         title = QLabel(dock.windowTitle(), self)
         set_bold(title, True)

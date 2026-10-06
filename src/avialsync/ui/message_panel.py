@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.messages import Message
 from avialsync.core.timeline import TimeMap
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.empty_note import EmptyNote
 from avialsync.ui.i18n import tr
 from avialsync.ui.tables import ThemedTable
@@ -167,7 +168,7 @@ class MessagePanel(QGroupBox):
         self._t_epoch = 0.0
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
 
         self._search = QLineEdit(self)
         self._search.setPlaceholderText(tr("Filter messages…"))

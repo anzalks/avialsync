@@ -263,8 +263,8 @@ def create_channel_plot(
     close_button.setText(tr("Hide plot"))
     close_button.setAutoRaise(True)
     close_button.setFixedSize(18, 18)
-    close_button.setAccessibleName(f"Hide plot {channel_name}")
-    close_button.setToolTip(f"Hide {channel_name}")
+    close_button.setAccessibleName(tr("Hide plot {name}").format(name=channel_name))
+    close_button.setToolTip(tr("Hide {name}").format(name=channel_name))
     apply_role(close_button, ControlRole.TOOL, "close")
     close_button.setFocusPolicy(Qt.FocusPolicy.TabFocus)
     close_button.clicked.connect(

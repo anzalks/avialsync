@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 
 
@@ -112,8 +113,8 @@ class SweepWindowControl(QWidget):
         self._slider_drag_active = False
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(4, 0, 4, 0)
-        layout.setSpacing(4)
+        layout.setContentsMargins(spacing("s"), 0, spacing("s"), 0)
+        layout.setSpacing(spacing("s"))
         layout.addWidget(QLabel(tr("Time span"), self))
 
         self.span_field = QWidget(self)

@@ -106,7 +106,7 @@ class NWBImagingSource(VideoSource):
 
     @classmethod
     def display_name(cls) -> str:
-        return "NWB Imaging"
+        return "Imaging (NWB)"
 
     def __init__(self) -> None:
         self._path: Path | None = None

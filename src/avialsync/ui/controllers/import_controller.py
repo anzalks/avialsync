@@ -249,7 +249,7 @@ def on_import_finished(
 ) -> None:
     window.activity_bar.end()
     window._active_cancel = None
-    window.notifications.show_success(f"Imported {Path(path).name}")
+    window.notifications.show_success(tr("Imported {name}").format(name=Path(path).name))
     offset, drift = window._pending_sensor_mappings.pop(path, (0.0, 0.0))
 
     role = ""

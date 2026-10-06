@@ -36,6 +36,7 @@ from avialsync.core.drift import describe_drift
 from avialsync.core.sync import SyncProposal
 from avialsync.ui.axis_nav import AxisNav, NavigableViewBox
 from avialsync.ui.coverage_lanes import CoverageLanes, SourceCoverage
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 from avialsync.ui.plot_theme import apply_canvas_palette
 from avialsync.ui.theme import coverage_color, status_color
@@ -125,7 +126,7 @@ class SyncEvidenceView(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
 
         self._headline = QLabel(tr("No alignment has been proposed."))
         self._headline.setWordWrap(True)
@@ -280,9 +281,17 @@ class SyncEvidenceView(QWidget):
 
         fit = proposal.fit
         self._headline.setText(
-            f"{fit.matched_count} matched, {fit.rejected_count} rejected · "
-            f"offset {fit.offset:.6f} s · drift {describe_drift(fit.drift_ms_per_hour)} · "
-            f"RMS {fit.rms_residual * 1000:.3f} ms · worst {fit.max_residual * 1000:.3f} ms"
+            tr(
+                "{matched} matched, {rejected} rejected · offset {offset} s · drift {drift} · "
+                "RMS {rms} ms · worst {worst} ms"
+            ).format(
+                matched=fit.matched_count,
+                rejected=fit.rejected_count,
+                offset=f"{fit.offset:.6f}",
+                drift=describe_drift(fit.drift_ms_per_hour),
+                rms=f"{fit.rms_residual * 1000:.3f}",
+                worst=f"{fit.max_residual * 1000:.3f}",
+            )
         )
 
         if not proposal.matches:
