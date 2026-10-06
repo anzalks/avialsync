@@ -51,6 +51,7 @@ from avialsync.ui.tracking_skeleton import (
     resolve_edges,
     sample_trajectories,
 )
+from avialsync.ui.zoom_controls import ZOOM_STEP, ZoomControls
 
 _MAX_LABELS = 24
 #: Hand-placed markers are hollow and wider than a tracked point, matching the
@@ -261,6 +262,10 @@ def detect_up_axis(sources: tuple[_SourceSamples, ...]) -> tuple[int, bool] | No
     return axis, bool(separation[axis] < 0)
 
 
+#: Height the zoom strip takes in the canvas's bottom-left corner.
+_ZOOM_STRIP_HEIGHT = 32
+
+
 class Tracking3DCanvas(QWidget):
     """Custom-painted current-pose view with mouse orbit and wheel zoom."""
 
@@ -331,6 +336,18 @@ class Tracking3DCanvas(QWidget):
         #: the zoom, which is how the video panes behave.
         self._pan = QPointF()
         self._pan_origin: QPoint | None = None
+
+        # The same zoom strip as the video and imaging panes, with this view's
+        # own zoom: buttons zoom about the scene centre, like the wheel here.
+        self.zoom_controls = ZoomControls(self)
+        self.zoom_controls.zoom_in_requested.connect(lambda: self.zoom_by(ZOOM_STEP))
+        self.zoom_controls.zoom_out_requested.connect(lambda: self.zoom_by(1.0 / ZOOM_STEP))
+        self.zoom_controls.reset_requested.connect(self.reset_zoom)
+        corner = QGridLayout(self)
+        corner.setContentsMargins(0, 0, 0, 0)
+        corner.addWidget(
+            self.zoom_controls, 0, 0, Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignLeft
+        )
 
     def accessible_value(self) -> str:
         """Points shown and the view angles, read on query (D-179)."""
@@ -958,7 +975,8 @@ class Tracking3DCanvas(QWidget):
         ax_len = 28  # pixels
         margin = 40
         cx = margin
-        cy = height - margin
+        # Raised clear of the zoom strip, which holds the corner below it.
+        cy = height - margin - _ZOOM_STRIP_HEIGHT
 
         # Unit world axes carried into view space, so the labels keep naming the
         # source coordinate system even when a different axis renders upward.
@@ -1066,11 +1084,22 @@ class Tracking3DCanvas(QWidget):
             return
         super().mouseReleaseEvent(event)
 
+    def zoom_by(self, factor: float) -> None:
+        """Scale the view about the scene centre."""
+        if factor <= 0.0:
+            return
+        self._zoom = float(np.clip(self._zoom * factor, 0.1, 20.0))
+        self.update()
+
+    def reset_zoom(self) -> None:
+        """Undo zoom and pan, keeping the orbit the user chose."""
+        self._zoom = 1.0
+        self._pan = QPointF()
+        self.update()
+
     def wheelEvent(self, event: QWheelEvent) -> None:
         """Zoom around the current scene center."""
-        steps = event.angleDelta().y() / 120.0
-        self._zoom = float(np.clip(self._zoom * (1.15**steps), 0.1, 20.0))
-        self.update()
+        self.zoom_by(1.15 ** (event.angleDelta().y() / 120.0))
         event.accept()
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:

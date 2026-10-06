@@ -102,10 +102,19 @@ plane, or the frame rate — AvialSync asks once and saves your answer with the 
 - **Brightness** and **Contrast** act per channel. Both start from levels measured from the data,
   ignoring the brightest and darkest 0.5 % of pixels; **Auto levels** measures again from the
   picture now shown and returns the sliders to the middle.
-- **Average** shows the mean of that many frames, centred on the current one (1, 3, 5, … up to 31).
-  Because the window is centred, averaging smooths noise without moving any event in time; at
-  the start and end of the stack it uses the frames that exist.
+- **Average** shows the mean of the current frame and that many frames either side: **Off**, then
+  ±1 (3 frames), ±2 (5 frames), … up to ±15 (31 frames). Because the window is centred,
+  averaging smooths noise without moving any event in time; at the start and end of the stack it
+  uses the frames that exist. Type a value and press Enter, or step with the arrows.
 - **Offset** and **Drift** place the stack on the session clock, like any other source.
+- **Zoom** with the strip in the picture's bottom-left corner (zoom in, zoom out, reset), the
+  same buttons the video and 3D panes carry, or with the scroll wheel around the cursor. Drag
+  with the middle button to pan a magnified picture; double-click to fit it again. Each pane
+  keeps its own zoom.
+
+An NWB file opens each of its image series here. In NWB a `TwoPhotonSeries` or `OnePhotonSeries`
+with a third frame axis holds depth planes, not channels, so AvialSync asks which plane to show;
+NWB records each optical channel as its own series, chosen from the list at the top of the pane.
 
 Display changes are undoable and saved with the session; the raw pixels are never changed. Only
 the frames needed for the current picture are read from disk, so a stack does not need to fit in

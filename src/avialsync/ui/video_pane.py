@@ -51,7 +51,6 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -70,11 +69,11 @@ from avialsync.engine.pyav_reader import PyAVReader
 from avialsync.ui.accessible_views import register_painted
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
-from avialsync.ui.icons import set_svg_icon
 from avialsync.ui.theme import set_font_family
 from avialsync.ui.video_overlay import PaintCanvas
 from avialsync.ui.video_timing import VideoTimingMixin, displayed_frame_rate, format_video_osd
 from avialsync.ui.wheel_overlay import WheelDrawing
+from avialsync.ui.zoom_controls import ZOOM_STEP, ZoomControls
 
 logger = logging.getLogger(__name__)
 
@@ -1133,36 +1132,13 @@ class VideoPane(VideoTimingMixin, QWidget):
 
         self._grid.addWidget(self.overlay, 0, 0)
 
-        self.zoom_controls = QWidget(self)
-        zoom_layout = QHBoxLayout(self.zoom_controls)
-        zoom_layout.setContentsMargins(4, 4, 4, 4)
-        zoom_layout.setSpacing(0)
-
-        # Glyph-only: the "+" and "-" text beside the glyphs said the same twice.
-        self.zoom_in_button = QPushButton(self.zoom_controls)
-        self.zoom_in_button.setToolTip(tr("Zoom in"))
-        self.zoom_in_button.setAccessibleName(tr("Zoom in"))
-        set_svg_icon(self.zoom_in_button, "zoom-in")
-        self.zoom_in_button.clicked.connect(lambda: self.surface.zoom_by(1.25))
-
-        self.zoom_out_button = QPushButton(self.zoom_controls)
-        self.zoom_out_button.setToolTip(tr("Zoom out"))
-        self.zoom_out_button.setAccessibleName(tr("Zoom out"))
-        set_svg_icon(self.zoom_out_button, "zoom-out")
-        self.zoom_out_button.clicked.connect(lambda: self.surface.zoom_by(1.0 / 1.25))
-
-        self.reset_zoom_button = QPushButton(self.zoom_controls)
-        # Inked like the +/- labels beside it rather than in the platform's
-        # full-colour reload artwork, which was the one blue mark in the strip.
-        set_svg_icon(self.reset_zoom_button, "reset")
-        self.reset_zoom_button.setToolTip(tr("Reset zoom"))
-        self.reset_zoom_button.setAccessibleName(tr("Reset zoom"))
-        self.reset_zoom_button.clicked.connect(self.surface.reset_view)
-
-        for button in (self.zoom_in_button, self.zoom_out_button, self.reset_zoom_button):
-            button.setFlat(False)
-            button.setFixedSize(24, 24)
-            zoom_layout.addWidget(button)
+        self.zoom_controls = ZoomControls(self)
+        self.zoom_in_button = self.zoom_controls.zoom_in_button
+        self.zoom_out_button = self.zoom_controls.zoom_out_button
+        self.reset_zoom_button = self.zoom_controls.reset_zoom_button
+        self.zoom_controls.zoom_in_requested.connect(lambda: self.surface.zoom_by(ZOOM_STEP))
+        self.zoom_controls.zoom_out_requested.connect(lambda: self.surface.zoom_by(1.0 / ZOOM_STEP))
+        self.zoom_controls.reset_requested.connect(self.surface.reset_view)
 
         self._grid.addWidget(
             self.zoom_controls,

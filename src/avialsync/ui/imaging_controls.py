@@ -13,15 +13,13 @@ from __future__ import annotations
 
 import dataclasses
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QColor, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QGridLayout,
-    QHBoxLayout,
     QLabel,
-    QPushButton,
     QSlider,
     QSpinBox,
     QVBoxLayout,
@@ -33,7 +31,6 @@ from avialsync.core.imaging_display import (
     MAX_AVERAGE,
     ChannelView,
     ImagingView,
-    odd_average,
 )
 from avialsync.ui.i18n import tr
 
@@ -128,40 +125,41 @@ class ImagingControls(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         self._grid = QGridLayout()
+        self._grid.setHorizontalSpacing(6)
+        self._grid.setVerticalSpacing(2)
         self._grid.setColumnStretch(3, 1)
         self._grid.setColumnStretch(5, 1)
-        self._brightness_heading = QLabel(tr("Brightness"), self)
-        self._contrast_heading = QLabel(tr("Contrast"), self)
-        self._grid.addWidget(self._brightness_heading, 0, 2)
-        self._grid.addWidget(self._contrast_heading, 0, 4)
-        layout.addLayout(self._grid)
-
-        row = QHBoxLayout()
-        row.addWidget(QLabel(tr("Average"), self))
+        # The averaging control fills the corner above the channel names, so the
+        # slider headings cost no row of their own.
+        self._grid.addWidget(QLabel(tr("Average"), self), 0, 0)
+        # The average is centred, so its length is always odd (D-190). The box
+        # counts the frames either side -- Off, ±1, ±2 ... -- so every value it
+        # accepts is a real window; a frame count would have to reject or
+        # silently round every even number typed.
         self.average = QSpinBox(self)
-        self.average.setRange(1, MAX_AVERAGE)
-        self.average.setSingleStep(2)
+        self.average.setRange(0, MAX_AVERAGE // 2)
+        self.average.setSpecialValueText(tr("Off"))
+        self.average.setPrefix("±")
         self.average.setSuffix(tr(" frames"))
-        self.average.setAccessibleName(tr("Moving average length"))
+        # Commit on Enter or focus loss: the unit follows the value, and
+        # rewriting it mid-entry would move the cursor under the user's typing.
+        self.average.setKeyboardTracking(False)
+        self.average.setAccessibleName(tr("Moving average half-width in frames"))
         self.average.setAccessibleDescription(
-            tr("Average this many frames centred on the current one; 1 shows raw frames")
+            tr("Average this many frames either side of the current one; Off shows raw frames")
         )
         self.average.setToolTip(
             tr("Centred on the current frame, so averaging never shifts an event in time")
         )
         self.average.valueChanged.connect(self._on_average)
-        row.addWidget(self.average)
-        self.auto_button = QPushButton(tr("Auto levels"), self)
-        self.auto_button.setAccessibleName(tr("Automatic display levels"))
-        self.auto_button.setAccessibleDescription(
-            tr("Measure each visible channel's levels from the picture now shown")
-        )
-        self.auto_button.setToolTip(tr("Measure levels from this picture and reset the sliders"))
-        self.auto_button.clicked.connect(self._on_auto)
-        row.addWidget(self.auto_button)
-        row.addStretch(1)
-        layout.addLayout(row)
+        self._grid.addWidget(self.average, 0, 1)
+        self._brightness_heading = QLabel(tr("Brightness"), self)
+        self._contrast_heading = QLabel(tr("Contrast"), self)
+        self._grid.addWidget(self._brightness_heading, 0, 2, 1, 2)
+        self._grid.addWidget(self._contrast_heading, 0, 4, 1, 2)
+        layout.addLayout(self._grid)
 
     # ── state in ─────────────────────────────────────────────────────
 
@@ -178,7 +176,8 @@ class ImagingControls(QWidget):
         try:
             for row, channel in zip(self._rows, view.channels, strict=True):
                 row.show_channel(channel)
-            self.average.setValue(view.average)
+            self.average.setValue(view.average // 2)
+            self._name_average_unit()
         finally:
             self._updating = False
 
@@ -229,20 +228,21 @@ class ImagingControls(QWidget):
         updated = dataclasses.replace(self._view.channels[channel], **changes)  # type: ignore[arg-type]
         self._emit(self._view.with_channel(channel, updated), aspect)
 
-    def _on_average(self, value: int) -> None:
+    @Slot(int)
+    def _on_average(self, _half_width: int) -> None:
         if self._updating:
             return
-        frames = odd_average(value)
-        if frames != value:
-            # The spin box steps by two from one, so an even value only arrives
-            # typed; the centred average needs an odd length, so take the one below.
-            self._updating = True
-            self.average.setValue(frames)
-            self._updating = False
+        self._name_average_unit()
+        frames = 2 * self.average.value() + 1
         if frames != self._view.average:
             self._emit(dataclasses.replace(self._view, average=frames), "averaging")
 
-    def _on_auto(self) -> None:
+    def _name_average_unit(self) -> None:
+        self.average.setSuffix(tr(" frame") if self.average.value() == 1 else tr(" frames"))
+
+    @Slot()
+    def apply_auto_levels(self) -> None:
+        """Re-measure each visible channel's window and reset its sliders."""
         channels = tuple(
             dataclasses.replace(c, auto_low=None, auto_high=None, brightness=0.0, contrast=0.0)
             if c.visible

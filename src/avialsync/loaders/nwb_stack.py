@@ -7,10 +7,15 @@ from typing import Any
 
 import numpy as np
 
-from avialsync.core.errors import SourceOpenError
+from avialsync.core.errors import ImagingChoiceRequired, SourceOpenError
 from avialsync.core.source import ImagingMetadata, ImagingSource
 from avialsync.loaders import nwb_format, nwb_read
 from avialsync.loaders.nwb_format import SeriesInfo
+
+#: Series whose third frame axis is depth. NWB stores an imaging frame as
+#: ``(x, y)`` or ``(x, y, z)`` and gives each optical channel its own series and
+#: imaging plane, so a third axis on these is a volume, never colour channels.
+_VOLUME_TYPES = frozenset({"TwoPhotonSeries", "OnePhotonSeries"})
 
 
 class NWBStackSource(ImagingSource):
@@ -21,6 +26,9 @@ class NWBStackSource(ImagingSource):
         self._handle: Any = None
         self._info: SeriesInfo | None = None
         self._frames = np.empty(0, dtype=np.int64)
+        #: Chosen depth plane of a volumetric series; ``None`` when the third
+        #: axis (if any) holds channels instead.
+        self._depth: int | None = None
 
     @classmethod
     def display_name(cls) -> str:
@@ -39,6 +47,7 @@ class NWBStackSource(ImagingSource):
         info = next((item for item in contents.of_kind("imaging") if item.path == series), None)
         if info is None or len(info.frame_shape) not in (2, 3):
             raise SourceOpenError(f"{series} has no readable image planes.")
+        self._depth = _depth(info, config)
         self._context = nwb_format.open_file(container)
         self._handle = self._context.__enter__()
         try:
@@ -51,7 +60,7 @@ class NWBStackSource(ImagingSource):
                 raise SourceOpenError(f"{series} has no frame with a usable timestamp.")
             self._info = info
             height, width = info.frame_shape[:2]
-            channels = info.frame_shape[2] if len(info.frame_shape) == 3 else 1
+            channels = self._channel_count(info)
             return ImagingMetadata(
                 frame_count=len(self._frames),
                 height=height,
@@ -72,12 +81,18 @@ class NWBStackSource(ImagingSource):
             raise SourceOpenError("NWB imaging source is not open.")
         if not 0 <= index < len(self._frames):
             raise IndexError(index)
-        channels = self._info.frame_shape[2] if len(self._info.frame_shape) == 3 else 1
-        if not 0 <= channel < channels:
+        if not 0 <= channel < self._channel_count(self._info):
             raise IndexError(channel)
         stored = int(self._frames[index])
         plane = nwb_read.read_frames(self._handle, self._info, stored, stored + 1)[0]
-        return np.asarray(plane[..., channel] if len(self._info.frame_shape) == 3 else plane)
+        if len(self._info.frame_shape) == 2:
+            return np.asarray(plane)
+        return np.asarray(plane[..., channel if self._depth is None else self._depth])
+
+    def _channel_count(self, info: SeriesInfo) -> int:
+        if len(info.frame_shape) == 3 and self._depth is None:
+            return info.frame_shape[2]
+        return 1
 
     def close(self) -> None:
         """Release the owning thread's file or HTTP range handle."""
@@ -86,3 +101,23 @@ class NWBStackSource(ImagingSource):
         self._context = None
         self._handle = None
         self._info = None
+
+
+def _depth(info: SeriesInfo, config: dict[str, Any]) -> int | None:
+    """Return the depth plane to show from a volumetric series, asking when unsettled."""
+    if len(info.frame_shape) != 3 or info.neurodata_type not in _VOLUME_TYPES:
+        return None
+    planes = info.frame_shape[2]
+    chosen = config.get("z")
+    if chosen is None and planes == 1:
+        return 0
+    if chosen is None:
+        raise ImagingChoiceRequired(
+            "z",
+            f"{info.name} has {planes} depth planes. Choose one to show.",
+            tuple(str(index) for index in range(planes)),
+        )
+    depth = int(chosen)
+    if not 0 <= depth < planes:
+        raise SourceOpenError(f"{info.name} has no depth plane {depth}.")
+    return depth

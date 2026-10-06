@@ -16,13 +16,14 @@ from typing import Any
 
 import numpy as np
 from PySide6.QtCore import QObject, Qt, QThread, Signal, Slot
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtGui import QImage
 from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -37,6 +38,7 @@ from avialsync.ui.design_tokens import ControlRole, apply_role
 from avialsync.ui.drift_spin import DriftSpinBox
 from avialsync.ui.i18n import tr
 from avialsync.ui.imaging_controls import ImagingControls
+from avialsync.ui.imaging_frame_view import ImagingFrameView
 
 #: A day either way, the same bound as the sidebar's offset fields.
 _OFFSET_LIMIT_S = 86_400.0
@@ -81,8 +83,12 @@ class ImagingPane(QWidget):
         self._out_of_range = False
         self._reported_frame_failure = False
 
+        # The picture takes the height; header and controls stay one line each.
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(4)
         header = QHBoxLayout()
+        header.setSpacing(6)
         header.addWidget(QLabel(tr("2P imaging"), self))
         self.source_choice = QComboBox(self)
         self.source_choice.setAccessibleName(tr("Imaging source"))
@@ -101,22 +107,35 @@ class ImagingPane(QWidget):
         header.addWidget(self.remove_button)
         layout.addLayout(header)
 
-        self.controls = ImagingControls(self)
-        self.controls.view_edited.connect(self._on_view_edited)
-        layout.addWidget(self.controls)
-        mapping_row = QHBoxLayout()
-        self._build_mapping_row(mapping_row)
-        layout.addLayout(mapping_row)
-
-        self.frame_label = QLabel(tr("No imaging source"), self)
-        self.frame_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.frame_label = ImagingFrameView(self)
+        self.frame_label.setText(tr("No imaging source"))
         self.frame_label.setAccessibleName(tr("Imaging frame"))
         self.frame_label.setAccessibleDescription(tr("Current two-photon image plane"))
-        self.frame_label.setMinimumSize(80, 80)
         layout.addWidget(self.frame_label, 1)
+
+        # Controls sit under the picture they adjust.
+        self.controls = ImagingControls(self)
+        self.controls.view_edited.connect(self._on_view_edited)
+        status_row = QHBoxLayout()
+        status_row.setSpacing(6)
         self.status_label = QLabel("", self)
         self.status_label.setAccessibleName(tr("Imaging frame status"))
-        layout.addWidget(self.status_label)
+        self.status_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        status_row.addWidget(self.status_label, 1)
+        self.auto_button = QPushButton(tr("Auto levels"), self)
+        self.auto_button.setAccessibleName(tr("Automatic display levels"))
+        self.auto_button.setAccessibleDescription(
+            tr("Measure each visible channel's levels from the picture now shown")
+        )
+        self.auto_button.setToolTip(tr("Measure levels from this picture and reset the sliders"))
+        self.auto_button.clicked.connect(self.controls.apply_auto_levels)
+        status_row.addWidget(self.auto_button)
+        layout.addLayout(status_row)
+        layout.addWidget(self.controls)
+        mapping_row = QHBoxLayout()
+        mapping_row.setSpacing(6)
+        self._build_mapping_row(mapping_row)
+        layout.addLayout(mapping_row)
 
     def _build_mapping_row(self, row: QHBoxLayout) -> None:
         """Offset and drift for the shown stack, on their own row."""
@@ -331,6 +350,8 @@ class ImagingPane(QWidget):
         stack = self._sources.get(path)
         if stack is None:
             return
+        # A zoom chosen for one field of view means nothing on another.
+        self.frame_label.reset_view()
         self._show_message(tr("Loading imaging frame…"))
         self._show_mapping(stack.mapping)
         self.controls.set_view(stack.view)
@@ -348,6 +369,10 @@ class ImagingPane(QWidget):
         worker.window_measured.connect(self._on_window_measured)
         thread.started.connect(worker.open)
         thread.finished.connect(worker.close)
+        # Free the worker with its thread. Left to Python, it outlives every pane
+        # until interpreter shutdown, where PySide tears down its slot
+        # connections in an order that can crash the process on exit.
+        thread.finished.connect(worker.deleteLater)
         thread.start()
 
     def _stop_worker(self, *, wait: bool = False) -> None:
@@ -419,22 +444,8 @@ class ImagingPane(QWidget):
 
     def _show_message(self, text: str) -> None:
         self._image = None
-        self.frame_label.setPixmap(QPixmap())
         self.frame_label.setText(text)
 
     def _show_image(self) -> None:
-        if self._image is None:
-            return
-        pixmap = QPixmap.fromImage(self._image)
-        self.frame_label.setPixmap(
-            pixmap.scaled(
-                self.frame_label.size(),
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.FastTransformation,
-            )
-        )
-
-    def resizeEvent(self, event: Any) -> None:
-        """Scale the current picture to the pane's new size."""
-        super().resizeEvent(event)
-        self._show_image()
+        if self._image is not None:
+            self.frame_label.set_image(self._image)

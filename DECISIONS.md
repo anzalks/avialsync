@@ -6137,3 +6137,24 @@ series keeps its position against the file's time series on the master clock. A 
 is still the source identity for undo, coverage, save and relink. The existing `NWBImagingSource`
 video proxy remains available for video-compatible consumers; encoding it reports progress and
 finishes an in-progress copy before publishing its cache entry.
+
+---
+
+## 2026-10 · D-192 · The imaging viewer counts its average either side, zooms like the video, and reads NWB depth as depth
+
+**Decision.** *Average* is entered as a half-width -- Off, ±1 … ±15 frames -- and stored, as
+before, as the odd frame count (`ImagingView.average`, schema unchanged). A frame count accepted
+values it could not show: the centred window has no even length, so a typed 2 was silently
+rounded back to 1. The imaging picture, the video panes and the 3D view carry the same
+`ui/zoom_controls.ZoomControls` strip in their bottom-left corner, each driving its own view's
+zoom (wheel zoom about the cursor, middle-drag pan, double-click to fit, as on video); the 3D
+orientation triad moves up to clear it. Reset in 3D restores zoom and pan, not the orbit. The
+imaging controls sit below the picture, Average shares the slider headings' row and Auto levels
+the frame status line, so the picture takes the height. `NWBStackSource` treats a third frame
+axis on a `TwoPhotonSeries`/`OnePhotonSeries` as depth planes and asks for `z`, as the HDF5 loader
+does; NWB keeps optical channels in separate series, so overlaying planes as colours was wrong.
+
+**Alternatives rejected.** *Rounding even counts up* still shows a value other than the one typed.
+*A shared zoom across panes*: the panes show different things at different scales. *Treating any
+third axis as channels*: true only of plain `ImageSeries` colour images, which keep that reading.
+

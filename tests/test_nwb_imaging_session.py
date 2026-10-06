@@ -10,6 +10,7 @@ import pytest
 pytest.importorskip("h5py")
 av = pytest.importorskip("av")
 
+from avialsync.core.errors import ImagingChoiceRequired  # noqa: E402
 from avialsync.core.registry import LoaderRegistry  # noqa: E402
 from avialsync.core.source import TimeSeriesSource, VideoSource  # noqa: E402
 from avialsync.loaders import nwb_format  # noqa: E402
@@ -215,6 +216,31 @@ def test_nwb_stack_reads_raw_planes_and_timestamps(tmp_path: Path, storage: str)
         assert np.array_equal(source.read_frame(1), _imaging_frames("uint16")[1])
         with pytest.raises(IndexError):
             source.read_frame(metadata.frame_count)
+    finally:
+        source.close()
+
+
+def test_a_volumetric_two_photon_series_asks_for_its_depth_plane(tmp_path: Path) -> None:
+    """NWB puts depth, not channels, on a photon series' third frame axis."""
+    import h5py
+
+    container = write_nwb(tmp_path / "s.nwb")
+    volume = np.stack([_imaging_frames("uint16") + 1000 * z for z in range(3)], axis=-1)
+    with h5py.File(container, "r+") as handle:
+        group = handle["acquisition/TwoPhotonSeries"]
+        attrs = dict(group["data"].attrs)
+        del group["data"]
+        group.create_dataset("data", data=volume).attrs.update(attrs)
+    series = container / "acquisition" / "TwoPhotonSeries"
+    with pytest.raises(ImagingChoiceRequired) as asked:
+        NWBStackSource().open(series, {})
+    assert asked.value.choice == "z"
+    assert asked.value.options == ("0", "1", "2")
+    source = NWBStackSource()
+    try:
+        metadata = source.open(series, {"z": 2})
+        assert metadata.channel_count == 1, "depth planes must not be overlaid as channels"
+        assert np.array_equal(source.read_frame(1), volume[1, ..., 2])
     finally:
         source.close()
 

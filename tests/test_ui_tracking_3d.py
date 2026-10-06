@@ -555,3 +555,19 @@ def test_up_axis_choice_is_shown_in_its_combo_box(qtbot) -> None:
     assert pane.up_axis_combo.currentData() == (2, False)
     pane.set_up_axis(1, True)
     assert pane.up_axis_combo.currentData() == (1, True)
+
+
+def test_the_3d_view_has_its_own_zoom_strip(qtbot) -> None:
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    canvas = pane.canvas
+    canvas._azimuth = 1.0
+    strip = canvas.zoom_controls
+    strip.zoom_in_button.click()
+    assert canvas._zoom == pytest.approx(1.25)
+    strip.zoom_out_button.click()
+    assert canvas._zoom == pytest.approx(1.0)
+    strip.zoom_in_button.click()
+    strip.reset_zoom_button.click()
+    assert canvas._zoom == 1.0
+    assert canvas._azimuth == 1.0, "resetting the zoom keeps the orbit"

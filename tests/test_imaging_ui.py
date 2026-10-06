@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import tifffile
+from PySide6.QtCore import Qt
 from shiboken6 import isValid
 
 from avialsync.core.session import SessionState
@@ -110,7 +111,7 @@ def test_brightness_contrast_and_auto_levels_change_only_the_picture(window, qtb
     assert np.count_nonzero((steeper > 0) & (steeper < 255)) < np.count_nonzero(
         (before > 0) & (before < 255)
     )
-    pane.controls.auto_button.click()
+    pane.auto_button.click()
     assert row.brightness.value() == 0 and row.contrast.value() == 0
     np.testing.assert_allclose(_picture(window, qtbot)[0, :, 0], before, atol=1)
     status = pane.status_label.text()
@@ -125,12 +126,13 @@ def test_the_moving_average_is_centred_and_undoable(window, qtbot, tmp_path):
     pane.controls._rows[1].shown.setChecked(False)
     window.player.seek(0.25)  # frame 2, green value 300
     raw = _picture(window, qtbot)[0, 0, 1]
-    pane.controls.average.setValue(3)
+    pane.controls.average.setValue(1)  # one frame either side
     qtbot.waitUntil(lambda: "mean of 3" in pane.status_label.text(), timeout=_TIMEOUT)
     # Frames 1-3 average to frame 2's own value: centred, so no shift in time.
     assert _picture(window, qtbot)[0, 0, 1] == raw
     assert window.document.undo(window._mutations)
-    assert pane.controls.average.value() == 1
+    assert pane.controls.average.value() == 0
+    assert pane.controls.average.text() == "Off"
     assert pane.view_for(str(path)).average == 1
     assert window.document.undo(window._mutations)
     assert pane.view_for(str(path)).channels[1].visible
@@ -143,7 +145,7 @@ def test_session_keeps_choices_mapping_and_display(qtbot, window, tmp_path):
     _open(window, qtbot, path, {"fps": 10.0})
     pane = window.imaging_pane
     pane.controls._rows[0].color.setCurrentIndex(pane.controls._rows[0].color.findData("green"))
-    pane.controls.average.setValue(5)
+    pane.controls.average.setValue(2)
     pane.offset_spin.setValue(0.05)
     assert pane.source_config(str(path))[2].offset == 0.05
     assert window.document.undo(window._mutations)
@@ -172,6 +174,48 @@ def test_session_keeps_choices_mapping_and_display(qtbot, window, tmp_path):
     qtbot.waitUntil(lambda: str(path) in reopened.imaging_pane.source_paths(), timeout=_TIMEOUT)
     assert reopened.imaging_pane.metadata_for(str(path)).frame_count == 4
     assert reopened.imaging_pane.view_for(str(path)).channels[0].color == "green"
-    assert reopened.imaging_pane.controls.average.value() == 5
+    assert reopened.imaging_pane.controls.average.value() == 2
     assert reopened.imaging_pane.offset_spin.value() == 0.05
     reopened.close()
+
+
+def test_every_typed_average_is_a_window_it_shows(window, qtbot, tmp_path):
+    """Typing 2 used to snap back to 1: an even frame count has no centre."""
+    path = tmp_path / "ramp.ome.tif"
+    _two_channel_stack(path)
+    _open(window, qtbot, path)
+    box = window.imaging_pane.controls.average
+    box.lineEdit().selectAll()
+    qtbot.keyClicks(box.lineEdit(), "12")
+    qtbot.keyClick(box.lineEdit(), Qt.Key.Key_Return)
+    assert box.value() == 12
+    assert window.imaging_pane.view_for(str(path)).average == 25
+    box.lineEdit().selectAll()
+    qtbot.keyClicks(box.lineEdit(), "2")
+    qtbot.keyClick(box.lineEdit(), Qt.Key.Key_Return)
+    assert box.value() == 2
+    assert box.text() == "±2 frames"
+    assert window.imaging_pane.view_for(str(path)).average == 5
+
+
+def test_the_imaging_picture_zooms_like_the_video(window, qtbot, tmp_path):
+    path = tmp_path / "ramp.ome.tif"
+    _two_channel_stack(path)
+    _open(window, qtbot, path)
+    _picture(window, qtbot)
+    view = window.imaging_pane.frame_label
+    strip = view.zoom_controls
+    assert strip.isVisible()
+    assert [b.toolTip() for b in (strip.zoom_in_button, strip.zoom_out_button)] == [
+        "Zoom in",
+        "Zoom out",
+    ]
+    strip.zoom_in_button.click()
+    assert view.zoom() == pytest.approx(1.25)
+    strip.zoom_out_button.click()
+    strip.zoom_out_button.click()
+    assert view.zoom() == 1.0, "never smaller than the fitted picture"
+    strip.zoom_in_button.click()
+    strip.reset_zoom_button.click()
+    assert view.zoom() == 1.0
+    assert window.tracking_3d_pane.canvas.zoom_controls is not strip, "each pane zooms alone"
