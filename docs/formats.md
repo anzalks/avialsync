@@ -95,6 +95,41 @@ Both Open Ephys layouts are read, including the free text each one stores:
 In both cases the recording's sync preamble is used to place the clock and is not listed as a
 message: it is what the software wrote about the recording, not something a person typed.
 
+## Neurodata Without Borders (NWB)
+
+An `.nwb` file holds a whole session — electrophysiology, imaging, behaviour, trials — and
+AvialSync opens it as one. Drop the file (or choose it with **File → Open**) and the review lists:
+
+- **NWB Time Series**: every time series in the file, one plot row per column, named by where the
+  series sits (`ophys.DfOverF.RoiResponseSeries.roi12`, `Position.SpatialSeries.x`) so that two
+  series with the same name stay apart, and grouped in the channel list on those dots. Columns are
+  named after what they measure where the file says: electrodes by their id (`ch17`), ROIs by
+  theirs (`roi12`), spatial series by axis. Values are scaled by the file's `conversion`,
+  `channel_conversion` and `offset`, and shown in its units (`volts` reads as V).
+- **NWB Imaging**: each imaging series stored in the file (two-photon, one-photon, any
+  `ImageSeries`) as its own video pane, named after the series. The frames are written once into a
+  lossless copy in the cache, pixel for pixel, so 16-bit data keeps its full range for the
+  display-level controls. The first open takes a moment per series; later opens are immediate.
+- **Videos the file points to**: an `ImageSeries` that names an external video file is opened from
+  beside the NWB file, placed at the time the series says its first frame was.
+
+Everything is placed on the file's own clock, with no alignment step: every NWB timestamp counts
+from the file's `timestamps_reference_time` (normally its `session_start_time`), which becomes the
+session's zero, and times read as wall clock.
+
+Trials, epochs, and any other interval table become a row that is 1 inside an interval and 0
+outside it, plus one message per row listing its columns (`trials 3 · 12.3–14.1 s · condition=left`).
+`IntervalSeries` (reward, licking epochs) become the same kind of row. Spike-sorted units become one
+row per unit, high for an instant at each spike. Text annotations become messages.
+
+What cannot be shown is listed when the file opens rather than skipped silently: series whose data is
+not a signal over time (spike waveforms, frequency decompositions), a video the file names but that
+is not beside it, and a start time recorded without a time zone (read as UTC).
+
+Versions: NWB 2.x files stored as HDF5, including types from extensions, which are recognised from
+the specification each file carries. **NWB 1.x** and **Zarr-backed NWB** are named as such when
+dropped, with what to convert them to; files on DANDI must be downloaded first.
+
 ## Trigger and TTL files
 
 Delimited text carrying pulses rather than data: a DAQ export with a time column and one or more

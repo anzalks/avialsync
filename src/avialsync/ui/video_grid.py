@@ -140,6 +140,14 @@ class VideoGrid(GridOverlayMixin, QWidget):
         """Return a copy of the loaded video paths, parallel to self.panes."""
         return list(self._paths)
 
+    def media_path_for(self, path: str) -> str:
+        """Return the file the pane named *path* decodes: its proxy if it has one."""
+        try:
+            pane = self.panes[self._paths.index(path)]
+        except ValueError:
+            return path
+        return str(getattr(pane, "media_path", "") or path)
+
     def visible_panes(self) -> list[VideoPane]:
         """Return panes currently selected and displayed by the grid."""
         if self._fullscreen_pane is not None:

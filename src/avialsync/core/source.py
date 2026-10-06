@@ -24,9 +24,24 @@ class ChannelInfo:
 
 
 #: Unit spellings formats use for "no unit", shown as nothing at all.
-_UNITLESS = {"", "dimensionless", "none", "1", "a.u.", "au"}
-#: ASCII stand-ins for the micro sign, written the way a reader expects.
-_MICRO = {"uv": "µV", "um": "µm", "us": "µs", "ua": "µA", "us/cm": "µS/cm"}
+_UNITLESS = {"", "dimensionless", "none", "1", "a.u.", "au", "n/a", "n.a.", "na"}
+#: ASCII stand-ins for the micro sign, and the SI names NWB spells out in full
+#: (D-188), written the way a reader expects.
+_MICRO = {
+    "uv": "µV",
+    "um": "µm",
+    "us": "µs",
+    "ua": "µA",
+    "us/cm": "µS/cm",
+    "volts": "V",
+    "volt": "V",
+    "amperes": "A",
+    "ampere": "A",
+    "meters": "m",
+    "meter": "m",
+    "seconds": "s",
+    "second": "s",
+}
 
 
 def display_unit(unit: str) -> str:
@@ -40,6 +55,27 @@ def display_unit(unit: str) -> str:
     if text.lower() in _UNITLESS:
         return ""
     return _MICRO.get(text.lower(), text)
+
+
+def container_of(path: Path) -> Path | None:
+    """Return the existing file *path* names an object inside of, or ``None``.
+
+    A source is named by its path, and one file can hold several sources: an
+    NWB file holds its time series and its imaging, and the imaging is named
+    ``session.nwb/acquisition/TwoPhotonSeries`` so the two are told apart
+    (D-188). Such a path does not exist on disk, but its nearest existing
+    ancestor is a *file*, which is what distinguishes it from a recording that
+    has gone missing -- whose nearest existing ancestor is a directory.
+    """
+    for parent in path.parents:
+        if parent.exists():
+            return parent if parent.is_file() else None
+    return None
+
+
+def source_exists(path: Path) -> bool:
+    """Whether the source *path* names is there: a file, a folder, or an object in a file."""
+    return path.exists() or container_of(path) is not None
 
 
 @dataclass(frozen=True, slots=True)
@@ -304,8 +340,11 @@ class SessionSource(_Nameable, ABC):
     def can_open(cls, path: Path) -> float:
         """Return 0..1 confidence that *path* is a session this can lay out.
 
-        Called with directories. Must be cheap — it runs for every dropped
-        folder, on the scan thread, before anything is read.
+        Called with every dropped path, files as well as directories: most
+        sessions are folders, but a container format such as NWB holds a whole
+        session in one file (D-188). A scanner for folders returns 0.0 for a
+        file. Must be cheap — it runs for every dropped path, on the scan
+        thread, before anything is read.
         """
 
     @abstractmethod

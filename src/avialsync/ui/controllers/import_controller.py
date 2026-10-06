@@ -57,7 +57,7 @@ def start_data_import(
     restoring: bool = False,
 ) -> None:
     if loader_cls is None:
-        discovered_loader = window._registry.find_best_loader(path)
+        discovered_loader = window._registry.find_best_loader(path, kind=TimeSeriesSource)
         if discovered_loader is None:
             # Reported, not refused with a modal in the way (AGENTS rules 10 and
             # 12): `SourceOpenError`'s presentation already names "a format

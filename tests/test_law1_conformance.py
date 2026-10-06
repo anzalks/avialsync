@@ -125,7 +125,7 @@ def test_a_drop_proceeds_with_unsaved_changes(
     monkeypatch.setattr(
         main_window._registry,
         "find_best_loader",
-        lambda p: CSVLoader if p == sensor else None,
+        lambda p, kind=None: CSVLoader if p == sensor else None,
     )
     imported: list[Path] = []
     monkeypatch.setattr(
@@ -190,7 +190,7 @@ def test_an_unsupported_file_is_reported_not_refused(
     """Nothing claims the file, so the user is informed -- without a modal."""
     mystery = tmp_path / "recording.xyz"
     mystery.write_bytes(b"\x00\x01")
-    monkeypatch.setattr(main_window._registry, "find_best_loader", lambda p: None)
+    monkeypatch.setattr(main_window._registry, "find_best_loader", lambda p, kind=None: None)
     reported: list[BaseException] = []
     monkeypatch.setattr(
         main_window, "report_failure", lambda error, doing="": reported.append(error)

@@ -59,12 +59,13 @@ class DropScanWorker(QObject):
             self.session_found.emit(str(path))
             return []
 
-        # A directory may *be* a recording rather than merely contain files.
-        # Ask the session plugins before falling back to per-file scanning.
-        if path.is_dir():
-            session_candidates = self._scan_session(path)
-            if session_candidates is not None:
-                return session_candidates
+        # A directory may *be* a recording rather than merely contain files, and
+        # a file may be a whole session -- an NWB file holds a session's time
+        # series, imaging and videos in one (D-188). Ask the session plugins
+        # before falling back to per-file scanning.
+        session_candidates = self._scan_session(path)
+        if session_candidates is not None:
+            return session_candidates
 
         loader_class = self._registry.find_best_loader(path)
 

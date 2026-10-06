@@ -642,6 +642,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._metadata = VideoMetadata()
         self.is_seeking = False
         self._media_loaded = False
+        self.media_path = ""
         self._pending_seek: float | None = None
         #: Id of the most recent seek. A frame clears `is_seeking` only when it
         #: carries this id, so an older decode cannot answer for a newer seek.
@@ -702,6 +703,10 @@ class VideoPane(VideoTimingMixin, QWidget):
         """Open a video file on this pane's decode thread."""
         self._shutdown_decoder()
         self._media_loaded = False
+        #: What this pane decodes, which is not always what it is named after: a
+        #: source played through a proxy (NWB imaging, D-188) is named by its
+        #: recording and decoded from the proxy. Exports read this one.
+        self.media_path = path
 
         worker = DecodeWorker(path)
         thread = QThread(self)

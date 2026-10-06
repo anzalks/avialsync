@@ -48,6 +48,10 @@
 | Cached session open (3 cams + 4×50 kHz ch) | ≤ 3 s |
 | First CSV import 1 GB (with progress) | ≤ 60 s |
 | Pyramid build 180 M samples ★ | ≤ 2.5 s (revised, D-024) |
+| NWB import, 32 ch × 30 kHz × 60 s, gzip (D-188) | ≤ 10 s |
+| NWB import, 600 ROI channels × 50 000 samples (D-188) | ≤ 6 s |
+| NWB imaging proxy, 512×512 16-bit (D-188) | ≥ 100 frames/s |
+| NWB file scan / second open, cached (D-188) | ≤ 250 ms each |
 | Idle RAM, session loaded | ≤ 2.5 GB |
 | Any UI-thread callback | target ≤ 8 ms, hard ceiling 30 ms |
 

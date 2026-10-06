@@ -44,7 +44,7 @@ def test_video_worker_prepares_before_emitting_media_path(monkeypatch) -> None:
     """Conversion sources emit their prepared media path, not the original input."""
 
     class _Registry:
-        def find_best_loader(self, path: Path):
+        def find_best_loader(self, path: Path, kind: type | None = None):
             return _PreparedVideo
 
     monkeypatch.setattr("avialsync.engine.video_worker.LoaderRegistry", _Registry)

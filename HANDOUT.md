@@ -696,7 +696,12 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/controllers/import_controller.py` | Time-series import queue; pose → overlay/3D routing (D-046) | `start_data_import()`, `on_import_finished()`, `register_tracking_source()` |
 | `loaders/csv_loader.py` | polars CSV ingest; epoch/time-of-day/datetime, euro-decimal, sentinel, BOM | `CSVLoader` |
 | `loaders/tracking_loader.py` | DeepLabCut / LightningPose CSV loader, single- and multi-animal; flat headers per point/coord via `core/pose_header.py` (D-136) | `TrackingLoader` |
-| `loaders/neo_loader.py` | **The only ephys ingest path** (D-070). Per-stream selection via `config["stream_id"]`; `config["root"]` separates cache identity from what neo opens; `read_all_chunks` bound only when one clock spans the selection (D-071); TTL edges become a square wave, empty event channels are skipped. **Trap:** `get_io` sniffs extensions, so an unparseable path returns an *unrelated* reader rather than failing — the probe's exception is the true cause and is kept (D-085) | `NeoLoader`, `safe_channel_name()` |
+| `loaders/neo_loader.py` | **The ephys ingest path for acquisition formats** (D-070; NWB files are read by `nwb_loader`, D-188). Per-stream selection via `config["stream_id"]`; `config["root"]` separates cache identity from what neo opens; `read_all_chunks` bound only when one clock spans the selection (D-071); TTL edges become a square wave, empty event channels are skipped. **Trap:** `get_io` sniffs extensions, so an unparseable path returns an *unrelated* reader rather than failing — the probe's exception is the true cause and is kept (D-085) | `NeoLoader`, `safe_channel_name()` |
+| `loaders/nwb_format.py` | What an NWB 2.x file holds, read with h5py (D-188). Recognises a `TimeSeries` by structure (`data` + `timestamps`/`starting_time`), so extension types load; names channels by where a series sits; refuses NWB 1.x, Zarr and plain HDF5 by name; lists what it declines. `object_path`/`split_object_path` name an object inside a file | `scan()`, `FileContents`, `SeriesInfo`, `open_file()`, `object_path()` |
+| `loaders/nwb_read.py` / `nwb_types.py` / `nwb_text.py` | Slices of samples, frames, intervals and spikes from an open file (`data × channel_conversion × conversion + offset`); type ancestry from the file's cached specifications; HDF5 text as `str` | `read_values()`, `read_times()`, `type_ancestry()`, `is_a()` |
+| `loaders/nwb_loader.py` | Every time series, interval and unit in a file as one source, imported as **channel groups** (one per series, its own clock, one stored timestamp array). Intervals become 0/1 on a regular grid; spikes become exact-time pulses; trial rows and annotations become messages | `NWBLoader`, `interval_grid()`, `spike_pulses()` |
+| `loaders/nwb_imaging.py` | One imaging series as video: a lossless FFV1 MP4 proxy in the cache, presentation times = NWB timestamps. Opened by `file.nwb/acquisition/<series>` or a bare `.nwb` (default series) | `NWBImagingSource`, `default_imaging()`, `proxy_origin()` |
+| `loaders/nwb_session.py` | Lays out an `.nwb` *file* as a session: the time series, each imaging series under its own path, external videos beside the file; every item on the file's reference time | `NWBSessionSource` |
 | `loaders/open_ephys_format.py` | What neo does not model: recording discovery (`structure.oebin`), the software-time epoch, and the rig UTC offset derived from the local session directory name (D-070). Also reads event **prose**, which neo models badly — per-stream timestamp rule, and `"U"`/`"S"` text alike (D-085) | `find_recordings()`, `anchor_epoch()`, `recording_utc_offset()`, `stream_folder_names()`, `read_messages()`, `event_stream_defects()`, `EventStreamDefect` |
 | `loaders/open_ephys_legacy.py` | The **original** `.continuous` format's `messages.events`, which neo filters out by name and never implements. Plain ASCII, no 1024-byte header. **Traps:** the rate comes from the `start time:` line, never the 1 MHz `Software time:` one; times are `stamp / rate` with no rebasing on the first sample, matching neo's `_segment_t_start` (D-085) | `is_legacy_recording()`, `read_messages()`, `MESSAGES_NAME` |
 | `loaders/open_ephys_session.py` | Lays out a record-node tree plus the cameras beside it on one acquisition clock (D-068) | `OpenEphysSessionSource`, `parse_filename_time()` |
@@ -1231,6 +1236,16 @@ overload `QTimer.singleShot(interval, owner, callback)`. `shiboken6.isValid` gua
 already hold; it cannot help while the list itself is being built.
 `tests/test_worker_thread_teardown.py` fails on any reintroduction.
 
+### 0b-bis. A widget left to the cycle collector dies on whichever thread collects (D-188)
+Python's cyclic GC runs on the thread that happens to allocate when a threshold trips -- a pyramid
+save worker, an importer, a decoder. A Qt widget kept alive only by a reference cycle is destroyed
+there, and a top-level window's destructor (`QWindow::close` → `flushWindowSystemEvents`) waits for
+the GUI thread while holding the GIL. If the GUI thread is waiting on that worker, both hang, with
+no exception and nothing in the Python stack but a pure-Python frame waiting for the GIL. A widget
+embedded with `QGraphicsProxyWidget` *is* a hidden top-level window. Anything that removes one must
+`deleteLater()` it (`plot_row.detach_row`), and nothing it owns may hold a strong reference back.
+Diagnose with `-o faulthandler_timeout=…` plus macOS `sample <pid>`: the Python dump alone hides it.
+
 ### 0b. Building a widget list can free the widgets in it (D-065)
 The hole D-064 left open, which later killed a macOS runner. `QApplication.allWidgets()` copies a
 pointer list in C++ then wraps the pointers in Python one at a time, and each wrap allocates. An
@@ -1397,6 +1412,15 @@ loader and config affect only the invalidation key inside it, not the directory 
 invalidating each other, and each import silently rebuilds what the last one wrote. This is why every
 Open Ephys stream is pointed at its own `continuous/<stream>` directory and `NeoLoader` accepts
 `config["root"]` for what neo should actually open (D-071).
+
+### 0g-bis. Two sources from one file need two paths (D-188)
+A source is identified by its path in the sidebar, coverage lanes, `_inspections`, `_recorded_mappings`
+and the mutation targets, and dispatch asks "is this id a video pane?" first. An NWB file's time series
+and its imaging under the same path were one source to all of them: one coverage lane, one inspection,
+and a nudge to the series' offset moved the imaging. The imaging is therefore named *inside* the file
+(`session.nwb/acquisition/TwoPhotonSeries`). That path does not exist on disk; check presence with
+`core.source.source_exists`, never `Path.exists()`, and read a pane's frames from
+`VideoGrid.media_path_for(path)`, never from its name.
 
 ### 0h. Cache files are shared inodes — never write to one in place (D-071)
 `_finalize_bulk_channels` hard links each channel's `_t.npy` and `_gap.npy` to one staged copy, so a

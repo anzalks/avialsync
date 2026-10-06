@@ -258,6 +258,67 @@ def test_an_unreadable_file_is_declined_rather_than_raising(tmp_path: Path) -> N
     assert VideoStandardLoader.can_open(tmp_path / "absent.unknown") == 0.0
 
 
+def test_paths_that_cannot_be_containers_are_never_probed(tmp_path: Path, monkeypatch) -> None:
+    """A folder, an NWB file, or an object named inside one never reaches FFmpeg (D-188)."""
+    import avialsync.loaders.video_standard as video_standard
+
+    probed: list[Path] = []
+    monkeypatch.setattr(video_standard, "_probe_video_stream", lambda path: probed.append(path))
+    nwb = tmp_path / "session.nwb"
+    nwb.write_bytes(b"\x89HDF\r\n\x1a\n")
+
+    assert VideoStandardLoader.can_open(nwb) == 0.0
+    assert VideoStandardLoader.can_open(nwb / "acquisition" / "TwoPhotonSeries") == 0.0
+    assert VideoStandardLoader.can_open(tmp_path) == 0.0
+    assert probed == []
+
+
+def test_a_probe_leaves_pyav_logging_untouched_when_it_is_already_silent(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """PyAV 13+ discards FFmpeg's messages by default; installing its Python
+    callback to quieten a probe is what let FFmpeg threads take the GIL (D-188)."""
+    import av
+
+    import avialsync.loaders.video_standard as video_standard
+
+    if av.logging.get_level() is not None:
+        pytest.skip("this PyAV logs by default")
+    calls: list[object] = []
+    monkeypatch.setattr(av.logging, "set_level", lambda level: calls.append(level))
+    junk = tmp_path / "mystery.unknown"
+    junk.write_bytes(b"not a container")
+
+    assert video_standard._holds_video_stream(junk) is False
+    assert calls == []
+
+
+def test_overlapping_probes_restore_the_level_they_found(tmp_path: Path) -> None:
+    """Interleaved save/restore pairs used to leave PANIC -- and PyAV's callback -- behind."""
+    import threading
+
+    import av
+
+    import avialsync.loaders.video_standard as video_standard
+
+    junk = tmp_path / "mystery.unknown"
+    junk.write_bytes(b"not a container")
+    original = av.logging.get_level()
+    av.logging.set_level(av.logging.WARNING)
+    try:
+        threads = [
+            threading.Thread(target=video_standard._holds_video_stream, args=(junk,))
+            for _ in range(8)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        assert av.logging.get_level() == av.logging.WARNING
+    finally:
+        av.logging.set_level(original)
+
+
 # ── sidecars beside a recording are not cameras (D-139) ──────────────
 
 

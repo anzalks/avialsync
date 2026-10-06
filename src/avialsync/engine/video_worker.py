@@ -35,7 +35,7 @@ class VideoOpenWorker(QObject):
     def run(self) -> None:
         """Open the selected source and emit a usable media path on success."""
         try:
-            loader_class = LoaderRegistry().find_best_loader(self._path)
+            loader_class = LoaderRegistry().find_best_loader(self._path, kind=VideoSource)
             if loader_class is None or not issubclass(loader_class, VideoSource):
                 raise SourceOpenError(f"No video loader can open: {self._path}")
             if self._cancelled:

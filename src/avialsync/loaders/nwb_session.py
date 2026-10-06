@@ -1,0 +1,182 @@
+"""Open an NWB file as a session: its time series, its imaging, its videos (D-188).
+
+An NWB file is one session in one file, so it is laid out the way a recording
+folder is: a session scanner says what is inside and where each piece sits in
+time, and the ordinary loaders read them. Unlike every other session this one is
+handed a *file*; the drop scan asks session scanners about files as well as
+folders for that reason.
+
+Placement needs no evidence and no fit. Every timestamp in an NWB file counts
+from one declared instant, ``timestamps_reference_time`` (by default
+``session_start_time``), so that instant is the session's zero and each item
+declares it as its own epoch. What a file could not contribute -- a second
+imaging plane, a video it names but that is not beside it, a series of a shape
+this application does not show -- is reported in the layout's warnings rather
+than dropped.
+"""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+from typing import Any
+
+from avialsync.core.errors import FileUnreadableError, SourceOpenError
+from avialsync.core.source import SessionItem, SessionLayout, SessionSource, VideoSource
+from avialsync.loaders import nwb_format
+from avialsync.loaders.nwb_imaging import NWBImagingSource, default_imaging, proxy_origin
+from avialsync.loaders.nwb_loader import NWBLoader
+
+logger = logging.getLogger(__name__)
+
+#: How many "could not show" reasons a layout lists before summarising the rest.
+_MAX_LISTED = 8
+
+
+class NWBSessionSource(SessionSource):
+    """Lay out an NWB 2.x file's series, imaging and external videos."""
+
+    @classmethod
+    def display_name(cls) -> str:
+        return "NWB File"
+
+    @classmethod
+    def can_open(cls, path: Path) -> float:
+        return 0.95 if nwb_format.is_nwb_path(path) or nwb_format.is_zarr_nwb(path) else 0.0
+
+    def scan(self, path: Path, registry: Any) -> SessionLayout:
+        try:
+            contents = nwb_format.scan(path)
+        except (SourceOpenError, FileUnreadableError) as error:
+            # Claimed, so nothing else will lay it out: the reason has to reach
+            # the screen, not just the log (D-085).
+            return SessionLayout(warnings=[str(error)])
+
+        epoch = contents.reference_epoch
+        warnings: list[str] = []
+        items: list[SessionItem] = []
+
+        if (
+            contents.of_kind("signal", "interval", "annotation")
+            or contents.interval_tables
+            or contents.units_tables
+        ):
+            items.append(
+                SessionItem(
+                    path=path,
+                    loader=NWBLoader,
+                    kind=NWBLoader.display_name(),
+                    source_epoch=epoch,
+                )
+            )
+
+        items.extend(self._imaging_items(path, contents, epoch))
+        items.extend(self._external_video_items(path, contents, epoch, registry, warnings))
+
+        if contents.reference_is_naive:
+            warnings.append(
+                f"{path.name} records its start time without a time zone; it is read as UTC."
+            )
+        if contents.declined:
+            listed = list(contents.declined[:_MAX_LISTED])
+            more = len(contents.declined) - len(listed)
+            warnings.extend(listed)
+            if more:
+                warnings.append(f"…and {more} more objects in {path.name} that cannot be shown.")
+        if not items:
+            warnings.append(f"{path.name} holds nothing AvialSync can show.")
+
+        logger.info(
+            "NWB session %s (NWB %s): %d items, %d warnings",
+            path.name,
+            contents.version,
+            len(items),
+            len(warnings),
+        )
+        return SessionLayout(
+            items=items,
+            anchor_epoch=epoch or 0.0,
+            session_epoch=epoch or 0.0,
+            warnings=warnings,
+        )
+
+    @staticmethod
+    def _imaging_items(
+        path: Path, contents: nwb_format.FileContents, epoch: float | None
+    ) -> list[SessionItem]:
+        """One video pane per imaging series stored in the file.
+
+        Each is named by its own path inside the file
+        (:func:`nwb_format.object_path`): the file's path already names its time
+        series, and the application tells sources apart by path
+        (:func:`avialsync.core.source.container_of`). The series a file is
+        usually shown with comes first; the review dialog is where a plane
+        nobody wants today is skipped.
+        """
+        chosen = default_imaging(contents)
+        if chosen is None:
+            return []
+        ordered = [chosen] + [info for info in contents.of_kind("imaging") if info is not chosen]
+        items: list[SessionItem] = []
+        for info in ordered:
+            config: dict[str, Any] = {}
+            origin = proxy_origin(info.start)
+            if origin:
+                # The proxy counts from its first frame when that frame is before
+                # the session's zero (nwb_imaging.proxy_origin); `t_source =
+                # t_master + offset`, so its frame 0 belongs at master `origin`.
+                config["offset"] = -origin
+            items.append(
+                SessionItem(
+                    path=nwb_format.object_path(path, info.path),
+                    loader=NWBImagingSource,
+                    config=config,
+                    label=f"{info.name} — imaging in {path.name}",
+                    kind=NWBImagingSource.display_name(),
+                    source_epoch=epoch,
+                )
+            )
+        return items
+
+    @staticmethod
+    def _external_video_items(
+        path: Path,
+        contents: nwb_format.FileContents,
+        epoch: float | None,
+        registry: Any,
+        warnings: list[str],
+    ) -> list[SessionItem]:
+        """Videos an ``ImageSeries`` names rather than holds, if they are beside the file.
+
+        Their paths are relative to the NWB file. A video's own first frame is
+        its zero, and the series says when that frame was: its ``starting_time``
+        or first timestamp.
+        """
+        items: list[SessionItem] = []
+        for info in contents.of_kind("external"):
+            target = (path.parent / info.external_files[0]).resolve()
+            if len(info.external_files) > 1:
+                warnings.append(
+                    f"{info.path} spans {len(info.external_files)} video files; "
+                    f"showing the first, {info.external_files[0]}."
+                )
+            if not target.is_file():
+                warnings.append(
+                    f"{info.path} names the video {info.external_files[0]}, "
+                    f"which is not beside {path.name}."
+                )
+                continue
+            loader = registry.find_best_loader(target, kind=VideoSource)
+            if loader is None:
+                warnings.append(f"No video loader can open {target.name}, named by {info.path}.")
+                continue
+            items.append(
+                SessionItem(
+                    path=target,
+                    loader=loader,
+                    label=f"{target.name} — {info.name}",
+                    kind="Video",
+                    source_epoch=None if epoch is None else epoch + info.start,
+                )
+            )
+        return items

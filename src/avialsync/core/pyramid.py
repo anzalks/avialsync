@@ -219,12 +219,28 @@ class ChannelStage:
         self.path.unlink(missing_ok=True)
 
     def materialize(self, target: Path, chunk_size: int = RAW_CHUNK_SAMPLES) -> np.ndarray:
-        """Write staged samples to *target* as ``.npy`` and return its mmap.
+        """Write staged samples to *target* as ``.npy`` and return them.
 
-        The copy runs chunkwise through two memory maps, so this stays bounded
-        for any channel length.  The staging file is removed on success.
+        A channel longer than *chunk_size* is copied chunkwise through two
+        memory maps and returned as a read-only map of *target*, so this stays
+        bounded for any channel length. A shorter one is returned in memory,
+        which the same bound covers. The staging file is removed on success.
         """
         self.close()
+        if self._count <= chunk_size:
+            # A channel that fits in one copy chunk is read and written whole: the
+            # bound above is what keeps memory flat, and it holds here too. The
+            # writable map costs ~9 ms to create and flush on macOS against
+            # ~0.3 ms for a plain write, which a 600-ROI NWB matrix paid once
+            # per channel -- 5 of its 13 s import (D-188). Mapping the file
+            # straight back costs as much again while its pages are fresh, so
+            # the array already in memory is what is returned; it holds no map
+            # on the file either, which Windows would treat as a lock.
+            values = np.fromfile(self.path, dtype=np.float64, count=self._count)
+            with target.open("wb") as handle:
+                np.save(handle, values, allow_pickle=False)
+            self.path.unlink(missing_ok=True)
+            return values
         # open_memmap returns a real np.memmap; the annotation keeps .flush() visible.
         mapped: np.memmap = np.lib.format.open_memmap(
             target, mode="w+", dtype=np.float64, shape=(self._count,)

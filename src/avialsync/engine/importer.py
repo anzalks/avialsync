@@ -87,6 +87,10 @@ class ImportWorker(QObject):
         self.config = config
         self.loader_class = loader_class
         self._cancel_flag = False
+        #: The share of the whole import the current pass reports into. A
+        #: grouped import builds each group with the bulk builder, whose progress
+        #: would otherwise run 0-100 once per group (D-188).
+        self._progress_span = (0.0, 1.0)
 
     def cancel(self) -> None:
         self._cancel_flag = True
@@ -113,8 +117,11 @@ class ImportWorker(QObject):
                 raise SourceOpenError("No channels found in source.")
 
             channel_names = [ch.name for ch in channels]
+            group_reader = getattr(loader, "iter_channel_groups", None)
             bulk_reader = getattr(loader, "read_all_chunks", None)
-            if callable(bulk_reader):
+            if callable(group_reader):
+                result = self._build_channel_groups(group_reader(), channel_names, temp_dir)
+            elif callable(bulk_reader):
                 result = self._build_bulk_channels(
                     bulk_reader(),
                     channel_names,
@@ -346,7 +353,7 @@ class ImportWorker(QObject):
             )
             total_nan += count_nan(values)
             del values
-            self.progress.emit(int(((index + 1) / len(channel_names)) * 100))
+            self._emit_progress((index + 1) / len(channel_names))
 
         return (
             int(len(shared_t)),
@@ -356,6 +363,64 @@ class ImportWorker(QObject):
             float(shared_t[0]),
             float(shared_t[-1]),
         )
+
+    def _build_channel_groups(
+        self,
+        groups: Any,
+        channel_names: list[str],
+        temp_dir: Path,
+    ) -> tuple[int, int, int, list[float], float, float]:
+        """Build channels group by group, each group on its own shared clock.
+
+        For a loader whose channels sit on several clocks -- an NWB file holds a
+        30 kHz probe, a 6 Hz fluorescence matrix and a 100 Hz wheel -- neither
+        existing path fits. One bulk read needs one clock for everything; reading
+        channel by channel reads a 2-D series once per column and writes one
+        timestamp copy per channel. ``iter_channel_groups`` yields
+        ``(names, chunks)`` per clock, and each group goes through the bulk
+        builder: one pass over its rows, one stored timestamp array (D-188).
+
+        Row and gap counts come from the first group with samples, as the
+        per-channel path takes them from its first channel; the bounds span every
+        group, because a source's coverage is where any of its channels has data.
+        """
+        declared = set(channel_names)
+        total_rows = gap_count = total_nan = 0
+        gap_locations: list[float] = []
+        t0, t1 = float("inf"), float("-inf")
+        counted = False
+        done = 0
+        try:
+            for names, chunks in groups:
+                if self._cancel_flag:
+                    break
+                if not set(names) <= declared:
+                    raise LoaderContractError(
+                        "Grouped loader yielded channels it did not declare: "
+                        + ", ".join(sorted(set(names) - declared))
+                    )
+                total = max(1, len(channel_names))
+                self._progress_span = (done / total, (done + len(names)) / total)
+                rows, nan_count, gaps, locations, start, end = self._build_bulk_channels(
+                    chunks, list(names), temp_dir
+                )
+                done += len(names)
+                if rows == 0:
+                    continue
+                total_nan += nan_count
+                t0, t1 = min(t0, start), max(t1, end)
+                if not counted:
+                    total_rows, gap_count, gap_locations = rows, gaps, locations
+                    counted = True
+        finally:
+            self._progress_span = (0.0, 1.0)
+        if not counted:
+            return 0, 0, 0, [], 0.0, 0.0
+        return total_rows, total_nan, gap_count, gap_locations, t0, t1
+
+    def _emit_progress(self, fraction: float) -> None:
+        low, high = self._progress_span
+        self.progress.emit(int((low + fraction * (high - low)) * 100))
 
     def _build_channel_by_channel(
         self,

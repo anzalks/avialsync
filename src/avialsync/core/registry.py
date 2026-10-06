@@ -70,6 +70,8 @@ _BUILTIN_LOADERS: tuple[tuple[str, str], ...] = (
     ("avialsync.loaders.tracking_loader", "TrackingLoader"),
     ("avialsync.loaders.vicon_c3d_loader", "ViconC3DLoader"),
     ("avialsync.loaders.neo_loader", "NeoLoader"),
+    ("avialsync.loaders.nwb_loader", "NWBLoader"),
+    ("avialsync.loaders.nwb_imaging", "NWBImagingSource"),
 )
 
 #: The built-in trigger providers. A third kind beside loaders and sessions,
@@ -84,6 +86,7 @@ _BUILTIN_SESSIONS: tuple[tuple[str, str], ...] = (
     ("avialsync.loaders.aol_session_loader", "AOLSessionSource"),
     ("avialsync.loaders.open_ephys_session", "OpenEphysSessionSource"),
     ("avialsync.loaders.vicon_session_loader", "ViconSessionSource"),
+    ("avialsync.loaders.nwb_session", "NWBSessionSource"),
 )
 
 
@@ -381,8 +384,17 @@ class LoaderRegistry:
                 best = candidate
         return best
 
-    def find_best_loader(self, path: Path) -> type[TimeSeriesSource | VideoSource] | None:
+    def find_best_loader(
+        self,
+        path: Path,
+        kind: type[TimeSeriesSource] | type[VideoSource] | None = None,
+    ) -> type[TimeSeriesSource | VideoSource] | None:
         """Return the loader with the highest can_open() score > 0.
+
+        *kind* limits the answer to time-series or video loaders. One file can
+        be both: an NWB file holds its time series and its imaging, and the
+        session that opened it records which of the two each source was. Asked
+        without a kind, the highest score wins as before (D-188).
 
         Our own corrections sidecars are excluded here rather than in each
         loader: a ``_avialfix.csv`` is a perfectly well-formed CSV, so the
@@ -393,7 +405,12 @@ class LoaderRegistry:
         self.ensure_discovered()
         if is_own_sidecar(path):
             return None
-        return self._best_by_capability(self._loaders, path, "loader")
+        candidates = (
+            self._loaders
+            if kind is None
+            else [loader for loader in self._loaders if issubclass(loader, kind)]
+        )
+        return self._best_by_capability(candidates, path, "loader")
 
     def find_best_session(self, path: Path) -> type[SessionSource] | None:
         """Return the session scanner claiming *path*, if any.

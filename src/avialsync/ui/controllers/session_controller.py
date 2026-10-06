@@ -27,6 +27,7 @@ from avialsync.core.session import (
     VideoEntry,
 )
 from avialsync.core.settings_schema import setting_for
+from avialsync.core.source import source_exists
 from avialsync.ui import recovery
 from avialsync.ui.app_settings import app_settings
 from avialsync.ui.controllers import (
@@ -494,12 +495,12 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     kind_labels: dict[str, str] = {}
 
     for ve in state.videos:
-        if not Path(ve.path).exists():
+        if not source_exists(Path(ve.path)):
             missing.append(ve.path)
             kind_labels[ve.path] = "video"
 
     for se in state.sensors:
-        if not Path(se.path).exists():
+        if not source_exists(Path(se.path)):
             missing.append(se.path)
             kind_labels[se.path] = "sensor"
 
@@ -542,7 +543,7 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
 
     for ve in state.videos:
         p = Path(relink_map.get(ve.path, ve.path))
-        if p.exists():
+        if source_exists(p):
             window._load_video(p, offset=ve.offset, drift_ms_per_hour=ve.drift_ms_per_hour)
             if ve.integrity_flags or ve.metadata:
                 from avialsync.core.inspection import IntegrityFlags
@@ -556,7 +557,7 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
 
     for se in state.sensors:
         p = Path(relink_map.get(se.path, se.path))
-        if p.exists():
+        if source_exists(p):
             # Import is asynchronous, so the accepted mapping is held until
             # the worker reports the cache back (see _on_import_finished).
             window._pending_sensor_mappings[str(p)] = (se.offset, se.drift_ms_per_hour)

@@ -2,6 +2,7 @@
 
 import logging
 import shutil
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,6 +23,10 @@ _FRAME_TIMES_NAME = "video_frame_times.npy"
 #: cameras stamp a free-running nanosecond counter, which is why only the
 #: *differences* between rows are used and the absolute value is discarded.
 _SIDECAR_NANOSECONDS = 1e9
+
+
+#: Serialises the one place this module changes PyAV's process-wide logging.
+_LOG_LEVEL_LOCK = threading.Lock()
 
 
 #: Containers claimed on sight, without opening the file.  Every one of these
@@ -88,6 +93,7 @@ _NOT_VIDEO_SUFFIXES = frozenset(
         ".npz",
         ".h5",
         ".hdf5",
+        ".nwb",
         ".mat",
         ".parquet",
         ".pkl",
@@ -132,9 +138,34 @@ def _holds_video_stream(path: Path) -> bool:
     """
     import av
 
-    previous_level = av.logging.get_level()
+    if not path.is_file():
+        # A folder, a missing file, or an object named inside another file
+        # (``session.nwb/acquisition/TwoPhotonSeries``, D-188): none is a
+        # container, and opening one only asks FFmpeg to fail.
+        return False
+    if av.logging.get_level() is None:
+        # PyAV's default since 13: every FFmpeg message already goes to a no-op
+        # callback, so the probe is silent without touching logging at all.
+        return _probe_video_stream(path)
+    # Someone enabled PyAV logging. Quietening it for the probe swaps a
+    # process-wide callback, so the swap is serialised: two probes that
+    # interleaved it each saved the other's PANIC as "previous" and the last
+    # restore left PyAV's Python callback installed for good -- a callback that
+    # takes the GIL and two Python locks from inside FFmpeg's own threads, which
+    # deadlocked a pane's decoder against the thread waiting on it (D-188).
+    with _LOG_LEVEL_LOCK:
+        previous_level = av.logging.get_level()
+        try:
+            av.logging.set_level(av.logging.PANIC)
+            return _probe_video_stream(path)
+        finally:
+            av.logging.set_level(previous_level)
+
+
+def _probe_video_stream(path: Path) -> bool:
+    import av
+
     try:
-        av.logging.set_level(av.logging.PANIC)
         with av.open(str(path)) as container:
             for stream in container.streams.video:
                 codec_context = stream.codec_context
@@ -144,8 +175,6 @@ def _holds_video_stream(path: Path) -> bool:
     except Exception:
         # Anything unopenable is simply not ours to claim.
         return False
-    finally:
-        av.logging.set_level(previous_level)
 
 
 @dataclass(frozen=True)

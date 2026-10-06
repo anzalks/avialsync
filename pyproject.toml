@@ -117,6 +117,8 @@ aol_eks = "avialsync.loaders.aol_eks_loader:AOLEksLoader"
 aol_metric = "avialsync.loaders.aol_metric_loader:AOLMetricLoader"
 aol_video_extraction = "avialsync.loaders.aol_video_extraction_loader:AOLVideoExtractionLoader"
 vicon_c3d = "avialsync.loaders.vicon_c3d_loader:ViconC3DLoader"
+nwb = "avialsync.loaders.nwb_loader:NWBLoader"
+nwb_imaging = "avialsync.loaders.nwb_imaging:NWBImagingSource"
 
 # Session scanners lay out a whole recording folder (D-068). A lab adds support
 # for its own directory layout by publishing here; nothing in the application
@@ -125,6 +127,7 @@ vicon_c3d = "avialsync.loaders.vicon_c3d_loader:ViconC3DLoader"
 aol = "avialsync.loaders.aol_session_loader:AOLSessionSource"
 open_ephys = "avialsync.loaders.open_ephys_session:OpenEphysSessionSource"
 vicon = "avialsync.loaders.vicon_session_loader:ViconSessionSource"
+nwb = "avialsync.loaders.nwb_session:NWBSessionSource"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/avialsync"]

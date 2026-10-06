@@ -278,7 +278,9 @@ def export_video_clip(window: MainWindow) -> None:
         )
         if not path:
             return
-        clips = [(window.video_grid._paths[0], t0, t1, Path(path))]
+        clips = [
+            (window.video_grid.media_path_for(window.video_grid._paths[0]), t0, t1, Path(path))
+        ]
     else:
         dir_path = QFileDialog.getExistingDirectory(
             window, tr("Select Directory for Trimmed Clips")
@@ -287,12 +289,15 @@ def export_video_clip(window: MainWindow) -> None:
             return
 
         out_dir = Path(dir_path)
+        # Read from what each pane decodes -- a proxy, for a source that has one
+        # (D-188) -- and named after the recording it shows.
+        media = {path: window.video_grid.media_path_for(path) for path in window.video_grid._paths}
         clips = [
             (
-                orig_path,
+                media[orig_path],
                 t0,
                 t1,
-                out_dir / f"{Path(orig_path).stem}_trim{Path(orig_path).suffix}",
+                out_dir / f"{Path(orig_path).stem}_trim{Path(media[orig_path]).suffix}",
             )
             for orig_path in window.video_grid._paths
         ]
@@ -352,8 +357,9 @@ def export_stimulus_grid(window: MainWindow) -> None:
         )
         for channel in window.plot_pane.channels
     ]
+    media = window.video_grid.media_path_for  # a proxy is what decodes (D-188)
     videos = tuple(
-        GridVideo(Path(path), Path(path).name, pane.time_map, pane.display_levels())
+        GridVideo(Path(media(path)), Path(path).name, pane.time_map, pane.display_levels())
         for path, pane in zip(window.video_grid._paths, window.video_grid.panes, strict=False)
     )
     dialog = StimulusGridDialog(channels, window)
