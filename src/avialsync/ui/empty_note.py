@@ -8,8 +8,16 @@ menu command fills it -- a button that *is* that command (rule 15).
 from __future__ import annotations
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QAction, QPalette
-from PySide6.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtGui import QAction, QPaintEvent, QPalette
+from PySide6.QtWidgets import (
+    QLabel,
+    QSizePolicy,
+    QStyle,
+    QStyleOptionButton,
+    QStylePainter,
+    QVBoxLayout,
+    QWidget,
+)
 
 from avialsync.ui.action_button import ActionButton
 from avialsync.ui.design_tokens import spacing
@@ -19,6 +27,36 @@ __all__ = ["WRAP_WIDTH_PX", "EmptyNote"]
 #: The preferred width of wrapped guidance text: under the inspector's 280 px
 #: default with room for its margins, so prose never sets a page's width.
 WRAP_WIDTH_PX = 220
+
+
+class _ElidingActionButton(ActionButton):
+    """Paint the action's label within the page without changing its identity."""
+
+    def _adopt(self) -> None:
+        super()._adopt()
+        if self.action is not None:
+            name = self.action.text()
+            detail = self.action.toolTip()
+            self.setAccessibleName(name)
+            self.setToolTip(f"{name}\n{detail}" if detail and detail != name else name)
+
+    def _elided_text(self) -> str:
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        contents = self.style().subElementRect(
+            QStyle.SubElement.SE_PushButtonContents, option, self
+        )
+        return self.fontMetrics().elidedText(
+            self.text(), Qt.TextElideMode.ElideRight, contents.width()
+        )
+
+    def paintEvent(self, event: QPaintEvent) -> None:  # noqa: N802
+        """Keep the native button chrome while eliding only its painted text."""
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        option.text = self._elided_text()
+        painter = QStylePainter(self)
+        painter.drawControl(QStyle.ControlElement.CE_PushButton, option)
 
 
 class EmptyNote(QWidget):
@@ -35,7 +73,8 @@ class EmptyNote(QWidget):
         # A role, so the de-emphasis follows a theme switch (no stylesheet).
         self.label.setForegroundRole(QPalette.ColorRole.PlaceholderText)
         self.label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-        self.button = ActionButton(self)
+        self.button = _ElidingActionButton(self)
+        self.button.setMaximumWidth(WRAP_WIDTH_PX)
         layout.addWidget(self.label)
         layout.addWidget(self.button, 0, Qt.AlignmentFlag.AlignHCenter)
         self.setAccessibleName(text)

@@ -60,3 +60,26 @@ def test_no_inspector_page_needs_sideways_scrolling(window: MainWindow, index: i
             QApplication.processEvents()
         width = page.minimumSizeHint().width()
         assert width <= DEFAULT_INSPECTOR_PX, f"{nav.tabText(index)} {kind or ''} needs {width} px"
+
+
+def test_values_action_fits_with_wider_font_metrics(window: MainWindow) -> None:
+    """The empty-state command must not widen the Values page on Windows."""
+    nav = window._left_tabs
+    original_page = nav.currentIndex()
+    try:
+        nav.setCurrentIndex(1)
+        panel = window.readout_panel
+        button = panel.empty_note.button
+        font = button.font()
+        font.setPointSize(20)
+        button.setFont(font)
+        QApplication.processEvents()
+
+        assert panel.minimumSizeHint().width() <= DEFAULT_INSPECTOR_PX
+        assert button.action is window._act_open_sensor
+        assert button.text() == window._act_open_sensor.text()
+        assert button._elided_text() != button.text()
+        assert button.accessibleName() == button.text()
+        assert button.text() in button.toolTip()
+    finally:
+        nav.setCurrentIndex(original_page)
