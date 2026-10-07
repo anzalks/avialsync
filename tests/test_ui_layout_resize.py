@@ -299,17 +299,17 @@ def test_video_keeps_the_full_media_width_without_tracking_data(
 def test_a_large_font_scrolls_the_workspace_instead_of_outgrowing_640x480(
     qapp: QApplication, qtbot
 ) -> None:
-    """D-182: at 20 pt the column needs more than 480 px, so it scrolls.
+    """D-182: a large font makes the column taller than the viewport, so it scrolls.
 
-    The panes' floors summed to 545 px at 20 pt; a minimum taller than the
-    display leaves the window unresizable. The workspace column scrolls instead,
-    and every surface stays reachable.
+    At 20 pt the column can still fit on Windows, depending on font metrics.
+    At 24 pt it must overflow the viewport while the window itself stays within
+    the display, with every surface reachable by scrolling.
     """
     from PySide6.QtWidgets import QScrollArea
 
     original = qapp.font()
     large = qapp.font()
-    large.setPointSizeF(20.0)
+    large.setPointSizeF(24.0)
     qapp.setFont(large)
     try:
         win = MainWindow()
