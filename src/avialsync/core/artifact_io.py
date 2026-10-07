@@ -38,7 +38,8 @@ def _validate(target: Path, kind: ArtifactKind, sources: Iterable[Path | str]) -
 
 
 def _sync_file(path: Path) -> None:
-    with path.open("rb") as handle:
+    # Windows fsync (_commit) needs a writable descriptor; "rb" raises EBADF there.
+    with path.open("r+b") as handle:
         os.fsync(handle.fileno())
 
 
