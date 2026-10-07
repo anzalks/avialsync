@@ -111,3 +111,62 @@ def test_companion_cannot_replace_a_loaded_source(tmp_path: Path) -> None:
     with pytest.raises(ExportError, match="loaded source"):
         write_companion(target, record("corrected-pose"), sources=(source,))
     assert source.read_text(encoding="utf-8") == "original"
+
+
+def _refuse_first(monkeypatch, module, name: str, times: int) -> list[int]:
+    """Make ``module.name`` raise Windows's momentary refusal *times* times."""
+    real = getattr(module, name)
+    calls: list[int] = []
+
+    def flaky(*args, **kwargs):
+        calls.append(1)
+        if len(calls) <= times:
+            raise PermissionError(13, "in use by a scanner")
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(module, name, flaky)
+    return calls
+
+
+def test_a_momentary_refusal_to_replace_is_waited_out(tmp_path: Path, monkeypatch) -> None:
+    import avialsync.core.artifact_io as artifact_io
+
+    monkeypatch.setattr(artifact_io, "_RETRY_DELAYS", (0.0, 0.0))
+    target = tmp_path / "slice.csv"
+    target.write_text("old", encoding="utf-8")
+    calls = _refuse_first(monkeypatch, artifact_io.os, "replace", 1)
+
+    publish(target, lambda path: path.write_text("new", encoding="utf-8"), kind="data-slice-csv")
+
+    assert target.read_text(encoding="utf-8") == "new"
+    assert len(calls) == 2
+
+
+def test_a_lasting_refusal_is_reported_and_keeps_the_old_file(tmp_path: Path, monkeypatch) -> None:
+    import avialsync.core.artifact_io as artifact_io
+
+    monkeypatch.setattr(artifact_io, "_RETRY_DELAYS", (0.0, 0.0))
+    target = tmp_path / "slice.csv"
+    target.write_text("old", encoding="utf-8")
+    calls = _refuse_first(monkeypatch, artifact_io.os, "replace", 99)
+
+    with pytest.raises(ExportError, match="in use"):
+        publish(
+            target, lambda path: path.write_text("new", encoding="utf-8"), kind="data-slice-csv"
+        )
+
+    assert target.read_text(encoding="utf-8") == "old"
+    assert len(calls) == 3
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["slice.csv"]
+
+
+def test_a_reader_racing_a_replacement_waits_for_it(tmp_path: Path, monkeypatch) -> None:
+    import avialsync.core.artifact_io as artifact_io
+
+    monkeypatch.setattr(artifact_io, "_RETRY_DELAYS", (0.0,))
+    target = tmp_path / "markers.csv"
+    target.write_text("rung", encoding="utf-8")
+    calls = _refuse_first(monkeypatch, Path, "read_text", 1)
+
+    assert artifact_io.read_text(target) == "rung"
+    assert len(calls) == 2

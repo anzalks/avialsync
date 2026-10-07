@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from avialsync.core import sidecar_names
-from avialsync.core.artifact_io import publish
+from avialsync.core.artifact_io import publish, read_text
 from avialsync.core.artifact_provenance import record as provenance_record
 from avialsync.core.identity_groups import is_custom
 from avialsync.core.identity_swaps import SwapEvent, SwapGroup
@@ -105,7 +105,7 @@ def read(source: Path | str) -> Swaps | None:
     """
     path = sidecar_path(source)
     try:
-        text = path.read_text(encoding="utf-8")
+        text = read_text(path)
     except FileNotFoundError:
         return None
     except OSError:

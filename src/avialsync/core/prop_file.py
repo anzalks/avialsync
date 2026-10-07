@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, TypeVar
 
+from avialsync.core.artifact_io import read_text
 from avialsync.core.errors import PropModelError
 from avialsync.core.physical_props import (
     LADDER_SUPPORTS,
@@ -119,7 +120,7 @@ def _assert_owned(target: Path, name: str, kind: PropKind) -> bool:
     if not target.exists():
         return False
     try:
-        document = tomllib.loads(target.read_text(encoding="utf-8"))
+        document = tomllib.loads(read_text(target))
         head = _mapping(document["prop"])
         if (
             _integer(head["version"]) != _VERSION
@@ -730,7 +731,7 @@ def read_prop_records(
         return props, issues, tombstones
     for path in sorted(folder.glob(f"*{PROP_SUFFIX}")):
         try:
-            document = tomllib.loads(path.read_text(encoding="utf-8"))
+            document = tomllib.loads(read_text(path))
             head = _mapping(document["prop"])
             if (
                 _integer(head["version"]) == _VERSION

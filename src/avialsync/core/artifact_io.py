@@ -4,12 +4,22 @@ from __future__ import annotations
 
 import os
 import tempfile
+import time
 from collections.abc import Callable, Iterable
 from pathlib import Path
+from typing import TypeVar
 
 from avialsync.core.artifacts import ArtifactKind, ExistingFile, get_kind
 from avialsync.core.cache import cache_root
 from avialsync.core.errors import ExportError
+
+#: Pauses before retrying an operation Windows refused. A virus scanner or the
+#: search indexer opening a freshly published file, or a reader racing its
+#: replacement, lets go within moments; a program that really holds the file
+#: does not, and the last refusal is raised.
+_RETRY_DELAYS = (0.05, 0.1, 0.2, 0.4)
+
+_T = TypeVar("_T")
 
 _INVALID_WINDOWS = set('<>:"/\\|?*')
 _RESERVED_WINDOWS = {
@@ -35,6 +45,20 @@ def _validate(target: Path, kind: ArtifactKind, sources: Iterable[Path | str]) -
         raise ExportError("The destination is a loaded source file")
     if kind.existing is ExistingFile.REFUSE and target.exists():
         raise ExportError(f"{target.name} already exists")
+
+
+def _retrying(operation: Callable[[], _T]) -> _T:
+    for delay in _RETRY_DELAYS:
+        try:
+            return operation()
+        except PermissionError:
+            time.sleep(delay)
+    return operation()
+
+
+def read_text(path: Path | str) -> str:
+    """Read a published UTF-8 file, waiting out a refusal while it is replaced."""
+    return _retrying(lambda: Path(path).read_text(encoding="utf-8"))
 
 
 def _sync_file(path: Path) -> None:
@@ -77,10 +101,10 @@ def publish(
         write(temporary)
         _sync_file(temporary)
         if definition.existing is ExistingFile.REFUSE:
-            os.link(temporary, target)
+            _retrying(lambda: os.link(temporary, target))
             temporary.unlink()
         else:
-            os.replace(temporary, target)
+            _retrying(lambda: os.replace(temporary, target))
         _sync_directory(target.parent)
     except PermissionError as exc:
         raise ExportError(
@@ -114,7 +138,7 @@ def publish_dir(
             _sync_directory(Path(root))
         if target.exists():
             raise ExportError(f"{target.name} already exists; choose another folder")
-        os.rename(temporary, target)
+        _retrying(lambda: os.rename(temporary, target))
         _sync_directory(target.parent)
     except PermissionError as exc:
         raise ExportError(

@@ -35,7 +35,7 @@ import math
 from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 
-from avialsync.core.artifact_io import publish
+from avialsync.core.artifact_io import publish, read_text
 from avialsync.core.artifact_provenance import record as provenance_record
 from avialsync.core.artifact_provenance import write_companion
 from avialsync.core.artifacts import get_kind
@@ -288,7 +288,7 @@ def read_2d(source: Path | str) -> dict[tuple[str, int], tuple[float, float]]:
     """
     path = Path(source)
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = read_text(path).splitlines()
     except FileNotFoundError:
         return {}
     except (OSError, UnicodeError):
@@ -376,7 +376,7 @@ def read_3d(
     """Read a file :func:`write_3d` wrote: ``(name, frame) -> (xyz, error)``."""
     path = Path(source)
     try:
-        text = path.read_text(encoding="utf-8")
+        text = read_text(path)
     except FileNotFoundError:
         return {}
     except (OSError, UnicodeError):

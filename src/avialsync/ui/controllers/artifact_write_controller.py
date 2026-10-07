@@ -67,6 +67,11 @@ class ArtifactWriteQueue:
         self._pending[target] = _Request(label, write, success, failure)
         self._start(target)
 
+    @property
+    def idle(self) -> bool:
+        """Whether no revision of any path is being written or waiting."""
+        return not self._active and not self._pending
+
     def has_newer(self, target: Path) -> bool:
         """Whether an active revision has a later revision waiting for this path."""
         return target in self._pending

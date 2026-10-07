@@ -130,6 +130,9 @@ def test_markers_on_disk_are_adopted(
     marker = window.custom_markers.get("rung", FRAME)
     path = pose3d / "pose_custom_markers.csv"
     qtbot.waitUntil(lambda: ("rung", FRAME) in custom_markers.read_3d(path))
+    # Every camera's file too: on Windows, reading one while its replacement is
+    # still being published is refused, and adopting a half-written set loses views.
+    qtbot.waitUntil(lambda: window.artifact_writes.idle)
     window.custom_markers.clear()
     markers.adopt(window)
     assert window.custom_markers.get("rung", FRAME) == marker
