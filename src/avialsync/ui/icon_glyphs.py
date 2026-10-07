@@ -73,8 +73,9 @@ GLYPHS: dict[str, str] = {
     "imaging": '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="10" r="2.5"/>'
     '<circle cx="15.5" cy="15" r="2"/>',
     "sources": '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
-    "values": '<path d="M4 6h3"/><path d="M11 6h9"/><path d="M4 12h3"/><path d="M11 12h9"/>'
-    '<path d="M4 18h3"/><path d="M11 18h9"/>',
+    # Off-integer rows keep these horizontal-only strokes on whole pixels at 16 px.
+    "values": '<path d="M4 5.25h3"/><path d="M11 5.25h9"/><path d="M4 11.25h3"/>'
+    '<path d="M11 11.25h9"/><path d="M4 17.25h3"/><path d="M11 17.25h9"/>',
     "messages": '<path d="M4 5h16v11H9l-5 4z"/>',
     "changes": '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 8v4l3 2"/>',
     "props": '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5"/>'
