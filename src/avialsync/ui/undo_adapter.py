@@ -26,6 +26,8 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QObject
 from PySide6.QtGui import QAction, QKeySequence
 
+from avialsync.ui.i18n import tr
+
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QMenu
 
@@ -45,11 +47,11 @@ class UndoActions(QObject):
         super().__init__(window)
         self._window = window
 
-        self.undo_action = QAction("Undo", window)
+        self.undo_action = QAction(tr("Undo"), window)
         self.undo_action.setShortcut(QKeySequence(QKeySequence.StandardKey.Undo))
         self.undo_action.triggered.connect(self._undo)
 
-        self.redo_action = QAction("Redo", window)
+        self.redo_action = QAction(tr("Redo"), window)
         # Both conventions, stated explicitly. On Windows
         # `StandardKey.Redo` resolves to Ctrl+Y alone, so leaving it to the
         # standard key would silently drop Ctrl+Shift+Z -- the binding a user

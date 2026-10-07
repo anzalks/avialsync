@@ -18,7 +18,7 @@ Deterministic (seeded), regenerated in CI, gitignored. Produces:
   binary pixel strip, NOT OCR — read back with a 10-line numpy decoder). Variants:
   30 fps h264 8-bit short-GOP; 30 fps h265 10-bit long-GOP; 12-bit greyscale h265; 3-camera set
   with known, different start offsets (e.g. +0.000 s, +1.234 s, +7.500 s) and one with drift
-  (+2 ppm) baked into metadata JSON alongside.
+  (+7.2 ms/h) baked into metadata JSON alongside.
 - **Time series**: 50 kHz × 16-bit, 4 channels, 10 min (and a 1 h "big" variant built only for
   benchmarks): sine sweeps + a step event at exactly known t on each channel; written as CSV
   (several timestamp formats: epoch s, epoch ns, ISO8601, relative) + expected-values JSON.
@@ -35,7 +35,7 @@ The non-negotiable invariant: *when the app says t, every pane shows t.*
 3. Assert readout panel value == expected signal value at t (± interpolation tolerance).
 4. Frame-step test: 10 steps forward = exactly 10 frame indices advanced, no skips/repeats.
 5. Offset test: change offset by +0.5 s in UI → frame indices shift by exactly 15 frames @30fps.
-6. Drift test: source with 2 ppm drift stays ≤ 1 frame error across the full fixture duration.
+6. Drift test: source with 7.2 ms/h drift stays ≤ 1 frame error across the full fixture duration.
 
 ### 3a. TTL/event synchronization golden tests (D-026)
 
@@ -122,7 +122,7 @@ Run these as slice-level regression gates; do not wait until the entire visual r
 
 | Area | Required automated evidence |
 |---|---|
-| Compatibility | Characterize every item in `PLOT_UX_PLAN.md` §2 before moving controls. Assert the same QAction/signal result after relocation and that close still changes the sidebar checkbox. |
+| Compatibility | Characterize every item in `archive/plans/PLOT_UX_PLAN.md` §2 before moving controls. Assert the same QAction/signal result after relocation and that close still changes the sidebar checkbox. |
 | Modes | Review paints the complete selected page; Sweep retains the previous pass only until overwrite; Scope preserves D-042 blank/restart; all three map cursor, gaps, measures, annotations, and coverage to identical absolute times. |
 | Shared X state | Add/remove/hide, resize, theme change, save/load, slider, typed value, shortcuts, and navigator changes leave every visible row X-linked with one duration and page. No per-row horizontal scrollbar exists. |
 | Time span | Unit changes preserve seconds exactly within display precision; the continuous mapping is monotonic at ms/s/min/h scales; drag updates are coalesced and release commits the newest value. |
@@ -152,6 +152,12 @@ tests but cannot replace time, signal, accessibility, and performance assertions
   hover a TTL/gap/annotation event to verify its type, source, and exact master time. Collapse,
   resize, restart, and confirm the view preference restores without changing session data.
 - [ ] Frame-step through the event; annotate it; export region; reopen session — everything restored.
+- [ ] In Exports, write a data slice, snapshot, clip and edited pose copy. Check each appears in
+  Tasks while running, the success notice reveals its folder, and the last folder is remembered
+  separately for each kind. Cancel or fail an overwrite and verify the previous file still opens.
+- [ ] Accept several rapid point edits and identity swaps on a slow data drive, quit and reopen;
+  the latest sidecars or recovery session must retain the edits without a frozen window. Open one
+  export in another program and verify the locked-file message offers closing it and retrying.
 - [ ] Kill app mid-import; relaunch; cache not corrupted.
 - [ ] Try it on the weakest machine you own; note anything sluggish as an issue.
 - [ ] P4.6: pause/scrub shows a complete Review page; Sweep overwrites behind a narrow eraser gap;

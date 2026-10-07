@@ -67,12 +67,27 @@ class MappedChannelReader:
         self._reader = reader
         self._time_map = time_map if time_map is not None else TimeMap()
         self._source_id = source_id
+        #: Where this channel was imported to.  Kept rather than delegated
+        #: because the underlying reader can be re-pointed at an edited
+        #: generation of the same source (:meth:`read_from`), and every caller
+        #: that groups rows by cache directory means "which import is this",
+        #: not "which files is it reading this second".
+        self._origin = reader.cache_dir
 
     # ── Identity (delegated so existing grouping/lookup keeps working) ─
 
     @property
     def cache_dir(self) -> Path:
-        return self._reader.cache_dir
+        return self._origin
+
+    def read_from(self, cache_dir: Path) -> None:
+        """Read this channel's values from *cache_dir* from now on.
+
+        The identity above does not move: this is the same channel of the same
+        import, showing what the user's edits made of it
+        (:mod:`avialsync.core.edit_cache`).
+        """
+        self._reader.reopen(cache_dir)
 
     @property
     def channel_id(self) -> str:
@@ -98,14 +113,14 @@ class MappedChannelReader:
         """The source-to-master mapping applied by every method here."""
         return self._time_map
 
-    def set_mapping(self, offset: float, drift_ppm: float) -> None:
+    def set_mapping(self, offset: float, drift_ms_per_hour: float) -> None:
         """Replace the offset/drift mapping in place.
 
         Existing plot rows and readout rows keep their reader object, so a live
         offset edit is a mapping change rather than a channel reload.
         """
         self._time_map.offset = float(offset)
-        self._time_map.drift_ppm = float(drift_ppm)
+        self._time_map.drift_ms_per_hour = float(drift_ms_per_hour)
 
     # ── Bounded read API, all in master time ──────────────────────────
 
@@ -121,6 +136,24 @@ class MappedChannelReader:
 
     def sample_at(self, t_master: float) -> tuple[int, float] | None:
         return self._reader.sample_at(self._time_map.to_source(t_master))
+
+    def available_sample_at(self, t_master: float) -> tuple[int, float] | None:
+        """Sample only inside coverage and outside an observed timestamp gap.
+
+        ``sample_at`` deliberately clamps for cursor readouts. Motion evidence
+        cannot claim a value before acquisition, after it, or inside a gap.
+        """
+        source_time = self._time_map.to_source(t_master)
+        found = self._reader.sample_at(source_time)
+        if found is None:
+            return None
+        times, _values, gaps = self._reader.mapped_columns()
+        index = found[0]
+        if source_time < times[0] or source_time > times[-1]:
+            return None
+        if index + 1 < len(times) and source_time > times[index] and gaps[index]:
+            return None
+        return found
 
     def value_at(self, t_master: float) -> float:
         return self._reader.value_at(self._time_map.to_source(t_master))

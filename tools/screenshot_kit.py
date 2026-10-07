@@ -19,14 +19,50 @@ a step actually uses, and numbers them when order matters.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import csv
+import math
+import os
+import shutil
+import tempfile
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
+from fractions import Fraction
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QPoint, QRect, Qt
+import numpy as np
+from PySide6.QtCore import QEvent, QEventLoop, QPoint, QRect, QSettings, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import QApplication, QWidget
 
-from avialsync.ui import theme
+from avialsync.core.cache import CACHE_DIR_ENV
+from avialsync.engine.transcode import encode_video
+from avialsync.ui import recovery, theme
+from avialsync.ui.time_format import apply_number_locale
+
+
+def isolate_user_state() -> Path:
+    """Point settings, the recovery snapshot, and the cache at a throwaway folder.
+
+    A screenshot run builds a real ``MainWindow`` and closes it, and closing a
+    window that holds anything writes the recovery snapshot unconditionally
+    (D-089). Unisolated, photographing the docs replaced the operator's own
+    unsaved-work snapshot with a synthetic session, and wrote window geometry
+    and preferences into their installed application. This is the same
+    sandbox ``tests/conftest.py`` gives the test suite, applied at import so it
+    precedes every ``QSettings`` the tools construct. It returns the folder.
+    """
+    sandbox = Path(tempfile.mkdtemp(prefix="avialsync-screenshots-"))
+    QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+    QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, str(sandbox))
+    recovery_target = sandbox / "appdata"
+    recovery_target.mkdir()
+    recovery.recovery_dir = lambda: recovery_target
+    os.environ[CACHE_DIR_ENV] = str(sandbox / "cache")
+    return sandbox
+
+
+#: The sandbox every tool importing this module runs in.
+USER_STATE_SANDBOX = isolate_user_state()
 
 #: Highlight colour. Chosen to stay legible on both the dark chrome and the
 #: black video panes, and to be distinguishable by someone who cannot separate
@@ -48,6 +84,98 @@ def pin_appearance(app: QApplication) -> None:
     ``persist=False``: taking a screenshot must not be a settings change.
     """
     theme._apply(app, theme.THEME_DARK, persist=False)
+    # The number policy the application applies at startup (D-173): without it
+    # a screenshot shows the build machine's decimal separator, not the app's.
+    apply_number_locale()
+
+
+@contextmanager
+def staged_fixture(source: Path) -> Iterator[Path]:
+    """Copy a fixture folder somewhere neutral and yield the copy.
+
+    A window shows the paths it was given: the sidebar card, the sync wizard's
+    evidence menus. Opened from the repository they read
+    ``/Users/<whoever ran this>/Documents/...``, which put a username into a
+    published image. Opening a copy from a temporary directory keeps the
+    operator out of the picture. The copy is additive (``copytree`` into a fresh
+    directory) and the directory is this call's own, removed on exit.
+    """
+    with tempfile.TemporaryDirectory(prefix="avialsync-docs-") as scratch:
+        target = Path(scratch) / source.name
+        shutil.copytree(source, target)
+        yield target
+
+
+def write_synthetic_sync_fixture(folder: Path) -> Path:
+    """Create short synthetic camera and trigger files in a caller-owned temp folder."""
+    folder.mkdir(parents=True, exist_ok=True)
+    video_path = folder / "camera_1.mp4"
+
+    def frames() -> Iterator[tuple[np.ndarray, float]]:
+        for index in range(120):
+            timestamp = index / 30.0
+            image = np.full((360, 640, 3), (54, 62, 67), dtype=np.uint8)
+            x = 80 + (index * 4) % 480
+            image[155:205, x : x + 50] = (205, 215, 211)
+            image[170:190, x + 15 : x + 35] = (245, 242, 224)
+            yield image, timestamp
+
+    encode_video(video_path, frames(), rate=Fraction(30, 1))
+
+    signal_path = folder / "signal_base.csv"
+    trigger_path = folder / "frame_triggers.csv"
+    with (
+        signal_path.open("w", newline="", encoding="utf-8") as signal_file,
+        trigger_path.open("w", newline="", encoding="utf-8") as trigger_file,
+    ):
+        signal_writer = csv.writer(signal_file)
+        trigger_writer = csv.writer(trigger_file)
+        signal_writer.writerow(("time", "ch0", "ch1", "ch2", "TTL"))
+        trigger_writer.writerow(("t", "cam_strobe"))
+        for sample_index in range(4250):
+            timestamp = sample_index / 1000.0
+            pulse_index = round((timestamp - 0.25) * 30)
+            pulse_start = 0.25 + pulse_index / 30.0
+            high = 0 <= pulse_index < 120 and pulse_start <= timestamp < pulse_start + 0.004
+            pulse = 1.0 if high else 0.0
+            signal_writer.writerow(
+                (
+                    f"{timestamp:.3f}",
+                    f"{math.sin(2 * math.pi * timestamp):.6f}",
+                    f"{math.cos(2 * math.pi * 0.5 * timestamp):.6f}",
+                    "1" if timestamp >= 2.0 else "0",
+                    f"{pulse:.1f}",
+                )
+            )
+            trigger_writer.writerow((f"{timestamp:.3f}", f"{pulse:.1f}"))
+
+    return folder
+
+
+def wait_until(
+    app: QApplication,
+    ready: Callable[[], bool],
+    description: str,
+    timeout_ms: int = 5000,
+) -> None:
+    """Drive Qt until a screenshot prerequisite is ready or raise on timeout."""
+    if ready():
+        return
+    loop = QEventLoop(app)
+    poll = QTimer(loop)
+    poll.setInterval(10)
+    poll.timeout.connect(lambda: loop.quit() if ready() else None)
+    deadline = QTimer(loop)
+    deadline.setSingleShot(True)
+    deadline.timeout.connect(loop.quit)
+    poll.start()
+    deadline.start(timeout_ms)
+    loop.exec()
+    poll.stop()
+    deadline.stop()
+    loop.deleteLater()
+    if not ready():
+        raise RuntimeError(f"Timed out waiting for {description}.")
 
 
 def pin_layout(window: QWidget) -> None:
@@ -81,6 +209,7 @@ def capture(
     highlights: Sequence[QWidget] = (),
     *,
     numbered: bool = False,
+    crop: QWidget | None = None,
 ) -> None:
     """Grab *window* and save it, boxing each widget in *highlights*.
 
@@ -91,7 +220,20 @@ def capture(
         numbered: Draw a step number on each box. Use when the order matters;
             leave off when the boxes are alternatives or a single target, where
             numbers would imply a sequence that does not exist.
+        crop: A widget inside *window* to cut the image down to, after the boxes
+            are drawn. For a control that lives in one corner, where a full
+            window would leave it a few pixels tall.
     """
+    # Loading a fixture posts "Imported ..." toasts that wait to be dismissed
+    # (D-107), so an image taken straight after one carries a Dismiss button
+    # that no reader would recognise as part of the window. Declining them
+    # acts on nothing.
+    notifications = getattr(window, "notifications", None)
+    if notifications is not None:
+        notifications.clear_all()
+        app = QApplication.instance()
+        if app is not None:
+            app.processEvents()
     pixmap = window.grab()
     if highlights:
         painter = QPainter(pixmap)
@@ -105,6 +247,19 @@ def capture(
             if numbered:
                 _draw_step_number(painter, box, index)
         painter.end()
+    if crop is not None:
+        box = _bounds_in(window, crop)
+        if box is not None:
+            # The pixmap is device-pixel sized; the box is in logical pixels.
+            ratio = pixmap.devicePixelRatio()
+            pixmap = pixmap.copy(
+                QRect(
+                    round(box.x() * ratio),
+                    round(box.y() * ratio),
+                    round(box.width() * ratio),
+                    round(box.height() * ratio),
+                )
+            )
     path.parent.mkdir(parents=True, exist_ok=True)
     pixmap.save(str(path))
 

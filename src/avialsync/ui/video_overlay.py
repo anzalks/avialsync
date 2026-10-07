@@ -9,17 +9,24 @@ window turns into a reversible command against
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, cast
 
 import numpy as np
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPointF, QRectF, QSizeF, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
 from avialsync.core.point_edits import PointKey
-from avialsync.ui.point_edit_tool import PointEditMixin
+from avialsync.core.pose import split_channel
+from avialsync.ui.marker_overlay import MarkerOverlayMixin, ResolvedPoint
+from avialsync.ui.overlay_registry import default_visible_for
+from avialsync.ui.prop_overlay import PropDrawing, draw_props
 from avialsync.ui.tracking_colors import color_for_point
+from avialsync.ui.wheel_overlay import WheelDrawing, draw_wheel, draw_wheel_clicks
+
+logger = logging.getLogger(__name__)
 
 _ENSEMBLE_COLOR = (0, 255, 255)
 _MODEL_COLORS = (
@@ -47,7 +54,7 @@ class OverlayTrack:
     """One prediction source drawn over a camera's video.
 
     ``points`` maps a body-part name to its ``(x_reader, y_reader)`` pair. Each
-    track owns readers from its own sidecar cache, so two models that both emit
+    track owns readers from its own cache entry, so two models that both emit
     a channel called ``head_bar_x`` never collide.
     """
 
@@ -58,26 +65,6 @@ class OverlayTrack:
     likelihood: dict[str, Any] = field(default_factory=dict)
 
 
-@dataclass(frozen=True)
-class ResolvedPoint:
-    """Where one body part is right now, and what identifies it.
-
-    Painting and hit-testing both go through this, so the handle the user
-    grabs is by construction the marker they can see — there is no second
-    place that decides where a point is.
-    """
-
-    name: str
-    x: float
-    y: float
-    color: tuple[int, int, int]
-    #: ``None`` when the reader carries no source identity, which is the loose
-    #: ``set_readers`` path.  Such a point is drawn but cannot be corrected,
-    #: because there would be nothing stable to key the correction to.
-    key: PointKey | None
-    corrected: bool
-
-
 def track_color(index: int, *, is_ensemble: bool) -> tuple[int, int, int]:
     """Return a stable colour for an overlaid prediction source."""
     if is_ensemble:
@@ -85,12 +72,13 @@ def track_color(index: int, *, is_ensemble: bool) -> tuple[int, int, int]:
     return _MODEL_COLORS[index % len(_MODEL_COLORS)]
 
 
-class PaintCanvas(PointEditMixin):
+class PaintCanvas(MarkerOverlayMixin):
     """Paint the current tracking points without obscuring video.
 
-    The "Fix Tracker" gesture lives in :class:`PointEditMixin`; this class owns
-    what is drawn and where each point resolves to, which is what the mixin
-    hit-tests against.
+    The "Fix Tracker" gesture lives in :class:`PointEditMixin`; hand-placed
+    markers, reprojection and the wheel in :class:`MarkerOverlayMixin`. This
+    class owns the tracking drawn and where each point resolves to, which is
+    what the gesture hit-tests against.
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -101,27 +89,38 @@ class PaintCanvas(PointEditMixin):
         self.setAutoFillBackground(False)
         self.readers: list[Any] = []
         self.tracks: list[OverlayTrack] = []
+        self._reported_reader_errors: set[int] = set()
         self.t = 0.0
-        self._show_legend = True
-        self._point_labels_visible = True
+        #: Seeded from the registry, never from literals here: these are the
+        #: same defaults View -> Overlays checks its boxes against, and a second
+        #: copy of them is what let the canvas draw a layer the menu called off
+        #: (D-138). Each is replaced by the resolved state in
+        #: `VideoPane.apply_overlay_visibility` as soon as one exists.
+        self._show_legend = default_visible_for("tracking.legend")
+        self._point_labels_visible = default_visible_for("tracking.point_labels")
         #: The points themselves. Previously unconditional: there was no way to
         #: see the raw footage under a prediction, which is exactly what someone
         #: checking a track needs to do (D-090).
-        self._points_visible = True
-        self._corrections_visible = True
+        self._points_visible = default_visible_for("tracking.points")
+        self._corrections_visible = default_visible_for("tracking.corrections")
         self._init_point_editing()
+        self._init_marker_overlay()
 
     def set_readers(self, readers: list[Any]) -> None:
-        """Draw a single unnamed track from loose ``*_x``/``*_y`` readers.
+        """Draw a single track from loose ``*_x``/``*_y`` readers.
 
-        Retained for sources that are not routed through the 2D pose pipeline.
+        Retained for sources that are not routed through the 2D pose pipeline:
+        a pose file imported as plain data channels reaches the overlay this
+        way, broadcast to every camera rather than routed to one.
         """
         self.readers = readers
+        self._reported_reader_errors.clear()
         self.update()
 
     def set_tracks(self, tracks: list[OverlayTrack]) -> None:
         """Draw one or more named prediction sources over this camera."""
         self.tracks = list(tracks)
+        self._reported_reader_errors.clear()
         self.update()
 
     def set_points_visible(self, visible: bool) -> None:
@@ -187,6 +186,16 @@ class PaintCanvas(PointEditMixin):
         genuinely missing stretch would show its last known coordinate pinned
         in place rather than nothing, which ``value_at`` never did.
         """
+        try:
+            sample = self._sample_readable(reader)
+        except (OSError, ValueError) as error:
+            self._reader_unavailable(reader, error)
+            return None
+        self._reported_reader_errors.discard(id(reader))
+        return sample
+
+    def _sample_readable(self, reader: Any) -> tuple[int, float] | None:
+        """Read a point after the paint boundary has installed its error guard."""
         sample_at = getattr(reader, "sample_at", None)
         if sample_at is None:
             value = float(reader.value_at(self.t))
@@ -210,6 +219,18 @@ class PaintCanvas(PointEditMixin):
                 return None
         return int(index), float(value)
 
+    def _reader_unavailable(self, reader: Any, error: OSError | ValueError) -> None:
+        """Report a lost channel once while letting later paints retry it."""
+        identity = id(reader)
+        if identity in self._reported_reader_errors:
+            return
+        self._reported_reader_errors.add(identity)
+        logger.warning(
+            "Tracking overlay skipped unavailable channel %s: %s",
+            getattr(reader, "channel_id", "<unknown>"),
+            error,
+        )
+
     def _resolve(self, track: OverlayTrack) -> list[ResolvedPoint]:
         """Return every body part of *track* that has a position right now.
 
@@ -226,7 +247,15 @@ class PaintCanvas(PointEditMixin):
             _, y_value = sample_y
 
             source_id = str(getattr(reader_x, "source_id", "") or "")
-            key = PointKey(source_id, name, index) if source_id else None
+            # Keyed by the column this marker is *drawing*, which is another
+            # point's once a flip has been accepted: a correction is a fact
+            # about the trajectory under the pointer, not about the label on
+            # it (D-143). The label rides along as provenance.
+            key = (
+                PointKey(source_id, self.data_point(source_id, name, index), index)
+                if source_id
+                else None
+            )
             corrected = False
             if key is not None:
                 if self._drag is not None and self._drag.key == key:
@@ -259,9 +288,14 @@ class PaintCanvas(PointEditMixin):
         del event
         # Edit mode overrides a hidden points layer: a mode whose whole purpose
         # is grabbing markers must not start with nothing on screen to grab.
-        if not self._points_visible and not self._edit_mode:
-            return
-        if not self.readers and not self.tracks:
+        draw_points = (self._points_visible or self._edit_mode) and bool(
+            self.readers or self.tracks or self._custom
+        )
+        # The wheel is its own layer, not a kind of point: hiding the tracking
+        # must not hide the wheel the animal is running on, or the reverse.
+        wheel = self._wheel(self.t) if self._wheel is not None else None
+        props = self._props(self.t) if self._props is not None and self._props_visible else []
+        if not draw_points and wheel is None and not props:
             return
         geometry = self._video_scale()
         if geometry is None:
@@ -269,7 +303,45 @@ class PaintCanvas(PointEditMixin):
         scale, offset_x, offset_y = geometry
 
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        try:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            self._paint_layers(painter, draw_points, wheel, props, scale, offset_x, offset_y)
+        finally:
+            # A Python exception must not return control to Qt with this widget
+            # still being painted; that leaves the backing store in an invalid
+            # state and can turn one read error into a native crash.
+            painter.end()
+
+    def _paint_layers(
+        self,
+        painter: QPainter,
+        draw_points: bool,
+        wheel: WheelDrawing | None,
+        props: list[PropDrawing],
+        scale: float,
+        offset_x: float,
+        offset_y: float,
+    ) -> None:
+        """Draw the registered video layers with an active painter."""
+        bounds, chrome = self._label_area(scale, offset_x, offset_y)
+        if props:
+            draw_props(painter, props, scale, offset_x, offset_y, bounds, chrome)
+
+        if wheel is not None:
+            # Under the tracking, so a bar never hides the paw standing on it.
+            draw_wheel(
+                painter,
+                wheel,
+                scale,
+                offset_x,
+                offset_y,
+                show_facing=self._wheel_visible,
+                show_hidden=self._wheel_hidden_visible,
+            )
+        if not draw_points:
+            if wheel is not None and (wheel.clicks or wheel.projections or wheel.prompt):
+                draw_wheel_clicks(painter, wheel, scale, offset_x, offset_y, bounds, chrome)
+            return
 
         if self.tracks:
             drawn: list[tuple[str, tuple[int, int, int]]] = []
@@ -283,6 +355,38 @@ class PaintCanvas(PointEditMixin):
 
         if self.readers:
             self._draw_loose_readers(painter, scale, offset_x, offset_y)
+
+        if self._reprojection_visible:
+            self._draw_reprojection(painter, scale, offset_x, offset_y)
+
+        if self._custom and (self._custom_visible or self._edit_mode):
+            self._draw_custom(painter, scale, offset_x, offset_y)
+
+        if wheel is not None and (wheel.clicks or wheel.projections or wheel.prompt):
+            draw_wheel_clicks(painter, wheel, scale, offset_x, offset_y, bounds, chrome)
+
+    def _label_area(
+        self, scale: float, offset_x: float, offset_y: float
+    ) -> tuple[QRectF, tuple[QRectF, ...]]:
+        """The visible picture labels stay inside, and the pane chrome they avoid.
+
+        Labels belong on the picture, not on the letterbox, and never under the
+        file name, the timing readout, or the zoom buttons drawn over it.
+        """
+        area = QRectF(self.rect()).adjusted(2, 2, -2, -2)
+        parent = self.parent()
+        size = getattr(getattr(parent, "surface", None), "video_size", None)
+        if size is not None:
+            picture = QRectF(offset_x, offset_y, size[0] * scale, size[1] * scale)
+            area = area.intersected(picture.adjusted(2, 2, -2, -2))
+        chrome: list[QRectF] = []
+        # The pane's declared contract (D-174), not its widgets looked up by name.
+        chrome_rects = getattr(parent, "chrome_rects", None)
+        if isinstance(parent, QWidget) and callable(chrome_rects):
+            for rect in chrome_rects():
+                corner = self.mapFrom(parent, rect.topLeft())
+                chrome.append(QRectF(QPointF(corner), QSizeF(rect.size())).adjusted(-3, -3, 3, 3))
+        return area, tuple(chrome)
 
     def _draw_track(
         self,
@@ -354,13 +458,20 @@ class PaintCanvas(PointEditMixin):
     ) -> None:
         points: dict[str, dict[str, float]] = {}
         for reader in self.readers:
-            value = reader.value_at(self.t)
+            try:
+                value = reader.value_at(self.t)
+            except (OSError, ValueError) as error:
+                self._reader_unavailable(reader, error)
+                continue
+            self._reported_reader_errors.discard(id(reader))
             if np.isnan(value):
                 continue
-            for suffix in ("_x", "_y"):
-                if reader.channel_id.endswith(suffix):
-                    points.setdefault(reader.channel_id[:-2], {})[suffix[1:]] = value
+            split = split_channel(reader.channel_id)
+            if split is not None and split[1] in ("x", "y"):
+                points.setdefault(split[0], {})[split[1]] = value
 
+        label_font = painter.font()
+        label_font.setPointSize(_LABEL_POINT_SIZE)
         for name, point in sorted(points.items()):
             if "x" not in point or "y" not in point:
                 continue
@@ -370,6 +481,14 @@ class PaintCanvas(PointEditMixin):
             x = offset_x + point["x"] * scale
             y = offset_y + point["y"] * scale
             painter.drawEllipse(int(x) - 3, int(y) - 3, 6, 6)
+            # Named, and named through the same switch as every other point.
+            # These dots used to carry no text and consult no layer, so "Body-
+            # part names" appeared to do nothing for a pose file that had come
+            # in as plain channels -- the one case where the names are most
+            # needed, because nothing else on screen says what the dots are
+            # (D-139).
+            if self._point_labels_visible and name:
+                self._draw_point_label(painter, label_font, QColor(*color), name, x, y)
 
     def _draw_legend(
         self, painter: QPainter, entries: list[tuple[str, tuple[int, int, int]]]
@@ -416,5 +535,5 @@ class PaintCanvas(PointEditMixin):
         overlay are the common case.
         """
         self.t = t
-        if self.readers or self.tracks:
+        if self.readers or self.tracks or self._custom or self._wheel is not None:
             self.update()

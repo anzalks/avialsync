@@ -40,6 +40,8 @@ class Setting:
     #: Bounds for a numeric setting.
     minimum: float | None = None
     maximum: float | None = None
+    #: Remembered state may be schema-owned without appearing in Preferences.
+    visible: bool = True
 
 
 #: Groups, in the order a Preferences dialog should show them: what people
@@ -50,11 +52,24 @@ GROUP_ORDER = (
     "Plots",
     "Overlays",
     "Video Display",
+    "Wheel Setup",
     "Storage",
 )
 
 
 SETTINGS: tuple[Setting, ...] = (
+    *(
+        Setting(
+            key=f"export/last_folder/{kind}",
+            label=f"Last {kind.replace('-', ' ')} export folder",
+            group="Storage",
+            default="",
+            kind=str,
+            help_text="Folder last chosen for this kind of export.",
+            visible=False,
+        )
+        for kind in ("changes", "snapshot", "clip", "stimulus-grid", "data-slice")
+    ),
     # ── Appearance ───────────────────────────────────────────────────
     Setting(
         key="theme/preference",
@@ -76,6 +91,48 @@ SETTINGS: tuple[Setting, ...] = (
         kind=str,
         choices=("system", "small", "medium", "large"),
         help_text="Scales every control relative to the platform's own font.",
+    ),
+    Setting(
+        key="interface/density",
+        label="Interface density",
+        group="Appearance",
+        default="compact",
+        kind=str,
+        choices=("compact", "comfortable"),
+        help_text="Choose the vertical spacing of data lanes and other compact surfaces.",
+    ),
+    Setting(
+        key="timeline/compact_visible_lanes",
+        label="Compact Data Streams rows",
+        group="Appearance",
+        default=10,
+        kind=int,
+        minimum=1,
+        maximum=32,
+        help_text=(
+            "Maximum Data Streams lanes visible before vertical scrolling in compact density."
+        ),
+    ),
+    Setting(
+        key="timeline/comfortable_visible_lanes",
+        label="Comfortable Data Streams rows",
+        group="Appearance",
+        default=8,
+        kind=int,
+        minimum=1,
+        maximum=32,
+        help_text=(
+            "Maximum Data Streams lanes visible before vertical scrolling in comfortable density."
+        ),
+    ),
+    Setting(
+        key="inspector/page",
+        label="Inspector page",
+        group="Appearance",
+        default="sources",
+        kind=str,
+        choices=("sources", "values", "messages", "changes", "props", "exports"),
+        help_text="The inspector page shown when AvialSync opens; the last one used is kept.",
     ),
     Setting(
         key="palette/colour_vision_safe",
@@ -112,6 +169,19 @@ SETTINGS: tuple[Setting, ...] = (
     ),
     # ── Overlays ─────────────────────────────────────────────────────
     Setting(
+        key="overlays/osd_detail",
+        label="Video timecode detail",
+        group="Overlays",
+        default="compact",
+        kind=str,
+        choices=("compact", "full"),
+        help_text=(
+            "Compact shows time and frame, then resolution and bit depth; full adds rate, "
+            "codec, pixel format and size. "
+            "Hide it with View > Overlays."
+        ),
+    ),
+    Setting(
         key="overlays/point_labels_default",
         label="Show body-part names by default",
         group="Overlays",
@@ -134,6 +204,40 @@ SETTINGS: tuple[Setting, ...] = (
             "from the first frame instead of showing the full range."
         ),
     ),
+    # ── Wheel Setup ───────────────────────────────────────────────────
+    Setting(
+        key="wheel/bar_count",
+        label="Remembered wheel bar count",
+        group="Wheel Setup",
+        default=0,
+        kind=int,
+        minimum=0,
+        maximum=720,
+        help_text=(
+            "A count of zero forgets the reusable setup. Placed wheels stay with their recordings."
+        ),
+    ),
+    Setting(
+        key="wheel/units",
+        label="Remembered wheel units",
+        group="Wheel Setup",
+        default="",
+        kind=str,
+        choices=("", "mm", "cm", "m"),
+        help_text="3D calibration units for the next wheel; check them against each recording.",
+    ),
+    Setting(
+        key="wheel/radius",
+        label="Remembered wheel radius",
+        group="Wheel Setup",
+        default=0.0,
+        kind=float,
+        minimum=0,
+        maximum=1_000_000,
+        help_text=(
+            "Radius to the bar centres in the remembered units; zero measures it from clicks."
+        ),
+    ),
     # ── Storage ──────────────────────────────────────────────────────
     Setting(
         key="storage/autosave_minutes",
@@ -149,14 +253,17 @@ SETTINGS: tuple[Setting, ...] = (
         ),
     ),
     Setting(
-        key="storage/keep_recovery",
-        label="Keep a recovery snapshot",
+        key="storage/offer_recovery_at_launch",
+        label="Offer unsaved work at launch",
         group="Storage",
-        default=True,
+        default=False,
         kind=bool,
         help_text=(
-            "Preserve unsaved work so closing never loses it. Turning this off "
-            "means an unsaved session is gone when the window closes."
+            "Off by default, so the notification strip starts empty. The recovery "
+            "snapshot is still written on every quit either way — nothing is lost, "
+            "and unsaved work from the last run is always reachable from "
+            "File → Recover Unsaved Work. Turn this on to be told about it in "
+            "the notification strip at the next launch instead of going looking."
         ),
     ),
 )
@@ -173,6 +280,8 @@ def settings_by_group() -> dict[str, list[Setting]]:
     """Settings grouped for display, in :data:`GROUP_ORDER`."""
     grouped: dict[str, list[Setting]] = {}
     for setting in SETTINGS:
+        if not setting.visible:
+            continue
         grouped.setdefault(setting.group, []).append(setting)
     ordered = {group: grouped[group] for group in GROUP_ORDER if group in grouped}
     # Anything in a group nobody listed still shows, at the end, rather than

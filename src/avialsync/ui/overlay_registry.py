@@ -11,9 +11,9 @@ registry adds the next unreachable method.
 So there is one declaration of what exists.  :data:`OVERLAY_LAYERS` is the
 inventory; the **View → Overlays** menu is generated from it, per-camera
 overrides use the same labels in the pane context menu, and
-``tests/test_overlay_registry.py`` enumerates it against what the panes
-actually draw, so drawing something new without registering it fails CI rather
-than review.
+``tests/test_overlay_registry.py`` enumerates it against what the panes and
+grid exporter draw, so drawing something new without registering it fails CI
+rather than review.
 
 A plugin contributing an overlay registers a layer here and gets its checkbox
 automatically — the registry is the extension point, not a fixed list.
@@ -22,6 +22,8 @@ automatically — the registry is the extension point, not a fixed list.
 from __future__ import annotations
 
 import dataclasses
+
+from avialsync.ui.i18n import tr
 
 __all__ = [
     "OverlayLayer",
@@ -87,6 +89,61 @@ OVERLAY_LAYERS: tuple[OverlayLayer, ...] = (
         ),
     ),
     OverlayLayer(
+        overlay_id="tracking.custom_markers",
+        label="Hand-placed 3D markers",
+        group="Tracking",
+        default_visible=True,
+        description=(
+            "Markers you placed with Add 3D Marker, drawn as hollow rings so "
+            "they are never mistaken for the model's own points."
+        ),
+    ),
+    OverlayLayer(
+        overlay_id="tracking.wheel",
+        label="Wheel model",
+        group="Tracking",
+        default_visible=True,
+        description=(
+            "Bars generated from a wheel you placed in Props, turned by its "
+            "encoder: drawn as thin lines, never as points, because they are a "
+            "model rather than anything the tracker saw."
+        ),
+    ),
+    OverlayLayer(
+        overlay_id="tracking.wheel_hidden",
+        label="Wheel bars out of sight",
+        group="Tracking",
+        # Off by default: behind the side plate they clutter the animal, and
+        # whether a bar is hidden is itself the model's estimate.
+        default_visible=False,
+        description=(
+            "The wheel's bars a camera cannot see -- behind the side plate or "
+            "under nearer bars -- drawn faint."
+        ),
+    ),
+    OverlayLayer(
+        overlay_id="tracking.props",
+        label="Physical props",
+        group="Tracking",
+        default_visible=True,
+        description=(
+            "User-clicked ladder steps: solid squares mark actual camera clicks; "
+            "dashed squares and lines mark projections from accepted 3D geometry."
+        ),
+    ),
+    OverlayLayer(
+        overlay_id="tracking.reprojection",
+        label="3D reprojection",
+        group="Tracking",
+        # Off by default: it needs a calibration, and switching it on is what
+        # asks for one.
+        default_visible=False,
+        description=(
+            "The 3D points projected back into each camera through the "
+            "calibration, drawn as crosses beside the 2D tracking."
+        ),
+    ),
+    OverlayLayer(
         overlay_id="tracking.edit_handles",
         label="Fix Tracker handles",
         group="Tracking",
@@ -110,7 +167,10 @@ OVERLAY_LAYERS: tuple[OverlayLayer, ...] = (
         label="Timecode and format readout",
         group="Camera chrome",
         default_visible=True,
-        description="Time, frame number, declared and measured rate, codec, and size.",
+        description=(
+            "Time, frame number, resolution and bit depth; at full detail also the rate, "
+            "codec, pixel format and size."
+        ),
     ),
     OverlayLayer(
         overlay_id="camera.no_footage",
@@ -124,9 +184,31 @@ OVERLAY_LAYERS: tuple[OverlayLayer, ...] = (
             "footage, which is the misreading D-010 exists to prevent."
         ),
     ),
+    OverlayLayer(
+        overlay_id="export.frame_number",
+        label=tr("Export frame number"),
+        group=tr("Export"),
+        default_visible=True,
+        locked=True,
+        per_camera=False,
+        description=tr("Always identifies the source frame inside each stimulus-grid tile."),
+    ),
 )
 
 _BY_ID = {layer.overlay_id: layer for layer in OVERLAY_LAYERS}
+
+
+def default_visible_for(overlay_id: str) -> bool:
+    """Whether *overlay_id* shows before anyone has said otherwise.
+
+    The one place that answers this. A widget that hardcodes its own starting
+    value is a second authority on a layer's default, and the two drift: the
+    tracking canvas came up drawing body-part names that this registry declares
+    off, so the menu's unchecked box and the pixels disagreed until something
+    happened to push the resolved state (D-138).
+    """
+    layer = _BY_ID.get(overlay_id)
+    return layer.default_visible if layer is not None else True
 
 
 def layer_for(overlay_id: str) -> OverlayLayer | None:

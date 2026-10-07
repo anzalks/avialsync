@@ -2,6 +2,7 @@
 
 import logging
 import shutil
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,6 +23,10 @@ _FRAME_TIMES_NAME = "video_frame_times.npy"
 #: cameras stamp a free-running nanosecond counter, which is why only the
 #: *differences* between rows are used and the absolute value is discarded.
 _SIDECAR_NANOSECONDS = 1e9
+
+
+#: Serialises the one place this module changes PyAV's process-wide logging.
+_LOG_LEVEL_LOCK = threading.Lock()
 
 
 #: Containers claimed on sight, without opening the file.  Every one of these
@@ -88,9 +93,17 @@ _NOT_VIDEO_SUFFIXES = frozenset(
         ".npz",
         ".h5",
         ".hdf5",
+        ".nwb",
         ".mat",
         ".parquet",
         ".pkl",
+        # DeepLabCut writes its detections, assemblies and metadata as
+        # ``.pickle``, never ``.pkl``, and those files sit in the same folder as
+        # the recording they describe. FFmpeg's detection is permissive enough
+        # to find a "video stream" in one -- a four-frame 25 fps container that
+        # then raises InvalidDataError on the first decode, after blocking the
+        # UI thread for seconds probing it (D-139).
+        ".pickle",
         ".zip",
         ".gz",
         # Audio: openable, but it has no video stream to find.
@@ -125,9 +138,34 @@ def _holds_video_stream(path: Path) -> bool:
     """
     import av
 
-    previous_level = av.logging.get_level()
+    if not path.is_file():
+        # A folder, a missing file, or an object named inside another file
+        # (``session.nwb/acquisition/TwoPhotonSeries``, D-188): none is a
+        # container, and opening one only asks FFmpeg to fail.
+        return False
+    if av.logging.get_level() is None:
+        # PyAV's default since 13: every FFmpeg message already goes to a no-op
+        # callback, so the probe is silent without touching logging at all.
+        return _probe_video_stream(path)
+    # Someone enabled PyAV logging. Quietening it for the probe swaps a
+    # process-wide callback, so the swap is serialised: two probes that
+    # interleaved it each saved the other's PANIC as "previous" and the last
+    # restore left PyAV's Python callback installed for good -- a callback that
+    # takes the GIL and two Python locks from inside FFmpeg's own threads, which
+    # deadlocked a pane's decoder against the thread waiting on it (D-188).
+    with _LOG_LEVEL_LOCK:
+        previous_level = av.logging.get_level()
+        try:
+            av.logging.set_level(av.logging.PANIC)
+            return _probe_video_stream(path)
+        finally:
+            av.logging.set_level(previous_level)
+
+
+def _probe_video_stream(path: Path) -> bool:
+    import av
+
     try:
-        av.logging.set_level(av.logging.PANIC)
         with av.open(str(path)) as container:
             for stream in container.streams.video:
                 codec_context = stream.codec_context
@@ -137,8 +175,6 @@ def _holds_video_stream(path: Path) -> bool:
     except Exception:
         # Anything unopenable is simply not ours to claim.
         return False
-    finally:
-        av.logging.set_level(previous_level)
 
 
 @dataclass(frozen=True)
@@ -415,15 +451,20 @@ class VideoStandardLoader(VideoSource):
 
     def _save_frame_times_cache(self, path: Path, frame_times: np.ndarray) -> None:
         manager = self._cache_manager()
-        temp_dir = manager.get_temp_cache_dir(path)
+        temp_dir: Path | None = None
         try:
+            # Inside the guard: creating the staging directory is the first
+            # write, and a cache folder that cannot be written must cost the
+            # cache, not the video.
+            temp_dir = manager.get_temp_cache_dir(path)
             np.save(temp_dir / _FRAME_TIMES_NAME, frame_times, allow_pickle=False)
             manager.commit_cache(path, temp_dir)
         except (CacheError, OSError):
-            # Timestamp caching is an optimization.  Read-only acquisition
-            # media must remain loadable with the in-memory evidence.
+            # Timestamp caching is an optimization.  The video must remain
+            # loadable with the in-memory evidence.
             logger.warning("Could not cache video frame timestamps for %s", path, exc_info=True)
-            shutil.rmtree(temp_dir, ignore_errors=True)
+            if temp_dir is not None:
+                shutil.rmtree(temp_dir, ignore_errors=True)
 
     def _extract_frame_times(self, path: Path) -> None:
         """Build the presentation-timestamp table with the decoder's own code.
@@ -436,7 +477,7 @@ class VideoStandardLoader(VideoSource):
         Both are now literally the same code, so they cannot disagree.
 
         Costs one demux pass, no decode: 225 ms on a 716 MB, 13 844-frame file,
-        which is why the result is cached in the sidecar beside the media.
+        which is why the result is cached in the video's cache entry.
         """
         from avialsync.engine.pyav_reader import PyAVReader
 

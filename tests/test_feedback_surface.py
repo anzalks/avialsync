@@ -122,6 +122,10 @@ _UNMANAGED_THREAD_FILES = {
     # living as long as it. It has no completion to report and is stopped by
     # `VideoGrid.shutdown()`, whose ordering the D-062 notes in that file pin.
     "src/avialsync/ui/video_pane.py",
+    # One persistent lazy reader for the selected imaging stack. Like the
+    # video decoder it coalesces time requests, has no completion event, and
+    # is joined explicitly by ImagingPane.shutdown() at window close.
+    "src/avialsync/ui/imaging_pane.py",
     # Owned by a modal the user explicitly opened, which is its own progress
     # and cancel surface (AGENTS rule 11 permits exactly this). Neither can
     # outlive its dialog, so neither can strand the window.
@@ -313,9 +317,16 @@ def test_the_window_has_a_feedback_surface(window: MainWindow) -> None:
     assert window.jobs_panel is not None
 
 
-def test_a_tasks_tab_exists(window: MainWindow) -> None:
+def test_tasks_open_from_the_status_bar(window: MainWindow) -> None:
+    """D-172: Tasks left the inspector for a status-bar popover beside the activity area."""
     titles = [window._left_tabs.tabText(i) for i in range(window._left_tabs.count())]
-    assert "Tasks" in titles
+    assert "Tasks" not in titles
+    button = window.tasks_button
+    assert button.parentWidget() is window.statusBar()
+    assert button.menu() is button.popover
+    holders = [a for a in button.popover.actions() if hasattr(a, "defaultWidget")]
+    assert [a.defaultWidget() for a in holders] == [window.jobs_panel]
+    assert button.accessibleName() and button.toolTip()
 
 
 def test_the_tasks_panel_empties_when_the_last_job_finishes(window: MainWindow) -> None:
@@ -415,6 +426,62 @@ def test_a_failure_does_not_wait_out_a_success(qapp: QApplication, qtbot) -> Non
     assert strip.message == "Could not generate the proxy"
     assert strip.is_sticky is True
     assert strip.pending_count == 0, "the success is dropped, not queued behind the error"
+
+
+def test_a_burst_of_successes_is_one_line(qapp: QApplication, qtbot) -> None:
+    """Three dropped files were three messages, each waiting out the last (D-134).
+
+    The strip then carried a Dismiss button for work that had already finished
+    and was already visible in the sidebar, for eighteen seconds.
+    """
+    strip = NotificationStrip()
+    qtbot.addWidget(strip)
+
+    strip.show_success("Imported FaceCam_eks.csv")
+    strip.show_success("Imported FrontCam_eks.csv")
+    strip.show_success("Imported SideCam_eks.csv")
+
+    assert strip.message == "Imported SideCam_eks.csv"
+    assert strip.pending_count == 0, "successes must not queue behind each other"
+    assert strip.is_sticky is False, "the last one still dismisses itself"
+
+
+def test_successes_do_not_pile_up_behind_a_failure(qapp: QApplication, qtbot) -> None:
+    """A failure on the strip must not turn every later success into a click.
+
+    Rule 1 still holds -- the failure is not displaced -- but only the newest
+    success waits behind it.
+    """
+    strip = NotificationStrip()
+    qtbot.addWidget(strip)
+    strip.show_error("Could not import sensor.csv", details="OSError")
+
+    strip.show_success("Imported FaceCam_eks.csv")
+    strip.show_success("Imported SideCam_eks.csv")
+
+    assert strip.message == "Could not import sensor.csv"
+    assert strip.pending_count == 1
+
+    strip.clear()
+
+    assert strip.message == "Imported SideCam_eks.csv"
+    assert strip.pending_count == 0
+
+
+def test_a_failure_behind_a_failure_still_waits_its_turn(qapp: QApplication, qtbot) -> None:
+    """Coalescing is for successes only: no failure is ever dropped for another."""
+    strip = NotificationStrip()
+    qtbot.addWidget(strip)
+    strip.show_error("First failure")
+    strip.show_success("Imported FaceCam_eks.csv")
+    strip.show_error("Second failure")
+
+    assert strip.pending_count == 2
+
+    strip.clear()
+    strip.clear()
+
+    assert strip.message == "Second failure"
 
 
 def test_dismissing_reveals_the_next_message(qapp: QApplication, qtbot) -> None:

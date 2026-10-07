@@ -16,7 +16,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from avialsync.core.source import SessionItem, SessionLayout, SessionSource
+from avialsync.core.custom_markers import is_custom_marker_path
+from avialsync.core.pose import split_channel
+from avialsync.core.rig_naming import match_label
+from avialsync.core.source import RotaryHint, SessionItem, SessionLayout, SessionSource
 
 logger = logging.getLogger(__name__)
 
@@ -159,10 +162,9 @@ def _eks_bodyparts(path: Path) -> list[str]:
 
     bodyparts: list[str] = []
     for column in (c.strip() for c in header.split(",")):
-        if column.endswith(("_x", "_y", "_z")):
-            name = column[:-2]
-            if name and name not in bodyparts:
-                bodyparts.append(name)
+        split = split_channel(column)
+        if split is not None and split[0] not in bodyparts:
+            bodyparts.append(split[0])
     return bodyparts
 
 
@@ -272,11 +274,14 @@ def build_manifest(session_dir: Path) -> AOLManifest:
         for sub in pose_3d.iterdir():
             if sub.is_dir():
                 for csv_file in sub.glob("*_eks*.csv"):
-                    manifest.eks_files.append(csv_file)
+                    # `_eks_custom_markers.csv` is our own output and matches.
+                    if not is_custom_marker_path(csv_file):
+                        manifest.eks_files.append(csv_file)
 
     # Also check directly in session dir
     for csv_file in session_dir.glob("*_eks*.csv"):
-        manifest.eks_files.append(csv_file)
+        if not is_custom_marker_path(csv_file):
+            manifest.eks_files.append(csv_file)
 
     manifest.eks_files.sort()
 
@@ -482,15 +487,11 @@ def _collect_extracted_metrics(
 def _match_camera(stem: str, camera_labels: list[str]) -> str | None:
     """Resolve a file stem to one of the session's cameras.
 
-    Longest label first so ``SideCam`` cannot be shadowed by a shorter prefix,
-    and empty labels are never used as a match (an empty token would otherwise
-    match every filename).
+    The rule lives in :func:`avialsync.core.rig_naming.match_label`, because the
+    import dialog answers the same question about a dropped pose file and two
+    implementations of "is this file that camera's" would eventually disagree.
     """
-    lowered = stem.lower()
-    for label in sorted((c for c in camera_labels if c), key=len, reverse=True):
-        if lowered.startswith(label.lower()):
-            return label
-    return None
+    return match_label(stem, camera_labels)
 
 
 def _add_root_videos(session_dir: Path, manifest: AOLManifest) -> None:
@@ -647,6 +648,7 @@ class AOLSessionSource(SessionSource):
             session_epoch=session_epoch,
             camera_fps=manifest.camera_fps,
             skeleton=manifest.skeleton,
+            rotary=_rotary_hint(manifest),
         )
 
 
@@ -912,6 +914,44 @@ def _metric_items(manifest: AOLManifest, anchor_epoch: float) -> list[SessionIte
             )
         )
     return items
+
+
+def _hardware_number(hardware: object, key: str) -> float:
+    """A positive number from ``trial_config.yml``'s hardware section, else 0.0."""
+    if not isinstance(hardware, dict):
+        return 0.0
+    try:
+        value = float(str(hardware.get(key, "")).strip().strip("'\""))
+    except ValueError:
+        return 0.0
+    return value if value > 0 else 0.0
+
+
+def _rotary_hint(manifest: AOLManifest) -> RotaryHint | None:
+    """The running wheel the encoder turns, for the Add Wheel dialog (D-113).
+
+    The encoder log's unwrapped angle is the channel; the wheel's bar count and
+    radius come from ``hardware: wheel_bar_count / wheel_radius /
+    wheel_radius_units`` in ``trial_config.yml`` when the lab has written them
+    there, and are otherwise left for the user to enter once.
+    """
+    from avialsync.loaders.aol_encoder_loader import ANGLE_CHANNEL
+
+    if manifest.encoder_file is None:
+        return None
+    hardware = manifest.trial_config.get("hardware", {})
+    units = (
+        str(hardware.get("wheel_radius_units", "")).strip().strip("'\"")
+        if isinstance(hardware, dict)
+        else ""
+    )
+    return RotaryHint(
+        channel=ANGLE_CHANNEL,
+        source=manifest.encoder_file,
+        bar_count=int(_hardware_number(hardware, "wheel_bar_count")),
+        radius=_hardware_number(hardware, "wheel_radius"),
+        units=units if units in ("mm", "cm", "m") else "",
+    )
 
 
 def _encoder_items(manifest: AOLManifest) -> list[SessionItem]:

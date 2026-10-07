@@ -8,7 +8,7 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │                                     #   entry point `avialsync`; entry-point group `avialsync.loaders`
 ├── README.md                         # user-facing: what/GIFs/install (installers first, pip second)
 ├── LICENSE                           # AGPL-3.0-or-later (D-069, supersedes D-003)
-├── .gitignore                        # incl. tests/fixtures/ (generated), dist/, *.avialcache/
+├── .gitignore                        # incl. tests/fixtures/ (generated), dist/
 ├── .pre-commit-config.yaml           # ruff check+format, basic hygiene hooks
 │
 │   # ---- agent & planning docs (repo root, read by all models) ----
@@ -30,7 +30,9 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   ├── session.py                # Session model + .avv JSON (versioned schema v6)
 │   │   ├── source.py                 # ABCs + VideoMetadata (plugin contract, §4)
 │   │   ├── pyramid.py                # NaN/gap-aware min-max pyramid build + query (D-009)
-│   │   ├── cache.py                  # .avialcache/ sidecar manager, content-hash key (D-008), atomic writes
+│   │   ├── cache.py                  # per-user cache entries, content-hash key (D-008), atomic writes (D-160)
+│   │   ├── cache_store.py            # find/remove cache entries; deletes only what carries our record (D-160)
+│   │   ├── sidecar_names.py          # sidecar naming beside a source: `pose.csv` -> `pose_csv_avialfix.csv`
 │   │   ├── registry.py               # plugin scan: `~/.avialsync/plugins/` + bundled examples/ and sys._MEIPASS
 │   │   ├── inspection.py             # ImportReport, IntegrityFlags, SourceInspection — headless, frozen dataclasses (D-020)
 │   │   ├── sync.py                   # SyncEvent, match evidence, affine fit/provenance dataclasses (D-026)
@@ -80,7 +82,7 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   ├── transport.py              # two-row timeline + named evidence lanes, controls, status, A/B loop
 │   │   ├── import_wizard.py          # timestamp col/format/tz/unit/sentinel preview dialog
 │   │   ├── sync_wizard.py            # evidence selection, residual preview, explicit acceptance (D-026)
-│   │   ├── offsets_panel.py          # per-source offset + drift ppm, live preview (D-020)
+│   │   ├── offsets_panel.py          # per-source offset + drift in ms/h, live preview (D-020, D-184)
 │   │   ├── recent_files.py           # recent-session list in QSettings — kept out of core/ (rule 2)
 │   │   ├── annotations.py            # point/range markers panel + CSV export
 │   │   ├── readout_panel.py          # nearest-sample values at t_master + units + sample index + Δ section
@@ -146,7 +148,7 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 
 Placement rules (binding): user-visible deliverable code only under `src/avialsync/`;
 anything CI executes but users never install under `packaging/` or `tools/`; generated
-artifacts (`tests/fixtures/`, `dist/`, `*.avialcache/`) never committed; agent/planning docs stay
+artifacts (`tests/fixtures/`, `dist/`) never committed; agent/planning docs stay
 flat at repo root so every model finds them without searching. Dependency direction:
 `ui → engine → core` and `loaders → core`; never the reverse, and `core` imports nothing above it.
 
@@ -172,7 +174,7 @@ Paused/scrubbed **Review** shows the complete selected page. Live **Sweep** reta
 page only until a narrow eraser gap overwrites it; compatibility **Scope** clears/restarts at the
 left edge as in D-042. At a deterministic page boundary, plots load the next bounded slice.
 Retained display data is limited to the current and immediately previous page, and the full cursor
-path remains within the ≤ 2 ms budget (D-044, `PLOT_UX_PLAN.md`).
+path remains within the ≤ 2 ms budget (D-044, `archive/plans/PLOT_UX_PLAN.md`).
 The 3D tracking view follows the same rule: it recognizes complete `name_x`, `name_y`, `name_z`
 channel triplets already imported through a `TimeSeriesSource`, samples only the nearest mmap-backed
 cache row at `t_master`, and paints only the current pose. Coordinates sharing one source reuse one
@@ -199,9 +201,10 @@ playhead controls · time ───── master seek bar ───── end ·
 
 **Presentation contract:**
 
-- The title is exactly **Data Streams**. Hide and **Flag Frame** sit beside it, followed by compact
-  status text. Snapshot/Fullscreen remain existing video/main actions and Reset Zoom remains the
-  existing plot QAction; presentation may proxy old buttons during migration but may not duplicate
+- The title is exactly **Data Streams**. **Hide** sits beside it, followed by compact status text,
+  then the transport's **Loop region** (Set In / Set Out / Clear Loop) and **Speed** controls.
+  Flag Frame, Snapshot and Fullscreen are video actions under the cameras, and **Reset plots** is
+  the plot header's face of the View → Reset Plot Zoom QAction; presentation may proxy old buttons during migration but may not duplicate
   command logic. Busy status remains visible;
   ordinary completion/status messages clear after a short delay. Each visible lane has a text label and an accessible name;
   colour is supporting information, never the only meaning. Do not print a long inline list of all
@@ -365,7 +368,7 @@ user visibility state.
 
 Standard-video probing happens off the UI thread. Presentation timestamps are authoritative for
 CFR/VFR classification even when container metadata declares CFR, and are stored once in the
-content-hash-validated `<video>.avialcache/` sidecar. Later opens mmap that timestamp index. The
+content-hash-validated entry in the video's cache folder (D-160). Later opens mmap that timestamp index. The
 video overlay reports nominal CFR, timestamp-derived VFR/measurement rates, codec, and file size;
 annotations and stepping derive frame indices from the same timestamp array, never `time × fps`
 when timestamp evidence exists.
@@ -380,6 +383,14 @@ desktop runs, without claiming to validate a compositor. CI must not force `qwin
 make a Windows runner behave like a desktop.
 
 ## 4. Plugin contract (frozen at Phase 5 as API v1)
+
+The original `TimeSeriesSource` and `VideoSource` contracts remain frozen.
+`ImagingSource` is an independent random-access contract for time-indexed 2D planes
+(D-190); its readers never enter the PyAV video pipeline. `read_frame(index, channel)`
+returns one plane; its HDF5/TIFF built-ins read one hyperslab/page on the imaging pane's
+reader thread (`engine/imaging_reader.py`), which also averages, windows and overlays
+channels (`core/imaging_display.py`) under a byte-bounded raw-plane cache, while the
+master clock chooses the presentation index exactly as it does for video.
 
 ```python
 class TimeSeriesSource(ABC):

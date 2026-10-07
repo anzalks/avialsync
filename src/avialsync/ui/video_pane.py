@@ -14,16 +14,20 @@ rather than by a tuned control loop.
 import logging
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import (
     Q_ARG,
+    QEvent,
     QMetaObject,
     QObject,
     QPointF,
+    QRect,
     QRectF,
+    QSize,
     Qt,
     QThread,
     QTimer,
@@ -31,6 +35,7 @@ from PySide6.QtCore import (
     Slot,
 )
 from PySide6.QtGui import (
+    QAccessible,
     QCloseEvent,
     QFontDatabase,
     QImage,
@@ -46,8 +51,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QPushButton,
-    QStyle,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -62,10 +66,15 @@ from avialsync.engine.display_pipeline import (
     to_display_array,
 )
 from avialsync.engine.pyav_reader import PyAVReader
+from avialsync.ui.accessible_views import register_painted
+from avialsync.ui.design_tokens import spacing
+from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import set_font_family
 from avialsync.ui.video_overlay import PaintCanvas
 from avialsync.ui.video_timing import VideoTimingMixin, displayed_frame_rate, format_video_osd
+from avialsync.ui.wheel_overlay import WheelDrawing
+from avialsync.ui.zoom_controls import ZOOM_STEP, ZoomControls
 
 logger = logging.getLogger(__name__)
 
@@ -523,6 +532,78 @@ class VideoSurface(QWidget):
         return f"{self._zoom:.2f}×  x {self._pan.x():+.0f}  y {self._pan.y():+.0f}"
 
 
+_OSD_DETAILS = ("compact", "full")
+
+
+def _saved_osd_detail() -> str:
+    """The OSD detail level from Preferences, compact unless chosen otherwise."""
+    from avialsync.core.settings_schema import setting_for
+    from avialsync.ui.preferences_dialog import read_setting
+
+    setting = setting_for("overlays/osd_detail")
+    value = read_setting(setting) if setting is not None else "compact"
+    return value if value in _OSD_DETAILS else "compact"
+
+
+class _ChromeOsd(QLabel):
+    """The timecode block: its natural width when it fits, wrapped when not (D-183).
+
+    It used to keep its natural width at any pane size, so at three cameras the
+    full block ran off the right edge. Now it takes the room the pane has left
+    after the camera name's shortest form, and wraps at its spaces when that is
+    less, so every word stays on screen.
+    """
+
+    def __init__(self, reserve: Callable[[], int]) -> None:
+        super().__init__()
+        self.setWordWrap(True)
+        self._reserve = reserve
+        self._longest = -1
+
+    def setText(self, text: str) -> None:  # noqa: N802
+        super().setText(text)
+        longest = max((len(line) for line in text.splitlines()), default=0)
+        if longest != self._longest:
+            # Refitted only when the longest line changes length: the text is
+            # rewritten every displayed frame, its width almost never.
+            self._longest = longest
+            self.fit()
+
+    def fit(self) -> None:
+        """Size to the longest line, or to the pane's free width if that is less."""
+        host = self.parentWidget()
+        if host is None or self._longest < 0:
+            return
+        margins = self.contentsMargins()
+        natural = (
+            self.fontMetrics().horizontalAdvance("0" * self._longest)
+            + margins.left()
+            + margins.right()
+            + 2
+        )
+        free = max(48, host.width() - self._reserve())
+        self.setFixedWidth(min(natural, free))
+
+    def changeEvent(self, event: QEvent) -> None:
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.FontChange:
+            self.fit()
+
+
+class _ChromeName(ElidedLabel):
+    """The camera name: elides when the pane is narrow, never asks for more."""
+
+    def __init__(self) -> None:
+        super().__init__("", None, Qt.TextElideMode.ElideMiddle)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+
+    def sizeHint(self) -> QSize:  # noqa: N802
+        """The full name's width, so a widened pane shows it again."""
+        margins = self.contentsMargins()
+        width = self.fontMetrics().horizontalAdvance(self.fullText())
+        return QSize(width + margins.left() + margins.right() + 2, super().sizeHint().height())
+
+
 class VideoPane(VideoTimingMixin, QWidget):
     """Video rendering pane.
 
@@ -545,6 +626,10 @@ class VideoPane(VideoTimingMixin, QWidget):
     #: :class:`~avialsync.core.point_edits.PointMove`. Forwarded from the paint
     #: canvas so callers wire to the pane rather than reaching into its chrome.
     point_moved = Signal(object)
+    #: ``(x, y)``: a click placing a new 3D marker (forwarded, as above).
+    marker_clicked = Signal(float, float)
+    #: ``(name, frame, x, y)``: a hand-placed 3D marker was dragged.
+    custom_point_moved = Signal(str, int, float, float)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -557,6 +642,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._metadata = VideoMetadata()
         self.is_seeking = False
         self._media_loaded = False
+        self.media_path = ""
         self._pending_seek: float | None = None
         #: Id of the most recent seek. A frame clears `is_seeking` only when it
         #: carries this id, so an older decode cannot answer for a newer seek.
@@ -599,6 +685,9 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._grid.addWidget(self.surface, 0, 0)
 
         self._build_overlay_chrome()
+        register_painted(
+            self, QAccessible.Role.Graphic, self.accessible_value, self.accessible_detail
+        )
         self.surface.view_changed.connect(self.paint_canvas.update)
         self._osd_update.connect(self._flush_osd_update)
         self.surface.installEventFilter(self)
@@ -614,6 +703,10 @@ class VideoPane(VideoTimingMixin, QWidget):
         """Open a video file on this pane's decode thread."""
         self._shutdown_decoder()
         self._media_loaded = False
+        #: What this pane decodes, which is not always what it is named after: a
+        #: source played through a proxy (NWB imaging, D-188) is named by its
+        #: recording and decoded from the proxy. Exports read this one.
+        self.media_path = path
 
         worker = DecodeWorker(path)
         thread = QThread(self)
@@ -641,6 +734,8 @@ class VideoPane(VideoTimingMixin, QWidget):
         if isinstance(source_format, SourceFormat):
             self.source_format = source_format
             self.source_format_detected.emit(source_format)
+            # The decoded depth replaces the one read from the pixel format.
+            self.lbl_osd.setText(self.osd_text(self._osd_detail))
 
     def set_display_levels(self, levels: DisplayLevels) -> None:
         """Apply a display window to this camera.
@@ -705,7 +800,7 @@ class VideoPane(VideoTimingMixin, QWidget):
     def _on_open_failed(self, reason: str) -> None:
         """Leave a pane that says why it is empty rather than one that lies."""
         logger.warning("Video pane could not open its source: %s", reason)
-        self.lbl_no_footage.setText(f"Video unavailable\n{reason}")
+        self.lbl_no_footage.setText(tr("Video unavailable") + "\n" + reason)
         self.lbl_no_footage.setVisible(True)
         self.open_failed.emit(reason)
 
@@ -804,6 +899,10 @@ class VideoPane(VideoTimingMixin, QWidget):
         """Adopt the session's hand-correction store (D-099)."""
         self.paint_canvas.set_point_edits(edits)
 
+    def set_identity_resolver(self, resolver: object) -> None:
+        """Adopt the window's map from a displayed point to its column (D-143)."""
+        self.paint_canvas.set_identity_resolver(resolver)  # type: ignore[arg-type]
+
     def set_point_edit_mode(self, enabled: bool) -> None:
         """Turn "Fix Tracker" on or off for this pane."""
         self.paint_canvas.set_edit_mode(enabled)
@@ -816,6 +915,28 @@ class VideoPane(VideoTimingMixin, QWidget):
     def set_highlighted_point(self, key: object) -> None:
         """Ring one tracked coordinate, or clear the ring when *key* is None."""
         self.paint_canvas.set_highlighted_point(key)
+
+    def set_custom_markers(self, markers: dict[int, list[tuple[str, float, float]]]) -> None:
+        """Hand-placed 3D markers seen by this camera, keyed by video frame."""
+        self.paint_canvas.set_custom_markers(markers)
+
+    def set_reprojection_source(
+        self, source: Callable[[float], list[tuple[str, float, float]]] | None
+    ) -> None:
+        """Where this camera asks for 3D points projected into its pixels."""
+        self.paint_canvas.set_reprojection_source(source)
+
+    def set_wheel_source(self, source: Callable[[float], WheelDrawing | None] | None) -> None:
+        """Where this camera asks for the wheel model, projected into its pixels."""
+        self.paint_canvas.set_wheel_source(source)
+
+    def set_prop_source(self, source: Callable[[float], list] | None) -> None:
+        """Draw this camera's clicked physical props."""
+        self.paint_canvas.set_prop_source(source)
+
+    def set_marker_place_mode(self, enabled: bool) -> None:
+        """Take the next left click as a new 3D marker's position in this camera."""
+        self.paint_canvas.set_place_mode(enabled)
 
     def _queue_osd_update(self, t: float, fps: float) -> None:
         """Queue at most one UI-thread OSD/overlay update, retaining the newest frame."""
@@ -887,6 +1008,7 @@ class VideoPane(VideoTimingMixin, QWidget):
             self.lbl_name.setVisible(True)
         else:
             self.lbl_name.setVisible(False)
+        self.lbl_osd.fit()
 
     def apply_overlay_visibility(self, visibility: dict[str, bool]) -> None:
         """Show or hide each registered overlay layer on this pane (D-090).
@@ -901,6 +1023,14 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.paint_canvas.set_point_labels_visible(visibility.get("tracking.point_labels", False))
         self.paint_canvas.set_corrections_visible(visibility.get("tracking.corrections", True))
         self.paint_canvas.set_legend_visible(visibility.get("tracking.legend", True))
+        self.paint_canvas.set_custom_markers_visible(
+            visibility.get("tracking.custom_markers", True)
+        )
+        self.paint_canvas.set_reprojection_visible(visibility.get("tracking.reprojection", False))
+        self.paint_canvas.set_wheel_visible(
+            visibility.get("tracking.wheel", True), visibility.get("tracking.wheel_hidden", False)
+        )
+        self.paint_canvas.set_props_visible(visibility.get("tracking.props", True))
 
         self.lbl_osd.setVisible(visibility.get("camera.osd", True))
         # Through set_label so an empty name stays hidden either way: a pane
@@ -950,6 +1080,8 @@ class VideoPane(VideoTimingMixin, QWidget):
         """Create the paint canvas, name/OSD labels, and placeholder overlay."""
         self.paint_canvas = PaintCanvas(self)
         self.paint_canvas.point_moved.connect(self.point_moved)
+        self.paint_canvas.marker_clicked.connect(self.marker_clicked)
+        self.paint_canvas.custom_point_moved.connect(self.custom_point_moved)
         self._grid.addWidget(self.paint_canvas, 0, 0)
 
         # Set up overlay
@@ -959,10 +1091,12 @@ class VideoPane(VideoTimingMixin, QWidget):
         olayout = QVBoxLayout(self.overlay)
         olayout.setContentsMargins(0, 0, 0, 0)
 
-        self.lbl_name = QLabel("")
-        self.lbl_name.setStyleSheet(
-            "color: white; background-color: rgba(0,0,0,128); padding: 4px;"
-        )
+        # Chrome over the picture keeps fixed white-on-translucent colours: the
+        # video behind it, not the theme, decides what is legible (D-174, F-35).
+        chrome_style = "color: white; background-color: rgba(0,0,0,128);"
+        self.lbl_name = _ChromeName()
+        self.lbl_name.setStyleSheet(chrome_style)
+        self.lbl_name.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
         self.lbl_name.setVisible(False)
         # The chrome labels are readouts, not controls. Their container is
         # already transparent to the mouse but the attribute is per widget, so
@@ -972,21 +1106,25 @@ class VideoPane(VideoTimingMixin, QWidget):
         # happens to sit under it).
         self.lbl_name.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
-        self.lbl_osd = QLabel(format_video_osd(0.0, 0.0, self._metadata))
+        self._osd_detail = _saved_osd_detail()
+        self.lbl_osd = _ChromeOsd(self._osd_reserve)
+        self.lbl_osd.setText(format_video_osd(0.0, 0.0, self._metadata, None, self._osd_detail))
         mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
-        self.lbl_osd.setStyleSheet("color: white; background-color: rgba(0,0,0,128); padding: 4px;")
+        self.lbl_osd.setStyleSheet(chrome_style)
+        self.lbl_osd.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
         self.lbl_osd.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         set_font_family(self.lbl_osd, mono_font)
 
+        # One header row: the name elides first, the timecode keeps its width.
         top_layout = QHBoxLayout()
         _top = Qt.AlignmentFlag.AlignTop
-        top_layout.addWidget(self.lbl_name, alignment=_top | Qt.AlignmentFlag.AlignLeft)
-        top_layout.addStretch()
-        top_layout.addWidget(self.lbl_osd, alignment=_top | Qt.AlignmentFlag.AlignRight)
+        top_layout.addWidget(self.lbl_name, 0, _top)
+        top_layout.addStretch(1)
+        top_layout.addWidget(self.lbl_osd, 0, _top | Qt.AlignmentFlag.AlignRight)
 
         olayout.addLayout(top_layout)
 
-        self.lbl_no_footage = QLabel("No Footage")
+        self.lbl_no_footage = QLabel(tr("No Footage"))
         self.lbl_no_footage.setStyleSheet("color: white; background-color: rgb(0,0,0);")
         self.lbl_no_footage.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_no_footage.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
@@ -995,32 +1133,13 @@ class VideoPane(VideoTimingMixin, QWidget):
 
         self._grid.addWidget(self.overlay, 0, 0)
 
-        self.zoom_controls = QWidget(self)
-        zoom_layout = QHBoxLayout(self.zoom_controls)
-        zoom_layout.setContentsMargins(4, 4, 4, 4)
-        zoom_layout.setSpacing(0)
-
-        self.zoom_in_button = QPushButton(self.zoom_controls)
-        self.zoom_in_button.setText(tr("+"))
-        self.zoom_in_button.setToolTip(tr("Zoom in"))
-        self.zoom_in_button.clicked.connect(lambda: self.surface.zoom_by(1.25))
-
-        self.zoom_out_button = QPushButton(self.zoom_controls)
-        self.zoom_out_button.setText(tr("-"))
-        self.zoom_out_button.setToolTip(tr("Zoom out"))
-        self.zoom_out_button.clicked.connect(lambda: self.surface.zoom_by(1.0 / 1.25))
-
-        self.reset_zoom_button = QPushButton(self.zoom_controls)
-        self.reset_zoom_button.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)
-        )
-        self.reset_zoom_button.setToolTip(tr("Reset zoom"))
-        self.reset_zoom_button.clicked.connect(self.surface.reset_view)
-
-        for button in (self.zoom_in_button, self.zoom_out_button, self.reset_zoom_button):
-            button.setFlat(False)
-            button.setFixedSize(24, 24)
-            zoom_layout.addWidget(button)
+        self.zoom_controls = ZoomControls(self)
+        self.zoom_in_button = self.zoom_controls.zoom_in_button
+        self.zoom_out_button = self.zoom_controls.zoom_out_button
+        self.reset_zoom_button = self.zoom_controls.reset_zoom_button
+        self.zoom_controls.zoom_in_requested.connect(lambda: self.surface.zoom_by(ZOOM_STEP))
+        self.zoom_controls.zoom_out_requested.connect(lambda: self.surface.zoom_by(1.0 / ZOOM_STEP))
+        self.zoom_controls.reset_requested.connect(self.surface.reset_view)
 
         self._grid.addWidget(
             self.zoom_controls,
@@ -1028,6 +1147,47 @@ class VideoPane(VideoTimingMixin, QWidget):
             0,
             Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignLeft,
         )
+
+    def accessible_value(self) -> str:
+        """Time and frame on screen, read on query (D-179)."""
+        return self.osd_text("compact")
+
+    def accessible_detail(self) -> str:
+        name = self._label_text or tr("Camera")
+        full = " · ".join(line for line in self.osd_text("full").splitlines() if line)
+        return f"{name}: {full}"
+
+    def chrome_rects(self) -> tuple[QRect, ...]:
+        """Rectangles, in pane coordinates, that labels drawn over video avoid.
+
+        The explicit contract ``PaintCanvas`` reads (D-174), replacing a lookup
+        of widgets by attribute name that a renamed widget broke silently. The
+        zoom tools' rectangle is always reserved, shown or not, so labels never
+        move when they appear.
+        """
+        rects = [
+            label.geometry()
+            for label in (self.lbl_name, self.lbl_osd)
+            if label.isVisible() and label.width() > 0
+        ]
+        rects.append(QRect(self.zoom_controls.pos(), self.zoom_controls.sizeHint()))
+        return tuple(rects)
+
+    def _osd_reserve(self) -> int:
+        """Width the timecode leaves for the camera name's shortest form."""
+        if not self.lbl_name.isVisible():
+            return 8
+        return int(self.lbl_name.minimumSizeHint().width()) + 16
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        if hasattr(self, "lbl_osd"):
+            self.lbl_osd.fit()
+
+    def set_osd_detail(self, detail: str) -> None:
+        """Show the timecode as one compact line or the full block (D-174)."""
+        self._osd_detail = detail if detail in _OSD_DETAILS else "compact"
+        self._update_osd(self.time_pos, self._decoder_fps)
 
     # ── teardown ─────────────────────────────────────────────────────
 

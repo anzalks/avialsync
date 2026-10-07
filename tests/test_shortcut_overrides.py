@@ -18,6 +18,7 @@ from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
 from avialsync.ui import recovery
+from avialsync.ui.app_settings import app_settings
 from avialsync.ui.main_window import MainWindow
 from avialsync.ui.shortcut_overrides import (
     action_id,
@@ -36,7 +37,7 @@ from avialsync.ui.shortcuts_dialog import ShortcutsDialog
 def isolated_settings(tmp_path, monkeypatch):
     QSettings.setDefaultFormat(QSettings.Format.IniFormat)
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    store = QSettings("AvialSync", "AvialSync")
+    store = app_settings()
     store.clear()
     store.sync()
     yield
@@ -265,7 +266,9 @@ def test_the_window_applies_overrides_at_startup(qapp: QApplication, qtbot) -> N
     identifier = action_id(target)
     probe.close()
 
-    QSettings("AvialSync", "AvialSync").setValue(f"shortcuts/{identifier}", "Ctrl+Alt+Shift+K")
+    settings = app_settings()
+    settings.setValue(f"shortcuts/{identifier}", "Ctrl+Alt+Shift+K")
+    settings.sync()
 
     fresh = MainWindow()
     qtbot.addWidget(fresh)

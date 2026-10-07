@@ -50,6 +50,8 @@ dependencies = [
     # Video decoding and probing. PyAV wheels bundle their own FFmpeg, which is
     # what makes `pip install avialsync` need no OS-level install step (D-075).
     "av>=12",
+    # MIT, pure Python reader for standard C3D motion-capture files.
+    "c3d>=0.6.0",
     "numpy",
     "polars",
     "xxhash",
@@ -60,6 +62,16 @@ dependencies = [
     # MATLAB v7.3, which is HDF5 -- scipy.io handles v7.2 and below only, so
     # the preferred export surface is unreadable without this.
     "h5py",
+    # MIT, pip wheels on all targets. Reads NWB Zarr v2/v3 stores lazily;
+    # no conversion or full-store download is needed.
+    "zarr>=3.0,<4",
+    # BSD-3-Clause and Apache-2.0. Zarr's HTTPS store uses fsspec and its
+    # asynchronous HTTP transport to stream DANDI HDF5 ranges and Zarr chunks.
+    "fsspec>=2025.3",
+    "aiohttp>=3.11",
+    # BSD-3-Clause, pure Python, pip-installable on Windows/macOS/Linux.
+    # Reads individual TIFF pages without materializing an image stack.
+    "tifffile>=2024.9.20",
     "neo",
     # Not imported by us: a floor on neo's own dependency. Up to and including
     # 0.16.2, `quantities` decorates a method with `@with_doc(np.ndarray.ptp)`,
@@ -108,12 +120,18 @@ avialsync = "avialsync.__main__:main"
 [project.entry-points."avialsync.loaders"]
 csv = "avialsync.loaders.csv_loader:CSVLoader"
 video = "avialsync.loaders.video_standard:VideoStandardLoader"
+hdf5_imaging = "avialsync.loaders.imaging_loader:HDF5ImagingLoader"
+tiff_imaging = "avialsync.loaders.imaging_loader:TIFFImagingLoader"
 tracking = "avialsync.loaders.tracking_loader:TrackingLoader"
 neo = "avialsync.loaders.neo_loader:NeoLoader"
 aol_encoder = "avialsync.loaders.aol_encoder_loader:AOLEncoderLoader"
 aol_eks = "avialsync.loaders.aol_eks_loader:AOLEksLoader"
 aol_metric = "avialsync.loaders.aol_metric_loader:AOLMetricLoader"
 aol_video_extraction = "avialsync.loaders.aol_video_extraction_loader:AOLVideoExtractionLoader"
+vicon_c3d = "avialsync.loaders.vicon_c3d_loader:ViconC3DLoader"
+nwb = "avialsync.loaders.nwb_loader:NWBLoader"
+nwb_imaging = "avialsync.loaders.nwb_imaging:NWBImagingSource"
+nwb_stack = "avialsync.loaders.nwb_stack:NWBStackSource"
 
 # Session scanners lay out a whole recording folder (D-068). A lab adds support
 # for its own directory layout by publishing here; nothing in the application
@@ -121,6 +139,8 @@ aol_video_extraction = "avialsync.loaders.aol_video_extraction_loader:AOLVideoEx
 [project.entry-points."avialsync.sessions"]
 aol = "avialsync.loaders.aol_session_loader:AOLSessionSource"
 open_ephys = "avialsync.loaders.open_ephys_session:OpenEphysSessionSource"
+vicon = "avialsync.loaders.vicon_session_loader:ViconSessionSource"
+nwb = "avialsync.loaders.nwb_session:NWBSessionSource"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/avialsync"]
@@ -172,6 +192,7 @@ module = [
     "av.*",
     "pyqtgraph.*",
     "neo.*",
+    "c3d.*",
     "quantities.*",
     "pyarrow.*",
     "polars.*",

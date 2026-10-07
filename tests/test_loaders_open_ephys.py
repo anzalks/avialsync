@@ -70,12 +70,12 @@ def test_find_recordings_respects_its_depth_bound(session_dir: Path) -> None:
     assert fmt.find_recordings(session_dir, max_depth=2) == []
 
 
-def test_find_recordings_skips_sidecar_caches(session_dir: Path) -> None:
-    """An .avialcache holds thousands of files and must never be descended into."""
-    cache = session_dir / "decoy.avialcache" / "Record Node 1" / "experiment1" / "recording1"
-    cache.mkdir(parents=True)
-    (cache / "structure.oebin").write_text("{}", encoding="utf-8")
-    assert all(".avialcache" not in str(found) for found in fmt.find_recordings(session_dir))
+def test_find_recordings_skips_hidden_directories(session_dir: Path) -> None:
+    """A dotted directory is never searched, whatever it holds."""
+    hidden = session_dir / ".decoy" / "Record Node 1" / "experiment1" / "recording1"
+    hidden.mkdir(parents=True)
+    (hidden / "structure.oebin").write_text("{}", encoding="utf-8")
+    assert all(".decoy" not in str(found) for found in fmt.find_recordings(session_dir))
 
 
 def test_dataset_root_resolves_to_the_recording_not_the_record_node(recording: Path) -> None:
@@ -599,22 +599,13 @@ def _drop(paths: list[Path]) -> tuple[list, object]:
     return collected, worker._layout
 
 
-def test_drop_never_descends_into_a_sidecar_cache(tmp_path: Path) -> None:
-    """Re-dropping a folder you already imported must not offer its cache back.
-
-    A committed sidecar holds one ``.npy`` per channel and pyramid level — 482
-    files for a single 32-channel stream — and every one of them arrived in the
-    review dialog as an unrecognised candidate.
-    """
+def test_drop_never_descends_into_a_hidden_directory(tmp_path: Path) -> None:
+    """A dotted folder beside the media is not offered for import, file by file."""
     (tmp_path / "cam.mp4").write_bytes(b"x")
-    cache = tmp_path / "cam.mp4.avialcache"
-    cache.mkdir()
+    hidden = tmp_path / ".scratch"
+    hidden.mkdir()
     for index in range(40):
-        np.save(cache / f"ch{index}_t.npy", np.arange(3.0))
-    (cache / "import.json").write_text("{}", encoding="utf-8")
-    staging = tmp_path / ".tmp_avialcache_abc123"
-    staging.mkdir()
-    (staging / "leftover.npy").write_bytes(b"x")
+        np.save(hidden / f"ch{index}_t.npy", np.arange(3.0))
 
     candidates, _layout = _drop([tmp_path])
 
@@ -735,8 +726,8 @@ def test_a_rig_plugin_is_named_system_then_kind() -> None:
     from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
     from avialsync.loaders.aol_session_loader import AOLSessionSource
 
-    assert AOLEncoderLoader.display_name() == "AOL Encoder Log"
-    assert AOLEksLoader.display_name() == "AOL 3D Tracking"
+    assert AOLEncoderLoader.display_name() == "Rotary Encoder Log"
+    assert AOLEksLoader.display_name() == "3D Tracking (EKS)"
     assert AOLSessionSource.display_name() == "AOL Session"
 
     assert OpenEphysSessionSource.display_name() == "Open Ephys Session"

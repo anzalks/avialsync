@@ -183,7 +183,7 @@ def test_the_canvas_and_axis_come_from_palette_roles() -> None:
 
 
 def _pane_with_a_channel(qtbot, tmp_path: Path) -> PlotPane:
-    cache = tmp_path / "theme.avialcache"
+    cache = tmp_path / "theme_cache"
     cache.mkdir(parents=True, exist_ok=True)
     times = np.arange(2_000, dtype=np.float64) / 1000.0
     PyramidBuilder(cache, "ch0").build_and_save(times, np.sin(times))
@@ -262,13 +262,32 @@ def test_the_playhead_and_trace_repaint_with_the_pane(qtbot, tmp_path: Path) -> 
     assert channel.curve.opts["pen"].color() != dark_trace
 
 
+def test_the_channel_gutter_keeps_its_text_through_a_switch(qtbot, tmp_path: Path) -> None:
+    """Re-colouring the axis title must not empty it.
+
+    pyqtgraph 0.14's ``setLabel`` reads a ``None`` text as "no label" and hides
+    it, so recolouring with ``setLabel(color=…)`` alone blanked every channel's
+    name, unit and range gutter on the first switch (INTERFACE_DESIGN_PLAN F-27).
+    """
+    pane = _pane_with_a_channel(qtbot, tmp_path)
+    axis = pane.channels[0].plot_item.getAxis("left")
+    before = axis.labelText
+    assert "ch0" in before
+
+    for palette in (DARK, LIGHT, DARK):
+        _switch(pane, palette)
+        assert axis.labelText == before, "the gutter lost its channel name"
+        assert axis.label.isVisibleTo(axis), "the gutter title was hidden"
+        assert "ch0" in axis.label.toHtml()
+
+
 def test_a_row_built_after_a_switch_matches_the_rows_already_there(qtbot, tmp_path: Path) -> None:
     """Construction reads the live palette, not a global left over from earlier."""
     pane = _pane_with_a_channel(qtbot, tmp_path)
     _switch(pane, DARK)
     existing = pane.channels[0].cursor_line.pen.color()
 
-    cache = tmp_path / "later.avialcache"
+    cache = tmp_path / "later_cache"
     cache.mkdir(parents=True, exist_ok=True)
     times = np.arange(2_000, dtype=np.float64) / 1000.0
     PyramidBuilder(cache, "ch1").build_and_save(times, np.cos(times))
@@ -414,7 +433,7 @@ def test_an_explicit_theme_reports_itself_before_the_palette_lands(monkeypatch) 
         def setValue(self, key: str, value: object) -> None:
             stored[key] = value
 
-    monkeypatch.setattr(theme, "QSettings", Settings)
+    monkeypatch.setattr(theme, "app_settings", Settings)
 
     seen: list[bool] = []
     before = QPalette(app.palette())
@@ -503,7 +522,7 @@ def test_emphasis_survives_a_font_size_change(qtbot, monkeypatch) -> None:
         def setValue(self, key: str, value: object) -> None:
             stored[key] = value
 
-    monkeypatch.setattr(theme, "QSettings", Settings)
+    monkeypatch.setattr(theme, "app_settings", Settings)
 
     label = QLabel("Hg")
     qtbot.addWidget(label)
@@ -549,7 +568,7 @@ def test_returning_to_system_gives_the_palette_back_to_the_platform(monkeypatch)
         def setValue(self, key: str, value: object) -> None:
             stored[key] = value
 
-    monkeypatch.setattr(theme, "QSettings", Settings)
+    monkeypatch.setattr(theme, "app_settings", Settings)
 
     entry = QPalette(app.palette())
     try:
@@ -674,3 +693,128 @@ def test_a_visible_boundary_does_not_change_how_the_splitter_behaves(qtbot) -> N
     assert drawn.handleWidth() == plain.handleWidth()
     assert drawn.handle(1).geometry() == plain.handle(1).geometry()
     assert drawn.sizes() == plain.sizes()
+
+
+# ── the surfaces restyled for the identity work follow the theme ─────
+
+
+@pytest.fixture
+def both_themes(qapp):
+    """Render a widget under each theme, then leave the app as it was found.
+
+    The QApplication is shared across the suite, so a test that switches the
+    theme and walks away decides what every test after it runs under. That is
+    how an assertion comes to pass or fail on its position in the file.
+    """
+    from avialsync.ui.theme import apply_theme, current_preference
+
+    held = current_preference()
+
+    def render(widget) -> tuple[bytes, bytes]:
+        apply_theme(qapp, "light")
+        light = _rendered(qapp, widget)
+        apply_theme(qapp, "dark")
+        dark = _rendered(qapp, widget)
+        return light, dark
+
+    try:
+        yield render
+    finally:
+        apply_theme(qapp, held)
+
+
+def _rendered(app, widget) -> bytes:
+    """What the widget actually paints, as bytes, for comparing two themes.
+
+    The palette change arrives as an event, and a grab returns the backing
+    store as it stands -- so without letting the event through and repainting,
+    both themes render whatever was drawn first and the comparison passes for
+    the wrong reason.
+    """
+    from PySide6.QtCore import QBuffer, QByteArray
+
+    app.processEvents()
+    widget.repaint()
+    store = QByteArray()
+    buffer = QBuffer(store)
+    buffer.open(QBuffer.OpenModeFlag.WriteOnly)
+    widget.grab().save(buffer, "PNG")
+    return bytes(store)
+
+
+def test_the_data_streams_lanes_repaint_for_each_theme(qtbot, both_themes) -> None:
+    """A hardcoded colour is exactly the one that looks the same in both.
+
+    The lanes are custom-painted, which is one of the four ways a theme change
+    silently fails to arrive (HANDOUT), so this compares what is actually drawn
+    rather than what the code reads.
+    """
+    from avialsync.ui.transport import TimelineOverview
+
+    overview = TimelineOverview()
+    qtbot.addWidget(overview)
+    overview.resize(600, 120)
+    overview.set_bounds(0.0, 100.0)
+    overview.set_coverage("/data/cam.mp4", 0.0, 100.0, "video")
+    overview.set_gap_events([(40.0, "gap")])
+    overview.set_identity_events([(60.0, "swap")])
+
+    light, dark = both_themes(overview)
+
+    assert light != dark, "the lanes paint the same in both themes"
+
+
+def test_the_coverage_lanes_redraw_when_the_palette_changes(qtbot, both_themes) -> None:
+    """pyqtgraph canvases never receive a palette change; they must be redrawn."""
+    from avialsync.ui.coverage_lanes import CoverageLanes, SourceCoverage
+
+    lanes = CoverageLanes()
+    qtbot.addWidget(lanes)
+    lanes.resize(600, 160)
+    lanes.show_sources([SourceCoverage("cam.mp4", (0.0, 100.0), (10.0, 90.0))])
+
+    light, dark = both_themes(lanes)
+
+    assert light != dark, "the coverage bands kept their colours across a theme change"
+
+
+def test_the_identity_braid_redraws_when_the_palette_changes(qtbot, both_themes) -> None:
+    from avialsync.ui.identity_panel import IdentityPanel
+
+    panel = IdentityPanel()
+    qtbot.addWidget(panel)
+    panel.resize(640, 420)
+
+    light, dark = both_themes(panel)
+
+    assert light != dark, "the braid kept its colours across a theme change"
+
+
+# ── The edges of a coverage wash ─────────────────────────────────────────
+
+
+@pytest.mark.parametrize("palette", _surfaces(), ids=["dark", "light"])
+def test_coverage_edges_are_neutral_and_visible(palette: QPalette) -> None:
+    """pyqtgraph's default edge pen is an olive ``(200, 200, 100)``: the only
+    yellow on the plot, read as a data mark at the end of every row."""
+    from avialsync.ui.theme import coverage_edge_color
+
+    edge = coverage_edge_color(palette)
+    canvas = palette.color(QPalette.ColorRole.Base)
+    assert edge.saturationF() < _CHROMATIC
+    assert abs(edge.lightnessF() - canvas.lightnessF()) > _MIN_CONTRAST
+
+
+def test_a_coverage_region_is_re_penned_for_the_palette(qtbot) -> None:
+    import pyqtgraph as pg
+
+    from avialsync.ui.plot_theme import apply_coverage_region_palette
+    from avialsync.ui.theme import coverage_edge_color
+
+    region = pg.LinearRegionItem(values=[0.0, 1.0], movable=False)
+    for palette in _surfaces():
+        apply_coverage_region_palette(region, palette)
+        expected = coverage_edge_color(palette)
+        for line in region.lines:
+            assert line.pen.color() == expected
+            assert line.hoverPen.color() == expected

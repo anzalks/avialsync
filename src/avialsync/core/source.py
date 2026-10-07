@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 
 from avialsync.core.messages import Message
+from avialsync.core.pose import PoseSchema
 
 
 @dataclass
@@ -20,6 +21,67 @@ class ChannelInfo:
     unit: str
     dtype: str
     rate_hz: float | None  # None indicates irregular sampling
+
+
+#: Unit spellings formats use for "no unit", shown as nothing at all.
+_UNITLESS = {"", "dimensionless", "none", "1", "a.u.", "au", "n/a", "n.a.", "na"}
+#: ASCII stand-ins for the micro sign, and the SI names NWB spells out in full
+#: (D-188), written the way a reader expects.
+_MICRO = {
+    "uv": "µV",
+    "um": "µm",
+    "us": "µs",
+    "ua": "µA",
+    "us/cm": "µS/cm",
+    "volts": "V",
+    "volt": "V",
+    "amperes": "A",
+    "ampere": "A",
+    "meters": "m",
+    "meter": "m",
+    "seconds": "s",
+    "second": "s",
+}
+
+
+def display_unit(unit: str) -> str:
+    """One spelling for a loader's declared unit, so every source reads alike (D-186).
+
+    ``uV`` from neo and ``µV`` from another format are the same unit; a
+    "dimensionless" quantity has no unit to show. Anything else is kept as the
+    file wrote it.
+    """
+    text = unit.strip()
+    if text.lower() in _UNITLESS:
+        return ""
+    return _MICRO.get(text.lower(), text)
+
+
+def container_of(path: Path) -> Path | None:
+    """Return the existing file *path* names an object inside of, or ``None``.
+
+    A source is named by its path, and one file can hold several sources: an
+    NWB file holds its time series and its imaging, and the imaging is named
+    ``session.nwb/acquisition/TwoPhotonSeries`` so the two are told apart
+    (D-188). Such a path does not exist on disk, but an existing file or the
+    outermost marked Zarr group can contain it. Ordinary directories do not
+    count as containers for a recording that has gone missing.
+    """
+    store: Path | None = None
+    for parent in path.parents:
+        if parent.exists():
+            if parent.is_file():
+                return parent
+            # A Zarr store is a directory that behaves as one recording.
+            # Groups inside it also have Zarr markers, so keep the outermost.
+            if (parent / "zarr.json").is_file() or (parent / ".zgroup").is_file():
+                store = parent
+    return store
+
+
+def source_exists(path: Path) -> bool:
+    """Whether the source *path* names is there: a file, a folder, or an object in a file."""
+    return path.exists() or container_of(path) is not None
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,7 +196,7 @@ class SessionItem:
     """
 
     path: Path
-    loader: type["TimeSeriesSource | VideoSource"] | None = None
+    loader: type["TimeSeriesSource | VideoSource | ImagingSource"] | None = None
     config: dict[str, Any] = field(default_factory=dict)
 
     #: What to call this item in the import dialog, when its filename is not
@@ -143,7 +205,7 @@ class SessionItem:
     #: and four streams of one recording all read as their directory names with
     #: nothing to say which is the 30 kHz one. Empty means "use the filename".
     #:
-    #: Deliberately not part of ``config``: config is hashed into the sidecar
+    #: Deliberately not part of ``config``: config is hashed into the
     #: cache key, so wording a label better would invalidate every cache built
     #: with the old one — several gigabytes rebuilt to reword a table cell.
     label: str = ""
@@ -169,7 +231,7 @@ class SessionItem:
     #: lane, which is right for anything with a span of its own.
     #:
     #: Not part of ``config``, for the same reason :attr:`label` is not: config
-    #: is hashed into the sidecar cache key, so renaming a lane would rebuild
+    #: is hashed into the cache key, so renaming a lane would rebuild
     #: every pyramid underneath it.
     coverage_group: str = ""
 
@@ -186,10 +248,30 @@ class SessionItem:
     #: it and the application cannot.
     #:
     #: Not part of ``config``, for the same reason :attr:`label` is not: config
-    #: is hashed into the sidecar cache key, and a source's placement must not
+    #: is hashed into the cache key, and a source's placement must not
     #: be able to invalidate the samples underneath it. Re-placing a recording
     #: is a mapping change and must stay one (architecture rule 8).
     source_epoch: float | None = None
+
+
+@dataclass(frozen=True)
+class RotaryHint:
+    """A wheel the session knows is there, and the channel that turns it (D-113).
+
+    A presentation hint like :attr:`SessionLayout.skeleton`: it pre-fills the
+    Add Wheel dialog and is never applied on its own. The rig's semantics --
+    which channel is the cumulative angle, how many bars the wheel has -- belong
+    to the plugin that knows the rig, not to UI code guessing from channel names.
+
+    ``source`` is the item carrying ``channel``; ``bar_count``, ``radius`` and
+    ``units`` are 0 / 0.0 / "" when the session does not say.
+    """
+
+    channel: str
+    source: Path | None = None
+    bar_count: int = 0
+    radius: float = 0.0
+    units: str = ""
 
 
 @dataclass(frozen=True)
@@ -229,6 +311,9 @@ class SessionLayout:
     #: Body-part pairs to draw as a skeleton over pose data, if any.
     skeleton: list[tuple[str, str]] | None = None
 
+    #: A running wheel and the encoder channel that turns it, if the rig has one.
+    rotary: RotaryHint | None = None
+
     #: What the scan could not lay out, in the user's words rather than the log's.
     #: A scanner must not fail a whole folder because one recording in it is
     #: unreadable — the other recordings are still good — but dropping the bad
@@ -261,8 +346,11 @@ class SessionSource(_Nameable, ABC):
     def can_open(cls, path: Path) -> float:
         """Return 0..1 confidence that *path* is a session this can lay out.
 
-        Called with directories. Must be cheap — it runs for every dropped
-        folder, on the scan thread, before anything is read.
+        Called with every dropped path, files as well as directories: most
+        sessions are folders, but a container format such as NWB holds a whole
+        session in one file (D-188). A scanner for folders returns 0.0 for a
+        file. Must be cheap — it runs for every dropped path, on the scan
+        thread, before anything is read.
         """
 
     @abstractmethod
@@ -343,6 +431,99 @@ class TimeSeriesSource(_Nameable, ABC):
         """
         return False
 
+    @classmethod
+    def pose_roles(cls) -> tuple[str, ...]:
+        """Return pose uses this loader can support in a manual import.
+
+        An empty tuple preserves the v1 plugin default. A loader that supplies
+        coordinate channels may offer ``pose3d`` and/or ``overlay2d``; the user
+        still declares which meaning this recording gives the file. Session
+        plugins can supply the same roles in :attr:`SessionItem.config`.
+
+        This is the *user's* declaration -- what this recording means -- and is
+        distinct from :meth:`pose_schema`, which is the file's own structure.
+        """
+        return ()
+
+    def pose_schema(self) -> PoseSchema | None:
+        """Return this source's pose structure, or ``None`` if it has none.
+
+        Called after :meth:`open`. A loader that emits tracked coordinates
+        states here what its channels mean -- individuals, body parts, axes,
+        confidence, derived columns -- instead of leaving every consumer to
+        recover it by splitting ``_x`` off a channel name (D-140). Non-pose
+        loaders inherit ``None`` and are unaffected.
+
+        The schema is carried to consumers on
+        :class:`~avialsync.core.inspection.SourceInspection`, which the import
+        manifest persists, so a cache hit still knows what its channels mean.
+        """
+        return None
+
+
+@dataclass(frozen=True, slots=True)
+class ImagingMetadata:
+    """Shape and source-local presentation times for a two-photon image stack.
+
+    ``frame_times`` are source seconds, one per time point, strictly increasing.
+    ``timing_source`` names the evidence they came from, so a stack timed by a
+    typed frame rate can be told apart from one timed by its own timestamps.
+    Channels are read separately and overlaid by the viewer, so a C axis is not
+    an import choice; a Z axis is, because a depth plane is a different
+    acquisition rather than another view of the same one.
+    """
+
+    frame_count: int
+    height: int
+    width: int
+    dtype: str
+    frame_times: np.ndarray
+    timing_source: str
+    dataset: str = ""
+    channel_count: int = 1
+    #: The stored dimensions and the order they were read in (D-194), so the
+    #: viewer can offer the other valid orders. Empty when the source has none.
+    shape: tuple[int, ...] = ()
+    axes: str = ""
+    #: Depth planes the stack holds; the pane offers a plane choice above one.
+    depth_planes: int = 1
+    #: What the file calls each acquired channel (D-195): an OME channel name,
+    #: an NWB optical channel or series. Empty where the file names none.
+    channel_names: tuple[str, ...] = ()
+    tail_duration: float = field(init=False)
+
+    def __post_init__(self) -> None:
+        """Compute the final frame's display interval once, off the UI thread."""
+        duration = float(np.median(np.diff(self.frame_times))) if self.frame_count > 1 else 0.0
+        object.__setattr__(self, "tail_duration", duration)
+
+
+class ImagingSource(_Nameable, ABC):
+    """Random-access image planes on the master timeline, separate from video.
+
+    A reader is opened, read and closed on one background thread. ``read_frame``
+    returns one two-dimensional plane in the file's own pixel units; callers
+    never request a whole acquisition, and an implementation must not
+    materialise one (D-190).
+    """
+
+    @classmethod
+    @abstractmethod
+    def can_open(cls, path: Path) -> float:
+        """Return a cheap confidence score in ``[0, 1]``."""
+
+    @abstractmethod
+    def open(self, path: Path, config: dict[str, Any]) -> ImagingMetadata:
+        """Open the stack and return its timing and shape metadata."""
+
+    @abstractmethod
+    def read_frame(self, index: int, channel: int = 0) -> np.ndarray:
+        """Read exactly one 2D plane by presentation index and channel."""
+
+    @abstractmethod
+    def close(self) -> None:
+        """Release the file handle on its owning thread."""
+
 
 class VideoSource(_Nameable, ABC):
     """Frozen v1 plugin contract for video sources.
@@ -371,6 +552,10 @@ class VideoSource(_Nameable, ABC):
     def prepare(self, progress_cb: Callable[[float], None]) -> Path:
         """Produce a playable cached proxy and report progress in ``[0, 1]``."""
         pass
+
+    def prepare_is_atomic(self) -> bool:
+        """Whether an in-progress conversion must finish before it can be abandoned."""
+        return False
 
     @abstractmethod
     def media_path(self) -> Path:

@@ -55,7 +55,7 @@ def test_save_worker_writes_the_session(qtbot, tmp_path: Path, state: SessionSta
     _run_in_thread(worker, qtbot)
 
     assert done == [True]
-    assert json.loads(path.read_text())["version"] == 9
+    assert json.loads(path.read_text())["version"] == 13
 
 
 def test_save_worker_reports_an_unwritable_path(qtbot, tmp_path: Path, state) -> None:
@@ -144,7 +144,7 @@ def test_ui_heartbeat_survives_a_large_session_write(qtbot, tmp_path: Path) -> N
                 reference_id="sensor:ttl",
                 target_id="video:cam",
                 offset=0.0,
-                drift_ppm=0.0,
+                drift_ms_per_hour=0.0,
                 rms_residual=0.0,
                 max_residual=0.0,
                 matched_count=len(master),
@@ -183,7 +183,7 @@ def test_ui_heartbeat_survives_a_large_session_write(qtbot, tmp_path: Path) -> N
 def test_main_window_autosave_uses_a_worker(qtbot, tmp_path: Path) -> None:
     window = MainWindow()
     qtbot.addWidget(window)
-    window._session_path = tmp_path / "auto.avv"
+    window.session_runtime.path = tmp_path / "auto.avv"
 
     window._autosave()
 
@@ -199,7 +199,7 @@ def test_main_window_close_writes_the_final_autosave_synchronously(qtbot, tmp_pa
     """Handing the last write to a thread would race widget destruction."""
     window = MainWindow()
     qtbot.addWidget(window)
-    window._session_path = tmp_path / "final.avv"
+    window.session_runtime.path = tmp_path / "final.avv"
 
     window.close()
 

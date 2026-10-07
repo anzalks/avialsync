@@ -74,3 +74,17 @@ def test_the_release_helper_updates_every_authority() -> None:
     for authority in ("pyproject.toml", "src/avialsync/__init__.py", "CITATION.cff"):
         assert authority in helper, f"prepare_release.py never updates {authority}"
     assert "packaging/conda/meta.yaml" in helper, "prepare_release.py never updates the recipe"
+
+
+def test_readthedocs_builds_the_same_supported_docs_environment() -> None:
+    """Hosted documentation must build what the release workflow verifies."""
+    root = Path(__file__).parents[1]
+    configuration = (root / ".readthedocs.yaml").read_text(encoding="utf-8")
+    docs_config = (root / "docs/conf.py").read_text(encoding="utf-8")
+
+    assert "os: ubuntu-24.04" in configuration
+    assert 'python: "3.12"' in configuration
+    assert "extra_requirements:" in configuration
+    assert "- docs" in configuration
+    assert '_installed_version("avialsync")' in docs_config
+    assert 'html_title = f"AvialSync {release}"' in docs_config

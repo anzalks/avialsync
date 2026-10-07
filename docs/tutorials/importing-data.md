@@ -54,19 +54,22 @@ not look like the duration you recorded, the unit is wrong.
 
 ## What happens after you accept
 
-The file is parsed once and cached beside it in a `.avialcache/` directory: raw arrays plus the
-decimation pyramid that keeps plotting responsive at 50 kHz. Later opens memory-map that cache
-instead of re-parsing, so the second load of a large file is quick.
+The file is parsed once and cached in AvialSync's cache folder: raw arrays plus the decimation
+pyramid that keeps plotting responsive at 50 kHz. Later opens memory-map that cache instead of
+re-parsing, so the second load of a large file is quick. Nothing is written into your data folder;
+**File → Cache** deletes one trial's cache or all of it (see
+[Data handling](../technical/data-handling.md)).
 
 The cache key includes a content hash, not just the path and modification time. Editing the file in
 Excel, or copying it across drives, invalidates the cache and triggers a rebuild — a stale cache in
 a measurement tool is a trust problem, not a performance one.
 
-## Importing several files at once
+## Review every dropped import
 
-Dropping a folder, or several files together, opens a batch import. Each row is one file with the
-loader AvialSync picked for it; confirm or change the choice, then import them in one pass rather
-than answering the same wizard repeatedly.
+Every drop that produces one or more import candidates opens the batch review, whether you drop a
+single file, several files, or a folder. Each row shows the file and detected type; confirm or change
+the choice, skip a row, or adjust its role before importing.
 
-If a session folder is recognised by a [session plugin](../plugin-guide.md), it is laid out
-automatically instead — including the shared time base — and you are not asked at all.
+Session plugins still lay out recognized folders and provide shared timing, labels, and import
+defaults. Their candidates appear in the same review as files recognized by individual loaders; a
+plugin match never silently bypasses review.

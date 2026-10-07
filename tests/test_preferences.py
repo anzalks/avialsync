@@ -21,6 +21,7 @@ from avialsync.core.settings_schema import (
     setting_for,
     settings_by_group,
 )
+from avialsync.ui.app_settings import app_settings
 from avialsync.ui.preferences_dialog import (
     PreferencesDialog,
     read_setting,
@@ -34,7 +35,7 @@ def isolated_settings(tmp_path, monkeypatch):
     """Keep every test out of the developer's real preferences."""
     QSettings.setDefaultFormat(QSettings.Format.IniFormat)
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    store = QSettings("AvialSync", "AvialSync")
+    store = app_settings()
     store.clear()
     store.sync()
     yield
@@ -101,14 +102,14 @@ def test_a_written_setting_reads_back() -> None:
 
 def test_a_bool_stored_as_a_string_reads_as_a_bool() -> None:
     """QSettings returns strings on some platforms; "false" is otherwise true."""
-    setting = setting_for("storage/keep_recovery")
-    QSettings("AvialSync", "AvialSync").setValue(setting.key, "false")
+    setting = setting_for("palette/colour_vision_safe")
+    app_settings().setValue(setting.key, "false")
     assert read_setting(setting) is False
 
 
 def test_an_unreadable_value_falls_back_to_the_default() -> None:
     setting = setting_for("storage/autosave_minutes")
-    QSettings("AvialSync", "AvialSync").setValue(setting.key, "not a number")
+    app_settings().setValue(setting.key, "not a number")
     assert read_setting(setting) == setting.default
 
 
@@ -117,13 +118,13 @@ def test_an_unreadable_value_falls_back_to_the_default() -> None:
 
 def test_every_setting_gets_an_editor(dialog: PreferencesDialog) -> None:
     """Generated, so a new setting cannot ship without a control."""
-    assert set(dialog._editors) == {setting.key for setting in SETTINGS}
+    assert set(dialog._editors) == {setting.key for setting in SETTINGS if setting.visible}
 
 
 @pytest.mark.parametrize(
     ("key", "widget_type"),
     [
-        ("storage/keep_recovery", QCheckBox),
+        ("storage/offer_recovery_at_launch", QCheckBox),
         ("theme/preference", QComboBox),
         ("storage/autosave_minutes", QSpinBox),
     ],
@@ -133,16 +134,16 @@ def test_the_editor_matches_the_type(dialog: PreferencesDialog, key, widget_type
 
 
 def test_changing_an_editor_stores_it(dialog: PreferencesDialog) -> None:
-    editor = dialog._editors["storage/keep_recovery"]
-    editor.setChecked(False)
-    assert read_setting(setting_for("storage/keep_recovery")) is False
+    editor = dialog._editors["storage/offer_recovery_at_launch"]
+    editor.setChecked(True)
+    assert read_setting(setting_for("storage/offer_recovery_at_launch")) is True
 
 
 def test_changing_an_editor_reports_it(dialog: PreferencesDialog, qtbot) -> None:
     """The window applies a preference immediately rather than at close."""
     with qtbot.waitSignal(dialog.setting_changed, timeout=1000) as blocker:
-        dialog._editors["storage/keep_recovery"].setChecked(False)
-    assert blocker.args == ["storage/keep_recovery"]
+        dialog._editors["storage/offer_recovery_at_launch"].setChecked(True)
+    assert blocker.args == ["storage/offer_recovery_at_launch"]
 
 
 def test_reset_restores_one_default(dialog: PreferencesDialog) -> None:
@@ -166,10 +167,10 @@ def test_reset_all_restores_everything(dialog: PreferencesDialog) -> None:
 
 def test_reset_updates_the_visible_control(dialog: PreferencesDialog) -> None:
     """A control still showing the old value would lie about the setting."""
-    editor = dialog._editors["storage/keep_recovery"]
-    editor.setChecked(False)
-    dialog._reset(setting_for("storage/keep_recovery"))
-    assert editor.isChecked() is True
+    editor = dialog._editors["storage/offer_recovery_at_launch"]
+    editor.setChecked(True)
+    dialog._reset(setting_for("storage/offer_recovery_at_launch"))
+    assert editor.isChecked() is False
 
 
 # ── the report ───────────────────────────────────────────────────────
@@ -196,9 +197,8 @@ def test_the_report_also_lists_what_is_remembered_but_not_declared() -> None:
     thing causing reported behaviour is more likely to be remembered state
     nobody declared than a preference somebody did.
     """
-    from PySide6.QtCore import QSettings
 
-    store = QSettings("AvialSync", "AvialSync")
+    store = app_settings()
     store.setValue("splitter/content", b"stand-in for a saved layout")
     store.sync()
 
@@ -211,9 +211,8 @@ def test_the_report_also_lists_what_is_remembered_but_not_declared() -> None:
 
 def test_an_opaque_blob_is_named_rather_than_dumped() -> None:
     """A QByteArray geometry printed in full buries every key around it."""
-    from PySide6.QtCore import QSettings
 
-    store = QSettings("AvialSync", "AvialSync")
+    store = app_settings()
     store.setValue("window/geometry", b"\x00\x01\x02" * 200)
     store.sync()
 

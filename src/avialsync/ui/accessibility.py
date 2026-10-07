@@ -46,6 +46,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.ui.design_tokens import ControlRole, apply_role
+
 __all__ = [
     "GLYPH_NAMES",
     "derive_name",
@@ -139,6 +141,9 @@ def apply_accessibility(root: QWidget) -> int:
     for widget in root.findChildren(QWidget):
         if not isinstance(widget, INTERACTIVE) or _is_qt_internal(widget):
             continue
+
+        if isinstance(widget, QAbstractButton) and not widget.property("av_role"):
+            apply_role(widget, ControlRole.SECONDARY)
 
         if not widget.accessibleName():
             name = derive_name(widget)

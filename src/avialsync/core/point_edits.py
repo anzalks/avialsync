@@ -6,8 +6,18 @@ now the only answer was to leave the session, fix the CSV, and re-import it.
 "Fix Tracker" lets the point be dragged where it belongs in the pane that
 showed the error.
 
+**A correction names two things, and needs both (D-143).**  ``PointKey.point``
+is the column in the *file* the coordinate lands in, because a hand-placed
+position is a fact about that trajectory and has to stay with it when an
+identity flip later relabels it (:mod:`avialsync.core.identity_swaps`).  Beside
+it the store keeps the name the point was *shown under* when the drag was made,
+which is what the Changes panel prints and what lets the application say "this
+was corrected while it was called testMouse_wrist" instead of quietly changing
+its mind.  The first decides where the value goes; the second is provenance and
+decides nothing.
+
 **The correction never touches the imported data.**  The pose CSV is a
-recording; the sidecar pyramid cache is derived from it; neither is rewritten
+recording; the cached pyramid is derived from it; neither is rewritten
 here.  A correction is a sparse override — one ``(source, body part, frame)``
 key mapping to one ``(x, y)`` in video pixels — held in this store and applied
 when the overlay reads a value.  That is also what makes the edit reversible:
@@ -62,11 +72,17 @@ class PointMove:
     was still showing the model's own prediction — the difference matters,
     because undoing back to "no override" is not the same as writing the old
     coordinate back as a correction.
+
+    ``key.point`` is the column in the file the drag landed on, which is not
+    the label on screen once an identity flip is in force; ``shown_as`` is that
+    label (D-143).  Both travel together from the gesture, because the gesture
+    is the only place that still knows both.
     """
 
     key: PointKey
     before: tuple[float, float] | None
     after: tuple[float, float] | None
+    shown_as: str = ""
 
 
 class PointEditStore:
@@ -81,6 +97,10 @@ class PointEditStore:
 
     def __init__(self) -> None:
         self._edits: dict[PointKey, tuple[float, float]] = {}
+        #: What each corrected point was called on screen when it was moved.
+        #: Absent for a correction made before identities could be remapped,
+        #: where the two names were necessarily the same (D-143).
+        self._shown: dict[PointKey, str] = {}
         self._observers: list[Callable[[str | None], None]] = []
 
     # ── reading ──────────────────────────────────────────────────────
@@ -102,6 +122,14 @@ class PointEditStore:
         """Yield every ``(key, position)`` currently overridden."""
         return iter(self._edits.items())
 
+    def shown_as(self, key: PointKey) -> str:
+        """The name *key* was displayed under when it was corrected.
+
+        Falls back to the column's own name, which is the right answer for
+        every correction made while nothing was remapped.
+        """
+        return self._shown.get(key) or key.point
+
     def count_for(self, source_id: str) -> int:
         """How many corrections belong to one pose source."""
         return sum(1 for key in self._edits if key.source_id == source_id)
@@ -110,18 +138,27 @@ class PointEditStore:
         """Every pose source that currently has at least one correction."""
         return {key.source_id for key in self._edits}
 
-    def for_source(self, source_id: str) -> list[tuple[int, str, float, float]]:
-        """Return one source's corrections as ``(frame, body part, x, y)`` rows."""
+    def for_source(self, source_id: str) -> list[tuple[int, str, float, float, str]]:
+        """One source's corrections as ``(index, column, x, y, shown as)`` rows.
+
+        One method rather than two: every consumer that reads a source's
+        corrections -- the sidecar writer, the exporters, the edit program --
+        reads the same row, so none of them can be the one that forgets the
+        name a correction was made under.
+        """
         return sorted(
-            (key.index, key.point, position[0], position[1])
+            (key.index, key.point, position[0], position[1], self.shown_as(key))
             for key, position in self._edits.items()
             if key.source_id == source_id
         )
 
     # ── writing ──────────────────────────────────────────────────────
 
-    def set(self, key: PointKey, position: tuple[float, float] | None) -> bool:
+    def set(self, key: PointKey, position: tuple[float, float] | None, shown_as: str = "") -> bool:
         """Override *key* with *position*, or clear it when *position* is None.
+
+        *shown_as* is the name the point carried on screen at the moment of the
+        drag, which is not ``key.point`` when an identity flip is in force.
 
         Returns whether anything changed, so a no-op drag does not push an undo
         entry or mark the document dirty.
@@ -130,11 +167,16 @@ class PointEditStore:
             if key not in self._edits:
                 return False
             del self._edits[key]
+            self._shown.pop(key, None)
         else:
             value = (float(position[0]), float(position[1]))
-            if self._edits.get(key) == value:
+            if self._edits.get(key) == value and self.shown_as(key) == (shown_as or key.point):
                 return False
             self._edits[key] = value
+            if shown_as and shown_as != key.point:
+                self._shown[key] = shown_as
+            else:
+                self._shown.pop(key, None)
         self._notify(key.source_id)
         return True
 
@@ -143,6 +185,7 @@ class PointEditStore:
         if not self._edits:
             return
         self._edits.clear()
+        self._shown.clear()
         self._notify(None)
 
     def clear_source(self, source_id: str) -> bool:
@@ -152,10 +195,11 @@ class PointEditStore:
             return False
         for key in doomed:
             del self._edits[key]
+            self._shown.pop(key, None)
         self._notify(None)
         return True
 
-    def load_source(self, source_id: str, rows: list[tuple[int, str, float, float]]) -> None:
+    def load_source(self, source_id: str, rows: list[tuple[int, str, float, float, str]]) -> None:
         """Replace one source's corrections, leaving every other source alone.
 
         This is the read path -- adopting what a sidecar held when its pose file
@@ -164,8 +208,12 @@ class PointEditStore:
         """
         for key in [k for k in self._edits if k.source_id == source_id]:
             del self._edits[key]
-        for index, point, x, y in rows:
-            self._edits[PointKey(source_id, point, int(index))] = (float(x), float(y))
+            self._shown.pop(key, None)
+        for index, point, x, y, shown in rows:
+            key = PointKey(source_id, point, int(index))
+            self._edits[key] = (float(x), float(y))
+            if shown and shown != point:
+                self._shown[key] = str(shown)
         self._notify(None)
 
     # ── observation ──────────────────────────────────────────────────
@@ -203,6 +251,7 @@ class PointEditStore:
                 "index": key.index,
                 "x": position[0],
                 "y": position[1],
+                "shown_as": self.shown_as(key),
             }
             for key, position in sorted(self._edits.items())
             if source_id is None or key.source_id == source_id
@@ -217,6 +266,7 @@ class PointEditStore:
         against :func:`len`.
         """
         self._edits.clear()
+        self._shown.clear()
         self._load_entries(entries)
         self._notify(None)
 
@@ -239,6 +289,9 @@ class PointEditStore:
                     index=int(entry["index"]),
                 )
                 self._edits[key] = (float(entry["x"]), float(entry["y"]))
+                shown = str(entry.get("shown_as", "") or "")
+                if shown and shown != key.point:
+                    self._shown[key] = shown
             except (KeyError, TypeError, ValueError):
                 continue
 
@@ -258,7 +311,14 @@ class PointEditStore:
         }
         if not moved:
             return
+        shown = {
+            dataclasses.replace(key, source_id=new_id): name
+            for key, name in self._shown.items()
+            if key.source_id == old_id
+        }
         for key in [k for k in self._edits if k.source_id == old_id]:
             del self._edits[key]
+            self._shown.pop(key, None)
         self._edits.update(moved)
+        self._shown.update(shown)
         self._notify(None)

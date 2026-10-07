@@ -187,7 +187,8 @@ class TestResidualsCannotSeeTheirOwnMatching:
 
         proposal = fit_sync_events(reference, target, reference_id="sensor", target_id="camera")
 
-        assert proposal.fit.drift_ppm == pytest.approx(90.0, abs=0.1)
+        # A clock 90e-6 fast gains 324 ms per hour.
+        assert proposal.fit.drift_ms_per_hour == pytest.approx(324.0, abs=0.36)
         assert proposal.acceptable
 
     def test_a_minority_match_is_refused_however_exact(self) -> None:

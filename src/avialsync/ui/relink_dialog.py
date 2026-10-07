@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.ui.i18n import tr
+from avialsync.ui.tables import ThemedTable
 
 
 class RelinkDialog(QDialog):
@@ -40,14 +41,16 @@ class RelinkDialog(QDialog):
         layout = QVBoxLayout(self)
 
         info = QLabel(
-            "The following files referenced by this session could not be found.\n"
-            "Use the Browse button to locate each file, or press Skip to open "
-            "the session without them."
+            tr(
+                "The following files referenced by this session could not be found.\n"
+                "Use the Browse button to locate each file, or press Skip to open "
+                "the session without them."
+            )
         )
         info.setWordWrap(True)
         layout.addWidget(info)
 
-        self._table = QTableWidget(len(missing_paths), 4)
+        self._table = ThemedTable(len(missing_paths), 4)
         self._table.setHorizontalHeaderLabels(["Type", "Original Path", "New Path", ""])
         self._table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self._table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
@@ -75,7 +78,7 @@ class RelinkDialog(QDialog):
             new_item = QTableWidgetItem("")
             self._table.setItem(row, 2, new_item)
 
-            browse_btn = QPushButton("Browse…")
+            browse_btn = QPushButton(tr("Browse…"))
             browse_btn.clicked.connect(lambda _checked, r=row, o=orig: self._browse(r, o))
             self._table.setCellWidget(row, 3, browse_btn)
 
@@ -105,7 +108,7 @@ class RelinkDialog(QDialog):
         start_dir = str(orig_parent) if orig_parent.exists() else ""
         path, _ = QFileDialog.getOpenFileName(
             self,
-            f"Locate {Path(original).name}",
+            tr("Locate {name}").format(name=Path(original).name),
             start_dir,
             filter_str,
         )

@@ -56,9 +56,66 @@ from screenshot_kit import pin_appearance, pin_layout
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = REPOSITORY_ROOT / "docs" / "_static" / "screenshots" / "session_overview.gif"
 
+#: The README and docs front page show this file.
+HERO_OUTPUT = REPOSITORY_ROOT / "docs" / "_static" / "screenshots" / "aol_session_overview.gif"
+
+#: How the front-page animation of the 09-35-24 recording is framed: the view
+#: arranged by hand in the app on 2026-10-06, read off its corner readouts and
+#: saved window layout, so a rebuild never falls back to pane defaults or has to
+#: be arranged again. These fill every option not given on the command line
+#: whenever ``--out`` is HERO_OUTPUT.
+#:
+#: * The window is the maximised 2560x1382 one, inspector dock 337 px wide, on
+#:   the Props page, with the media/plots/lanes splits it had.
+#: * Each camera's ``ZOOM,X,Y`` is what its corner printed; the 3D pane printed
+#:   no x/y, which it omits for a zero pan.
+#: * The wheel turns the reverse way to its encoder (sign -1, saved in its prop
+#:   file) and the encoder runs 121 ms behind the cameras: its residual offset
+#:   on top of the session's own placement.
+#: * The clip starts at 10.296 s on the master clock (frame 2368) and plays at
+#:   the 0.5x rate set in the transport: half a second of recording per
+#:   one-second loop.
+HERO_PRESET: dict[str, object] = {
+    "width": 2560,
+    "height": 1382,
+    "layout": {
+        "dock": 337,
+        "content": (1164, 72),
+        "vertical": (649, 490),
+        "media": (1666, 555),
+    },
+    "inspector": "Props",
+    "prop": "wheel:wheel",
+    "osd_detail": "full",
+    "labels": False,
+    "start": 10.296,
+    "speed": 0.5,
+    "span": 0.5,
+    "video_view": ["3.40,328,-369", "4.90,72,-115", "4.42,-279,167"],
+    "up": "-Y",
+    "azimuth": 137.0,
+    "elevation": 8.0,
+    "pose_zoom": 0.97,
+    "pose_pan": "0,0",
+    "encoder_offset": 0.121,
+    "wheel_sign": -1.0,
+}
+
+#: What an option left unset means outside the front-page preset.
+GENERAL_DEFAULTS: dict[str, object] = {
+    "width": 1600,
+    "height": 1000,
+    "seek": 0.35,
+    "span": 1.0,
+    "labels": True,
+}
+
 #: The generated session used when no folder is named. Not AOL-specific, which
 #: is why the output file is no longer named as though it were.
 DEFAULT_SESSION = REPOSITORY_ROOT / "tests" / "fixtures" / "demo_session"
+
+#: Longest we wait for the session's imports to finish before giving up.
+LOAD_TIMEOUT_SECONDS = 300.0
 
 #: Longest we wait for one exact seek to reach every pane before capturing anyway.
 SEEK_TIMEOUT_SECONDS = 5.0
@@ -280,6 +337,16 @@ def capture(
     pose_pan: tuple[float, float] | None = None,
     video_zoom: float = 1.0,
     crowded_zoom: float = 1.0,
+    body_part_names: bool = True,
+    up: str | None = None,
+    encoder_offset: float | None = None,
+    wheel_sign: float | None = None,
+    start_time: float | None = None,
+    speed: float | None = None,
+    inspector: str | None = None,
+    osd_detail: str | None = None,
+    layout: dict[str, object] | None = None,
+    prop: str | None = None,
 ) -> None:
     """Open ``session_dir``, record ``frames`` of playback, and write the loop."""
     from avialsync.ui.main_window import MainWindow
@@ -371,8 +438,57 @@ def capture(
 
     _load_session(window, session_dir)
 
-    # Video probes, pane construction and imports are all asynchronous.
+    # Video probes, pane construction and imports are all asynchronous, and on
+    # a busy machine they outlast any fixed wait: hold until every import has
+    # finished, and refuse to record a session whose videos never arrived.
     settle_for(25.0)
+    deadline = time.monotonic() + LOAD_TIMEOUT_SECONDS
+    while window._job_manager.is_busy() and time.monotonic() < deadline:
+        settle_for(0.5)
+    if not window.video_grid.visible_panes():
+        raise SystemExit("No video pane loaded; not writing an animation without them.")
+
+    # Seed the ratios again now the rows exist. The call above ran on an empty
+    # window; loading then grew the Data Streams strip to one lane per source
+    # and took the height from the video panes, which a reader sees as a
+    # sliver of video above a wall of lanes.
+    pin_layout(window)
+    settle()
+    if layout is not None:
+        _apply_layout(window, layout)
+        settle()
+    if inspector is not None:
+        _show_inspector_page(window, inspector)
+        settle()
+    if osd_detail is not None:
+        for pane in window.video_grid.visible_panes():
+            pane.set_osd_detail(osd_detail)
+        settle()
+    if speed is not None:
+        # Shown in the transport; the motion itself comes from --span.
+        rates = window.transport.rate_combo
+        index = rates.findData(speed)
+        if index < 0:
+            raise SystemExit(f"--speed {speed} is not one of the transport's rates")
+        rates.setCurrentIndex(index)
+        settle()
+
+    if encoder_offset is not None or wheel_sign is not None:
+        _prepare_wheels(window, settle_for, encoder_offset, wheel_sign)
+    if prop is not None:
+        # The Props page opens on its first kind, the ladder; show the saved
+        # prop the animation is about.
+        kind, _, name = prop.partition(":")
+        window.props_app.panel.select_prop(name, kind)
+        settle()
+
+    # Name each marker, through the same path as View → Overlays. The layer is
+    # off by default now, so without this the animation quietly lost the joint
+    # names it was made to show; --no-labels leaves it off for a plainer loop,
+    # as the front page does.
+    if body_part_names:
+        window._on_overlay_toggled("tracking.point_labels", True)
+        settle()
 
     bounds = window.clock.state.bounds
     if bounds[1] <= bounds[0]:
@@ -380,7 +496,11 @@ def capture(
             "The session has no time span; nothing loaded. Aborting rather than "
             "writing a GIF of twelve identical frames."
         )
-    start = bounds[0] + (bounds[1] - bounds[0]) * seek_fraction
+    start = (
+        start_time
+        if start_time is not None
+        else bounds[0] + (bounds[1] - bounds[0]) * seek_fraction
+    )
     # Never run the clip past the end of the recording: a shorter loop beats one
     # that freezes on the last frame for half its length.
     span = min(span, max(0.0, bounds[1] - start))
@@ -420,6 +540,11 @@ def capture(
     # loop actually shows sits small and off-centre inside it, with the limbs
     # nearest the camera collapsing onto each other. Fit View resets those
     # bounds to the current pose, which is the picture the pane is for.
+    if up is not None:
+        # Which world axis is up is detected from the data unless pinned, and
+        # the detection can change with the code; the framing above assumes one.
+        window.tracking_3d_pane.set_up_axis(*UP_AXES[up])
+        settle()
     window.tracking_3d_pane.fit_button.click()
 
     # Then place the camera, when the caller named an angle. The pane's default
@@ -492,6 +617,88 @@ def capture(
     settle()
 
 
+#: ``--up`` choices, as the 3D pane's Up menu names them: (axis, inverted).
+UP_AXES = {
+    "X": (0, False),
+    "-X": (0, True),
+    "Y": (1, False),
+    "-Y": (1, True),
+    "Z": (2, False),
+    "-Z": (2, True),
+}
+
+
+def _apply_layout(window, layout: dict[str, object]) -> None:
+    """Size the inspector dock and the window's splitters as a saved window had them.
+
+    The proportion store re-applies its fractions on every resize, so it is
+    told the same sizes, or the next relayout would undo them.
+    """
+    window.resizeDocks([window.inspector_dock], [int(layout["dock"])], Qt.Orientation.Horizontal)
+    for key, splitter in (
+        ("content", window._content_splitter),
+        ("vertical", window._v_splitter),
+        ("media", window._media_splitter),
+    ):
+        sizes = [int(size) for size in layout[key]]
+        splitter.setSizes(sizes)
+        window._pane_proportions.set_fractions(splitter, sizes)
+
+
+def _show_inspector_page(window, label: str) -> None:
+    """Open the inspector page whose tab reads *label*."""
+    tabs = window._left_tabs
+    for index in range(tabs.count()):
+        if tabs.tabText(index) == label:
+            tabs.setCurrentIndex(index)
+            return
+    raise SystemExit(f"No inspector page called {label!r}.")
+
+
+#: Longest we wait for a session's saved wheel to load and find its encoder.
+WHEEL_TIMEOUT_SECONDS = 60.0
+
+
+def _prepare_wheels(
+    window, settle_for, encoder_offset: float | None, wheel_sign: float | None
+) -> None:
+    """Wait for the saved wheels and their encoders, then set the encoder offset.
+
+    The wheel is adopted from its prop file after the poses load, and turns only
+    once its encoder source is open, so capturing before then shows no wheel or
+    a still one. Its direction is checked rather than set: changing a wheel is an
+    edit, and an edit is saved beside the recording.
+    """
+    from avialsync.ui.controllers import wheel_edits
+
+    def ready() -> bool:
+        wheels = list(window.wheels)
+        return bool(wheels) and all(
+            wheel.binding is not None
+            and window.sidebar.sensor_widget(wheel.binding.source_id) is not None
+            for wheel in wheels
+        )
+
+    deadline = time.monotonic() + WHEEL_TIMEOUT_SECONDS
+    while not ready():
+        if time.monotonic() > deadline:
+            raise SystemExit(
+                "No saved wheel with an open encoder appeared. A prop file names its "
+                "encoder by absolute path, so open the recording where it was saved."
+            )
+        settle_for(0.5)
+    for wheel in window.wheels:
+        if wheel_sign is not None and wheel.binding.sign != wheel_sign:
+            raise SystemExit(
+                f"wheel {wheel.name!r} turns with sign {wheel.binding.sign:+g}, "
+                f"not {wheel_sign:+g}; fix it in Props rather than here"
+            )
+        if encoder_offset is not None:
+            wheel_edits.edit_encoder_offset(window, wheel.name, encoder_offset)
+        print(f"wheel {wheel.name!r}: sign {wheel.binding.sign:+g}, encoder offset set")
+    settle_for(1.0)
+
+
 def _triple(value: str) -> tuple[float, float, float]:
     """Parse ``ZOOM,X,Y`` as the pane prints it."""
     parts = [float(part) for part in value.replace("x", "").split(",")]
@@ -518,19 +725,48 @@ def main() -> None:
         help="recording folder to open (default: the generated fixture session)",
     )
     parser.add_argument("--out", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument("--width", type=int, default=1600, help="window width while capturing")
-    parser.add_argument("--height", type=int, default=1000, help="window height while capturing")
+    parser.add_argument("--width", type=int, default=None, help="window width (default 1600)")
+    parser.add_argument("--height", type=int, default=None, help="window height (default 1000)")
     parser.add_argument(
         "--seek",
         type=float,
-        default=0.35,
-        help="fraction of the master span the clip starts at (0..1)",
+        default=None,
+        help="fraction of the master span the clip starts at, 0..1 (default 0.35)",
+    )
+    parser.add_argument(
+        "--start",
+        type=float,
+        default=None,
+        help="master-clock second the clip starts at, as the panes print it; overrides --seek",
     )
     parser.add_argument(
         "--span",
         type=float,
-        default=1.0,
-        help="seconds of session time the clip covers",
+        default=None,
+        help="seconds of session time the clip covers (default 1.0)",
+    )
+    parser.add_argument(
+        "--speed",
+        type=float,
+        default=None,
+        help="playback rate to show in the transport, e.g. 0.5; set --span to match",
+    )
+    parser.add_argument(
+        "--inspector",
+        default=None,
+        help="inspector page to show, by its tab label (default: Sources)",
+    )
+    parser.add_argument(
+        "--prop",
+        default=None,
+        metavar="KIND:NAME",
+        help="saved prop to show on the Props page, e.g. wheel:wheel",
+    )
+    parser.add_argument(
+        "--osd-detail",
+        choices=("compact", "full"),
+        default=None,
+        help="video overlay detail (default: the Preferences setting)",
     )
     parser.add_argument("--frames", type=int, default=12, help="number of GIF frames")
     parser.add_argument(
@@ -597,6 +833,34 @@ def main() -> None:
             "--video-zoom; the default is one press of + less"
         ),
     )
+    parser.add_argument(
+        "--labels",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="body-part names on the video panes (default on; the front page has them off)",
+    )
+    parser.add_argument(
+        "--up",
+        choices=sorted(UP_AXES),
+        default=None,
+        help="pin the 3D pane's up axis, as its Up menu names it; omit to detect",
+    )
+    parser.add_argument(
+        "--encoder-offset",
+        type=float,
+        default=None,
+        help=(
+            "seconds to set as each saved wheel's encoder offset (its Sources row); "
+            "waits for the wheel to load first"
+        ),
+    )
+    parser.add_argument(
+        "--wheel-sign",
+        type=float,
+        choices=(-1.0, 1.0),
+        default=None,
+        help="stop unless every saved wheel turns this way to its encoder",
+    )
     parser.add_argument("--gif-width", type=int, default=960, help="max GIF width")
     parser.add_argument("--gif-height", type=int, default=720, help="max GIF height")
     parser.add_argument(
@@ -606,6 +870,16 @@ def main() -> None:
         help="shared palette size, 256 being the most GIF allows",
     )
     args = parser.parse_args()
+    if args.out.expanduser().resolve() == HERO_OUTPUT.resolve():
+        for name, value in HERO_PRESET.items():
+            if getattr(args, name, None) is None:
+                setattr(args, name, value)
+        print("front-page animation: using HERO_PRESET for options not given")
+    else:
+        args.layout = None
+    for name, value in GENERAL_DEFAULTS.items():
+        if getattr(args, name) is None:
+            setattr(args, name, value)
 
     session_dir = args.session_dir.expanduser().resolve()
     if not session_dir.is_dir():
@@ -631,6 +905,16 @@ def main() -> None:
         _pair(args.pose_pan) if args.pose_pan else None,
         args.video_zoom,
         args.crowded_zoom,
+        args.labels,
+        args.up,
+        args.encoder_offset,
+        args.wheel_sign,
+        args.start,
+        args.speed,
+        args.inspector,
+        args.osd_detail,
+        args.layout,
+        args.prop,
     )
 
 

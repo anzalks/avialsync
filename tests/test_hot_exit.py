@@ -15,9 +15,11 @@ import pytest
 from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
+from avialsync.core.settings_schema import setting_for
 from avialsync.ui import recovery
 from avialsync.ui.controllers import session_controller
 from avialsync.ui.main_window import MainWindow
+from avialsync.ui.preferences_dialog import write_setting
 
 
 @pytest.fixture(autouse=True)
@@ -50,6 +52,29 @@ def main_window(qapp: QApplication, qtbot) -> MainWindow:
     # after the call phase, which executes pending deleteLater()s.
     if isValid(win):
         win.close()
+
+
+@pytest.fixture
+def offer_at_launch():
+    """Turn the launch-time bar on, which it is not by default (D-133).
+
+    Every test below that asserts on the notification strip asks for this. The
+    default is off: the snapshot is written and reachable either way, and the
+    unrequested bar is the part the user opts into.
+    """
+    setting = setting_for("storage/offer_recovery_at_launch")
+    assert setting is not None
+    write_setting(setting, True)
+    yield setting
+    write_setting(setting, setting.default)
+
+
+def _recover_action(window: MainWindow):
+    """The File command that reaches the snapshot without the bar."""
+    for action, _precondition, _reason, _tip in window._action_preconditions:
+        if action.text() == "Recover Unsaved Work…":
+            return action
+    raise AssertionError("File has no Recover Unsaved Work command")
 
 
 def _seed_workspace(window) -> None:
@@ -163,7 +188,7 @@ def test_a_snapshot_whose_session_file_vanished_is_offered(isolated_recovery_dir
 def test_autosave_of_an_untitled_session_writes_recovery(main_window, isolated_recovery_dir):
     """The defect this whole feature exists for."""
     _seed_workspace(main_window)
-    main_window._session_path = None
+    main_window.session_runtime.path = None
 
     session_controller.autosave(main_window)
 
@@ -175,7 +200,7 @@ def test_autosave_of_an_untitled_session_writes_recovery(main_window, isolated_r
 
 def test_closing_an_untitled_session_preserves_it(main_window, isolated_recovery_dir):
     _seed_workspace(main_window)
-    main_window._session_path = None
+    main_window.session_runtime.path = None
 
     session_controller.autosave_before_close(main_window)
 
@@ -185,7 +210,7 @@ def test_closing_an_untitled_session_preserves_it(main_window, isolated_recovery
 
 
 def test_closing_an_empty_workspace_writes_nothing(main_window, isolated_recovery_dir):
-    main_window._session_path = None
+    main_window.session_runtime.path = None
     session_controller.autosave_before_close(main_window)
     assert recovery.read_recovery() is None
 
@@ -199,7 +224,7 @@ def test_reset_then_quit_does_not_overwrite_good_work(main_window, isolated_reco
     exists to prevent.
     """
     _seed_workspace(main_window)
-    main_window._session_path = None
+    main_window.session_runtime.path = None
     session_controller.autosave(main_window)
     assert recovery.read_recovery() is not None
 
@@ -212,7 +237,7 @@ def test_reset_then_quit_does_not_overwrite_good_work(main_window, isolated_reco
 
 def test_an_unserialisable_workspace_does_not_break_the_close(main_window, isolated_recovery_dir):
     """closeEvent must survive a workspace it cannot encode."""
-    main_window._session_path = None
+    main_window.session_runtime.path = None
     main_window._sync_provenance.append(object())  # not a dataclass; to_dict raises
 
     session_controller.autosave_before_close(main_window)  # must not raise
@@ -222,11 +247,11 @@ def test_an_unserialisable_workspace_does_not_break_the_close(main_window, isola
 
 def test_saving_clears_the_recovery_snapshot(main_window, isolated_recovery_dir, tmp_path):
     _seed_workspace(main_window)
-    main_window._session_path = None
+    main_window.session_runtime.path = None
     session_controller.autosave(main_window)
     assert recovery.read_recovery() is not None
 
-    main_window._session_path = tmp_path / "saved.avv"
+    main_window.session_runtime.path = tmp_path / "saved.avv"
     main_window._mark_session_saved()
     recovery.clear_recovery()
 
@@ -238,13 +263,13 @@ def test_saving_clears_the_recovery_snapshot(main_window, isolated_recovery_dir,
 
 
 def test_an_untitled_session_says_so(main_window):
-    main_window._session_path = None
+    main_window.session_runtime.path = None
     main_window._update_window_title()
     assert main_window.windowTitle() == "Untitled[*] — AvialSync"
 
 
 def test_the_title_names_the_open_session(main_window):
-    main_window._session_path = Path("/tmp/experiment_4.avv")
+    main_window.session_runtime.path = Path("/tmp/experiment_4.avv")
     main_window._update_window_title()
     assert "experiment_4" in main_window.windowTitle()
     assert main_window.windowTitle().endswith("— AvialSync")
@@ -287,7 +312,7 @@ def test_a_long_drag_updates_the_title_at_most_twice(main_window):
 # ── offering it back (the half that was missing) ──────────────────────
 
 
-def test_a_fresh_launch_offers_unsaved_work(main_window, isolated_recovery_dir):
+def test_a_fresh_launch_offers_unsaved_work(main_window, isolated_recovery_dir, offer_at_launch):
     """The snapshot was written on every quit and nothing ever offered it back.
 
     ``pending_recovery()`` implemented the "is this worth offering" rule from
@@ -305,30 +330,47 @@ def test_a_fresh_launch_offers_unsaved_work(main_window, isolated_recovery_dir):
     assert strip.is_sticky, "an offer that fades before it is read is not an offer"
 
 
-def test_nothing_pending_offers_nothing(main_window, isolated_recovery_dir):
+def test_nothing_pending_offers_nothing(main_window, isolated_recovery_dir, offer_at_launch):
     assert session_controller.offer_pending_recovery(main_window) is False
     assert main_window.notifications.isVisible() is False
 
 
-def test_declining_the_offer_leaves_the_snapshot_alone(main_window, isolated_recovery_dir):
-    """Dismiss is not discard.
-
-    The snapshot is the only copy of that work. A stray click on Dismiss must
-    not be what deletes it -- the next quit overwrites it in the ordinary way,
-    so nothing accumulates by leaving it.
-    """
+def test_dismissed_offer_stays_quiet_without_deleting_work(
+    main_window, isolated_recovery_dir, offer_at_launch
+):
+    """The same unsaved work does not nag on every launch after Dismiss."""
     recovery.write_recovery({"videos": [{"path": "/data/cam1.mp4"}]}, None)
     session_controller.offer_pending_recovery(main_window)
 
-    main_window.notifications.clear()
+    main_window.notifications._dismiss.click()
 
     assert recovery.read_recovery() is not None, "declining must not delete the work"
     assert main_window.notifications.isVisible() is False
+    assert session_controller.offer_pending_recovery(main_window) is False
+    recovery.write_recovery({"videos": [{"path": "/data/cam1.mp4"}]}, None)
+    assert session_controller.offer_pending_recovery(main_window) is False
+
+    recovery.write_recovery({"videos": [{"path": "/data/cam2.mp4"}]}, None)
+    assert session_controller.offer_pending_recovery(main_window) is True
 
 
-def test_restoring_loads_the_work_and_marks_it_unsaved(main_window, isolated_recovery_dir):
+def test_clearing_recovery_forgets_the_dismissal(isolated_recovery_dir):
+    state = {"videos": [{"path": "/data/cam1.mp4"}]}
+    recovery.write_recovery(state, None)
+    snapshot = recovery.pending_recovery()
+    assert snapshot is not None
+    recovery.dismiss_recovery(snapshot)
+    assert recovery.pending_recovery() is None
+    recovery.clear_recovery()
+    recovery.write_recovery(state, None)
+    assert recovery.pending_recovery() is not None
+
+
+def test_restoring_loads_the_work_and_marks_it_unsaved(
+    main_window, isolated_recovery_dir, offer_at_launch
+):
     _seed_workspace(main_window)
-    main_window._session_path = None
+    main_window.session_runtime.path = None
     session_controller.autosave(main_window)
     main_window.annotation_store.clear()
 
@@ -340,7 +382,7 @@ def test_restoring_loads_the_work_and_marks_it_unsaved(main_window, isolated_rec
 
 
 def test_a_snapshot_that_cannot_be_decoded_is_reported_not_deleted(
-    main_window, isolated_recovery_dir
+    main_window, isolated_recovery_dir, offer_at_launch
 ):
     """Clearing before the restore succeeds would be the loss it guards against."""
     recovery.write_recovery({"videos": "not a list of entries"}, None)
@@ -352,14 +394,14 @@ def test_a_snapshot_that_cannot_be_decoded_is_reported_not_deleted(
     assert "could not be restored" in main_window.notifications.message
 
 
-def test_the_offer_names_when_the_work_is_from(main_window, isolated_recovery_dir):
+def test_the_offer_names_when_the_work_is_from(main_window, isolated_recovery_dir, offer_at_launch):
     recovery.write_recovery({"videos": [{"path": "/data/cam1.mp4"}]}, None)
     session_controller.offer_pending_recovery(main_window)
     assert "Unsaved work from" in main_window.notifications.message
 
 
 def test_a_message_without_an_action_does_not_inherit_the_last_one(
-    main_window, isolated_recovery_dir
+    main_window, isolated_recovery_dir, offer_at_launch
 ):
     """The button is one widget reused by every message posted to the strip.
 
@@ -379,7 +421,9 @@ def test_a_message_without_an_action_does_not_inherit_the_last_one(
     assert main_window.notifications.action_label == ""
 
 
-def test_a_later_failure_does_not_evict_the_offer(main_window, isolated_recovery_dir):
+def test_a_later_failure_does_not_evict_the_offer(
+    main_window, isolated_recovery_dir, offer_at_launch
+):
     """The offer is the only in-session route back to unsaved work (D-107).
 
     It is posted once, at startup, from a single call site. Before the strip
@@ -398,13 +442,16 @@ def test_a_later_failure_does_not_evict_the_offer(main_window, isolated_recovery
     assert main_window.notifications.pending_count == 2
 
 
-def test_constructing_the_window_is_what_makes_the_offer(qapp, qtbot, isolated_recovery_dir):
+def test_constructing_the_window_is_what_makes_the_offer(
+    qapp, qtbot, isolated_recovery_dir, offer_at_launch
+):
     """The regression that matters: the function existing is not the fix.
 
     ``pending_recovery()`` was correct and tested from the day it landed. What
     was missing was any caller, so this asserts the wiring rather than the
     rule -- a window that comes up with unsaved work on disk must say so
-    without anyone calling the controller by hand.
+    without anyone calling the controller by hand. With the offer turned on:
+    since D-133 the bar is what the user opts into, not the protection.
     """
     from shiboken6 import isValid
 
@@ -421,3 +468,77 @@ def test_constructing_the_window_is_what_makes_the_offer(qapp, qtbot, isolated_r
     finally:
         if isValid(win):
             win.close()
+
+
+# ── the quiet launch, and the way back without the bar (D-133) ────────
+
+
+def test_a_quiet_launch_keeps_the_snapshot(qapp, qtbot, isolated_recovery_dir):
+    """Off by default means unmentioned, never unprotected.
+
+    The bar came back on most launches for anyone who works without saving:
+    every quit writes a fresh snapshot and a dismissal is remembered per
+    snapshot *content*, so changed work is correctly a new offer -- and a
+    notification strip that has to be cleared by hand at every launch is a
+    strip people stop reading. What must not change with the bar off is the
+    snapshot.
+    """
+    from shiboken6 import isValid
+
+    recovery.write_recovery({"videos": [{"path": "/data/cam1.mp4"}]}, None)
+
+    win = MainWindow()
+    qtbot.addWidget(win)
+    win.show()
+    try:
+        assert win.notifications.isVisible() is False, "a quiet launch posted the bar anyway"
+        assert recovery.read_recovery() is not None, "the snapshot must survive the silence"
+        assert win.session_runtime.pending_recovery is not None, (
+            "the launch must still find the work"
+        )
+        assert _recover_action(win).isEnabled(), "the work must stay reachable from File"
+    finally:
+        if isValid(win):
+            win.close()
+
+
+def test_the_command_says_why_it_is_greyed_with_nothing_to_recover(
+    main_window, isolated_recovery_dir
+):
+    action = _recover_action(main_window)
+    assert action.isEnabled() is False
+    assert "unsaved work" in action.toolTip().lower(), action.toolTip()
+
+
+def test_recovering_from_the_menu_restores_the_work(main_window, isolated_recovery_dir):
+    """The File command is the whole reason the bar can be optional."""
+    _seed_workspace(main_window)
+    main_window.session_runtime.path = None
+    session_controller.autosave(main_window)
+    main_window.annotation_store.clear()
+    session_controller.note_pending_recovery(main_window)
+
+    action = _recover_action(main_window)
+    assert action.isEnabled(), "unsaved work on disk must enable the command"
+    action.trigger()
+
+    assert main_window.annotation_store.markers, "the work did not come back"
+    assert main_window.document.is_dirty, "restored work lives in no file yet"
+    assert recovery.read_recovery() is None, "the snapshot is consumed by a restore"
+    assert action.isEnabled() is False, "nothing is left to recover"
+
+
+def test_a_reset_stops_the_command_offering_discarded_work(main_window, isolated_recovery_dir):
+    """A reset clears the snapshot, so the command must stop pointing at it.
+
+    Otherwise the held offer outlives its file and puts pre-reset work back over
+    a workspace the user emptied on purpose.
+    """
+    recovery.write_recovery({"videos": [{"path": "/data/cam1.mp4"}]}, None)
+    session_controller.note_pending_recovery(main_window)
+    assert _recover_action(main_window).isEnabled()
+
+    session_controller.reset_session(main_window)
+
+    assert main_window.session_runtime.pending_recovery is None
+    assert _recover_action(main_window).isEnabled() is False

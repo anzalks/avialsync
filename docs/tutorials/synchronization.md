@@ -15,15 +15,21 @@ trigger. That shared event is what you will judge alignment against.
 
 Load your files first; [the first-session tutorial](first-session.md) covers that.
 
+The screenshots use generated camera footage and frame-trigger evidence. Real recordings will show
+their own source names, timing, and fit results.
+
 ## 1. A fixed offset, when one recording is simply early or late
 
-Every source carries its own **Offset** and **Drift** in the left panel.
+Every source carries its own **Offset** and **Drift** in the left panel, behind the card's
+**Timing** row, which shows both values while it is closed. Click it to edit them.
 
 ![The per-source offset and drift fields in the left panel](../_static/screenshots/guide_offset_fields.png)
 
 1. **Offset** shifts the whole recording along the shared timeline, in seconds. Positive moves it
    later. Use this when a camera started before or after the others.
-2. **Drift** corrects a clock that runs fast or slow, in parts per million. Use it when the
+2. **Drift** corrects a clock that runs fast or slow, as milliseconds gained per hour of
+   recording (ms/h). A clock that gains 54 ms every hour has a drift of +54 ms/h; hovering the
+   field also gives it in frames per hour for a camera. Use it when the
    recordings agree at the start and separate towards the end — a fixed offset cannot fix that,
    because the error grows with time. Cameras have this field too, so a camera that slips against
    the sensor is corrected where the problem is, rather than by drifting the sensor and moving it
@@ -74,6 +80,9 @@ finds either no edges or every sample.
 
 ### Choose the strategy — or let the evidence choose
 
+The strategy, match tolerance, partial fit and manual mapping fields are behind **More…** in the
+dialog; most alignments never need them.
+
 ![The alignment strategy and index offset](../_static/screenshots/guide_sync_strategy.png)
 
 1. **Alignment strategy**
@@ -85,7 +94,7 @@ finds either no edges or every sample.
    - **Exact index (1:1 frame mapping)** — forces mapping video frame *n* to reference event *n*.
      Only correct when the reference genuinely records each exposure that *happened*; if it records
      each exposure that was *requested*, a dropped frame shifts everything after it.
-2. **Index Offset** — enabled only for Exact Index. Sets which reference event video frame 0
+2. **Index Offset** — enabled only for Exact index. Sets which reference event video frame 0
    corresponds to. Leave it at 0 unless recording started mid-sequence.
 
 ### Set the tolerance, if the default is not good enough
@@ -115,7 +124,7 @@ If you already know the numbers — from the rig's documentation, or a previous 
 directly instead of fitting.
 
 1. **Manual offset**, in seconds.
-2. **Manual drift**, in parts per million.
+2. **Manual drift**, in milliseconds gained per hour (ms/h).
 3. **Use manual mapping** applies them as a proposal, which you still accept explicitly.
 
 A manual mapping is recorded as set by hand, and reported that way everywhere afterwards. It is
@@ -126,8 +135,11 @@ uncertainty, and the session says so rather than quoting zeros that would read a
 
 ![The preview and accept buttons](../_static/screenshots/guide_sync_preview_accept.png)
 
-1. **Preview alignment** extracts the evidence, matches events, and fits the mapping. Three panels
-   show what it found; read them in order, because they answer different questions.
+1. **Preview alignment** extracts the evidence, matches events, and fits the mapping. The wizard
+  shows the effective match tolerance and whether it was derived from pulse spacing or set by you;
+  check it against the timing precision your experiment needs. Changing the tolerance invalidates
+  the preview, so run it again before accepting. Three panels show what it found; read them in
+  order, because they answer different questions.
 2. **Accept mapping** applies it. Until you press this, nothing has changed. A proposal is never
    applied silently, and it never becomes your data on its own. If Accept is greyed out, the
    summary says which part of the evidence to change.

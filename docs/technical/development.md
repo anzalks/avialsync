@@ -47,11 +47,13 @@ delegates to `avialsync demo`, so both paths behave identically.
 
 `avialsync demo` creates three 30 fps CFR cameras, one VFR camera, a four-channel sensor trace, a
 dense ephys/TTL trace with gaps, and DLC-style tracking in your platform application-data folder.
-Camera 2 has a known +1.234 s mapping and camera 3 a known 1000 ppm drift mapping, so alignment
+Camera 2 has a known +1.234 s mapping and camera 3 a known 3600 ms/h (3.6 s per hour) drift mapping, so alignment
 tools have a verifiable answer. First-run generation is shown in the progress-and-log dialog; later
 runs validate and reuse the cached files.
 
-The documentation screenshots come from the same session:
+The demo and guide screenshot tools generate short synthetic camera, signal, and frame-strobe files
+in a temporary directory. They do not depend on ignored test fixtures, touch acquisition data, or
+require `tools/make_fixtures.py`:
 
 ```bash
 conda run -n avialsync python tools/generate_demo_screenshots.py
@@ -59,8 +61,53 @@ conda run -n avialsync python tools/generate_guide_screenshots.py
 ```
 
 The second writes the annotated guide images, where a red box marks the control each step refers to.
+Both pin the application appearance and wait for the camera frame to be painted; the sync guide also
+loads generated frame-strobe evidence and captures a completed preview. The Messages image adds
+generated text attributed to `synthetic_rig_log.txt`.
 
-The looping GIF on the front page is the third, and it is the only one that needs data:
+`tools/generate_feature_screenshots.py` writes the `feature_*` images from synthetic calibrated
+camera views. It actually clicks three ladder rungs (tagging one raised), sets side rails and
+extrapolates the run, places a measured two-roller belt from four top corners and a second belt
+from one camera's side view, tracks a belt mark and three ball landmarks, and clicks wheel bar
+ends in two cameras, then captures the camera overlays and reconstructed 3D viewer. It also captures the Props editors, wheel fit review and acceptance,
+Tasks, File → Cache, View → Overlays, the command palette, Preferences, and Light theme. It pins
+the appearance without changing saved preferences. The screenshots are reproducible from the
+script; their mesh and bar geometry comes from the accepted app models, not image annotations.
+
+```bash
+conda run -n avialsync python tools/generate_feature_screenshots.py
+```
+
+The stimulus-grid assets use a separate synthetic scene and the real File → Export Stimulus Grid
+workflow:
+
+```bash
+conda run -n avialsync python tools/generate_stimulus_grid_demo.py
+```
+
+It writes the event-selection and slow-motion screenshots, the exported-frame still, and the demo
+MP4 under `docs/_static/screenshots/`.
+
+The front-page GIF is different: the committed `aol_session_overview.gif` is real AOL recording
+footage, made from the `09-35-24` session kept (git-ignored) at the repository root. Its source
+recording is not in git, so the exact public asset cannot be reproduced from a clean checkout.
+Rebuild it from that folder:
+
+```bash
+conda run -n avialsync python tools/generate_session_screenshot.py 09-35-24 \
+    --out docs/_static/screenshots/aol_session_overview.gif
+```
+
+Writing to that path applies `HERO_PRESET` in the script, the view arranged by hand for the front
+page: window size and pane splits, the Props page on the saved wheel, the full video overlay with no
+body-part names, each camera's zoom and pan, the 3D up axis, azimuth, elevation and zoom, the start
+time (10.296 s), the 0.5x rate, and the wheel's encoder offset (0.121 s), with a check that the wheel
+turns in reverse. Options given on the command line override single values. To change the framing,
+arrange the view in the app, read the corner readouts, and edit `HERO_PRESET` rather than passing
+flags, so the next rebuild keeps it. The wheel's prop file names its encoder by absolute path, so
+open the recording where it was saved. The script reads the recording and writes only its `--out`
+file. Do not rebuild that GIF from any other acquisition unless its use for public release is
+approved. With another folder or output the generator applies none of the preset:
 
 ```bash
 conda run -n avialsync python tools/generate_session_screenshot.py            # the fixture session
@@ -68,8 +115,10 @@ conda run -n avialsync python tools/generate_session_screenshot.py <folder>  # y
 ```
 
 It opens the folder through the real drop-and-open path, so the layout in the image is the one a
-session plugin produced rather than a staged arrangement. It writes only
-`docs/_static/screenshots/aol_session_overview.gif` and reads the session.
+session plugin produced rather than a staged arrangement.
+
+Without `--out` the output is `docs/_static/screenshots/session_overview.gif`, which no page
+references; that default is a fixture smoke test, not a replacement for the public hero.
 
 With no argument it uses `tests/fixtures/demo_session`, generated by `make_fixtures`: an Open Ephys
 tree that declares its own wall clock in `sync_messages.txt`, with a camera placed by the timestamp
@@ -83,7 +132,20 @@ frame-index test patterns for the golden sync tests: near-black by design, with 
 a strip. Correct for asserting *which* frame is displayed, and useless as a picture of the
 application working.
 
-All three share `tools/screenshot_kit.py`, which pins the two things that otherwise make an image a
+The Fix Identities tutorial has its own generator, which needs no data of yours:
+
+```bash
+conda run -n avialsync python tools/generate_identity_screenshots.py
+```
+
+It draws two animals crossing paths, writes a pose file that exchanges their identities at a known
+frame, and opens both through the drop scanner's routing, then walks the panel and writes only
+`identity_*.png`, `identity_swap.gif` and `tracking_source_card.png` under `docs/_static/screenshots/`. The scene is generated, and every file it shows is named
+`synthetic_*` so the images say so themselves; the tutorial says so in words as well. The one thing
+supplied by hand is the answer to the import review dialog (overlay role and target video), which is
+modal.
+
+All four share `tools/screenshot_kit.py`, which pins the two things that otherwise make an image a
 photograph of the developer's machine:
 
 - **`pin_appearance`** forces the documented theme without persisting it, so the images do not
@@ -104,24 +166,24 @@ user sees no such frame.
 menu bar, so Qt draws one inside the window and every capture gains a File/View/Help strip a real
 macOS user never sees.
 
-Capture at 1280x860 or wider. Below roughly 1200px the Data Streams header overflows and Qt clips
-"Fullscreen Toggle" to "ullscreen Togg", which reads as a rendering fault rather than as the window
-being narrow.
+Capture at 1280x800 and 640x480 as well as a wider size. Phase 9 moved playback and status out of
+the Data Streams header, so the narrower captures now check the compact controls and the one-row
+plot strip rather than a header crowded with unrelated buttons (D-170).
 
 ## Building the documentation
 
 The site is built with Read the Docs from `.readthedocs.yaml`. Local preview:
 
 ```bash
-python -m pip install -e ".[docs]"
-sphinx-build -W --keep-going -b html docs docs/_build/html
+conda run -n avialsync pip install -e ".[docs]"
+conda run -n avialsync sphinx-build -W --keep-going -b html docs docs/_build/html
 ```
 
 `-W` matches CI, where a Sphinx warning fails the build.
 
 ### Connecting the Read the Docs project
 
-The repository is already configured — `.readthedocs.yaml` pins Ubuntu 22.04, Python 3.11, and the
+The repository is already configured — `.readthedocs.yaml` pins Ubuntu 24.04, Python 3.12, and the
 `docs` extra, with `fail_on_warning: true`. What remains is connecting the project once:
 
 1. Sign in at [readthedocs.org](https://readthedocs.org/) with the GitHub account that owns the
@@ -131,14 +193,16 @@ The repository is already configured — `.readthedocs.yaml` pins Ubuntu 22.04, 
    badge and links already use. A different name means editing both.
 3. Leave the default branch as `main`. Read the Docs finds `.readthedocs.yaml` itself; do not set a
    configuration path.
-4. **Admin → Automation Rules** is worth one rule: activate and set as default any tag matching
-   `.*`, so a released version's docs are published and `/en/stable/` tracks the newest release
-   rather than the tip of `main`.
+4. Create a Read the Docs API token with access to this project and save it as the GitHub Actions
+   repository secret `READTHEDOCS_TOKEN`. The tag workflow uses it to synchronise repository tags
+   and activate the exact tagged version; it fails before publishing a distribution if the secret
+   is absent or the tag cannot be found.
 5. Trigger the first build from **Builds → Build version**. It takes about a minute.
 
-The webhook is installed by the GitHub connection, so later pushes and tags build automatically.
-Until step 2 is done the documentation badge stays grey and `https://avialsync.readthedocs.io/`
-returns 404.
+The GitHub connection installs the webhook. On each release, the workflow also calls the Read the
+Docs API directly, which avoids a webhook/automation-rule race and guarantees the release tag is
+activated. Until step 2 is done the documentation badge stays grey and
+`https://avialsync.readthedocs.io/` returns 404.
 
 ## Releases
 
@@ -149,8 +213,9 @@ platform installers. PyPI publishing starts only after every installer succeeds,
 the release last. The workflow pins and verifies the AppImage build tool before creating the Linux
 AppImage; no package-upload token or repository variable is needed.
 
-Two things must exist before a tag can complete, and neither lives in this repository. Both fail
-late — after every installer has already been built — so confirm them before tagging:
+Three things must exist before a tag can complete, and none lives in this repository. Confirm them
+before tagging: the documentation credential is checked before distributions publish, while PyPI
+approval and platform packaging complete later in the workflow.
 
 1. **PyPI trusted publishing** for the `avialsync` project, naming this repository, the `Release`
    workflow, and the `pypi` environment. If the `pypi` GitHub environment has required reviewers,
@@ -158,6 +223,9 @@ late — after every installer has already been built — so confirm them before
 2. **A tag reachable from `main`.** The workflow refuses to publish a side branch, and it requires
    the tag, `pyproject.toml`, and `src/avialsync/__init__.py` to name one identical version — which
    is what `tools/prepare_release.py` guarantees.
+3. **The `READTHEDOCS_TOKEN` repository secret.** It lets the release workflow discover and
+   activate the tagged documentation version. This is intentionally a release gate: publishing a
+   package with no matching live documentation is a broken release, not a follow-up task.
 
 Prepare a tag from a clean `main` checkout with the guarded helper rather than editing versions or
 creating tags by hand:
@@ -167,10 +235,18 @@ conda run -n avialsync python tools/prepare_release.py 0.1.0b1 --dry-run
 conda run -n avialsync python tools/prepare_release.py 0.1.0b1
 ```
 
-It validates the version, updates both package-version authorities, builds and checks the
-wheel/sdist, commits the change, creates annotated `v0.1.0b1`, and pushes it. The helper permits
-only the offline `graphify-out/graph.json` as a pre-existing dirty file; commit or resolve every
-other change first.
+It validates the version, updates every package-version authority (`pyproject.toml`,
+`src/avialsync/__init__.py`, `CITATION.cff`, and `packaging/conda/meta.yaml`), builds and checks the
+wheel/sdist, commits the change, creates annotated `v0.1.0b1`, and pushes it. That tag starts the guarded release
+workflow, which verifies the documentation and activates the matching Read the Docs version before
+it can publish a distribution. The helper permits only the offline `graphify-out/graph.json` as a
+pre-existing dirty file; commit or resolve every other change first.
+
+The four files are updated together or not at all: every declaration is matched before the first
+write, and `--dry-run` performs the same matching, so a reformatted file stops the release with the
+tree untouched. One field is deliberately left for after the release: the `sha256` in
+`packaging/conda/meta.yaml` is the checksum of the sdist PyPI serves, which does not exist until the
+tag has published. Fill it in from the published sdist when submitting the conda-forge update.
 
 ### Signing
 

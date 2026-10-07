@@ -199,7 +199,7 @@ def test_the_menu_and_the_document_never_diverge(window: MainWindow) -> None:
 def test_saving_leaves_history_intact(window: MainWindow, tmp_path) -> None:
     """A save is not an edit: it moves the clean point, it does not erase undo."""
     window.annotation_store.add_point(1.0, "spike")
-    window._session_path = Path(tmp_path / "s.avv")
+    window.session_runtime.path = Path(tmp_path / "s.avv")
     window._mark_session_saved()
 
     assert window.document.is_dirty is False

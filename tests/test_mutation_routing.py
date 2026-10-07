@@ -189,7 +189,7 @@ def test_a_video_offset_drag_is_one_undo_step(window: MainWindow) -> None:
 def test_a_sensor_mapping_change_is_recorded(window: MainWindow, tmp_path) -> None:
     path = "/tmp/sensor.csv"
     window.sidebar.add_sensor(path, ["force"])
-    window._sensor_cache_dirs[path] = tmp_path / "sensor.avialcache"
+    window._sensor_cache_dirs[path] = tmp_path / "sensor_cache"
 
     window._on_sensor_mapping_changed(path, 0.5, 12.0)
     command = _last(window)
@@ -240,7 +240,7 @@ def test_removing_a_video_is_recorded(window: MainWindow) -> None:
 def test_removing_a_sensor_is_recorded(window: MainWindow, tmp_path) -> None:
     path = "/tmp/sensor.csv"
     window.sidebar.add_sensor(path, ["force"])
-    window._sensor_cache_dirs[path] = tmp_path / "sensor.avialcache"
+    window._sensor_cache_dirs[path] = tmp_path / "sensor_cache"
     window.document.clear()
 
     window._on_sensor_remove_requested(path)
@@ -314,11 +314,11 @@ def test_a_restored_session_is_not_dirty(window: MainWindow) -> None:
     """A freshly loaded session coming up dirty would be a false alarm."""
     from avialsync.core.session import SessionState
 
-    window._session_restoring = True
+    window.session_runtime.restoring = True
     window._note_source_loaded("/tmp/cam1.mp4", "video")
 
     assert window.document.is_dirty is False
-    assert window._session_restoring is False, "the restore finished once queues drained"
+    assert window.session_runtime.restoring is False, "the restore finished once queues drained"
 
     assert isinstance(SessionState(), SessionState)
 
@@ -327,7 +327,7 @@ def test_saving_clears_dirty(window: MainWindow, tmp_path) -> None:
     window.annotation_store.add_point(1.0, "spike")
     assert window.document.is_dirty is True
 
-    window._session_path = Path(tmp_path / "s.avv")
+    window.session_runtime.path = Path(tmp_path / "s.avv")
     window._mark_session_saved()
 
     assert window.document.is_dirty is False

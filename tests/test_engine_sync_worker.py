@@ -38,7 +38,7 @@ class TestTheLadderPicksTheModel:
     """A strategy dropdown asks the user to certify what only the data knows."""
 
     def test_a_short_span_reports_an_offset_and_no_rate(self, qtbot) -> None:
-        """1 ppm across ten seconds is ten microseconds. Nothing can measure it."""
+        """3.6 ms/h across ten seconds is ten microseconds. Nothing can measure it."""
         from avialsync.core.sync import AlignmentMethod
 
         reference = np.arange(0.0, 10.0, 1.0)
@@ -53,7 +53,7 @@ class TestTheLadderPicksTheModel:
         worker.run()
 
         assert seen[0].fit.method is AlignmentMethod.SHIFT
-        assert seen[0].fit.drift_ppm == 0.0
+        assert seen[0].fit.drift_ms_per_hour == 0.0
         assert seen[0].fit.offset == pytest.approx(1.25, abs=1e-6)
 
     def test_a_long_span_with_a_real_rate_keeps_it(self, qtbot) -> None:
@@ -72,7 +72,8 @@ class TestTheLadderPicksTheModel:
         worker.run()
 
         assert seen[0].fit.method is AlignmentMethod.AFFINE
-        assert seen[0].fit.drift_ppm == pytest.approx(60.0, abs=1.0)
+        # 60e-6 seconds per second is 216 ms per hour.
+        assert seen[0].fit.drift_ms_per_hour == pytest.approx(216.0, abs=3.6)
 
     def test_a_shared_sync_train_is_interpolated_between(self, qtbot) -> None:
         """Unpredictable drift: no single rate has to hold for the recording."""

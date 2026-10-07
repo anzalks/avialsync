@@ -30,6 +30,7 @@ from avialsync.ui.shortcut_overrides import (
     default_for,
     store_override,
 )
+from avialsync.ui.tables import ThemedTable
 
 # Preferred display order for categories
 _CATEGORY_ORDER = ["Playback", "Marking", "Edit", "Align", "View", "File", "Other"]
@@ -58,7 +59,7 @@ class ShortcutsDialog(QDialog):
 
         layout = QVBoxLayout(self)
         layout.addWidget(
-            QLabel("Double-click a key to change it. Reset restores the built-in binding.")
+            QLabel(tr("Double-click a key to change it. Reset restores the built-in binding."))
         )
 
         rows: list[tuple[str, str, str, QAction]] = []
@@ -84,7 +85,7 @@ class ShortcutsDialog(QDialog):
                 label = act.text().replace("&", "").rstrip(". ").strip()
                 rows.append((cat, key_text, label, act))
 
-        table = QTableWidget(len(rows), 3)
+        table = ThemedTable(len(rows), 3)
         table.setHorizontalHeaderLabels(["Category", "Key", "Action"])
         header = table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
@@ -115,7 +116,7 @@ class ShortcutsDialog(QDialog):
 
         layout.addWidget(table)
         if not rows:
-            layout.addWidget(QLabel("No commands registered."))
+            layout.addWidget(QLabel(tr("No commands registered.")))
 
         self._table = table
         table.itemChanged.connect(self._on_key_edited)
@@ -157,7 +158,11 @@ class ShortcutsDialog(QDialog):
         # it renders back as nothing, so a round trip through `toString` is the
         # check -- verified against 'not a key', 'zzzz' and 'Ctrl+'.
         if typed and not sequence.toString():
-            self._notice.setText(f"{typed!r} is not a key sequence. The shortcut is unchanged.")
+            self._notice.setText(
+                tr("{typed} is not a key sequence. The shortcut is unchanged.").format(
+                    typed=repr(typed)
+                )
+            )
             self._show_live_key(item, act)
             return
 
@@ -171,7 +176,9 @@ class ShortcutsDialog(QDialog):
             # can legitimately share a key, and rebinding a set passes through
             # conflicting states on the way to a consistent one.
             self._notice.setText(
-                f"{typed} is also bound to '{clash.text()}'. Both will respond to it."
+                tr("{typed} is also bound to '{action}'. Both will respond to it.").format(
+                    typed=typed, action=clash.text()
+                )
             )
         else:
             self._notice.setText("")

@@ -27,7 +27,7 @@ def _provenance(master: list[float], source: list[float]) -> SyncProvenance:
         reference_id="ttl",
         target_id="cam",
         offset=0.0,
-        drift_ppm=0.0,
+        drift_ms_per_hour=0.0,
         rms_residual=0.0,
         max_residual=0.0,
         matched_count=len(master),
@@ -65,7 +65,7 @@ class TestIrregularSampling:
 
     def test_a_single_sample_channel_reports_no_gaps(self, tmp_path: Path) -> None:
         """One sample has no interval at all, so nothing can be a gap."""
-        cache = tmp_path / "single.avialcache"
+        cache = tmp_path / "single_cache"
         cache.mkdir(parents=True, exist_ok=True)
         PyramidBuilder(cache, "one").build_and_save(np.array([0.5]), np.array([2.0]))
 
@@ -75,7 +75,7 @@ class TestIrregularSampling:
 
     def test_a_gap_reads_as_no_value_rather_than_the_neighbouring_one(self, tmp_path: Path) -> None:
         """Bridging a gap would draw data the instrument never recorded."""
-        cache = tmp_path / "gappy.avialcache"
+        cache = tmp_path / "gappy_cache"
         cache.mkdir(parents=True, exist_ok=True)
         before = np.linspace(0.0, 1.0, 101)
         after = np.linspace(30.0, 31.0, 101)
@@ -117,9 +117,9 @@ class TestExactTimeMapRate:
     """Playback rate through a VFR interval comes from the exact mapping."""
 
     def test_rate_without_an_exact_mapping_is_the_drift_scale(self) -> None:
-        mapping = TimeMap(offset=0.0, drift_ppm=1000.0)
+        mapping = TimeMap(offset=0.0, drift_ms_per_hour=3600.0)
 
-        assert mapping.rate_scale_at(5.0) == pytest.approx(1.0 + 1000.0 * 1e-6)
+        assert mapping.rate_scale_at(5.0) == pytest.approx(1.0 + 3600.0 / 3_600_000.0)
 
     def test_rate_inside_an_exact_mapping_follows_the_samples(self) -> None:
         """A doubled source interval is a half-rate stretch of master time."""
@@ -229,7 +229,7 @@ class TestSyncInternals:
 
         mapping = ExactSyncFit(
             offset=1.0,
-            drift_ppm=0.0,
+            drift_ms_per_hour=0.0,
             rms_residual=0.0,
             max_residual=0.0,
             matched_count=3,
@@ -295,7 +295,7 @@ class TestPyramidLevels:
 
     def test_a_two_sample_channel_reads_both_ends(self, tmp_path: Path) -> None:
         """Too few samples to downsample, so level 1 is served directly."""
-        cache = tmp_path / "pair.avialcache"
+        cache = tmp_path / "pair_cache"
         cache.mkdir(parents=True, exist_ok=True)
         PyramidBuilder(cache, "two").build_and_save(np.array([0.0, 1.0]), np.array([3.0, 7.0]))
 
@@ -305,7 +305,7 @@ class TestPyramidLevels:
         assert reader.value_at(1.0) == pytest.approx(7.0)
 
     def test_a_query_wider_than_the_data_returns_what_exists(self, tmp_path: Path) -> None:
-        cache = tmp_path / "narrow.avialcache"
+        cache = tmp_path / "narrow_cache"
         cache.mkdir(parents=True, exist_ok=True)
         times = np.linspace(0.0, 1.0, 50)
         PyramidBuilder(cache, "ch").build_and_save(times, np.sin(times))
@@ -351,7 +351,7 @@ class TestPyramidLevelHelpers:
 
     def test_a_nearer_right_neighbour_is_the_reading(self, tmp_path: Path) -> None:
         """`value_at` takes the closer of the two surrounding samples."""
-        cache = tmp_path / "sided.avialcache"
+        cache = tmp_path / "sided_cache"
         cache.mkdir(parents=True, exist_ok=True)
         PyramidBuilder(cache, "ch").build_and_save(
             np.array([0.0, 0.01, 0.02, 0.03]), np.array([10.0, 20.0, 30.0, 40.0])

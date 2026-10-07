@@ -20,10 +20,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.core.drift import describe_drift
 from avialsync.core.sync import AlignmentMethod, SyncFit, SyncProposal
 from avialsync.engine.sync_worker import EvidenceSpec, SignalEvidenceSpec, SyncWorker
+from avialsync.ui.about import docs_url
 from avialsync.ui.coverage_lanes import SourceCoverage
+from avialsync.ui.drift_spin import DriftSpinBox
 from avialsync.ui.i18n import tr
+from avialsync.ui.step_panel import StepPanel
 from avialsync.ui.sync_evidence_view import SyncEvidenceView
 
 
@@ -57,8 +61,10 @@ class SyncWizard(QDialog):
         layout = QVBoxLayout(self)
         layout.addWidget(
             QLabel(
-                "Choose reference and video event evidence. The proposed mapping is not applied "
-                "until you explicitly accept it."
+                tr(
+                    "Choose reference and video event evidence. The proposed mapping is "
+                    "not applied until you explicitly accept it."
+                )
             )
         )
         self._evidence = SyncEvidenceView(self)
@@ -71,16 +77,16 @@ class SyncWizard(QDialog):
             self._reference_combo.addItem(spec.source_id)
         for spec in self._targets:
             self._target_combo.addItem(spec.source_id)
-        form.addRow("Reference evidence:", self._reference_combo)
-        form.addRow("Target video evidence:", self._target_combo)
+        form.addRow(tr("Reference evidence:"), self._reference_combo)
+        form.addRow(tr("Target video evidence:"), self._target_combo)
         self._threshold = QDoubleSpinBox(self)
         self._threshold.setRange(-1e12, 1e12)
-        self._threshold.setDecimals(6)
+        self._threshold.setDecimals(3)
         self._threshold.setValue(0.5)
         self._threshold.setToolTip(tr("Logical high threshold for a signal-channel TTL reference"))
-        form.addRow("TTL high threshold:", self._threshold)
+        form.addRow(tr("TTL high threshold:"), self._threshold)
 
-        self._use_all_times_chk = QCheckBox("Use all samples as events (ignore threshold)")
+        self._use_all_times_chk = QCheckBox(tr("Use all samples as events (ignore threshold)"))
         self._use_all_times_chk.setToolTip(
             tr(
                 "Check this if your reference data is a list of event timestamps "
@@ -91,6 +97,8 @@ class SyncWizard(QDialog):
             lambda checked: self._threshold.setEnabled(not checked)
         )
         form.addRow("", self._use_all_times_chk)
+        # Fitting choices most alignments never touch: behind More… (D-176).
+        advanced = QFormLayout()
 
         self._strategy_combo = QComboBox(self)
         # Automatic first, and the default. A strategy dropdown asks the user to
@@ -108,7 +116,7 @@ class SyncWizard(QDialog):
                 "and an offset alone where it is not."
             )
         )
-        form.addRow(tr("Alignment strategy:"), self._strategy_combo)
+        advanced.addRow(tr("Alignment strategy:"), self._strategy_combo)
 
         self._index_offset = QSpinBox(self)
         self._index_offset.setRange(-1000000, 1000000)
@@ -120,7 +128,7 @@ class SyncWizard(QDialog):
                 self._strategy_combo.currentData() == "exact_index"
             )
         )
-        form.addRow("Index Offset:", self._index_offset)
+        advanced.addRow(tr("Index Offset:"), self._index_offset)
 
         # The number that decided which events counted, shown rather than
         # implied. Left at zero it is derived from the pulse rate -- a quarter
@@ -140,7 +148,10 @@ class SyncWizard(QDialog):
                 "it is a quarter of the smaller median interval between events."
             )
         )
-        form.addRow(tr("Match tolerance:"), self._tolerance)
+        self._tolerance.valueChanged.connect(self._on_tolerance_changed)
+        advanced.addRow(tr("Match tolerance:"), self._tolerance)
+        self._effective_tolerance = QLabel(tr("Calculated when you preview the evidence."), self)
+        advanced.addRow(tr("Effective match tolerance:"), self._effective_tolerance)
 
         self._restrict = QCheckBox(tr("Fit only part of the recording"))
         self._restrict.setToolTip(
@@ -151,29 +162,34 @@ class SyncWizard(QDialog):
             )
         )
         self._restrict.toggled.connect(self._on_restrict_toggled)
-        form.addRow("", self._restrict)
+        advanced.addRow("", self._restrict)
 
         self._manual_offset = QDoubleSpinBox(self)
         self._manual_offset.setRange(-1e9, 1e9)
         self._manual_offset.setDecimals(6)
         self._manual_offset.setSuffix(" s")
-        self._manual_drift = QDoubleSpinBox(self)
-        self._manual_drift.setRange(-1e6, 1e6)
-        self._manual_drift.setDecimals(3)
-        self._manual_drift.setSuffix(" ppm")
-        form.addRow("Manual offset:", self._manual_offset)
-        form.addRow("Manual drift:", self._manual_drift)
-        layout.addLayout(form)
-
-        self._summary = QLabel("Choose evidence and preview the proposed fit.", self)
-        self._summary.setWordWrap(True)
-        layout.addWidget(self._summary)
-        self._preview_button = QPushButton("Preview alignment", self)
+        # Milliseconds gained per hour, the unit the mapping uses (D-184).
+        self._manual_drift = DriftSpinBox(self)
+        advanced.addRow(tr("Manual offset:"), self._manual_offset)
+        advanced.addRow(tr("Manual drift:"), self._manual_drift)
+        # One step panel: the summary is the instruction, Preview the primary,
+        # manual mapping beside it, the advanced choices behind More… (D-176).
+        steps = StepPanel(tr("Align recordings"), self)
+        self._summary = QLabel(tr("Choose evidence and preview the proposed fit."), self)
+        steps.use_instruction_label(self._summary)
+        steps.add_controls(form)
+        self._preview_button = QPushButton(tr("Preview alignment"), self)
         self._preview_button.clicked.connect(self._preview)
-        layout.addWidget(self._preview_button)
-        self._manual_button = QPushButton("Use manual mapping", self)
+        steps.set_primary(self._preview_button)
+        self._manual_button = QPushButton(tr("Use manual mapping"), self)
         self._manual_button.clicked.connect(self._use_manual_mapping)
-        layout.addWidget(self._manual_button)
+        steps.add_secondary([self._manual_button])
+        advanced_box = QWidget(self)
+        advanced_box.setLayout(advanced)
+        steps.add_more(advanced_box)
+        steps.set_learn_more(docs_url("tutorials/synchronization.html"))
+        self.steps = steps
+        layout.addWidget(steps)
 
         self._buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok,
@@ -214,6 +230,7 @@ class SyncWizard(QDialog):
         self._preview_button.setEnabled(False)
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
         self._summary.setText(tr("Extracting event evidence and fitting alignment…"))
+        self._effective_tolerance.setText(tr("Calculating from the selected evidence…"))
 
         self._thread = QThread(self)
         mode = self._strategy_combo.currentData()
@@ -287,7 +304,7 @@ class SyncWizard(QDialog):
             target_id=self._target_combo.currentText(),
             fit=SyncFit(
                 offset=self._manual_offset.value(),
-                drift_ppm=self._manual_drift.value(),
+                drift_ms_per_hour=self._manual_drift.value(),
                 rms_residual=0.0,
                 max_residual=0.0,
                 matched_count=0,
@@ -301,11 +318,15 @@ class SyncWizard(QDialog):
         self._evidence.show_proposal(None)
         self._summary.setText(
             tr(
-                "Manual mapping: offset {offset:+.6f} s, drift {drift:+.3f} ppm. This is "
+                "Manual mapping: offset {offset:+.6f} s, drift {drift}. This is "
                 "recorded as set by hand, with no evidence behind it, and will be reported "
                 "that way wherever the alignment is shown."
-            ).format(offset=self._manual_offset.value(), drift=self._manual_drift.value())
+            ).format(
+                offset=self._manual_offset.value(),
+                drift=describe_drift(self._manual_drift.value()),
+            )
         )
+        self._effective_tolerance.setText(tr("Not used for a manual mapping."))
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
 
     @Slot(object)
@@ -322,6 +343,15 @@ class SyncWizard(QDialog):
         # quarter-second band is a different claim from one judged by a
         # millisecond, and the number was previously nowhere on the dialog.
         self._show_tolerance(proposal.tolerance)
+        provenance = (
+            tr("derived from pulse spacing") if self._tolerance.value() == 0 else tr("set by you")
+        )
+        self._effective_tolerance.setText(
+            tr("{value:.6g} s ({provenance})").format(
+                value=proposal.tolerance,
+                provenance=provenance,
+            )
+        )
         summary = fit.describe()
         refusal = proposal.refusal
         if refusal:
@@ -347,6 +377,16 @@ class SyncWizard(QDialog):
         finally:
             self._tolerance.blockSignals(blocked)
 
+    def _on_tolerance_changed(self, _value: float) -> None:
+        """Discard a proposal judged with a different tolerance."""
+        if self._proposal is None:
+            return
+        self._proposal = None
+        self._evidence.show_proposal(None)
+        self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
+        self._summary.setText(tr("Match tolerance changed. Preview again before accepting."))
+        self._effective_tolerance.setText(tr("Preview is out of date; preview again."))
+
     @Slot(str)
     def _on_error(self, message: str) -> None:
         """Say why no mapping was proposed, in the summary that is already there.
@@ -357,6 +397,7 @@ class SyncWizard(QDialog):
         user's next move is to pick different evidence, which is behind it.
         """
         self._summary.setText(tr("No mapping proposed: {reason}").format(reason=message))
+        self._effective_tolerance.setText(tr("Unavailable because preview did not produce a fit."))
 
     @Slot()
     def _on_thread_finished(self) -> None:

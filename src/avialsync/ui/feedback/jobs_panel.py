@@ -19,13 +19,15 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QGroupBox,
     QHeaderView,
-    QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
+from avialsync.ui.design_tokens import spacing
+from avialsync.ui.empty_note import EmptyNote
 from avialsync.ui.i18n import tr
+from avialsync.ui.tables import ThemedTable
 
 #: Finished jobs kept for reference.
 _MAX_HISTORY = 20
@@ -49,9 +51,9 @@ class JobsPanel(QGroupBox):
         self._history: list[FinishedJob] = []
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
 
-        self._table = QTableWidget(0, 3)
+        self._table = ThemedTable(0, 3)
         self._table.setHorizontalHeaderLabels(["Task", "State", "Time"])
         header = self._table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
@@ -62,6 +64,15 @@ class JobsPanel(QGroupBox):
         self._table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         self._table.setAccessibleName(tr("Background tasks, running and recently finished"))
         layout.addWidget(self._table)
+        self.empty_note = EmptyNote(
+            tr(
+                "Nothing is running. Imports, exports, cache builds and session saves "
+                "appear here while they work, then stay listed for a while."
+            ),
+            self,
+        )
+        layout.addWidget(self.empty_note)
+        self._table.hide()
 
     # ── updating ─────────────────────────────────────────────────────
 
@@ -79,6 +90,8 @@ class JobsPanel(QGroupBox):
         rows += [(job.label, job.outcome, job.duration_s, True) for job in self._history]
 
         self._table.setRowCount(len(rows))
+        self._table.setVisible(bool(rows))
+        self.empty_note.setVisible(not rows)
         for index, (label, state, seconds, done) in enumerate(rows):
             name = QTableWidgetItem(label)
             if done:

@@ -38,12 +38,26 @@ pane draws. Nothing in AvialSync knows this lab's format.*
 
 - Several camera recordings playing together on one clock.
 - Sensor, electrode, and tracking traces beside the video, up to 50 kHz across many channels.
+- Two-photon HDF5, OME-TIFF and ScanImage stacks on the same clock, with channel overlays,
+  brightness/contrast, and a centred moving average, read one image plane at a time.
 - Alignment by offset, drift, or TTL/event evidence, with the original files left unchanged.
 - Notes the acquisition system itself recorded — read out of the file, placed on the same clock,
   and kept read-only so they never mix with your own marks.
 - Event marks, A/B time ranges, and exports of snapshots or selected spans for analysis elsewhere.
+- Event-aligned grid MP4 export, with cameras above one shared TTL or stimulus trace and a selectable
+  playback speed for high-speed footage; see the
+  [illustrated export demo](https://avialsync.readthedocs.io/en/latest/tutorials/annotating-and-exporting.html#export-an-event-aligned-video-grid-with-its-ttl-trace).
 - Correction of a wrong pose estimate by hand, saved beside the pose file and exportable either as
-  corrected data or as a DeepLabCut retraining set.
+  corrected data or as a DeepLabCut or single-view Lightning Pose retraining set.
+- Repair of a tracker that swapped two animals or left/right body parts, by accepting the crossings
+  it proposes; the original pose file is never modified.
+- Physical apparatus — wheels, ladders, treadmill belts and balls in one Props inspector. Ladders
+  are clicked rung by rung or extrapolated from two rungs, with rails or a centre beam; belts are
+  placed from four clicks in calibrated cameras or a single side view and sized by your
+  measurements; motion comes from encoder, displacement or orientation channels, or from camera
+  clicks. Clicks stay saved when a dimension is corrected; a mismatch is explained in Props.
+- Imported data cached in one per-user folder, never beside your recordings, and cleared from
+  **File → Cache**.
 - Undo on every edit you make, a recovery snapshot written on quit, and no modal dialog standing
   between you and a file: a damaged recording opens as far as it can and reports the rest.
 
@@ -83,7 +97,8 @@ That generates and opens a complete sample session — four cameras, sensor and 
 tracking — so you can confirm the install and try everything before touching your own data. With
 your own recordings:
 
-1. Drag video and data files onto the window, or use **Open Videos** and **Open Sensor/Ephys Data**.
+1. Drag video and data files onto the window, or use **Open Videos**, **Open Sensor/Ephys Data**,
+   and **Open Imaging**.
 2. Video appears at the top, traces below it.
 3. Drag the shared time bar to inspect one moment across every recording.
 4. If recordings do not line up, use the synchronization tools to align a visible event or TTL pulse.

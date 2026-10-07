@@ -17,12 +17,13 @@ call loses that effect (HANDOUT.md trap 31).
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QMimeData, QPointF, Qt, QUrl
+from PySide6.QtCore import QMimeData, QPointF, Qt, QTimer, QUrl
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QDialog
 from shiboken6 import isValid
 
 from avialsync.loaders.csv_loader import CSVLoader
+from avialsync.ui.batch_import_dialog import BatchImportDialog
 from avialsync.ui.controllers import changes_export_controller
 from avialsync.ui.main_window import MainWindow
 
@@ -80,6 +81,12 @@ def test_drop_routes_single_csv(
         "_start_data_import",
         lambda path, loader, pre_config=None: data_calls.append((path, loader)),
     )
+
+    def accept_review(dialog: BatchImportDialog) -> int:
+        QTimer.singleShot(0, dialog, dialog.accept)
+        return QDialog.exec(dialog)
+
+    monkeypatch.setattr(BatchImportDialog, "exec", accept_review)
 
     # Deliberately do NOT stub _start_drop_scan: this test exercises the real
     # DropScanWorker/QThread lifecycle, which is exactly what was broken.

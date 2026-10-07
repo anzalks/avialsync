@@ -13,7 +13,7 @@ something they can open in pandas or a spreadsheet without a parser. The
 provenance header is `#`-commented, which both `polars.read_csv(comment_prefix=)`
 and `pandas.read_csv(comment=)` skip.
 
-**Beside the file, not inside `.avialcache/`.** That directory is derived state,
+**Beside the file, not in the cache.** The cache folder is derived state,
 rebuilt from a content hash and safe to delete; corrections are irreplaceable
 human work. Putting them there would mean a cache clear ate an afternoon of it.
 
@@ -29,9 +29,12 @@ from __future__ import annotations
 import csv
 import datetime as _datetime
 import logging
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from avialsync.core import sidecar_names
+from avialsync.core.artifact_io import publish, read_text
+from avialsync.core.artifact_provenance import record as provenance_record
 
 logger = logging.getLogger(__name__)
 
@@ -45,15 +48,16 @@ __all__ = [
     "write",
 ]
 
-#: Appended to the source's **full** file name, matching the `<file>.avialcache/`
-#: convention: `eks.csv` -> `eks.csv.avialfix.csv`. Appending to the whole name
-#: rather than the stem is what keeps `a.csv` and `a.h5` from colliding.
-SIDECAR_SUFFIX = ".avialfix.csv"
+#: Appended to the source's full file name, dots made underscores
+#: (:mod:`avialsync.core.sidecar_names`): `eks.csv` -> `eks_csv_avialfix.csv`.
+SIDECAR_SUFFIX = "_avialfix.csv"
 
-_COLUMNS = ("frame", "bodypart", "x", "y")
+_COLUMNS = ("frame", "bodypart", "x", "y", "shown_as")
 _HEADER_COMMENT = (
     "AvialSync tracking corrections",
     "Hand corrections to predicted body-part positions, made with Fix Tracker.",
+    "bodypart is the column in the pose file; shown_as is what it was called",
+    "on screen when the correction was made, if an identity swap was in force.",
     "The pose file named below is never modified: delete this file and the",
     "original predictions are exactly what they were.",
 )
@@ -61,12 +65,20 @@ _HEADER_COMMENT = (
 
 @dataclass(frozen=True, slots=True)
 class Correction:
-    """One corrected coordinate, as it is written to disk."""
+    """One corrected coordinate, as it is written to disk.
+
+    ``bodypart`` is the column in the pose file the value belongs to;
+    ``shown_as`` is what that point was called on screen when the correction was
+    made, which differs once an identity flip has been accepted (D-143). A
+    sidecar written before flips existed carries no ``shown_as`` column, and the
+    two names were necessarily the same then, so it reads back as ``bodypart``.
+    """
 
     frame: int
     bodypart: str
     x: float
     y: float
+    shown_as: str = ""
 
 
 @dataclass(frozen=True)
@@ -86,8 +98,7 @@ class Corrections:
 
 def sidecar_path(source: Path | str) -> Path:
     """Return the corrections file that belongs beside *source*."""
-    path = Path(source)
-    return path.with_name(path.name + SIDECAR_SUFFIX)
+    return sidecar_names.beside(source, SIDECAR_SUFFIX)
 
 
 def is_correction_path(path: Path | str) -> bool:
@@ -107,7 +118,7 @@ def read(source: Path | str) -> Corrections | None:
     """
     path = sidecar_path(source)
     try:
-        text = path.read_text(encoding="utf-8")
+        text = read_text(path)
     except FileNotFoundError:
         return None
     except OSError:
@@ -132,12 +143,14 @@ def read(source: Path | str) -> Corrections | None:
     skipped = 0
     for record in csv.DictReader(rows):
         try:
+            bodypart = str(record["bodypart"])
             entries.append(
                 Correction(
                     frame=int(record["frame"]),
-                    bodypart=str(record["bodypart"]),
+                    bodypart=bodypart,
                     x=float(record["x"]),
                     y=float(record["y"]),
+                    shown_as=str(record.get("shown_as") or bodypart),
                 )
             )
         except (KeyError, TypeError, ValueError):
@@ -165,16 +178,22 @@ def write(source: Path | str, entries: list[Correction]) -> Path:
         lines.append(f"# source_bytes: {source_bytes}")
     written = _datetime.datetime.now(_datetime.UTC).isoformat(timespec="seconds")
     lines.append(f"# written: {written}")
+    metadata = provenance_record("pointfix", (path,), edit_counts={"corrections": len(entries)})
+    lines.append(f"# format: {metadata['format']}")
+    lines.append(f"# software: {metadata['software']}")
     if not entries:
         lines.append("# no corrections recorded")
     lines.append(",".join(_COLUMNS))
     for entry in sorted(entries, key=lambda item: (item.frame, item.bodypart)):
-        lines.append(f"{entry.frame},{entry.bodypart},{entry.x!r},{entry.y!r}")
+        shown = entry.shown_as or entry.bodypart
+        lines.append(f"{entry.frame},{entry.bodypart},{entry.x!r},{entry.y!r},{shown}")
 
     # Same atomic shape as the session writer: a temporary file in the target's
     # own directory, then one rename. A half-written corrections file is the one
     # outcome that would lose work rather than merely fail.
-    temporary = target.with_name(f".{target.name}.tmp")
-    temporary.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    os.replace(temporary, target)
-    return target
+    return publish(
+        target,
+        lambda temporary: temporary.write_text("\n".join(lines) + "\n", encoding="utf-8"),
+        kind="pointfix",
+        sources=(path,),
+    )

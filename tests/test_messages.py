@@ -94,7 +94,7 @@ def test_inspection_without_messages_key_loads() -> None:
 def test_store_maps_source_time_to_master(qtbot) -> None:
     """A message rides the source's TimeMap, like the samples it describes."""
     store = MessageStore()
-    store.set_source_mapping("/data/a.dat", offset=2.0, drift_ppm=0.0)
+    store.set_source_mapping("/data/a.dat", offset=2.0, drift_ms_per_hour=0.0)
     store.set_source_messages("/data/a.dat", (Message(text="go", time=10.0),))
 
     (mapped,) = store.messages()
@@ -107,7 +107,7 @@ def test_offset_correction_moves_messages_with_the_samples(qtbot) -> None:
     store.set_source_messages("/data/a.dat", (Message(text="go", time=10.0),))
     assert store.messages()[0].time == pytest.approx(10.0)
 
-    store.set_source_mapping("/data/a.dat", offset=4.0, drift_ppm=0.0)
+    store.set_source_mapping("/data/a.dat", offset=4.0, drift_ms_per_hour=0.0)
     assert store.messages()[0].time == pytest.approx(6.0)
 
 

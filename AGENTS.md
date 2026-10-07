@@ -15,10 +15,9 @@ formats, TTL/event semantics, and optional analysis through plugins. Open-source
 `DECISIONS.md` for settled choices. Do not re-litigate settled decisions; propose changes as a
 DECISIONS.md entry in the PR description instead of silently diverging.
 
-**If you are working on Phase 7 (UX foundations, branch `ux_foundations`), `UX_FOUNDATIONS_PLAN.md`
-is your executable plan** — twelve work packages with file lists, numbered steps, acceptance
-evidence, and a dependency graph. Read this file first, then that plan's §0–§4, then your one work
-package. Rules 10–17 below are new in that phase and binding everywhere.
+**No phase is open.** Phase 9 (interface design, branch `feat/interface-design`) is delivered;
+its plan is archived with the others. BLUEPRINT.md lists what is open. Completed plans live in
+`archive/plans/` as record only; do not work from them. Rules 10–17 below came from Phase 7 and are binding everywhere.
 
 ## Naming & casing — BINDING (never invent variants)
 
@@ -29,7 +28,8 @@ package. Rules 10–17 below are new in that phase and binding everywhere.
 | Python identifiers derived from it | `avialsync` (e.g. `from avialsync.core import ...`) |
 | Env vars / constants | `AVIALSYNC_*` |
 | Session file extension | `.avv` |
-| Sidecar cache dir | `<file>.avialcache/` |
+| Cache | one per-user folder (`core/cache.cache_root()`), never beside a recording (D-160) |
+| Sidecar beside data | source's full name, dots → `_`, plus a tag: `pose.csv` → `pose_csv_avialfix.csv` (D-160) |
 | Installer artifacts | `AvialSync-Setup.exe`, `AvialSync.dmg`, `AvialSync.AppImage` |
 | Plugin packages (3rd party convention) | `avialsync-plugin-<name>` on PyPI |
 | Plugin `display_name()` / `display_aliases()` | the **kind of data**, never the rig — `Video`, `IMU / Motion Data`, `TTL Events`. A camera is a camera whichever system recorded it |
@@ -42,7 +42,8 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
 
 - Python 3.11–3.12 · PySide6 (never PyQt5/PyQt6 — license) · PyAV (`av` on PyPI, import `av`) for
   ALL video decoding and probing (never QtMultimedia, never OpenCV, never libmpv — D-075)
-  · pyqtgraph for plots · numpy + polars for data · hatchling build
+  · pyqtgraph for plots · numpy + polars for data · h5py + tifffile for 2P image stacks
+  · hatchling build
   · pytest / pytest-qt / pytest-benchmark / hypothesis.
 - **`pip install avialsync` must need no OS-level install step on any platform.** A change that
   reintroduces one is rejected. The single documented exception is Qt's own floor: PySide6 needs
@@ -68,7 +69,8 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
 4. Plotting only via the decimation pyramid (`core/pyramid.py`). Never pass raw full-resolution
    arrays to pyqtgraph for datasets > 100 k samples.
 5. All data sources go through the plugin ABCs in `core/source.py` (`TimeSeriesSource`,
-   `VideoSource`). Built-in CSV/video support are plugins too. Do not special-case formats in UI code.
+   `VideoSource`, `ImagingSource`). Built-in CSV/video/HDF5/TIFF support are plugins too.
+   Do not special-case formats in UI code.
 6. Playback: sync correctness beats frame completeness (drop frames, never drift). Paused/stepping:
    exact seeks only. **The frame shown for master time `t` is the one whose presentation interval
    contains `t` — the last frame with `pts <= t`, per `core/video_timing.py::frame_index_at`.** A
@@ -76,7 +78,9 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
    frames (measured 179/179; 33 ms of misattribution at 30 fps). Frame caches are keyed by integer
    frame index, never by float time. One authority selects *and* names the frame — never two
    (D-075).
-7. Text data is parsed once → binary sidecar cache (`core/cache.py`), mmap-read afterwards.
+7. Text data is parsed once → binary cache (`core/cache.py`) in the per-user cache folder,
+   mmap-read afterwards. Nothing derived is written beside a recording, and nothing the user made
+   (corrections, swaps, markers, props, accepted sync mappings) goes in the cache (D-160).
 8. Synchronization is evidence-based. TTL/event alignment preserves raw source timestamps and records
    matched evidence, fitted offset/drift, residuals, and confidence. Never silently invent a match or
    apply a proposed TimeMap without explicit user acceptance.
@@ -97,8 +101,8 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
     actions (D-091). **Start background work with `MainWindow._run_job` and nothing else** — that
     registration is what gives a job its name in the Tasks panel, its stall watchdog, and its
     orderly abandonment at shutdown. A raw `QThread` in `src/` fails
-    `tests/test_feedback_surface.py`; the three permitted exceptions are listed there with their
-    reasons, and adding a fourth means arguing for it in that list (D-107).
+    `tests/test_feedback_surface.py`; the permitted exceptions (`_UNMANAGED_THREAD_FILES`) are
+    listed there with their reasons, and adding one means arguing for it in that list (D-107).
 12. **Errors are presented, never dumped.** Typed exceptions from `core/errors.py` reach the user
     as title + plain-language cause + named recovery actions, through the single presenter in
     `ui/feedback/error_presenter.py`. Never `f"Could not do X:\n{exception}"` in a bare
@@ -352,7 +356,7 @@ conda run -n avialsync python tools/generate_session_screenshot.py <recording fo
   itself, and does not reach *any* widget carrying a stylesheet — including one that sets only a
   font weight. Colours are defined in `ui/theme.py` and applied through `ui/plot_theme.py`;
   emphasis goes through `theme.set_bold()`, never `setStyleSheet("font-weight: bold;")`. See
-  HANDOUT.md "Four ways a theme change silently fails to arrive" before adding a drawn surface.
+  HANDOUT.md "Ways a theme change silently fails to arrive" before adding a drawn surface.
 - Playback drift correction needs hysteresis: re-seek only after N consecutive off-target ticks,
   or late Qt timers cause re-seek/stutter cascades under UI load.
 - Frame stepping: always the decoded presentation timestamps; never `t += 1/fps` (breaks on VFR and

@@ -5,6 +5,8 @@ from collections.abc import Callable
 
 import numpy as np
 
+from avialsync.core.drift import MS_PER_HOUR
+
 
 @dataclasses.dataclass(frozen=True)
 class PlaybackState:
@@ -110,12 +112,12 @@ class MasterClock:
 class TimeMap:
     """Maps master timeline to a specific source timeline.
 
-    t_source = t_master + offset + drift_ppm * 1e-6 * (t_master - t_ref)
+    t_source = t_master + offset + drift_ms_per_hour / MS_PER_HOUR * (t_master - t_ref)
     """
 
-    def __init__(self, offset: float = 0.0, drift_ppm: float = 0.0) -> None:
+    def __init__(self, offset: float = 0.0, drift_ms_per_hour: float = 0.0) -> None:
         self._offset: float = float(offset)
-        self._drift_ppm: float = float(drift_ppm)
+        self._drift_ms_per_hour: float = float(drift_ms_per_hour)
         self._t_ref: float = 0.0
         self._base_offset: float = self._offset  # The effective offset at t_ref
         self._exact_master: np.ndarray | None = None
@@ -133,12 +135,12 @@ class TimeMap:
         self._exact_source = None
 
     @property
-    def drift_ppm(self) -> float:
-        return self._drift_ppm
+    def drift_ms_per_hour(self) -> float:
+        return self._drift_ms_per_hour
 
-    @drift_ppm.setter
-    def drift_ppm(self, value: float) -> None:
-        self._drift_ppm = float(value)
+    @drift_ms_per_hour.setter
+    def drift_ms_per_hour(self, value: float) -> None:
+        self._drift_ms_per_hour = float(value)
         self._exact_master = None
         self._exact_source = None
 
@@ -148,7 +150,7 @@ class TimeMap:
         if self._exact_master is not None and self._exact_source is not None:
             master_span = self._exact_master[-1] - self._exact_master[0]
             return float((self._exact_source[-1] - self._exact_source[0]) / master_span)
-        return 1.0 + self._drift_ppm * 1e-6
+        return 1.0 + self._drift_ms_per_hour / MS_PER_HOUR
 
     @property
     def has_exact_mapping(self) -> bool:
@@ -162,7 +164,7 @@ class TimeMap:
         is insufficient for drift-free playback through VFR intervals.
         """
         if self._exact_master is None or self._exact_source is None:
-            return 1.0 + self._drift_ppm * 1e-6
+            return 1.0 + self._drift_ms_per_hour / MS_PER_HOUR
         index = int(np.searchsorted(self._exact_master, float(t_master), side="right")) - 1
         index = max(0, min(index, len(self._exact_master) - 2))
         master_delta = self._exact_master[index + 1] - self._exact_master[index]
@@ -199,7 +201,11 @@ class TimeMap:
         t_master = float(t_master)
         if self._exact_master is not None and self._exact_source is not None:
             return float(np.interp(t_master, self._exact_master, self._exact_source))
-        return t_master + self._base_offset + (self._drift_ppm * 1e-6) * (t_master - self._t_ref)
+        return (
+            t_master
+            + self._base_offset
+            + (self._drift_ms_per_hour / MS_PER_HOUR) * (t_master - self._t_ref)
+        )
 
     def to_master(self, t_source: float) -> float:
         t_source = float(t_source)
@@ -209,7 +215,7 @@ class TimeMap:
         # ts = tm*(1 + drift) + offset - drift*t_ref
         # tm*(1 + drift) = ts - offset + drift*t_ref
         # tm = (ts - offset + drift*t_ref) / (1 + drift)
-        drift_coeff = self._drift_ppm * 1e-6
+        drift_coeff = self._drift_ms_per_hour / MS_PER_HOUR
         return (t_source - self._base_offset + drift_coeff * self._t_ref) / (1.0 + drift_coeff)
 
     def to_master_array(self, t_source: np.ndarray) -> np.ndarray:
@@ -222,7 +228,7 @@ class TimeMap:
         if self._exact_master is not None and self._exact_source is not None:
             interpolated: np.ndarray = np.interp(source, self._exact_source, self._exact_master)
             return interpolated
-        drift_coeff = self._drift_ppm * 1e-6
+        drift_coeff = self._drift_ms_per_hour / MS_PER_HOUR
         return (source - self._base_offset + drift_coeff * self._t_ref) / (1.0 + drift_coeff)
 
     def to_source_array(self, t_master: np.ndarray) -> np.ndarray:
@@ -231,15 +237,19 @@ class TimeMap:
         if self._exact_master is not None and self._exact_source is not None:
             interpolated: np.ndarray = np.interp(master, self._exact_master, self._exact_source)
             return interpolated
-        return master + self._base_offset + (self._drift_ppm * 1e-6) * (master - self._t_ref)
+        return (
+            master
+            + self._base_offset
+            + (self._drift_ms_per_hour / MS_PER_HOUR) * (master - self._t_ref)
+        )
 
-    def update(self, new_offset: float, new_drift_ppm: float, t_master_now: float) -> None:
+    def update(self, new_offset: float, new_drift_ms_per_hour: float, t_master_now: float) -> None:
         """
         Update mapping parameters dynamically, anchoring so that mapped time
         at t_master_now does not jump.
         """
         new_offset = float(new_offset)
-        new_drift_ppm = float(new_drift_ppm)
+        new_drift_ms_per_hour = float(new_drift_ms_per_hour)
         t_master_now = float(t_master_now)
 
         # Calculate current mapped time
@@ -247,18 +257,18 @@ class TimeMap:
 
         # We want the new mapping to equal current_t_source at t_master_now
         # current_t_source = t_master_now + new_base_offset +
-        #                    (new_drift * 1e-6) * (t_master_now - t_master_now)
+        #                    (new_drift / MS_PER_HOUR) * (t_master_now - t_master_now)
         # current_t_source = t_master_now + new_base_offset
         # => new_base_offset = current_t_source - t_master_now
 
         self._t_ref = t_master_now
         self._base_offset = current_t_source - t_master_now
         self._offset = new_offset
-        self._drift_ppm = new_drift_ppm
+        self._drift_ms_per_hour = new_drift_ms_per_hour
         self._exact_master = None
         self._exact_source = None
 
-    def set_mapping(self, offset: float, drift_ppm: float, t_ref: float = 0.0) -> None:
+    def set_mapping(self, offset: float, drift_ms_per_hour: float, t_ref: float = 0.0) -> None:
         """Replace this source mapping with an accepted, absolute calibration.
 
         Unlike :meth:`update`, this method intentionally does not preserve the
@@ -267,7 +277,7 @@ class TimeMap:
         """
         self._offset = float(offset)
         self._base_offset = float(offset)
-        self._drift_ppm = float(drift_ppm)
+        self._drift_ms_per_hour = float(drift_ms_per_hour)
         self._t_ref = float(t_ref)
         self._exact_master = None
         self._exact_source = None
@@ -297,3 +307,12 @@ class TimeMap:
         self._exact_source = source.copy()
         self._exact_master.flags.writeable = False
         self._exact_source.flags.writeable = False
+
+    def copy(self) -> "TimeMap":
+        """Return an independent snapshot of this affine or exact mapping."""
+        copied = TimeMap(self._offset, self._drift_ms_per_hour)
+        copied._t_ref = self._t_ref
+        copied._base_offset = self._base_offset
+        if self._exact_master is not None and self._exact_source is not None:
+            copied.set_exact_mapping(self._exact_master, self._exact_source)
+        return copied

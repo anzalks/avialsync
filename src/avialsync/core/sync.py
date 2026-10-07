@@ -14,6 +14,7 @@ from typing import Literal
 
 import numpy as np
 
+from avialsync.core.drift import describe_drift, drift_from_rate
 from avialsync.core.errors import SyncAmbiguityError, SyncEvidenceError
 from avialsync.core.timeline import TimeMap
 
@@ -62,12 +63,13 @@ class AlignmentMethod(StrEnum):
         )
 
 
-#: A free-running crystal is specified at ±20-100 ppm and a TCXO at ±2; 200 is
-#: already generous for anything that has not been baked or frozen. A fit that
+#: A free-running crystal gains or loses about 72-360 ms per hour and a TCXO
+#: about 7; 720 ms/h is already generous for anything that has not been baked
+#: or frozen. A fit that
 #: comes back outside this has not measured a clock difference -- it has paired
 #: the wrong events, or been handed two quantities that are not both seconds.
 #: Reported rather than clamped: the number names the diagnosis.
-MAX_PLAUSIBLE_DRIFT_PPM = 200.0
+MAX_PLAUSIBLE_DRIFT_MS_PER_HOUR = 720.0
 
 #: Below this fraction of the reference events finding a partner, a fit is not
 #: a noisy alignment, it is a different hypothesis. Uniform grids commensurate
@@ -100,7 +102,7 @@ class SyncFit:
     """Affine target-time fit with auditable quality metrics."""
 
     offset: float
-    drift_ppm: float
+    drift_ms_per_hour: float
     rms_residual: float
     max_residual: float
     matched_count: int
@@ -142,7 +144,8 @@ class SyncFit:
         it never measured.
         """
         if self.method is AlignmentMethod.MANUAL:
-            return f"set by hand: offset {self.offset:+.6f} s, drift {self.drift_ppm:+.3f} ppm"
+            drift = describe_drift(self.drift_ms_per_hour)
+            return f"set by hand: offset {self.offset:+.6f} s, drift {drift}"
         if self.method is AlignmentMethod.EXACT:
             return (
                 f"exact per-frame mapping over {self.matched_count} frames "
@@ -173,14 +176,14 @@ class SyncFit:
         """The affine wording, shared with the restricted-window sentence."""
         return (
             f"offset {self.offset:+.6f} s ± {self.offset_stderr * 1000:.3f} ms and "
-            f"{self.drift_ppm:+.3f} ppm, fitted from {self.matched_count} of "
+            f"drift {describe_drift(self.drift_ms_per_hour)}, fitted from {self.matched_count} of "
             f"{self.reference_count} events, worst residual "
             f"{self.max_residual * 1000:.3f} ms"
         )
 
     def to_time_map(self) -> TimeMap:
         """Return the equivalent master-to-target mapping."""
-        return TimeMap(offset=self.offset, drift_ppm=self.drift_ppm)
+        return TimeMap(offset=self.offset, drift_ms_per_hour=self.drift_ms_per_hour)
 
 
 @dataclass(frozen=True)
@@ -380,7 +383,7 @@ def fit_exact_index_mapping(
 
     fit = ExactSyncFit(
         offset=0.0,
-        drift_ppm=0.0,
+        drift_ms_per_hour=0.0,
         rms_residual=0.0,
         max_residual=0.0,
         matched_count=length,
@@ -481,9 +484,10 @@ def fit_sync_events(
         # the two sides are not both seconds, or the events are not the same
         # events. Saying which is more use than refusing.
         raise SyncEvidenceError(
-            f"The alignment that best fits this evidence implies a rate difference of "
-            f"{(worst - 1.0) * 1_000_000.0:,.0f} ppm, a factor of {worst:.4g}. Real "
-            f"clocks stay within about {MAX_PLAUSIBLE_DRIFT_PPM:.0f} ppm of each "
+            f"The alignment that best fits this evidence implies one clock running "
+            f"{worst:.4g} times the other's rate, a drift of "
+            f"{describe_drift(drift_from_rate(worst - 1.0))}. Real clocks stay within "
+            f"about {describe_drift(MAX_PLAUSIBLE_DRIFT_MS_PER_HOUR).lstrip('+')} of each "
             "other, so this is a unit or sample-index mismatch, or dense signal "
             "samples being used where per-event timestamps are needed -- not a "
             "clock difference."
@@ -504,7 +508,7 @@ def fit_sync_events(
             "apart; choose a manual constraint or a distinguishable landmark."
         )
 
-    drift_ppm = (best_scale - 1.0) * 1_000_000.0
+    drift_ms_per_hour = drift_from_rate(best_scale - 1.0)
     residuals = target[best_pairs[:, 1]] - (best_scale * reference[best_pairs[:, 0]] + best_offset)
     # Gathered and converted in three vectorised steps rather than indexed per
     # match: `reference[ref_idx]` inside the loop built a numpy scalar for every
@@ -522,7 +526,7 @@ def fit_sync_events(
     rms = float(np.sqrt(np.mean(np.square(residuals))))
     fit = SyncFit(
         offset=float(best_offset),
-        drift_ppm=float(drift_ppm),
+        drift_ms_per_hour=float(drift_ms_per_hour),
         rms_residual=rms,
         max_residual=float(np.max(np.abs(residuals))),
         matched_count=len(matches),
@@ -559,10 +563,10 @@ def _rate_is_implausible(scale: float, span: float, tolerance: float) -> bool:
 
     Both halves are needed. A rate is only *identifiable* when the divergence
     it implies across the evidence exceeds the tolerance that judged the
-    matching: 7,200 ppm over one second is seven milliseconds, which no amount
+    matching: 25,920 ms/h over one second is seven milliseconds, which no amount
     of arithmetic distinguishes from jitter, and refusing it would reject an
     ordinary short recording on the strength of a parameter its span cannot
-    support. Over four hundred seconds the same ppm is three seconds, and then
+    support. Over four hundred seconds the same drift is three seconds, and then
     it means something.
 
     The consequence is worth stating plainly: a drift fitted over a span too
@@ -571,7 +575,7 @@ def _rate_is_implausible(scale: float, span: float, tolerance: float) -> bool:
     make the number trustworthy, and the model ladder is what should stop it
     being reported at all.
     """
-    if abs(scale - 1.0) * 1_000_000.0 <= MAX_PLAUSIBLE_DRIFT_PPM:
+    if abs(drift_from_rate(scale - 1.0)) <= MAX_PLAUSIBLE_DRIFT_MS_PER_HOUR:
         return False
     return abs(scale - 1.0) * span > tolerance
 
@@ -595,7 +599,7 @@ def _seed_scales(estimated: float) -> tuple[float, ...]:
     """Rate seeds to start the search from, most likely first.
 
     Unity comes first and is always tried. Two recordings of the same events
-    differ by a crystal's error, so the truth is within 200 ppm of 1.0 in every
+    differ by a crystal's error, so the truth is within 720 ms/h of 1.0 in every
     case this module will accept -- while the median-interval estimate is only
     right when both trains carry the *same* pulses. Hand it a target that
     covers part of the session and the estimate lands percent-wrong, the search

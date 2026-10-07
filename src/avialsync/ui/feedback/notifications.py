@@ -24,6 +24,13 @@ Two rules make that impossible rather than unlikely:
    something the user asked for and already knows, so an incoming sticky
    message takes the strip from it immediately rather than waiting out its
    timer.  Successes queue behind stickies, never the other way round.
+3. **A success never queues behind another success (D-134).**  Dropping three
+   files posted three "Imported <name>" lines, each waiting out the one before
+   it, so a routine import held the strip for the better part of half a minute
+   and offered a Dismiss button for work that was already finished and already
+   visible in the sidebar.  Only the newest success is kept -- shown if the
+   strip is free, waiting if a failure holds it -- so a burst of successes is
+   one line, not a queue to clear.
 
 The pending count is shown beside the message, so a queue is never a silent
 one: the user can see that dismissing this reveals another.
@@ -39,6 +46,7 @@ from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSizePolicy, QWidget
 
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import follow_palette, status_color
 
@@ -65,6 +73,7 @@ class _Pending:
     details: str
     action_label: str
     on_action: Callable[[], None] | None
+    on_dismiss: Callable[[], None] | None = None
 
     @property
     def is_transient(self) -> bool:
@@ -92,8 +101,8 @@ class NotificationStrip(QWidget):
         self._queue: deque[_Pending] = deque()
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 4, 8, 4)
-        layout.setSpacing(8)
+        layout.setContentsMargins(spacing("m"), spacing("s"), spacing("m"), spacing("s"))
+        layout.setSpacing(spacing("m"))
 
         self._label = QLabel("")
         self._label.setWordWrap(True)
@@ -111,12 +120,12 @@ class NotificationStrip(QWidget):
         self.action_button.clicked.connect(self._run_action)
         self.action_button.setVisible(False)
 
-        self._details_button = QPushButton("Show details")
+        self._details_button = QPushButton(tr("Show details"))
         self._details_button.setAccessibleName(tr("Show the full error text"))
         self._details_button.clicked.connect(self._emit_details)
         self._details_button.setVisible(False)
 
-        self._dismiss = QPushButton("Dismiss")
+        self._dismiss = QPushButton(tr("Dismiss"))
         self._dismiss.setAccessibleName(tr("Dismiss this message"))
         self._dismiss.clicked.connect(self.clear)
 
@@ -134,9 +143,15 @@ class NotificationStrip(QWidget):
 
     # ── posting ──────────────────────────────────────────────────────
 
-    def show_success(self, message: str) -> None:
-        """Report something that worked. Dismisses itself."""
-        self._post(message, _TRANSIENT, details="")
+    def show_success(
+        self,
+        message: str,
+        *,
+        action_label: str = "",
+        on_action: Callable[[], None] | None = None,
+    ) -> None:
+        """Report something that worked, optionally offering one action."""
+        self._post(message, _TRANSIENT, details="", action_label=action_label, on_action=on_action)
 
     def show_warning(
         self,
@@ -145,15 +160,16 @@ class NotificationStrip(QWidget):
         *,
         action_label: str = "",
         on_action: Callable[[], None] | None = None,
+        on_dismiss: Callable[[], None] | None = None,
     ) -> None:
         """Report a partial result, or offer one. Stays until dismissed.
 
         Pass *action_label* and *on_action* together to put one named button
         beside the message -- "Restore" for unsaved work found at launch. The
-        action is an offer, never a gate: dismissing the message declines it
-        and must leave whatever it was offering exactly where it was.
+        action is an offer, never a gate. *on_dismiss* lets an offer remember
+        that this version was declined without deleting the offered work.
         """
-        self._post(message, "warning", details, action_label, on_action)
+        self._post(message, "warning", details, action_label, on_action, on_dismiss)
 
     def show_error(self, message: str, details: str = "") -> None:
         """Report a failure. Stays until dismissed.
@@ -171,22 +187,35 @@ class NotificationStrip(QWidget):
         details: str,
         action_label: str = "",
         on_action: Callable[[], None] | None = None,
+        on_dismiss: Callable[[], None] | None = None,
     ) -> None:
         """Queue a message, and show it now if the strip is free to."""
-        posted = _Pending(message, severity, details, action_label, on_action)
+        posted = _Pending(message, severity, details, action_label, on_action, on_dismiss)
         if self._already_says(posted):
             return
 
         if self._current is None:
             self._show(posted)
-        elif self._current.is_transient and not posted.is_transient:
-            # Rule 2: a self-dismissing success does not make a failure wait.
-            # The success is dropped rather than requeued -- it reports work
-            # the user asked for and has already seen succeed.
+        elif self._current.is_transient:
+            # Rules 2 and 3: a self-dismissing success makes nothing wait --
+            # not a failure, and not the next success either. It is dropped
+            # rather than requeued, because it reports work the user asked for
+            # and has already seen succeed.
             self._show(posted)
         elif len(self._queue) < _MAX_QUEUED:
+            if posted.is_transient:
+                self._forget_queued_successes()
             self._queue.append(posted)
         self._refresh_pending_count()
+
+    def _forget_queued_successes(self) -> None:
+        """Keep only the newest success waiting behind a sticky message.
+
+        A failure on the strip must not turn every import that finished while
+        it sat there into a line the user dismisses one at a time. The failure
+        itself is untouched: rule 1 still forbids displacing it.
+        """
+        self._queue = deque(pending for pending in self._queue if not pending.is_transient)
 
     def _already_says(self, posted: _Pending) -> bool:
         """Whether this message is showing or already waiting."""
@@ -225,15 +254,17 @@ class NotificationStrip(QWidget):
 
     # ── clearing ─────────────────────────────────────────────────────
 
-    def clear(self) -> None:
+    def clear(self, *, dismissed: bool = True) -> None:
         """Dismiss the current message and show the next one waiting.
 
-        Declining an offer is not the same as acting on it: this drops the
-        callback and says nothing to whoever posted it, so the thing being
-        offered stays where it is.
+        A dismissal callback runs only for Dismiss, not when the named action
+        is taken. The offer owner decides how to record the declined version.
         """
+        on_dismiss = self._current.on_dismiss if dismissed and self._current is not None else None
         self._timer.stop()
         self._current = None
+        if on_dismiss is not None:
+            on_dismiss()
         if self._queue:
             self._show(self._queue.popleft())
             return
@@ -265,7 +296,7 @@ class NotificationStrip(QWidget):
         would make the button do nothing.
         """
         callback = self._current.on_action if self._current is not None else None
-        self.clear()
+        self.clear(dismissed=False)
         if callback is not None:
             callback()
 

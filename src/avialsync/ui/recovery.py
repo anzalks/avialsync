@@ -23,6 +23,7 @@ appear in their file manager next to the recordings.
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import logging
 import os
@@ -37,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 #: Snapshot filename inside the app-data directory.
 _SNAPSHOT_NAME = "recovery.avv.json"
+_DISMISSED_NAME = "recovery.dismissed.sha256"
 
 #: A snapshot this much newer than its session file (seconds) counts as unsaved
 #: work.  Without a margin, a snapshot written microseconds before the save it
@@ -73,6 +75,36 @@ def recovery_dir() -> Path:
 def recovery_path() -> Path:
     """Return the snapshot's full path."""
     return recovery_dir() / _SNAPSHOT_NAME
+
+
+def _fingerprint(snapshot: RecoverySnapshot) -> str:
+    """Identify the work itself, regardless of a later autosave timestamp."""
+    content = json.dumps(
+        {"session_path": snapshot.session_path, "state": snapshot.state},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+def dismiss_recovery(snapshot: RecoverySnapshot) -> None:
+    """Remember that this version was declined, while preserving its snapshot."""
+    try:
+        (recovery_dir() / _DISMISSED_NAME).write_text(_fingerprint(snapshot), encoding="ascii")
+    except OSError:
+        logger.exception("Could not remember the dismissed recovery offer")
+
+
+def _was_dismissed(snapshot: RecoverySnapshot) -> bool:
+    try:
+        return (recovery_dir() / _DISMISSED_NAME).read_text(encoding="ascii") == _fingerprint(
+            snapshot
+        )
+    except FileNotFoundError:
+        return False
+    except OSError:
+        logger.exception("Could not read the dismissed recovery marker")
+        return False
 
 
 def write_recovery(state: dict[str, Any], session_path: str | None) -> bool:
@@ -133,8 +165,8 @@ def read_recovery() -> RecoverySnapshot | None:
 def clear_recovery() -> None:
     """Remove the snapshot.
 
-    Called after a successful explicit save, after the user discards or
-    restores the offer, and — importantly — on Reset Session.  A reset empties
+    Called after a successful explicit save, after a restore, and — importantly —
+    on Reset Session. A reset empties
     the workspace and sets ``_session_path`` to ``None``; leaving the snapshot
     in place would let a subsequent quit overwrite good unsaved work with an
     empty workspace, turning the safety net into the data loss it exists to
@@ -142,6 +174,7 @@ def clear_recovery() -> None:
     """
     try:
         recovery_path().unlink(missing_ok=True)
+        (recovery_dir() / _DISMISSED_NAME).unlink(missing_ok=True)
     except OSError:
         logger.exception("Could not clear the recovery snapshot")
 
@@ -157,16 +190,16 @@ def pending_recovery() -> RecoverySnapshot | None:
     if snapshot is None:
         return None
     if snapshot.describes_untitled_session:
-        return snapshot if snapshot.state else None
+        return snapshot if snapshot.state and not _was_dismissed(snapshot) else None
 
     session_file = Path(str(snapshot.session_path))
     try:
         if not session_file.exists():
-            return snapshot
+            return None if _was_dismissed(snapshot) else snapshot
         if snapshot.recovered_at > session_file.stat().st_mtime + _NEWER_THAN_SAVE_MARGIN_S:
-            return snapshot
+            return None if _was_dismissed(snapshot) else snapshot
     except OSError:
-        return snapshot
+        return None if _was_dismissed(snapshot) else snapshot
 
     clear_recovery()
     return None

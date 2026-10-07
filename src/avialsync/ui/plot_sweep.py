@@ -6,6 +6,7 @@ import math
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
+from weakref import ReferenceType, ref
 
 import pyqtgraph as pg
 from PySide6.QtCore import QRectF, Qt, QTimer, Signal
@@ -18,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 
 
@@ -99,6 +101,10 @@ class SweepWindowControl(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        # A strong child → parent reference would make a Python/Qt ownership
+        # cycle. A standalone PlotPane can then be collected after its C++
+        # children, faulting in shiboken during a later unrelated test.
+        self._focus_target: ReferenceType[QWidget] | None = ref(parent) if parent else None
         self._bounds = (0.0, 0.0)
         self._window_seconds = self._DEFAULT_WINDOW_SECONDS
         self._last_master_t = 0.0
@@ -107,8 +113,14 @@ class SweepWindowControl(QWidget):
         self._slider_drag_active = False
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 2, 8, 2)
-        layout.addWidget(QLabel("Time span", self))
+        layout.setContentsMargins(spacing("s"), 0, spacing("s"), 0)
+        layout.setSpacing(spacing("s"))
+        layout.addWidget(QLabel(tr("Time span"), self))
+
+        self.span_field = QWidget(self)
+        field_layout = QHBoxLayout(self.span_field)
+        field_layout.setContentsMargins(0, 0, 0, 0)
+        field_layout.setSpacing(0)
 
         self.limit_spin = QDoubleSpinBox(self)
         self.limit_spin.setDecimals(3)
@@ -120,7 +132,7 @@ class SweepWindowControl(QWidget):
         self.limit_spin.setValue(self._DEFAULT_WINDOW_SECONDS)
         self.limit_spin.valueChanged.connect(self._on_limit_value_changed)
         self.limit_spin.editingFinished.connect(self._release_editor_focus)
-        layout.addWidget(self.limit_spin)
+        field_layout.addWidget(self.limit_spin)
 
         self.unit_combo = QComboBox(self)
         for label, seconds in self._UNITS:
@@ -132,7 +144,8 @@ class SweepWindowControl(QWidget):
         )
         self.unit_combo.currentIndexChanged.connect(self._on_unit_changed)
         self.unit_combo.activated.connect(self._release_editor_focus)
-        layout.addWidget(self.unit_combo)
+        field_layout.addWidget(self.unit_combo)
+        layout.addWidget(self.span_field)
 
         self.slider = QSlider(Qt.Orientation.Horizontal, self)
         self.slider.setRange(1, self._SLIDER_STEPS)
@@ -145,7 +158,9 @@ class SweepWindowControl(QWidget):
         self.value_label = QLabel(self._format_window(self._window_seconds), self)
         self.value_label.setMinimumWidth(72)
         self.value_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        layout.addWidget(self.value_label)
+        # The spin box and unit selector are the displayed value. Keep this
+        # derived label as a compatibility readout for existing callers.
+        self.value_label.hide()
         self.slider.setEnabled(False)
 
         self._drag_timer = QTimer(self)
@@ -308,9 +323,13 @@ class SweepWindowControl(QWidget):
 
     def _release_editor_focus(self) -> None:
         """Return accepted editor input to the containing playback surface."""
-        target = self.parentWidget()
+        target = self._focus_target() if self._focus_target is not None else None
         if target is not None:
             target.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def set_focus_target(self, target: QWidget) -> None:
+        """Name the playback surface that regains focus after editing."""
+        self._focus_target = ref(target)
 
     def _unit_seconds(self) -> float:
         return float(self.unit_combo.currentData())

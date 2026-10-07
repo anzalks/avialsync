@@ -159,7 +159,7 @@ def test_drift_and_provisional_fps_are_named_in_the_flag_labels() -> None:
 
 
 def test_rate_scale_without_exact_evidence_uses_the_drift_parameter() -> None:
-    assert TimeMap(drift_ppm=1_000.0).rate_scale == pytest.approx(1.001)
+    assert TimeMap(drift_ms_per_hour=3_600.0).rate_scale == pytest.approx(1.001)
 
 
 def test_snap_without_exact_evidence_returns_the_time_unchanged() -> None:
@@ -190,7 +190,7 @@ def _provenance(master: list[float], source: list[float]) -> SyncProvenance:
         reference_id="sensor:ttl",
         target_id="video:cam",
         offset=0.0,
-        drift_ppm=0.0,
+        drift_ms_per_hour=0.0,
         rms_residual=0.0,
         max_residual=0.0,
         matched_count=len(master),
@@ -216,7 +216,7 @@ def test_a_sidecar_whose_arrays_disagree_with_its_count_is_rejected(tmp_path: Pa
 
     master = np.arange(600, dtype=np.float64)
     session_path = tmp_path / "s.avv"
-    sidecar_dir = tmp_path / "s.avv.avialcache"
+    sidecar_dir = tmp_path / "s_avv_sync"
     sidecar_dir.mkdir()
     mapping_path = sidecar_dir / "exact-sync-0-corrupt.npz"
     # Deliberately store fewer source samples than the declared count.
@@ -232,7 +232,7 @@ def test_a_sidecar_whose_arrays_disagree_with_its_count_is_rejected(tmp_path: Pa
                         "reference_id": "a",
                         "target_id": "b",
                         "offset": 0.0,
-                        "drift_ppm": 0.0,
+                        "drift_ms_per_hour": 0.0,
                         "rms_residual": 0.0,
                         "max_residual": 0.0,
                         "matched_count": len(master),
@@ -241,7 +241,7 @@ def test_a_sidecar_whose_arrays_disagree_with_its_count_is_rejected(tmp_path: Pa
                         "exact_master": [],
                         "exact_source": [],
                         "exact_mapping": {
-                            "file": f"s.avv.avialcache/{mapping_path.name}",
+                            "file": f"s_avv_sync/{mapping_path.name}",
                             "sha256": digest,
                             "count": len(master),
                         },

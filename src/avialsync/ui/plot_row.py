@@ -3,23 +3,25 @@
 from __future__ import annotations
 
 import html
+import weakref
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QGraphicsProxyWidget, QToolButton
 
 from avialsync.core.channel_reader import MappedChannelReader
 from avialsync.core.pyramid import PyramidReader
 from avialsync.core.timeline import TimeMap
+from avialsync.ui.design_tokens import ControlRole, apply_role
 from avialsync.ui.i18n import tr
 from avialsync.ui.plot_sweep import SweepCurveItem
-from avialsync.ui.plot_theme import gap_marker_pen
-from avialsync.ui.theme import coverage_color, playhead_color, trace_color
+from avialsync.ui.plot_theme import apply_coverage_region_palette, gap_marker_pen
+from avialsync.ui.theme import coverage_color, playhead_color, plot_colors, trace_color
 
 # Every row's left axis is pinned to one width so the gutters line up down the
 # stack (PLOT_UX_PLAN.md "aligned channel gutters"); it is not derived from
@@ -136,19 +138,16 @@ def fit_channel_y(channel: ChannelPlot) -> None:
 
 
 def _update_channel_gutter(channel: ChannelPlot) -> None:
-    """Keep name, unit, and stable scale together in the fixed row gutter.
+    """Name the axis: the channel, and its unit when it has one (D-181).
 
-    Joined with ``<br/>`` rather than ``\\n``: pyqtgraph wraps an axis label in
-    a ``<span>`` and hands it to ``setHtml``, where a newline is whitespace.
-    The three parts therefore rendered as one long rotated line that ran over
-    the tick numbers instead of stacking above them.
+    The fitted range was a third line here. The tick numbers already state the
+    limits, so it repeated them in a crowded gutter; the label says only what
+    the axis means. Joined with ``<br/>`` rather than ``\\n``: pyqtgraph wraps
+    an axis label in a ``<span>`` for ``setHtml``, where a newline is whitespace.
     """
     lines = [html.escape(channel.name)]
     if channel.unit:
-        lines.append(html.escape(channel.unit))
-    if channel.y_range is not None:
-        low, high = channel.y_range
-        lines.append(html.escape(f"{low:.3g}…{high:.3g}"))
+        lines.append(html.escape(f"({channel.unit})"))
     channel.plot_item.setLabel("left", "<br/>".join(lines))
 
 
@@ -197,6 +196,52 @@ def enforce_channel_visibility(channels: list[ChannelPlot]) -> None:
         apply_channel_visibility(channel)
 
 
+class _RevealOnFocus(QObject):
+    """Show a row tool while it has keyboard focus, whatever the pointer does."""
+
+    def __init__(self, proxy: QGraphicsProxyWidget, parent: QObject) -> None:
+        super().__init__(parent)
+        # Weak, because the proxy owns the button that owns this filter: a strong
+        # reference closed a cycle only Python's collector could free, on
+        # whichever thread it next ran (see detach_row).
+        self._proxy = weakref.ref(proxy)
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        proxy = self._proxy()
+        if proxy is not None and event.type() == QEvent.Type.FocusIn:
+            proxy.setOpacity(1.0)
+        elif proxy is not None and event.type() == QEvent.Type.FocusOut:
+            proxy.setOpacity(0.0)
+        return super().eventFilter(watched, event)
+
+
+def detach_row(graphics_layout: pg.GraphicsLayoutWidget, channel: ChannelPlot) -> None:
+    """Take a row out of the layout and have Qt delete its button, here.
+
+    The button sits in the scene through a ``QGraphicsProxyWidget``, which makes
+    it a hidden top-level window. Left to Python's cycle collector, it was
+    destroyed on whatever thread next collected -- a pyramid save worker, an
+    importer -- and a top-level window's destructor waits for the GUI thread to
+    flush window events. With the GUI thread waiting on that worker, both waited
+    forever (D-188). ``deleteLater`` runs the destructor on the GUI thread, from
+    its event loop, whatever happens to the Python wrapper afterwards.
+    """
+    graphics_layout.removeItem(channel.plot_item)
+    graphics_layout.removeItem(channel.close_proxy)
+    channel.close_proxy.deleteLater()
+
+
+def reveal_row_tools(channels: list[ChannelPlot], scene_y: float) -> None:
+    """Show the tools of the row under the pointer; fade the rest (D-177)."""
+    for channel in channels:
+        band = channel.plot_item.sceneBoundingRect()
+        over = channel.visible and band.top() <= scene_y <= band.bottom()
+        focused = channel.close_button.hasFocus()
+        opacity = 1.0 if over or focused else 0.0
+        if channel.close_proxy.opacity() != opacity:
+            channel.close_proxy.setOpacity(opacity)
+
+
 def create_channel_plot(
     graphics_layout: pg.GraphicsLayoutWidget,
     row: int,
@@ -206,6 +251,7 @@ def create_channel_plot(
     close_requested: Callable[[str], None],
     time_map: TimeMap | None = None,
     source_id: str = "",
+    row_height: int = 110,
 ) -> ChannelPlot:
     """Create one row without deciding shared X-axis ownership.
 
@@ -214,21 +260,26 @@ def create_channel_plot(
     """
     reader = MappedChannelReader(PyramidReader(cache_dir, channel_name), time_map, source_id)
     close_button = QToolButton()
-    close_button.setText(tr("×"))
+    close_button.setText(tr("Hide plot"))
     close_button.setAutoRaise(True)
     close_button.setFixedSize(18, 18)
-    close_button.setAccessibleName(f"Hide plot {channel_name}")
-    close_button.setToolTip(f"Hide {channel_name}")
+    close_button.setAccessibleName(tr("Hide plot {name}").format(name=channel_name))
+    close_button.setToolTip(tr("Hide {name}").format(name=channel_name))
+    apply_role(close_button, ControlRole.TOOL, "close")
     close_button.setFocusPolicy(Qt.FocusPolicy.TabFocus)
     close_button.clicked.connect(
         lambda _checked=False, channel_id=channel_name: close_requested(channel_id)
     )
     close_proxy = QGraphicsProxyWidget()
     close_proxy.setWidget(close_button)
+    # Shown while the pointer is over the row or the button has keyboard focus
+    # (D-177); transparent, not hidden, so Tab still reaches it.
+    close_proxy.setOpacity(0.0)
+    close_button.installEventFilter(_RevealOnFocus(close_proxy, close_button))
     graphics_layout.addItem(close_proxy, row=row, col=0)
 
     plot_item = graphics_layout.addPlot(row=row, col=1)
-    plot_item.setMinimumHeight(110)
+    plot_item.setMinimumHeight(row_height)
     # Escaped for the same reason the gutter is: this label is rendered as HTML,
     # so a channel named "I<V" or "a & b" would lose part of its name.
     plot_item.setLabel("left", html.escape(channel_name))
@@ -240,7 +291,7 @@ def create_channel_plot(
     # appending a scale factor to a label that already states its range and
     # re-rendering its HTML on a hot path.
     left_axis.enableAutoSIPrefix(False)
-    plot_item.showGrid(x=True, y=False, alpha=0.18)
+    plot_item.showGrid(x=True, y=False, alpha=plot_colors(graphics_layout.palette()).grid_alpha)
     plot_item.setMouseEnabled(x=False, y=False)
     plot_item.enableAutoRange(axis="y", enable=False)
     plot_item.enableAutoRange(axis="x", enable=False)
@@ -268,6 +319,7 @@ def create_channel_plot(
             brush=pg.mkBrush(coverage_color(palette)),
         )
         coverage_region.setZValue(-10)
+        apply_coverage_region_palette(coverage_region, palette)
         plot_item.addItem(coverage_region)
 
     return ChannelPlot(
@@ -281,6 +333,7 @@ def create_channel_plot(
         coverage_region=coverage_region,
         coverage_bounds=coverage_bounds,
         color_index=color_index,
+        row_height=row_height,
     )
 
 
@@ -298,6 +351,7 @@ def apply_channel_palette(channel: ChannelPlot, palette: QPalette) -> None:
     channel.cursor_line.setPen(pg.mkPen(playhead_color(palette), width=2))
     if channel.coverage_region is not None:
         channel.coverage_region.setBrush(pg.mkBrush(coverage_color(palette)))
+        apply_coverage_region_palette(channel.coverage_region, palette)
     gap_pen = gap_marker_pen(palette)
     for marker in channel.gap_markers:
         marker.setPen(gap_pen)

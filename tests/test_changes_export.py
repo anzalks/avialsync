@@ -12,14 +12,20 @@ than swallowed.
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 
 import pytest
+from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
 from avialsync.core.dlc_export import LabeledFrame
+from avialsync.core.errors import ExportError
+from avialsync.core.identity_groups import ANIMALS, groups_for_schema
+from avialsync.core.identity_swaps import SwapEvent
 from avialsync.core.point_edits import PointKey, PointMove
+from avialsync.core.pose_header import read_pose_header
 from avialsync.engine.changes_export_worker import (
     AnnotationJob,
     ChangesExportWorker,
@@ -27,7 +33,13 @@ from avialsync.engine.changes_export_worker import (
     RetrainingJob,
 )
 from avialsync.ui import recovery
-from avialsync.ui.annotations import MARKER_COLUMNS, AnnotationStore, VideoFrame, marker_rows
+from avialsync.ui.annotations import (
+    MARKER_COLUMNS,
+    AnnotationStore,
+    VideoFrame,
+    marker_rows,
+    write_marker_rows,
+)
 from avialsync.ui.controllers import changes_export_controller
 from avialsync.ui.export_dialog import ANNOTATIONS, CORRECTED_POSE, RETRAINING_SET
 from avialsync.ui.main_window import MainWindow
@@ -105,6 +117,14 @@ def test_the_layout_is_defined_once(tmp_path: Path, qtbot) -> None:
     assert target.read_text(encoding="utf-8").splitlines()[0] == ",".join(MARKER_COLUMNS)
 
 
+def test_annotations_cannot_replace_a_loaded_source(tmp_path: Path) -> None:
+    source = tmp_path / "tracking.csv"
+    source.write_text("original", encoding="utf-8")
+    with pytest.raises(ExportError, match="loaded source"):
+        write_marker_rows(source, [["a", "", 1.0, "", "", ""]], sources=(source,))
+    assert source.read_text(encoding="utf-8") == "original"
+
+
 def test_the_worker_cannot_see_later_edits_to_the_store(tmp_path: Path, qtbot) -> None:
     """Rows are resolved on the UI thread, so the worker holds no store at all.
 
@@ -157,23 +177,122 @@ def test_every_artifact_is_reported_in_one_answer(tmp_path: Path, qtbot) -> None
     assert "1 corrected point(s)" in results[0][1]
 
 
-def test_a_retraining_set_without_its_video_says_so(tmp_path: Path, qtbot) -> None:
-    """A labeled-data folder with no images cannot be trained on."""
+def test_a_retraining_set_without_its_video_is_not_published(tmp_path: Path, qtbot) -> None:
+    """A label file without the images it names is not a training set."""
     job = RetrainingJob(
-        target=tmp_path / "labeled-data" / "SideCam" / "CollectedData_avialsync.csv",
+        target=tmp_path / "training_export",
         video=tmp_path / "missing.mp4",
         video_stem="SideCam",
         scorer="avialsync",
         bodyparts=["nose"],
         frames=[LabeledFrame(frame=3, positions={"nose": (1.0, 2.0)})],
-        write_images=False,
+    )
+
+    results, errors = _run(ChangesExportWorker([job]), qtbot)
+
+    assert not results
+    assert errors and "unavailable" in errors[0]
+    assert not job.target.exists()
+
+
+def test_a_retraining_set_writes_the_frame_png(tmp_path: Path, qtbot) -> None:
+    video = Path(__file__).parent / "fixtures" / "videos" / "camera_1.mp4"
+    target = tmp_path / "training_export"
+    job = RetrainingJob(
+        target=target,
+        video=video,
+        video_stem="FaceCam",
+        scorer="avialsync",
+        bodyparts=["nose"],
+        frames=[LabeledFrame(frame=0, positions={"nose": (1.0, 2.0)})],
     )
 
     results, errors = _run(ChangesExportWorker([job]), qtbot)
 
     assert not errors
-    assert "images not written" in results[0][0]
-    assert job.target.exists(), "the labels are still worth writing"
+    assert "1 image(s)" in results[0][0]
+    csv_path = target / "labeled-data" / "FaceCam" / "CollectedData_avialsync.csv"
+    rows = list(csv.reader(csv_path.open(newline="", encoding="utf-8")))
+    assert rows[3][0] == "labeled-data/FaceCam/img00000.png"
+    assert not QImage(str(target / rows[3][0])).isNull()
+    details = json.loads((csv_path.parent / "CollectedData_avialsync_avialsync.json").read_text())
+    assert details["frames"] == [0]
+    assert details["bodyparts"] == ["nose"]
+    assert details["labelled_points"] == 1
+
+
+def test_lightning_pose_bundle_has_root_csv_and_matching_image(tmp_path: Path, qtbot) -> None:
+    video = Path(__file__).parent / "fixtures" / "videos" / "camera_1.mp4"
+    target = tmp_path / "lightning_export"
+    job = RetrainingJob(
+        target=target,
+        video=video,
+        video_stem="FaceCam",
+        scorer="Alice",
+        bodyparts=["nose"],
+        frames=[LabeledFrame(frame=0, positions={"nose": (1.0, 2.0)})],
+        profile="lightning_pose",
+    )
+    results, errors = _run(ChangesExportWorker([job]), qtbot)
+    assert not errors
+    assert "1 image(s)" in results[0][0]
+    rows = list(csv.reader((target / "CollectedData.csv").open(newline="", encoding="utf-8")))
+    assert rows[0] == ["scorer", "Alice", "Alice"]
+    assert (target / rows[3][0]).is_file()
+
+
+def test_an_absent_frame_does_not_publish_a_partial_training_set(tmp_path: Path, qtbot) -> None:
+    video = Path(__file__).parent / "fixtures" / "videos" / "camera_1.mp4"
+    target = tmp_path / "training_export"
+    job = RetrainingJob(
+        target=target,
+        video=video,
+        video_stem="FaceCam",
+        scorer="Alice",
+        bodyparts=["nose"],
+        frames=[LabeledFrame(frame=999999, positions={"nose": (1.0, 2.0)})],
+    )
+    results, errors = _run(ChangesExportWorker([job]), qtbot)
+    assert not results
+    assert errors and "absent" in errors[0]
+    assert not target.exists()
+
+
+def test_an_out_of_frame_point_does_not_publish_training_data(tmp_path: Path, qtbot) -> None:
+    video = Path(__file__).parent / "fixtures" / "videos" / "camera_1.mp4"
+    target = tmp_path / "training_export"
+    job = RetrainingJob(
+        target=target,
+        video=video,
+        video_stem="FaceCam",
+        scorer="Alice",
+        bodyparts=["nose"],
+        frames=[LabeledFrame(frame=0, positions={"nose": (-1.0, 2.0)})],
+    )
+    results, errors = _run(ChangesExportWorker([job]), qtbot)
+    assert not results
+    assert errors and "outside" in errors[0]
+    assert not target.exists()
+
+
+def test_an_existing_bundle_is_left_intact(tmp_path: Path, qtbot) -> None:
+    video = Path(__file__).parent / "fixtures" / "videos" / "camera_1.mp4"
+    target = tmp_path / "training_export"
+    target.mkdir()
+    sentinel = target / "keep.txt"
+    sentinel.write_text("existing")
+    job = RetrainingJob(
+        target=target,
+        video=video,
+        video_stem="FaceCam",
+        scorer="Alice",
+        bodyparts=["nose"],
+        frames=[LabeledFrame(frame=0, positions={"nose": (1.0, 2.0)})],
+    )
+    results, errors = _run(ChangesExportWorker([job]), qtbot)
+    assert not results
+    assert errors and "already exists" in errors[0]
+    assert sentinel.read_text() == "existing"
 
 
 def test_an_unknown_job_is_an_error_not_a_silent_skip(tmp_path: Path, qtbot) -> None:
@@ -214,7 +333,95 @@ def test_a_corrected_source_offers_both_of_its_artifacts(
 
     assert [item.kind for item in items] == [CORRECTED_POSE, RETRAINING_SET]
     assert items[0].target == tmp_path / "eks_corrected.csv"
-    assert items[1].target.parts[-3:] == ("labeled-data", "cam", "CollectedData_avialsync.csv")
+    assert items[1].target.name == "cam_eks_training_export"
+
+
+def test_a_retraining_job_decodes_the_source_not_its_proxy(
+    window: MainWindow, tmp_path: Path, monkeypatch
+) -> None:
+    """A proxy is downscaled; the labels are in the source's pixels."""
+    import dataclasses
+
+    from tests.test_fix_tracker import _register_pose_source
+
+    pose = _pose_file(tmp_path)
+    _register_pose_source(window, str(pose), [0.0, 0.1, 0.2, 0.3], rate=10.0)
+    window.video_grid.point_moved.emit(
+        PointMove(key=PointKey(str(pose), "nose", 1), before=None, after=(99.0, 88.0))
+    )
+    monkeypatch.setattr(
+        window.video_grid, "media_path_for", lambda _path: str(tmp_path / "proxy.mp4")
+    )
+    item = changes_export_controller.available_exports(window)[1]
+
+    job = changes_export_controller._job_for(window, dataclasses.replace(item, scorer="Alice"))
+
+    assert isinstance(job, RetrainingJob)
+    assert job.video == Path(item.video)
+    assert job.scorer == "Alice"
+
+
+def test_a_swap_alone_exports_one_edited_pose_copy(
+    window: MainWindow, tmp_path: Path, qtbot
+) -> None:
+    """A swap changes the tracker even if nobody hand-corrected a coordinate."""
+    from tests.test_pose_export import _multi_animal_pose_file
+
+    source = _multi_animal_pose_file(tmp_path)
+    header = read_pose_header(source)
+    assert header is not None
+    source_id = str(source)
+    window._pose_schemas[source_id] = header.pose_schema()
+    window.identity_swaps.set_groups(source_id, groups_for_schema(header.pose_schema()))
+    window.identity_swaps.add(
+        source_id,
+        SwapEvent(index=1, group=ANIMALS, lanes=("testMouse", "conSpecific")),
+    )
+
+    items = changes_export_controller.available_exports(window)
+    assert [item.kind for item in items] == [CORRECTED_POSE]
+    assert "1 identity swap(s)" in items[0].detail
+    assert window._act_export_changes.isEnabled()
+
+    job = changes_export_controller._job_for(window, items[0])
+    assert isinstance(job, CorrectedPoseJob)
+    results, errors = _run(ChangesExportWorker([job]), qtbot)
+    assert not errors
+    assert "1 identity swap(s)" in results[0][0]
+    with job.target.open(newline="", encoding="utf-8") as handle:
+        data = list(csv.reader(handle))[4:]
+    assert data[0][1:4] == ["10.0", "20.0", "0.05"]
+    assert data[1][1:4] == ["11.0", "21.0", "0.05"]
+
+
+def test_the_export_job_combines_the_same_program_as_the_viewer(
+    window: MainWindow, tmp_path: Path, qtbot
+) -> None:
+    """A correction on the raw column follows that trajectory through a flip."""
+    from tests.test_pose_export import _multi_animal_pose_file
+
+    source = _multi_animal_pose_file(tmp_path)
+    header = read_pose_header(source)
+    assert header is not None
+    source_id = str(source)
+    window._pose_schemas[source_id] = header.pose_schema()
+    window.identity_swaps.set_groups(source_id, groups_for_schema(header.pose_schema()))
+    window.identity_swaps.add(
+        source_id,
+        SwapEvent(index=1, group=ANIMALS, lanes=("testMouse", "conSpecific")),
+    )
+    window.point_edits.set(PointKey(source_id, "conSpecific_snout", 1), (99.0, 98.0))
+
+    item = changes_export_controller.available_exports(window)[0]
+    job = changes_export_controller._job_for(window, item)
+    assert isinstance(job, CorrectedPoseJob)
+    results, errors = _run(ChangesExportWorker([job]), qtbot)
+
+    assert not errors
+    assert "1 corrected point(s), 1 identity swap(s)" in results[0][0]
+    with job.target.open(newline="", encoding="utf-8") as handle:
+        data = list(csv.reader(handle))[4:]
+    assert data[1][1:7] == ["99.0", "98.0", "1.0", "10.0", "20.0", "0.05"]
 
 
 def test_the_retraining_set_is_not_ticked_by_default(window: MainWindow, tmp_path: Path) -> None:
@@ -288,7 +495,7 @@ def _dialog(qtbot, tmp_path: Path):
             kind=RETRAINING_SET,
             title="Retraining set",
             detail="3 frames",
-            target=tmp_path / "CollectedData.csv",
+            target=tmp_path / "training_export",
             selected=False,
         ),
     ]
@@ -311,8 +518,39 @@ def test_ticking_one_adds_it(qtbot, tmp_path: Path) -> None:
 
     dialog = _dialog(qtbot, tmp_path)
     dialog._table.item(1, 0).setCheckState(Qt.CheckState.Checked)
+    dialog._table.cellWidget(1, 3).setText("my_scorer")
 
     assert [item.kind for item in dialog.selected_items()] == [ANNOTATIONS, RETRAINING_SET]
+    assert dialog.selected_items()[1].scorer == "my_scorer"
+
+
+def test_a_multi_animal_source_offers_only_deeplabcut(qtbot, tmp_path: Path) -> None:
+    from avialsync.ui.export_dialog import ExportChangesDialog, ExportItem
+
+    item = ExportItem(
+        kind=RETRAINING_SET,
+        title="Retraining set",
+        detail="3 frames",
+        target=tmp_path / "training_export",
+        multi_animal=True,
+    )
+    dialog = ExportChangesDialog([item])
+    qtbot.addWidget(dialog)
+
+    profile = dialog._table.cellWidget(0, 2)
+    assert [profile.itemData(i) for i in range(profile.count())] == ["dlc"]
+
+
+def test_training_scorer_is_required_before_export(qtbot, tmp_path: Path) -> None:
+    from PySide6.QtCore import Qt
+
+    dialog = _dialog(qtbot, tmp_path)
+    dialog._table.item(1, 0).setCheckState(Qt.CheckState.Checked)
+    assert not dialog._export_button.isEnabled()
+    dialog._table.cellWidget(1, 3).setText("Alice")
+    assert dialog._export_button.isEnabled()
+    dialog._table.cellWidget(1, 3).setText("bad/name")
+    assert not dialog._export_button.isEnabled()
 
 
 def test_an_edited_destination_is_the_one_used(qtbot, tmp_path: Path) -> None:

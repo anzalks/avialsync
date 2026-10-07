@@ -32,6 +32,7 @@ import dataclasses
 
 import numpy as np
 
+from avialsync.core.drift import MS_PER_HOUR
 from avialsync.core.errors import SyncEvidenceError
 from avialsync.core.sync import (
     AlignmentMethod,
@@ -64,10 +65,10 @@ _IDENTIFIABILITY_FLOOR_S = 1e-6
 MIN_PIECEWISE_KNOTS = 4
 
 
-def drift_is_identifiable(drift_ppm: float, span: float, noise: float) -> bool:
+def drift_is_identifiable(drift_ms_per_hour: float, span: float, noise: float) -> bool:
     """Whether a rate difference is large enough, over this span, to be measured.
 
-    Two things decide it. The span, because 7,200 ppm across one second is
+    Two things decide it. The span, because 25,920 ms/h across one second is
     seven milliseconds while across four hundred seconds it is three; and the
     scatter it has to stand out from, because a divergence smaller than the
     fit's own residuals is not a measurement of anything.
@@ -76,7 +77,7 @@ def drift_is_identifiable(drift_ppm: float, span: float, noise: float) -> bool:
     tolerance only where no fit has happened yet. Judging against the tolerance
     is the weaker test and was the wrong one here: that number is a quarter of
     the pulse interval, so a 1 Hz sync train sets it to 250 ms and would bury a
-    genuine 60 ppm over twenty minutes -- forty-eight milliseconds of real
+    genuine 216 ms/h over twenty minutes -- seventy-two milliseconds of real
     divergence, against residuals measured in picoseconds.
 
     Three times the scatter, which is the usual bar for calling a term real
@@ -84,7 +85,7 @@ def drift_is_identifiable(drift_ppm: float, span: float, noise: float) -> bool:
     """
     if span <= 0:
         return False
-    divergence = abs(drift_ppm) * 1e-6 * span
+    divergence = abs(drift_ms_per_hour) / MS_PER_HOUR * span
     return divergence > max(3.0 * noise, _IDENTIFIABILITY_FLOOR_S)
 
 
@@ -112,7 +113,7 @@ def choose_method(
     reconciliation: Reconciliation | None,
     matched_count: int,
     span: float,
-    drift_ppm: float,
+    drift_ms_per_hour: float,
     noise: float,
 ) -> AlignmentMethod:
     """The strongest model this evidence supports, never a stronger one.
@@ -122,7 +123,7 @@ def choose_method(
         reconciliation: Pulse and frame counts, where both are known.
         matched_count: Events paired between the two sources.
         span: Seconds covered by the evidence.
-        drift_ppm: Rate difference a free fit would report.
+        drift_ms_per_hour: Rate difference a free fit would report.
         noise: Scatter the rate must stand out from -- the fit's RMS residual.
     """
     if matched_count < 2:
@@ -140,7 +141,7 @@ def choose_method(
         # at every edge. No single rate has to be true for the whole recording.
         return AlignmentMethod.PIECEWISE
 
-    if drift_is_identifiable(drift_ppm, span, noise):
+    if drift_is_identifiable(drift_ms_per_hour, span, noise):
         return AlignmentMethod.AFFINE
     return AlignmentMethod.SHIFT
 
@@ -195,7 +196,7 @@ def fit_piecewise(
     # match rate carried over from the affine search both speak to.
     fit = ExactSyncFit(
         offset=float(source[0] - master[0]),
-        drift_ppm=affine.fit.drift_ppm,
+        drift_ms_per_hour=affine.fit.drift_ms_per_hour,
         rms_residual=0.0,
         max_residual=0.0,
         matched_count=len(affine.matches),
@@ -227,4 +228,4 @@ def demote_to_shift(fit: SyncFit) -> SyncFit:
     the rate is set aside rather than quoted to three decimal places from a
     span that cannot support one digit.
     """
-    return dataclasses.replace(fit, drift_ppm=0.0, method=AlignmentMethod.SHIFT)
+    return dataclasses.replace(fit, drift_ms_per_hour=0.0, method=AlignmentMethod.SHIFT)

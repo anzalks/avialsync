@@ -21,9 +21,14 @@ from avialsync.core.commands import (
     RemoveSourceCommand,
     ResetSessionCommand,
     SetChannelVisibleCommand,
+    SetIdentityGroupCommand,
+    SetIdentitySwapCommand,
+    SetImagingViewCommand,
+    SetOriginalTrackerVisibleCommand,
     SetOverlayVisibleCommand,
     SetSourceMappingCommand,
     SetSourceVisibleCommand,
+    SetTrackingVisibleCommand,
 )
 from avialsync.core.document import (
     MAX_LOG_ENTRIES,
@@ -32,6 +37,8 @@ from avialsync.core.document import (
     MutationTarget,
     SourceRecord,
 )
+from avialsync.core.identity_swaps import SwapEvent, SwapGroup
+from avialsync.core.physical_props import Ladder, LadderStep, PropStore
 
 
 class FakeTarget:
@@ -43,14 +50,23 @@ class FakeTarget:
         self.source_visible: dict[str, bool] = {}
         self.channel_visible: dict[tuple[str, str], bool] = {}
         self.overlay_visible: dict[tuple[str, str | None], bool] = {}
+        self.tracking_visible: dict[tuple[str, str], bool] = {}
         self.tracked_points: dict[tuple[str, str, int], tuple[float, float] | None] = {}
+        self.identity_swaps: list[Any] = []
+        self.identity_groups: list[tuple[str, Any]] = []
+        self.original_tracker_visible = False
+        self.custom_markers: dict[tuple[str, int], Any] = {}
+        self.wheels: dict[str, Any] = {}
+        self.props = PropStore()
         self.sources: dict[str, SourceRecord] = {}
+        self.imaging_views: dict[str, dict[str, Any]] = {}
+        self.imaging_layouts: dict[str, dict[str, Any]] = {}
         self.sync_evidence: dict[str, Any] = {}
         self.cleared = 0
         self.captures = 0
 
-    def set_source_mapping(self, source_id: str, offset: float, drift_ppm: float) -> None:
-        self.mappings[source_id] = (offset, drift_ppm)
+    def set_source_mapping(self, source_id: str, offset: float, drift_ms_per_hour: float) -> None:
+        self.mappings[source_id] = (offset, drift_ms_per_hour)
 
     def source_mapping(self, source_id: str) -> tuple[float, float]:
         return self.mappings.get(source_id, (0.0, 0.0))
@@ -73,14 +89,76 @@ class FakeTarget:
     def set_overlay_visible(self, overlay_id: str, camera: str | None, visible: bool) -> None:
         self.overlay_visible[(overlay_id, camera)] = visible
 
+    def set_tracking_visible(self, source_id: str, surface: str, visible: bool) -> None:
+        self.tracking_visible[(source_id, surface)] = visible
+
+    def set_original_tracker_visible(self, visible: bool) -> None:
+        self.original_tracker_visible = visible
+
     def set_tracked_point(
-        self, source_id: str, point: str, index: int, position: tuple[float, float] | None
+        self,
+        source_id: str,
+        point: str,
+        index: int,
+        position: tuple[float, float] | None,
+        shown_as: str = "",
     ) -> None:
+        del shown_as  # provenance; it changes nothing about where the value goes
         key = (source_id, point, index)
         if position is None:
             self.tracked_points.pop(key, None)
         else:
             self.tracked_points[key] = position
+
+    def set_identity_swap(self, source_id: str, event: Any, accepted: bool) -> None:
+        held = (source_id, event)
+        if accepted:
+            if held not in self.identity_swaps:
+                self.identity_swaps.append(held)
+        elif held in self.identity_swaps:
+            self.identity_swaps.remove(held)
+
+    def set_identity_group(self, source_id: str, group: Any, present: bool) -> None:
+        held = (source_id, group)
+        if present and held not in self.identity_groups:
+            self.identity_groups.append(held)
+        elif not present and held in self.identity_groups:
+            self.identity_groups.remove(held)
+
+    def set_custom_marker(self, name: str, frame: int, marker: Any) -> None:
+        if marker is None:
+            self.custom_markers.pop((name, frame), None)
+        else:
+            self.custom_markers[(name, frame)] = marker
+
+    def set_wheel(self, name: str, wheel: Any) -> None:
+        if wheel is None:
+            self.wheels.pop(name, None)
+        else:
+            self.wheels[name] = wheel
+
+    def set_ladder(self, name: str, ladder: Ladder | None) -> None:
+        self.props.set(name, ladder)
+
+    def set_physical_prop(self, name: str, prop: Any) -> None:
+        self.props.set(name, prop)
+
+    def set_ladder_step(
+        self, name: str, step_id: str, step: LadderStep | None, position: int | None = None
+    ) -> None:
+        self.props.set_step(name, step_id, step, position)
+
+    def move_ladder_step(self, name: str, step_id: str, position: int) -> None:
+        self.props.move_step(name, step_id, position)
+
+    def set_ladder_layout(self, name: str, layout: Any) -> None:
+        self.props.set_layout(name, layout)
+
+    def set_imaging_view(self, source_id: str, view: dict[str, Any]) -> None:
+        self.imaging_views[source_id] = view
+
+    def set_imaging_layout(self, source_id: str, layout: dict[str, Any]) -> None:
+        self.imaging_layouts[source_id] = layout
 
     def add_source(self, record: SourceRecord) -> None:
         self.sources[record.source_id] = record
@@ -88,8 +166,10 @@ class FakeTarget:
     def remove_source(self, source_id: str) -> None:
         self.sources.pop(source_id, None)
 
-    def apply_sync(self, source_id: str, offset: float, drift_ppm: float, evidence: Any) -> None:
-        self.mappings[source_id] = (offset, drift_ppm)
+    def apply_sync(
+        self, source_id: str, offset: float, drift_ms_per_hour: float, evidence: Any
+    ) -> None:
+        self.mappings[source_id] = (offset, drift_ms_per_hour)
         self.sync_evidence[source_id] = evidence
 
     def capture_workspace(self) -> Any:
@@ -98,18 +178,24 @@ class FakeTarget:
             "mappings": dict(self.mappings),
             "markers": list(self.markers),
             "sources": dict(self.sources),
+            "tracking_visible": dict(self.tracking_visible),
+            "original_tracker_visible": self.original_tracker_visible,
         }
 
     def restore_workspace(self, snapshot: Any) -> None:
         self.mappings = dict(snapshot["mappings"])
         self.markers = list(snapshot["markers"])
         self.sources = dict(snapshot["sources"])
+        self.tracking_visible = dict(snapshot["tracking_visible"])
+        self.original_tracker_visible = snapshot["original_tracker_visible"]
 
     def clear_workspace(self) -> None:
         self.cleared += 1
         self.mappings.clear()
         self.markers.clear()
         self.sources.clear()
+        self.tracking_visible.clear()
+        self.original_tracker_visible = False
 
 
 @pytest.fixture()
@@ -135,6 +221,25 @@ def _all_commands() -> list[Any]:
         SetSourceVisibleCommand("cam1", visible=False),
         SetChannelVisibleCommand("ephys", "ch3", visible=False),
         SetOverlayVisibleCommand("tracking.legend", visible=False),
+        SetTrackingVisibleCommand("pose.csv", "overlay", visible=True),
+        SetOriginalTrackerVisibleCommand(visible=True),
+        SetIdentitySwapCommand(
+            source_id="two.csv",
+            event=SwapEvent(index=6810, group="animals", lanes=("testMouse", "conSpecific")),
+            accepted=True,
+        ),
+        SetIdentityGroupCommand(
+            source_id="two.csv",
+            group=SwapGroup(
+                name="custom:tail",
+                lanes=("A", "B"),
+                parts=("tail",),
+                members=(("A", "tail", "a_tail"), ("B", "tail", "b_tail")),
+            ),
+        ),
+        SetImagingViewCommand(
+            "gcamp.tif", before={"average": 1}, after={"average": 5}, aspect="averaging"
+        ),
         AcceptSyncCommand("cam1", before=(0.0, 0.0), after=(0.5, 1.0), evidence={"n": 47}),
         AddSourceCommand(_source("cam9")),
         RemoveSourceCommand(_source()),
@@ -166,6 +271,7 @@ def test_apply_then_revert_restores_state(command: Any, target: FakeTarget) -> N
     target.add_marker(_marker())
     target.add_source(_source())
     target.set_source_mapping("cam1", 0.0, 0.0)
+    target.set_tracking_visible("pose.csv", "overlay", False)
     before = target.capture_workspace()
 
     doc = Document()
@@ -278,6 +384,24 @@ def test_a_drag_does_not_merge_across_sources(target: FakeTarget) -> None:
     doc.execute(SetSourceMappingCommand("cam1", (0.0, 0.0), (1.0, 0.0)), target)
     doc.execute(SetSourceMappingCommand("cam2", (0.0, 0.0), (1.0, 0.0)), target)
     assert len(doc) == 2
+
+
+def test_an_imaging_brightness_drag_is_one_step_and_contrast_another(
+    target: FakeTarget,
+) -> None:
+    """D-190: one drag per control merges; a second control starts its own step."""
+    doc = Document()
+    views = [{"brightness": step / 10} for step in range(6)]
+    for before, after in zip(views, views[1:], strict=False):
+        doc.execute(SetImagingViewCommand("gcamp.tif", before, after, "brightness"), target)
+    doc.execute(
+        SetImagingViewCommand("gcamp.tif", views[-1], {"contrast": 0.5}, "contrast"), target
+    )
+    assert len(doc) == 2
+    doc.undo(target)
+    assert target.imaging_views["gcamp.tif"] == views[-1]
+    doc.undo(target)
+    assert target.imaging_views["gcamp.tif"] == views[0], "undo returns to the drag's start"
 
 
 def test_typing_a_label_is_one_undo_step(target: FakeTarget) -> None:

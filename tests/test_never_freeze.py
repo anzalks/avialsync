@@ -124,7 +124,7 @@ def test_closing_still_writes_the_final_autosave(qapp, qtbot, release, tmp_path)
     """Abandoning jobs must not skip the session write."""
     window = MainWindow()
     qtbot.addWidget(window)
-    window._session_path = tmp_path / "final.avv"
+    window.session_runtime.path = tmp_path / "final.avv"
     window._job_manager.start("Exporting clip", _WedgedWorker(release))
 
     window.close()
@@ -257,6 +257,27 @@ def test_the_window_runs_a_heartbeat(qapp, qtbot) -> None:
 
     window.close()
     assert not window._heartbeat._timer.isActive()
+
+
+def test_window_starts_heartbeat_after_construction(qapp, qtbot, monkeypatch) -> None:
+    starts: list[bool] = []
+    original_start = UiHeartbeat.start
+
+    def _start_after_setup(heartbeat: UiHeartbeat) -> None:
+        window = heartbeat.parent()
+        starts.append(
+            isinstance(window, MainWindow)
+            and window.centralWidget() is not None
+            and hasattr(window, "_show_time_sweeper")
+        )
+        original_start(heartbeat)
+
+    monkeypatch.setattr(UiHeartbeat, "start", _start_after_setup)
+    window = MainWindow()
+    qtbot.addWidget(window)
+
+    assert starts == [True]
+    window.close()
 
 
 # ── Ownership (the V-01/V-02 root cause) ──────────────────────────────

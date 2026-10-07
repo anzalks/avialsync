@@ -1,6 +1,7 @@
 # AvialSync development graph
 
-This directory is committed so the architecture graph is available on every development machine.
+This directory keeps locally generated architecture graphs out of commits. Run
+`graphify .` from the repository root to create one in a new checkout.
 
 - `graph.html` is a self-contained browser inspector with no network dependency.
 - `graph.json` is the portable graph data used by local graph queries.
@@ -8,5 +9,5 @@ This directory is committed so the architecture graph is available on every deve
 
 This is a local developer convenience, not an AvialSync dependency or CI input. To enable the
 versioned hook in a clone, run `git config core.hooksPath .githooks`. Each local commit runs the
-already-installed `graphify` command and leaves any changed graph artifacts unstaged for manual review
-and commit. It never runs in CI or changes the application environment.
+already-installed `graphify` command and refreshes ignored local artifacts. It never runs in CI or
+changes the application environment.

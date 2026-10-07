@@ -38,7 +38,7 @@ def test_complete_xyz_triplets_follow_master_cursor(qtbot, tmp_path: Path) -> No
     pane = Tracking3DPane()
     qtbot.addWidget(pane)
     pane.show()
-    pane.set_readers(_tracking_readers(tmp_path / "tracking.avialcache"))
+    pane.set_readers(_tracking_readers(tmp_path / "tracking_cache"))
 
     assert pane.canvas.point_count == 2
     assert pane.canvas.point_names == ("nose", "tail")
@@ -54,17 +54,36 @@ def test_complete_xyz_triplets_follow_master_cursor(qtbot, tmp_path: Path) -> No
 def test_incomplete_xy_points_are_not_presented_as_3d(qtbot, tmp_path: Path) -> None:
     pane = Tracking3DPane()
     qtbot.addWidget(pane)
-    pane.set_readers(_tracking_readers(tmp_path / "tracking_2d.avialcache", include_z=False))
+    pane.set_readers(_tracking_readers(tmp_path / "tracking_2d_cache", include_z=False))
 
     assert pane.canvas.point_count == 0
     assert pane.status_label.text() == "No XYZ tracking channels"
     assert not pane.fit_button.isEnabled()
 
 
+def test_props_only_scene_can_be_framed_and_fitted(qtbot) -> None:
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.resize(500, 300)
+    pane.show()
+    vertices = (np.asarray((-40.0, 0.0, 70.0)), np.asarray((40.0, 0.0, 70.0)))
+    pane.canvas.set_prop_source(lambda _time: [("belt support", vertices, False)])
+    pane.set_cursor(0.0)
+
+    assert pane.fit_button.isEnabled()
+    assert pane.canvas._has_scene_bounds
+    assert pane.canvas._radius > 1.0
+    pane.fit_button.click()
+    assert pane.canvas._bounds_held
+    np.testing.assert_allclose(
+        pane.canvas._center, pane.canvas._to_view(np.asarray([[0.0, 0.0, 70.0]]))[0]
+    )
+
+
 def test_out_of_range_pose_has_no_stale_coordinates(qtbot, tmp_path: Path) -> None:
     pane = Tracking3DPane()
     qtbot.addWidget(pane)
-    pane.set_readers(_tracking_readers(tmp_path / "tracking_bounds.avialcache"))
+    pane.set_readers(_tracking_readers(tmp_path / "tracking_bounds_cache"))
 
     pane.set_cursor(0.5)
     assert np.all(np.isfinite(pane.canvas.positions))
@@ -77,7 +96,7 @@ def test_mouse_drag_orbits_and_fit_restores_default(qtbot, tmp_path: Path) -> No
     qtbot.addWidget(pane)
     pane.resize(500, 300)
     pane.show()
-    pane.set_readers(_tracking_readers(tmp_path / "tracking_orbit.avialcache"))
+    pane.set_readers(_tracking_readers(tmp_path / "tracking_orbit_cache"))
 
     initial_azimuth = pane.canvas._azimuth
     qtbot.mousePress(
@@ -132,7 +151,7 @@ def test_head_renders_above_toes(qtbot, tmp_path: Path) -> None:
     qtbot.addWidget(pane)
     pane.resize(400, 400)
     pane.show()
-    pane.set_readers(_anatomical_readers(tmp_path / "anat.avialcache"))
+    pane.set_readers(_anatomical_readers(tmp_path / "anat_cache"))
     pane.set_cursor(0.0)
 
     assert pane.canvas.up_axis == 1, "vertical axis should be detected as Y"
@@ -151,14 +170,14 @@ def test_up_axis_override_is_respected(qtbot, tmp_path: Path) -> None:
     pane = Tracking3DPane()
     qtbot.addWidget(pane)
     pane.resize(400, 400)
-    pane.set_readers(_anatomical_readers(tmp_path / "anat_override.avialcache"))
+    pane.set_readers(_anatomical_readers(tmp_path / "anat_override_cache"))
 
     pane.set_up_axis(2, False)
     assert pane.canvas.up_axis == 2
     assert pane.canvas.up_inverted is False
 
     # Re-loading data must not silently undo a user's explicit choice.
-    pane.set_readers(_anatomical_readers(tmp_path / "anat_override2.avialcache"))
+    pane.set_readers(_anatomical_readers(tmp_path / "anat_override2_cache"))
     assert pane.canvas.up_axis == 2
 
 
@@ -166,7 +185,7 @@ def test_unrecognised_landmarks_keep_neutral_default(qtbot, tmp_path: Path) -> N
     """Without head/foot landmarks the view must not guess an orientation."""
     pane = Tracking3DPane()
     qtbot.addWidget(pane)
-    pane.set_readers(_tracking_readers(tmp_path / "neutral.avialcache"))
+    pane.set_readers(_tracking_readers(tmp_path / "neutral_cache"))
 
     assert pane.canvas.up_axis == 2
     assert pane.canvas.up_inverted is False
@@ -182,8 +201,13 @@ def test_main_window_places_3d_view_beside_video_grid(qtbot, monkeypatch) -> Non
     splitter = window._media_splitter
     assert isinstance(splitter, QSplitter)
     assert splitter.orientation() == Qt.Orientation.Horizontal
-    assert splitter.widget(0) is window.video_grid
-    assert splitter.widget(1) is window.tracking_3d_pane
+    # The videos share their column with the video tools under them (D-126).
+    assert splitter.widget(0) is window._video_column
+    assert window.video_grid.parentWidget() is window._video_column
+    # The 3D view shares the right column with the imaging pane below it (D-190).
+    assert splitter.widget(1) is window.imaging_splitter
+    assert window.imaging_splitter.orientation() == Qt.Orientation.Vertical
+    assert window.imaging_splitter.widget(0) is window.tracking_3d_pane
     assert window.player.tracking_3d_pane is window.tracking_3d_pane
 
     window.close()
@@ -224,7 +248,7 @@ def test_skeleton_is_detected_when_the_data_declares_none(qtbot, tmp_path: Path)
     """Pose with no declared topology still shows bones, marked as detected (D-082)."""
     pane = Tracking3DPane()
     qtbot.addWidget(pane)
-    pane.set_readers(_rigid_chain_readers(tmp_path / "chain.avialcache"))
+    pane.set_readers(_rigid_chain_readers(tmp_path / "chain_cache"))
 
     assert pane.canvas.skeleton_edges, "no skeleton was detected from the geometry"
     assert pane.canvas.skeleton_is_derived
@@ -241,7 +265,7 @@ def test_detected_bones_flow_outward_from_the_top(qtbot, tmp_path: Path) -> None
     """Detection reports a direction, rooted on the view's anatomical vertical."""
     pane = Tracking3DPane()
     qtbot.addWidget(pane)
-    pane.set_readers(_rigid_chain_readers(tmp_path / "flow.avialcache"))
+    pane.set_readers(_rigid_chain_readers(tmp_path / "flow_cache"))
 
     estimate = pane.canvas.inferred_skeleton
     assert estimate.roots == ("head",)
@@ -254,7 +278,7 @@ def test_declared_topology_wins_over_detection(qtbot, tmp_path: Path) -> None:
     pane = Tracking3DPane()
     qtbot.addWidget(pane)
     pane.set_skeleton([("head", "tail")])
-    pane.set_readers(_rigid_chain_readers(tmp_path / "declared.avialcache"))
+    pane.set_readers(_rigid_chain_readers(tmp_path / "declared_cache"))
 
     assert pane.canvas.skeleton_edges == [("head", "tail")]
     assert not pane.canvas.skeleton_is_derived
@@ -268,7 +292,7 @@ def test_declared_names_resolve_through_a_loader_prefix(qtbot, tmp_path: Path) -
     pane.set_skeleton([("head", "spine")])
     pane.set_readers(
         _rigid_chain_readers(
-            tmp_path / "prefixed.avialcache",
+            tmp_path / "prefixed_cache",
             names=("ensemble_head", "ensemble_spine", "ensemble_tail"),
         )
     )
@@ -284,7 +308,7 @@ def test_an_ambiguous_declared_name_is_skipped_not_guessed(qtbot, tmp_path: Path
     pane.set_skeleton([("head", "tail")])
     pane.set_readers(
         _rigid_chain_readers(
-            tmp_path / "ambiguous.avialcache",
+            tmp_path / "ambiguous_cache",
             names=("left_head", "right_head", "tail"),
         )
     )
@@ -299,7 +323,7 @@ def test_bones_can_be_turned_off_and_forced_to_detected(qtbot, tmp_path: Path) -
     pane = Tracking3DPane()
     qtbot.addWidget(pane)
     pane.set_skeleton([("head", "tail")])
-    pane.set_readers(_rigid_chain_readers(tmp_path / "modes.avialcache"))
+    pane.set_readers(_rigid_chain_readers(tmp_path / "modes_cache"))
 
     pane.set_bone_mode(BoneMode.OFF)
     assert pane.canvas.skeleton_edges == []
@@ -317,7 +341,7 @@ def test_a_session_without_a_skeleton_clears_the_previous_one(qtbot, tmp_path: P
     pane = Tracking3DPane()
     qtbot.addWidget(pane)
     pane.set_skeleton([("head", "tail")])
-    pane.set_readers(_rigid_chain_readers(tmp_path / "first.avialcache"))
+    pane.set_readers(_rigid_chain_readers(tmp_path / "first_cache"))
     assert not pane.canvas.skeleton_is_derived
 
     pane.set_skeleton([])
@@ -329,7 +353,7 @@ def test_detected_skeleton_survives_an_up_axis_change(qtbot, tmp_path: Path) -> 
     """Re-orienting the view re-roots the flow instead of losing the bones."""
     pane = Tracking3DPane()
     qtbot.addWidget(pane)
-    pane.set_readers(_rigid_chain_readers(tmp_path / "reroot.avialcache"))
+    pane.set_readers(_rigid_chain_readers(tmp_path / "reroot_cache"))
     assert pane.canvas.inferred_skeleton.roots == ("head",)
 
     pane.set_up_axis(2, True)
@@ -519,3 +543,31 @@ class TestPanningThe3DView:
         readout = canvas._orientation_readout()
         assert "x +12" in readout
         assert "y -5" in readout
+
+
+def test_up_axis_choice_is_shown_in_its_combo_box(qtbot) -> None:
+    """The combo must name the axis the canvas actually renders upward."""
+    from avialsync.ui.tracking_3d_pane import Tracking3DPane
+
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.set_up_axis(2, False)
+    assert pane.up_axis_combo.currentData() == (2, False)
+    pane.set_up_axis(1, True)
+    assert pane.up_axis_combo.currentData() == (1, True)
+
+
+def test_the_3d_view_has_its_own_zoom_strip(qtbot) -> None:
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    canvas = pane.canvas
+    canvas._azimuth = 1.0
+    strip = canvas.zoom_controls
+    strip.zoom_in_button.click()
+    assert canvas._zoom == pytest.approx(1.25)
+    strip.zoom_out_button.click()
+    assert canvas._zoom == pytest.approx(1.0)
+    strip.zoom_in_button.click()
+    strip.reset_zoom_button.click()
+    assert canvas._zoom == 1.0
+    assert canvas._azimuth == 1.0, "resetting the zoom keeps the orbit"

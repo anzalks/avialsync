@@ -20,6 +20,12 @@ from pathlib import Path
 from PySide6.QtCore import QRect, QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QImage, QPainter, QPen
 
+# PNG tEXt field names are a file-format contract, not UI copy.
+PNG_SOFTWARE_KEY = "Software"
+PNG_CREATION_TIME_KEY = "Creation Time"
+PNG_SOURCE_KEY = "Source"
+PNG_SCHEMA_KEY = "Schema"
+
 #: Figure geometry in output pixels.  Deliberately fixed rather than derived
 #: from the window: a snapshot's proportions must not change because someone
 #: dragged a splitter before pressing the button.
@@ -340,18 +346,36 @@ def _draw_media_band(
         )
 
 
-def save_figure(figure: SnapshotFigure, path: Path) -> None:
+def save_figure(
+    figure: SnapshotFigure,
+    path: Path,
+    *,
+    sources: tuple[Path, ...] = (),
+    session: Path | None = None,
+) -> None:
     """Render *figure* and write it as a PNG.
 
     Raises:
         OSError: if the file could not be written.
     """
+    from avialsync.core.artifact_io import publish
+    from avialsync.core.artifact_provenance import record
+
     image = render_figure(figure)
+    metadata = record("snapshot", sources, session=session)
+    image.setText(PNG_SOFTWARE_KEY, str(metadata["software"]))
+    image.setText(PNG_CREATION_TIME_KEY, str(metadata["written"]))
+    image.setText(PNG_SOURCE_KEY, figure.subtitle)
+    image.setText(PNG_SCHEMA_KEY, str(metadata["format"]))
+
     # PySide6's stub declares QImage.save's `format` as bytes, but the runtime
     # rejects bytes and accepts str:
     #   QImage.save(path, b"PNG") -> ValueError: called with wrong argument values
     #   QImage.save(path, "PNG")  -> True
     # (QPixmap.save's stub correctly says str; QImage's does not.) Matching the
     # stub would break snapshot export, so the stub is what is wrong here.
-    if not image.save(str(path), "PNG"):  # type: ignore[call-overload]
-        raise OSError(f"Could not write snapshot: {path}")
+    def write(temporary: Path) -> None:
+        if not image.save(str(temporary), "PNG"):  # type: ignore[call-overload]
+            raise OSError(f"Could not write snapshot: {path}")
+
+    publish(path, write, kind="snapshot", sources=sources)

@@ -11,10 +11,10 @@ import dataclasses
 import logging
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import numpy as np
-from PySide6.QtCore import QSettings, QThread
+from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QFileDialog
 
 from avialsync.core.errors import CacheError, FileUnreadableError, SourceOpenError
@@ -26,10 +26,20 @@ from avialsync.core.session import (
     TriggerEntry,
     VideoEntry,
 )
-from avialsync.ui import recovery
-from avialsync.ui.controllers import corrections_controller
+from avialsync.core.settings_schema import setting_for
+from avialsync.core.source import source_exists
+from avialsync.ui import imaging_integration, recovery
+from avialsync.ui.app_settings import app_settings
+from avialsync.ui.controllers import (
+    corrections_controller,
+    custom_marker_controller,
+    identity_controller,
+    wheel_controller,
+)
 from avialsync.ui.i18n import tr
+from avialsync.ui.inspector_dock import restore_dock_state, save_dock_state
 from avialsync.ui.job_manager import on_ui_thread
+from avialsync.ui.preferences_dialog import read_setting
 from avialsync.ui.recent_files import add_recent, get_recent
 
 if TYPE_CHECKING:
@@ -50,24 +60,22 @@ def _disconnect(signal: object, slot: object) -> None:
 
 
 def restore_geometry(window: MainWindow) -> None:
-    settings = QSettings("AvialSync", "AvialSync")
+    settings = app_settings()
     geom = settings.value("window/geometry")
     if geom:
         window.restoreGeometry(geom)
-    h_state = settings.value("splitter/horizontal")
-    if h_state:
-        window._h_splitter.restoreState(h_state)
+    restore_dock_state(window, window.inspector_dock, settings)
     v_state = settings.value("splitter/vertical")
     if v_state:
         window._v_splitter.restoreState(v_state)
     media_state = settings.value("splitter/media")
     if media_state:
         window._media_splitter.restoreState(media_state)
+    imaging_integration.restore_geometry(window, settings)
     content_state = settings.value("splitter/content")
     if content_state:
         window._content_splitter.restoreState(content_state)
-    tab_index = cast(int, settings.value("inspector/tab", 0, type=int))
-    window._left_tabs.setCurrentIndex(max(0, min(tab_index, window._left_tabs.count() - 1)))
+    window._left_tabs.restore_page(settings)
     # restoreState also restores the collapsible flag and may carry a zero
     # pane from an older layout; re-assert the policy and repair.
     window._enforce_splitter_policy()
@@ -79,19 +87,18 @@ def restore_geometry(window: MainWindow) -> None:
 
 
 def save_geometry(window: MainWindow) -> None:
-    settings = QSettings("AvialSync", "AvialSync")
+    settings = app_settings()
     settings.setValue("window/geometry", window.saveGeometry())
-    settings.setValue(
-        "splitter/horizontal",
-        window._h_splitter.saveState(),
-    )
-    settings.setValue(
-        "splitter/vertical",
-        window._v_splitter.saveState(),
-    )
-    settings.setValue("splitter/content", window._content_splitter.saveState())
+    save_dock_state(window, settings)
+    # While nothing is loaded the plots and Data Streams are held at their
+    # minimum for the drop target (D-127); that is not a layout the user chose,
+    # so the one they did choose stays saved instead.
+    if window._empty_layout_saved is None:
+        settings.setValue("splitter/vertical", window._v_splitter.saveState())
+        settings.setValue("splitter/content", window._content_splitter.saveState())
     settings.setValue("splitter/media", window._media_splitter.saveState())
-    settings.setValue("inspector/tab", window._left_tabs.currentIndex())
+    imaging_integration.save_geometry(window, settings)
+    window._left_tabs.save_page(settings)
 
 
 def build_session_state(window: MainWindow) -> SessionState:
@@ -106,12 +113,11 @@ def build_session_state(window: MainWindow) -> SessionState:
             VideoEntry(
                 path=p,
                 offset=pane.time_map.offset,
-                drift_ppm=pane.time_map.drift_ppm,
+                drift_ms_per_hour=pane.time_map.drift_ms_per_hour,
                 integrity_flags=ins.integrity_flags.as_dict() if ins else {},
                 metadata=ins.import_config if ins else {},
             )
         )
-
     sensors: list[SensorEntry] = []
     for i in range(window.sidebar.sensors_layout.count()):
         item = window.sidebar.sensors_layout.itemAt(i)
@@ -123,8 +129,9 @@ def build_session_state(window: MainWindow) -> SessionState:
                 # mapping, so it reopens correctly whatever declares the zero
                 # next time. Saving the spin's value alone would drop a
                 # wall-clock source's placement on every save-and-reopen.
-                user_offset, drift_ppm = w.mapping()
+                user_offset, drift_ms_per_hour = w.mapping()
                 offset = window.effective_offset(w.path, user_offset)
+                tracking = window._tracking_visibility.get(w.path, {})
                 sensors.append(
                     SensorEntry(
                         path=w.path,
@@ -135,7 +142,9 @@ def build_session_state(window: MainWindow) -> SessionState:
                             ins.import_report.as_dict() if ins and ins.import_report else None
                         ),
                         offset=offset,
-                        drift_ppm=drift_ppm,
+                        drift_ms_per_hour=drift_ms_per_hour,
+                        tracking_overlay_visible=tracking.get("overlay", True),
+                        tracking_plot_visible=tracking.get("plot", False),
                     )
                 )
 
@@ -155,6 +164,7 @@ def build_session_state(window: MainWindow) -> SessionState:
 
     return SessionState(
         videos=videos,
+        imaging=window.imaging_pane.session_entries(),
         sensors=sensors,
         markers=markers,
         sync_provenance=list(window._sync_provenance),
@@ -169,13 +179,15 @@ def build_session_state(window: MainWindow) -> SessionState:
         plot_x1=plot_x1,
         overlays=window.overlay_state.to_dict(),
         point_edits=corrections_controller.build_manifest(window),
+        identity_swaps=identity_controller.build_manifest(window),
+        show_original_tracker=window._show_original_tracker,
     )
 
 
 def save_session(window: MainWindow) -> None:
     path, _ = QFileDialog.getSaveFileName(
         window,
-        "Save Session",
+        tr("Save Session"),
         "",
         "AvialSync Session (*.avv)",
     )
@@ -193,7 +205,7 @@ def start_session_save(window: MainWindow, path: Path, is_autosave: bool = False
 
     window._save_in_progress = True
     state = window._build_session_state()
-    session_generation = window._session_generation
+    session_generation = window.session_runtime.generation
 
     from avialsync.engine.session_worker import SessionSaveWorker
 
@@ -203,15 +215,16 @@ def start_session_save(window: MainWindow, path: Path, is_autosave: bool = False
         window.transport.set_status("Saving session…")
 
     def on_finished():
-        if session_generation != window._session_generation:
+        if session_generation != window.session_runtime.generation:
             return
-        window._session_path = path
+        window.session_runtime.path = path
         add_recent(str(path))
         # The work is now in a file the user chose, so the recovery snapshot
         # describes nothing they could still lose. Leaving it would offer a
         # pointless restore on the next launch and train them to dismiss the
         # bar without reading it.
         recovery.clear_recovery()
+        forget_pending_recovery(window)
         window._mark_session_saved()
         if not is_autosave:
             window.transport.set_status("")
@@ -255,7 +268,7 @@ def start_session_save(window: MainWindow, path: Path, is_autosave: bool = False
 def open_session(window: MainWindow) -> None:
     path, _ = QFileDialog.getOpenFileName(
         window,
-        "Open Session",
+        tr("Open Session"),
         "",
         "AvialSync Session (*.avv)",
     )
@@ -270,13 +283,13 @@ def start_session_load(window: MainWindow, path: Path) -> None:
 
     window.transport.set_status("Loading session…")
     worker = SessionLoadWorker(path)
-    session_generation = window._session_generation
+    session_generation = window.session_runtime.generation
 
     def on_finished(state: SessionState):
-        if session_generation != window._session_generation:
+        if session_generation != window.session_runtime.generation:
             return
         window.transport.set_status("")
-        window._session_path = path
+        window.session_runtime.path = path
         add_recent(str(path))
         window._restore_session(state)
 
@@ -308,31 +321,34 @@ def start_session_load(window: MainWindow, path: Path) -> None:
     window._run_job(worker, configure=_wire)
 
 
-def reset_session(window: MainWindow) -> None:
+def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
     """Return the workspace to its empty, ready-to-open state."""
-    window._session_generation += 1
-    window._session_path = None
-    # A reset empties the workspace and drops the path. Any snapshot still on
-    # disk describes work this reset has just discarded on purpose; keeping it
-    # would resurrect it at the next launch, and letting the close-time write
-    # replace it with an empty workspace would destroy genuinely unsaved work
-    # from before the reset. Clear it, do not overwrite it (D-089).
-    recovery.clear_recovery()
+    window.session_runtime.generation += 1
+    window.session_runtime.path = None
+    # Any snapshot on disk describes work this reset discards on purpose: keeping
+    # it would resurrect it at next launch, and the close-time write would replace
+    # it with an empty workspace. Clear it, do not overwrite it (D-089) -- unless
+    # the same workspace is being put straight back, as a cache deletion does (D-160).
+    if discard_recovery:
+        recovery.clear_recovery()
+        forget_pending_recovery(window)
 
-    for worker in list(window._video_load_jobs.values()):
+    for job in window._job_manager.jobs():
+        if job.thread not in window.video_load_state.active_probes:
+            continue
+        worker = job.worker
         _disconnect(getattr(worker, "opened", None), window._on_video_opened)
         _disconnect(getattr(worker, "error", None), window._on_video_open_error)
-        cancel = getattr(worker, "cancel", None)
-        if callable(cancel):
-            cancel()
-    window._pending_video_loads.clear()
-    window._video_request_order.clear()
-    window._probed_videos.clear()
-    window._video_load_offsets.clear()
-    window._video_load_drifts.clear()
-    window._video_pane_initializing = None
+    window.video_load_state.clear_pending()
 
-    import_worker = window._import_worker
+    import_worker = next(
+        (
+            job.worker
+            for job in window._job_manager.jobs()
+            if job.thread is window.import_state.active_thread
+        ),
+        None,
+    )
     if import_worker is not None:
         # The progress dialog this used to disconnect from is gone (D-091);
         # the activity bar takes its place and is dismissed below. Cancelling
@@ -345,7 +361,7 @@ def reset_session(window: MainWindow) -> None:
             cancel()
     window.activity_bar.end()
     window._active_cancel = None
-    window._pending_imports.clear()
+    window.import_state.pending.clear()
 
     for job in window._job_manager.jobs():
         worker = job.worker
@@ -367,6 +383,7 @@ def reset_session(window: MainWindow) -> None:
     window.player.reset()
     for path in list(window.video_grid.pane_paths()):
         window.video_grid.remove_pane(path)
+    imaging_integration.clear_session(window)
     window.sidebar.clear_sources()
     window.plot_pane.clear_sources()
     window.plot_pane.clear_measure()
@@ -378,7 +395,7 @@ def reset_session(window: MainWindow) -> None:
     window._video_source_bounds.clear()
     window._video_time_mappings.clear()
     window._sync_provenance.clear()
-    window._session_start_time = 0.0
+    window.session_runtime.start_time = 0.0
     # Placements belong to the session zero that produced them; carrying them
     # into the next session would place its sources against an epoch it never
     # declared.
@@ -391,9 +408,35 @@ def reset_session(window: MainWindow) -> None:
     window._frame_indexed_sources.clear()
     window._overlay_sources.clear()
     window._pose_3d_sources.clear()
+    window._tracking_visibility.clear()
+    window._tracking_plot_sources.clear()
+    window._pending_tracking_visibility.clear()
     window.point_edits.clear()
+    window.identity_swaps.clear()
+    window._expected_swap_groups.clear()
+    window._swap_candidates.clear()
+    window.transport.set_identity_candidates([])
+    if window._identity_window is not None:
+        window._identity_window.hide()
+    window._show_original_tracker = False
+    original_action = window._act_show_original_tracker
+    blocked = original_action.blockSignals(True)
+    original_action.setChecked(False)
+    original_action.blockSignals(blocked)
+    window._pose_schemas.clear()
+    window._pose_cache_dirs.clear()
+    window._edited_generations.clear()
+    custom_marker_controller.cancel(window)
+    window.custom_markers.clear()
+    window._calibration_state = None
+    window._announced_marker_files = False
+    wheel_controller.reset(window)
+    window.props_app.reset()
     window._point_edit_storage.clear()
     window._expected_correction_counts.clear()
+    window._swap_storage.clear()
+    window._expected_swap_counts.clear()
+    window._announced_swap_files.clear()
     window._announced_correction_files.clear()
     window._plotted_readers.clear()
     window._inspections.clear()
@@ -401,11 +444,11 @@ def reset_session(window: MainWindow) -> None:
     window._sensor_cache_dirs.clear()
     window._pending_bounds_sources.clear()
     window._pending_sensor_mappings.clear()
-    window._session_camera_fps = 0.0
-    window._session_anchor_epoch = 0.0
-    window._session_item_labels.clear()
-    window._session_item_kinds.clear()
-    window._session_coverage_groups.clear()
+    window.session_runtime.camera_fps = 0.0
+    window.session_runtime.anchor_epoch = 0.0
+    window.session_runtime.item_labels.clear()
+    window.session_runtime.item_kinds.clear()
+    window.session_runtime.coverage_groups.clear()
 
     window._refresh_pose_3d()
     window.clock.set_bounds(0.0, 0.0)
@@ -429,30 +472,41 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     """Load all sources from a SessionState object."""
     # Sources arrive asynchronously and are indistinguishable from the user
     # opening them; `_note_source_loaded` clears this once they drain.
-    window._session_restoring = True
+    window.session_runtime.restoring = True
     # Restored before the panes exist, so each one is built already showing the
     # right layers rather than flashing the defaults first (D-090).
     window.overlay_state.load(state.overlays)
     window._apply_overlay_state()
+    window._show_original_tracker = state.show_original_tracker
+    original_action = window._act_show_original_tracker
+    blocked = original_action.blockSignals(True)
+    original_action.setChecked(state.show_original_tracker)
+    original_action.blockSignals(blocked)
     # Corrections live beside their pose files, so this only takes up what the
     # session claims: the counts to check each source against as it imports, and
     # the coordinates for any source that had to fall back to session storage
     # because its folder could not be written (D-099).
     window.point_edits.clear()
     corrections_controller.restore_manifest(window, state.point_edits)
+    # Identity swaps are the same arrangement for the same reason: the
+    # `_avialswap.csv` beside the pose file is the authority, and the session
+    # holds the count to check it against as the source imports (D-141).
+    window.identity_swaps.clear()
+    identity_controller.restore_manifest(window, state.identity_swaps)
     # Collect missing files for relink
     missing: list[str] = []
     kind_labels: dict[str, str] = {}
 
     for ve in state.videos:
-        if not Path(ve.path).exists():
+        if not source_exists(Path(ve.path)):
             missing.append(ve.path)
             kind_labels[ve.path] = "video"
 
     for se in state.sensors:
-        if not Path(se.path).exists():
+        if not source_exists(Path(se.path)):
             missing.append(se.path)
             kind_labels[se.path] = "sensor"
+    imaging_integration.collect_missing(state.imaging, missing, kind_labels)
 
     relink_map: dict[str, str] = {}
     if missing:
@@ -472,7 +526,7 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     # Before any source loads: the reference is declared once, and a restored
     # session already declared it. Adopting it here stops the first file to
     # arrive from re-declaring a different one and renumbering the session.
-    window._session_start_time = float(state.session_start_time)
+    window.session_runtime.start_time = float(state.session_start_time)
     window._publish_session_epoch()
     window._sync_provenance = list(state.sync_provenance)
     # Sources arrive asynchronously, so this runs again once they have; doing
@@ -493,8 +547,8 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
 
     for ve in state.videos:
         p = Path(relink_map.get(ve.path, ve.path))
-        if p.exists():
-            window._load_video(p, offset=ve.offset, drift_ppm=ve.drift_ppm)
+        if source_exists(p):
+            window._load_video(p, offset=ve.offset, drift_ms_per_hour=ve.drift_ms_per_hour)
             if ve.integrity_flags or ve.metadata:
                 from avialsync.core.inspection import IntegrityFlags
 
@@ -505,20 +559,32 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
                 )
                 window._inspections[str(p)] = ins
 
+    imaging_integration.restore_entries(window, state.imaging, relink_map)
     for se in state.sensors:
         p = Path(relink_map.get(se.path, se.path))
-        if p.exists():
+        if source_exists(p):
             # Import is asynchronous, so the accepted mapping is held until
             # the worker reports the cache back (see _on_import_finished).
-            window._pending_sensor_mappings[str(p)] = (se.offset, se.drift_ppm)
-            window._start_data_import(p)
+            window._pending_sensor_mappings[str(p)] = (se.offset, se.drift_ms_per_hour)
+            window._pending_tracking_visibility[str(p)] = {
+                "overlay": se.tracking_overlay_visible,
+                "plot": se.tracking_plot_visible,
+            }
+            config = dict(se.import_config)
+            overlay_target = config.get("overlay_video")
+            if isinstance(overlay_target, str):
+                config["overlay_video"] = relink_map.get(overlay_target, overlay_target)
+            if config:
+                window._start_data_import(p, pre_config=config, restoring=True)
+            else:
+                window._start_data_import(p)
             if se.loader_id or se.import_report:
                 from avialsync.core.inspection import ImportReport
 
                 ins = SourceInspection(
                     path=str(p),
                     loader_id=se.loader_id,
-                    import_config=dict(se.import_config),
+                    import_config=config,
                     import_report=(
                         ImportReport.from_dict(se.import_report) if se.import_report else None
                     ),
@@ -560,14 +626,65 @@ def autosave(window: MainWindow) -> None:
     """
     if window._save_in_progress:
         return
-    if window._session_path is None:
+    if window.session_runtime.path is None:
         _write_recovery_snapshot(window)
         return
-    window._start_session_save(window._session_path, is_autosave=True)
+    window._start_session_save(window.session_runtime.path, is_autosave=True)
+
+
+#: Whether the launch-time notification bar is posted at all. Off by default:
+#: the snapshot is written either way, so the choice is about being told, not
+#: about being protected (D-133).
+_OFFER_AT_LAUNCH = setting_for("storage/offer_recovery_at_launch")
+
+
+def offers_recovery_at_launch() -> bool:
+    """Whether the user asked to be told about unsaved work when launching."""
+    return bool(read_setting(_OFFER_AT_LAUNCH)) if _OFFER_AT_LAUNCH is not None else False
+
+
+def note_pending_recovery(window: MainWindow) -> bool:
+    """Record what unsaved work is available, and return whether there is any.
+
+    Read once, at launch, and held on the window: the File command's precondition
+    is re-answered on every source change and every menu that opens, and a
+    precondition that stats and parses a file each time is the kind of IO that
+    does not belong on those events (rule 3). The clear sites drop it with the
+    snapshot, so the command greys out when there is nothing behind it.
+    """
+    window.session_runtime.pending_recovery = recovery.pending_recovery()
+    window._refresh_action_availability()
+    return window.session_runtime.pending_recovery is not None
+
+
+def forget_pending_recovery(window: MainWindow) -> None:
+    """Drop the held snapshot once it no longer describes recoverable work.
+
+    Called beside every ``recovery.clear_recovery()``: a save, a reset, or a
+    completed restore all mean the File command must stop offering it, and an
+    offer that outlives its file would put old work back over the current
+    workspace.
+    """
+    window.session_runtime.pending_recovery = None
+    window._refresh_action_availability()
+
+
+def recover_unsaved_work(window: MainWindow) -> None:
+    """Restore the held snapshot, on the user's explicit request (D-133).
+
+    This is what keeps the launch-time bar optional. With the offer off, the
+    snapshot is still written on every quit and this command is how it is
+    reached, so turning the notification off costs discoverability and not the
+    work itself.
+    """
+    snapshot = window.session_runtime.pending_recovery
+    if snapshot is None:
+        return
+    restore_pending_recovery(window, snapshot)
 
 
 def offer_pending_recovery(window: MainWindow) -> bool:
-    """Offer unsaved work from a previous run, if there is any. Non-modal.
+    """Offer unsaved work from a previous run, if asked to. Non-modal.
 
     The other half of D-089. The snapshot has been written on every quit since
     that decision landed, but nothing ever offered it back, so the work was
@@ -576,12 +693,22 @@ def offer_pending_recovery(window: MainWindow) -> bool:
     either.
 
     An offer, never a gate: it is one line in the notification strip with a
-    Restore button beside it, and dismissing it declines without touching the
-    snapshot. Law 1 forbids blocking the user to tell them something, and a
-    launch-time "restore your work?" modal is exactly that.
+    Restore button beside it, and dismissing it records the declined version
+    without deleting the snapshot. Law 1 forbids blocking the user, and a
+    launch-time "restore your work?" modal is exactly that. Dismissing
+    remembers this version so it does not reappear on the next launch.
+
+    Silent unless the user turned the offer on (D-133). Every quit writes a
+    fresh snapshot, and a dismissal is remembered per snapshot content, so work
+    that changed since the last dismissal is correctly a new offer -- which for
+    anyone who works without saving is an offer at every launch, in a strip they
+    then clear by hand. The snapshot is always written and **File → Recover
+    Unsaved Work** always reaches it; only the unrequested bar is opt-in.
     """
-    snapshot = recovery.pending_recovery()
+    snapshot = window.session_runtime.pending_recovery if note_pending_recovery(window) else None
     if snapshot is None:
+        return False
+    if not offers_recovery_at_launch():
         return False
 
     when = time.strftime("%H:%M on %d %b", time.localtime(snapshot.recovered_at))
@@ -595,6 +722,7 @@ def offer_pending_recovery(window: MainWindow) -> bool:
         message,
         action_label=tr("Restore"),
         on_action=lambda: restore_pending_recovery(window, snapshot),
+        on_dismiss=lambda: recovery.dismiss_recovery(snapshot),
     )
     return True
 
@@ -615,9 +743,10 @@ def restore_pending_recovery(window: MainWindow, snapshot: recovery.RecoverySnap
         )
         return
 
-    window._session_path = Path(snapshot.session_path) if snapshot.session_path else None
+    window.session_runtime.path = Path(snapshot.session_path) if snapshot.session_path else None
     window._restore_session(state)
     recovery.clear_recovery()
+    forget_pending_recovery(window)
     # Restored work is unsaved work: it went back to the window, not to a file.
     window.document.mark_dirty()
     window.notifications.show_warning(
@@ -647,6 +776,7 @@ def _write_recovery_snapshot(window: MainWindow) -> bool:
         return False
     if recovery.is_empty_state(state):
         recovery.clear_recovery()
+        forget_pending_recovery(window)
         return False
     return recovery.write_recovery(state, None)
 
@@ -662,12 +792,12 @@ def write_session_snapshot(window: MainWindow) -> None:
     With no session path the same state goes to the recovery snapshot instead,
     so closing an untitled session preserves it rather than discarding it.
     """
-    if window._session_path is None:
+    if window.session_runtime.path is None:
         _write_recovery_snapshot(window)
         return
     from avialsync.engine.session_worker import SessionSaveWorker
 
-    SessionSaveWorker(window._build_session_state(), window._session_path).run()
+    SessionSaveWorker(window._build_session_state(), window.session_runtime.path).run()
 
 
 def autosave_before_close(window: MainWindow) -> None:
@@ -701,7 +831,6 @@ def open_recent(window: MainWindow, path: str) -> None:
     if not p.exists():
         # Open Recent is one of the four paths rule 10 names: it may not put a
         # modal in front of the user, not even to say the file is gone. The
-        # presenter's Locate action is the useful half of that message anyway.
         window.report_failure(
             SourceOpenError(f"Session file no longer exists: {path}"),
             doing=f"opening {p.name}",

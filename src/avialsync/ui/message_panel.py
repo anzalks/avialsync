@@ -17,13 +17,13 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, Signal
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QGroupBox,
     QHeaderView,
     QLabel,
     QLineEdit,
-    QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
@@ -31,7 +31,10 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.messages import Message
 from avialsync.core.timeline import TimeMap
+from avialsync.ui.design_tokens import spacing
+from avialsync.ui.empty_note import EmptyNote
 from avialsync.ui.i18n import tr
+from avialsync.ui.tables import ThemedTable
 from avialsync.ui.time_format import TimeDisplayMode, format_time
 
 
@@ -71,12 +74,12 @@ class MessageStore(QObject):
         self._by_source[source_id] = tuple(messages)
         self.changed.emit()
 
-    def set_source_mapping(self, source_id: str, offset: float, drift_ppm: float) -> None:
+    def set_source_mapping(self, source_id: str, offset: float, drift_ms_per_hour: float) -> None:
         """Re-place one source's messages after its alignment changed."""
-        if source_id not in self._by_source and offset == 0.0 and drift_ppm == 0.0:
+        if source_id not in self._by_source and offset == 0.0 and drift_ms_per_hour == 0.0:
             self._maps.pop(source_id, None)
             return
-        self._maps[source_id] = TimeMap(offset=offset, drift_ppm=drift_ppm)
+        self._maps[source_id] = TimeMap(offset=offset, drift_ms_per_hour=drift_ms_per_hour)
         if source_id in self._by_source:
             self.changed.emit()
 
@@ -132,6 +135,13 @@ class MessageStore(QObject):
         return untimed + timed
 
 
+#: What an empty Messages page says fills it (D-176, R5).
+_NO_MESSAGES = tr(
+    "No messages yet. Messages appear here when an opened recording carries them, "
+    "such as an acquisition system's event log."
+)
+
+
 class MessagePanel(QGroupBox):
     """Chronological list of recorded messages; a row seeks the timeline.
 
@@ -158,7 +168,7 @@ class MessagePanel(QGroupBox):
         self._t_epoch = 0.0
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
 
         self._search = QLineEdit(self)
         self._search.setPlaceholderText(tr("Filter messages…"))
@@ -177,7 +187,7 @@ class MessagePanel(QGroupBox):
         self._notes.setVisible(False)
         layout.addWidget(self._notes)
 
-        self._table = QTableWidget(0, 3, self)
+        self._table = ThemedTable(0, 3, self)
         self._table.setHorizontalHeaderLabels(["Time", "Source", "Message"])
         header = self._table.horizontalHeader()
         header.setSectionResizeMode(self._TIME_COLUMN, QHeaderView.ResizeMode.ResizeToContents)
@@ -189,8 +199,7 @@ class MessagePanel(QGroupBox):
         self._table.itemSelectionChanged.connect(self._on_row_activated)
         layout.addWidget(self._table)
 
-        self._empty = QLabel("No messages in the loaded sources.", self)
-        self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._empty = EmptyNote(_NO_MESSAGES, self)
         layout.addWidget(self._empty)
 
         self._refresh()
@@ -276,10 +285,14 @@ class MessagePanel(QGroupBox):
         self._table.setVisible(bool(shown))
         self._empty.setVisible(not has_any)
         self._empty.setText(
-            "No message matches this filter."
+            tr("No message matches this filter.")
             if (self._rows or self._untimed) and not has_any
-            else "No messages in the loaded sources."
+            else _NO_MESSAGES
         )
+
+    def install_empty_action(self, action: QAction) -> None:
+        """Offer the command that brings messages in (D-176)."""
+        self._empty.set_action(action)
 
     def _on_row_activated(self) -> None:
         rows = {index.row() for index in self._table.selectedIndexes()}

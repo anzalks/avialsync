@@ -5,12 +5,9 @@ Desktop tool for scrubbing time-synchronized multi-camera video with dense time-
 **License:** AGPL-3.0-or-later, single licence — no dual licence, no CLA (D-076).  
 **Env:** `conda run -n avialsync <cmd>` — every command without exception
 
-> **⚠ Migration in flight — read MIGRATION_PYAV.md before touching video code.**
-> Branch `shift_from_libmpv_to_pyav` replaced libmpv with PyAV so that `pip install avialsync`
-> needs no OS-level install on any platform (D-075). **All eight steps are done.** Decoding,
-> probing, proxy generation, clip export, and the demo generator run in-process against the FFmpeg
-> inside PyAV's wheel; nothing in the application shells out to a media runtime. That file carries
-> the step-by-step record and the traps worth keeping.
+> **No phase is open; Phase 9 interface design is delivered (D-167 – D-182).** Completed plans (including the
+> finished libmpv → PyAV migration, `archive/plans/MIGRATION_PYAV.md`) are kept in `archive/plans/`
+> as record only.
 
 ---
 
@@ -21,7 +18,8 @@ Desktop tool for scrubbing time-synchronized multi-camera video with dense time-
 | Brand / UI / window title | `AvialSync` |
 | Module / CLI / PyPI / import paths | `avialsync` (lowercase, one word) |
 | Session files | `.avv` |
-| Cache sidecar dirs | `<file>.avialcache/` |
+| Cache | one per-user folder, `<cache root>/sources/<name>-<digest>/` per source (D-160) |
+| Sidecars beside data | full source name, dots → `_`, then a tag: `pose_csv_avialfix.csv` (D-160) |
 
 Use `AvialSync` for displayed text and `avialsync` for technical identifiers. Do not invent variants.
 
@@ -55,8 +53,8 @@ with explicit user acceptance and session provenance. Native plugin event provid
 packages. It added seven pieces of shared infrastructure — command bus, settings registry, the
 action/shortcut layer (identity derived from the live `QAction`s rather than a second table, D-092,
 so there is no `ui/action_registry.py`), overlay registry, feedback surface, string/a11y layer,
-display pipeline — and wired the missing interaction behaviour onto them. **The executable plan is
-`UX_FOUNDATIONS_PLAN.md`**, whose header records the two deliberate scope boundaries: WP-11 left the
+display pipeline — and wired the missing interaction behaviour onto them. **The executable plan was
+`archive/plans/UX_FOUNDATIONS_PLAN.md`**, whose header records the two deliberate scope boundaries: WP-11 left the
 four nested splitters as splitters rather than `QDockWidget`s, and WP-12 wrapped 106 of 166
 user-facing literals, the remainder being f-strings `lupdate` cannot extract (`translatable_ratio`
 measures it). Kickoff prompts are in PROMPTS.md §Phase 7; the binding rules are AGENTS.md
@@ -85,6 +83,53 @@ three-event fit. The session has one declared zero after NWB (`core/session_time
 dialog gained a correspondence panel, coverage lanes, per-axis navigation, and stopped blocking the
 window it asks the user to judge.
 
+**Identity repair is implemented on `feat/identity-swaps` (D-141–D-145).** Accepted flips exchange declared lanes from a sample onward; the same edit program rebuilds affected cached channels and drives a single corrected pose CSV. Fix Identities shows one group and part at a time, with evidence-based candidate nodes and drag-to-accept. Accepted events appear in Data Streams and Changes, and beside their source; Changes can remove one undoably. View → Play original switches readers to the imported prediction for comparison and persists per session. The raw CSV and imported cache remain untouched. A swap-only source offers the edited pose copy without a retraining set.
+
+**Tracker presentation is per source (D-147).** Routed 2D and 3D pose sources start with visual
+overlays on and **Show plot** off. Their sidebar cards expose independent controls; the choices
+are undoable and session-persisted. A 2D overlay remains camera-specific, while a 3D overlay
+means the 3D view. Plotting a routed tracker never sends it through the loose-reader video overlay
+path. Checked coordinates select complete landmarks in the visual view and become plot rows only
+once **Show plot** is enabled.
+
+**Vicon Nexus sessions load without CSV exports.** The Vicon C3D loader reads 3D marker frames,
+uses the paired XCP video-camera calibration to project them into the associated AVI, and samples
+the result on that video's frame grid. The session scanner pairs by camera device ID and reports
+trials whose calibration or video match is missing or ambiguous. Projected points use the existing
+camera-specific tracking overlay and its visibility controls.
+
+**Physical props are implemented on `feat/physical-props`** (merge and release gate pending). Read
+D-149, D-154–D-157 and D-162–D-166 before changing a prop; the plan is archived at
+`archive/plans/PHYSICAL_PROPS_PLAN.md`. One Props inspector contains wheel placement/review,
+clicked horizontal ladders, and editable geometry and motion binding for belts and balls. Wheel
+placement starts from the selected kind's Add control. All four kinds use versioned `_prop.toml`
+sidecars; old `.wheel.toml` files are ignored and untouched. Belt marks can follow an explicit
+travel direction and bound displacement channel, or visual-only stereo clicks of the same mark
+on each observed frame. Ball marks can follow four synchronized quaternion channels or three
+named stereo surface landmarks at a reference and later frame. Channel motion resamples displayed
+and reference presentation times through the current TimeMap and supports later-frame click checks.
+Visual motion uses the reference camera's displayed frame index, recomputes fits from raw clicks
+under the current calibration, and never fills unobserved frames. Editing belt or ball geometry
+retains those clicks and reports when the new path or sphere disagrees with them (D-162). A closed visual belt needs
+explicit lap counts to claim signed travel. Channel check readings, clicks, and residuals are
+saved; visual clicks are saved and their fit residuals are recomputed from current calibration.
+Missing, gapped, or out-of-coverage readings leave channel motion unknown.
+New treadmill belts use measured equal-radius roller centres, width and top direction; the top
+and return runs are flat and the wrap arcs and material loop length are analytic (D-163).
+Older point-path belts remain readable and editable. Camera and 3D overlays draw the measured
+belt surface and ball wire mesh; short labels distinguish clicks from moving marks. A props-only
+scene enables Fit View and its 3D status without needing XYZ tracking channels.
+Ladders may declare side-rail or centre-beam support and tag irregular steps; **Save and click
+next step** keeps clicking rung after rung (D-164). A regular run is extrapolated from the first
+two clicked rungs and a rung count, with perspective from one view; clicked rungs replace the
+dashed estimates. A belt is placed from four clicks — top corners in two calibrated cameras for
+3D, or both hubs and the top above each in one camera — sized by the typed centre distance and
+radius. A one-camera belt lives in that view's side plane only (D-165).
+The inspector derives displayed 3D points from the current calibration and the original clicks;
+with missing calibration, only the clicked 2D marks appear. A read failure offers Retry without
+discarding the recording. A new ladder cannot replace an unread sidecar of the same name while
+discovery is pending. Saved fit coordinates remain in the sidecar as inspectable history.
+
 Two product laws govern that phase and outrank convention:
 
 - **Law 1 — never block, always inform.** Opening a file is never refused or gated. The user is
@@ -96,8 +141,11 @@ Two product laws govern that phase and outrank convention:
 
 ### Done (Phase 4)
 - Session save/load `.avv` schema v5, autosave 2 min, recent files, relink dialog
-- Sources → Open Files → Reset Session cancels pending loads and clears the current workspace without
-  modifying recordings, sidecar caches, or a saved `.avv` file.
+- File → Reset Session (also Sources → Open Files) cancels pending loads and clears the current workspace without
+  modifying recordings, their cache, or a saved `.avv` file.
+- File → Cache: Delete Cache for This Trial / Delete All Cache / Show Cache Folder
+  (`ui/controllers/cache_controller.py`, D-160). A loaded trial is closed, its entries removed
+  in a job, and the same workspace restored — still dirty if it was.
 - Transport: unified `QLineEdit` 110px minimum, `HH:MM:SS.fff`, `_time_editing` guard
 - Theme: System/Dark/Light radio group in View menu; Ctrl+T cycles; System retains the platform
   style, palette, accent, and font, and follows Qt-reported palette changes while open. Explicit
@@ -112,6 +160,32 @@ Two product laws govern that phase and outrank convention:
 - Annotations (point + range markers, M key, CSV export)
 - Keyboard shortcuts dialog (`?` key)
 - Snapshot / data slice / video clip export
+- Stimulus-grid MP4 export: select a sensor rising threshold and event window, review events on a
+  decimated timeline, then compare camera rows across up to twelve event columns above one shared,
+  event-aligned signal trace and relative-time ruler. One-pixel seams join the video tiles; camera
+  names and event labels stay outside the tiles, with no per-frame badge. The trace uses
+  bounded pyramid queries of the selected channel on the export worker, preserving its accepted
+  TimeMap and gaps. Export snapshots accepted camera mappings and display levels, and runs as a
+  registered background job. Base output cadence and playback speed are separate: the dialog
+  offers the player's rate presets plus a precise custom rate and previews output duration.
+  Export merges mapped camera-change candidates with cursor ticks into one rate-capped, variable-
+  timestamp MP4. The dialog defaults to 10 composite frames per second; transitions between
+  output timestamps are sampled rather than all encoded. Slow motion retains transitions when
+  they fit the selected output rate. The encoder writes explicit packet durations so the last frame
+  ends at the selected window. Static labels and TTL envelopes are rendered once per export; the
+  moving cursor and camera tiles change per output frame. Frame-number badges are omitted. The grid
+  uses an ultrafast H.264 encoder preset to favor export speed. The composite is still resized,
+  lossy H.264.
+  The worker atomically replaces an existing MP4 after encoding; its finished signal identifies
+  replacements so the UI tells users to reopen a player that may still hold the previous file.
+  Cancelled or failed publishes leave the previous file intact. The app-driven demo checks the
+  success notification, so an existing output can no longer mask a failed export.
+  The reproducible screenshots and default two-second MP4 come from the app's
+  File export action, driven by `tools/generate_stimulus_grid_demo.py`:
+  three synthetic camera angles on a muted gray scene with movement and a transient off-white point
+  only near each TTL trigger.
+- `TimeMap.copy()` preserves affine drift anchors and accepted exact timestamp mappings in worker
+  snapshots.
 - Import wizard (CSV format/TZ/sentinel/euro-decimal) + proxy worker
 - `plot_pane.reset_zoom()` method exists
 - Plots share one master-time page and continuous **Time span** control (`ms` / `s` / `min` / `h`),
@@ -170,13 +244,13 @@ Two product laws govern that phase and outrank convention:
   Release staging rejects a bundle without `ffmpeg` and `ffprobe`; no video library is staged or
   required (D-075). A pip install carries its own decoder, so there is no missing-library first run
   and no guided dialog. FFmpeg remains external for proxy generation, clip export, and the demo
-  generator — MIGRATION_PYAV.md step 7. The prohibition on an in-app downloader still stands (D-014):
+  generator — archive/plans/MIGRATION_PYAV.md step 7. The prohibition on an in-app downloader still stands (D-014):
   an application must not fetch its own binaries at runtime; that is what the wheel is for.
 - **Video pane shutdown**: `MainWindow.closeEvent()` calls `Player.stop()` and then
   `VideoGrid.shutdown()` before Qt destroys child widgets. This removes the precise 60 Hz timer and
   closes every `VideoPane`, which stops its decode thread and closes its reader on the thread that
   opened it. Never rely on QWidget destruction or Python garbage collection to stop a decode thread.
-- **Frame-indexed sources (D-019)**: `TimeSeriesSource.is_frame_indexed()` added (default False). `TrackingLoader` overrides to True. Import fps resolution: 1 video → pre-filled confirm; multiple videos → dropdown; no video → manual entry + auto-rebind when first video is added.
+- **Frame-indexed sources (D-019, D-137)**: `TimeSeriesSource.is_frame_indexed()` added (default False). `TrackingLoader` overrides to True. Frame rate is never asked for — `import_controller.frame_rate_for_tracking` derives it from the declared overlay camera, else the single/agreeing loaded cameras; anything else imports provisionally at 30 fps with the "Frame rate assumed" badge and rebinds per-source when its camera loads. `_video_fps` holds the *measured* rate, not the container's claim.
 - **NeoLoader.can_open tightening**: `SUPPORTED_EXTENSIONS` whitelist added; `can_open` returns 0.0 immediately for any file not in the whitelist. Never claims `.csv` or acts as a fallback for unknown files.
 
 ### Done — Inspection Layer (A–K, D-020)
@@ -187,7 +261,7 @@ Two product laws govern that phase and outrank convention:
   Collapsible section inside existing VideoInfoWidget / SensorInfoWidget — extend, not parallel.
 - **Load Provenance** (B): loader_id + import_config stored in SourceInspection; persisted to
   session schema v2; shown in properties panel.
-- **Sync Provenance** (C): metadata start_time and drift_ppm surfaced in VideoPropertiesPanel
+- **Sync Provenance** (C): metadata start_time and clock drift surfaced in VideoPropertiesPanel
   (set_drift() API); offsets_panel.py left as stub — offset editing stays in
   VideoInfoWidget.offset_spin (one place only); no duplicate offset UI.
 - **Precision Readouts** (D): ReadoutPanel shows per-channel value + unit + sample index;
@@ -227,50 +301,114 @@ Two product laws govern that phase and outrank convention:
 - Follow-up: native plugin event providers remain separate API work; manual offset/drift fallback is
   available in the Sync Wizard.
 
-### Pending
+### Open items
+- **Delivered: Phase 9 interface design** — `archive/plans/INTERFACE_DESIGN_PLAN.md`; the TESTING.md
+  §6 manual check on field data is open (BLUEPRINT.md).
+  DS-0 isolated screenshots and fixed theme status/gutter defects; DS-1 made repeated buttons
+  action-backed and widened the translation gate (D-167). DS-2 adds shared control roles,
+  font-scaled spacing, and original palette-aware SVG glyphs (D-168, D-169). DS-3 joins the plot
+  controls and time span, moves loop and rate controls beside Play, puts application status in the
+  status bar, and paints cached evidence under the scrub handle (D-170). DS-4 gives Data Streams
+  font-scaled lanes with an adjustable visible-row cap, vertical scrolling, and elided labels
+  with full-text hover (D-171). DS-6 replaces the inspector tabs with a vertically scrolling icon
+  and label rail and moves Tasks to a status-bar popover (D-172). DS-10 shows every number with
+  a full stop and no digit grouping, whatever the operating system's locale (D-173). DS-5 gives
+  each camera a one-line header with an eliding name, a `chrome_rects()` contract for overlay
+  labels, glyph Snapshot/Fit/Fullscreen buttons on their actions, and picture-shaped panes for
+  one or two cameras (D-174). DS-7 compacts the source cards: offset and drift behind a Timing
+  disclosure, one overflow per card, a split Open button, and Reset Session apart (D-175). DS-8
+  puts wheel, ladder/belt/ball, identity review and alignment on one `StepPanel`, labels the props
+  header, and gives every inspector page an `EmptyNote` (D-176). DS-9 reveals row tools on
+  hover or focus, adds Hide to the row menu, lightens rules and grid, defaults rows to Compact,
+  and records the gutter as each trace's non-colour identifier (D-177). DS-11 decides against a
+  main toolbar and puts Align → Synchronize as a glyph beside Open (D-178). DS-12 makes the
+  plots, lanes, video panes and 3D view describe themselves to assistive technology on query
+  (D-179). DS-13 adds Help → First Session Tutorial and Learn more links from step panels, all
+  built on `[project.urls]` through `about.docs_url`. DS-14 makes the inspector a dock with
+  saved state and a one-time migration; the workspace column keeps its splitters (D-180). Follow-up
+  (D-181): every open command is a visible full-width button again, plot gutters show name and unit
+  only, glyph buttons are flat push buttons throughout (`ui/menu_button.MenuGlyphButton` opens a
+  menu without the platform's arrow), and the Props editor sizes to the page on show. D-182: the
+  workspace column scrolls when the window is shorter than it, so 640x480 holds at any font.
+  D-183: the overlay names resolution and bit depth and wraps instead of clipping; the properties
+  dialog leads with the source's properties and always opens. D-184: clock drift is
+  `drift_ms_per_hour` everywhere -- core, sessions (schema 12), fits, fields and text -- with
+  `core/drift.py` the one place that reads an older file's per-million rate. D-185: rates read at
+  one decimal (two where tenths hide 29.97), master times at ms. D-186: each loader's declared
+  channel units ride `SourceInspection.channel_units` to the plot gutter and Values panel;
+  `inspection.units()` merges import-wizard units over them, and an older cache is back-filled once.
+  D-187: `core.source.display_unit` gives every source one spelling (uV → µV, dimensionless →
+  none); neo's unit is never guessed; the plot pane keeps units for rows built after they arrive.
 - **P4.6 plot review/sweep UX refinement — core implementation complete; certification remains
-  (D-044):** `PLOT_UX_PLAN.md` remains the canonical contract. Review/Sweep/Scope, the shared
+  (D-044):** `archive/plans/PLOT_UX_PLAN.md` remains the canonical contract. Review/Sweep/Scope, the shared
   continuous time-span control, master navigator viewport drag, one bottom axis and channel gutters,
   fit/auto/manual Y control, compact inspector tabs, native focus, and compatibility action proxies
   are implemented and covered by focused offscreen tests. The remaining release certification is the
   full representative 4/32/128-channel performance and three-platform manual field-data checklist;
   do not claim the latency budgets without those measurements.
-- P3.5 performance/accurate-streaming hardening (audit 2026-07-29; closed 2026-07-30):
-  - **P0 accuracy — done.** Plot envelopes render pyramid min/max; raw gap evidence is OR-reduced
-    into every coarser level; CSV enforces an explicit timestamp schema with cross-chunk
-    chronology/duplicate validation and the wizard timezone. Every time-series source now has a
-    `TimeMap` (D-045): `MappedChannelReader` presents cached channels on the master clock, session
-    schema v6 persists sensor `offset`/`drift_ppm`, and the sidebar offers the same offset/drift
-    controls video already had. Re-aligning a source is a redraw, never a re-import.
-  - **P0 streaming — done.** `ChannelStage` stages parser chunks to disk and materialises once, so
-    peak import memory is one chunk per channel instead of the whole recording. `NeoLoader` reads
-    blocks lazily and slices per batch. Gap *locations* are capped at 10 000 as display evidence
-    while `gap_count` stays exact.
-  - **P0 UI freeze — done.** Region statistics, CSV/Parquet export, PNG encoding, ffmpeg clipping,
-    and now session save/load/autosave and annotation export all run on workers (D-046). A Qt
-    heartbeat test fails if the event loop stalls during a one-million-pair session write. The
-    close-time autosave is deliberately synchronous — the window is being destroyed.
-  - **P1 identity — done.** `ChannelKey(source_id, channel_id)` keys plots, readouts, units,
-    visibility, region statistics, and export (D-045). CSV export labels each block with its source;
-    Parquet is long-form and never assumes a shared time axis.
-  - **P1 hot path — done.** Authoritative time stays at 60 Hz; readout/pose presentation is
-    rate-limited to 20 Hz and skipped when hidden; timeline evidence lanes are indexed by time so
-    paint and hover scale with pixels, not event count (D-047).
-  - **P1 loading — done.** Video metadata probes run bounded-parallel (3 at a time) while native
-    pane construction stays serialized and in request order, preserving D-040 (D-048).
-  - **P1 cache durability — done.** Cache commits retain the previous valid sidecar until the
-    replacement is installed and recover an interrupted backup on the next validity check.
-  - **Still open:** the representative *measurements*. The populated 4/32/128-channel performance
-    certification, peak-RSS and second-open-latency numbers for a 1 GB / 180 M-sample import, and
-    decoder-settle-plus-rendered-frame latency are not yet recorded. Existing microbenchmarks are
-    baselines, not freeze-free certification. Do not claim the BLUEPRINT latency budgets without
-    those runs on a real mid-spec machine.
-  - **P2 maintainability — split done, size still over.** `ui/main_window.py` went from 2 884 to
-    1 751 lines: drop routing, session persistence, export, video probing, and time-series import
-    moved to `ui/controllers/` as plain functions taking the window (D-066). The window keeps widget
-    construction, the menu/shortcut table, and controller wiring. Still above the ~500-line rule —
-    the remaining bulk is `__init__` widget construction, `_setup_menu`, and `_setup_shortcuts`,
-    plus synchronization, which has no controller yet.
+- **P3.5 measurements still open.** The populated 4/32/128-channel performance
+  certification, peak-RSS and second-open-latency numbers for a 1 GB / 180 M-sample import, and
+  decoder-settle-plus-rendered-frame latency are not yet recorded. Existing microbenchmarks are
+  baselines, not freeze-free certification. Do not claim the BLUEPRINT latency budgets without
+  those runs on a real mid-spec machine.
+- **P2 maintainability — composition still in progress.** `ui/main_window.py` is about 4 000
+  lines after the mocap and scientific UX work. File, Edit, Align, View, and Help menus now live
+  in `ui/menus/`, with labels still owned by their live actions. Wheel, video-load, import, and
+  session runtime fields have typed state objects; rig path helpers take a narrow context.
+  `tests/test_controller_boundaries.py` freezes private window accesses and oversized modules at
+  their current ceilings, checks new functions, and rejects controller import cycles. The target
+  is under 1 000 lines for `main_window.py` (D-148); remaining window coupling is tracked as debt.
+- **Still open — the scripted heartbeat test.** No test drives the full
+  open → play → scrub → resize → theme-switch sequence with real paint events. Judged not worth
+  it: `ui/ui_heartbeat.py` already monitors every real session on real hardware, which a fixture
+  run cannot match, and the distribution assertions now cover the tail it would have caught. A
+  scripted-interaction test here would be the flakiest thing in the suite. Revisit only if a
+  stall is reported that the runtime heartbeat did not catch.
+- **Still open — absolute UI budgets are unverified.** The tail assertions bound p95 and the
+  worst callback *relative to the median*, deliberately, so they survive a loaded CI runner. They
+  do not prove AGENTS' ≤8 ms target. Measured on a settled 32-channel window (macOS, offscreen):
+  ticks 0.01/0.02/2.6 ms p50/p95/max, visibility 9.2/20.1/21.5, scrub 29.2/32.8/49.0, resize
+  48.0/86.8/90.1. Scrub and resize exceed the 30 ms ceiling under an adversarial loop that
+  defeats `_PANE_RESIZE_COALESCE_MS`; whether that reflects real interaction is unmeasured and
+  needs the field checklist to settle.
+- Physical props: merge `feat/physical-props` and run its release gate
+  (`archive/plans/PHYSICAL_PROPS_PLAN.md` §4 slice 6).
+- Shipped translations: the machinery and 100 % wrapping exist; no `.qm` catalogue ships yet.
+- Native synchronization plugin API (D-026).
+
+### Done (P3.5 performance/accurate-streaming hardening — audit 2026-07-29, closed 2026-07-30)
+- **P0 accuracy — done.** Plot envelopes render pyramid min/max; raw gap evidence is OR-reduced
+  into every coarser level; CSV enforces an explicit timestamp schema with cross-chunk
+  chronology/duplicate validation and the wizard timezone. Every time-series source now has a
+  `TimeMap` (D-045): `MappedChannelReader` presents cached channels on the master clock, session
+  schema v6 persists sensor `offset` and drift (`drift_ms_per_hour` since schema 12, D-184), and the sidebar offers the same offset/drift
+  controls video already had. Re-aligning a source is a redraw, never a re-import.
+- **P0 streaming — done.** `ChannelStage` stages parser chunks to disk and materialises once, so
+  peak import memory is one chunk per channel instead of the whole recording. `NeoLoader` reads
+  blocks lazily and slices per batch. Gap *locations* are capped at 10 000 as display evidence
+  while `gap_count` stays exact.
+- **P0 UI freeze — done.** Region statistics, CSV/Parquet export, PNG encoding, ffmpeg clipping,
+  and now session save/load/autosave and annotation export all run on workers (D-046). A Qt
+  heartbeat test fails if the event loop stalls during a one-million-pair session write. The
+  close-time autosave is deliberately synchronous — the window is being destroyed.
+- **P1 identity — done.** `ChannelKey(source_id, channel_id)` keys plots, readouts, units,
+  visibility, region statistics, and export (D-045). CSV export labels each block with its source;
+  Parquet is long-form and never assumes a shared time axis.
+- **P1 hot path — done.** Authoritative time stays at 60 Hz; readout/pose presentation is
+  rate-limited to 20 Hz and skipped when hidden; timeline evidence lanes are indexed by time so
+  paint and hover scale with pixels, not event count (D-047).
+- **P1 loading — done.** Video metadata probes run bounded-parallel (3 at a time) while native
+  pane construction stays serialized and in request order, preserving D-040 (D-048).
+- **P1 cache durability — done.** Cache commits retain the previous valid sidecar until the
+  replacement is installed and recover an interrupted backup on the next validity check.
+- Closed 2026-08-03: plugin load errors are collected and shown in Diagnostics; the
+  `benchmark.stats` guard, the `.gitignore` entry, and the `ui/theme.py` subprocess note all
+  landed; `tests/test_workload_responsiveness.py` gained per-callback distribution assertions.
+- Superseded, not skipped: the plan's `PyramidBuilder.append`/`finalize` never landed because the
+  bounded-memory problem was solved at the importer layer instead (disk staging plus
+  `materialize()`, pinned by `tests/test_import_streaming.py`). Do not re-open it.
+
+### Done (Phase 5 packaging, docs, and plugin surfaces)
 - P5.2 release packaging: CI already builds a media-free one-directory artifact on every OS; the
   tag-only release workflow runs its cross-platform quality matrix, then smoke-tests the built
   wheel in a clean environment before building release-media installers. OIDC PyPI publishing
@@ -289,9 +427,16 @@ Two product laws govern that phase and outrank convention:
   Linux PNG, Windows ICO, macOS ICNS, and runtime PNG assets with `tools/generate_icons.py`.
   The AppDir also includes its required `.DirIcon` symlink and runs `desktop-file-validate` before
   AppImageTool, so malformed desktop metadata fails before artifact construction.
-- P5.3 Read the Docs deployment: connect the repository to its Read the Docs project; CI already treats
-  documentation warnings as errors.
-- Native synchronization plugin API (D-026).
+- P5.3 Read the Docs deployment: CI and Read the Docs both build the pinned Ubuntu 24.04 / Python
+  3.12 documentation environment with warnings as errors. A release tag synchronizes and activates
+  its exact Read the Docs version through the project API before distributions may publish; the
+  repository secret `READTHEDOCS_TOKEN` is therefore a release prerequisite.
+- Session/folder plugin API — **done 2026-08-03 (D-068)**. `SessionSource` in `core/source.py`,
+  published under the `avialsync.sessions` entry-point group and also discovered from drop-in plugin
+  directories. `engine/drop_worker.py` holds no format knowledge; AOL moved wholesale into
+  `loaders/aol_session_loader.AOLSessionSource` as its first implementation. Formats also name
+  themselves for the import dialog (`display_name`/`display_aliases`), so the UI has no format
+  table. Do not reintroduce a format name into `engine/` or `ui/`.
 - **Windows: intermittent native fault around libmpv client lifetime — CLOSED by removal (D-075).**
   Two faults were chased for weeks on `windows-2022`: an access violation inside python-mpv's
   `_enqueue_exceptions`, and a hang in `MPV.__init__` at `_event_thread.start()`. Neither was ever
@@ -306,34 +451,6 @@ Two product laws govern that phase and outrank convention:
   writes the autosave and geometry before `video_grid.shutdown`, and `tests/conftest.py` still
   neutralises the startup diagnostics probe so background work cannot land on an unrelated test.
   A manual `windows-diagnostic.yml` workflow existed and was deleted; do not restore it.
-- Session/folder plugin API — **done 2026-08-03 (D-068)**. `SessionSource` in `core/source.py`,
-  published under the `avialsync.sessions` entry-point group and also discovered from drop-in plugin
-  directories. `engine/drop_worker.py` holds no format knowledge; AOL moved wholesale into
-  `loaders/aol_session_loader.AOLSessionSource` as its first implementation. Formats also name
-  themselves for the import dialog (`display_name`/`display_aliases`), so the UI has no format
-  table. Do not reintroduce a format name into `engine/` or `ui/`.
-- **Post-refactor repair leftovers (audit 2026-07-30; `RECOVERY_PLAN.md` / `RECOVERY_PROMPT.md`
-  retired 2026-08-03).** 25 of that plan's 33 tasks shipped, verified against the code; its progress
-  tracker was never ticked, which is why the two files read as unstarted. What is genuinely left:
-  - Closed 2026-08-03: plugin load errors are collected and shown in Diagnostics; the
-    `benchmark.stats` guard, the `.gitignore` entry, and the `ui/theme.py` subprocess note all
-    landed; `tests/test_workload_responsiveness.py` gained per-callback distribution assertions.
-  - **Still open — the scripted heartbeat test.** No test drives the full
-    open → play → scrub → resize → theme-switch sequence with real paint events. Judged not worth
-    it: `ui/ui_heartbeat.py` already monitors every real session on real hardware, which a fixture
-    run cannot match, and the distribution assertions now cover the tail it would have caught. A
-    scripted-interaction test here would be the flakiest thing in the suite. Revisit only if a
-    stall is reported that the runtime heartbeat did not catch.
-  - **Still open — absolute UI budgets are unverified.** The tail assertions bound p95 and the
-    worst callback *relative to the median*, deliberately, so they survive a loaded CI runner. They
-    do not prove AGENTS' ≤8 ms target. Measured on a settled 32-channel window (macOS, offscreen):
-    ticks 0.01/0.02/2.6 ms p50/p95/max, visibility 9.2/20.1/21.5, scrub 29.2/32.8/49.0, resize
-    48.0/86.8/90.1. Scrub and resize exceed the 30 ms ceiling under an adversarial loop that
-    defeats `_PANE_RESIZE_COALESCE_MS`; whether that reflects real interaction is unmeasured and
-    needs the field checklist to settle.
-  - Superseded, not skipped: the plan's `PyramidBuilder.append`/`finalize` never landed because the
-    bounded-memory problem was solved at the importer layer instead (disk staging plus
-    `materialize()`, pinned by `tests/test_import_streaming.py`). Do not re-open it.
 
 ### Cross-platform pressure audit (D-040)
 - Rendering is no longer platform-specific at all (D-075): every OS decodes to a `QImage` and
@@ -369,11 +486,10 @@ Two product laws govern that phase and outrank convention:
   the export lacks), and failing that are detected from pairwise rigidity by `core/skeleton.py`,
   drawn dashed and rooted on the vertical axis; the header's `Bones:` selector pins
   Auto / Detected / Off (D-082). Names never imply topology.
-- Reset Zoom: wired to View → Reset Plot Zoom (Ctrl+0), timeline-row button, and shortcuts dialog
+- Reset Plots: `PlotPane.reset_action`, shown in View (Ctrl+0) and as the plots' own button (D-167), and shortcuts dialog; the Data Streams twin was removed (D-126)
 - Transport UX: the full-width **Data Streams** section is distinct from both plots and the
-  seek/transport section with the same splitter handles used for video/plot resizing (drawn end to end, D-106). Its header owns Hide, Flag Frame, Snapshot,
-  Fullscreen Toggle, Reset Zoom, and compact status; busy work remains visible while ordinary messages clear shortly.
-  Playhead controls precede master time and the seek bar; end time, A/B controls, and the labelled Speed selector follow it.
+  seek/transport section with the same splitter handles used for video/plot resizing (drawn end to end, D-106). Its header owns Hide, and its font-scaled lanes show up to ten rows in Compact density before scrolling. Preferences sets the density and visible-row caps (D-171). Status is in the status bar; loop and speed sit beside playback (D-170); video tools are under the videos (`ui/view_toolbar.py`).
+  Playhead controls precede master time and the seek bar; end time follows it.
   Evidence renders source coverage, annotations, data
   gaps, accepted TTL matches, and playhead; the native handle resizes it against the video/plot workspace,
   never the seek/controls area. A fixed source-label
@@ -418,39 +534,104 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `core/timeline.py` | Single master clock — HEADLESS, no PySide6 | `MasterClock`, `TimeMap`, `ClockState` |
 | `core/session_time.py` | The session's declared zero, after NWB's `session_start_time`. A source carrying wall-clock time is **placed** against it through its own TimeMap — nothing is rewritten | `is_absolute()`, `reference_epoch()`, `rebase_offset()`, `ABSOLUTE_EPOCH_FLOOR` |
 | `core/pyramid.py` | Decimation pyramid (1×/16×/256×/4096×) | `PyramidReader`, `PyramidBuilder` |
-| `core/cache.py` | Sidecar binary cache with content-hash key | `CacheManager` |
-| `core/source.py` | Plugin ABCs — frozen API plus additive optional hooks (`messages()`, `exact_time_mapping()`, `video_metadata()`). **Three kinds, not two**: `TriggerSource` returns instants and declares what they are evidence *of* | `TimeSeriesSource`, `VideoSource`, `TriggerSource`, `VideoMetadata` |
+| `core/cache.py` | Binary cache in one per-user folder, content-hash key; entry naming and its `source.json` ownership record (D-160) | `CacheManager`, `cache_root()`, `cache_dir_for()` |
+| `core/cache_store.py` | The only code that deletes from the cache: lists entries, finds a trial's, removes them only inside `sources/` and only with our record (D-160) | `list_entries()`, `entries_under()`, `remove_entries()`, `remove_all()`, `working_folders()` |
+| `core/sidecar_names.py` | How a sidecar beside a source is named: full name, dots → `_`, plus a tag (D-160) | `beside()`, `flat_name()` |
+| `core/artifacts.py` | Registry of authored file and export kinds (D-197); cache excluded | `KINDS`, `ArtifactKind`, `get_kind()` |
+| `core/artifact_io.py` | Validate, stage, sync and atomically publish files or directories; waits out a momentary Windows refusal (scanner, or a reader racing a replace). Read authored sidecars through `read_text()`, never `Path.read_text`, or a racing read drops the user's work on adopt | `publish()`, `publish_dir()`, `read_text()` |
+| `core/artifact_provenance.py` | Versioned provenance and JSON companions for strict external layouts | `record()`, `write_companion()` |
+| `core/source.py` | Plugin ABCs — time-series/video APIs plus `ImagingSource` for random-access 2D frames; `VideoSource.prepare_is_atomic()` marks an uncancellable conversion; `TriggerSource` returns evidence instants | `TimeSeriesSource`, `VideoSource`, `ImagingSource`, `ImagingMetadata`, `TriggerSource` |
 | `ui/coverage_lanes.py` | Where each source has data, where its alignment is **measured** rather than extended past the last sync point, and where it stops and resumes. Always the whole session — never auto-ranged to the overlap | `CoverageLanes`, `SourceCoverage`, `SourceCoverage.extrapolated()` |
 | `ui/trigger_dialog.py` | Where the user says what each trigger column **is**. Leads with the kind, because the difference between a strobe and a trigger is the difference between an exact mapping and a fitted one | `TriggerEvidenceDialog`, `TrainChoice` |
 | `engine/trigger_worker.py` | Reads every declared train in one job, off the UI thread. All or nothing — a partial set leaves the user to notice which train went missing | `TriggerReadWorker`, `TriggerTrainResult` |
 | `loaders/trigger_csv.py` | Trigger evidence from a delimited file, either a sampled line or a column of event times. The config declares each train's `TriggerKind` — `suggest_trains` never guesses `frame_strobe` | `TriggerCSVSource`, `LEVEL`, `TIMESTAMPS` |
-| `core/session.py` | `.avv` session JSON, schema v9 (v9 also adds `TriggerEntry` — the trigger file's **declaration**, re-read on restore) (v8 adds `point_edits` — a **count per source**, not the coordinates, D-099; v9 adds `SyncProvenance.method` plus per-side counts, `offset_stderr`, `ambiguity_margin`, `superseded_by`) | `SessionState`, `VideoEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
+| `core/session.py` | `.avv` session JSON, schema v13: imaging stacks with their import choices, time map and display view (D-190); v12 holds drift as ms/h (D-184); earlier versions retain their defaults | `SessionState`, `VideoEntry`, `ImagingEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
+| `loaders/imaging_loader.py` | Lazy HDF5 hyperslab and TIFF page readers (plain, OME, ScanImage-interleaved); per-channel reads; a missing dataset/axes/depth/frame rate raises `ImagingChoiceRequired` rather than being guessed | `HDF5ImagingLoader`, `TIFFImagingLoader` |
+| `core/imaging_axes.py` | Default reading of a stack's dimensions (valid tag, else sizes) and every valid alternative, named by meaning and size for the pane's Axes list | `default_axes()`, `axis_choices()`, `describe_axes()` |
+| `core/imaging_display.py` | Headless display maths: per-channel reference window + brightness/contrast, centred odd-length moving average, additive colour overlay | `ImagingView`, `ChannelView`, `compose()`, `average_range()`, `auto_window()` |
+| `engine/imaging_probe.py` | Registered background metadata probe; emits `finished`, `needs_choice` or `error` | `ImagingProbeWorker` |
+| `engine/imaging_reader.py` | The pane's reader thread: coalesced requests, byte-bounded raw-plane cache, render off the UI thread | `ImagingReadWorker` |
+| `ui/imaging_pane.py` | Imaging viewer below the 3D view, following the master clock; owns the reader thread; picture and display controls only — offset, drift, properties and removal are the card's (D-196) | `ImagingPane` |
+| `ui/imaging_card.py` | An imaging stack's Sources card: picture summary, Timing disclosure, overflow (Properties, Copy details, Remove) | `ImagingInfoWidget`, `describe_picture()` |
+| `ui/imaging_controls.py` | Headed Channel / Colour / Brightness / Contrast grid: a named tick box per acquired channel (always shown), its display colour apart; Average (Off, ±1 … ±15 frames) and Auto levels below | `ImagingControls` |
+| `loaders/nwb_roi_grid.py` | Every ROI of an NWB plane segmentation as one tile of a grid image per frame: raw crops when an image series on that plane covers the masks, else the ROI's ΔF/F (or fluorescence) on its mask; offered by the NWB session beside the series | `NWBRoiGridSource`, `find_roi_grids` |
+| `ui/imaging_frame_view.py` | The imaging picture with its own zoom and pan, or a message in its place; replaces the QLabel that could not shrink below its last pixmap | `ImagingFrameView` |
+| `ui/zoom_controls.py` | Zoom in / zoom out / reset glyph strip shared by the video, imaging and 3D panes; each owner keeps its own zoom | `ZoomControls`, `ZOOM_STEP` |
+| `ui/imaging_integration.py` | Import, choice prompts, mapping, coverage, undo and session placement for imaging sources | `load_imaging()`, `restore_entries()`, `record_view()` |
 | `core/inspection.py` | Headless dataclasses for import stats + integrity (D-020); carries recorded messages into the sidecar manifest (D-078) | `ImportReport`, `IntegrityFlags`, `SourceInspection` |
 | `core/messages.py` | Headless record for free text the rig stored with the data (D-078) | `Message`, `clean()`, `bounded()`, `MAX_MESSAGES` |
 | `core/triggers.py` | What a TTL train is evidence **of**, which depends on which way the wire ran. Keeps both edges, so a strobe is timestamped at its exposure midpoint and carries its duration | `TriggerKind`, `TriggerTrain`, `extract_pulses()`, `locate_drops()`, `reconcile_with_frames()` |
 | `core/alignment.py` | The model ladder: exact → piecewise → affine → shift → unvalidated, chosen from the evidence and the span rather than offered as a dropdown | `choose_method()`, `fit_piecewise()`, `drift_is_identifiable()`, `residual_trend()`, `demote_to_shift()` |
 | `core/sync.py` | Headless synchronization evidence/model layer (D-026). Carries the guards a residual plot structurally cannot express: match rate, ambiguity margin, plausible-rate search constraint | `SyncEvent`, `SyncProposal`, `AlignmentMethod`, `SyncFit.describe()`, `SyncProposal.applicable`/`.refusal` |
-| `core/channel_reader.py` | Master-clock view of a cached channel + scoped identity (D-045) | `MappedChannelReader`, `ChannelKey`, `disambiguate()` |
+| `core/channel_reader.py` | Master-clock view of a cached channel + scoped identity (D-045). `sample_at()` retains cursor clamping; `available_sample_at()` rejects times outside coverage or inside timestamp gaps for prop motion evidence | `MappedChannelReader`, `ChannelKey`, `disambiguate()` |
 | `core/point_edits.py` | Hand corrections to tracked points, in memory — sparse overrides keyed by `(source, body part, sample index)`. HEADLESS. **Never writes the pose file or its cache** (D-099) | `PointEditStore`, `PointKey`, `PointMove` |
-| `core/point_edit_sidecar.py` | Where those corrections live: `<pose file>.avialfix.csv` beside the source, written on every edit. Commented header, atomic replace, emptied never deleted (D-099) | `sidecar_path()`, `is_correction_path()`, `read()`, `write()` |
+| `core/point_edit_sidecar.py` | Where those corrections live: `<pose name>_<ext>_avialfix.csv` beside the source, written on every edit. Commented header, atomic replace, emptied never deleted (D-099) | `sidecar_path()`, `is_correction_path()`, `read()`, `write()` |
+| `core/calibration.py` | Multi-camera calibration in anipose's `calibration.toml` form (OpenCV model, no OpenCV). Linear triangulation, and fitting a camera from 3D↔2D pairs when the file is lost — a fitted camera **projects** correctly but its intrinsics are not physical (D-112) | `CameraModel`, `Calibration`, `read_calibration()`, `write_calibration()`, `triangulate()`, `fit_camera()` |
+| `core/calibration_ref.py` | Which calibration a session uses: `pose-3d/calibration_ref.txt` (video names + one `.toml` path), copied between experiments from the same rig; falls back to `calibration.toml` in `pose-3d/` or the session folder. A Windows path (`C:/…`, `\\server\…`) is kept as written, never joined onto this folder. **Never overwritten**: `keep_aside()` renames an existing one to a dated name first (D-112, D-114) | `locate()`, `read_ref()`, `write_ref()`, `keep_aside()`, `unused_name()`, `camera_names()`, `pose3d_dir_for()` |
+| `core/custom_markers.py` | Hand-placed 3D markers: store keyed `(name, frame)`, plus their files — `<Cam>_eks_custom_markers.csv` (DLC layout, the clicks, **the authority**) beside each 2D pose file and `_eks_custom_markers.csv` (anipose layout, derived) beside the 3D one. HEADLESS (D-112) | `CustomMarker`, `CustomMarkerStore`, `write_2d()`, `read_2d()`, `write_3d()`, `read_3d()`, `is_custom_marker_path()` |
+| `ui/controllers/custom_marker_controller.py` | Add 3D Marker end to end: name → calibration (`calibration_controller`) → one click per camera → triangulate → `SetCustomMarkerCommand`. Also drag re-triangulation, delete, persistence and adoption. A camera with no 2D pose file keeps its markers in `pose-3d/`, never beside the video (D-112, D-114) | `toggled()`, `on_clicked()`, `on_moved()`, `delete()`, `persist()`, `adopt()`, `points_at()` |
+| `core/wheel.py` | A running wheel as a model: what was declared (`WheelSpec`: bar count, units, radius), clicked (`EndClick`), fitted (`WheelGeometry`, `WheelFit`), and what turns it (`EncoderBinding`, `WheelCheck`); `bar_ends(turn)` generates every bar; `project_bars()` into a camera; `Wheel.bar_diameter` is the display-only value set by eye, in the measured radius's units, converted to calibration units by `Wheel.world_per_unit` (fitted ÷ measured radius), drawn as cylinders in the 3D view only (D-128, D-129, D-130). `fit_issue()` is the one quality rule; it words a "Poor fit" warning and never hides a wheel (D-121, D-123). HEADLESS (D-113) | `Wheel`, `WheelGeometry.bar_ends()`, `project_bars()`, `fit_issue()`, `facing()`, `camera_centre()` |
+| `core/belt_rollers.py`, `core/physical_props.py`, `core/ladder_support.py`, `core/plane_view.py`, `core/visual_prop_tracking.py` | Headless prop foundation (D-149, D-154, D-157, D-162–D-165): ladder clicks resolve independently; a ladder declares side-rail or centre-beam support (`support_bars()`) and an optional `RungPattern` extrapolated per view (`lay_out_rungs()`, homography in `PlaneView`); a step may carry an irregularity tag; a belt is placed from four clicked top corners (`rollers_from_corners()`) or one camera's `BeltSideView`, sized by measurements; measured two-roller belts have analytic loop motion and tessellated surfaces, while legacy point paths remain; ball quaternion channels and visual frames retain evidence. `belt_visual_problem()` and `ball_visual_problem()` distinguish geometry mismatch and ambiguous evidence. Fixed support never follows material motion. `PropStore` holds all four kinds; `WheelView` filters it. Observers never write files | `BeltRollers`, `BeltSideView`, `rollers_from_corners()`, `side_rollers()`, `PlaneView`, `BeltProp`, `support_bars()`, `lay_out_rungs()`, `RungPattern`, `LadderLayout`, `StepIrregularity`, `BallProp`, `BeltVisualFrame`, `BallVisualFrame`, `belt_visual_state()`, `belt_visual_problem()`, `belt_visual_travel()`, `ball_visual_state()`, `ball_visual_problem()`, `PropStore`, `WheelView` |
+| `core/prop_file.py`, `core/wheel_file.py` | Canonical versioned `pose-3d/<name>_prop.toml` records for all four kinds, preserving wheel fit/click/binding evidence and kind-specific geometry. No legacy wheel-sidecar reader; damaged/future records report per-file issues without hiding good props | `write_prop()`, `write_ladder()`, `write_belt()`, `write_ball()`, `write_wheel()`, `read_props()`, `read_wheels()`, `prop_path()`, `PropFileIssue` |
+| `ui/props_app.py`, `ui/props_panel.py`, `ui/prop_motion.py`, `ui/wheel_tab.py` | One Props inspector switches among ladder clicks, wheel placement/review, and belt/ball geometry, channel binding, visual tracking, and checks. Belt/ball geometry edits retain visual clicks and immediately report whether the declaration matches them (D-162). The registered camera/3D overlay draws fixed support and observed moving marks separately; `prop_motion` reads gap-aware mapped channels at presentation time or solves exact visual frames. Mutations use document commands; sidecar IO uses registered jobs | `PropsApp`, `PropsPanel`, `PropsTab`, `WheelTab`, `frame_time()`, `material_point()`, `visual_state()`, `check_click()` |
+| `ui/prop_support_drawing.py`, `ui/belt_placement.py`, `ui/belt_placement_controls.py` | Dashed extrapolated rungs and support bars per camera and in 3D; belt placement clicks (solid where clicked, dashed where projected); turning four placement clicks plus typed measurements into belt fields (D-164, D-165) | `rung_pixels()`, `rung_positions()`, `placement_pixels()`, `side_view_pixels()`, `place()`, `kept()`, `BeltPlacementControls` |
+| `ui/label_layout.py` | Places every overlay label after the geometry: pill backing, inside the picture, clear of labels, marks and pane chrome, fewest crossed lines, leader line when pushed out (D-166) | `LabelLayout` |
+| `ui/prop_overlay.py`, `engine/prop_file_worker.py` | Registered physical-prop drawing distinguishes observed squares from dashed projections and leaves unknown points unjoined. Workers keep sidecar IO off the UI thread | `draw_props()`, `PropFileReadWorker`, `PropFileWriteWorker` |
+| `core/wheel_fit.py` | Fits a wheel to both ends of 2–3 clicked neighbouring bars. **The bar count is an input**, and **the clicked bars are neighbours in click order**: slots are never re-derived from angles, so a wrong radius cannot scatter them (D-123). Two bars fit two mirrored wheels; a mirror starting 50× worse is refined only for Flip. `fit_labelled()` tries all bars with the typed radius, bars 1–2, then the clicks' own radius; a typed radius more than 2× off the clicks gives way even if reprojection looks plausible (D-161). Otherwise it keeps the first plausible fit, or the first that exists | `fit_wheel()`, `fit_labelled()`, `LabelledFit` |
+| `core/wheel_check.py` | Tests the encoder against the video: a click on any bar end fixes the turn modulo one bar gap; two informative checks settle the direction (D-113) | `observed_turn()`, `check()`, `settle_sign()`, `CheckResult` |
+| `core/wheel_file.py` | Wheel-specific tables inside the canonical `_prop.toml` record: clicks (the authority) + fit + binding + checks; a removed wheel keeps its prop record marked `removed = true` (D-155) | `write_wheel()`, `write_removed()`, `read_wheels()` |
+| `core/toml_format.py` | The TOML writer shared by `calibration.toml`, wheel, and prop files, laid out as anipose writes; quoted strings also escape pasted control characters so a prop label can reopen | `toml_value()`, `write_atomic()` |
+| `ui/controllers/rig_paths.py` | Where a recording's pieces are, for the marker, calibration and wheel controllers alike: camera names, open videos, the shared recording's `pose-3d` folder (also for generic cameras in subfolders), each camera's 2D pose file, and **the one frame-on-screen authority** (D-114, D-132). Helpers take `RigPathsContext`, not a window (D-148) | `RigPathsContext`, `camera_name()`, `open_videos()`, `pose3d_dir()`, `pose_2d_file()`, `frame_at()` |
+| `ui/controllers/calibration_controller.py` | The rig's calibration: resolve, import, fit (background job), and reprojection. The Import/Compute question is asked **only** for a gesture that asked for it; an overlay switch or Show All posts a notification with "Choose Calibration…" instead (rule 11). `CalibrationError` goes through `report_failure` (rule 12) (D-114). `calibration_quietly` is retried as each camera pane is added and extends a calibration taken with fewer cameras open, so wheels and markers read back from disk draw on every camera of a reopened session (D-125) | `CalibrationState`, `acquire_calibration()`, `resolve_calibration()`, `calibration_quietly()`, `reprojected()`, `reprojection_toggled()`, `REPROJECTION_OVERLAY` |
+| `ui/marker_overlay.py` | What a camera's overlay draws besides the tracking: hand-placed markers (rings, grabbable in Fix Tracker), reprojection (crosses), the wheel (lines). `ResolvedPoint` lives here (D-114) | `MarkerOverlayMixin`, `ResolvedPoint` |
+| `ui/video_grid_overlays.py` | Routes tracking, corrections, markers, reprojection and the wheel to panes, holding each for a pane built later (D-114) | `GridOverlayMixin` |
+| `ui/controllers/wheel_controller.py` | Wheel placement starts from Props: select any point 1A–3B or Next Point. Each click re-projects at once and **generates the wheel as a registered background job** (`WheelFitWorker`, one at a time, a click during it fitted when it returns); the Wheel page says "Generating wheel…" and Done Labelling waits for the latest clicks' fit (rule 3, D-123). Done Labelling is live from the moment both ends of bars 1 and 2 have two real camera clicks each and stays live through bar 3 (D-122). **The wheel is always drawn, however poor**; a poor fit is a warning with Re-place, never hidden (D-123). The notification strip says when it is first generated. Done Labelling is one `SetWheelCommand`. Action availability refreshes when a queued video pane is created | `toggled()`, `on_clicked()`, `select_end()`, `next_end()`, `accept()`, `start_checking()`, `stop_checking()`, `replace()`, `reset()` |
+| `engine/prop_file_worker.py` | The one registered background reader and writer for all four prop kinds, including video-only wheel reopen (D-132, D-155) | `PropFileReadWorker`, `PropFileWriteWorker` |
+| `ui/controllers/wheel_display.py` | What a wheel draws per frame: bars cached by frame index, encoder at the frame's presentation time, read through the plot row's own `MappedChannelReader.sample_at` -- the value the Values tab shows -- never a second reader (D-131); no file IO and no projection on the paint path (D-113, D-116). A projected mark's click target is eight *displayed* pixels at the pane's zoom (D-120) | `pane_drawing()`, `scene()`, `refresh()`, `sample()`, `encoder_binding()`, `frame_and_time()`, `projected_hit_radius()` |
+| `ui/controllers/wheel_placement.py` | The wheel being labelled, read without a window: its real clicks, the missing-view projections two clicks give (display only, never fit or file evidence, D-116), when Done Labelling is live (bars 1 and 2, not while a fit is running, D-122, D-123), and the Wheel page's review text, including what `fit_labelled` had to give way (a third bar, or a typed radius — with a units hint when it is ~10×/100×/1000× off) | `WheelPlacement`, `estimate_missing()`, `placement_view()`, `describe_adjustment()`, `end_label()` |
+| `ui/controllers/wheel_generation.py` | Generating the wheel being labelled as a registered background job, one at a time, re-running for clicks made meanwhile; announces the first generated wheel and a poor fit once each (D-123) | `refit()` |
+| `ui/controllers/wheel_edits.py` | Changing a placed wheel from the Wheel page in Props: bar count, units, radius (re-fit from its own clicks in the background; the latest edit wins), encoder direction and ratio, bar diameter (`preview_bar_diameter` draws a drag without recording; `edit_bar_diameter` commits, and `SetWheelCommand.merge_with` joins a run of diameter-only steps), removal. Each is one `SetWheelCommand` (D-113, D-128) | `edit_spec()`, `edit_bar_diameter()`, `preview_bar_diameter()`, `edit_binding()`, `remove()`, `spec_from()` |
+| `ui/wheel_overlay.py` | Painting a wheel over video: thin neutral lines, dashed until accepted, bar 0 ticked; clicked ends are labelled rings and missing-view estimates labelled dashed diamonds. Placement cues elide to the pane width (D-113, D-116, D-120) | `WheelBar`, `WheelDrawing`, `draw_wheel()`, `draw_wheel_clicks()` |
+| `ui/wheel_panel.py` | The Wheel page's editor and non-modal review: selected point 1A–3B, click count, Next Point, estimate explanation, fit and Done Labelling. A poor fit leads with "Poor fit" and what to check, then the full report, including the radius the clicks imply (D-123). Each placed wheel's row has **Encoder offset**: the encoder source's own offset from its Sources row, applied through `wheel_edits.edit_encoder_offset` (D-124), and **Bar diameter** (`ui/bar_diameter_field.py`: drag previews, release or typing commits, D-128) | `WheelPanel`, `PlacementView`, `describe_fit()` |
+| `ui/wheel_tab.py` | Embedded Wheel page within Props. Its **Wheel model** and **Wheel bars out of sight** check boxes are `ActionCheckBox`es on View → Overlays' own actions (rules 13, 15, D-124) | `WheelTab`, `install_overlay_actions()` |
+| `ui/bar_diameter_field.py` | Slider + number for one wheel's bar diameter, 0 to the gap between bar centres. `previewed` while dragged, `committed` on release or a typed value; never resets a held slider (D-128) | `BarDiameterField`, `show_value()` |
+| `ui/cylinder_paint.py` | The 3D view's bars as solid cylinders once a diameter is set: an orthographic band one diameter wide, shaded round, closed by foreshortened end faces, painted back to front (D-129) | `draw_cylinders()` |
+| `ui/view_toolbar.py` | The row under the video panes, beside (not under) the 3D view: Flag Frame, Fix Tracker, Add 3D Marker, then Snapshot, Fit All Videos and Fullscreen as glyph `ActionButton`s on their menu actions (D-126, D-174) | `ViewToolbar`, `install_fix_tracker_action()`, `install_add_marker_action()`, `install_fit_videos_action()`, `install_snapshot_action()`, `install_fullscreen_action()` |
+| `ui/wheel_dialogs.py` | The wheel setup dialog opened from Props; current recording's `SessionLayout.rotary` takes precedence over reusable bar count, units and radius from declared QSettings. The user chooses once in the dialog whether to remember or update defaults, and can forget them without deleting saved prop records | `ask_wheel_setup()`, `WheelSetup` |
+| `engine/calibration_worker.py` | Fits the missing `calibration.toml` off the UI thread from the 3D pose + each camera's 2D pose, joined on frame and body part; writes it (`calibration_fitted[-N].toml` when a file is already there) and `calibration_ref.txt`, keeping any previous ref aside (D-112, D-114) | `CalibrationFitWorker`, `CameraFitInput` |
+| `engine/wheel_fit_worker.py` | Runs `core.wheel_fit.fit_labelled` off the UI thread for placing and re-fitting a wheel; frozen inputs only; every failure ends the job with `error` so nothing waits forever (D-123) | `WheelFitWorker` |
 | `ui/controllers/corrections_controller.py` | Sidecar first, session as the fallback; adopts a pose file's corrections on import and reports a count that does not match. **Also the sample-index ↔ video-frame conversion** (D-099) | `persist()`, `adopt()`, `frame_for()`, `index_for()`, `corrections_by_frame()`, `labeled_frames()` |
-| `core/pose_export.py` | A corrected copy of a pose file for analysis: streamed, scorer renamed, corrected likelihood forced to 1.0 (D-100) | `write_corrected_copy()`, `corrected_copy_path()`, `SCORER_SUFFIX` |
-| `core/dlc_export.py` | Corrected frames as DLC labeled data for retraining; whole pose per frame, blank never `0,0` (D-100) | `write_labeled_data()`, `LabeledFrame`, `collected_data_path()` |
-| `ui/changes_panel.py` | One list of flagged frames, ranges, and corrected points, in time order; selecting a row seeks, selects the camera, and rings the point (D-100) | `ChangesPanel`, `ChangeRow` |
-| `ui/export_dialog.py` | One row per artifact that has content, destination pre-filled beside its data and editable. Shaped like `relink_dialog` / `batch_import_dialog` (D-100) | `ExportChangesDialog`, `ExportItem` |
-| `ui/action_button.py` | A `QPushButton` bound to a `QAction`. Use it wherever a button duplicates a menu command — `QToolButton.setDefaultAction` is Qt's shortcut and does not look like a push button (D-100) | `ActionButton.set_action()` |
+| `core/rig_naming.py` | Which camera a file is named after, for the session loader and the import dialog alike; prefix, longest label first (D-146) | `match_label()` |
+| `core/pose.py` | What a tracked point is, stated once: loaders declare a `PoseSchema`, consumers read it, nobody splits `_x` off a channel name (D-140) | `PosePoint`, `PoseSchema`, `canonical_name()`, `split_channel()` |
+| `core/pose_header.py` | The DLC/LightningPose CSV header detail: 3 rows, or 4 when multi-animal; builds the schema via `PoseHeader.pose_schema()` (D-136, D-140) | `read_pose_header()`, `parse_pose_header()`, `PoseHeader` |
+| `core/pose_export.py` | One streamed edited pose copy: raw-column corrections before identity routing, all per-point fields moved, scorer renamed, corrected likelihood forced to 1.0 (D-100, D-145) | `write_corrected_copy()`, `corrected_copy_path()`, `SCORER_SUFFIX` |
+| `core/identity_swaps.py`, `core/identity_groups.py`, `core/identity_sidecar.py` | Accepted lane/part flips, group declarations, and the sidecar beside a pose recording (D-141) | `SwapStore`, `SwapEvent`, `SwapGroup`, `groups_for_schema()` |
+| `core/edit_program.py`, `core/edit_cache.py` | One composition of corrections and routes, materialised for affected channels in a fingerprinted edited cache generation (D-142, D-143) | `EditProgram`, `materialise()`, `EditedCache` |
+| `core/identity_detect.py`, `ui/identity_panel.py` | Evidence-based candidate detection and the one-group/one-part braid with drag-to-swap (D-144) | `detect()`, `IdentityPanel` |
+| `ui/controllers/identity_controller.py`, `engine/identity_worker.py` | Sidecar adoption, registered edited-cache rebuild, and source-reader repointing; Show original switches readers back without changing edits (D-141, D-142, D-145) | `program_for()`, `refresh()`, `apply_reader_view()`, `MaterialiseWorker` |
+| `ui/identity_panel.py` (gestures) | Three ways to name a frame, one meaning: drag a lane, review a crossing, or press **Swap at playhead** (Ctrl+Shift+S) while watching. Clicking either plot seeks the main timeline | `event_at()`, `index_at()`, `swap_here_requested` |
+| `ui/controllers/identity_view.py`, `ui/identity_braid.py` | One selected group and part's evidence, routing, and command-bus gesture (D-144) | `model_for()`, `detect()`, `swap()`, `BraidModel` |
+| `core/dlc_export.py` | Corrected frames as DLC or single-view Lightning Pose labeled data; root-relative images, multi-animal DLC headers, whole pose per frame, blank never `0,0` (D-100, D-198) | `write_labeled_data()`, `LabeledFrame`, `collected_data_path()`, `training_csv_path()` |
+| `ui/changes_panel.py` | One time-ordered list of flags, ranges, corrected points, and accepted flips; selecting seeks and Delete reverses a change through the command bus (D-100, D-145) | `ChangesPanel`, `ChangeRow` |
+| `ui/export_dialog.py` | One row per artifact that has content; retraining adds profile, scorer, and a new bundle-folder destination (D-100, D-198) | `ExportChangesDialog`, `ExportItem` |
+| `ui/action_button.py` | A `QPushButton` (`ActionButton`) or `QCheckBox` (`ActionCheckBox`) bound to a `QAction`. Use it wherever a control duplicates a menu command — `QToolButton.setDefaultAction` is Qt's shortcut and does not look like a push button (D-100). `MainWindow._apply_overlay_state` no longer blocks the overlay actions' signals, so followers hear an undo too (D-124) `set_icon_only(glyph)` shows a glyph and keeps the action's text as accessible name and tooltip (D-174) | `ActionButton.set_action()`, `ActionButton.set_icon_only()`, `ActionCheckBox.set_action()` |
 | `ui/controllers/changes_export_controller.py` | The one channel the user's own work leaves by; builds the offer and the jobs (D-100) | `available_exports()`, `export_changes()` |
-| `engine/changes_export_worker.py` | Writes every selected artifact off the UI thread and reports one answer; decodes the retraining set's frames | `ChangesExportWorker`, `AnnotationJob`, `CorrectedPoseJob`, `RetrainingJob` |
+| `engine/changes_export_worker.py` | Writes every selected artifact off the UI thread and reports one answer; publishes complete retraining bundles only after every frame, image, and coordinate validates (D-198) | `ChangesExportWorker`, `AnnotationJob`, `CorrectedPoseJob`, `RetrainingJob` |
+| `engine/artifact_write_worker.py`, `ui/controllers/artifact_write_controller.py` | Registered background writer and latest-revision-per-path queue for authored sidecars (D-197) | `ArtifactWriteWorker`, `ArtifactWriteQueue` |
+| `ui/export_panel.py`, `ui/export_destinations.py` | Exports inspector buttons follow live File actions; one remembered folder per export kind (D-197) | `ExportPanel`, `choose_file()`, `remember()` |
+| `ui/export_sources.py` | Captures all loaded source paths for export guards without growing `MainWindow` or letting controllers inspect its private maps | `loaded_source_paths()` |
+| `engine/export_worker.py` | `ReaderReference.source_id` travels into worker-local readers so export provenance names the actual source and publication cannot replace it | `ReaderReference`, `DataExportWorker` |
 | `engine/pyav_reader.py` | Headless exact-frame reader: pts table, seek, index-keyed LRU (D-075). No Qt — safe on a worker thread | `PyAVReader.frame_at_time()`, `.frame_at_index()`, `.index_at_time()`, `.time_at_index()`, `.frame_times`, `to_rgb_array()` |
 | `engine/player.py` | precise 60 Hz tick; MasterClock ↔ panes ↔ UI. Owns the clock, so no drift correction (D-075) | `Player.seek()`, `.set_playing()`, `.step_frame()`, `.stop()` |
 | `engine/seeker.py` | Parallel seek across all video panes | `SeekGroup` |
 | `engine/drop_worker.py` | Off-thread drop classification; AOL session fan-out, pose `role` tagging (D-046) | `DropScanWorker` — signals: `finished(candidates, is_aol)`, `session_found`, `error` |
 | `engine/session_worker.py` | Off-thread `.avv` save/load | `SessionSaveWorker`, `SessionLoadWorker` |
+| `engine/cache_worker.py` | Off-thread cache removal for File → Cache (D-160) | `CacheRemovalWorker` |
 | `engine/export_worker.py` | Off-thread region stats / data slice / clip / snapshot | `RegionStatsWorker`, `DataExportWorker`, `SnapshotWorker` (takes a `SnapshotFigure`), `ReaderReference` |
 | `engine/video_worker.py` | Off-thread video probe before native pane creation | `VideoOpenWorker` |
-| `loaders/aol_session_loader.py` | AOL folder detection + manifest (videos, 2D/3D pose, encoder, timing) | `is_aol_session()`, `build_manifest()`, `AOLManifest`, `AOL2DTrack` |
+| `loaders/aol_session_loader.py` | AOL folder detection + manifest (videos, 2D/3D pose, encoder, timing). Declares `SessionLayout.rotary`: the encoder angle turns the running wheel, with `hardware: wheel_bar_count / wheel_radius / wheel_radius_units` from `trial_config.yml` when present (D-113) | `is_aol_session()`, `build_manifest()`, `AOLManifest`, `AOL2DTrack` |
 | `loaders/aol_eks_loader.py` | AOL 3D EKS CSV; frame-indexed x/y/z triplets | `AOLEksLoader` (`read_all_chunks` is the bulk API) |
-| `loaders/aol_encoder_loader.py` | AOL encoder log; seconds-since-midnight, midnight-unwrapped (D-045) | `AOLEncoderLoader` |
+| `loaders/aol_encoder_loader.py` | AOL encoder log; seconds-since-midnight, midnight-unwrapped (D-045). Two channels: `encoder_velocity` (rpm — measured: six times its integral tracks the unwrapped position to 0.25 %, D-114) and `encoder_angle` (the position unwrapped into cumulative degrees, D-112) | `AOLEncoderLoader`, `ANGLE_CHANNEL` |
 | `loaders/aol_metric_loader.py` | Extracted per-frame optical-flow/MI MAT files (`avialsync_data_schema.md`); frame-indexed, no `role` — plots like any sensor | `AOLMetricLoader`, `ROI_METRIC_FILENAME_RE` |
 | `loaders/aol_video_extraction_loader.py` | Video-extraction-toolbox per-camera export: v7.3/HDF5 + JSON sidecar, one channel per (ROI, column). Carries its own time axis, so NOT frame-indexed (D-081). In a session it is timed from the camera start, not from `absolute_times`, which is an hour out against the session's wall-clock axis (D-083) | `AOLVideoExtractionLoader`, `TIME_BASE_CAMERA_START`, `read_sidecar()`, `sidecar_path()` |
 | `engine/importer.py` | Background import worker (QThread); emits SourceInspection | `ImportWorker` — signals: `finished(path, cache_dir, channels, bounds, inspection)`, `progress`, `error` |
@@ -459,26 +640,40 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `engine/session_worker.py` | Off-UI-thread session save/load and annotation export (D-046) | `SessionSaveWorker`, `SessionLoadWorker`, `AnnotationExportWorker` |
 | `engine/export.py` | Data slice, video clip, region stats | `export_data_slice_csv()`, `trim_video_clip()`, `compute_region_stats()` |
 | `engine/snapshot.py` | Snapshot figure: tiles, negotiated page width, opaque composition (D-101). Layout is planned once and both the capture and the render use that plan | `SnapshotFigure`, `SnapshotTile`, `plan_media_layout()`, `content_width_for()`, `figure_size()`, `render_figure()`, `save_figure()` |
-| `ui/main_window.py` | Widget construction, menu/shortcut table, controller wiring; `_inspections` dict. Behaviour lives in `ui/controllers/` (D-066) | `MainWindow` |
-| `ui/video_pane.py` | Decodes and blits one video; ONE path on every OS (D-075). Seeks are id-tagged so `is_seeking` answers only the newest one (D-084): `DecodeWorker.request(request_id, source_time)`, `frame_ready(request_id, index, pts, rgb)`. `video_size` is a property over `VideoSurface`, not a second copy (D-101) | `VideoPane`, `set_sync_correction()`, `video_size`, `shows_footage`, `VideoSurface.video_size` |
+| `ui/main_window.py`, `ui/menus/` | Widget construction, Qt slot wiring, live action identity, and menu builders; `_inspections` dict. Behaviour lives in `ui/controllers/` (D-066, D-148) | `MainWindow`, `build_menus()` |
+| `ui/controllers/{wheel_state,video_load_state,import_state,session_state}.py` | Typed transient state for wheel gestures, bounded video probes, serial imports, and session metadata. JobManager owns worker lifetimes; these objects hold only queue/capacity state (D-148) | `WheelState`, `VideoLoadState`, `ImportState`, `SessionRuntimeState` |
+| `ui/video_pane.py` | Decodes and blits one video; ONE path on every OS (D-075). Seeks are id-tagged so `is_seeking` answers only the newest one (D-084): `DecodeWorker.request(request_id, source_time)`, `frame_ready(request_id, index, pts, rgb)`. `video_size` is a property over `VideoSurface`, not a second copy (D-101). **`chrome_rects()` is the contract overlay labels avoid** — never look chrome up by widget name; the OSD is one compact line unless `overlays/osd_detail` is full (D-174) | `VideoPane`, `chrome_rects()`, `set_osd_detail()`, `set_sync_correction()`, `video_size`, `shows_footage`, `VideoSurface.video_size` |
 | `core/video_timing.py` | **The** frame-selection authority — last frame with `pts <= t`. Headless so `engine/` can share it (D-075) | `frame_index_at()`, `adjacent_frame_time()`, `PTS_EPSILON_S` |
-| `ui/video_timing.py` | Timestamp rate/readout helpers and pane timing mixin; re-exports the two `core/video_timing.py` selectors | `VideoTimingMixin`, `format_video_osd()`, `frame_interval_at_master()` (replaced `sync_tolerance_at_master()`) |
-| `ui/video_overlay.py` | Transparent current-frame tracking paint layer; also the "Fix Tracker" drag surface (D-099) | `PaintCanvas`, `OverlayTrack`, `ResolvedPoint` |
-| `ui/video_grid.py` | N VideoPanes; persistent visibility; single `QGridLayout`; `_relayout()`. Fix Tracker is the grid's mode, so a pane built later joins it (D-099) | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `visible_panes()`, `set_grid_mode()`, `set_point_edit_mode()`, `set_point_edits()` |
-| `ui/plot_pane.py` | Coordinator for linked pyramid plot rows, presentation, shared X/Y state, and navigator signal. The row stack lives in a `QScrollArea` (`_plot_scroll`): pyqtgraph pins its scene rect to the viewport, so a scrollbar on the graphics view itself can never have a range | `load_channels()`, `set_window_duration()`, `set_cursor()`, `set_channel_y_mode()` |
-| `ui/plot_header.py` | Compact plot presentation, page, Y-fit, row-height, and reset controls | `PlotHeader` |
-| `ui/plot_row.py` | One channel row's bounded envelope, retained sweep page, gutter, Y state, coverage, and close control | `ChannelPlot`, `create_channel_plot()`, `apply_channel_palette()`, `fit_channel_y()` |
-| `ui/plot_sweep.py` | Review/Sweep/Scope state and shared unit-converting logarithmic time-span control | `PlotPresentation`, `SweepWindowControl`, `SweepCurveItem` |
+| `ui/video_timing.py` | Timestamp rate/readout helpers and pane timing mixin; re-exports the two `core/video_timing.py` selectors `bit_depth_of()` and `format_picture()` give resolution and depth; compact OSD is two lines, time · frame then picture (D-183). | `VideoTimingMixin`, `format_video_osd()`, `frame_interval_at_master()` (replaced `sync_tolerance_at_master()`) |
+| `ui/video_overlay.py` | Transparent current-frame tracking paint layer; also the "Fix Tracker" drag surface (D-099). Draws the wheel under the tracking through `ui/wheel_overlay.py`, on its own layers so hiding points does not hide the wheel (D-113) | `PaintCanvas`, `OverlayTrack`, `ResolvedPoint`, `set_wheel_source()`, `set_wheel_visible()` |
+| `ui/video_grid.py` | N VideoPanes; persistent visibility; single `QGridLayout`; `_relayout()`; one or two strip panes are sized to their pictures through the layout's margins and column stretches (D-174). `reset_all_views()` is View → Fit All Videos (Ctrl+Shift+0), also a video tools button: every pane to 1.00×, no pan. Fix Tracker and marker/wheel placement are the grid's modes, so a pane built later joins them (D-099, D-112, D-113) | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `visible_panes()`, `set_grid_mode()`, `set_point_edit_mode()`, `set_point_edits()`, `set_marker_place_mode()`, `set_custom_markers()`, `set_reprojection_source()`, `set_wheel_source()`, `custom_marker_at()`; signals `marker_clicked`, `custom_point_moved` |
+| `ui/plot_pane.py` | Coordinator for linked pyramid plot rows, presentation, shared X/Y state, and navigator signal. The row stack lives in a `QScrollArea` (`_plot_scroll`); the one control strip below it holds the existing time-span editor and scrolls at compact widths (D-170) | `load_channels()`, `set_window_duration()`, `set_cursor()`, `set_channel_y_mode()` |
+| `ui/plot_header.py` | One compact plot and time-span control row (D-170) | `PlotHeader.insert_span_control()`, `PlotControlStrip` |
+| `ui/plot_row.py` | One channel row's bounded envelope, retained sweep page, gutter, Y state, coverage, and close control. The close tool is transparent until its row is hovered or it has focus; `reveal_row_tools()` decides, the row menu has Hide (D-177) | `ChannelPlot`, `create_channel_plot()`, `apply_channel_palette()`, `fit_channel_y()` |
+| `ui/plot_sweep.py` | Review/Sweep/Scope state and shared unit-converting logarithmic time-span control; `set_focus_target()` weakly names the pane that regains focus, avoiding a Qt/Python parent cycle (D-170) | `PlotPresentation`, `SweepWindowControl`, `SweepCurveItem` |
 | `ui/plot_interactions.py` | Plot context actions, measurement, annotation, and gap interaction state | `PlotInteractionController` |
 | `ui/axis_nav.py` | Per-axis zoom/reset controls and one-axis-at-a-time wheel semantics for a pyqtgraph canvas. **Reset goes to a range the owner declares**, never to auto-range — auto-ranging to the matched subset is what hid a bad fit | `AxisNav`, `NavigableViewBox`, `AxisNav.set_home_range()` |
 | `ui/plot_overlays.py` | Bounded page-local overlay drawing and plot context menu helpers | `redraw_annotations()`, `redraw_measure_lines()` |
-| `ui/tracking_3d_pane.py` | Current-pose XYZ projection from cached triplets; orbit/zoom/fit. `Tracking3DCanvas.render_scene(painter, w, h)` is the one painting authority — `paintEvent` calls it at the widget's size, a snapshot at its tile's (D-101) | `Tracking3DPane.set_readers()`, `set_cursor()`, `Tracking3DCanvas.render_scene()` |
-| `ui/transport.py` | Seek row with playhead/A-B/rate controls + D-027 named, conditional Data Streams header/status. Owns the displayed time mode and epoch: anything writing a master time in the same words calls `format_master_time()` rather than keeping a second copy (D-020, D-101) | `set_time()`, `set_bounds()`, `format_master_time()`, `status_text()`, `set_source_coverage(source_id, t0, t1, kind, group="")` — a non-empty `group` merges the span into one shared lane (D-083); an empty span at the origin removes it — `set_ttl_events()`, `set_gap_events()`, `set_message_events()`, `set_annotation_markers()`, `set_status()` |
-| `ui/sidebar.py` | File management; video/channel visibility; WarningBadge; links to properties panels | `SidebarPane`, `VideoInfoWidget`, `SensorInfoWidget` |
-| `ui/source_properties.py` | Collapsible detail for video + sensor sources; copy-as-text (D-020) | `VideoPropertiesPanel`, `SensorPropertiesPanel` |
+| `ui/tracking_3d_pane.py` | Current-pose XYZ projection from cached triplets; orbit/zoom/fit. Its header scrolls sideways on narrow displays so the controls cannot collapse the video column. `Tracking3DCanvas.render_scene(painter, w, h)` is the one painting authority — `paintEvent` calls it at the widget's size, a snapshot at its tile's (D-101). Draws hand-placed markers (rings) and wheels (bars + rims, not in the scene bounds) from sources asked on every cursor move (D-112, D-113) | `Tracking3DPane.set_readers()`, `set_cursor()`, `install_reprojection_action()`, `Tracking3DCanvas.render_scene()`, `set_custom_point_source()`, `set_wheel_source()` |
+| `ui/transport.py` | Master-time seek row with Play, glyph step controls, loop and rate; Data Streams has a title and font-scaled, vertically scrolling lanes (D-170, D-171). Status forwards to the status bar. `format_master_time()` owns the displayed time mode and epoch (D-020, D-101) | `set_time()`, `set_bounds()`, `format_master_time()`, `status_text()`, `set_source_coverage(source_id, t0, t1, kind, group="")` — a non-empty `group` merges the span into one shared lane (D-083); an empty span at the origin removes it — `set_ttl_events()`, `set_gap_events()`, `set_message_events()`, `set_annotation_markers()`, `set_status()` |
+| `ui/inspector_nav.py` | Inspector page rail: icon + label buttons that never elide, scrolling vertically when short; a `QTabWidget`-compatible surface (D-172) | `InspectorNav.addTab(page, label, icon=)`, `currentIndex()`, `setCurrentWidget()`, `button()`, `currentChanged` |
+| `ui/feedback/tasks_button.py` | Status-bar Tasks button whose popover hosts the `JobsPanel` (D-172) | `TasksButton.popover` |
+| `ui/scrub_bar.py` | Cached coverage, annotation, and loop track under the seek handle; cursor ticks reuse it (D-170) | `ScrubBar.set_track_data()`, `track_build_count` |
+| `ui/feedback/status_line.py` | Transient status in the status bar, painted from the current palette with severity labels (D-170) | `StatusLine.set_status()`, `status_text()`, `ink_color()` |
+| `ui/sidebar.py` | File management; video/channel visibility; WarningBadge; links to properties panels. Compact cards: kind glyph, eliding name, badge, one `⋯` overflow (Properties, Copy details, Remove); offset/drift behind `card.timing`; one split Open button and a session overflow holding Reset Session (D-175) | `SidebarPane`, `btn_open`, `session_menu_button`, `VideoInfoWidget`, `SensorInfoWidget` |
+| `ui/step_panel.py` | Shared guided-step panel: title and progress, one sentence, one primary, a secondary row, flow controls, an overflow whose entries follow their buttons' enablement, More… detail, and a Learn more link (D-176) | `StepPanel.set_primary()`, `add_secondary()`, `add_controls()`, `add_overflow(destructive=)`, `add_more()`, `set_progress()`, `set_learn_more()` |
+| `ui/empty_note.py` | What an empty inspector page says fills it, with an optional action-backed button; the button caps its width and elides only its painted label so wider Windows font metrics cannot widen a page past 280 px (D-176) | `EmptyNote.set_action()`, `WRAP_WIDTH_PX` |
+| `ui/accessible_views.py` | Accessible interfaces for painted surfaces, answered on query through `QAccessible.installFactory`; plots, lanes, video panes and the 3D view register a describer (D-179) | `register_painted(widget, role, value, detail)` |
+| `ui/inspector_dock.py` | The inspector as a `QDockWidget` (left/right, floating, closable) with `QMainWindow.saveState` persistence and the one-time migration of `splitter/horizontal` (D-180) | `install_inspector_dock()`, `restore_dock_state()`, `save_dock_state()`, `inspector_width_from_splitter_state()` |
+| `ui/menu_button.py` | `MenuGlyphButton`: a flat glyph push button that pops its own menu, so no platform drop-down arrow is drawn (D-181) | `MenuGlyphButton.menu()`, `show_menu()` |
+| `ui/workspace_scroll.py` | Wraps the workspace column so a short window scrolls it rather than raising the window minimum (D-182) | `scroll_when_short()` |
+| `core/drift.py` | Clock drift as ms gained per hour: `MS_PER_HOUR`, `rate_from_drift()`, `drift_from_rate()`, `describe_drift()`, and `drift_from_legacy_entry()` for pre-schema-12 sessions (D-184) | `describe_drift()`, `drift_from_legacy_entry()` |
+| `ui/drift_spin.py` | `DriftSpinBox`: the drift field in ms/h, with frames or samples per hour in its tooltip (D-184) | `set_sample_rate()`, `set_base_tooltip()` |
+| `ui/source_card.py` | Card pieces: `TimingDisclosure` over the card's own spin boxes, `overflow_button`, `open_split_button`, `kind_glyph`, `short_path` (D-175) | `TimingDisclosure`, `short_path()` |
+| `ui/source_properties.py` | Collapsible detail for video + sensor sources; copy-as-text (D-020) Video rows include Bit depth, from the decoded frame once one exists (D-183). | `VideoPropertiesPanel`, `SensorPropertiesPanel` |
 | `ui/annotations.py` | Markers, and **the** definition of their CSV layout — three copies existed (D-100) | `AnnotationStore`, `Marker`, `marker_rows()`, `write_marker_rows()`, `MARKER_COLUMNS` |
-| `ui/import_report.py` | ImportReportDialog — scrollable import stats + "Copy as text" (D-020) | `ImportReportDialog` |
-| `ui/time_format.py` | TimeDisplayMode enum + format_time() — single formatting authority (D-020) | `TimeDisplayMode`, `format_time()` |
+| `ui/import_report.py` | ImportReportDialog — scrollable import stats + "Copy as text" (D-020) Takes `properties=` text and a title, so one dialog shows a source's properties then its import report, with or without an inspection (D-183). | `ImportReportDialog` |
+| `ui/time_format.py` | TimeDisplayMode enum + format_time() — single formatting authority (D-020); the number policy: full stop, no grouping, made Qt's default locale at startup (D-173) | `TimeDisplayMode`, `format_time()`, `apply_number_locale()`, `format_number()` |
 | `engine/drop_worker.py` | Off-thread drop scanning and AOL session candidate collection | `DropScanWorker` |
 | `loaders/aol_session_loader.py` | AOL session manifest: raw videos, fused per-camera EKS, encoder | `build_manifest()`, `is_aol_session()` |
 | `loaders/aol_eks_loader.py` | AOL 2D/3D pose CSV ingest | `AOLEksLoader` |
@@ -486,19 +681,23 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `loaders/aol_metric_loader.py` | Extracted optical-flow/MI per-ROI MAT ingest | `AOLMetricLoader` |
 | `loaders/aol_video_extraction_loader.py` | Video-extraction-toolbox per-camera ROI metric ingest | `AOLVideoExtractionLoader` |
 | `ui/video_overlay.py` | Live pose overlay with named markers; resolves each point once for both painting and hit-testing (D-099) | `PaintCanvas`, `OverlayTrack`, `ResolvedPoint` |
-| `ui/point_edit_tool.py` | The "Fix Tracker" drag: hit test, grab, clamp, handles. `set_edit_mode()` makes markers draggable and emits `point_moved(PointMove)` — **it never writes the store itself** (D-099) | `PointEditMixin`, `point_at()`, `set_edit_mode()` |
+| `ui/point_edit_tool.py` | The "Fix Tracker" drag: hit test, grab, clamp, handles. `set_edit_mode()` makes markers draggable and emits `point_moved(PointMove)` — **it never writes the store itself** (D-099). `set_place_mode()` turns a left click into `marker_clicked(x, y)` for marker and wheel placement (D-112, D-113) | `PointEditMixin`, `point_at()`, `set_edit_mode()`, `set_place_mode()` |
 | `ui/job_manager.py` | One owner for every background job: labels, watchdog, cancel, abandon-at-shutdown. **Every job now actually goes through it** — the four export registries, the import, the proxy and the video probes were migrated in D-107, and a raw `QThread` in `src/` fails `tests/test_feedback_surface.py` | `JobManager`, `Job`, `JobState`; reached through `MainWindow._run_job` |
-| `ui/feedback/notifications.py` | One message shown, the rest queued behind it (D-107). A sticky message is never displaced; a transient success never holds up a failure. The waiting count is shown, so a queue is never silent | `NotificationStrip.show_success/show_warning/show_error()`, `clear()`, `clear_all()`, `pending_count` |
+| `ui/feedback/notifications.py` | One message shown, the rest queued behind it (D-107). A sticky message is never displaced; a transient success never holds up a failure, and never queues behind another success — only the newest one is kept, so a three-file import is one line rather than eighteen seconds of them (D-134). The waiting count is shown, so a queue is never silent. An optional `on_dismiss` callback is distinct from the named action (D-118) | `NotificationStrip.show_success/show_warning/show_error()`, `clear()`, `clear_all()`, `pending_count` |
+| `ui/app_settings.py` | The one place the `QSettings` store is opened, in `QSettings.defaultFormat()` so the test and screenshot sandboxes reach it (Phase 9 F-36) | `app_settings()` |
+| `ui/design_tokens.py` | Phase 9 spacing, type, density, and button roles; uses Qt font and icon APIs, no stylesheet (D-168) | `SPACE`, `spacing()`, `TypeRole`, `ControlRole`, `apply_type_role()`, `apply_role()` |
+| `ui/icon_glyphs.py` / `ui/icons.py` | Original AGPL interface glyphs and palette-aware SVG re-inking (D-169) | `GLYPHS`, `set_svg_icon()` |
+| `ui/recovery.py` | App-data recovery snapshot and a fingerprint of the last dismissed offer. Dismiss preserves the snapshot and suppresses that state on later launches; changed work gets a new offer (D-118). The snapshot is always written; only the launch-time bar is a preference, and File → Recover Unsaved Work reaches the snapshot without it (D-133) | `write_recovery()`, `pending_recovery()`, `dismiss_recovery()`, `clear_recovery()` |
 | `ui/feedback/text_dialog.py` | The one modal for text the user asked to see — scrolling, selectable, copyable. Replaced five ad-hoc `QMessageBox`es that disagreed about both (D-107) | `TextDialog`, `show_text()` |
 | `ui/feedback/error_presenter.py` | Typed exception → title + cause + named recoveries. `ExportError` is the newest entry; the enumeration test fails if a `core/errors.py` type has no presenter | `present()`, `presentation_for()`, `PresentedError`, `Recovery` |
 | `ui/ui_heartbeat.py` | Measures UI-thread stalls and reports them | `UiHeartbeat` |
 | `engine/player.py` | Playback loop, seek coalescing, A/B. **`stop()` is teardown and halts the only tick that advances the clock; anything meaning "stop but stay usable" calls `reset()`** (D-104) | `set_playing()`, `seek()`, `start()`, `stop()`, `reset()` |
 | `engine/display_pipeline.py` | Windows the declared bit depth on the decode thread (WP-9, D-093). **`to_display_array` guarantees a C-contiguous array** — PyAV returns a strided view into a padded plane, which `QImage` cannot borrow (D-102) | `to_display_array()`, `probe_format()`, `build_lut()`, `DisplayLevels`, `SourceFormat` |
 | `logging_setup.py` | The one console-logging configuration: level + logger prefix, and each distinct message once (D-103). `AVIALSYNC_LOG_LEVEL`, `AVIALSYNC_LOG_ALL` | `configure_logging()`, `DedupeFilter` |
-| `ui/pane_proportions.py` | Holds each splitter pane's share of the window across a resize; first-run defaults are ratios, not pixels | `PaneProportions`, `distribute()` |
+| `ui/pane_proportions.py` | Holds each splitter pane's share of the window across a resize; first-run defaults are ratios, not pixels. `MainWindow._apply_empty_layout` pins the plots and Data Streams to their minimum while nothing is loaded and restores the held ratios with the first recording; `save_geometry` never saves that empty layout (D-127) | `PaneProportions`, `fractions()`, `distribute()` |
 | `ui/recent_files.py` | Recent-session list in QSettings — kept out of `core/` (rule 2) | `add_recent()`, `get_recent()`, `clear_recent()` |
 | `ui/offsets_panel.py` | Stub — offset editing stays in `VideoInfoWidget.offset_spin`; not filled by D-020 | — |
-| `ui/readout_panel.py` | Live per-channel values + units + sample index + Δ section | `update_sources()`, `set_cursor()`, `show_region_stats()`, `show_delta()` |
+| `ui/readout_panel.py` | Live per-channel values + units + sample index + camera frame/time + Δ section; opens a copyable text summary of current channel and camera values | `update_sources()`, `set_cursor()`, `set_camera_frame_records()`, `textual_summary()`, `show_region_stats()`, `show_delta()` |
 | `ui/annotations.py` | Annotation store + list panel — the *user's* editable, exported markers | `AnnotationStore`, `AnnotationPanel` |
 | `ui/message_panel.py` | Read-only messages the rig recorded, mapped to master time (D-078). Never merge with `annotations.py`. Filtering hides rows; rebuilding them cost 51-87 ms per keystroke at `MAX_MESSAGES`. `_display_names` extends a source label with parent directories only when two sources share a file name, as two record nodes of one session do (D-085) | `MessageStore`, `MessagePanel`, `MappedMessage` |
 | `ui/theme.py` | QPalette + system/dark/light appearance, and the **only** home for a colour literal (D-079, D-106). Imports no pyqtgraph | `apply_theme()`, `load_saved_theme()`, `current_preference()`, `THEME_SYSTEM/DARK/LIGHT`, `system_is_dark()`, `system_accent()`, `on_surface()`, `neutral_on_canvas()`, `evidence_color()`, `status_color()`, `marker_color()`, `loop_pin_color()`, `plot_colors()`, `playhead_color()`, `trace_color()`, `coverage_color()`, `follow_palette()`, `set_bold()`, `set_font_family()` |
@@ -507,15 +706,23 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/import_wizard.py` | CSV import dialog | `ImportWizard` |
 | `ui/diagnostics.py` | Startup probe (hardware-decode support, disk speed) — async daemon thread | `run_startup_diagnostics()`, `probe_hwdec()` |
 | `ui/controllers/drop_controller.py` | Drag/drop intake, drop scan, candidate routing (D-066) | `drop_event()`, `start_drop_scan()`, `route_import_candidate()` |
-| `core/source.py` | Plugin ABCs: `TimeSeriesSource`, `VideoSource`, and `SessionSource` for folder layouts (D-068); all three name themselves via `_Nameable`. `SessionLayout.warnings` carries what a scan could not lay out, so a dropped recording is never silent (D-085) | `SessionSource`, `SessionLayout` (incl. `warnings`), `SessionItem` (incl. `label`), `display_name()`, `VideoSource.exact_time_mapping()` (D-072) |
-| `ui/controllers/session_controller.py` | `.avv` save/load/restore, geometry, autosave, recent files | `build_session_state()`, `restore_session()`, `start_session_save()` |
+| `core/source.py` | Plugin ABCs: `TimeSeriesSource`, `VideoSource`, and `SessionSource` for folder layouts (D-068); all three name themselves via `_Nameable`. `SessionLayout.warnings` carries what a scan could not lay out, so a dropped recording is never silent (D-085). `TimeSeriesSource.pose_roles()` offers direct-import 2D/3D uses (D-132) | `SessionSource`, `SessionLayout` (incl. `warnings`), `SessionItem` (incl. `label`), `display_name()`, `VideoSource.exact_time_mapping()` (D-072) |
+| `ui/controllers/cache_controller.py` | File → Cache: delete this trial's cache or all of it, show the folder; closes and restores a loaded trial around the removal (D-160) | `delete_trial_cache()`, `delete_all_cache()`, `show_cache_folder()` |
+| `ui/controllers/session_controller.py` | `.avv` save/load/restore, geometry, autosave, recent files. Also the recovery snapshot's UI side: `note_pending_recovery()` holds what a launch found, `offer_pending_recovery()` posts the opt-in bar, `recover_unsaved_work()` is the File command, `forget_pending_recovery()` drops the held offer beside every `clear_recovery()` (D-133) | `build_session_state()`, `restore_session()`, `start_session_save()` |
 | `ui/controllers/export_controller.py` | Snapshot, data slice, video clip, annotations, region stats | `export_snapshot()`, `start_data_export()`, `start_region_stats()` |
 | `ui/snapshot_capture.py` | UI-thread capture for the snapshot figure (D-101): each camera re-rendered at its decoded resolution and cropped free of letterbox, the 3D pose re-projected, the whole channel stack rather than the scroll viewport | `capture_figure()`, `capture_pane_figure()`, `capture_video_tile()`, `capture_plot_image()`, `plot_aspect()` |
 | `ui/controllers/video_controller.py` | Bounded concurrent probes; serialized pane build (D-040); validates and installs loader-declared per-frame mappings (D-072) | `load_video()`, `create_video_pane()`, `_declared_exact_mapping()`, `MAX_VIDEO_PROBES` |
 | `ui/controllers/import_controller.py` | Time-series import queue; pose → overlay/3D routing (D-046) | `start_data_import()`, `on_import_finished()`, `register_tracking_source()` |
 | `loaders/csv_loader.py` | polars CSV ingest; epoch/time-of-day/datetime, euro-decimal, sentinel, BOM | `CSVLoader` |
-| `loaders/tracking_loader.py` | DeepLabCut CSV loader; multi-scorer; flat-headers per bodypart/coord | `TrackingLoader` |
-| `loaders/neo_loader.py` | **The only ephys ingest path** (D-070). Per-stream selection via `config["stream_id"]`; `config["root"]` separates cache identity from what neo opens; `read_all_chunks` bound only when one clock spans the selection (D-071); TTL edges become a square wave, empty event channels are skipped. **Trap:** `get_io` sniffs extensions, so an unparseable path returns an *unrelated* reader rather than failing — the probe's exception is the true cause and is kept (D-085) | `NeoLoader`, `safe_channel_name()` |
+| `loaders/tracking_loader.py` | DeepLabCut / LightningPose CSV loader, single- and multi-animal; flat headers per point/coord via `core/pose_header.py` (D-136) | `TrackingLoader` |
+| `loaders/neo_loader.py` | **The ephys ingest path for acquisition formats** (D-070; NWB files are read by `nwb_loader`, D-188). Per-stream selection via `config["stream_id"]`; `config["root"]` separates cache identity from what neo opens; `read_all_chunks` bound only when one clock spans the selection (D-071); TTL edges become a square wave, empty event channels are skipped. **Trap:** `get_io` sniffs extensions, so an unparseable path returns an *unrelated* reader rather than failing — the probe's exception is the true cause and is kept (D-085) | `NeoLoader`, `safe_channel_name()` |
+| `loaders/nwb_format.py` | Scans NWB 1.x/2.x HDF5 and Zarr v2/v3 (D-188, D-189). Recognises a `TimeSeries` by structure (`data` + `timestamps`/`starting_time`), including extension types; NWB 1.x uses `acquisition/timeseries` and may declare version/epoch as datasets. `object_path`/`split_object_path` name an object inside a file, Zarr folder or remote link | `scan()`, `FileContents`, `SeriesInfo`, `open_file()`, `object_path()` |
+| `loaders/nwb_storage.py` | Read-only HDF5/Zarr adapters and DANDI range streams. A persistent `.nwb-link` outside the derived cache names the remote asset, so session restore uses the normal path route. Old hdmf-zarr v2 object-array fill metadata is corrected in memory | `create_remote_link()`, `open_remote()`, `open_zarr()`, `remote_url()` |
+| `loaders/nwb_read.py` / `nwb_types.py` / `nwb_text.py` | Slices of samples, frames, intervals and spikes from an open file (`data × channel_conversion × conversion + offset`); type ancestry from the file's cached specifications; HDF5 text as `str` | `read_values()`, `read_times()`, `type_ancestry()`, `is_a()` |
+| `loaders/nwb_loader.py` | Every time series, interval and unit in a file as one source, imported as **channel groups** (one per series, its own clock, one stored timestamp array). Intervals become 0/1 on a regular grid; spikes become exact-time pulses; trial rows and annotations become messages | `NWBLoader`, `interval_grid()`, `spike_pulses()` |
+| `loaders/nwb_imaging.py` | One imaging series as video: a lossless FFV1 MP4 proxy in the cache, presentation times = NWB timestamps. Works from HDF5, Zarr or a DANDI link; encoding is atomic and reports progress | `NWBImagingSource`, `default_imaging()`, `proxy_origin()` |
+| `loaders/nwb_stack.py` | Opens an NWB image series in the 2P viewer and slices one raw plane per request, including from Zarr and DANDI streams; the session scanner chooses this path by default. A photon series' third frame axis is depth (asks `z`), never channels | `NWBStackSource` |
+| `loaders/nwb_session.py` | Lays out an NWB file, Zarr store or DANDI link as a session: time series and each imaging series, plus local external videos; every item on the file's reference time | `NWBSessionSource` |
 | `loaders/open_ephys_format.py` | What neo does not model: recording discovery (`structure.oebin`), the software-time epoch, and the rig UTC offset derived from the local session directory name (D-070). Also reads event **prose**, which neo models badly — per-stream timestamp rule, and `"U"`/`"S"` text alike (D-085) | `find_recordings()`, `anchor_epoch()`, `recording_utc_offset()`, `stream_folder_names()`, `read_messages()`, `event_stream_defects()`, `EventStreamDefect` |
 | `loaders/open_ephys_legacy.py` | The **original** `.continuous` format's `messages.events`, which neo filters out by name and never implements. Plain ASCII, no 1024-byte header. **Traps:** the rate comes from the `start time:` line, never the 1 MHz `Software time:` one; times are `stamp / rate` with no rebasing on the first sample, matching neo's `_segment_t_start` (D-085) | `is_legacy_recording()`, `read_messages()`, `MESSAGES_NAME` |
 | `loaders/open_ephys_session.py` | Lays out a record-node tree plus the cameras beside it on one acquisition clock (D-068) | `OpenEphysSessionSource`, `parse_filename_time()` |
@@ -531,7 +738,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 4. Plotting only via decimation pyramid. Never pass raw full-resolution arrays >100k samples to pyqtgraph.
 5. All data sources go through plugin ABCs in `core/source.py`. No format special-casing in UI code.
 6. Sync correctness beats frame completeness. Drop frames, never drift. Paused/stepping: exact seeks only.
-7. Text data parsed once → binary sidecar cache, mmap-read afterwards.
+7. Text data parsed once → binary cache in the per-user cache folder, mmap-read afterwards (D-160).
 8. No GPL/AGPL dependencies. New dep requires license named in PR + pip-installable on all 3 OSes.
 9. No module >~500 lines; no function >~60 lines. Errors: typed exceptions from `core/errors.py`. Never `except Exception: pass`.
 
@@ -578,9 +785,11 @@ All connections established in `MainWindow.__init__` unless noted.
 |---|---|
 | `plot_pane.sources_changed(readers)` | `readout_panel.update_sources` + `video_grid.set_tracking_readers` |
 | `plot_pane.sources_changed(readers)` | `tracking_3d_pane.set_readers` for complete XYZ triplets |
+| `video_grid.marker_clicked(path, x, y)` | `MainWindow._on_marker_clicked`: a wheel being placed or checked takes it (`wheel_controller.on_clicked` returns True), otherwise `custom_marker_controller.on_clicked` (D-112, D-113) |
+| `WheelView.observe` | `MainWindow._on_wheels_changed` → `wheel_display.refresh` (views + Wheel page); `WheelView` reads the shared `PropStore`, and files are queued through `PropsApp.persist` from the mutation target, never by an observer |
 | `plot_pane.measure_changed(t_a, t_b)` | `readout_panel.show_delta(t_a, t_b, panes)` |
 | `plot_pane.channel_close_requested(channel)` | `sidebar.set_channel_visible(channel, False)` → existing checkbox visibility signal |
-| `player._on_tick()` — direct calls | `plot_pane.set_cursor(t)`, `transport.set_time(t)`, `readout_panel.set_cursor(t)` via `player._readout_panel` attr |
+| `player._on_tick()` — direct calls | `plot_pane.set_cursor(t)`, `transport.set_time(t)`, and at presentation rate `readout_panel.set_cursor(t)` plus `set_camera_frame_records(video_grid.frame_records_at(t))` via `player._readout_panel` |
 | `Player._update_timeline_views(t)` | `tracking_3d_pane.set_cursor(t)` when the optional pane is present |
 
 ### Time display mode (D-020)
@@ -622,7 +831,7 @@ _start_data_import(path)
 > teardown ordering, `mpv.terminate()` join deadlocks, property-observer threading, the
 > `wid`-vs-render-API split, the locale bomb, and the missing-library first-run dialog — are gone
 > with the code they described. Do not reintroduce them as constraints on the PyAV design. The
-> traps that replaced them are the pts-table and frame-selection ones below, plus MIGRATION_PYAV.md.
+> traps that replaced them are the pts-table and frame-selection ones below, plus archive/plans/MIGRATION_PYAV.md.
 
 ### 0-fork. Nothing a repaint can reach may shell out, and a miss must be cached
 
@@ -652,7 +861,7 @@ from it — `session_zero - source_epoch`, in `core/session_time.placement_offse
 | something with no known instant | nothing; it keeps its own zero |
 
 Two rules. **It goes in the `SessionItem` field, never in `config`** — config is
-hashed into the sidecar cache key, and a source's placement must not be able to
+hashed into the cache key, and a source's placement must not be able to
 invalidate the samples underneath it. And **a declaration is always absolute**:
 34526 is equally 09:35:26 and a nine-hour elapsed time, so a session-relative
 number declares nothing at all.
@@ -782,7 +991,7 @@ behaviour work. `extract_ttl_edges` takes one direction and throws that away;
 `triggers.extract_pulses` is what new code should use.
 
 And a rate needs a span to be measured over. `drift_is_identifiable` gates it:
-7,200 ppm across one second is seven milliseconds, indistinguishable from
+25,920 ms/h across one second is seven milliseconds, indistinguishable from
 jitter, while across four hundred seconds it is three seconds and real. A drift
 fitted over a span too short to show it is noise in a parameter, quoted to
 three decimals — `demote_to_shift` drops it rather than reporting it.
@@ -879,7 +1088,7 @@ event happens to answer `delta()`, and then raises `AttributeError` on
 
 ### 0a. Three UI facts that look like features and are not (Phase 7)
 Verified against the tree, not inferred. Each has caused, or will cause, a wrong assumption.
-1. **`session_controller.autosave()` writes a recovery snapshot when `window._session_path is
+1. **`session_controller.autosave()` writes a recovery snapshot when `window.session_runtime.path is
    None`** (WP-1, D-089). It used to return early there, so the two-minute autosave protected only
    sessions already saved by hand and `closeEvent`'s "always close" contract discarded an untitled
    one silently. Both paths are covered now — the timer and the close — so do not add a "save your
@@ -887,7 +1096,13 @@ Verified against the tree, not inferred. Each has caused, or will cause, a wrong
    `pending_recovery()` was written with the rest and had **no caller in `src/`** for the whole life
    of the feature, so the snapshot was written faithfully and was unreachable. `MainWindow.__init__`
    calls `session_controller.offer_pending_recovery` now, and there is no Discard button — Dismiss
-   declines without deleting the only copy of unsaved work (D-105).
+   keeps the only copy of unsaved work but records its content fingerprint in app data, so the same
+   work is not offered at every launch. Changed work gets a fresh offer (D-105, D-118). **The bar
+   itself is opt-in and off by default** (`storage/offer_recovery_at_launch`, D-133): every quit
+   writes a fresh snapshot and the fingerprint is per snapshot *content*, so anyone working without
+   saving got a legitimately new offer at nearly every launch. The snapshot is written and read
+   either way — `MainWindow._pending_recovery` holds what the launch found, and **File → Recover
+   Unsaved Work** restores it — so do not "fix" a quiet launch by posting the bar unconditionally.
 2. **Every layer drawn over video is reachable from View → Overlays** (WP-4, D-090).
    `PaintCanvas.set_point_labels_visible()` and `set_legend_visible()` were toggles with no
    production caller; they are driven by `ui/overlay_registry.py` now. Adding a new overlay means
@@ -935,8 +1150,8 @@ these looked done from the module that owned it and was wrong from the window.
    `QThread`, with three named exceptions and their reasons.
 
 2. **Assign your own handle inside `configure`, never from the return value.** `import_controller`
-   gates its queue on `window._import_thread is not None`, and `video_controller` counts
-   `_video_load_jobs` against `MAX_VIDEO_PROBES`. Filling either from `_run_job`'s return value is a
+   gates its queue on `window.import_state.active_thread is not None`, and `video_controller` counts
+   `window.video_load_state.active_probes` against `MAX_VIDEO_PROBES`. Filling either from `_run_job`'s return value is a
    race a fast job wins: it finishes, its `finished` handler clears the entry, and *then* the
    assignment lands — leaving a stale handle that gates every later import forever, or a registry
    that never fills so the probe limit is never reached. Both now assign inside `_wire`, which runs
@@ -957,7 +1172,7 @@ these looked done from the module that owned it and was wrong from the window.
    again when the tree grows: `_sweep_accessibility` on every source change, and `ShowTimeSweeper`
    on `Show` for dialogs, which do not exist until someone opens one.
 
-### 0a-bis. Four ways a theme change silently fails to arrive (D-106)
+### 0a-bis. Ways a theme change silently fails to arrive (D-106)
 None of these raise. Each just leaves one surface on the previous appearance, which is
 why they survived for a phase apiece.
 1. **`pg.setConfigOption` moves nothing that already exists.** pyqtgraph reads those globals
@@ -994,6 +1209,23 @@ why they survived for a phase apiece.
    outgoing appearance. That bug shipped and was reported from a running build — Dark→System and
    Light→System did nothing while a fresh launch into System was correct. Refresh
    `_system_palettes` only *after* handing back, never before.
+6. **A widget with a stylesheet hears nothing when the application palette changes.** No
+   `PaletteChange`, no `ApplicationPaletteChange` — measured — and its own `palette()` keeps the
+   colour the sheet pinned even after the sheet is cleared. `follow_palette` therefore listens to
+   `app.paletteChanged` and builds from `_inherited_palette`, never from the widget. Its old test
+   called `setPalette` on the widget itself, the one path Qt still delivers, and passed while every
+   real switch left followed widgets on the launch theme.
+7. **Style-supplied ink ignores the palette.** Standard icons are drawn in one fixed colour (black
+   on macOS) and `SH_Table_GridLineColor` is a fixed `#141414` under both appearances. Use
+   `icons.set_glyph_icon` / `set_status_icon` for button icons and `tables.ThemedTable` for any
+   table that shows its grid. On a 2× display paint over a one-pixel grid line with `fillRect`, not
+   `drawLine`: a stroked line covers one device row of the two and leaves half the black showing.
+8. **Platform palettes can contradict themselves.** macOS's dark palette reports an opaque
+   `#989898` `AlternateBase` and its dimmed selection tint as `Highlight`. Read surfaces through
+   `theme.surface_color` and the accent through `theme.system_accent`; never read `AlternateBase`
+   or `Highlight` directly for custom paint. Rich-text links in a `QTextBrowser` keep the link
+   colour they had when the HTML was set — the application has none today; re-set the HTML on a
+   palette change if one is ever added.
 
 ### 0a-ter. A test that writes real `QSettings` edits the developer's application (D-106)
 Thirteen places in `src/` construct `QSettings("AvialSync", "AvialSync")`. A run that exercised the
@@ -1002,6 +1234,15 @@ came up light on a dark desktop — indistinguishable from a broken theme. `test
 sandboxes storage for the whole process in `pytest_configure` (an ini under a temp dir); do not
 remove it, and do not rely on per-module `monkeypatch` of `QSettings`, which only covers the module
 somebody remembered. Same family as `isolated_recovery_dir` below.
+
+**That sandbox covered nothing until Phase 9 DS-0.** `QSettings(org, app)` ignores
+`setDefaultFormat` and always opens the *native* store, so the suite and the screenshot tools kept
+writing geometry, splitter sizes and the inspector page into the real plist/registry. Open the
+store only through `ui/app_settings.app_settings()`, which passes `QSettings.defaultFormat()`
+explicitly (native in the shipped app, the sandbox's ini under test). `tests/test_app_settings.py`
+rejects any other `QSettings(...)` construction in `src/`, `tests/` and `tools/`. The screenshot
+tools get the same sandbox, plus the recovery snapshot and cache, from `tools/screenshot_kit.py`
+on import (`tests/test_screenshot_isolation.py`).
 
 ### 0. Scheduled work that outlives its owner crashes rather than fails (D-062, D-064)
 Two variants, one cause. A worker `deleteLater`-ed from a signal its own thread emits is destroyed
@@ -1015,6 +1256,16 @@ its own `finished`. Run deferred UI work synchronously, or schedule it with the 
 overload `QTimer.singleShot(interval, owner, callback)`. `shiboken6.isValid` guards a widget you
 already hold; it cannot help while the list itself is being built.
 `tests/test_worker_thread_teardown.py` fails on any reintroduction.
+
+### 0b-bis. A widget left to the cycle collector dies on whichever thread collects (D-188)
+Python's cyclic GC runs on the thread that happens to allocate when a threshold trips -- a pyramid
+save worker, an importer, a decoder. A Qt widget kept alive only by a reference cycle is destroyed
+there, and a top-level window's destructor (`QWindow::close` → `flushWindowSystemEvents`) waits for
+the GUI thread while holding the GIL. If the GUI thread is waiting on that worker, both hang, with
+no exception and nothing in the Python stack but a pure-Python frame waiting for the GIL. A widget
+embedded with `QGraphicsProxyWidget` *is* a hidden top-level window. Anything that removes one must
+`deleteLater()` it (`plot_row.detach_row`), and nothing it owns may hold a strong reference back.
+Diagnose with `-o faulthandler_timeout=…` plus macOS `sample <pid>`: the Python dump alone hides it.
 
 ### 0b. Building a widget list can free the widgets in it (D-065)
 The hole D-064 left open, which later killed a macOS runner. `QApplication.allWidgets()` copies a
@@ -1071,10 +1322,34 @@ clamps into range and ignores the gap mask, both of which `value_at` handled int
 coverage and gap checks are written out explicitly beside it. Deleting either one puts a stale
 coordinate on screen at the ends of a recording or across a missing stretch.
 
+An edited-cache generation can disappear after a reader has been pointed at it, or lose one of its
+`.npy` files. `PaintCanvas` skips that channel's point and logs the read failure once per reader;
+the other points keep drawing, and the channel is retried on later paints so a rebuilt file can
+appear again. The loose-reader `value_at` path has the same guard. `paintEvent` always ends its
+`QPainter`, including if a different layer raises, so an exception cannot leave Qt's backing store
+mid-paint and cascade into native painter errors. `tests/test_fix_tracker.py` renders a canvas with
+the exact missing `_v.npy` shape from the field traceback and checks recovery.
+
+That guard is the second line. The cause was `edit_cache.materialise` itself: two rebuild jobs for
+the same fingerprint (undoing back to an edit still being built starts a second) both saw no
+generation when they started, and the later one `rmtree`d the directory the earlier one had
+committed and readers were already painting from. Readers load lazily, so one found `_t.npy` and
+then no `_v.npy`. A job now keeps a generation another job committed for the same edits, and an
+explicit `rebuild=True` renames each file over its predecessor (manifest last) instead of
+deleting the directory first. `tests/test_edit_cache.py` reproduces both.
+
+The likelier path in the field was the base cache itself. A pose file imported at an assumed
+frame rate is re-imported as soon as a camera dates its frames, and `CacheManager.commit_cache`
+deleted the old entry -- `edited/` inside it, including a build still writing its staging
+directory. `commit_cache` now carries `edited/` into the new entry, and each generation's
+manifest records the base key it was built on, so `edit_cache.load` rebuilds rather than reuses
+it after a re-import. Anything that lives *inside* a cache entry and must outlive a rebuild
+belongs in `cache.EDITED_SUBDIR`'s treatment, not in a new sibling directory.
+
 ### 0c-quater. A correction never touches the pose file or its cache (D-099)
-"Fix Tracker" is a sparse override in `core/point_edits.py`, written to `<pose file>.avialfix.csv`
+"Fix Tracker" is a sparse override in `core/point_edits.py`, written to `<pose name>_<ext>_avialfix.csv`
 beside the source and applied when the overlay reads a coordinate. Nothing writes the imported CSV
-or its `.avialcache/` sidecar, and nothing may start: the recording cannot be regenerated, the cache
+or its cache entry, and nothing may start: the recording cannot be regenerated, the cache
 is content-hash keyed and would discard a hand edit on the next import, and undo would stop being a
 reversal. `PaintCanvas` emits `point_moved` and does **not** apply it —
 `MainWindow._on_tracked_point_moved` puts it through the command bus (rule 14). If you find a canvas
@@ -1094,7 +1369,7 @@ agree have no rule for which wins when they do not.
 ### 0c-sexies. A correction is keyed by sample index, written as a video frame (D-099)
 `PointEditStore` keys by **sample index**, because that is what stays put when an offset or an
 accepted TimeMap changes *when* a sample is shown. Everything outside the application speaks **video
-frame numbers**: the `.avialfix.csv` a person reads, the corrected pose CSV, DLC's labeled data. For
+frame numbers**: the `_avialfix.csv` a person reads, the corrected pose CSV, DLC's labeled data. For
 a pose file written contiguously from frame 0 the two are the same number, which is why the
 difference stays invisible until someone hands you a file covering only the frames they labelled —
 and then every correction lands a hundred frames early. `corrections_controller.frame_for()` and
@@ -1103,11 +1378,27 @@ run **after** the source is registered in `_overlay_sources`. `index_for()` retu
 frame the file does not cover rather than snapping to the nearest row, which would move the point to
 another moment entirely.
 
+### 0c-wheel. A wheel is drawn from the frame's time, not the clock's, and never from a file (D-113)
+`wheel_display` reads the encoder at the **presentation time of the frame on screen** — the clock
+sits anywhere inside that frame's interval and a fast wheel turns visibly within one — and through
+the encoder's own plot-row `TimeMap`, never a `TimeMap` rebuilt from `(offset, drift)` (that loses
+`t_ref`). Bars are cached per frame index; the paint path only projects them. The calibration is
+loaded when wheels are adopted or placed, never while painting. Wheels use the canonical
+`_prop.toml` reader; there is no wheel-specific suffix or loader exclusion.
+
+### 0c-custom. Our marker files match the globs that find pose data (D-112)
+`_eks_custom_markers.csv` matches the AOL manifest's `*_eks*.csv`, and every marker file is a
+DLC- or anipose-shaped CSV the tracking loaders claim. `is_custom_marker_path()` is consulted
+beside `is_correction_path()` in `LoaderRegistry.find_best_loader`, the drop scan, and the AOL
+manifest. A new place that discovers pose CSVs must consult both, or reopening a session offers
+the user's own markers back to them as a fourth camera's tracking.
+
 ### 0c-septies. Export writers do not create the folder you typed (D-100)
 A missing parent directory means the path has a typo in it; creating it hides the mistake instead of
 reporting it, and the error path is what `tests/test_changes_export.py` pins. The single exception is
-the retraining set: `labeled-data/<video>/` is part of DLC's format rather than part of the path the
-user chose, so `dlc_export.write_labeled_data` creates it. Do not "fix" the others to match.
+the retraining set: its new bundle folder contains `labeled-data/<video>/` as part of the training
+format, so `dlc_export.write_labeled_data` creates that subtree inside an unpublished stage.
+Do not "fix" the others to match. The user copies the bundle contents into a project root (D-198).
 
 ### 0c-octies. Do not reach for `QToolButton.setDefaultAction` (D-100)
 It is Qt's one-line way to bind a button to a `QAction`, it is the reason rule 15 is easy to obey —
@@ -1137,12 +1428,21 @@ record-node tree resolved to the directory holding `settings.xml` rather than to
 that holds the data. `find_recordings()` (manifest-based) now runs first; the glob BFS is the
 fallback for formats that have no manifest and stays capped at depth 2.
 
-### 0g. A sidecar cache is named after its source path *alone*
-`CacheManager.get_cache_dir` is `<path>.avialcache` — the loader and config affect only the
-invalidation key inside it, not the directory name. Two sources sharing a path therefore take turns
+### 0g. A cache entry is named after its source path *alone*
+`CacheManager.get_cache_dir` is `<cache root>/sources/<name>-<digest of the absolute path>` — the
+loader and config affect only the invalidation key inside it, not the directory name. Two sources sharing a path therefore take turns
 invalidating each other, and each import silently rebuilds what the last one wrote. This is why every
 Open Ephys stream is pointed at its own `continuous/<stream>` directory and `NeoLoader` accepts
 `config["root"]` for what neo should actually open (D-071).
+
+### 0g-bis. Two sources from one file need two paths (D-188)
+A source is identified by its path in the sidebar, coverage lanes, `_inspections`, `_recorded_mappings`
+and the mutation targets. An NWB file's time series and its imaging under the same path were one
+source to all of them: one coverage lane, one inspection,
+and a nudge to the series' offset moved the imaging. The imaging is therefore named *inside* the file
+(`session.nwb/acquisition/TwoPhotonSeries`). That path does not exist on disk; check presence with
+`core.source.source_exists`, never `Path.exists()`. The imaging viewer reads planes through
+`NWBStackSource`; video-compatible proxy consumers use `VideoGrid.media_path_for(path)`.
 
 ### 0h. Cache files are shared inodes — never write to one in place (D-071)
 `_finalize_bulk_channels` hard links each channel's `_t.npy` and `_gap.npy` to one staged copy, so a
@@ -1151,12 +1451,15 @@ read-only via mmap, which is what makes that safe. One in-place write to a commi
 now corrupt every channel of the stream. `os.link` falls back to `shutil.copyfile` on FAT/exFAT and
 some network mounts.
 
-### 0i. A drop must step over our own sidecar caches
-A committed `.avialcache` holds one `.npy` per channel and pyramid level — 482 files for a single
-32-channel stream. `DropScanWorker` filtered children on `startswith(".")` only, and a cache
-directory is not dotted, so re-dropping a folder you had already imported descended into it and
-offered every array as an unrecognised candidate (44 rows for a 40-file cache in the matrix test).
-`core/cache.is_cache_path()` owns that recognition now; use it anywhere that walks user folders.
+### 0i. Nothing derived is written beside a recording; removal proves ownership (D-160)
+The cache is one per-user folder (`core/cache.cache_root()`, `AVIALSYNC_CACHE_DIR` overrides; the
+suite sets it in `conftest.py` so tests never touch the real one). Staging and backups live in the
+same `sources/` folder, so commits stay a rename on one file system. Every entry carries a
+`source.json` record; `core/cache_store` deletes only a non-symlink directory directly in
+`sources/` that carries it, renaming it to `.trash-*` first so a file Windows holds open leaves the
+entry whole. Never add a second way to delete from the cache. Anything a user made — corrections,
+swaps, markers, props, accepted sync mappings (`<session>_avv_sync/`) — is not derived and never
+goes in the cache; that is what makes "delete the cache folder" a safe instruction.
 
 ### 0j. Only the first session of a multi-path drop owns the timeline
 `SessionLayout` carries one `anchor_epoch`/`camera_fps` per drop. Two session folders dropped
@@ -1180,7 +1483,7 @@ Also fixed here: `SessionSource` now inherits `_Nameable` like the other two con
 `AOLSessionSource` came back as "AOLSession", the very example its own docstring used.
 
 ### 0l. A `SessionItem` label is never part of `config`
-`config` is hashed into the sidecar cache key, so a display label living there would make rewording
+`config` is hashed into the cache key, so a display label living there would make rewording
 a table cell invalidate every cache built with the old wording — gigabytes rebuilt to change a
 string. `SessionItem.label` is a separate field; `drop_controller` keys it by path into
 `window._session_item_labels` and hands that to `BatchImportDialog`. The candidate tuple stays a
@@ -1685,7 +1988,7 @@ and returns focus to the containing playback surface, so the next Space immediat
 |---|---|
 | `Ctrl+S` / `Cmd+S` | Save session (`StandardKey.Save`) |
 | `Ctrl+O` / `Cmd+O` | Open session (`StandardKey.Open`) |
-| `Ctrl+Shift+V` | Open Video(s)… |
+| `Ctrl+Shift+V` | Open Videos… |
 | `Ctrl+Shift+D` | Open Sensor/Ephys Data… |
 | `Ctrl+E` | Export Snapshot (single QAction authority) |
 | `Ctrl+Q` / `Cmd+Q` | Quit (`StandardKey.Quit`, `QuitRole`) |
@@ -1905,3 +2208,34 @@ bare name, so a reintroduction is caught in CI rather than in a warning nobody r
 cross-thread warnings. They were incidental to that failure — it was a separate race in the test —
 but the warnings were real, and four call sites had it: the trigger read, the changes export, and
 both session save and session load.
+
+### 33. A `QMenu` reached through `QAction.menu()` dies with the wrapper you drop (test-side)
+A helper that looks up a menu and returns its contents hands the caller objects whose owner it has
+already released:
+
+```python
+def _file_menu_actions(window):
+    for bar_act in window.menuBar().actions():
+        if bar_act.menu() and bar_act.text() == "File":
+            return list(bar_act.menu().actions())  # WRONG
+```
+
+The returned list is full of live-looking `QAction`s until the helper's frame goes away, and then
+every one of them answers `RuntimeError: Internal C++ object (QAction) already deleted` — because
+PySide deleted the real `QMenu` when the last Python wrapper referring to it was collected, and the
+actions went with it. Returning the menu alone is not enough either: it is the *owning action's*
+wrapper that keeps it alive, so `_file_menu()` in `tests/test_interaction_standard.py` returns
+`(bar_act, menu)` and the test holds both.
+
+It reads exactly like a torn-down window, which is the trap: the window is fine. Two unrelated
+symptoms in the same module were a genuine one — that fixture built a `MainWindow` without
+`qtbot.addWidget`, so pytest-qt never tore it down and the process **segfaulted at interpreter
+exit**, on code that predated the tests. Register every window with `qtbot`; it is not decoration.
+
+### 34. Preferences is in the File menu, and `PreferencesRole` is what took it away (D-135)
+`QAction.MenuRole.PreferencesRole` moves the item into the macOS *application* menu, which is named
+after the running process — "python" for anyone who starts AvialSync from a conda env, where the
+user guide, the command palette and the File menu all say File → Preferences…. The action carries
+`MenuRole.NoRole` for that reason and keeps `StandardKey.Preferences`. Quit and About keep
+`QuitRole` and `AboutRole` (D-022.3): those belong in the application menu whatever it is called,
+and `QuitRole` is a notarization requirement. Do not "restore" the role on the Preferences action.

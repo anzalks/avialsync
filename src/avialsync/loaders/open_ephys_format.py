@@ -83,9 +83,7 @@ def find_recordings(
     has a known shape, and in directory count, because this runs on every dropped
     folder and somebody will eventually drop their home directory.
 
-    Sidecar caches and dotted directories are skipped outright.  An
-    ``.avialcache`` holds thousands of ``.npy`` files, so walking one costs more
-    than the entire search it is part of.
+    Dotted directories are skipped outright.
     """
     if not root.is_dir():
         return []
@@ -111,7 +109,7 @@ def find_recordings(
             logger.debug("Skipping unreadable directory %s: %s", current, error)
             continue
         for child in children:
-            if child.name.startswith(".") or child.name.endswith(".avialcache"):
+            if child.name.startswith("."):
                 continue
             queue.append((child, depth + 1))
 
@@ -130,7 +128,7 @@ def stream_folder_names(recording: Path) -> list[str]:
 
     Each stream owns a directory, and pointing a source at its *own* directory is
     what lets one recording contribute several independently cached sources: a
-    sidecar cache is named after its source path, so three sources sharing the
+    cache entry is named after its source path, so three sources sharing the
     recording directory would overwrite one another's cache in turn.
 
     The names come from the manifest rather than from neo's stream names, which

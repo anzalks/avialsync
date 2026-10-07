@@ -15,20 +15,33 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.inspection import SourceInspection
+from avialsync.ui.design_tokens import spacing
+from avialsync.ui.i18n import tr
 from avialsync.ui.theme import set_font_family
 
 
 class ImportReportDialog(QDialog):
     """Scrollable plain-text view of an ImportReport with a Copy button."""
 
-    def __init__(self, inspection: SourceInspection, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        inspection: SourceInspection | None,
+        parent: QWidget | None = None,
+        *,
+        properties: str = "",
+        title: str = "",
+    ) -> None:
         super().__init__(parent)
         self._inspection = inspection
-        self.setWindowTitle(f"Import Report — {inspection.path.split('/')[-1]}")
+        # The source's own properties first (resolution, depth, codec, rates),
+        # then what the import found: one dialog answers "what is this file".
+        self._properties = properties
+        name = inspection.path.split("/")[-1] if inspection is not None else ""
+        self.setWindowTitle(title or f"Import Report — {name}")
         self.resize(520, 380)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setContentsMargins(spacing("m"), spacing("m"), spacing("m"), spacing("m"))
 
         self._text = QTextEdit()
         self._text.setReadOnly(True)
@@ -42,9 +55,9 @@ class ImportReportDialog(QDialog):
         layout.addWidget(scroll)
 
         btn_row = QHBoxLayout()
-        copy_btn = QPushButton("Copy as text")
+        copy_btn = QPushButton(tr("Copy as text"))
         copy_btn.clicked.connect(self._copy)
-        close_btn = QPushButton("Close")
+        close_btn = QPushButton(tr("Close"))
         close_btn.clicked.connect(self.accept)
         btn_row.addWidget(copy_btn)
         btn_row.addStretch()
@@ -55,7 +68,12 @@ class ImportReportDialog(QDialog):
         QApplication.clipboard().setText(self.as_plain_text())
 
     def as_plain_text(self) -> str:
+        report = self._report_text() if self._inspection is not None else ""
+        return "\n\n".join(part for part in (self._properties, report) if part)
+
+    def _report_text(self) -> str:
         ins = self._inspection
+        assert ins is not None
         lines = [
             "Import Report",
             f"{'=' * 50}",

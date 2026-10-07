@@ -7,19 +7,25 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QMargins, Qt, Signal
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import QGridLayout, QLabel, QSizePolicy, QWidget
 
+from avialsync.ui.design_tokens import spacing
+from avialsync.ui.i18n import tr
+from avialsync.ui.video_grid_overlays import GridOverlayMixin
 from avialsync.ui.video_pane import VideoPane
 
 logger = logging.getLogger(__name__)
 
 
-class VideoGrid(QWidget):
+class VideoGrid(GridOverlayMixin, QWidget):
     """Manages N VideoPanes in either a horizontal strip or an NxN grid.
 
     Uses a single QGridLayout and re-arranges children when the mode
-    changes, avoiding the Qt limitation that prevents swapping layouts.
+    changes, avoiding the Qt limitation that prevents swapping layouts. What is
+    drawn over the panes -- tracking, corrections, markers, reprojection, the
+    wheel -- is routed by :class:`GridOverlayMixin`.
     """
 
     #: Floor for an empty grid: tall enough to read as a pane and as a drop
@@ -33,6 +39,7 @@ class VideoGrid(QWidget):
     # path = the pane's video path; pos = QPoint (global screen position).
     pane_right_clicked = Signal(str, object)
     displayed_panes_changed = Signal()
+    pane_attached = Signal(str)
     #: A pane has left the grid's model but its decoder is still being stopped.
     #:
     #: Tearing a libmpv client down could take the whole process with it on
@@ -44,6 +51,10 @@ class VideoGrid(QWidget):
     #: A finished "Fix Tracker" drag in any pane, as a
     #: :class:`~avialsync.core.point_edits.PointMove`.
     point_moved = Signal(object)
+    #: ``(path, x, y)``: a click placing a new 3D marker in one camera.
+    marker_clicked = Signal(str, float, float)
+    #: ``(path, name, frame, x, y)``: a hand-placed 3D marker was dragged.
+    custom_point_moved = Signal(str, str, int, float, float)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -53,25 +64,17 @@ class VideoGrid(QWidget):
         self._pane_enabled: list[bool] = []
         self._grid_mode: bool = False
         self._batch_depth: int = 0
-        #: Overlay state that arrived before the pane it belongs to. Panes are
-        #: built one at a time and each one demuxes its whole file first, so
-        #: tracking data routinely resolves while later cameras have no pane.
-        self._overlay_tracks: dict[str, list] = {}
-        self._tracking_readers: list = []
-        #: The session's hand-correction store, and whether the panes are
-        #: currently accepting corrections. Held here for the same reason the
-        #: overlay tracks are: a pane built later must open already in the
-        #: state the rest of the grid is in, not in the default one.
-        self._point_edits: object | None = None
-        self._point_edit_mode = False
+        self._init_grid_overlays()
 
         self._layout = QGridLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
-        self._layout.setSpacing(2)
+        self._layout.setSpacing(spacing("xs"))
 
         self.lbl_empty = QLabel(
-            "No videos loaded.\nDrag and drop videos or CSV "
-            "files here.\nDouble-click a pane to maximise."
+            tr(
+                "No videos loaded.\nDrag and drop videos or CSV "
+                "files here.\nDouble-click a pane to maximise."
+            )
         )
         self.lbl_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         # The placeholder asks for a drop-target's worth of height but must not
@@ -129,9 +132,22 @@ class VideoGrid(QWidget):
             return
         self.panes[index].apply_overlay_visibility(resolver(path))
 
+    def reset_all_views(self) -> None:
+        """Every pane back to its fitted, centred view: zoom 1.00x, no pan."""
+        for pane in self.panes:
+            pane.surface.reset_view()
+
     def pane_paths(self) -> list[str]:
         """Return a copy of the loaded video paths, parallel to self.panes."""
         return list(self._paths)
+
+    def media_path_for(self, path: str) -> str:
+        """Return the file the pane named *path* decodes: its proxy if it has one."""
+        try:
+            pane = self.panes[self._paths.index(path)]
+        except ValueError:
+            return path
+        return str(getattr(pane, "media_path", "") or path)
 
     def visible_panes(self) -> list[VideoPane]:
         """Return panes currently selected and displayed by the grid."""
@@ -166,76 +182,6 @@ class VideoGrid(QWidget):
             )
         return records
 
-    def set_tracking_readers(self, readers: list) -> None:
-        """Pass tracking data readers to all video panes for overlay rendering.
-
-        Retained, for the same reason :meth:`set_overlay_tracks` retains: a pane
-        built after this call would otherwise show nothing until the plot's
-        source list next changed.
-        """
-        self._tracking_readers = list(readers)
-        for pane in self.panes:
-            pane.set_tracking_readers(list(self._tracking_readers))
-
-    def set_overlay_tracks(self, path: str, tracks: list) -> None:
-        """Attach named 2D prediction tracks to the pane showing *path* only.
-
-        2D pose data is camera-specific: a track extracted from SideCam must
-        never be painted over FaceCam, so this routes by exact video path
-        instead of broadcasting like :meth:`set_tracking_readers`.
-
-        The tracks are kept against the path because they routinely arrive
-        before their pane exists, and the arrival is a one-shot event nobody
-        repeats. Opening a pane demuxes the whole file to build its timestamp
-        table, and panes are built strictly one at a time (D-040), while the
-        pose CSVs import concurrently beside them. On a multi-camera session
-        that means every camera after the first had its overlay resolved while
-        it still had no pane to land on — dropped here, and never asked for
-        again, so only the first camera was ever painted.
-        """
-        self._overlay_tracks[path] = list(tracks)
-        try:
-            index = self._paths.index(path)
-        except ValueError:
-            logger.debug(
-                "Holding %d overlay track(s) for %s until its pane is built.", len(tracks), path
-            )
-            return
-        self.panes[index].set_overlay_tracks(self._overlay_tracks[path])
-
-    def set_point_edits(self, edits: object) -> None:
-        """Share one hand-correction store with every pane, now and later."""
-        self._point_edits = edits
-        for pane in self.panes:
-            pane.set_point_edits(edits)
-
-    def set_point_edit_mode(self, enabled: bool) -> None:
-        """Turn "Fix Tracker" on or off across every video pane at once.
-
-        The mode is the grid's, not a pane's: a correction made on one camera
-        while another is still read-only would make the interaction depend on
-        which pane happened to be focused.
-        """
-        enabled = bool(enabled)
-        self._point_edit_mode = enabled
-        for pane in self.panes:
-            pane.set_point_edit_mode(enabled)
-
-    @property
-    def point_edit_mode(self) -> bool:
-        """Whether the panes are currently accepting point corrections."""
-        return self._point_edit_mode
-
-    def refresh_point_edits(self) -> None:
-        """Repaint every overlay after the correction store changed."""
-        for pane in self.panes:
-            pane.paint_canvas.update()
-
-    def highlight_point(self, key: object) -> None:
-        """Ring one coordinate on whichever pane holds it, clearing the rest."""
-        for pane in self.panes:
-            pane.set_highlighted_point(key)
-
     def set_grid_mode(self, enabled: bool) -> None:
         """Switch between horizontal-strip and NxN grid layout."""
         if enabled == self._grid_mode:
@@ -254,28 +200,31 @@ class VideoGrid(QWidget):
         pane = VideoPane(self)
         pane.double_clicked.connect(self._on_pane_double_clicked)
         pane.point_moved.connect(self.point_moved)
+        pane.marker_clicked.connect(lambda x, y, _p=path: self.marker_clicked.emit(_p, x, y))
+        pane.custom_point_moved.connect(
+            lambda name, frame, x, y, _p=path: self.custom_point_moved.emit(_p, name, frame, x, y)
+        )
         # Forward right-click with path so MainWindow can build a context menu.
         if on_file_loaded is not None:
             pane.file_loaded.connect(on_file_loaded)
         pane.right_clicked.connect(lambda pos, _p=path: self.pane_right_clicked.emit(_p, pos))
+        # Width by column stretch alone, so two cameras split the strip in
+        # proportion to their pictures rather than to their name labels (D-174).
+        policy = pane.sizePolicy()
+        policy.setHorizontalPolicy(QSizePolicy.Policy.Ignored)
+        pane.setSizePolicy(policy)
+        surface = getattr(pane, "surface", None)  # test doubles have none
+        if surface is not None:
+            surface.view_changed.connect(self._fit_panes_to_picture)
         self.panes.append(pane)
         self._paths.append(path)
         self._pane_enabled.append(True)
-        # Whatever already resolved for this camera while it had no pane. Applied
-        # before `open`, so the pane's first paint is already correct.
-        if self._tracking_readers:
-            pane.set_tracking_readers(list(self._tracking_readers))
-        held = self._overlay_tracks.get(path)
-        if held:
-            pane.set_overlay_tracks(list(held))
-        if self._point_edits is not None:
-            pane.set_point_edits(self._point_edits)
-        if self._point_edit_mode:
-            pane.set_point_edit_mode(True)
+        self._apply_held_overlays(pane, path)
         pane.open(media_path or path)
         if self._batch_depth == 0:
             self._relayout()
             self._update_labels()
+        self.pane_attached.emit(path)
         return pane
 
     def remove_pane(self, path: str) -> None:
@@ -345,7 +294,7 @@ class VideoGrid(QWidget):
         self,
         path: str,
         offset: float,
-        drift_ppm: float,
+        drift_ms_per_hour: float,
         exact_master: np.ndarray | None = None,
         exact_source: np.ndarray | None = None,
     ) -> None:
@@ -353,7 +302,7 @@ class VideoGrid(QWidget):
         try:
             idx = self._paths.index(path)
             pane = self.panes[idx]
-            pane.time_map.set_mapping(offset, drift_ppm)
+            pane.time_map.set_mapping(offset, drift_ms_per_hour)
             if exact_master is not None and exact_source is not None:
                 pane.time_map.set_exact_mapping(exact_master, exact_source)
         except ValueError:
@@ -442,13 +391,60 @@ class VideoGrid(QWidget):
                 for r in range(rows):
                     self._layout.setRowStretch(r, 1)
             else:
-                # Horizontal strip: all in row 0
+                # Horizontal strip: all in row 0. One or two cameras are
+                # sized to their pictures by _fit_panes_to_picture (D-174).
                 for i, pane in enumerate(visible_panes):
                     self._layout.addWidget(pane, 0, i)
                     self._layout.setColumnStretch(i, 1)
                 self._layout.setRowStretch(0, 1)
         finally:
+            self._fit_panes_to_picture()
             self.setUpdatesEnabled(True)
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._fit_panes_to_picture()
+
+    def _fit_panes_to_picture(self) -> None:
+        """Size one or two strip panes to their pictures' aspect (D-174, F-11).
+
+        A lone camera otherwise fills the whole cell and draws small inside a
+        black letterbox, with its name and timecode in the letterbox corners.
+        The grid's margins shrink the strip to the pictures' combined shape and
+        the column stretches split it by each picture's aspect, so no pane gains
+        a minimum size and the grid's own floor is unchanged. Three or more
+        cameras, the NxN grid, and the fullscreen pane fill their cells as before.
+        """
+        if not hasattr(self, "_base_margins"):
+            self._base_margins = self._layout.contentsMargins()
+        base = self._base_margins
+        # Widgets only: a test double standing in for a pane is not laid out.
+        visible = [pane for pane in self.panes if isinstance(pane, QWidget) and pane.isVisible()]
+        sizes = [getattr(pane, "video_size", None) for pane in visible]
+        fit = 0 < len(visible) <= 2 and not self._grid_mode and self._fullscreen_pane is None
+        if not fit or any(size is None or not all(size) for size in sizes):
+            if self._layout.contentsMargins() != base:
+                self._layout.setContentsMargins(base)
+            return
+        aspects = [size[0] / size[1] for size in sizes if size is not None]
+        spacing = self._layout.horizontalSpacing() * (len(visible) - 1)
+        width = self.width() - base.left() - base.right()
+        height = self.height() - base.top() - base.bottom()
+        if width <= spacing or height <= 0:
+            return
+        row_height = min(float(height), (width - spacing) / sum(aspects))
+        spare_x = int((width - spacing - row_height * sum(aspects)) / 2)
+        spare_y = int((height - row_height) / 2)
+        margins = QMargins(
+            base.left() + spare_x,
+            base.top() + spare_y,
+            base.right() + spare_x,
+            base.bottom() + spare_y,
+        )
+        for column, aspect in enumerate(aspects):
+            self._layout.setColumnStretch(column, max(1, round(aspect * 1000)))
+        if self._layout.contentsMargins() != margins:
+            self._layout.setContentsMargins(margins)
 
     def _update_labels(self) -> None:
         """Update camera labels, disambiguating duplicate filenames."""

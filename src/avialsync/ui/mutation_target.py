@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.document import MarkerRecord, SourceRecord
 from avialsync.core.point_edits import PointKey
+from avialsync.ui import imaging_integration
 from avialsync.ui.annotations import Marker
 
 if TYPE_CHECKING:
@@ -86,15 +87,17 @@ class WindowMutationTarget:
 
     # ── source mapping ───────────────────────────────────────────────
 
-    def set_source_mapping(self, source_id: str, offset: float, drift_ppm: float) -> None:
+    def set_source_mapping(self, source_id: str, offset: float, drift_ms_per_hour: float) -> None:
         window = self._window
         with self.replaying():
             if source_id in window.video_grid.pane_paths():
                 window.sidebar.set_video_offset(source_id, offset)
                 window._on_video_offset_changed(source_id, offset)
+            elif source_id in window.imaging_pane.source_paths():
+                window._on_imaging_mapping_changed(source_id, offset, drift_ms_per_hour)
             else:
-                window.sidebar.set_sensor_mapping(source_id, offset, drift_ppm)
-                window._on_sensor_mapping_changed(source_id, offset, drift_ppm)
+                window.sidebar.set_sensor_mapping(source_id, offset, drift_ms_per_hour)
+                window._on_sensor_mapping_changed(source_id, offset, drift_ms_per_hour)
 
     def source_mapping(self, source_id: str) -> tuple[float, float]:
         """The mapping in the domain :meth:`set_source_mapping` replays into.
@@ -107,6 +110,9 @@ class WindowMutationTarget:
         window = self._window
         if source_id in window.video_grid.pane_paths():
             return window.sidebar.video_mapping(source_id)
+        if source_id in window.imaging_pane.source_paths():
+            _loader, _config, mapping = window.imaging_pane.source_config(source_id)
+            return mapping.offset, mapping.drift_ms_per_hour
         return window.sidebar.sensor_mapping(source_id)
 
     # ── annotations ──────────────────────────────────────────────────
@@ -161,13 +167,36 @@ class WindowMutationTarget:
             window.overlay_state.set_visible(overlay_id, visible, camera)
             window._apply_overlay_state()
 
+    def set_tracking_visible(self, source_id: str, surface: str, visible: bool) -> None:
+        """Apply an undo/redo tracking presentation change through its widget path."""
+        with self.replaying():
+            self._window._apply_tracking_visibility(source_id, surface, visible)
+
+    def set_original_tracker_visible(self, visible: bool) -> None:
+        """Repoint pose readers and keep the View action aligned during undo."""
+        from avialsync.ui.controllers import identity_controller
+
+        window = self._window
+        with self.replaying():
+            window._show_original_tracker = visible
+            action = window._act_show_original_tracker
+            blocked = action.blockSignals(True)
+            action.setChecked(visible)
+            action.blockSignals(blocked)
+            identity_controller.apply_reader_view(window)
+
     def set_tracked_point(
-        self, source_id: str, point: str, index: int, position: tuple[float, float] | None
+        self,
+        source_id: str,
+        point: str,
+        index: int,
+        position: tuple[float, float] | None,
+        shown_as: str = "",
     ) -> None:
         """Override one tracked coordinate, or restore the prediction (D-099).
 
         Writes the correction store and then the corrections file beside the
-        pose source; the pose file itself and its sidecar cache are never
+        pose source; the pose file itself and its cache entry are never
         touched. This is the one funnel every correction passes through -- drag,
         undo, and redo alike -- which is why persistence hangs off it rather
         than off the store's observers: reading a sidecar in must not echo it
@@ -175,8 +204,128 @@ class WindowMutationTarget:
         """
         window = self._window
         with self.replaying():
-            if window.point_edits.set(PointKey(source_id, point, index), position):
+            if window.point_edits.set(PointKey(source_id, point, index), position, shown_as):
                 window._persist_point_edits(source_id)
+
+    def set_identity_swap(self, source_id: str, event: object, accepted: bool) -> None:
+        """Accept or undo one flip, then write it beside the data and rebuild.
+
+        The single funnel every flip passes through -- the drag, its undo and
+        its redo alike -- which is why the sidecar write and the cache rebuild
+        hang off it rather than off the store's observers: reading a sidecar in
+        must not echo it straight back out (D-099).
+        """
+        from avialsync.core.identity_swaps import SwapEvent
+        from avialsync.ui.controllers import identity_controller
+
+        if not isinstance(event, SwapEvent):
+            return
+        with self.replaying():
+            identity_controller.apply(self._window, source_id, event, accept=accepted)
+
+    def set_identity_group(self, source_id: str, group: object, present: bool) -> None:
+        """Persist an undoable group declaration without rebuilding pose values."""
+        from avialsync.core.identity_swaps import SwapGroup
+        from avialsync.ui.controllers import identity_controller
+
+        if not isinstance(group, SwapGroup):
+            return
+        window = self._window
+        with self.replaying():
+            changed = (
+                window.identity_swaps.add_group(source_id, group)
+                if present
+                else window.identity_swaps.remove_group(source_id, group.name)
+            )
+            if changed:
+                identity_controller.persist(window, source_id)
+
+    def set_custom_marker(self, name: str, frame: int, marker: object) -> None:
+        """Place, move, or delete a hand-placed 3D marker, then write its files.
+
+        The single funnel for add, drag, delete, undo and redo alike, so the
+        marker files are written from here and never from the store's
+        observers -- reading them back in must not echo them out (D-099).
+        """
+        from avialsync.core.custom_markers import CustomMarker
+        from avialsync.ui.controllers import custom_marker_controller
+
+        window = self._window
+        value = marker if isinstance(marker, CustomMarker) else None
+        with self.replaying():
+            if window.custom_markers.set(name, frame, value):
+                custom_marker_controller.persist(window)
+
+    def set_wheel(self, name: str, wheel: object) -> None:
+        """Place, re-fit, or remove a wheel, then write its file (D-113).
+
+        The single funnel for add, re-fit, check, remove, undo and redo alike,
+        so the wheel's file is written from here and never from the store's
+        observers -- reading it back in must not echo it out (D-099).
+        """
+        from avialsync.core.wheel import Wheel
+
+        window = self._window
+        value = wheel if isinstance(wheel, Wheel) else None
+        with self.replaying():
+            if window.wheels.set(name, value):
+                window.props_app.persist(name)
+
+    def set_ladder(self, name: str, ladder: object) -> None:
+        """Accept a ladder through the same undo and persistence funnel."""
+        from avialsync.core.physical_props import Ladder
+
+        value = ladder if isinstance(ladder, Ladder) else None
+        with self.replaying():
+            if self._window.props_app.store.set(name, value):
+                self._window.props_app.persist(name)
+
+    def set_physical_prop(self, name: str, prop: object) -> None:
+        """Accept or remove a typed prop through undo and generalized persistence."""
+        from avialsync.core.physical_props import BallProp, BeltProp, Ladder
+        from avialsync.core.wheel import Wheel
+
+        value = prop if isinstance(prop, (Ladder, BeltProp, BallProp, Wheel)) else None
+        with self.replaying():
+            if self._window.props_app.store.set(name, value):
+                self._window.props_app.persist(name)
+
+    def set_ladder_step(
+        self, name: str, step_id: str, step: object, position: int | None = None
+    ) -> None:
+        """Edit one step; its neighbours remain untouched."""
+        from avialsync.core.physical_props import LadderStep
+
+        value = step if isinstance(step, LadderStep) else None
+        with self.replaying():
+            if self._window.props_app.store.set_step(name, step_id, value, position):
+                self._window.props_app.persist(name)
+
+    def move_ladder_step(self, name: str, step_id: str, position: int) -> None:
+        """Reorder a step through the accepted store and sidecar queue."""
+        with self.replaying():
+            if self._window.props_app.store.move_step(name, step_id, position):
+                self._window.props_app.persist(name)
+
+    def set_ladder_layout(self, name: str, layout: object) -> None:
+        """Change a ladder's support and rung pattern through the store and sidecar queue."""
+        from avialsync.core.physical_props import LadderLayout
+
+        if not isinstance(layout, LadderLayout):
+            return
+        with self.replaying():
+            if self._window.props_app.store.set_layout(name, layout):
+                self._window.props_app.persist(name)
+
+    # ── imaging display ──────────────────────────────────────────────
+
+    def set_imaging_view(self, source_id: str, view: dict[str, Any]) -> None:
+        with self.replaying():
+            imaging_integration.apply_view(self._window, source_id, view)
+
+    def set_imaging_layout(self, source_id: str, layout: dict[str, Any]) -> None:
+        with self.replaying():
+            imaging_integration.apply_layout(self._window, source_id, layout)
 
     # ── sources ──────────────────────────────────────────────────────
 
@@ -191,7 +340,9 @@ class WindowMutationTarget:
         window = self._window
         with self.replaying():
             if record.kind == "video":
-                window._load_video(Path(record.path), record.offset, record.drift_ppm)
+                window._load_video(Path(record.path), record.offset, record.drift_ms_per_hour)
+            elif record.kind == "imaging":
+                imaging_integration.restore_record(window, record)
             else:
                 window._start_data_import(Path(record.path))
 
@@ -200,10 +351,14 @@ class WindowMutationTarget:
         with self.replaying():
             if source_id in window.video_grid.pane_paths():
                 window._on_video_remove_requested(source_id)
+            elif source_id in window.imaging_pane.source_paths():
+                window._on_imaging_remove_requested(source_id)
             else:
                 window._on_sensor_remove_requested(source_id)
 
-    def apply_sync(self, source_id: str, offset: float, drift_ppm: float, evidence: Any) -> None:
+    def apply_sync(
+        self, source_id: str, offset: float, drift_ms_per_hour: float, evidence: Any
+    ) -> None:
         """Re-apply or reverse an accepted alignment.
 
         Reversing restores the plain offset/drift mapping the source had before
@@ -218,8 +373,8 @@ class WindowMutationTarget:
             effective = window.effective_offset(source_id, offset)
             window.video_grid.set_offset(source_id, effective)
             window.sidebar.set_video_offset(source_id, offset)
-            window._video_time_mappings[source_id] = (effective, drift_ppm)
-            window._recorded_mappings[source_id] = (offset, drift_ppm)
+            window._video_time_mappings[source_id] = (effective, drift_ms_per_hour)
+            window._recorded_mappings[source_id] = (offset, drift_ms_per_hour)
             window._sync_provenance = [
                 entry for entry in window._sync_provenance if entry.target_id != source_id
             ]
@@ -239,6 +394,7 @@ class WindowMutationTarget:
         return {
             "state": window._build_session_state(),
             "videos": list(window.video_grid.pane_paths()),
+            "imaging": list(window.imaging_pane.source_paths()),
             "sensors": list(window._sensor_cache_dirs),
         }
 
@@ -247,9 +403,11 @@ class WindowMutationTarget:
         with self.replaying():
             for path in snapshot.get("videos", []):
                 window._load_video(Path(path))
+            state = snapshot.get("state")
+            if state is not None:
+                imaging_integration.restore_entries(window, state.imaging, {})
             for path in snapshot.get("sensors", []):
                 window._start_data_import(Path(path))
-            state = snapshot.get("state")
             if state is not None:
                 for entry in state.markers:
                     if entry.t_end is None:

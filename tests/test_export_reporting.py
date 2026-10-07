@@ -26,6 +26,7 @@ import pytest
 from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
+from avialsync.engine.stimulus_grid_export import GridLabels, GridVideo
 from avialsync.ui import recovery
 from avialsync.ui.controllers import export_controller
 from avialsync.ui.main_window import MainWindow
@@ -92,6 +93,77 @@ def test_a_video_clip_export_is_a_registered_job(window: MainWindow, tmp_path: P
     assert len(started) == 1
     assert "clip" in started[0].lower()
     window._job_manager.shutdown()
+
+
+def test_a_stimulus_grid_export_is_a_registered_job(window: MainWindow, tmp_path: Path) -> None:
+    started: list[str] = []
+    real_start = window._job_manager.start
+
+    def recording_start(label, worker, configure=None):
+        started.append(label)
+        return real_start(label, worker, configure=configure)
+
+    window._job_manager.start = recording_start  # type: ignore[method-assign]
+
+    export_controller.start_stimulus_grid_export(
+        window,
+        (GridVideo(tmp_path / "camera.mp4", "Camera"),),
+        (1.0,),
+        0.5,
+        1.0,
+        30,
+        tmp_path / "comparison.mp4",
+        GridLabels(
+            "Title",
+            "Event {index} {time}",
+            "No footage",
+            "Ruler",
+            "Now {time}",
+            "No signal",
+            "Frame {index}",
+        ),
+    )
+
+    assert len(started) == 1
+    assert "stimulus grid" in started[0].lower()
+    window._job_manager.shutdown()
+
+
+def test_a_finished_stimulus_grid_reports_without_a_modal(window: MainWindow, tmp_path) -> None:
+    output = tmp_path / "comparison.mp4"
+    export_controller.on_stimulus_grid_export_finished(window, str(output), False)
+
+    # The full resolved path, in the platform's own form: "D:\\..." on Windows.
+    assert str(output.resolve()) in window.notifications.message
+    assert window.notifications.is_sticky is False
+
+
+def test_replaced_stimulus_grid_reports_replacement(window: MainWindow, tmp_path) -> None:
+    output = tmp_path / "comparison.mp4"
+    export_controller.on_stimulus_grid_export_finished(window, str(output), True)
+
+    assert "Replaced" in window.notifications.message
+    assert str(output.resolve()) in window.notifications.message
+    assert "Reopen" in window.notifications.message
+
+
+def test_stimulus_grid_path_always_has_an_mp4_suffix(tmp_path) -> None:
+    assert export_controller._mp4_output_path(str(tmp_path / "comparison")) == (
+        tmp_path / "comparison.mp4"
+    )
+    assert export_controller._mp4_output_path(str(tmp_path / "comparison.avi")) == (
+        tmp_path / "comparison.mp4"
+    )
+
+
+def test_stimulus_grid_action_explains_its_missing_inputs(window: MainWindow) -> None:
+    action = next(
+        action for action in window._all_actions if action.text() == "Export Stimulus Grid…"
+    )
+
+    assert not action.isEnabled()
+    assert "video" in action.toolTip().lower()
+    assert "sensor" in action.toolTip().lower()
 
 
 # ── outcomes reach the strip, not a modal ────────────────────────────
@@ -175,12 +247,10 @@ def test_exporting_a_slice_with_no_data_warns_without_asking_for_a_filename(
     instead of raising the "No Data" box it used to.
     """
 
-    class _NoDialog:
-        @staticmethod
-        def getSaveFileName(*args, **kwargs):  # pragma: no cover - must not run
-            raise AssertionError("a filename was asked for with nothing to export")
+    def no_dialog(*args, **kwargs):  # pragma: no cover - must not run
+        raise AssertionError("a filename was asked for with nothing to export")
 
-    monkeypatch.setattr(export_controller, "QFileDialog", _NoDialog)
+    monkeypatch.setattr(export_controller, "choose_file", no_dialog)
 
     export_controller.export_data_slice(window)
 
@@ -190,12 +260,10 @@ def test_exporting_a_slice_with_no_data_warns_without_asking_for_a_filename(
 def test_exporting_a_clip_with_no_loop_says_which_keys_set_one(
     window: MainWindow, monkeypatch
 ) -> None:
-    class _NoDialog:
-        @staticmethod
-        def getSaveFileName(*args, **kwargs):  # pragma: no cover - must not run
-            raise AssertionError("a filename was asked for with no range marked")
+    def no_dialog(*args, **kwargs):  # pragma: no cover - must not run
+        raise AssertionError("a filename was asked for with no range marked")
 
-    monkeypatch.setattr(export_controller, "QFileDialog", _NoDialog)
+    monkeypatch.setattr(export_controller, "choose_file", no_dialog)
     window.video_grid._paths.append("cam1.mp4")
     window.transport._ab_in_t = None
 

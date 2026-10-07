@@ -1,0 +1,190 @@
+"""How a wheel is drawn over a camera's video (D-113).
+
+The wheel is a model -- a handful of clicked bars and a bar count, turned by an
+encoder -- so it must never be read as tracking. Each bar is a **thin line from
+end to end**, a shape nothing else on the frame uses: tracked points are dots,
+hand-placed markers are rings, reprojected points are crosses (AGENTS rule 17:
+the kinds are told apart by shape, not by colour). The colour is neutral, not a
+body part's, for the same reason.
+
+* Bars the camera sees: a light line over a dark underlay, readable on fur and
+  on the wheel's own metal.
+* Bars behind the side plate: faint, and only on their own layer
+  (``tracking.wheel_hidden``), because "hidden" is the model's estimate.
+* Bar 0 -- the first bar clicked -- carries a small tick, so a turn can be
+  followed by eye and checked against the footage.
+* While the wheel is being placed and before it is accepted, it is drawn
+  **dashed**: a proposal, not a result. Actual clicks are labelled rings;
+  projections into unclicked views are dashed diamonds labelled as projected.
+
+Painting only: what to draw arrives as a :class:`WheelDrawing`, already
+projected into this camera's pixels by the controller.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from PySide6.QtCore import QPointF, QRectF, Qt
+from PySide6.QtGui import QColor, QPainter, QPen
+
+from avialsync.ui.i18n import tr
+from avialsync.ui.label_layout import LabelLayout
+
+__all__ = ["WheelBar", "WheelDrawing", "draw_wheel", "draw_wheel_clicks"]
+
+_UNDERLAY = QColor(0, 0, 0, 170)
+
+_BAR = QColor(235, 235, 235, 230)
+_HIDDEN = QColor(235, 235, 235, 70)
+_CLICK_RADIUS = 5
+_TICK = 4.0
+
+
+@dataclass(frozen=True)
+class WheelBar:
+    """One bar, projected: its two ends in video pixels and how to draw it."""
+
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+    #: The camera sees this bar rather than the side plate hiding it.
+    facing: bool = True
+    #: Not accepted yet: drawn dashed.
+    preview: bool = False
+    #: Bar 0, the first one clicked.
+    first: bool = False
+
+
+@dataclass(frozen=True)
+class WheelDrawing:
+    """Everything wheel-related to draw on one camera for one frame."""
+
+    bars: tuple[WheelBar, ...] = ()
+    #: ``(label, x, y)`` per click of a placement in progress, e.g. ``("2b", x, y)``.
+    clicks: tuple[tuple[str, float, float], ...] = ()
+    #: The 2D view of a point located by other cameras, not an observed click.
+    projections: tuple[tuple[str, float, float], ...] = ()
+    #: Placement cue in this camera, empty after placement.
+    prompt: str = ""
+
+
+def _pen(color: QColor, width: float, dashed: bool) -> QPen:
+    pen = QPen(color, width)
+    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+    if dashed:
+        pen.setStyle(Qt.PenStyle.DashLine)
+    return pen
+
+
+def draw_wheel(
+    painter: QPainter,
+    drawing: WheelDrawing,
+    scale: float,
+    offset_x: float,
+    offset_y: float,
+    *,
+    show_facing: bool,
+    show_hidden: bool,
+) -> None:
+    """Draw *drawing* with the video mapped by *scale* and *offset*.
+
+    A preview and the clicks behind it are drawn whatever the layers say:
+    placing a wheel with nothing on screen to check it against is not a mode
+    anyone can use (the reason Fix Tracker shows hidden points too).
+    """
+
+    def screen(x: float, y: float) -> QPointF:
+        return QPointF(offset_x + x * scale, offset_y + y * scale)
+
+    painter.save()
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    for bar in drawing.bars:
+        if not bar.preview and not (show_facing if bar.facing else show_hidden):
+            continue
+        start, end = screen(bar.x1, bar.y1), screen(bar.x2, bar.y2)
+        if bar.facing:
+            painter.setPen(_pen(_UNDERLAY, 3.5, bar.preview))
+            painter.drawLine(start, end)
+            painter.setPen(_pen(_BAR, 1.5, bar.preview))
+        else:
+            painter.setPen(_pen(_HIDDEN, 1.0, bar.preview))
+        painter.drawLine(start, end)
+        if bar.first and bar.facing:
+            painter.setPen(_pen(_BAR, 1.5, False))
+            painter.drawEllipse(start, _TICK, _TICK)
+    painter.restore()
+
+
+def draw_wheel_clicks(
+    painter: QPainter,
+    drawing: WheelDrawing,
+    scale: float,
+    offset_x: float,
+    offset_y: float,
+    bounds: QRectF | None = None,
+    avoid: tuple[QRectF, ...] = (),
+) -> None:
+    """Draw real clicks and distinct projected estimates over the tracking.
+
+    Their names are placed by :class:`LabelLayout` (D-166): beside each mark,
+    inside the picture, clear of each other and of the pane's header.
+    """
+    area = bounds or QRectF(painter.viewport())
+    labels = LabelLayout(painter, area, avoid, mark_radius=_CLICK_RADIUS + 1)
+    painter.save()
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    for label, x, y in drawing.projections:
+        centre = QPointF(offset_x + x * scale, offset_y + y * scale)
+        points = (
+            centre + QPointF(0, -_CLICK_RADIUS),
+            centre + QPointF(_CLICK_RADIUS, 0),
+            centre + QPointF(0, _CLICK_RADIUS),
+            centre + QPointF(-_CLICK_RADIUS, 0),
+        )
+        painter.setPen(_pen(_UNDERLAY, 3.0, True))
+        for start, end in zip(points, (*points[1:], points[0]), strict=True):
+            painter.drawLine(start, end)
+        painter.setPen(_pen(_BAR, 1.5, True))
+        for start, end in zip(points, (*points[1:], points[0]), strict=True):
+            painter.drawLine(start, end)
+        labels.mark(centre)
+        labels.label(centre, tr("{point} projected").format(point=label.upper()), _BAR, dashed=True)
+    for label, x, y in drawing.clicks:
+        centre = QPointF(offset_x + x * scale, offset_y + y * scale)
+        painter.setPen(_pen(_UNDERLAY, 3.0, False))
+        painter.drawEllipse(centre, _CLICK_RADIUS, _CLICK_RADIUS)
+        painter.setPen(_pen(_BAR, 1.5, False))
+        painter.drawEllipse(centre, _CLICK_RADIUS, _CLICK_RADIUS)
+        labels.mark(centre)
+        labels.label(centre, label, _BAR)
+    painter.restore()
+    labels.draw()
+    if drawing.prompt:
+        _draw_prompt(painter, drawing.prompt, area, avoid)
+
+
+def _draw_prompt(painter: QPainter, prompt: str, area: QRectF, avoid: tuple[QRectF, ...]) -> None:
+    """The placement cue as one pill along the picture's bottom edge.
+
+    The bottom, because the top of every pane already carries its file name
+    and timing readout; centred, clear of the zoom buttons in the corner.
+    """
+    metrics = painter.fontMetrics()
+    available = max(0, int(area.width()) - 24)
+    if not available:
+        return
+    cue = metrics.elidedText(prompt, Qt.TextElideMode.ElideRight, available)
+    width, height = metrics.horizontalAdvance(cue) + 14, metrics.height() + 8
+    box = QRectF(area.center().x() - width / 2, area.bottom() - height - 8, width, height)
+    for rect in avoid:
+        if box.intersects(rect):
+            box.moveBottom(rect.top() - 6)
+    painter.save()
+    painter.setBrush(_UNDERLAY)
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.drawRoundedRect(box, 4, 4)
+    painter.setPen(_pen(_BAR, 1.0, False))
+    painter.drawText(box, int(Qt.AlignmentFlag.AlignCenter), cue)
+    painter.restore()

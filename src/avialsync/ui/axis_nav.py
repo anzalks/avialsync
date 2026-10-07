@@ -41,6 +41,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 
 if TYPE_CHECKING:
@@ -132,8 +133,8 @@ class AxisNav(QWidget):
         self._menus: list[QMenu] = []
 
         grid = QGridLayout(self)
-        grid.setContentsMargins(2, 0, 0, 0)
-        grid.setSpacing(3)
+        grid.setContentsMargins(spacing("xs"), 0, 0, 0)
+        grid.setSpacing(spacing("xs"))
 
         grid.addLayout(self._vertical_group(), 0, 0, Qt.AlignmentFlag.AlignVCenter)
         grid.addWidget(plot, 0, 1)
@@ -150,7 +151,7 @@ class AxisNav(QWidget):
         """Zoom in above zoom out, the way every map control is arranged."""
         column = QVBoxLayout()
         column.setContentsMargins(0, 0, 0, 0)
-        column.setSpacing(2)
+        column.setSpacing(spacing("xs"))
         for text, tip, slot in self._controls("y", tr("residual axis")):
             column.addWidget(self._button(text, tip, slot))
         return column
@@ -159,7 +160,7 @@ class AxisNav(QWidget):
         """Out, in, home -- reading order, left to right under the axis."""
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(2)
+        row.setSpacing(spacing("xs"))
         controls = self._controls("x", tr("time axis"))
         for text, tip, slot in [controls[1], controls[0], controls[2]]:
             row.addWidget(self._button(text, tip, slot))

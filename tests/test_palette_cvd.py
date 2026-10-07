@@ -34,6 +34,11 @@ INDISTINGUISHABLE = 0.04
 #: The floor a shipped palette must clear under every deficiency.
 REQUIRED_SEPARATION = 0.05
 
+#: The wheel's size when D-094 replaced it. The comparisons below are the
+#: evidence for that decision, so they measure the wheel as it was decided
+#: against; the cycle has since lost yellow and is shorter.
+WHEEL_AS_DECIDED = 7
+
 
 def _even_hue_wheel(count: int, saturation: float = 0.8, lightness: float = 0.55):
     """The palette this replaces, reconstructed for comparison."""
@@ -72,19 +77,19 @@ def test_no_pair_is_indistinguishable(dark: bool) -> None:
 
 def test_the_wheel_has_an_indistinguishable_pair() -> None:
     """The evidence for the change, measured rather than asserted."""
-    wheel = _even_hue_wheel(MARKER_COLOR_COUNT)
+    wheel = _even_hue_wheel(WHEEL_AS_DECIDED)
     assert minimum_separation(wheel, "protanopia") < INDISTINGUISHABLE
 
 
 def test_the_wheels_failure_is_protanopia_not_deuteranopia() -> None:
     """The obvious guess is wrong, and this pins the correction."""
-    wheel = _even_hue_wheel(MARKER_COLOR_COUNT)
+    wheel = _even_hue_wheel(WHEEL_AS_DECIDED)
     assert minimum_separation(wheel, "protanopia") < minimum_separation(wheel, "deuteranopia")
 
 
 def test_the_wheels_worst_pair_is_blue_and_purple() -> None:
     """Not the red/green pair the hue wheel makes you expect."""
-    wheel = _even_hue_wheel(MARKER_COLOR_COUNT)
+    wheel = _even_hue_wheel(WHEEL_AS_DECIDED)
     worst = min(
         ((i, j) for i in range(len(wheel)) for j in range(i + 1, len(wheel))),
         key=lambda pair: perceptual_distance(
@@ -97,7 +102,7 @@ def test_the_wheels_worst_pair_is_blue_and_purple() -> None:
 
 
 def test_okabe_ito_beats_the_wheel_under_protanopia() -> None:
-    wheel = _even_hue_wheel(MARKER_COLOR_COUNT)
+    wheel = _even_hue_wheel(WHEEL_AS_DECIDED)
     ours = OKABE_ITO[:MARKER_COLOR_COUNT]
     assert minimum_separation(ours, "protanopia") > 3 * minimum_separation(wheel, "protanopia")
 

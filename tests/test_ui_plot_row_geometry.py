@@ -28,7 +28,7 @@ _GUTTER_ALLOWANCE_PX = 200
 
 
 def _pane_with_channels(qtbot, tmp_path: Path, count: int, width: int, height: int) -> PlotPane:
-    cache = tmp_path / f"rows{count}.avialcache"
+    cache = tmp_path / f"rows{count}_cache"
     cache.mkdir(parents=True, exist_ok=True)
     times = np.arange(4_000, dtype=np.float64) / 1000.0
     names = [f"ch{index}" for index in range(count)]
@@ -65,7 +65,7 @@ def test_a_row_added_after_the_first_load_also_fills_the_pane(qtbot, tmp_path: P
     """A second load must not leave the newest row collapsed beside settled ones."""
     pane = _pane_with_channels(qtbot, tmp_path, 2, 1400, 700)
 
-    second = tmp_path / "later.avialcache"
+    second = tmp_path / "later_cache"
     second.mkdir(parents=True, exist_ok=True)
     times = np.arange(4_000, dtype=np.float64) / 1000.0
     PyramidBuilder(second, "late").build_and_save(times, np.cos(times))
@@ -93,15 +93,17 @@ def test_a_stack_taller_than_the_pane_scrolls_instead_of_clipping(qtbot, tmp_pat
     rows = 12
     pane = _pane_with_channels(qtbot, tmp_path, rows, 1000, 320)
     scroll = pane._plot_scroll
+    # D-177: rows take the chosen density (Compact by default), not a fixed 110 px.
+    row_height = int(pane.row_height_combo.currentData())
 
     qtbot.waitUntil(lambda: scroll.verticalScrollBar().maximum() > 0, timeout=2000)
 
-    assert pane.graphics_layout.height() >= rows * 110, (
+    assert pane.graphics_layout.height() >= rows * row_height, (
         "the stack collapsed to the viewport, so the rows below the fold are "
         "clipped rather than scrollable"
     )
     assert scroll.verticalScrollBar().maximum() > 0
-    assert all(channel.plot_item.minimumHeight() == 110 for channel in pane.channels)
+    assert all(channel.plot_item.minimumHeight() == row_height for channel in pane.channels)
 
 
 def test_rows_that_fit_share_the_pane_without_a_scrollbar(qtbot, tmp_path: Path) -> None:

@@ -165,7 +165,9 @@ def test_demo_launch_generates_first_run_inputs_in_a_worker(
     class Window(QWidget):
         tracking_3d_pane = _Tracking3DStub()
 
-        def _load_video(self, path: Path, offset: float = 0.0, drift_ppm: float = 0.0) -> None:
+        def _load_video(
+            self, path: Path, offset: float = 0.0, drift_ms_per_hour: float = 0.0
+        ) -> None:
             loaded.append(path)
 
         def _enqueue_import(self, path: Path, _loader: type, _config: dict[str, Any]) -> None:
@@ -210,8 +212,10 @@ def test_demo_loads_alignment_and_sources_through_normal_paths(tmp_path: Path) -
     class Window:
         tracking_3d_pane = _Tracking3DStub()
 
-        def _load_video(self, path: Path, offset: float = 0.0, drift_ppm: float = 0.0) -> None:
-            loaded_videos.append((path, offset, drift_ppm))
+        def _load_video(
+            self, path: Path, offset: float = 0.0, drift_ms_per_hour: float = 0.0
+        ) -> None:
+            loaded_videos.append((path, offset, drift_ms_per_hour))
 
         def _enqueue_import(self, path: Path, loader: type, config: dict[str, Any]) -> None:
             imports.append((path, loader, config))
@@ -221,7 +225,7 @@ def test_demo_loads_alignment_and_sources_through_normal_paths(tmp_path: Path) -
     assert loaded_videos == [
         (videos[0], 0.0, 0.0),
         (videos[1], 1.234, 0.0),
-        (videos[2], 0.0, 1000.0),
+        (videos[2], 0.0, 3600.0),
         (videos[3], 0.0, 0.0),
     ]
     assert [item[0] for item in imports] == [data.sensors, data.ephys, data.tracking]

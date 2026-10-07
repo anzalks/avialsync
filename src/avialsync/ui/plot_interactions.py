@@ -12,10 +12,11 @@ from avialsync.ui.annotations import AnnotationStore
 from avialsync.ui.plot_overlays import (
     redraw_annotations,
     redraw_gap_markers,
+    redraw_identity_markers,
     redraw_measure_lines,
     show_context_menu,
 )
-from avialsync.ui.plot_row import Y_AUTO, Y_FIT_ONCE, Y_MANUAL
+from avialsync.ui.plot_row import Y_AUTO, Y_FIT_ONCE, Y_MANUAL, reveal_row_tools
 
 if TYPE_CHECKING:
     from avialsync.ui.plot_pane import PlotPane
@@ -33,6 +34,8 @@ class PlotInteractionController:
         self._measure_b_lines: list[pg.InfiniteLine] = []
         self._annotation_store: AnnotationStore | None = None
         self._annotation_items: list[tuple[pg.PlotItem, object]] = []
+        self._identity_events: dict[str, tuple[tuple[float, str], ...]] = {}
+        self._identity_items: list[tuple[pg.PlotItem, pg.InfiniteLine]] = []
 
     def set_context_actions(self, actions: list[QAction]) -> None:
         """Register shared QActions for the plot context menu."""
@@ -82,6 +85,21 @@ class PlotInteractionController:
         """Refresh all visible gap evidence."""
         redraw_gap_markers(self._pane.channels, self._pane._display_x, self._pane.palette())
 
+    def set_identity_events(self, source_id: str, events: list[tuple[float, str]]) -> None:
+        """Show accepted flips from one source on that source's plot rows."""
+        self._identity_events[source_id] = tuple(events)
+        self.redraw_identity_markers()
+
+    def redraw_identity_markers(self) -> None:
+        """Refresh page-local flip boundaries from the accepted event store."""
+        self._identity_items = redraw_identity_markers(
+            self._pane.channels,
+            self._identity_events,
+            self._pane._display_x,
+            self._pane.palette(),
+            self._identity_items,
+        )
+
     def set_annotation_store(self, store: AnnotationStore) -> None:
         """Subscribe to authoritative annotation changes once."""
         self._annotation_store = store
@@ -104,6 +122,11 @@ class PlotInteractionController:
         self.redraw_gap_markers()
         self.redraw_measure_lines()
         self.redraw_annotations()
+        self.redraw_identity_markers()
+
+    def on_scene_moved(self, scene_pos: Any) -> None:
+        """Reveal the row tools under the pointer (D-177); no work on the clock tick."""
+        reveal_row_tools(self._pane.channels, float(scene_pos.y()))
 
     def on_scene_clicked(self, event: Any) -> None:
         """Seek on left-clicks and show actions for right-clicks in visible rows."""
@@ -147,4 +170,6 @@ class PlotInteractionController:
             self._pane.set_channel_y_mode(choice.channel_id, Y_AUTO)
         elif choice.action == "hold_y":
             self._pane.set_channel_y_mode(choice.channel_id, Y_MANUAL)
+        elif choice.action == "hide":
+            self._pane.hide_channel_row(choice.channel_id)
         event.accept()

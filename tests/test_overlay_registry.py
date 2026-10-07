@@ -16,19 +16,31 @@ from shiboken6 import isValid
 from avialsync.core.session import SessionState
 from avialsync.ui import recovery
 from avialsync.ui.main_window import MainWindow
-from avialsync.ui.overlay_registry import OVERLAY_LAYERS, OverlayState, layer_for
+from avialsync.ui.overlay_registry import (
+    OVERLAY_LAYERS,
+    OverlayState,
+    default_visible_for,
+    layer_for,
+)
+from avialsync.ui.video_overlay import PaintCanvas
 
-#: What the panes actually draw. Kept here, apart from the registry, so the two
-#: have to be changed together and a new overlay cannot be added silently.
+#: What the panes and grid exporter draw. Kept apart from the registry so a new
+#: overlay cannot be added silently.
 EXPECTED_INVENTORY = {
     "tracking.points",
     "tracking.point_labels",
     "tracking.legend",
     "tracking.corrections",
+    "tracking.custom_markers",
+    "tracking.wheel",
+    "tracking.wheel_hidden",
+    "tracking.props",
+    "tracking.reprojection",
     "tracking.edit_handles",
     "camera.name",
     "camera.osd",
     "camera.no_footage",
+    "export.frame_number",
 }
 
 
@@ -149,6 +161,12 @@ def test_the_locked_layer_is_registered_and_shown_greyed(window: MainWindow) -> 
     assert action.toolTip(), "the reason it is locked must be readable"
 
 
+def test_export_frame_number_is_registered_and_locked(window: MainWindow) -> None:
+    layer = layer_for("export.frame_number")
+    assert layer is not None and layer.locked and layer.default_visible
+    assert window._overlay_actions[layer.overlay_id].isEnabled() is False
+
+
 def test_hide_all_leaves_the_locked_layer_alone(window: MainWindow) -> None:
     window._set_all_overlays(False)
     assert window.overlay_state.is_visible("camera.no_footage") is True
@@ -207,8 +225,13 @@ def test_a_v6_session_loads_with_default_overlays() -> None:
         assert overlays.is_visible(layer.overlay_id) is layer.default_visible
 
 
-def test_the_session_writes_version_8() -> None:
-    assert SessionState().to_dict()["version"] == 9
+def test_the_session_writes_the_current_schema_version() -> None:
+    """A bump is deliberate, so the number is written out rather than derived.
+
+    The name no longer carries it: this test asserted 9 under a name that said
+    8 for a whole schema version, which is how a literal and its label drift.
+    """
+    assert SessionState().to_dict()["version"] == 13
 
 
 # ── the window wiring ────────────────────────────────────────────────
@@ -240,3 +263,48 @@ def test_the_menu_check_state_follows_an_undo(window: MainWindow) -> None:
 
     window.document.undo(window._mutations)
     assert action.isChecked() is True
+
+
+# ── one authority for a layer's default (D-138) ──────────────────────
+
+
+def test_the_canvas_starts_at_the_registry_default_not_its_own(qapp: QApplication) -> None:
+    """A canvas with its own starting values is a second authority, and they drift.
+
+    ``tracking.point_labels`` is the one that did: the canvas constructed itself
+    with names on while the registry -- and so the menu's checkbox -- said off.
+    """
+    canvas = PaintCanvas()
+
+    assert canvas._points_visible is default_visible_for("tracking.points")
+    assert canvas._point_labels_visible is default_visible_for("tracking.point_labels")
+    assert canvas._corrections_visible is default_visible_for("tracking.corrections")
+    assert canvas._show_legend is default_visible_for("tracking.legend")
+    assert canvas._props_visible is default_visible_for("tracking.props")
+    assert canvas._point_labels_visible is False
+
+
+def test_default_visible_for_answers_for_every_registered_layer() -> None:
+    for layer in OVERLAY_LAYERS:
+        assert default_visible_for(layer.overlay_id) is layer.default_visible
+
+
+def test_a_pane_built_before_any_toggle_receives_the_resolved_state(
+    window: MainWindow,
+) -> None:
+    """`apply_overlays_to` returned early until something installed a resolver.
+
+    A fresh session toggled nothing and restored nothing, so the first camera
+    kept whatever the canvas had constructed itself with.
+    """
+    assert getattr(window.video_grid, "_overlay_resolver", None) is not None
+    resolved = window.overlay_state.visibility_for("camera.mp4")
+    assert resolved["tracking.point_labels"] is False
+    assert resolved["tracking.points"] is True
+
+
+def test_turning_body_part_names_on_reaches_a_pane(window: MainWindow) -> None:
+    window._on_overlay_toggled("tracking.point_labels", True)
+
+    assert window._overlay_actions["tracking.point_labels"].isChecked() is True
+    assert window.overlay_state.visibility_for("camera.mp4")["tracking.point_labels"] is True

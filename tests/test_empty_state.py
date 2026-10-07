@@ -11,7 +11,8 @@ three lines with no version in them, so every bug report arrived without one.
 from __future__ import annotations
 
 import pytest
-from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QApplication, QPushButton
 from shiboken6 import isValid
 
 from avialsync.ui import recovery
@@ -47,51 +48,63 @@ def test_it_is_shown_with_nothing_loaded(window: MainWindow) -> None:
     assert window.empty_state.isVisible() is True
 
 
-def test_it_names_the_three_entry_points(qapp: QApplication, qtbot) -> None:
-    from PySide6.QtWidgets import QPushButton
-
+def _state_with_actions(qtbot) -> tuple[EmptyState, QAction, QAction]:
+    """An empty state given open actions, as the window installs the File menu's."""
     state = EmptyState()
     qtbot.addWidget(state)
+    videos = QAction("Open Videos…", state)
+    data = QAction("Open Sensor/Ephys Data…", state)
+    state.install_open_actions(videos, data)
+    return state, videos, data
+
+
+def test_it_names_the_three_entry_points(qapp: QApplication, qtbot) -> None:
+    state, _videos, _data = _state_with_actions(qtbot)
     labels = [b.text() for b in state.findChildren(QPushButton)]
     assert any("Video" in label for label in labels)
     assert any("Data" in label for label in labels)
     assert any("demo" in label.lower() for label in labels)
 
 
+def test_the_open_buttons_carry_no_text_of_their_own(qapp: QApplication, qtbot) -> None:
+    """They read "Open Sensor / Ephys Data…" beside a menu saying otherwise (rule 15)."""
+    state, videos, data = _state_with_actions(qtbot)
+    assert state.open_videos_button.text() == videos.text()
+    assert state.open_data_button.text() == data.text()
+
+
 def test_the_demo_button_is_explained(qapp: QApplication, qtbot) -> None:
     """It is the best onboarding asset and was hidden in a CLI subcommand."""
-    from PySide6.QtWidgets import QPushButton
-
     state = EmptyState()
     qtbot.addWidget(state)
     demo = next(b for b in state.findChildren(QPushButton) if "demo" in b.text().lower())
     assert "camera" in demo.toolTip().lower()
 
 
-@pytest.mark.parametrize(
-    "signal_name", ["open_videos_requested", "open_data_requested", "demo_requested"]
-)
-def test_each_button_reports(signal_name: str, qapp: QApplication, qtbot) -> None:
-    from PySide6.QtWidgets import QPushButton
+def test_each_open_button_triggers_its_action(qapp: QApplication, qtbot) -> None:
+    state, videos, data = _state_with_actions(qtbot)
+    for button, action in ((state.open_videos_button, videos), (state.open_data_button, data)):
+        with qtbot.waitSignal(action.triggered, timeout=1000):
+            button.click()
 
+
+def test_the_demo_button_reports(qapp: QApplication, qtbot) -> None:
     state = EmptyState()
     qtbot.addWidget(state)
-    signal = getattr(state, signal_name)
-    index = ["open_videos_requested", "open_data_requested", "demo_requested"].index(signal_name)
-    button = state.findChildren(QPushButton)[index]
-    with qtbot.waitSignal(signal, timeout=1000):
-        button.click()
+    demo = next(b for b in state.findChildren(QPushButton) if "demo" in b.text().lower())
+    with qtbot.waitSignal(state.demo_requested, timeout=1000):
+        demo.click()
 
 
 def test_it_hides_once_something_is_loaded(window: MainWindow, tmp_path) -> None:
     """It must never sit over real data."""
-    window._sensor_cache_dirs["/tmp/sensor.csv"] = tmp_path / "sensor.avialcache"
+    window._sensor_cache_dirs["/tmp/sensor.csv"] = tmp_path / "sensor_cache"
     window._refresh_empty_state()
     assert window.empty_state.isVisible() is False
 
 
 def test_it_returns_when_everything_is_closed(window: MainWindow, tmp_path) -> None:
-    window._sensor_cache_dirs["/tmp/sensor.csv"] = tmp_path / "sensor.avialcache"
+    window._sensor_cache_dirs["/tmp/sensor.csv"] = tmp_path / "sensor_cache"
     window._refresh_empty_state()
     window._sensor_cache_dirs.clear()
     window._refresh_empty_state()
@@ -211,7 +224,7 @@ def test_the_empty_state_never_raises_the_window_minimum(
     assert window.empty_state.isVisible(), "nothing is loaded; it should be showing"
     assert window.video_grid.minimumHeight() == VideoGrid.BASE_MIN_HEIGHT
 
-    window._sensor_cache_dirs["/tmp/sensor.csv"] = tmp_path / "sensor.avialcache"
+    window._sensor_cache_dirs["/tmp/sensor.csv"] = tmp_path / "sensor_cache"
     window._refresh_empty_state()
 
     assert window.video_grid.minimumHeight() == VideoGrid.BASE_MIN_HEIGHT
@@ -224,12 +237,18 @@ def test_a_short_video_area_scrolls_rather_than_squashing(qapp: QApplication, qt
     controls at once. Scrolling keeps every one of them at its natural size and
     shows as much as fits; squashing is what drew the slivers.
     """
+    from PySide6.QtGui import QAction
     from PySide6.QtWidgets import QLabel, QPushButton, QScrollArea, QWidget
 
     from avialsync.ui.video_grid import VideoGrid
 
     state = EmptyState()
     qtbot.addWidget(state)
+    # Bound as the window binds them (D-167): an ActionButton with no action has
+    # no text, and macOS gives a textless push button a size hint below its own
+    # minimum, which is a state the window never shows.
+    open_video, open_data = QAction("Open Video(s)…", state), QAction("Open Data…", state)
+    state.install_open_actions(open_video, open_data)
     state.resize(600, VideoGrid.BASE_MIN_HEIGHT)
     state.show()
     qapp.processEvents()

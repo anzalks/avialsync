@@ -1,5 +1,6 @@
 """Asynchronous data source importer pipeline."""
 
+import dataclasses
 import json
 import logging
 import os
@@ -17,11 +18,17 @@ from avialsync.core.errors import LoaderContractError, SourceOpenError
 from avialsync.core.inspection import ImportReport, IntegrityFlags, SourceInspection
 from avialsync.core.messages import Message, bounded
 from avialsync.core.pyramid import ChannelStage, PyramidBuilder, build_gap_mask, count_nan
+from avialsync.core.source import display_unit
 from avialsync.loaders.csv_loader import CSVLoader
 
 logger = logging.getLogger(__name__)
 
-_IMPORT_CACHE_VERSION = 4
+# 5: the import manifest carries a pose schema, and a pose source's channel
+# set changed with it -- a Lightning Pose export no longer pyramids the eight
+# derived columns per body part it used to. A sidecar written before this has
+# neither, so it is re-imported rather than served with a shape nothing can
+# interpret (D-140).
+_IMPORT_CACHE_VERSION = 5
 _IMPORT_MANIFEST = "import.json"
 _STAGING_DIR = "_stage"
 
@@ -35,7 +42,7 @@ def _share_file(source: Path, target: Path) -> None:
     """Give *target* the same bytes as *source*, without a second copy if possible.
 
     Every channel of one stream carries the same timestamps and the same gap mask,
-    and the sidecar names a copy of each after every channel.  For a 32-channel
+    and the cache entry names a copy of each after every channel.  For a 32-channel
     30 kHz headstage that is 32 identical 191 MB timestamp arrays — six gigabytes
     of the same numbers, and six gigabytes of write time before anything can be
     plotted.  A hard link is the same file under a second name, so the reader,
@@ -60,6 +67,12 @@ def _gap_locations(times: np.ndarray, gap_mask: np.ndarray) -> list[float]:
     return [float(value) for value in times[indices]]
 
 
+def _declared_units(channels: Any) -> dict[str, str]:
+    """Each named channel's declared unit, omitting the ones that declare none."""
+    units = {str(ch.name): display_unit(str(getattr(ch, "unit", ""))) for ch in channels}
+    return {name: unit for name, unit in units.items() if unit}
+
+
 class ImportWorker(QObject):
     """Background worker for parsing and building pyramids from time-series sources."""
 
@@ -74,6 +87,10 @@ class ImportWorker(QObject):
         self.config = config
         self.loader_class = loader_class
         self._cancel_flag = False
+        #: The share of the whole import the current pass reports into. A
+        #: grouped import builds each group with the bulk builder, whose progress
+        #: would otherwise run 0-100 once per group (D-188).
+        self._progress_span = (0.0, 1.0)
 
     def cancel(self) -> None:
         self._cancel_flag = True
@@ -84,6 +101,8 @@ class ImportWorker(QObject):
             cached = self._cached_result(cache_mgr)
             if cached is not None:
                 cache_dir, channels, bounds, inspection = cached
+                if inspection.channel_units is None:
+                    inspection = self._backfill_units(cache_dir, channels, bounds, inspection)
                 self.progress.emit(100)
                 self.finished.emit(str(self.path), str(cache_dir), channels, bounds, inspection)
                 return
@@ -98,8 +117,11 @@ class ImportWorker(QObject):
                 raise SourceOpenError("No channels found in source.")
 
             channel_names = [ch.name for ch in channels]
+            group_reader = getattr(loader, "iter_channel_groups", None)
             bulk_reader = getattr(loader, "read_all_chunks", None)
-            if callable(bulk_reader):
+            if callable(group_reader):
+                result = self._build_channel_groups(group_reader(), channel_names, temp_dir)
+            elif callable(bulk_reader):
                 result = self._build_bulk_channels(
                     bulk_reader(),
                     channel_names,
@@ -133,14 +155,25 @@ class ImportWorker(QObject):
             loader_id = type(loader).__name__
             fps_binding = "provisional" if fps_provisional else ""
 
+            # Asked once, here, while the loader is open: every consumer of
+            # this source reads the schema off the inspection rather than
+            # recovering it from channel names (D-140).
+            pose_schema = None
+            try:
+                pose_schema = loader.pose_schema()
+            except Exception:  # noqa: BLE001 - plugin boundary
+                logger.warning("%s.pose_schema() failed; importing as plain channels", loader_id)
+
             inspection = SourceInspection(
                 path=str(self.path),
                 loader_id=loader_id,
+                pose=pose_schema,
                 import_config=dict(self.config),
                 import_report=report,
                 integrity_flags=flags,
                 fps_binding=fps_binding,
                 messages=self._collect_messages(loader),
+                channel_units=_declared_units(channels),
             )
 
             self._write_manifest(temp_dir, channel_names, (t0, t1), inspection)
@@ -152,6 +185,41 @@ class ImportWorker(QObject):
         except Exception as e:
             traceback.print_exc()
             self.error.emit(str(e))
+
+    def _backfill_units(
+        self,
+        cache_dir: Path,
+        channels: list[str],
+        bounds: tuple[float, float],
+        inspection: SourceInspection,
+    ) -> SourceInspection:
+        """Read the units a cache written before they were recorded never kept.
+
+        Only the channel list is asked for -- no samples are parsed -- and the
+        manifest is rewritten so this happens once per cached source. A loader
+        that cannot say is not an error: the plots show the bare channel name.
+        """
+        units: dict[str, str] = {}
+        loader = None
+        try:
+            loader = self.loader_class()
+            loader.open(self.path, self.config)
+            units = _declared_units(loader.channels())
+        except Exception:  # noqa: BLE001 - optional metadata from a plugin boundary
+            logger.info("Could not read channel units for %s", self.path, exc_info=True)
+        finally:
+            close = getattr(loader, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception:  # noqa: BLE001 - closing a reader we only asked for names
+                    logger.debug("Closing %s after reading units failed", self.path)
+        updated: SourceInspection = dataclasses.replace(inspection, channel_units=units)
+        try:
+            self._write_manifest(cache_dir, channels, bounds, updated)
+        except OSError:
+            logger.info("Could not record channel units in the cache for %s", self.path)
+        return updated
 
     @staticmethod
     def _collect_messages(loader: Any) -> tuple[Message, ...]:
@@ -176,7 +244,10 @@ class ImportWorker(QObject):
             return ()
 
     def _cache_manager(self) -> CacheManager:
-        """Return the sidecar manager scoped to loader identity and accepted config."""
+        """Return the cache manager scoped to loader identity and accepted config."""
+        prepare_config = getattr(self.loader_class, "prepare_import_config", None)
+        if callable(prepare_config):
+            self.config = prepare_config(self.path, self.config)
         loader_name = f"{self.loader_class.__module__}.{self.loader_class.__qualname__}"
         return CacheManager(
             loader_version=_IMPORT_CACHE_VERSION,
@@ -265,7 +336,7 @@ class ImportWorker(QObject):
         time_stage: ChannelStage,
         value_stages: dict[str, ChannelStage],
     ) -> tuple[int, int, int, list[float], float, float]:
-        """Materialise staged samples into the sidecar; scopes every mmap locally."""
+        """Materialise staged samples into the cache entry; scopes every mmap locally."""
         shared_t_path = staging_dir / "shared_t.npy"
         shared_t = time_stage.materialize(shared_t_path)
         gap_mask = build_gap_mask(shared_t)
@@ -282,7 +353,7 @@ class ImportWorker(QObject):
             )
             total_nan += count_nan(values)
             del values
-            self.progress.emit(int(((index + 1) / len(channel_names)) * 100))
+            self._emit_progress((index + 1) / len(channel_names))
 
         return (
             int(len(shared_t)),
@@ -292,6 +363,64 @@ class ImportWorker(QObject):
             float(shared_t[0]),
             float(shared_t[-1]),
         )
+
+    def _build_channel_groups(
+        self,
+        groups: Any,
+        channel_names: list[str],
+        temp_dir: Path,
+    ) -> tuple[int, int, int, list[float], float, float]:
+        """Build channels group by group, each group on its own shared clock.
+
+        For a loader whose channels sit on several clocks -- an NWB file holds a
+        30 kHz probe, a 6 Hz fluorescence matrix and a 100 Hz wheel -- neither
+        existing path fits. One bulk read needs one clock for everything; reading
+        channel by channel reads a 2-D series once per column and writes one
+        timestamp copy per channel. ``iter_channel_groups`` yields
+        ``(names, chunks)`` per clock, and each group goes through the bulk
+        builder: one pass over its rows, one stored timestamp array (D-188).
+
+        Row and gap counts come from the first group with samples, as the
+        per-channel path takes them from its first channel; the bounds span every
+        group, because a source's coverage is where any of its channels has data.
+        """
+        declared = set(channel_names)
+        total_rows = gap_count = total_nan = 0
+        gap_locations: list[float] = []
+        t0, t1 = float("inf"), float("-inf")
+        counted = False
+        done = 0
+        try:
+            for names, chunks in groups:
+                if self._cancel_flag:
+                    break
+                if not set(names) <= declared:
+                    raise LoaderContractError(
+                        "Grouped loader yielded channels it did not declare: "
+                        + ", ".join(sorted(set(names) - declared))
+                    )
+                total = max(1, len(channel_names))
+                self._progress_span = (done / total, (done + len(names)) / total)
+                rows, nan_count, gaps, locations, start, end = self._build_bulk_channels(
+                    chunks, list(names), temp_dir
+                )
+                done += len(names)
+                if rows == 0:
+                    continue
+                total_nan += nan_count
+                t0, t1 = min(t0, start), max(t1, end)
+                if not counted:
+                    total_rows, gap_count, gap_locations = rows, gaps, locations
+                    counted = True
+        finally:
+            self._progress_span = (0.0, 1.0)
+        if not counted:
+            return 0, 0, 0, [], 0.0, 0.0
+        return total_rows, total_nan, gap_count, gap_locations, t0, t1
+
+    def _emit_progress(self, fraction: float) -> None:
+        low, high = self._progress_span
+        self.progress.emit(int((low + fraction * (high - low)) * 100))
 
     def _build_channel_by_channel(
         self,

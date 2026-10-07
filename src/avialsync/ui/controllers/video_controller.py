@@ -25,6 +25,11 @@ from avialsync.core.errors import SourceOpenError
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.source import VideoSource
 from avialsync.core.timeline import TimeMap
+from avialsync.ui.controllers import (
+    calibration_controller,
+    custom_marker_controller,
+    wheel_display,
+)
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
@@ -42,12 +47,12 @@ def load_video(
     window: MainWindow,
     path: Path,
     offset: float = 0.0,
-    drift_ppm: float = 0.0,
+    drift_ms_per_hour: float = 0.0,
     config: dict[str, Any] | None = None,
 ) -> None:
     """Queue a video source for probing and, in request order, pane creation."""
-    window._pending_video_loads.append((path, offset, drift_ppm, config))
-    window._video_request_order.append(str(path))
+    window.video_load_state.pending.append((path, offset, drift_ms_per_hour, config))
+    window.video_load_state.request_order.append(str(path))
     window._start_next_video_load()
 
 
@@ -62,7 +67,10 @@ def start_next_video_load(window: MainWindow) -> None:
     order the user picked them (D-040; see the module docstring for why the
     original libmpv reason no longer applies).
     """
-    while len(window._video_load_jobs) < MAX_VIDEO_PROBES and window._pending_video_loads:
+    while (
+        len(window.video_load_state.active_probes) < MAX_VIDEO_PROBES
+        and window.video_load_state.pending
+    ):
         window._start_one_video_probe()
 
 
@@ -70,20 +78,17 @@ def start_one_video_probe(window: MainWindow) -> None:
     """Spawn a single off-thread metadata/timestamp probe."""
     from avialsync.engine.video_worker import VideoOpenWorker
 
-    path, offset, drift_ppm, config = window._pending_video_loads.popleft()
+    path, offset, drift_ms_per_hour, config = window.video_load_state.pending.popleft()
     worker = VideoOpenWorker(path, config)
-    window._video_load_offsets[str(path)] = offset
-    window._video_load_drifts[str(path)] = drift_ppm
-    remaining = len(window._pending_video_loads)
+    window.video_load_state.offsets[str(path)] = offset
+    window.video_load_state.drifts[str(path)] = drift_ms_per_hour
+    remaining = len(window.video_load_state.pending)
     suffix = f" ({remaining} queued)" if remaining else ""
 
     def _wire(thread: QThread) -> None:
-        # The registry is populated here, before the thread runs, because it
-        # is also the concurrency gate: filling it from `_run_job`'s return
-        # value would let a fast probe finish and clear its own entry before
-        # the entry existed, and `MAX_VIDEO_PROBES` would then be counted
-        # against a registry that never fills.
-        window._video_load_jobs[thread] = worker
+        # Count capacity before the thread runs. JobManager owns the worker;
+        # this set only bounds concurrent probes.
+        window.video_load_state.active_probes.add(thread)
         # These QObject slots are queued onto MainWindow's UI thread.  Do not
         # replace them with lambdas: a lambda runs in the emitting worker thread
         # and would create widgets off-thread.
@@ -92,8 +97,7 @@ def start_one_video_probe(window: MainWindow) -> None:
         # `JobManager` quits the thread on `finished`, `error` and `cancelled`.
         # This worker reports success as `opened`, so that one is ours.
         worker.opened.connect(thread.quit)
-        # `_on_video_thread_finished` drops the registry's reference, so the
-        # worker is destroyed on the UI thread as that slot promises. A
+        # JobManager drops worker ownership on the UI thread. A
         # `thread.finished.connect(worker.deleteLater)` here would beat it:
         # `finished` is emitted in the worker thread and the worker lives
         # there, making that connection direct and running ~QObject inside the
@@ -114,7 +118,7 @@ def set_video_coverage(
     path: str,
     source_bounds: tuple[float, float],
     offset: float,
-    drift_ppm: float,
+    drift_ms_per_hour: float,
     exact_master: np.ndarray | None = None,
     exact_source: np.ndarray | None = None,
 ) -> None:
@@ -134,19 +138,19 @@ def set_video_coverage(
     # moved 1.77e9 s to reach master zero: the pane's own TimeMap never heard,
     # and the first hand nudge overwrote the whole mapping with the nudge.
     base = window.declare_base_offset(path, source_bounds[0])
-    if offset == 0.0 and drift_ppm == 0.0 and exact_master is None:
+    if offset == 0.0 and drift_ms_per_hour == 0.0 and exact_master is None:
         offset = base
 
     if exact_master is not None and exact_source is not None and len(exact_master) >= 2:
         master_bounds = (float(exact_master[0]), float(exact_master[-1]))
     else:
-        mapping = TimeMap(offset, drift_ppm)
+        mapping = TimeMap(offset, drift_ms_per_hour)
         master_bounds = (
             mapping.to_master(source_bounds[0]),
             mapping.to_master(source_bounds[1]),
         )
     window._video_source_bounds[path] = source_bounds
-    window._video_time_mappings[path] = (offset, drift_ppm)
+    window._video_time_mappings[path] = (offset, drift_ms_per_hour)
     # Coverage first: the master timeline is derived from the registered spans,
     # so re-placing a camera has to replace its span before the bounds are
     # recomputed, or the timeline keeps the span it had at the old offset.
@@ -163,22 +167,24 @@ def on_video_opened(
     still built one at a time, in the order the user asked for them, so the
     grid layout does not depend on which file happened to probe fastest.
     """
-    window._probed_videos[original_path] = (loader, media_path)
-    if original_path not in window._video_request_order:
+    window.video_load_state.probed[original_path] = (loader, media_path)
+    if original_path not in window.video_load_state.request_order:
         # Opened outside the queue (session restore, direct call): it still
         # takes its turn, appended at the end of the current order.
-        window._video_request_order.append(original_path)
+        window.video_load_state.request_order.append(original_path)
     window._build_next_video_pane()
 
 
 def build_next_video_pane(window: MainWindow) -> None:
     """Build the next pane in request order, if one is ready and none is busy."""
-    while window._video_pane_initializing is None and window._video_request_order:
-        next_path = window._video_request_order[0]
-        probed = window._probed_videos.pop(next_path, None)
+    while (
+        window.video_load_state.pane_initializing is None and window.video_load_state.request_order
+    ):
+        next_path = window.video_load_state.request_order[0]
+        probed = window.video_load_state.probed.pop(next_path, None)
         if probed is None:
             return  # Still probing; a later completion will call back here.
-        window._video_request_order.pop(0)
+        window.video_load_state.request_order.pop(0)
         loader, media_path = probed
         window._create_video_pane(next_path, loader, media_path)
 
@@ -223,8 +229,8 @@ def create_video_pane(
     window: MainWindow, original_path: str, loader: object, media_path: str
 ) -> None:
     """Create UI state only after asynchronous source opening succeeds."""
-    offset = window._video_load_offsets.pop(original_path, 0.0)
-    drift_ppm = window._video_load_drifts.pop(original_path, 0.0)
+    offset = window.video_load_state.offsets.pop(original_path, 0.0)
+    drift_ms_per_hour = window.video_load_state.drifts.pop(original_path, 0.0)
     exact_mapping = window._pending_exact_mappings.pop(original_path, None)
     if not isinstance(loader, VideoSource):
         window._on_video_open_error(original_path, "Selected loader is not a VideoSource.")
@@ -241,11 +247,11 @@ def create_video_pane(
         original_path,
         bounds,
         offset,
-        drift_ppm,
+        drift_ms_per_hour,
         exact_master,
         exact_source,
     )
-    window._video_pane_initializing = original_path
+    window.video_load_state.pane_initializing = original_path
     pane = window.video_grid.add_pane(
         original_path,
         media_path=media_path,
@@ -266,6 +272,15 @@ def create_video_pane(
     # A camera opened after a layer was switched off must not come up showing
     # it, and a restored session must not flash the defaults first (D-090).
     window._apply_overlays_to_new_pane(original_path)
+    # Video-only recordings discover the same prop records as pose sessions.
+    window.props_app.adopt()
+    # Wheels and markers read back before this camera opened are drawn through
+    # the calibration, which may now cover it: extend it, then draw them here.
+    if len(window.wheels) or len(window.custom_markers) or len(window.props_app.store):
+        calibration_controller.calibration_quietly(window)
+        wheel_display.refresh(window)
+        custom_marker_controller.refresh(window)
+        window.props_app.refresh()
     # The pane reports what the recording turned out to be once it has decoded
     # a frame; the levels panel sizes itself from that rather than guessing.
     pane.source_format_detected.connect(
@@ -276,7 +291,9 @@ def create_video_pane(
     # whose pane never heard that placement decodes at master time zero against
     # frames stamped 1.77e9 -- which is to say it shows the "No Footage"
     # placeholder and looks like it failed to open.
-    effective, effective_drift = window._video_time_mappings.get(original_path, (offset, drift_ppm))
+    effective, effective_drift = window._video_time_mappings.get(
+        original_path, (offset, drift_ms_per_hour)
+    )
     if effective or effective_drift or exact_mapping is not None:
         window.video_grid.set_sync_mapping(
             original_path,
@@ -293,7 +310,13 @@ def create_video_pane(
     if residual or effective_drift:
         window.sidebar.set_video_mapping(original_path, residual, effective_drift)
     window._recorded_mappings[original_path] = (residual, effective_drift)
-    window._video_fps[original_path] = loader.fps()
+    # The rate this recording actually ran at, not the rate its container
+    # claims. They differ on exactly the files where it matters: the container
+    # declares one constant rate whatever the camera achieved (D-072), and a
+    # frame-indexed tracking file placed against that claim drifts by the
+    # difference, accumulating to the end of the recording. `nominal_fps` stays
+    # available on the metadata for readouts that mean the claim.
+    window._video_fps[original_path] = video_metadata.measured_fps or loader.fps()
     frame_times = loader.frame_times()
     pane.set_frame_times(frame_times)
     pane.set_video_metadata(video_metadata)
@@ -311,7 +334,7 @@ def create_video_pane(
         loader_id=type(loader).__name__,
         integrity_flags=IntegrityFlags(
             is_vfr=is_vfr,
-            drift_nonzero=bool(drift_ppm),
+            drift_nonzero=bool(drift_ms_per_hour),
             frames_dropped=video_metadata.dropped_frames > 0,
         ),
     )
@@ -325,19 +348,22 @@ def create_video_pane(
         from avialsync.ui.controllers import import_controller
 
         import_controller.calibrate_overlay_timing(window, original_path)
-    if window._frame_indexed_sources and len(window._video_fps) == 1:
-        window._rebind_frame_indexed_sources(loader.fps())
+    if window._frame_indexed_sources:
+        # Whatever this camera answers, and only what it answers: each pending
+        # source resolves its own rate, so one waiting on a different camera
+        # stays waiting (D-137).
+        window._rebind_frame_indexed_sources()
     window.transport.set_status(f"Ready · loaded {Path(original_path).name}")
 
 
 def on_video_open_error(window: MainWindow, path: str, error: str) -> None:
     """Show a source-open error without leaving a partially-created pane."""
-    window._video_load_offsets.pop(path, None)
-    window._video_load_drifts.pop(path, None)
-    window._probed_videos.pop(path, None)
+    window.video_load_state.offsets.pop(path, None)
+    window.video_load_state.drifts.pop(path, None)
+    window.video_load_state.probed.pop(path, None)
     # Drop the failed file from the ordering so later files still get built.
-    if path in window._video_request_order:
-        window._video_request_order.remove(path)
+    if path in window.video_load_state.request_order:
+        window.video_load_state.request_order.remove(path)
     window.transport.set_status(f"Video failed: {Path(path).name}", "error")
     # Not a modal: the rest of the session loaded and stays usable, which is
     # the point of Law 1. The raw text goes behind Show details.
@@ -349,16 +375,15 @@ def on_video_open_error(window: MainWindow, path: str, error: str) -> None:
 
 
 def on_video_thread_finished(window: MainWindow) -> None:
-    """Release the worker ownership after its thread has stopped on the UI thread."""
+    """Release one probe slot after its thread has stopped on the UI thread."""
     thread = window.sender()
     if isinstance(thread, QThread):
-        window._video_load_jobs.pop(thread, None)
-        thread.deleteLater()
+        window.video_load_state.active_probes.discard(thread)
         QTimer.singleShot(0, window._start_next_video_load)
 
 
 def on_video_pane_ready(window: MainWindow) -> None:
     """Build the next pane only after this one accepts media commands (D-040)."""
-    window._video_pane_initializing = None
+    window.video_load_state.pane_initializing = None
     window._build_next_video_pane()
     window._start_next_video_load()

@@ -20,9 +20,9 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QDialog
 
-from avialsync.core import dlc_export, pose_export
+from avialsync.core import pose_export
 from avialsync.ui.annotations import marker_rows
-from avialsync.ui.controllers import corrections_controller
+from avialsync.ui.controllers import corrections_controller, identity_controller
 from avialsync.ui.export_dialog import (
     ANNOTATIONS,
     CORRECTED_POSE,
@@ -37,11 +37,6 @@ if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
 
 logger = logging.getLogger(__name__)
-
-#: Scorer name written into a retraining set. DLC keys labelled data by scorer,
-#: so a set produced here stays distinguishable from the model's own and from a
-#: colleague's, which is the point of the field.
-RETRAINING_SCORER = "avialsync"
 
 
 def available_exports(window: MainWindow) -> list[ExportItem]:
@@ -63,51 +58,56 @@ def available_exports(window: MainWindow) -> list[ExportItem]:
             )
         )
 
-    for source_id in sorted(window.point_edits.source_ids()):
+    pose_sources = window.point_edits.source_ids() | window.identity_swaps.source_ids()
+    for source_id in sorted(pose_sources):
         source = Path(source_id)
         count = window.point_edits.count_for(source_id)
+        swaps = window.identity_swaps.count_for(source_id)
         items.append(
             ExportItem(
                 kind=CORRECTED_POSE,
-                title=tr("Corrected pose data — {source}").format(source=source.name),
+                title=tr("Edited pose data — {source}").format(source=source.name),
                 detail=tr(
-                    "A copy of the pose file with {n} correction(s) applied, for analysis. "
+                    "A copy of the pose file with {corrections} correction(s) and "
+                    "{swaps} identity swap(s) applied, for analysis. "
                     "The scorer is marked so it never reads as model output."
-                ).format(n=count),
+                ).format(corrections=count, swaps=swaps),
                 target=pose_export.corrected_copy_path(source),
                 source_id=source_id,
             )
         )
+        if not count:
+            continue
         video = corrections_controller.video_for(window, source_id)
         if not video:
             continue
         video_path = Path(video)
+        schema = identity_controller.schema_for(window, source_id)
         items.append(
             ExportItem(
                 kind=RETRAINING_SET,
-                title=tr("Retraining set (DeepLabCut) — {source}").format(source=source.name),
+                title=tr("Retraining set — {source}").format(source=source.name),
                 detail=tr(
                     "The {n} corrected frame(s) as labeled data, with their images, "
                     "ready to merge into a training set."
                 ).format(n=len(_corrected_indices(window, source_id))),
-                target=dlc_export.collected_data_path(
-                    video_path.parent, video_path.stem, RETRAINING_SCORER
-                ),
+                target=video_path.parent / f"{video_path.stem}_{source.stem}_training_export",
                 source_id=source_id,
                 video=video,
                 selected=False,
+                multi_animal=bool(schema and schema.multi_animal),
             )
         )
     return items
 
 
 def _corrected_indices(window: MainWindow, source_id: str) -> set[int]:
-    return {index for index, _point, _x, _y in window.point_edits.for_source(source_id)}
+    return {index for index, _point, _x, _y, _shown in window.point_edits.for_source(source_id)}
 
 
 def _annotation_target(window: MainWindow) -> Path:
     """Default the annotation CSV beside the session, or beside the first camera."""
-    session = getattr(window, "_session_path", None)
+    session = window.session_runtime.path
     if session:
         return Path(session).with_suffix(".annotations.csv")
     videos = window.video_grid.pane_paths()
@@ -128,7 +128,10 @@ def export_changes(window: MainWindow) -> None:
     items = available_exports(window)
     if not items:
         window.notifications.show_warning(
-            tr("There is nothing to export yet — flag a frame or correct a tracked point first.")
+            tr(
+                "There is nothing to export yet — flag a frame, correct a point, "
+                "or accept an identity swap first."
+            )
         )
         return
 
@@ -149,8 +152,14 @@ def export_changes(window: MainWindow) -> None:
     worker = ChangesExportWorker(jobs)
 
     def on_finished(results: list) -> None:
-        window.notifications.show_success(
-            tr("Exported: {summary}").format(summary="; ".join(str(line) for line in results))
+        from avialsync.ui.controllers.artifact_write_controller import show_exported
+
+        # One notification lists the results; its action opens the first
+        # destination's folder when the user chose several locations.
+        show_exported(
+            window,
+            tr("Exported: {summary}").format(summary="; ".join(str(line) for line in results)),
+            chosen[0].target,
         )
 
     def on_error(message: str) -> None:
@@ -178,35 +187,86 @@ def _job_for(window: MainWindow, item: ExportItem) -> object | None:
     reader, widget, or store is touched from the worker (rule 3).
     """
     from avialsync.engine.changes_export_worker import (
-        AnnotationJob,
         CorrectedPoseJob,
-        RetrainingJob,
     )
 
     if item.kind == ANNOTATIONS:
-        rows = marker_rows(window.annotation_store.markers)
-        return AnnotationJob(target=item.target, rows=rows) if rows else None
+        return _annotation_job(window, item)
 
     if item.kind == CORRECTED_POSE:
-        corrections = corrections_controller.corrections_by_frame(window, item.source_id)
-        if not corrections:
+        program = identity_controller.program_for(window, item.source_id)
+        if not program:
             return None
+        corrections: dict[int, dict[str, tuple[float, float]]] = {}
+        for (point, index), value in program.corrections.items():
+            frame = corrections_controller.frame_for(window, item.source_id, index)
+            corrections.setdefault(frame, {})[point] = value
+        routes = tuple(
+            (corrections_controller.frame_for(window, item.source_id, index), mapping)
+            for index, mapping in zip(program.boundaries, program.maps, strict=True)
+        )
         return CorrectedPoseJob(
-            source=Path(item.source_id), target=item.target, corrections=corrections
+            source=Path(item.source_id),
+            target=item.target,
+            corrections=corrections,
+            routes=routes,
+            swaps=window.identity_swaps.count_for(item.source_id),
         )
 
     if item.kind == RETRAINING_SET:
-        bodyparts, frames = corrections_controller.labeled_frames(window, item.source_id)
-        if not frames:
-            return None
-        video = Path(item.video)
-        return RetrainingJob(
-            target=item.target,
-            video=video,
-            video_stem=video.stem,
-            scorer=RETRAINING_SCORER,
-            bodyparts=bodyparts,
-            frames=frames,
-            write_images=video.exists(),
-        )
+        return _retraining_job_for(window, item)
     return None
+
+
+def _retraining_job_for(window: MainWindow, item: ExportItem) -> object | None:
+    """Capture one camera's labels, schema, and display window for the worker."""
+    from avialsync.engine.changes_export_worker import RetrainingJob
+
+    bodyparts, frames = corrections_controller.labeled_frames(window, item.source_id)
+    if not frames:
+        return None
+    schema = identity_controller.schema_for(window, item.source_id)
+    point_labels = (
+        {point.name: (point.individual, point.bodypart) for point in schema.points}
+        if schema is not None and schema.multi_animal
+        else None
+    )
+    levels = next(
+        (
+            pane.display_levels()
+            for path, pane in zip(
+                window.video_grid.pane_paths(), window.video_grid.panes, strict=False
+            )
+            if path == item.video
+        ),
+        None,
+    )
+    return RetrainingJob(
+        target=item.target,
+        # The source, never its proxy: a proxy is downscaled and lossy, and the
+        # labels are in the source's pixel coordinates.
+        video=Path(item.video),
+        video_stem=Path(item.video).stem,
+        scorer=item.scorer,
+        bodyparts=bodyparts,
+        frames=frames,
+        profile=item.profile,
+        point_labels=point_labels,
+        **({"display_levels": levels} if levels is not None else {}),
+    )
+
+
+def _annotation_job(window: MainWindow, item: ExportItem) -> object | None:
+    """Capture annotation rows and source identity before starting the worker."""
+    from avialsync.engine.changes_export_worker import AnnotationJob
+    from avialsync.ui.controllers.artifact_write_controller import loaded_sources
+
+    rows = marker_rows(window.annotation_store.markers)
+    if not rows:
+        return None
+    return AnnotationJob(
+        target=item.target,
+        rows=rows,
+        sources=loaded_sources(window),
+        session=window.session_runtime.path,
+    )

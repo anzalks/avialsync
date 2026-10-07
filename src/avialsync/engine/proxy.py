@@ -13,7 +13,11 @@ logger = logging.getLogger(__name__)
 
 
 def proxy_path_for(video_path: Path) -> Path:
-    """Return the sidecar proxy path for a given video."""
+    """Return where the proxy for *video_path* is written: beside it, as a video.
+
+    Not in the cache, although it is derived: a proxy is a file the user asked
+    for and opens as a recording of its own, so it has to be where they look.
+    """
     return video_path.parent / f"{video_path.stem}_proxy.mp4"
 
 

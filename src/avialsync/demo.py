@@ -40,7 +40,9 @@ class DemoWindow(Protocol):
 
     tracking_3d_pane: Tracking3DPane
 
-    def _load_video(self, path: Path, offset: float = 0.0, drift_ppm: float = 0.0) -> None: ...
+    def _load_video(
+        self, path: Path, offset: float = 0.0, drift_ms_per_hour: float = 0.0
+    ) -> None: ...
 
     def _enqueue_import(
         self, path: Path, loader_cls: type[object], config: dict[str, Any]
@@ -423,7 +425,7 @@ def load_demo(window: DemoWindow, data: DemoData) -> None:
     camera_1, camera_2, camera_3, camera_vfr = data.videos
     window._load_video(camera_1)
     window._load_video(camera_2, offset=1.234)
-    window._load_video(camera_3, drift_ppm=1000.0)
+    window._load_video(camera_3, drift_ms_per_hour=3600.0)
     window._load_video(camera_vfr)
     window._enqueue_import(
         data.sensors,
@@ -484,12 +486,12 @@ class DemoProgressDialog(QDialog):
         self.setModal(False)
         self.setMinimumWidth(520)
         layout = QVBoxLayout(self)
-        self._status = QLabel("Starting demo preparation…")
+        self._status = QLabel(tr("Starting demo preparation…"))
         self._progress = QProgressBar()
         self._log = QTextEdit()
         self._log.setReadOnly(True)
         self._log.setMinimumHeight(120)
-        self._cancel = QPushButton("Cancel")
+        self._cancel = QPushButton(tr("Cancel"))
         buttons = QHBoxLayout()
         buttons.addStretch(1)
         buttons.addWidget(self._cancel)

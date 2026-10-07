@@ -259,6 +259,8 @@ def test_resize_storm_triggers_one_deferred_redecimation(
     monkeypatch,
 ) -> None:
     pane = sweep_pane
+    # Windows' font metrics can make the real minimum wider than 1,000 px.
+    pane.setMinimumWidth(1200)
     pane.show()
     qtbot.wait(100)
     calls = 0
@@ -271,10 +273,14 @@ def test_resize_storm_triggers_one_deferred_redecimation(
 
     monkeypatch.setattr(pane, "update_plots", counted_update)
     pane._last_point_budget = 0
-    for width in range(920, 1021, 10):
+    initial_viewport_width = pane.graphics_layout.viewport().width()
+    start_width = pane.width() + 100
+    for width in range(start_width, start_width + 101, 10):
         pane.resize(width, 500)
+    qtbot.waitUntil(lambda: calls >= 1, timeout=1000)
     qtbot.wait(100)
 
+    assert pane.graphics_layout.viewport().width() > initial_viewport_width + 64
     assert calls == 1
 
 
@@ -308,3 +314,33 @@ def test_row_close_hides_plot_and_unchecks_sidebar_channel(qtbot, sweep_pane) ->
     assert not pane.channels[0].plot_item.isVisible()
     assert sensor._channel_items["alpha"].checkState(0) == Qt.CheckState.Unchecked
     assert pane.channels[0].close_button.size().width() <= 18
+
+
+def test_fit_all_button_fits_and_freezes_every_visible_row(sweep_pane) -> None:
+    """The header's Fit all, clicked: each visible row fits its page and holds it."""
+    pane = sweep_pane
+    pane.set_cursor(104.0)
+    pane.set_channel_visible("beta", False)
+    for channel in pane.channels:
+        channel.plot_item.setYRange(-50.0, 50.0, padding=0)
+
+    pane.fit_all_button.click()
+
+    alpha, beta = pane.channels
+    low, high = alpha.plot_item.viewRange()[1]
+    assert -1.3 < low < -0.9 and 0.9 < high < 1.3, "sin() fits inside ±1 plus padding"
+    assert alpha.y_mode == Y_MANUAL and alpha.y_range == pytest.approx((low, high))
+    assert beta.plot_item.viewRange()[1] == pytest.approx([-50.0, 50.0]), "hidden rows are left"
+
+    pane.set_cursor(104.5)
+    assert alpha.plot_item.viewRange()[1] == pytest.approx([low, high]), "frozen through playback"
+
+
+def test_reset_button_shows_the_whole_timeline(sweep_pane) -> None:
+    pane = sweep_pane
+    assert pane.window_duration == pytest.approx(5.5)
+
+    pane._plot_header.reset_button.click()
+
+    assert pane.window_duration == pytest.approx(40.0)
+    assert all(channel.y_range is not None for channel in pane.channels)

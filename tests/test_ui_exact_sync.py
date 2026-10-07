@@ -23,7 +23,7 @@ def test_exact_sync_flow(qtbot, tmp_path: Path):
     frame_times = video_loader.frame_times()
     assert frame_times is not None
     master_times = np.asarray(frame_times) + 100.0
-    cache_dir = tmp_path / "frame_triggers.avialcache"
+    cache_dir = tmp_path / "frame_triggers_cache"
     cache_dir.mkdir()
     PyramidBuilder(cache_dir, "trigger").build_and_save(master_times, np.ones_like(master_times))
     window.plot_pane.set_timeline_bounds(float(master_times[0]), float(master_times[-1]))

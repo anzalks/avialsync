@@ -3,35 +3,46 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, Qt
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt
 from PySide6.QtGui import (
+    QAccessible,
+    QAction,
     QColor,
     QMouseEvent,
     QPainter,
     QPaintEvent,
     QPalette,
     QPen,
+    QPolygonF,
     QWheelEvent,
 )
 from PySide6.QtWidgets import (
     QComboBox,
     QGridLayout,
+    QHBoxLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
 from avialsync.core.channel_reader import MappedChannelReader
+from avialsync.core.pose import split_channel
 from avialsync.core.skeleton import SkeletonEstimate, frame_budget, infer_skeleton
 from avialsync.core.timeline import TimeMap
+from avialsync.ui.accessible_views import register_painted
+from avialsync.ui.action_button import ActionButton
+from avialsync.ui.cylinder_paint import draw_cylinders
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
+from avialsync.ui.label_layout import LabelLayout
 from avialsync.ui.theme import neutral_on_canvas
 from avialsync.ui.tracking_colors import color_for_point, register_points
 from avialsync.ui.tracking_skeleton import (
@@ -40,8 +51,21 @@ from avialsync.ui.tracking_skeleton import (
     resolve_edges,
     sample_trajectories,
 )
+from avialsync.ui.zoom_controls import ZOOM_STEP, ZoomControls
 
 _MAX_LABELS = 24
+#: Hand-placed markers are hollow and wider than a tracked point, matching the
+#: ring the video overlay draws, so the two are never read as the same kind.
+_CUSTOM_RADIUS = 7
+
+#: ``t_master -> [(name, xyz)]``: the hand-placed markers on the frame at *t*.
+CustomPointSource = Callable[[float], list[tuple[str, np.ndarray]]]
+#: ``t_master -> [(ends (N, 2, 3), preview, bar diameter)]``: every wheel's bars at *t*
+#: (D-113); the diameter, in world units, is None until one is set (D-128).
+WheelSceneSource = Callable[[float], list[tuple[np.ndarray, bool, float | None]]]
+PropSceneSource = Callable[[float], list[tuple[str, tuple[np.ndarray | None, ...], bool]]]
+#: A wheel is structure, not a tracked point: achromatic, and behind the pose.
+_WHEEL_WEIGHT = 0.40
 _SAMPLE_TOLERANCE_S = 0.1
 
 # ── Achromatic structure, stated as distance from the canvas ─────────────
@@ -111,12 +135,13 @@ class _SourceSamples:
 
 
 def _coordinate_name(channel_id: str) -> tuple[str, str] | None:
-    """Return ``(point_name, axis)`` for the standard ``name_axis`` convention."""
-    name, separator, axis = channel_id.rpartition("_")
-    axis = axis.lower()
-    if separator and name and axis in {"x", "y", "z"}:
-        return name, axis
-    return None
+    """Return ``(point_name, axis)`` for a reader that carries only a name.
+
+    The 3D view is fed loose readers -- plotted channels as well as registered
+    pose sources -- so it cannot always reach a schema. It uses the one naming
+    rule rather than a second copy of it (D-140).
+    """
+    return split_channel(channel_id.lower())
 
 
 def _nearest_index(times: np.ndarray, target: float) -> int | None:
@@ -237,6 +262,10 @@ def detect_up_axis(sources: tuple[_SourceSamples, ...]) -> tuple[int, bool] | No
     return axis, bool(separation[axis] < 0)
 
 
+#: Height the zoom strip takes in the canvas's bottom-left corner.
+_ZOOM_STRIP_HEIGHT = 32
+
+
 class Tracking3DCanvas(QWidget):
     """Custom-painted current-pose view with mouse orbit and wheel zoom."""
 
@@ -244,13 +273,16 @@ class Tracking3DCanvas(QWidget):
         super().__init__(parent)
         self.setMinimumWidth(0)
         # The canvas is the part of this pane that scales: a pose still reads
-        # at 88px, while the header below is fixed chrome that cannot shrink.
+        # at 64px, while the header above is fixed chrome that cannot shrink.
+        # It was 88px; with a 13 pt application font and a wide 3D font the
+        # window then needed 494px, and at 480 the header was the one squeezed.
         # The floor is what a compact workspace can afford -- videos, 3D, plots,
         # Data Streams and the transport all have to fit a 640x480 window, which
         # `test_ui_layout_resize.py` pins as
         # `test_compact_viewport_keeps_every_workspace_surface_available`. A pane
         # minimum is the window's minimum by proxy.
-        self.setMinimumHeight(88)
+        self.setMinimumHeight(64)
+        register_painted(self, QAccessible.Role.Graphic, self.accessible_value)
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setAccessibleName(tr("Interactive 3D tracking plot"))
@@ -261,6 +293,14 @@ class Tracking3DCanvas(QWidget):
         self._positions = np.empty((0, 3), dtype=np.float64)
         self._valid = np.empty(0, dtype=bool)
         self._time = 0.0
+        #: Hand-placed 3D markers: where to ask, and what it said at ``_time``.
+        self._custom_source: CustomPointSource | None = None
+        self._custom_points: list[tuple[str, np.ndarray]] = []
+        #: Wheels: where to ask, and what it said at ``_time``.
+        self._wheel_source: WheelSceneSource | None = None
+        self._wheels: list[tuple[np.ndarray, bool, float | None]] = []
+        self._prop_source: PropSceneSource | None = None
+        self._prop_steps: list[tuple[str, tuple[np.ndarray | None, ...], bool]] = []
 
         # Topology the data declared, and topology derived from its geometry.
         # They are kept apart so a declared skeleton is never diluted by a
@@ -297,10 +337,82 @@ class Tracking3DCanvas(QWidget):
         self._pan = QPointF()
         self._pan_origin: QPoint | None = None
 
+        # The same zoom strip as the video and imaging panes, with this view's
+        # own zoom: buttons zoom about the scene centre, like the wheel here.
+        self.zoom_controls = ZoomControls(self)
+        self.zoom_controls.zoom_in_requested.connect(lambda: self.zoom_by(ZOOM_STEP))
+        self.zoom_controls.zoom_out_requested.connect(lambda: self.zoom_by(1.0 / ZOOM_STEP))
+        self.zoom_controls.reset_requested.connect(self.reset_zoom)
+        corner = QGridLayout(self)
+        corner.setContentsMargins(0, 0, 0, 0)
+        corner.addWidget(
+            self.zoom_controls, 0, 0, Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignLeft
+        )
+
+    def accessible_value(self) -> str:
+        """Points shown and the view angles, read on query (D-179)."""
+        return tr("{n} points; azimuth {az}°, elevation {el}°").format(
+            n=self.point_count,
+            az=f"{math.degrees(self._azimuth):.0f}",
+            el=f"{math.degrees(self._elevation):.0f}",
+        )
+
     @property
     def point_count(self) -> int:
         """Number of complete XYZ points available to the view."""
         return len(self._names)
+
+    @property
+    def custom_count(self) -> int:
+        """Hand-placed 3D markers shown at the current time."""
+        return len(self._custom_points)
+
+    @property
+    def custom_points(self) -> list[tuple[str, np.ndarray]]:
+        """``(name, xyz)`` of the hand-placed markers shown at the current time."""
+        return list(self._custom_points)
+
+    def set_custom_point_source(self, source: CustomPointSource | None) -> None:
+        """Ask *source* for the hand-placed markers every time the cursor moves."""
+        self._custom_source = source
+        self.set_cursor(self._time)
+
+    def set_wheel_source(self, source: WheelSceneSource | None) -> None:
+        """Ask *source* for every wheel's bars each time the cursor moves."""
+        self._wheel_source = source
+        self.set_cursor(self._time)
+
+    def set_prop_source(self, source: PropSceneSource | None) -> None:
+        """Ask for solved physical-prop geometry on cursor changes."""
+        self._prop_source = source
+        self.set_cursor(self._time)
+
+    @property
+    def wheel_count(self) -> int:
+        """Wheels drawn at the current time."""
+        return len(self._wheels)
+
+    @property
+    def scene_available(self) -> bool:
+        """Whether the pane has pose points or physical geometry to frame."""
+        return bool(self.point_count or self._custom_points or self._wheels or self._prop_steps)
+
+    def _drawn_positions(self) -> np.ndarray:
+        """Frame the pose when present, otherwise frame standalone props and wheels."""
+        tracked = self._positions[self._valid]
+        if self._custom_points:
+            custom = np.asarray([xyz for _, xyz in self._custom_points], dtype=np.float64)
+            tracked = np.vstack((tracked.reshape(-1, 3), custom))
+        if len(tracked):
+            return tracked
+        geometry = [
+            position
+            for _label, positions, _closed in self._prop_steps
+            for position in positions
+            if position is not None
+        ]
+        geometry.extend(ends.reshape(-1, 3) for ends, _preview, _diameter in self._wheels)
+        return np.vstack(geometry) if geometry else tracked
 
     @property
     def point_names(self) -> tuple[str, ...]:
@@ -475,6 +587,17 @@ class Tracking3DCanvas(QWidget):
                 self._positions[position_index] = values
                 position_index += 1
         self._valid = np.all(np.isfinite(self._positions), axis=1)
+        self._custom_points = []
+        if self._custom_source is not None:
+            self._custom_points = [
+                (name, np.asarray(xyz, dtype=np.float64))
+                for name, xyz in self._custom_source(t_master)
+                if np.all(np.isfinite(xyz))
+            ]
+        # Not part of the scene bounds: a wheel is several times the animal's
+        # size, and fitting the view to it would shrink the pose to a speck.
+        self._wheels = [] if self._wheel_source is None else self._wheel_source(t_master)
+        self._prop_steps = [] if self._prop_source is None else self._prop_source(t_master)
         self._expand_scene_bounds()
         self.update()
 
@@ -488,7 +611,7 @@ class Tracking3DCanvas(QWidget):
         nothing in the view said why. Fit View means fit to this and stay
         there; loading different tracking releases the hold.
         """
-        valid_positions = self._to_view(self._positions[self._valid])
+        valid_positions = self._to_view(self._drawn_positions())
         if len(valid_positions) == 0:
             return
         self._scene_min = np.min(valid_positions, axis=0)
@@ -510,7 +633,7 @@ class Tracking3DCanvas(QWidget):
         """Widen the camera bounds to include the current pose, unless held."""
         if self._bounds_held:
             return
-        valid_positions = self._to_view(self._positions[self._valid])
+        valid_positions = self._to_view(self._drawn_positions())
         if len(valid_positions) == 0:
             return
         current_min = np.min(valid_positions, axis=0)
@@ -606,7 +729,13 @@ class Tracking3DCanvas(QWidget):
         painter.fillRect(bounds, palette.color(QPalette.ColorRole.Base))
         self._draw_grid(painter, width, height, palette)
 
+        self._draw_wheels(painter, width, height, palette)
+        self._draw_props(painter, width, height, palette)
         valid_indices = np.flatnonzero(self._valid)
+        if len(valid_indices) == 0 and (self._custom_points or self._wheels or self._prop_steps):
+            self._draw_custom_points(painter, width, height, palette)
+            self._draw_corner_axes(painter, width, height)
+            return
         if len(valid_indices) == 0:
             painter.setPen(palette.color(QPalette.ColorRole.PlaceholderText))
             message = (
@@ -644,7 +773,124 @@ class Tracking3DCanvas(QWidget):
                 painter.setPen(label_color)
                 painter.drawText(round(float(x)) + 7, round(float(y)) - 5, self._names[point_index])
 
+        self._draw_custom_points(painter, width, height, palette)
         self._draw_corner_axes(painter, width, height)
+
+    def _draw_props(self, painter: QPainter, width: int, height: int, palette: QPalette) -> None:
+        """Draw only solved step points, without bridging unsolved ones."""
+        color = neutral_on_canvas(palette, _WHEEL_WEIGHT)
+        mesh_color = QColor(color)
+        mesh_color.setAlpha(170)
+        backing = QColor(palette.color(QPalette.ColorRole.Base))
+        backing.setAlpha(215)
+        # Keep names off the axis gizmo and the orbit readout in the corners.
+        corners = (
+            QRectF(0, height - 96, 96, 96),
+            QRectF(width - 200, height - 26, 200, 26),
+        )
+        labels = LabelLayout(painter, QRectF(4, 4, width - 8, height - 8), corners, backing=backing)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        for label, positions, closed in self._prop_steps:
+            surface_face = not label and closed and len(positions) == 4
+            mesh_line = surface_face or not label or len(positions) > 8
+            screen: list[QPointF | None] = []
+            for position in positions:
+                if position is None:
+                    screen.append(None)
+                else:
+                    xy, _depth = self._project(position.reshape(1, 3), width, height)
+                    screen.append(QPointF(float(xy[0, 0]), float(xy[0, 1])))
+            if surface_face and all(point is not None for point in screen):
+                fill = QColor(color)
+                fill.setAlpha(55)
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(fill)
+                painter.drawPolygon(QPolygonF([point for point in screen if point is not None]))
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.setPen(QPen(mesh_color if mesh_line else color, 1 if mesh_line else 2))
+            for index, point in enumerate(screen):
+                if point is None:
+                    continue
+                if not mesh_line:
+                    painter.drawRect(QRect(round(point.x()) - 4, round(point.y()) - 4, 8, 8))
+                    labels.mark(point)
+                following = index + 1 if index + 1 < len(screen) else 0 if closed else -1
+                other = screen[following] if following >= 0 else None
+                if other is not None:
+                    painter.drawLine(point, other)
+                    labels.line(point, other)
+            visible = [point for point in screen if point is not None]
+            if label.strip() and visible:
+                # A rung is named at its right-hand end, an outline outside its right edge.
+                anchor = (
+                    max(visible, key=lambda point: point.x()) if len(visible) > 1 else visible[0]
+                )
+                labels.label(anchor, label, color)
+        labels.draw()
+
+    def _draw_wheels(self, painter: QPainter, width: int, height: int, palette: QPalette) -> None:
+        """Each wheel: its bars, and the two rims through their ends; dashed until accepted.
+
+        With a bar diameter set, the bars are solid cylinders (D-128) drawn over
+        the rims, so a rim is seen passing behind the bars it joins.
+        """
+        color = neutral_on_canvas(palette, _WHEEL_WEIGHT)
+        # The view is orthographic, so one world length is one screen length.
+        target_width, target_height = self._target_size(width, height)
+        pixels_per_unit = 0.38 * min(target_width, target_height) * self._zoom / self._radius
+        for ends, preview, diameter in self._wheels:
+            count = len(ends)
+            if count == 0:
+                continue
+            screen, depth = self._project(ends.reshape(-1, 3), width, height)
+            points = [QPointF(float(x), float(y)) for x, y in screen]
+            bar_width = (diameter or 0.0) * pixels_per_unit
+            solid = bar_width > 1.0
+            pen = QPen(color, 1)
+            if preview:
+                pen.setStyle(Qt.PenStyle.DashLine)
+            painter.setPen(pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            for side in (0, 1):
+                rim = [points[2 * bar + side] for bar in range(count)]
+                painter.drawPolyline([*rim, rim[0]])
+            if solid:
+                pairs = screen.reshape(-1, 2, 2)
+                depths = depth.reshape(-1, 2)
+                draw_cylinders(
+                    painter,
+                    pairs[:, 0],
+                    pairs[:, 1],
+                    depths[:, 0],
+                    depths[:, 1],
+                    np.linalg.norm(ends[:, 1] - ends[:, 0], axis=1),
+                    bar_width,
+                    color,
+                )
+                continue
+            painter.setPen(pen)
+            for bar in range(count):
+                painter.drawLine(points[2 * bar], points[2 * bar + 1])
+
+    def _draw_custom_points(
+        self, painter: QPainter, width: int, height: int, palette: QPalette
+    ) -> None:
+        """Hand-placed markers: hollow rings on top of the pose, always named."""
+        if not self._custom_points:
+            return
+        positions = np.asarray([xyz for _, xyz in self._custom_points], dtype=np.float64)
+        screen, _ = self._project(positions, width, height)
+        outline = QPen(neutral_on_canvas(palette, _POINT_OUTLINE_WEIGHT), 4)
+        label_color = palette.color(QPalette.ColorRole.Text)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        for (name, _), (x, y) in zip(self._custom_points, screen, strict=True):
+            centre = QPoint(round(float(x)), round(float(y)))
+            painter.setPen(outline)
+            painter.drawEllipse(centre, _CUSTOM_RADIUS, _CUSTOM_RADIUS)
+            painter.setPen(QPen(_qcolor(color_for_point(name)), 2))
+            painter.drawEllipse(centre, _CUSTOM_RADIUS, _CUSTOM_RADIUS)
+            painter.setPen(label_color)
+            painter.drawText(centre.x() + _CUSTOM_RADIUS + 2, centre.y() - 5, name)
 
     def _draw_skeleton(
         self,
@@ -729,7 +975,8 @@ class Tracking3DCanvas(QWidget):
         ax_len = 28  # pixels
         margin = 40
         cx = margin
-        cy = height - margin
+        # Raised clear of the zoom strip, which holds the corner below it.
+        cy = height - margin - _ZOOM_STRIP_HEIGHT
 
         # Unit world axes carried into view space, so the labels keep naming the
         # source coordinate system even when a different axis renders upward.
@@ -837,11 +1084,22 @@ class Tracking3DCanvas(QWidget):
             return
         super().mouseReleaseEvent(event)
 
+    def zoom_by(self, factor: float) -> None:
+        """Scale the view about the scene centre."""
+        if factor <= 0.0:
+            return
+        self._zoom = float(np.clip(self._zoom * factor, 0.1, 20.0))
+        self.update()
+
+    def reset_zoom(self) -> None:
+        """Undo zoom and pan, keeping the orbit the user chose."""
+        self._zoom = 1.0
+        self._pan = QPointF()
+        self.update()
+
     def wheelEvent(self, event: QWheelEvent) -> None:
         """Zoom around the current scene center."""
-        steps = event.angleDelta().y() / 120.0
-        self._zoom = float(np.clip(self._zoom * (1.15**steps), 0.1, 20.0))
-        self.update()
+        self.zoom_by(1.15 ** (event.angleDelta().y() / 120.0))
         event.accept()
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
@@ -858,6 +1116,20 @@ def _qcolor(rgb: tuple[int, int, int]) -> QColor:
     return QColor(*rgb)
 
 
+class _HeaderScrollArea(QScrollArea):
+    """Keep the whole control row tall enough when its horizontal bar appears."""
+
+    def sizeHint(self) -> QSize:
+        content = self.widget()
+        if content is None:
+            return super().sizeHint()
+        height = content.sizeHint().height() + self.horizontalScrollBar().sizeHint().height()
+        return QSize(0, height)
+
+    def minimumSizeHint(self) -> QSize:
+        return self.sizeHint()
+
+
 class Tracking3DPane(QWidget):
     """Timeline-synchronized 3D tracking pane."""
 
@@ -865,6 +1137,7 @@ class Tracking3DPane(QWidget):
         super().__init__(parent)
         self.setObjectName("tracking_3d_pane")
         self.setAccessibleName(tr("3D Tracking pane"))
+        self.setMinimumWidth(112)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -872,11 +1145,11 @@ class Tracking3DPane(QWidget):
 
         header = QWidget(self)
         header_layout = QGridLayout(header)
-        header_layout.setContentsMargins(8, 4, 8, 4)
-        header_layout.setHorizontalSpacing(4)
-        header_layout.setVerticalSpacing(2)
-        self.title_label = QLabel("3D Tracking", header)
-        self.status_label = QLabel("No XYZ tracking channels", header)
+        header_layout.setContentsMargins(spacing("m"), spacing("s"), spacing("m"), spacing("s"))
+        header_layout.setHorizontalSpacing(spacing("s"))
+        header_layout.setVerticalSpacing(spacing("xs"))
+        self.title_label = QLabel(tr("3D Tracking"), header)
+        self.status_label = QLabel(tr("No XYZ tracking channels"), header)
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.status_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.up_axis_combo = QComboBox(header)
@@ -913,26 +1186,62 @@ class Tracking3DPane(QWidget):
         ):
             self.bone_combo.addItem(label, mode)
         self.bone_combo.activated.connect(self._on_bone_mode_selected)
-        self.fit_button = QPushButton("Fit View", header)
+        self.fit_button = QPushButton(tr("Fit View"), header)
         self.fit_button.setToolTip(tr("Fit the 3D camera to the current tracked pose"))
         self.fit_button.clicked.connect(self._fit_view)
-        header_layout.addWidget(self.title_label, 0, 0, 1, 3)
-        header_layout.addWidget(self.status_label, 1, 0, 1, 3)
-        header_layout.addWidget(self.up_axis_combo, 2, 0)
-        header_layout.addWidget(self.bone_combo, 2, 1)
-        header_layout.addWidget(self.fit_button, 2, 2)
+        # Title and status share the first row: a third header row was the
+        # height that pushed the window's minimum past a 640x480 display.
+        title_row = QHBoxLayout()
+        title_row.setSpacing(spacing("m", self))
+        title_row.addWidget(self.title_label)
+        title_row.addWidget(self.status_label, 1)
+        header_layout.addLayout(title_row, 0, 0)
+        header_layout.addWidget(self.up_axis_combo, 1, 0)
+        header_layout.addWidget(self.bone_combo, 1, 1)
+        header_layout.addWidget(self.fit_button, 1, 2)
+        # Filled by install_reprojection_action with the View -> Overlays
+        # action, so the button and the menu entry are one command (rule 15).
+        # Beside the title: it is about the videos, not about this view.
+        self.reprojection_button = ActionButton(header)
+        self.reprojection_button.hide()
+        # Spanning the two columns the Bones and Fit View controls already hold:
+        # alone in the last column, its label set that column's width and the
+        # pane's minimum grew past one video column (test_ui_layout_resize).
+        header_layout.addWidget(self.reprojection_button, 0, 1, 1, 2)
         header_layout.setColumnStretch(0, 1)
         header_layout.setColumnStretch(1, 1)
 
+        # On a narrow display the camera controls cannot dictate the width of
+        # the whole media splitter. Keep them at a usable size and let the
+        # header scroll sideways instead of squeezing the video pane to zero.
+        self.header_scroll = _HeaderScrollArea(self)
+        self.header_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        self.header_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.header_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.header_scroll.setWidget(header)
+        self.header_scroll.setWidgetResizable(True)
+        self.header_scroll.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.header_scroll.horizontalScrollBar().setAccessibleName(
+            tr("Scroll the 3D controls sideways")
+        )
+
         self.canvas = Tracking3DCanvas(self)
-        layout.addWidget(header)
+        layout.addWidget(self.header_scroll)
         layout.addWidget(self.canvas, 1)
+
+    def install_reprojection_action(self, action: QAction) -> None:
+        """Show the 3D -> 2D reprojection toggle, driven by its overlay action."""
+        self.reprojection_button.set_action(action)
+        self.reprojection_button.setAccessibleDescription(
+            tr("Project the 3D points back onto every camera through the calibration")
+        )
+        self.reprojection_button.show()
 
     def set_readers(self, readers: list[MappedChannelReader]) -> None:
         """Use complete XYZ channel triplets from the active cached readers."""
         self.canvas.set_readers(readers)
         self._refresh_status()
-        self.fit_button.setEnabled(self.canvas.point_count > 0)
+        self.fit_button.setEnabled(self.canvas.scene_available)
         self._sync_up_axis_combo()
         if self.canvas.point_count:
             self.canvas.fit_current_pose()
@@ -959,7 +1268,15 @@ class Tracking3DPane(QWidget):
     def _sync_up_axis_combo(self) -> None:
         """Reflect the canvas's current orientation without re-triggering it."""
         target = (self.canvas.up_axis, self.canvas.up_inverted)
-        index = self.up_axis_combo.findData(target)
+        # findData compares QVariants, and a Python tuple never matches there.
+        index = next(
+            (
+                row
+                for row in range(self.up_axis_combo.count())
+                if tuple(self.up_axis_combo.itemData(row) or ()) == target
+            ),
+            -1,
+        )
         if index >= 0:
             self.up_axis_combo.blockSignals(True)
             self.up_axis_combo.setCurrentIndex(index)
@@ -1004,6 +1321,13 @@ class Tracking3DPane(QWidget):
     def set_cursor(self, t_master: float) -> None:
         """Update from the same master-clock value used by video and 2D plots."""
         self.canvas.set_cursor(t_master)
+        available = self.canvas.scene_available
+        if self.fit_button.isEnabled() != available:
+            self.fit_button.setEnabled(available)
+        if self.canvas.point_count == 0:
+            label = tr("Physical props in 3D") if available else tr("No XYZ tracking channels")
+            if self.status_label.text() != label:
+                self.status_label.setText(label)
 
     def _fit_view(self) -> None:
         self.canvas.reset_view()

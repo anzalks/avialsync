@@ -1,6 +1,7 @@
 """Pytest configuration."""
 
 import faulthandler
+import os
 import sys
 import tempfile
 from collections.abc import Iterator
@@ -14,8 +15,14 @@ from avialsync.ui import recovery
 
 @pytest.hookimpl(trylast=True)
 def pytest_configure(config: pytest.Config) -> None:
-    """Set up the settings sandbox, then re-arm faulthandler on Windows."""
+    """Set up the settings and cache sandboxes, then re-arm faulthandler on Windows."""
     _sandbox_settings(config)
+    _sandbox_cache()
+    # The application's number policy (D-173), so a test machine's locale
+    # cannot change what a spin box shows.
+    from avialsync.ui.time_format import apply_number_locale
+
+    apply_number_locale()
     _rearm_faulthandler(config)
 
 
@@ -37,6 +44,13 @@ def _sandbox_settings(config: pytest.Config) -> None:
     under a temporary directory. Done here rather than in a fixture because
     collection imports test modules, and an import is early enough to construct
     a ``QSettings``.
+
+    **It only reaches stores opened through ``ui/app_settings.app_settings``.**
+    ``QSettings("AvialSync", "AvialSync")`` ignores ``setDefaultFormat`` and
+    always opens the native store, so for as long as the application opened it
+    that way this sandbox covered nothing and every run wrote into the real
+    preferences (INTERFACE_DESIGN_PLAN F-36). ``tests/test_app_settings.py``
+    keeps that constructor out of the tree.
     """
     del config
     from PySide6.QtCore import QSettings
@@ -44,6 +58,20 @@ def _sandbox_settings(config: pytest.Config) -> None:
     sandbox = tempfile.mkdtemp(prefix="avialsync-settings-")
     QSettings.setDefaultFormat(QSettings.Format.IniFormat)
     QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, sandbox)
+
+
+def _sandbox_cache() -> None:
+    """Point the derived-data cache at a throwaway directory for the whole run.
+
+    The cache lives in one per-user folder (D-160). Unsandboxed, every import a
+    test performs would land in the developer's real
+    ``~/Library/Caches/avialsync`` (or its Windows/Linux equivalent) and stay
+    there. An environment variable rather than a fixture, for the same reason
+    as the settings sandbox: worker threads and subprocesses read it too.
+    """
+    from avialsync.core.cache import CACHE_DIR_ENV
+
+    os.environ[CACHE_DIR_ENV] = tempfile.mkdtemp(prefix="avialsync-cache-")
 
 
 def _rearm_faulthandler(config: pytest.Config) -> None:

@@ -30,8 +30,35 @@ declares. That matters more often than it sounds: a camera running at a varying 
 routinely writes a file claiming a constant 30 fps, and its own timestamps prove otherwise.
 
 Those timestamps decide whether a recording is treated as CFR or VFR, where a frame step lands, and
-which frame is named at any moment. They are cached beside the video after the first read, so
+which frame is named at any moment. They are cached in the per-user cache folder after the first read, so
 opening it again does not walk the file a second time.
+
+## Two-photon imaging
+
+Open `.h5`, `.hdf5`, `.tif`, `.tiff` or `.nwb` through **File → Open Imaging** or drag the stack into
+the window. Imaging is a separate time-indexed source, shown below the 3D view when both are present.
+It follows the same master playhead as video and plots. PyAV continues to decode camera videos only.
+
+The HDF5 reader selects a three-dimensional `TYX` dataset when the file has exactly one plausible
+stack; otherwise it lists the candidates to choose from. Four- and five-dimensional datasets need an
+axis order (`T`, `C`, `Z`, `Y`, `X`, from an `axes` attribute or asked at import). A `Z` axis with
+more than one plane asks which depth to show; a `C` axis is shown as overlaid channels. The TIFF
+reader supports page-per-time `TYX`, `QYX`, or `IYX` series, OME series with `T`, optional `C`/`Z`,
+then `YX` axes, and ScanImage files, whose channel- and slice-interleaved pages are separated using
+ScanImage's own frame data. Other TIFF layouts need a format plugin. These choices are saved in the
+session file.
+
+Timing comes from, in order: a frame-time table you supply, a per-frame timestamp table in the file
+(an HDF5 `frame_times`, `timestamps` or `time` dataset beside the images, or OME per-plane
+`DeltaT`), a frame rate you typed, and finally a rate the file states (HDF5 `fps`/`frame_rate`/`dt`
+attributes, OME `TimeIncrement`, ScanImage's scan frame or volume rate). A stack with none of these
+asks for its frame rate rather than guessing one.
+
+The viewer reads only the requested HDF5 hyperslab or TIFF page on a background thread and keeps
+recently read planes under a fixed memory budget, so large stacks do not need to fit in RAM.
+Brightness, contrast, channel colours and moving averages change the displayed picture only; the
+raw pixels are unchanged. TIFF compression that needs an unavailable codec is reported for the
+affected page.
 
 ## Sensor and tracking data
 
@@ -46,13 +73,35 @@ row above a `bodyparts` row — rather than by their file name, and are read as 
 body part becomes a channel; any complete `name_x` / `name_y` / `name_z` triplet also becomes a
 point in the 3D pane.
 
-Correcting a point by hand writes `<pose file>.avialfix.csv` beside the original — a plain
+Correcting a point by hand writes `pose_csv_avialfix.csv` (for a `pose.csv`) beside the original — a plain
 `frame,bodypart,x,y` table with a commented header, readable with
 `pd.read_csv(path, comment="#")`. **The pose file itself is never modified**, so deleting the
 corrections file restores exactly what the model predicted. Corrections can be exported either as a
 corrected copy of the pose CSV, which anything that read the original will read unchanged, or as a
-DeepLabCut `labeled-data` retraining set. See [Correcting a tracked
+retraining set for DeepLabCut or single-view Lightning Pose: a new folder whose contents are copied
+into the project root. See [Correcting a tracked
 point](user-guide/index.md#correcting-a-tracked-point).
+
+### Vicon Nexus motion capture
+
+Drop a Vicon session folder containing `.c3d` trials, matching `.xcp` calibration files, and the
+camera AVI files. AvialSync reads marker positions directly from C3D; it does not use companion CSV
+exports. The XCP video-camera calibration projects the 3D markers into that camera's image, and the
+session scanner pairs each trial to its AVI by the calibrated camera's device ID. Intrinsics,
+Vicon radial distortion, and video-resolution scaling are applied before projection. The markers are
+sampled onto the video frame grid and use the normal per-source tracking overlay controls. A trial
+without a usable calibrated video-camera entry or a uniquely matching AVI is reported and left out
+of the overlay rather than projected with guessed calibration. When importing a C3D separately,
+assign its matching AVI as the overlay target; AvialSync reads that video's dimensions and scales
+the XCP projection to its pixel grid.
+
+To open one trial, copy its `.c3d`, matching `.xcp`, and camera AVI into a separate folder and drop
+that folder onto AvialSync. The review dialog lists the paired video and tracking file, with the
+Vicon labels, combined 3D-pose/2D-overlay role, and XCP calibration preselected. Confirm the rows to
+load native XYZ markers in the 3D view and their calibrated projection on the paired video. If you
+drop the files individually, choose **3D Marker Tracking** for the `.c3d`, select the XCP in the
+**Calibration (XCP)** column, then choose the combined 3D-pose and 2D-overlay role for its AVI. The
+`.xcp` is not imported as tracking data, and `.x2d` is not currently supported as a tracking source.
 
 ## Acquisition recordings
 
@@ -73,6 +122,48 @@ Both Open Ephys layouts are read, including the free text each one stores:
 
 In both cases the recording's sync preamble is used to place the clock and is not listed as a
 message: it is what the software wrote about the recording, not something a person typed.
+
+## Neurodata Without Borders (NWB)
+
+An `.nwb` file holds a whole session — electrophysiology, imaging, behaviour, trials — and
+AvialSync opens it as one. Drop the file (or choose it with **File → Open**) and the review lists:
+
+- **NWB Time Series**: every time series in the file, one plot row per column, named by where the
+  series sits (`ophys.DfOverF.RoiResponseSeries.roi12`, `Position.SpatialSeries.x`) so that two
+  series with the same name stay apart, and grouped in the channel list on those dots. Columns are
+  named after what they measure where the file says: electrodes by their id (`ch17`), ROIs by
+  theirs (`roi12`), spatial series by axis. Values are scaled by the file's `conversion`,
+  `channel_conversion` and `offset`, and shown in its units (`volts` reads as V).
+- **NWB Imaging**: each imaging series stored in the file (two-photon, one-photon, any
+  `ImageSeries`) opens in the imaging viewer, named after the series. It reads one plane at a time
+  in its stored pixel type, so channels, display levels and centred averaging work without making
+  a copy of the full stack. The separate video-compatible proxy reader remains available to
+  plugins; its lossless copy reports progress and completes an in-progress encoding before a
+  cancellation takes effect.
+- **Videos the file points to**: an `ImageSeries` that names an external video file is opened from
+  beside the NWB file, placed at the time the series says its first frame was.
+
+Everything is placed on the file's own clock, with no alignment step: every NWB timestamp counts
+from the file's `timestamps_reference_time` (normally its `session_start_time`), which becomes the
+session's zero, and times read as wall clock.
+
+Trials, epochs, and any other interval table become a row that is 1 inside an interval and 0
+outside it, plus one message per row listing its columns (`trials 3 · 12.3–14.1 s · condition=left`).
+`IntervalSeries` (reward, licking epochs) become the same kind of row. Spike-sorted units become one
+row per unit, high for an instant at each spike. Text annotations become messages.
+
+What cannot be shown is listed when the file opens rather than skipped silently: series whose data is
+not a signal over time (spike waveforms, frequency decompositions), a video the file names but that
+is not beside it, and a start time recorded without a time zone (read as UTC).
+
+Versions: NWB 1.x and 2.x HDF5 files, and NWB Zarr v2/v3 folders. Extension types are recognised
+from the specification each file carries when available. NWB 1.x series under
+`acquisition/timeseries` use the same plotted and imaging routes. Choose **File → Open NWB…** and
+browse to a local file, or paste a DANDI asset download URL or its public S3 content URL; the app streams the
+requested HDF5 ranges or Zarr chunks and keeps a small link in your application-data folder for
+session restore. External videos referenced by a remote file must be opened locally. Imaging
+creates a lossless cached copy and shows percentage progress while it is encoded; that encoding
+finishes once started.
 
 ## Trigger and TTL files
 

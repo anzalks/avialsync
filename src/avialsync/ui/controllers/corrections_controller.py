@@ -116,23 +116,39 @@ def persist(window: MainWindow, source_id: str) -> None:
     if not source_id:
         return
     rows = [
-        Correction(frame=frame_for(window, source_id, index), bodypart=point, x=x, y=y)
-        for index, point, x, y in window.point_edits.for_source(source_id)
-    ]
-    try:
-        written = point_edit_sidecar.write(Path(source_id), rows)
-    except OSError as error:
-        _fall_back_to_the_session(window, source_id, error)
-        return
-
-    window._point_edit_storage[source_id] = SIDECAR
-    if source_id not in window._announced_correction_files:
-        window._announced_correction_files.add(source_id)
-        window.notifications.show_success(
-            tr("Corrections for {source} are saved beside it, in {file}.").format(
-                source=Path(source_id).name, file=written.name
-            )
+        Correction(
+            frame=frame_for(window, source_id, index),
+            bodypart=point,
+            x=x,
+            y=y,
+            shown_as=shown,
         )
+        for index, point, x, y, shown in window.point_edits.for_source(source_id)
+    ]
+    source = Path(source_id)
+    target = point_edit_sidecar.sidecar_path(source)
+    # Until the newest revision lands, a session snapshot must carry the rows.
+    storage = window._point_edit_storage
+    storage[source_id] = SESSION
+
+    def success(written: Path) -> None:
+        if not window.artifact_writes.has_newer(target):
+            storage[source_id] = SIDECAR
+        if source_id not in window._announced_correction_files:
+            window._announced_correction_files.add(source_id)
+            window.notifications.show_success(
+                tr("Corrections for {source} are saved beside it, in {file}.").format(
+                    source=source.name, file=written.name
+                )
+            )
+
+    window.artifact_writes.enqueue(
+        target,
+        label=tr("Saving tracking corrections"),
+        write=lambda: point_edit_sidecar.write(source, rows),
+        success=success,
+        failure=lambda error: _fall_back_to_the_session(window, source_id, OSError(error)),
+    )
 
 
 def _fall_back_to_the_session(window: MainWindow, source_id: str, error: OSError) -> None:
@@ -171,14 +187,14 @@ def adopt(window: MainWindow, source_id: str) -> None:
             _report_missing(window, source_id, expected)
         return
 
-    rows: list[tuple[int, str, float, float]] = []
+    rows: list[tuple[int, str, float, float, str]] = []
     unplaceable = 0
     for entry in corrections.entries:
         index = index_for(window, source_id, entry.frame)
         if index is None:
             unplaceable += 1
             continue
-        rows.append((index, entry.bodypart, entry.x, entry.y))
+        rows.append((index, entry.bodypart, entry.x, entry.y, entry.shown_as))
     window.point_edits.load_source(source_id, rows)
     window._point_edit_storage[source_id] = SIDECAR
 
@@ -317,7 +333,7 @@ def corrections_by_frame(
     row by row and asks each frame whether anything on it changed.
     """
     grouped: dict[int, dict[str, tuple[float, float]]] = {}
-    for index, point, x, y in window.point_edits.for_source(source_id):
+    for index, point, x, y, _shown in window.point_edits.for_source(source_id):
         grouped.setdefault(frame_for(window, source_id, index), {})[point] = (x, y)
     return grouped
 
@@ -340,7 +356,9 @@ def labeled_frames(window: MainWindow, source_id: str) -> tuple[list[str], list[
         for part, axes in points.items()
     }
 
-    indices = sorted({index for index, _point, _x, _y in window.point_edits.for_source(source_id)})
+    indices = sorted(
+        {index for index, _point, _x, _y, _shown in window.point_edits.for_source(source_id)}
+    )
     frames: list[LabeledFrame] = []
     for index in indices:
         positions: dict[str, tuple[float, float]] = {}
@@ -350,7 +368,15 @@ def labeled_frames(window: MainWindow, source_id: str) -> tuple[list[str], list[
                 continue
             x = float(xs[index])
             y = float(ys[index])
-            override = window.point_edits.get(PointKey(source_id, part, index))
+            # Keyed by the column, not the label: the readers above are the
+            # edited ones, so under an accepted flip this body part is drawing
+            # another column's trajectory and its correction lives there
+            # (D-143). Looking it up by the label silently drops every
+            # correction made after a flip.
+            from avialsync.ui.controllers import identity_controller
+
+            column = identity_controller.data_point_for(window, source_id, part, index)
+            override = window.point_edits.get(PointKey(source_id, column, index))
             if override is not None:
                 x, y = override
             if np.isnan(x) or np.isnan(y):

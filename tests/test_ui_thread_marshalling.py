@@ -20,6 +20,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QObject, Qt, QThread, Signal
+from shiboken6 import delete, isValid
 
 from avialsync.ui.job_manager import on_ui_thread
 
@@ -71,6 +72,18 @@ def test_a_wrapped_handler_runs_on_the_ui_thread(qtbot) -> None:
     )
 
     assert delivered is QThread.currentThread()
+
+
+def test_a_late_worker_result_is_dropped_after_its_window_dies() -> None:
+    anchor = QObject()
+    seen: list[object] = []
+    wrapped = on_ui_thread(seen.append, anchor)
+    delete(anchor)
+    assert not isValid(anchor)
+
+    wrapped("late")
+
+    assert seen == []
 
 
 def test_a_bare_closure_does_not(qtbot) -> None:

@@ -107,15 +107,21 @@ def _resize(window: MainWindow, qapp: QApplication, width: int, height: int) -> 
 def test_panes_keep_their_share_of_a_window_that_grows(
     window: MainWindow, qapp: QApplication
 ) -> None:
-    """The workspace/Data Streams and video/plot splits must scale together."""
+    """The video/plot split scales; Data Streams keeps its lanes' height.
+
+    D-171 sizes Data Streams by its lanes, and D-180 gives every pixel beyond
+    that to the workspace, so the content split is no longer a ratio: its
+    second slot must equal the lane area, never a blank band beneath it.
+    """
     _resize(window, qapp, 1280, 800)
-    before = [_fractions(window._content_splitter), _fractions(window._v_splitter)]
+    before = _fractions(window._v_splitter)
+    streams = window._content_splitter.sizes()[1]
 
     _resize(window, qapp, 1900, 1150)
-    after = [_fractions(window._content_splitter), _fractions(window._v_splitter)]
 
-    for original, resized in zip(before, after, strict=True):
-        assert original == pytest.approx(resized, abs=0.01)
+    assert _fractions(window._v_splitter) == pytest.approx(before, abs=0.01)
+    assert window._content_splitter.sizes()[1] == streams
+    assert streams <= window.data_streams.maximumHeight()
 
 
 def test_shrinking_and_growing_again_returns_the_original_arrangement(
@@ -139,17 +145,22 @@ def test_shrinking_and_growing_again_returns_the_original_arrangement(
 def test_dragging_a_handle_survives_the_next_window_resize(
     window: MainWindow, qapp: QApplication
 ) -> None:
-    """A ratio the user set by hand is the ratio to hold, not one to overwrite."""
+    """A ratio the user set by hand is the ratio to hold, not one to overwrite.
+
+    Asserted on the video/plot handle: since D-171/D-180 the Data Streams
+    handle cannot take Data Streams past its lanes, so that one split is
+    sized by content rather than by hand.
+    """
     _resize(window, qapp, 1280, 800)
-    span = sum(window._content_splitter.sizes())
-    window._content_splitter.setSizes([int(span * 0.5), span - int(span * 0.5)])
-    window._pane_proportions.record(window._content_splitter)
+    span = sum(window._v_splitter.sizes())
+    window._v_splitter.setSizes([int(span * 0.5), span - int(span * 0.5)])
+    window._pane_proportions.record(window._v_splitter)
     qapp.processEvents()
-    chosen = _fractions(window._content_splitter)
+    chosen = _fractions(window._v_splitter)
 
     _resize(window, qapp, 1700, 1000)
 
-    assert _fractions(window._content_splitter) == pytest.approx(chosen, abs=0.01)
+    assert _fractions(window._v_splitter) == pytest.approx(chosen, abs=0.01)
 
 
 def test_an_empty_video_area_shrinks_with_the_window(
@@ -183,7 +194,8 @@ def test_the_first_run_layout_survives_the_first_window_resize(
     _resize(window, qapp, 1280, 800)
 
     assert _fractions(window._v_splitter) == pytest.approx([380 / 620, 240 / 620], abs=0.02)
-    assert _fractions(window._content_splitter) == pytest.approx([620 / 780, 160 / 780], abs=0.02)
+    # D-180: Data Streams' slot is its lane area, the rest is the workspace's.
+    assert window._content_splitter.sizes()[1] <= window.data_streams.maximumHeight()
 
 
 def test_pane_ratios_are_not_recorded_before_the_splitter_has_laid_out(
@@ -211,3 +223,16 @@ def test_pane_ratios_are_not_recorded_before_the_splitter_has_laid_out(
     proportions.record(splitter)
 
     assert splitter not in proportions._fractions
+
+
+def test_a_pane_capped_by_its_maximum_gives_the_surplus_to_the_others() -> None:
+    """D-180: a slot larger than its pane is blank space; the surplus moves on."""
+    from avialsync.ui.pane_proportions import distribute
+
+    assert distribute([0.8, 0.2], 1000, [0, 0], [16_777_215, 72]) == [928, 72]
+    assert distribute([0.5, 0.25, 0.25], 900, [0, 0, 0], [16_777_215, 100, 16_777_215]) == [
+        533,
+        100,
+        267,
+    ]
+    assert sum(distribute([0.5, 0.5], 500, [10, 10], [100, 100])) == 500, "always the span"

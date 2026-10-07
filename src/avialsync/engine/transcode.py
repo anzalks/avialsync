@@ -13,6 +13,7 @@ was started from.
 
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Callable, Iterable
 from fractions import Fraction
@@ -20,6 +21,10 @@ from pathlib import Path
 
 import av
 import numpy as np
+
+from avialsync.core.artifact_io import publish
+from avialsync.core.artifact_provenance import record
+from avialsync.core.errors import ExportError
 
 logger = logging.getLogger(__name__)
 
@@ -67,16 +72,21 @@ def remux_clip(source: Path | str, destination: Path | str, start: float, end: f
         True when at least one packet was written.
     """
     source, destination = Path(source), Path(destination)
-    written = 0
-    try:
+
+    class EmptyClip(Exception):
+        """No packet can be committed to this clip."""
+
+    def write(temporary: Path) -> None:
+        written = 0
         with av.open(str(source)) as input_container:
             stream = input_container.streams.video[0]
             time_base = stream.time_base
             if time_base is None:
-                logger.warning("Cannot trim %s: the stream declares no time base", source)
-                return False
-            with av.open(str(destination), mode="w") as output_container:
+                raise EmptyClip
+            with av.open(str(temporary), mode="w") as output_container:
                 output_stream = output_container.add_stream_from_template(stream)
+                provenance = record("clip", (source,))
+                output_container.metadata["creation_time"] = str(provenance["written"])
                 input_container.seek(
                     int(start / time_base), stream=stream, backward=True, any_frame=False
                 )
@@ -88,18 +98,23 @@ def remux_clip(source: Path | str, destination: Path | str, start: float, end: f
                         break
                     if first_pts is None:
                         first_pts = packet.pts
-                    # Rebase onto zero so the clip starts at its own beginning
-                    # rather than carrying the source's offset.
+                        provenance["actual_start_seconds"] = float(first_pts * time_base)
+                        output_container.metadata["comment"] = json.dumps(provenance)
                     packet.pts -= first_pts
                     if packet.dts is not None:
                         packet.dts -= first_pts
                     packet.stream = output_stream
                     output_container.mux(packet)
                     written += 1
-    except (av.FFmpegError, OSError, IndexError, ValueError):
+        if not written:
+            raise EmptyClip
+
+    try:
+        publish(destination, write, kind="clip", sources=(source,))
+    except (av.FFmpegError, OSError, IndexError, ValueError, EmptyClip):
         logger.warning("Could not trim %s to %s", source, destination, exc_info=True)
         return False
-    return written > 0
+    return True
 
 
 def encode_proxy(
@@ -175,8 +190,12 @@ def encode_video(
     rate: Fraction,
     time_base: Fraction = Fraction(1, 90_000),
     gop_size: int = 30,
+    end_seconds: float | None = None,
+    encoder_preset: str | None = None,
+    encoder_crf: str | None = None,
     progress: ProgressCallback | None = None,
     should_cancel: CancelCheck | None = None,
+    metadata: dict[str, str] | None = None,
 ) -> None:
     """Encode ``(rgb_frame, seconds)`` pairs into an H.264 file.
 
@@ -193,6 +212,10 @@ def encode_video(
         time_base: Timestamp resolution. The 90 kHz default is the MPEG
             convention and divides common rates without drift.
         gop_size: Frames between keyframes.
+        end_seconds: End of the final frame's presentation interval, when known.
+            Timed exports disable B-frames so packet order follows presentation order.
+        encoder_preset: Optional libx264 speed preset for large composites.
+        encoder_crf: Optional libx264 constant-quality value.
         progress: Called with the elapsed presentation time in seconds, so a
             caller that knows the intended duration can turn it into a
             percentage without this function having to know one.
@@ -204,9 +227,29 @@ def encode_video(
     destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
     container = av.open(str(destination), mode="w")
+    if metadata:
+        container.metadata.update(metadata)
     try:
         stream: av.VideoStream | None = None
         last_time = 0.0
+        pending_packet: av.Packet | None = None
+
+        def write_packet(packet: av.Packet) -> None:
+            nonlocal pending_packet
+            if end_seconds is None:
+                container.mux(packet)
+                return
+            if packet.pts is None:
+                raise ExportError("Timed video export requires packet presentation timestamps")
+            if pending_packet is not None:
+                if pending_packet.pts is None:
+                    raise ExportError("Timed video export requires packet presentation timestamps")
+                if packet.pts <= pending_packet.pts:
+                    raise ExportError("Output timestamps are too close to preserve every frame")
+                pending_packet.duration = packet.pts - pending_packet.pts
+                container.mux(pending_packet)
+            pending_packet = packet
+
         for image, seconds in frames:
             if should_cancel is not None and should_cancel():
                 raise TranscodeCancelled
@@ -217,6 +260,15 @@ def encode_video(
                 stream.height = _even(height)
                 stream.pix_fmt = "yuv420p"
                 stream.codec_context.gop_size = gop_size
+                encoder_options: dict[str, object] = {}
+                if encoder_preset is not None:
+                    encoder_options["preset"] = encoder_preset
+                if encoder_crf is not None:
+                    encoder_options["crf"] = encoder_crf
+                if encoder_options:
+                    stream.options = encoder_options
+                if end_seconds is not None:
+                    stream.codec_context.max_b_frames = 0
                 # Both are required; setting only the stream's makes mux()
                 # reject every packet with a bare EINVAL.
                 stream.time_base = time_base
@@ -225,13 +277,22 @@ def encode_video(
             frame.pts = int(round(seconds / time_base))
             frame.time_base = time_base
             for packet in stream.encode(frame):
-                container.mux(packet)
+                write_packet(packet)
             last_time = seconds
             if progress is not None:
                 progress(last_time)
         if stream is not None:
             for packet in stream.encode():
-                container.mux(packet)
+                write_packet(packet)
+        if pending_packet is not None:
+            if pending_packet.pts is None or end_seconds is None:
+                raise ExportError("Timed video export requires an end and packet timestamps")
+            packet_time_base = pending_packet.time_base or time_base
+            end_tick = int(round(end_seconds / packet_time_base))
+            if end_tick <= pending_packet.pts:
+                raise ExportError("Output window is too short to preserve the final frame")
+            pending_packet.duration = end_tick - pending_packet.pts
+            container.mux(pending_packet)
     finally:
         container.close()
 

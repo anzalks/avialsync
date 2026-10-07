@@ -20,7 +20,13 @@ import pyqtgraph as pg
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPalette, QPen
 
-from avialsync.ui.theme import PlotColors, evidence_color, loop_pin_color, plot_colors
+from avialsync.ui.theme import (
+    PlotColors,
+    coverage_edge_color,
+    evidence_color,
+    loop_pin_color,
+    plot_colors,
+)
 
 
 def apply_canvas_palette(view: pg.GraphicsView, palette: QPalette) -> PlotColors:
@@ -54,19 +60,38 @@ def apply_plot_item_palette(plot_item: pg.PlotItem, colors: PlotColors) -> None:
     in a separate ``labelStyle`` defaulting to a literal mid-grey that is
     low-contrast on a light canvas and lower on a dark one.
 
-    Passing no text to ``setLabel`` is deliberate: pyqtgraph keeps the existing
-    label text and units when they are ``None``, and replaces ``labelStyle``
-    only when keyword arguments are given.  So this re-colours the title
-    without knowing what it says, and a later label rewrite — the channel
+    The title is re-styled by handing ``setLabel`` its own current text, units
+    and visibility back.  pyqtgraph 0.14 treats a ``None`` text as "no label"
+    and hides it, so the earlier ``setLabel(color=…)`` emptied every channel's
+    name/unit/range gutter on the first theme switch — the gutter was blank in
+    the Light screenshot and in any session switched after load
+    (INTERFACE_DESIGN_PLAN F-27).  A later label rewrite — the channel
     gutter's, say — passes no style of its own and keeps this colour.
     """
     for name in ("left", "right", "top", "bottom"):
         axis = plot_item.getAxis(name)
         if axis is None:
             continue
-        axis.setPen(colors.axis)
+        # Strokes lighter than the numbers: rules recede, ticks stay legible.
+        axis.setPen(colors.rule)
         axis.setTextPen(colors.axis)
-        axis.setLabel(color=colors.axis.name())
+        shown = axis.label.isVisibleTo(axis)
+        axis.setLabel(
+            axis.labelText or None,
+            units=axis.labelUnits or None,
+            unitPrefix=axis.labelUnitPrefix or None,
+            unitPower=axis.unitPower,
+            color=colors.axis.name(),
+        )
+        axis.showLabel(shown)
+
+
+def apply_coverage_region_palette(region: pg.LinearRegionItem, palette: QPalette) -> None:
+    """Re-pen the two rules bounding a coverage wash, idle and hovered alike."""
+    pen = pg.mkPen(coverage_edge_color(palette), width=1)
+    for line in region.lines:
+        line.setPen(pen)
+        line.setHoverPen(pen)
 
 
 def gap_marker_pen(palette: QPalette) -> QPen:
@@ -80,6 +105,13 @@ def gap_marker_pen(palette: QPalette) -> QPen:
     # information, so `mkPen` is `Any` and would silently widen every caller.
     # The copy constructor costs nothing â€” a QPen is implicitly shared.
     return QPen(pg.mkPen(color=evidence_color(palette, "gap"), width=1, style=Qt.PenStyle.DotLine))
+
+
+def identity_marker_pen(palette: QPalette) -> QPen:
+    """Dash a flip boundary in the same palette role as the identity lane."""
+    return QPen(
+        pg.mkPen(color=evidence_color(palette, "identity"), width=2, style=Qt.PenStyle.DashLine)
+    )
 
 
 def measure_pen(palette: QPalette, which: str) -> QPen:

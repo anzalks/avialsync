@@ -187,6 +187,8 @@ longer licence contamination.
 Parsed time series → `<file>.avialcache/` dir: `meta.json`, `t.npy`-style raw mmap arrays per channel,
 `pyr_16.bin`/`pyr_256.bin`/`pyr_4096.bin` min/max pairs. Invalidation key: (path, size, mtime, loader
 version). Alternatives: HDF5 (heavy dep), Parquet-only (no mmap random access win for pyramids).
+**Amended by D-160:** the directory is no longer beside the file; each source has one entry in the
+per-user cache folder.
 
 ## 2026-07 · D-005 · Chunked ingest is the only ingest path
 TimeSeriesSource.read_chunks() iterator; cache builder pulls incrementally. Enables 50 GB files
@@ -1954,8 +1956,12 @@ looks the same: one `ChannelInfo` shape, one chunk contract, one place a rate or
 wrong. A second reader for the format we happen to have data for today is a second place for all of
 that to drift, and the next lab's Neuralynx or SpikeGLX folder gets nothing from it.
 
-**Decision:** every ephys sample AvialSync reads comes through `neo`. `NeoLoader` is the only
-time-series loader for acquisition formats, and a format-specific plugin may not read samples.
+**Decision:** every ephys sample from an acquisition format comes through `neo`. `NeoLoader` is the
+only time-series loader for acquisition formats, and a format-specific plugin may not read samples.
+NWB is the sole container exception: its electrophysiology, imaging, behaviour, intervals and units
+share one file and one declared clock, so its regular chunked NWB reader covers all of them (D-188,
+D-189). A failure or cycle in neo/PyNWB never switches another acquisition format to a second sample
+reader.
 
 What neo does **not** model is deliberately excluded from that rule and lives beside it in
 `loaders/open_ephys_format.py`:
@@ -4331,3 +4337,1992 @@ measuring a subprocess rather than the work they name.
 code, not about the budget.** These were read as the irreducible cost of 128 linked ViewBoxes —
 the benchmark's own docstring says as much — and the profile disagreed in the first thirty seconds.
 Profile before believing a ceiling is inherent.
+
+---
+
+## 2026-09 · D-112 · A hand-placed 3D marker is triangulated through a calibration the session names
+
+**What.** Add 3D Marker (Edit menu, and a button beside Fix Tracker) asks for a name, then takes one
+click per camera on the current frame, triangulates the clicks with the rig's calibration, and shows
+the result in every pane and in the 3D view as a hollow ring, never a filled dot, so it cannot be
+read as the model's output. It is then a regular point: Fix Tracker drags it (re-triangulated on
+release, one undo step), and with Fix Tracker off the pane's context menu deletes it from every view.
+Add, move, and delete are one `SetCustomMarkerCommand` carrying whole before/after markers, so undo
+restores the 3D position without re-solving.
+
+**Calibration is named, not copied.** `pose-3d/calibration_ref.txt` lists the videos and one path to
+a `calibration.toml`, which is how a lab with one rig and many experiments keeps one calibration:
+the ref file is copied between experiment folders, the `.toml` stays where it is. When nothing is
+found, the user chooses Import (writes the ref file pointing at a `.toml` they pick) or Compute.
+
+**Compute fits the cameras from the session's own data.** anipose triangulated the 3D pose from each
+camera's 2D tracking, so the pairs to recover each camera are already on disk. A DLT gives the
+starting point and a robust least-squares fit refines a zero-skew pinhole, the model OpenCV (and so
+anipose) reads. On the reference session this reprojects at 4–7 px, and re-triangulating the 2D
+tracking with it lands within a median 0.5 (p90 1.4) of anipose's own 3D, in its units. **The
+intrinsics it writes are not physical**: a few centimetres of animal seen from tens of centimetres
+do not separate focal length from principal point, and a fitted distortion term only made the
+solution wander, so none is fitted. `metadata.fitted_by = "avialsync"` records this. An imported
+calibration keeps its full distortion model; fisheye is refused, not approximated.
+
+**Storage follows D-099.** The clicks are the authority, in a DLC-layout
+`<Camera>_eks.custom_markers.csv` beside each camera's 2D pose file; the triangulated result is
+derived, in an anipose-layout `_eks.custom_markers.csv` beside the 3D file. Both are written from the
+mutation funnel (`WindowMutationTarget.set_custom_marker`), never from store observers, and neither
+pose file is ever opened for writing.
+
+**One frame only, for now.** A marker exists on the frame it was placed on. Carrying markers across
+frames, with values between keyframes interpolated from the encoder, is the next step and is why the
+store is keyed by `(name, frame)` rather than by name.
+
+
+**Reprojection (3D → 2D).** The 3D pane's header carries a toggle bound to the `tracking.reprojection`
+overlay's own View-menu action (rule 15): on, every 3D point on screen -- anipose's and the
+hand-placed ones -- is projected into each camera through the calibration and drawn as a cross, a
+third glyph beside the dot and the ring. Switching it on without a calibration asks the same
+Import / Compute question as Add 3D Marker; declining switches it back off. Checked against the
+lab's real `calibration.toml`: it reprojects the anipose 3D onto the 2D tracking at 10.4 / 5.4 /
+4.7 px (Face / Front / Side) against the fit's 7.4 / 4.1 / 4.1, and triangulating Face+Front with
+each lands 0.69 vs 0.81 (median) from anipose's 3D -- while the fitted FaceCam sits three times too
+close with a third of the focal length. That is the depth/focal ambiguity stated above, measured:
+use a fitted file for projecting and triangulating, never for camera geometry. The real file also
+shows a side video split into two 540-px cameras (`SideCam`, `MirrorSideCam`); cameras are matched
+to videos by name, so the mirror half is simply not drawn.
+
+---
+
+## 2026-09 · D-113 · A running wheel is declared, fitted from a few clicked bars, and checked, never assumed
+
+**What.** Edit → Add Wheel… asks for a name, the number of bars on the whole wheel, the 3D units,
+an optional radius and the encoder channel; the user then clicks both ends of two or three
+neighbouring bars in every camera that sees them, on one frame. The rest of the wheel is generated
+from those clicks and drawn in every camera and the 3D view, turned from frame to frame by the
+encoder. It replaces the riding-the-wheel code that shipped with D-112, which treated *every*
+hand-placed marker as bolted to a wheel, took the axle from the least-spread direction of the
+marker cloud, the direction from marker names ending in `L`/`R`, and the encoder from a hardcoded
+`encoder_angle` among the plotted channels. D-112's "one frame only" is true again for markers.
+
+**The bar count is an input, because the radius is not measurable from neighbours.** Two or three
+neighbouring bars span a short arc: on a 10 cm wheel with bars 10° apart they bow ~1.5 mm off a
+straight line, about the click error, so a radius from their curvature is off by tens of percent.
+With the count N, the gap between neighbours gives `r = gap / (2 sin(π/N))`, which the same error
+moves by a few percent. On the synthetic rig (`tests/wheel_fixture.py`) three bars recover the
+radius within 1 % and reproject at 0.4 px. The old eigenvector axle fails exactly here: for three
+neighbouring bars the least spread is *radial*, not along the axle, and the wheel spins about the
+wrong axis.
+
+**The fit.** Each bar's two ends are triangulated; the axle is the mean of the bar directions (all
+parallel to it), the width their mean length; the centre is found in the plane across the axle with
+the radius from the gap (or the typed one). Two bars fit two mirrored wheels: both are refined, the
+better reprojection wins, and when the costs are within 1.5× the one farther from the cameras is
+taken — the bars a camera sees face it. Flip picks the other. The refinement is in **pixels**: one
+least-squares over pose, centre, radius and width so every generated end lands on its click in
+every camera (robust loss, 3 px scale). A bar clicked end-first the other way round is refused by
+name, since it would cancel the axle out of the mean. A typed radius is used only with declared
+units — anipose records none, and a radius in cm against a calibration in mm is a wheel a tenth the
+size — and the radius the clicks imply is reported beside it.
+
+**Turning.** `turn = sign · ratio · (angle(frame) − angle(reference frame))`, both read at the
+**presentation time of the frame on screen** (rule 6), through the encoder's **live** plot-row
+`TimeMap`, so re-aligning the encoder moves the wheel with it and the reference frame stays at zero.
+Without an encoder, or where it has no reading, the wheel is not drawn off its own frame rather than
+drawn somewhere invented.
+
+**The direction is measured, not assumed.** A click on any bar end, in one camera, on another frame
+is a check. Bars are identical, so a check fixes the turn only modulo one bar gap, and is
+*informative* only once the encoder has moved at least a gap. Two informative checks within a sixth
+of a gap, with the other sign clearly worse, set `measured`; until then the panel says "assumed".
+The ratio is typed (1 for an encoder on the axle) and a typed direction clears `measured`.
+
+**Seen as a model.** Bars are thin neutral lines — a shape nothing else on a frame uses (dots are
+tracking, rings are markers, crosses are reprojection; rule 17) — under the tracking, with bar 0
+ticked so a turn can be followed. Two layers: `tracking.wheel` (on) and `tracking.wheel_hidden`
+(bars behind the plate, off, faint — "hidden" is the model's estimate). A placement is dashed until
+Accepted, and drawn whatever the layers say, as Fix Tracker shows hidden points.
+
+**Where it is edited and kept.** The dialog is the first answer; afterwards the **sidebar's Wheels
+section is the only editor** (rule 15) — the 3D view shows a wheel and never edits one. Review is
+non-modal there (Accept / Flip / Undo Click / Go to Frame / Cancel). Accept, a re-fit, a check and a
+removal are each one `SetWheelCommand` carrying whole wheels. Each wheel is `pose-3d/<name>.wheel.toml`
+(D-099's rule: beside the data, written from the mutation funnel): the clicks are the authority; the
+geometry, fit report, binding and checks are stored so reading it back needs no calibration. A
+removed wheel keeps its file, marked `removed = true`. Generated bars are never written into
+`_eks.custom_markers.csv`.
+
+**The rig's semantics come from its plugin.** `SessionLayout.rotary` (`RotaryHint`) names the
+channel and, when `trial_config.yml` has `hardware: wheel_bar_count / wheel_radius /
+wheel_radius_units`, the wheel's numbers. It only pre-fills the dialog. The 3D units are declared
+per wheel rather than written into `calibration_ref.txt`, which labs edit by hand and which this
+feature should not rewrite.
+
+**Cost.** Fit with six bars and a typed radius: 9 ms; one frame's bars for three cameras: 0.26 ms;
+settling three checks: 10 ms (`tests/benchmarks/test_bench_wheel.py`). The fit runs on a click and
+stays on the UI thread, under the 30 ms ceiling. Bars are generated once per frame shown and cached
+by frame index; panes only project them; no file is read on the paint path.
+
+**Not done, deliberately.** A placed wheel's clicked ends are not draggable — Re-place clicks them
+again with the same settings and swaps the wheel in as one step. The ratio is not fitted: the
+modulo-one-gap aliasing makes a fitted ratio untrustworthy from a few checks.
+
+---
+
+## 2026-09 · D-114 · D-112 brought into line: no modal from a switch, nothing overwritten, the encoder's unit measured
+
+A review of the D-112 branch against AGENTS.md found these; each is now fixed and pinned by a test.
+
+**Reprojection never opens a dialog from a switch (rule 11).** Switching `tracking.reprojection`
+on without a calibration used to open the Import/Compute modal -- from the View-menu checkbox, from
+a pane's context menu, and from **Show All**, none of which asks for a dialog. Declining it then
+switched the overlay off from inside the toggle, recording an "off" before the outer "on" and
+leaving the undo history out of step with the state (rule 14). Now the switch is recorded once,
+the overlay stays on (it draws nothing without a calibration), and a notification offers "Choose
+Calibration…". The question itself is asked only for a gesture that needs a calibration: Add 3D
+Marker, Add Wheel, or that action.
+
+**Calibration failures go through the presenter (rule 12).** `CalibrationError` has its own
+presentation, and the controllers call `report_failure` with it; no exception text is shown as the
+message. `WheelFitError` (D-113) likewise.
+
+**Nothing in a data folder is overwritten.** Importing or fitting a calibration used to replace an
+existing `calibration_ref.txt` -- which labs edit by hand -- and a second fit replaced the first
+`calibration_fitted.toml`. Now an existing reference is renamed to `calibration_ref.<date>.txt`
+before the new one is written, and a fitted file takes the first unused name
+(`calibration_fitted.toml`, `-2`, `-3` …). A reference naming a Windows path (`C:/…`,
+`\\server\…`) is kept as written instead of being joined onto the local folder, so the broken
+link is reported by the name the lab wrote.
+
+**Markers never beside a raw video.** A camera without a 2D pose file had its markers written as
+`<video>.custom_markers.csv` in the recording folder. They now go to `pose-3d/<Camera>.custom_markers.csv`;
+a file the first build left beside a video is still read until the new one exists.
+
+**The encoder's velocity is rpm, measured.** D-112 relabelled `encoder_velocity` from `deg/s` to
+`rpm` with no record. Checked on the lab's 09-35-24 session (read only): over 60.9 s the unwrapped
+position changes 1157.6° while the velocity column integrates to 192.45, a ratio of 6.015; six
+10-second windows give 5.98–6.04. 1 rpm is 6 °/s, so the column is rpm and the old label was
+wrong by that factor. `encoder_angle` (the position unwrapped into cumulative degrees) is the
+channel a wheel is turned by (D-113).
+
+**Module size.** `custom_marker_controller.py` (783 lines) is split into
+`rig_paths.py` (the one frame-on-screen authority and the recording's paths),
+`calibration_controller.py` (resolve / import / fit / reproject) and the marker flow;
+`video_overlay.py` and `video_grid.py`, which D-112 pushed past 500, hand their marker,
+reprojection and wheel code to `marker_overlay.py` and `video_grid_overlays.py`. The encoder's
+`read_chunks` is split into line parsing and chunking, with the turn unwrap its own class.
+
+**The 3D pane stays one video column wide.** The reprojection button sat alone in the header's
+last column, whose width then set the pane's minimum; `test_tracking_pane_appears_once_a_source_has_triplets`
+had failed since D-112. It now spans the two columns the Bones and Fit View controls hold.
+
+**Tests the D-112 code shipped without**: `test_calibration.py`, `test_calibration_ref.py`,
+`test_custom_markers.py`, `test_calibration_worker.py` (synthetic rig; the fit reprojects within
+3 px of the cameras that made the tracking), `test_custom_marker_controller.py` (place, drag,
+delete, undo, files, adoption, and the no-modal guarantees), and the encoder's unit and unwrap in
+`test_aol_loaders.py`.
+
+---
+
+## 2026-09 · D-115 · Wheel placement collects complete bars across the calibrated views
+
+The Data Streams header exposes Add Wheel beside Add 3D Marker, through the same QAction as the
+Edit menu. It uses the existing calibration and camera-click workflow, then the D-113 wheel fit;
+clicked ends remain wheel evidence in the wheel file rather than separate custom-marker records.
+
+The guided input is both ends of two or three neighbouring bars. Each end advances only after a
+click in every calibrated camera, and Accept is available only after all chosen bars are complete.
+On a three-camera rig this means all three views for every end. The older Next End shortcut that
+allowed a partial set of views is removed from the review panel. Clicks are labelled rings painted
+above tracking so the user can check where each camera's evidence landed before accepting the fit.
+The fit, generated geometry, encoder binding, undo command, and wheel file remain D-113's.
+
+Availability refreshes when a video pane is actually created. Video probes finish out of order,
+and a later pane can be built from the queue after its probe callback has already run; refreshing
+only at probe completion left both marker and wheel buttons greyed out with three cameras visible.
+
+---
+
+## 2026-09 · D-116 · Wheel clicks are selectable evidence; missing views are projected, not filled
+
+D-115's requirement for every calibrated camera at every bar end made a missing or occluded view
+block the whole wheel, and the automatic sequence gave too little feedback about what the next
+click meant. The user may now select any of the six named endpoints in the Wheels panel, or use
+Next Point to work through one camera before the next. The selected point, its click count and the
+camera's state are visible while placing. A real click is a labelled ring.
+
+Two real camera clicks locate one endpoint in 3D. That point is projected into unclicked calibrated
+views as a dashed diamond labelled “projected”; clicking it makes a real observation. Projections
+are display estimates only: they do not enter `EndClick.views`, the fit, or the wheel file. One
+camera click cannot fix depth and produces no projected point. Accept needs both ends of at least
+two bars to have two real views each; a started third bar must meet the same rule. This replaces
+D-115's all-views gate while retaining its one-command Accept and D-113's fit.
+
+---
+
+## 2026-09 · D-117 · Wheel evidence travels with recordings; reusable setup lives in preferences
+
+A placed wheel, including its real camera clicks, fit, geometry and encoder binding, stays in
+`pose-3d/<name>.wheel.toml` (D-113). Clearing application preferences cannot erase that evidence.
+The reusable bar count, calibration units and optional measured radius live in the declared
+`wheel/*` QSettings preferences. Add Wheel offers one inline choice to remember a first setup or
+update an existing one; the dialog also offers Forget saved setup. A recording's `RotaryHint`
+takes precedence, and a wheel name and encoder source are chosen for each recording. Saved setup
+is labelled as reusable preferences rather than cache, because users may clear a cache at will.
+
+The wheel editor and review move from Sources into a scrollable Wheels inspector tab. Starting or
+re-placing a wheel selects that tab, so its point sequence and fit stay in view. Done Labelling
+saves the fitted wheel and exits click mode through the existing one-command Accept path;
+Discard Clicks exits without saving. The original Sources, Values, Messages and Changes tab
+indices are preserved so saved inspector positions remain meaningful.
+
+---
+
+## 2026-09 · D-118 · Dismissing recovery silences that work across launches
+
+D-105 kept a dismissed recovery snapshot as the only copy of unsaved work, but offered that same
+snapshot again at every launch. Dismiss now stores a fingerprint of its session path and state in
+the application data directory. `pending_recovery()` suppresses a snapshot with that fingerprint,
+even when another autosave writes the same state with a fresh timestamp. A different state is a new
+offer. The snapshot remains intact after Dismiss; Restore and Reset Session clear it. The generic
+notification strip accepts an optional dismissal callback and does not call it for the offered
+action, so Restore cannot accidentally mark its own snapshot as declined. This changes D-105's
+repeat-offer behavior while keeping its data-preservation rule.
+
+---
+
+## 2026-09 · D-119 · Two complete bars are enough to finish wheel labelling
+
+Done Labelling becomes available once both ends of bars 1 and 2 have real clicks in two calibrated
+cameras each and the fit succeeds. The third bar improves a fit when complete; starting it no
+longer blocks finishing. Its partial real clicks remain in the wheel file as observations, while
+`fit_wheel` uses only bars with both triangulated endpoints. Projected points stay display-only.
+This supersedes D-116's requirement to finish or undo a started third bar. The review explicitly
+states when an incomplete third bar is excluded from the fit.
+
+---
+
+## 2026-09 · D-120 · Wheel placement targets use displayed pixels
+
+Wheel click coordinates remain in source-video pixels for fitting and file evidence. The target
+for confirming a projected endpoint is eight displayed pixels across zoom levels: the controller
+uses the pane's current frame transform to convert that radius back to source pixels. A fixed
+source-pixel tolerance made the visible diamond hard to hit when several cameras were squeezed
+into narrow panes. The placement cue is elided to the pane width so it does not disappear past
+the edge; the full instruction remains in the Wheels tab.
+
+---
+
+## 2026-09 · D-121 · An inconsistent fit never becomes visible wheel geometry
+
+A numerically solved fit is not necessarily a credible wheel. A reported placement had a width
+many times its radius, large reprojection errors, and nonadjacent fitted slots; the UI saved and
+drew its dense generated bars as a long barrel. `core/wheel.py::fit_issue` now
+checks the fit against its own clicked evidence: bars declared adjacent must map to adjacent slots,
+and median reprojection error must stay within the larger of 8 source pixels or 5% of the clicked
+bar's median image length. The ratio adapts to video resolution; the floor allows ordinary click
+noise on a short distant bar. The same check governs review, Done Labelling, video and 3D drawing,
+and encoder verification. Existing wheel files and their clicks remain intact, but unreliable
+geometry is hidden and the Wheels tab explains how to Re-place it. This prevents a misleading
+model from being presented as accepted evidence while preserving the observations for correction.
+
+---
+
+## 2026-09 · D-122 · Done Labelling is live from bar 2's last point; bad fits are saved hidden
+
+Done Labelling becomes available as soon as both ends of bars 1 and 2 have real clicks in two
+calibrated cameras each and any fit exists. It stays available through an optional third bar.
+D-121's quality check no longer gates it. When `fit_issue` rejects the fit, Done Labelling still
+saves the wheel: its clicks go to the wheel file and its geometry stays hidden in video and 3D.
+Verify stays disabled, and a notification offers Re-place. The alternative was a greyed-out
+button whose only escape was Discard Clicks, which destroys the user's labelling. That is the
+refusal rule 10 forbids, and it loses evidence D-113 treats as the authority. D-121 still decides
+what is drawn and verified; it no longer decides what may be kept.
+
+A third bar can only help. `wheel_placement.fit_labelled` fits every bar whose ends are located.
+If that fit fails, for example because bar 3's ends were clicked in the opposite order, it
+fits bars 1 and 2 alone. It does the same when the fit fails `fit_issue` while bars 1 and 2 alone
+pass, for example because bar 3 was stepped over. The review says bar 3 was left out and why.
+Bar 3's clicks stay in the wheel file as observations, and re-fitting a placed wheel uses the
+same rule. The placement state and review text moved to `ui/controllers/wheel_placement.py`, and
+placed-wheel edits to `ui/controllers/wheel_edits.py`. That keeps each module under the
+AGENTS.md size limits.
+
+Generating the wheel is announced, not a separate step. The fit already runs after every click,
+in 10 to 20 ms, and draws the dashed preview. A Generate button would add a step without adding
+information, and a progress dialog for 20 ms of work is the modal rule 11 bans. The notification
+strip instead says when the first wheel is generated and when the preview becomes hidden. It
+says each change once, not on every click.
+
+---
+
+## 2026-09 · D-123 · The clicks decide the wheel, and it is always drawn
+
+A reported wheel was saved and then drawn nowhere. The Wheels tab said "Geometry hidden: the
+clicked bars do not form neighbouring slots", with a 12.5 cm radius, a 111.1 cm width and a
+139 px worst click. Three choices combined to cause this, and each is reversed here.
+
+**Clicked bars are neighbours in click order.** `_slots` rounded each bar's own angle to a slot.
+A typed radius in the wrong units, here cm against a calibration in mm, shrank the slot pitch
+tenfold and put bars clicked side by side about ten slots apart. The user was asked to click
+neighbours, so that is now taken as given; only the direction round the wheel comes from the
+geometry. A skipped bar shows as a large worst-click error instead of an invisible wheel.
+`WheelFit.skipped` and `fit_issue`'s `bars_not_neighbours` remain for wheel files written before.
+
+**A typed radius that contradicts the clicks gives way to them.** `fit_labelled` tries the clicks'
+own radius when the typed one yields no plausible fit. The review names both radii, and says so
+when they are about 10×, 100× or 1000× apart, the signature of wrong 3D units. D-113's typed
+radius still wins whenever it fits.
+
+**The wheel is always drawn, however poor.** D-121 hid geometry `fit_issue` doubted, in the video,
+in 3D and in Verify. The user could not see what their clicks had produced, so could not judge
+or correct it. `fit_issue` now only words the warning ("Poor fit. …") and the Re-place offer.
+
+The extra attempts took a fit to 55 ms, past rule 3's 30 ms. Fitting therefore moved to
+`engine/wheel_fit_worker.py`, started through `MainWindow._run_job` like any job. That registers
+it in the status bar and Tasks panel. One fit runs at a time, and a click during it is fitted
+when it returns. The Wheels tab shows "Generating wheel…", and Done Labelling waits for the fit
+of the latest clicks. There is no Generate button, and no progress popup: rule 11 bans the
+popup, and 50 ms of work needs no bar. A mirrored candidate that starts at least 50× worse than
+the best is refined only for Flip. Measured, genuine mirrors start within 2× of each other and
+hopeless ones 200× to 13000× apart. That keeps the six-bar fit at its old 9.5 ms.
+
+---
+
+## 2026-09 · D-124 · A wheel's encoder latency is the encoder's own offset
+
+Users see a constant delay of about 0.12 s between the encoder and the cameras. The wheel's row
+in the Wheels tab now has an **Encoder offset** field. It is not a wheel-only latency: it edits
+the encoder source's own offset, the one its Sources row shows, through the same
+`set_sensor_mapping` and `_on_sensor_mapping_changed` path, so it is undoable. A delay kept on
+the wheel would give one source two timings (rule 1): the wheel would turn at one time while the
+encoder's plots showed another. With the shared offset they cannot disagree, and the wheel
+already reads the encoder through its live `TimeMap` (D-113). A change made in either place
+shows in both.
+
+The Wheels tab also carries **Wheel model** and **Wheel bars out of sight** check boxes. They
+are `ActionCheckBox`es on View → Overlays' own actions, a second way to reach one switch, not a
+second switch (rules 13 and 15). For followers to hear an undo, `_apply_overlay_state` no longer
+blocks those actions' signals. The resulting echo reaches `_on_overlay_toggled`, which ignores a
+state already held, so nothing is recorded twice. The same change fixes the 3D pane's
+reprojection button, which used to keep its old state after an undo.
+
+View → **Fit All Videos** (`Ctrl+Shift+0`, plus a Data Streams header button) sets every camera
+back to 1.00× with no pan, as each pane's own reset does. The plots' **Fit all** is unchanged:
+it fits their Y range, and the two are named differently so they cannot be mistaken.
+
+---
+
+## 2026-09 · D-125 · A reopened session's wheel draws on every camera
+
+Wheels and markers read back from disk are drawn through the calibration, and
+`calibration_quietly` loaded it only when a wheel or marker file was read. On reopening, the
+camera panes arrive one at a time. If fewer than two were open at that moment, no calibration
+loaded. If two were, it covered only those two and then returned early for good, so the third
+camera never drew the wheel, even with View → Overlays → Wheel model checked. Two changes fix
+it. Each time a camera pane is added while wheels or markers exist, the quiet load is retried
+and both are redrawn. A calibration that covers fewer cameras than are now open is re-read
+for them, keeping the same calibration file.
+
+---
+
+## 2026-09 · D-126 · Controls sit under what they act on
+
+The Data Streams header had become the place every button went. It held Flag Frame, Fix
+Tracker, Add 3D Marker, Add Wheel, Snapshot, Fit All Videos, Fullscreen Toggle and Reset Zoom,
+beside the lanes' own Hide, far from the videos and plots those buttons act on. Controls are now
+grouped under their subject, top to bottom:
+
+* **Videos**, then `ui/view_toolbar.py`: Flag Frame (it marks the frame on screen), Fix Tracker,
+  Add 3D Marker, Add Wheel…, Snapshot, Fit All Videos and Fullscreen Toggle. The toolbar spans the
+  video column only, beside the 3D view, whose header is taller. The row therefore costs no
+  height, keeping the 640×480 guarantee (`test_ui_layout_resize.py`).
+* **Plots**, then their controls row (Live, Fit all, Rows, Reset) and the time span. The plots'
+  controls moved from above the rows to below them.
+* **Data Streams lanes**, then Hide and the status line.
+* **Play controls.**
+
+The Data Streams "Reset Zoom" was a twin of the plots' own Reset: the same command under a second
+label (rule 15). It is removed rather than moved. Snapshot and Fullscreen keep their plain
+buttons; making them `ActionButton`s would rename them to their menu entries' longer labels.
+This supersedes where D-027, D-112 and D-113 put the placement buttons, not what they do.
+
+---
+
+## 2026-09 · D-127 · An empty window belongs to the drop target
+
+At first launch, a restored layout could give most of the height to an empty plot area and
+empty Data Streams lanes, squeezing "Drop recordings here" into a scrolling band above them. While
+nothing is loaded, `_apply_empty_layout` pins both placeholders to their minimum through the
+proportion store, which enforces each pane's minimum on any platform's fonts. The ratios held
+before, restored from settings, come back with the first recording. `save_geometry` does not
+save the vertical and content splitters in this state, so the empty arrangement never replaces
+the user's own.
+
+---
+
+## 2026-09 · D-128 · A wheel's bar diameter is set by eye and drawn at its projected width
+
+The clicks are on bar centre lines, so they cannot measure how thick a bar is. The user sets it
+instead: each placed wheel's row has a **Bar diameter** slider, from 0 to the gap between bar
+centres, beyond which bars would overlap. The slider sits beside a number in the 3D units. Every
+camera draws each bar as a translucent band as wide as its diameter projects there. That width
+is `core/wheel.py::bar_widths`, the offset perpendicular to both the bar and the ray to it, which
+the tests check against the projected cylinder's silhouette. The 3D view draws the same band at
+its own scale. Sliding until the band matches the real bars reads off their diameter.
+
+`Wheel.bar_diameter` is display-only: fitting ignores it, it is kept across Re-place, and it is
+saved in the wheel file, where a missing value reads as not set. Dragging follows Fix Tracker's
+pattern. The window draws a preview (`_wheel_diameter_preview`) without recording anything, so
+a drag is neither dozens of undo steps nor a file write per pixel. Releasing or typing commits
+one `SetWheelCommand`, and `merge_with` joins a run of diameter-only steps (held arrow keys)
+into one undo step.
+
+---
+
+## 2026-09 · D-129 · Bar cylinders in 3D only; the camera views keep plain lines
+
+D-128 drew a translucent band of the projected diameter over every camera, and a flat thick
+stroke in the 3D view. The user asked for plain bar lines on the videos, where the footage itself
+shows the bars, and the flat stroke read as a strip, not a bar. The camera views are back to
+D-113's thin lines, and `bar_widths` went with the band, since nothing else used it. In the 3D
+view, `ui/cylinder_paint.py` draws each bar as a cylinder. In the orthographic view its outline
+is a band exactly one diameter wide, shaded dark at the edges and light down the middle, and
+closed by end faces drawn as ellipses whose short axis is the diameter times how far the bar
+points toward the viewer. Bars are painted back to front, so a nearer bar covers a farther one.
+The bar diameter, its slider and its storage are unchanged from D-128.
+
+---
+
+## 2026-09 · D-130 · A typed bar diameter is a real length, scaled by the wheel itself
+
+With a measured radius of 12.5 cm and a fitted radius of 172.9 calibration units, a 3 mm bar typed
+as 0.3 drew 14 times too thin. D-128 took the diameter in calibration units, and D-123 builds the
+wheel from the radius the clicks imply whenever a typed one contradicts them. The user had to
+type calibration-space numbers, which looked "much too high" against a ruler.
+
+The two radii are the same length in two unit systems, so their ratio converts any length the
+user types. `Wheel.world_per_unit` (fitted ÷ measured radius; 1 with no measured radius) scales
+the stored `bar_diameter`, which is now in the measured radius's units, into the space the wheel
+is drawn in. The slider's range is the bar spacing in those units, the box shows four
+significant figures, and the fit report names the ratio ("1 cm = 13.8 calibration units"). A
+diameter saved under D-128 was in calibration units and must be set again. When the measured
+radius was used in the fit, the ratio is 1 and nothing changes.
+
+---
+
+## 2026-09 · D-131 · The wheel reads the encoder through the plot's own reader
+
+The wheel took the encoder source's live `TimeMap` from its plot rows but opened a second
+`PyramidReader` on the same cache and took the *nearest* sample. The Values tab takes the last
+sample at or before the time. The two paths agreed to within one sample, but they were two
+authorities for one number (rule 15). When a user asked whether the wheel used the values the
+plots show, the answer was "almost". `wheel_display.sample` now finds the plot row for the bound
+channel and calls its `MappedChannelReader.sample_at`, exactly as the Values tab does. A test
+checks it against ground truth: an encoder at 36°/s, offset 0.12 s through the Sources path,
+reads 36 × (t + 0.12) and equals the plotted value.
+
+The rest of the chain was audited at the same time and holds. A frame number becomes a time
+through one reference camera for placing, drawing and the zero reference. `bar_ends` turns by
+the angle in degrees. The turn is sign × ratio × (reading now − reading on the labelled frame).
+Its one unstated assumption, that the encoder channel is an angle in degrees, is what Ratio
+exists to correct.
+
+---
+
+## 2026-09 · D-132 · Pose roles are generic; recording plugins supply their own assignments
+
+A tracking file's coordinate columns say what it can carry, but not whether it is the 3D pose,
+a camera's 2D overlay, or data to plot. `TimeSeriesSource.pose_roles()` declares which pose
+uses a loader supports. Direct imports offer those uses in the import review; 2D requires a
+named video. The selected `role` and `overlay_video` travel in import config and are replayed
+on session restore. A recording plugin may declare them in its `SessionItem.config`, as AOL
+already does. AOL retains its own file detection, camera pairing and wheel hints. A declared
+pose without complete coordinate groups falls back to plotted channels with a warning.
+
+Wheel files belong to the recording, not to the presence of a tracking source. Opening a video
+also discovers saved wheels in the recording's `pose-3d/` directory through a registered worker;
+the nearest shared parent of open cameras names that folder for generic recordings. Existing
+in-memory wheels take precedence over a read that finishes later. Placing a new wheel still
+requires calibrated camera views and the user's clicks; tracking is optional.
+
+---
+
+## 2026-09 · D-133 · The recovery snapshot is unconditional; the launch-time offer is a preference
+
+**Context:** D-105 completed the launch bar D-089 specified, and the bar then appeared at nearly
+every launch. That is not a bug in the rule: `write_recovery` runs on every quit, and a dismissal is
+remembered per snapshot *content* (D-118), so work that changed since the last dismissal is
+correctly new work and correctly a new offer. For anyone who habitually works without saving —
+which is the user this whole feature exists for — the result is a sticky notification to clear by
+hand at the start of every session, in the one strip that also carries failures. A strip that has to
+be cleared before it can be read is the surface D-107 built, worn down.
+
+**Decision:** the snapshot stays unconditional. The *bar* is a declared preference,
+`storage/offer_recovery_at_launch`, **default off**, and the snapshot is reachable at any time from
+**File → Recover Unsaved Work…**, which greys out with its reason when there is nothing to recover.
+`MainWindow.__init__` still reads the snapshot on every launch and holds it in `_pending_recovery`;
+what the preference gates is only whether a message is posted. So the preference trades
+discoverability, not protection, and its help text says exactly that — the dialog renders help text
+as both the tooltip and an inline note, so there is nowhere for the distinction to hide.
+
+The dead switch it replaces is the other half of the decision. `storage/keep_recovery` shipped with
+WP-7 and no reader in `src/`, so a user could turn off the safety net and lose nothing but their
+confidence in the dialog; worse, honouring it as labelled would have contradicted D-089's
+"written unconditionally". A preference that cannot be honoured is removed, not implemented.
+
+**Alternatives rejected:** remembering the dismissal per *session* rather than per snapshot content
+(it silences genuinely new unsaved work, which is the one thing the fingerprint exists to avoid);
+making the bar transient so it self-clears (it is the only in-session route back to the work, and
+D-107 made sticky-vs-transient a statement about whether a message can be missed); gating the
+snapshot write instead of the message (the user asked to be un-notified, not unprotected, and
+D-089 forbids it); leaving the bar mandatory and the snapshot unreachable from a menu (that is the
+status quo, and it is why the preference was wanted).
+
+**Consequences:** `MainWindow` holds `_pending_recovery`, read once at launch rather than re-read
+by the File command's precondition — preconditions are re-answered on every source change and every
+menu that opens, and file IO does not belong on those events (rule 3). Every
+`recovery.clear_recovery()` in `session_controller` is now followed by `forget_pending_recovery`, or
+the held offer would outlive its file and put pre-reset work back over a workspace the user emptied
+on purpose. `tests/test_hot_exit.py` turns the preference on for every assertion about the strip and
+covers the quiet launch, the File command, and that a reset stops it offering.
+
+---
+
+## 2026-09 · D-134 · A success never queues behind another success
+
+**Context:** dropping three tracking files posted three "Imported <name>" lines. The strip shows one
+message and queues the rest (D-107), and each success waits out the six-second timer of the one
+before it, so a routine three-file import held the notification strip for eighteen seconds, showed
+"+2 more", and offered a Dismiss button for work that had already finished and was already listed
+in the sidebar. The queue exists so an unread *failure* cannot be evicted. Applying it to successes
+turned the one surface that must be worth reading into a surface that has to be cleared.
+
+**Decision:** only the newest success is kept. A success posted while another success is showing
+replaces it; a success posted while a failure holds the strip waits, but it replaces any success
+already waiting. Failures and offers are untouched — rule 1 still forbids displacing them, and no
+sticky message is ever dropped for another.
+
+**Alternatives rejected:** coalescing into "Imported 3 files" (it needs the strip to know which
+messages are the same *kind*, which is a second authority on message identity beside `same_as`);
+shortening the timer (it makes every success harder to read to fix a problem only bursts have);
+dropping import successes entirely (the feedback surface is the contract that long work reports
+somewhere, and the Tasks panel is not where a user looks for a result).
+
+**Consequences:** `NotificationStrip._forget_queued_successes` runs when a transient message is
+queued behind a sticky one. `tests/test_feedback_surface.py` covers the burst, the burst behind a
+failure, and that two failures with a success between them still both arrive.
+
+---
+
+## 2026-09 · D-135 · Preferences stays in the File menu on every platform
+
+**Context:** D-022.3 required a Preferences action to carry `PreferencesRole`, and it did. On macOS
+that role moves the item out of the File menu and into the *application* menu — which is named
+after the running process. AvialSync is a Python application people start from a conda env or a
+terminal, so the application menu reads "python", while the File menu, the command palette, the
+user guide and this repository's own documentation all say File → Preferences…. The result is a
+settings dialog the user cannot find in the menu it is documented to be in.
+
+**Decision:** the Preferences action carries `MenuRole.NoRole` and lives in the File menu on all
+three platforms, keeping `StandardKey.Preferences` (Cmd+, / Ctrl+,). Quit and About keep `QuitRole`
+and `AboutRole`: those two are in the application menu on macOS whatever it is called, they are
+where a Mac user's hand goes, and `QuitRole` is a notarization requirement (D-022.3).
+
+**Alternatives rejected:** renaming the application menu (on macOS it comes from the bundle, so it
+is right in a packaged `.app` and unreachable from a `pip install`, which is the case that fails);
+duplicating the item in both menus (two actions for one command, which rule 15 forbids); branching
+on whether the process is bundled (a platform branch whose behaviour the documentation then cannot
+state in one sentence).
+
+**Consequences:** `tests/test_interaction_standard.py` asserts the item is in the File menu, that
+its role is `NoRole`, and that Quit and About keep theirs. This supersedes the Preferences half of
+D-022.3, whose original line deferred the question because no settings dialog existed yet.
+
+---
+
+## 2026-09 · D-136 · A pose point is named for its individual as well as its body part
+
+**Context:** the tracking loader recognised only the three-row DeepLabCut header
+(`scorer` / `bodyparts` / `coords`). A multi-animal export inserts `individuals` as row two, so
+`can_open` scored it 0.0 and a maDLC CSV dropped onto AvialSync fell through to the generic CSV
+loader as anonymous columns — no overlay, no pose role. The header shape was also assumed in two
+further places that read the same file: `core/pose_export.py` skipped exactly three rows and
+indexed columns by body part, and `engine/calibration_worker.py` did the same.
+
+Indexing by body part is the part that silently corrupts. A maDLC file repeats `snout` once per
+animal, so a `(part, coord) -> column` map keeps whichever animal came last. A correction made on
+`conSpecific` would have been written into `testMouse`'s columns, in a file that reads as valid
+DLC output and says nothing about what happened.
+
+**Decision:** `core/pose_header.py` is the one place that parses a pose CSV's header block. It
+reports how many rows the header occupies and, per column, `(point, coord)` — where *point* is
+`individual_bodypart` for a multi-animal file and the bare body part for a single-animal one. The
+loader names its channels from it, the corrected-copy exporter indexes its columns from it, and the
+calibration reader names its 2D points from it, so a correction keyed by point name lands in the
+columns that point was read from. DLC's reserved `single` individual (arena corners and other
+unique parts) is prefixed like any other: one rule that always holds beats a shorter name in one
+case.
+
+**Alternatives rejected:** keeping the bare body-part name and carrying the individual beside it
+(two identities for one point, and every consumer has to thread the second one through —
+`OverlayTrack.points`, `PointKey.point`, the corrected-copy index); flattening only when a name
+collides (the naming then depends on which animals a session happens to contain, so a saved
+correction stops matching when a file gains an individual); a separate multi-animal loader
+(`can_open` would have to arbitrate between two loaders for one format, and the export and
+calibration readers would still have been wrong).
+
+**Consequences:** channel and overlay point names for multi-animal files are
+`testMouse_snout_x`, not `snout_x`. `tests/test_pose_header.py` covers both header shapes, the
+repeated-body-part case and the non-pose file; `tests/test_loaders_tracking.py` and
+`tests/test_pose_export.py` cover the loader and the corrected copy end of it. A pose CSV that is
+not one of the two shapes is now refused by `TrackingLoader.open` with a `SourceOpenError` naming
+what it found, rather than mis-parsed.
+
+---
+
+## 2026-09 · D-137 · A tracking file's frame rate comes from its camera, never from a dialog
+
+**Context:** D-019 resolved the frame rate of a frame-indexed source by asking. One video loaded →
+a "Confirm Frame Rate" box pre-filled from it; several → a dropdown of filenames; none → type a
+nominal rate. Three modal prompts in front of a drag-and-drop, for a number the application
+already holds — and the one-video box *discarded what the user typed*: it read
+`_, ok = QInputDialog.getDouble(...)` and returned the pre-filled rate whatever the field said.
+
+The rate was also the container's claim, `stream.base_rate`. D-072 already records that this is a
+claim VFR media contradicts. Measured on a real 10-minute maDLC recording (18037 frames, VFR
+19.2–32.3 fps): placing the tracking at the assumed 30.0 puts its last row 0.762 s before the
+frame it belongs to, and at the container's nominal 29.970 still 0.161 s before it. At the
+measured 29.962 the error is zero.
+
+**Decision:** nothing asks. `import_controller.frame_rate_for_tracking` derives `(fps,
+provisional)` from the loaded cameras: the camera the import review already declared this pose
+file overlays, else the single loaded camera, else several that agree. Cameras that disagree with
+nothing naming one, or no camera at all, place the source at an assumed 30 fps and return
+`provisional=True` — which sets `fps_provisional` on the import and raises the existing "Frame
+rate assumed, not read" badge. Each pending source resolves its own rate when a camera loads, so
+one waiting on a camera that has not arrived keeps waiting instead of being dated by somebody
+else's video. `window._video_fps` now holds the **measured** rate; `VideoMetadata.nominal_fps`
+remains the container's claim for readouts that mean the claim.
+
+Exactness beyond a rate is unchanged and is what `calibrate_overlay_timing` is for: it recovers
+each row's frame index and pins it to that frame's measured presentation time, which is the only
+thing that is correct for VFR. The rate's job is to make that index recoverable and to place the
+source before a camera is known.
+
+**Alternatives rejected:** keeping a pre-filled confirmation (it asks the user to read a number
+off the video and type it back, and D-107 already rejects a modal that reports what the
+application knows); refusing the import until a video is loaded (rule 10 — never block, always
+inform; the provisional path and its badge exist precisely for this); guessing the first camera
+silently when several disagree (a wrong camera's rate is indistinguishable from a right one once
+the dialog is gone, so the guess has to be flagged); feeding the video's frame times to the loader
+instead of a rate (it would make `calibrate_overlay_timing`'s index recovery fail, replacing one
+authority over overlay timing with two).
+
+**Consequences:** supersedes D-019's resolution order; `MainWindow._resolve_tracking_fps` is gone
+and `_rebind_frame_indexed_sources` takes no rate. `tests/test_frame_indexed.py` covers each
+branch, including that a declared camera outranks every other and that the wrong camera never
+rebinds a source waiting for its own.
+
+---
+
+## 2026-09 · D-138 · An overlay layer's default is the registry's, and nobody else's
+
+**Context:** `PaintCanvas.__init__` set `_points_visible`, `_point_labels_visible`,
+`_corrections_visible` and `_show_legend` to literal `True`. The registry declares
+`tracking.point_labels` as `default_visible=False` (D-090). Two authorities for one default, and
+they disagreed on exactly that layer.
+
+The disagreement was reachable because `VideoGrid.apply_overlays_to` — the call a newly built pane
+goes through — returns early while `_overlay_resolver` is unset, and the resolver was only
+installed by `_apply_overlay_state`, which ran on a toggle, on clearing a per-camera override, or
+on a session restore. A fresh session that did none of those built its first camera with the
+canvas's own literals. The menu showed "Body-part names" unchecked while the pane drew them, and
+the first click on that checkbox then set the state to the value already on screen — a toggle that
+visibly did nothing.
+
+**Decision:** `overlay_registry.default_visible_for(overlay_id)` is the one answer, and
+`PaintCanvas` seeds every layer flag from it rather than from literals. `MainWindow` installs the
+resolver at the end of `_build_overlays_menu`, so `apply_overlays_to` works for the first pane of
+a session that has toggled nothing.
+
+**Alternatives rejected:** correcting the canvas literals to match the registry (it leaves two
+places to change and the next layer drifts the same way — rule 15 is about the second authority,
+not about its current value); having the pane read the registry itself (a pane must not resolve
+per-camera overrides; that is the window's job, which is why `apply_overlay_visibility` takes a
+resolved map); calling `_apply_overlay_state` from pane construction instead (it would push every
+pane's state on every pane build, for a problem that is about the resolver being absent once).
+
+**Consequences:** body-part names are off until asked for, on a fresh session as well as a
+restored one, and the checkbox now agrees with the pixels on the first click.
+`tests/test_overlay_registry.py` covers the canvas seeding, `default_visible_for` over every
+registered layer, and that a pane built before any toggle still receives the resolved state.
+
+---
+
+## 2026-09 · D-139 · A DeepLabCut sidecar is not a camera, and a loose point still has a name
+
+**Context:** dropping a DeepLabCut output folder opened a third video pane for
+`..._full.pickle`. `_NOT_VIDEO_SUFFIXES` listed `.pkl` and not `.pickle`, which is the spelling
+DLC actually writes, so the file fell through to the probe; FFmpeg's deliberately permissive
+detection reported a four-frame 25 fps stream, the pane opened, and every decode raised
+`InvalidDataError` after the probe had blocked the UI thread for 2.8 s. The same folder also holds
+`_meta.pickle`, `_assemblies.pickle` and `_el.pickle`.
+
+Separately: a pose file imported as plain data channels reaches the overlay through
+`PaintCanvas.set_readers`, not as a named track. `_draw_loose_readers` drew a coloured dot and no
+text at all, and consulted no layer, so "Body-part names" did nothing for it. That is the case
+where the names matter most — nothing else on screen says what the dots are — and it reads as the
+switch being broken rather than as the file having come in the wrong way.
+
+**Decision:** `.pickle` joins `.pkl` in `_NOT_VIDEO_SUFFIXES`. `_draw_loose_readers` names each
+point through `_draw_point_label`, gated on the same `tracking.point_labels` flag as
+`_draw_track`, so one switch governs every named point the overlay draws.
+
+**Alternatives rejected:** dropping the probe fallback (it is what lets an unlisted container
+still open, which D-075 wanted); having the probe reject short streams by frame count (a genuine
+four-frame clip exists, and the rule would be about length rather than about the file being a
+pickle); leaving the loose path unnamed and relying on the user importing as a pose instead (the
+overlay would keep drawing points that no registered layer can name, which rule 13 forbids).
+
+**Consequences:** a DLC folder drop no longer offers its pickles as cameras.
+`tests/test_loaders_video.py` covers the exclusion and the DLC sidecar set;
+`tests/test_video_pane_timing.py` covers loose-reader naming in both switch positions. Still open
+and deliberately not changed here: `VideoGrid.set_tracking_readers` broadcasts loose readers to
+**every** camera, so a pose file imported as channels draws its dots over all of them — correct
+routing needs the pose role, which is the import-review choice this does not replace.
+
+---
+
+## 2026-09 · D-140 · One pose schema, declared by the loader
+
+**Context:** a pose source's structure is destroyed at the loader boundary and guessed back
+downstream. `TimeSeriesSource` speaks flat channels — `ChannelInfo(name, unit, dtype, rate_hz)` —
+which is the right contract for a voltage trace and the wrong one for a tracked point. It carries
+no individual, no body part, no axis, no likelihood, no distinction between a coordinate and a
+derived column, and no statement of whether the file is 2D or 3D. Each consumer recovers what it
+needs by splitting `_x` off a channel name.
+
+Nine call sites across seven files do that today: `ui/video_overlay.py` (loose readers),
+`ui/tracking_3d_pane.py`, `ui/controllers/import_controller.py` (twice — `_has_pose_coordinates`
+and `register_tracking_source`), `core/custom_markers.py`, `engine/calibration_worker.py`,
+`loaders/aol_eks_loader.py` (twice) and `loaders/aol_session_loader.py`. Four files additionally
+re-open a pose file to re-read its header: the tracking loader, the calibration worker, the
+corrected-copy exporter and the EKS loader.
+
+Three shipped defects came from exactly that duplication, which is the argument for fixing the
+cause rather than each instance:
+
+- D-136: multi-animal support had to change three files, because the loader, the corrected-copy
+  exporter and the calibration reader each independently keyed a point by body part, and each
+  independently collapsed two animals that share `snout` into one.
+- `AOLEksLoader.can_open` decides whether a file is 3D by counting columns ending `_x`/`_y`/`_z`
+  and testing the count against `% 3 == 0`, without checking that any body part holds all three.
+  A flat 2D file with three body parts is therefore claimed as 3D tracking and one with two is
+  not — a classification that depends on how many points the user happened to track.
+- `ui/tracking_skeleton.py` exists solely to "map declared body-part names onto the point names the
+  cache holds". It is a whole module standing in for the identity the loader could have stated.
+
+**Decision (proposed):** a headless `core/pose.py` holds the shape, and the loader declares it.
+
+```python
+@dataclass(frozen=True)
+class PosePoint:
+    individual: str  # "" for a format with no individuals
+    bodypart: str
+    axes: tuple[str, ...]  # ("x", "y") or ("x", "y", "z")
+    has_likelihood: bool
+
+    @property
+    def name(self) -> str: ...  # the one place a canonical name is decided
+
+
+@dataclass(frozen=True)
+class PoseSchema:
+    points: tuple[PosePoint, ...]
+    frame_indexed: bool
+    derived: tuple[str, ...]  # x_ens_var, nll, zscore — declared, never guessed
+```
+
+`TimeSeriesSource` gains `pose_schema() -> PoseSchema | None`, defaulting to `None` — the same
+shape of pre-freeze addition D-019 made for `is_frame_indexed()`. A schema is the answer to every
+question the nine sites currently ask a string:
+
+- a schema carrying `z` *is* a 3D pose, which retires `pose_roles()` and the `% 3` count;
+- `derived` replaces the `coords` config key, which exists for this purpose and which only
+  `aol_session_loader` ever passes — a drag-and-dropped EKS file imports all eleven columns per
+  body part and pyramids each one;
+- `pose_export` and `calibration_worker` take the schema from the loader instead of re-parsing the
+  file, so `core/pose_header.py` becomes an implementation detail of the CSV loaders rather than a
+  contract three subsystems share;
+- a new format — SLEAP, DeepLabCut `.h5`, NWB — is one loader emitting the same schema, and no
+  consumer changes. That is the whole point: at the far end, every tracking source looks the same.
+
+**The constraint that decides the timing.** `PointKey.point` is persisted. It is written into the
+`.avialfix.csv` corrections sidecar beside each pose file and into the session (D-099). A canonical
+point name is a stored identifier, not a display string, so naming it is a one-time freeze:
+anything renamed afterwards orphans every correction made before it.
+
+This is therefore cheapest now. D-136's rename affects multi-animal files only, and those could not
+be loaded at all before D-136, so no correction can exist against the old names. Single-animal
+DeepLabCut and Lightning Pose names are unchanged by it. Adopted before the first multi-animal
+session is corrected, the migration is free; adopted after, it needs one.
+
+**Alternatives rejected:** fixing each of the nine sites in place (it leaves nine authorities and
+the tenth consumer repeats the bug — rule 15 is about the second authority existing, not about its
+current value); putting the structure in `ChannelInfo` (it would carry pose fields through every
+ephys and video channel that has no use for them); having consumers call `core/pose_header.py`
+directly (it is CSV-shaped, so SLEAP `.h5` or NWB could not satisfy it, and the header would still
+be re-read per consumer); keeping `pose_roles()` as the user's declaration (a role says what this
+recording *means*, which is a real question, but 2D-vs-3D is a property of the file and the loader
+can simply state it).
+
+**Adopted and implemented.** `core/pose.py` holds `PosePoint`, `PoseSchema`, `canonical_name` and
+`split_channel`. `TimeSeriesSource.pose_schema()` defaults to `None`; `TrackingLoader` and
+`AOLEksLoader` implement it, and they are the only loaders that declare `pose_roles`. The schema
+rides on `SourceInspection`, which the import manifest already persists, so a cache hit -- where
+the loader is never opened -- still knows what its channels mean.
+
+**There is no compatibility path, by decision.** A pose source that declares no schema is not
+routed as a pose: `register_tracking_source` logs and declines rather than falling back to
+splitting channel names, and `_has_pose_coordinates` answers from the schema alone. The import
+cache version is 5, so any sidecar written before this is re-imported rather than served with a
+shape nothing can interpret. This is affordable exactly once -- there is no user base, and no
+`.avialfix.csv` can exist against the old names -- and that window is the reason it was done now
+rather than behind a migration.
+
+Three behaviours changed with it:
+
+- A Lightning Pose / EKS export dropped on the window imports three channels per body part instead
+  of eleven. `derived` is declared by the loader, so the `coords` config key that only
+  `aol_session_loader` ever passed is no longer what stands between a user and pyramiding eight
+  columns per point that nothing reads. An explicit `coords` still wins.
+- `AOLEksLoader.can_open` requires a complete x/y/z triplet on one body part, so a flat 2D file
+  with three body parts is no longer claimed as 3D tracking.
+- Nine sites became one. The only splitting left is `split_channel`, used by the three consumers
+  that genuinely hold a channel name and never a schema -- the overlay's loose readers, the 3D
+  view's reader list, and a hand-made marker file's CSV fields -- plus the EKS loader parsing its
+  own format, which is where format knowledge belongs.
+
+`core/` stays headless (rule 2); `core/pose.py` is ~200 lines. `tests/test_pose_schema.py` covers
+the naming rule, both header shapes, derived-column declaration, the manifest round trip, and that
+the names a schema reports address channels the loader actually emits.
+
+---
+
+## 2026-09 · D-141 · Identity flips are accepted events over declared lanes
+
+**Context:** a tracker can exchange two animals, or two keypoints such as left and right wrists, from one frame onward. A point correction cannot express that span.
+
+**Decision:** `SwapGroup` declares lanes, parts, and their pose point names. `SwapEvent` records a frame, two lanes, and either all parts or a selected subset. Events compose in frame order, are accepted only by a user command, and persist beside the recording in `.avialswap.csv`; the session records their count and retains events itself if the sidecar cannot be written.
+
+**Alternatives rejected:** rewriting raw CSV columns on acceptance destroys the model output; storing a correction for every later frame makes undo and provenance unmanageable; animal-only groups cannot repair swapped keypoints.
+
+**Consequences:** undo removes the exact accepted event; a later event can put identities back. A missing or damaged sidecar is reported without refusing to load the source.
+
+## 2026-09 · D-142 · One edit program drives every reader and the CSV export
+
+**Context:** applying swaps independently in the overlay, plots, 3D view, and export could show different identities at the same frame.
+
+**Decision:** `EditProgram` composes accepted swaps with sparse point corrections. `edit_cache` builds a fingerprinted generation under `<file>.avialcache/edited/` for affected channels, and readers switch to that generation. The corrected CSV writer consumes the program's correction and routing data. Raw recording and imported cache arrays remain untouched.
+
+**Alternatives rejected:** paint-time relabeling leaves plot queries and exports raw; duplicating the composition in each consumer creates competing authorities; copying every channel on every edit wastes time and disk.
+
+**Consequences:** a rebuild is a registered worker job. Unaffected channels keep reading the imported cache. A generation may be discarded and rebuilt from the sidecars; pruning touches only generations this module wrote.
+
+## 2026-09 · D-143 · A correction records both its column and its displayed name
+
+**Context:** a point dragged while labels are swapped has a raw column identity and a different on-screen identity. Losing either makes later undo or review misleading.
+
+**Decision:** `PointKey.point` names the raw column the coordinate changes; `shown_as` records the label visible when the correction was made. The sidecar and session carry both, and older sidecars default `shown_as` to the column name. Apply corrections before routing identities.
+
+**Alternatives rejected:** storing only the displayed label would move a correction to another trajectory when a swap is undone; storing only the column would erase what the reviewer judged on screen.
+
+**Consequences:** the Changes list can report both names; the correction follows its raw trajectory through later accepted swaps.
+
+## 2026-09 · D-144 · Flip detection presents evidence for one group and part
+
+**Context:** showing every trajectory in a multi-animal file makes crossings unreadable, while an automatic threshold cannot establish identity on its own.
+
+**Decision:** the Fix Identities panel shows one group and one part at a time, with an all-parts centroid choice. A worker proposes nodes using motion-predicted keep versus swap cost, closest approach, and gap evidence; it never accepts them. A drag snaps to a node and requests an undoable swap through the command bus.
+
+**Alternatives rejected:** auto-applying candidates invents certainty; a separate detector per UI view can disagree about the same event; rendering every body part together obscures the one being judged.
+
+**Consequences:** accepted crossings and candidates have distinct shapes, and a drag off an accepted crossing removes that event rather than recording a redundant opposite swap.
+
+## 2026-09 · D-145 · Export one edited pose copy and show every accepted flip
+
+**Context:** analysis needs one file representing all accepted tracking work. A swap without a point correction is still an edited source and must be exportable and visible.
+
+**Decision:** Export Changes offers one renamed pose CSV per source with either corrections or swaps. It streams each row, applies its raw-column corrections, then permutes all fields of each routed point; scorer names mark the file as edited. The source path cannot be the target path. Accepted flips appear in the Changes list, the Data Streams identity lane, pose plot rows when shown, and a count beside the source; deletion in Changes uses the command bus.
+
+**Comparison view:** View → Play original points readers back to the imported cache without removing edits. It is an undoable session view choice, defaults off, and persists in the `.avv` session.
+
+**Alternatives rejected:** separate swap and correction exports can disagree and ask an analysis to combine them; silently overwriting the recording removes the evidence of what the estimator produced.
+
+**Consequences:** the export reports both edit counts, and a swap-only source offers no retraining set because there are no hand-labelled frames.
+
+## 2026-09 · D-146 · A tracking file that names its camera is imported as that camera's pose
+
+**Context.** Fix Identities stayed greyed out on a session whose 2D overlay was visibly working.
+The overlay was working for the wrong reason: `plot_pane.sources_changed` hands every plotted
+channel to the video panes as *loose readers*, so a pose file imported as plain channels still
+draws dots on the video (D-139). Everything looked right, and nothing knew the file was a pose —
+no `PoseSchema`, no identity groups, no correctable points, and a disabled menu item whose tooltip
+asked the user to import data they had already imported.
+
+The cause was a default. `BatchImportDialog` offers "Data channels", "3D pose", and "2D pose on
+<camera>", and selected the first whenever the import config declared no role. Only
+`aol_session_loader` ever declares one, so every pose file opened by drop or File → Open Data
+arrived as eighty-one plotted columns unless the user found the role column and changed it.
+
+**Decision.** When the config declares no role and the loader offers `overlay2d`, the dialog
+defaults to the camera the file is *named after* — `FrontCam_eks.csv` on `FrontCam.mp4` — or to the
+only loaded video when there is just one. Several cameras and no name match keeps "Data channels"
+and leaves the choice with the person, which is what the dialog is for. An explicitly declared role
+always wins, so a session loader's declaration is never overridden.
+
+The prefix rule now lives in `core/rig_naming.py::match_label` and `aol_session_loader._match_camera`
+delegates to it. Two implementations of "is this file that camera's" would eventually disagree
+about somebody's recording (rule 15).
+
+**Alternatives rejected:** reading the file's header in the dialog to tell 2D from 3D (file IO on
+the UI thread, and the dialog deliberately knows no format by name); inferring the role in
+`register_tracking_source` after the import (too late — the channels are already pyramided and
+plotted); removing the loose-reader overlay path so a mis-imported pose looks wrong (it would break
+D-139, which exists so a hand-made marker file still draws).
+
+**Consequence.** A dropped DeepLabCut or LightningPose CSV whose name carries its camera now
+overlays that camera and is correctable, and the identity work applies to it. This reverses the
+note in `drop_controller` that "a standalone pose-capable file still needs the user's declaration":
+it still does when the file does not say, and the file usually says.
+
+## 2026-09 · D-147 · Tracking presentation is selected per source
+
+**Context.** Routed pose files used to render immediately: a 2D file obscured its camera and a 3D
+file occupied the 3D pane, while neither could be plotted for inspection. Hiding a channel in the
+source tree only hid a plot row, so it did not control either tracker renderer.
+
+**Decision.** Every routed `overlay2d` or `pose3d` source has independent **Show overlay** and
+**Show plot** choices on its sidebar card. **Show overlay** is on by default so all tracking data
+is visible initially; **Show plot** is off by default and persisted in its `SensorEntry`. For 2D,
+overlay means its assigned camera; for 3D, it means the 3D view (and therefore any reprojection
+derived from that view). Plotting is lazy and must not take the legacy loose-reader video-overlay
+route. Channel checks select complete landmarks in the visual view and create plot rows only when
+**Show plot** is enabled. Each choice is an undoable command.
+
+**Alternatives rejected:** using the global Tracking points overlay (it hides all sources and
+cannot expose a source as plots); treating the source tree's channel checks as overlay controls
+(they only address plot rows, and a routed pose starts without any); duplicating a second reader
+path for plotted tracking (it would broadcast 2D coordinates over every camera).
+
+**Consequences:** sessions schema v11 stores `tracking_overlay_visible` and
+`tracking_plot_visible`. The reviewer can remove individual visual sources or opt individual
+sources into plots.
+
+## 2026-10 · D-148 · Main window composition has measured boundaries
+
+**Context.** The main-window composition branch merged into mocap with plain-function controllers
+still reading many private `MainWindow` fields. The window had 129 attributes, duplicated placement
+type names, a deferred wheel/marker import cycle, and legacy job handles alongside JobManager.
+The mocap and scientific UX additions also took `main_window.py` above 4 000 lines. D-051 and D-066
+protect real Qt slots and instance-level hooks; replacing all forwarding methods with partials
+would reopen the recorded worker-thread failure.
+
+**Decision.** JobManager remains the sole owner of worker lifetimes. `VideoLoadState` and
+`ImportState` hold queue and capacity state, while `WheelState` and `SessionRuntimeState` hold
+transient gesture and session metadata. The two unrelated placement types are `MarkerPlacement`
+and `WheelPlacement`. MainWindow coordinates competing marker/wheel gestures, so their controllers
+no longer import each other. Rig path helpers accept `RigPathsContext`, which supplies only their
+required mappings and callbacks. Menus are built in `ui/menus/`; labels, shortcuts, and
+enablement remain attached to live actions. Real MainWindow Qt slot wrappers remain as required by
+D-051 and D-066.
+
+`tests/test_controller_boundaries.py` freezes every existing `window._*` controller access at its
+current per-module count, caps oversized modules and legacy long functions at their current size,
+and rejects controller import cycles. Every new controller/menu module has a 500-line cap and new
+functions a 60-line cap. The baseline only shrinks as accesses move behind explicit state or
+contexts; changing it upward requires a documented reason in the same review. The final target
+for `main_window.py` is under 1 000 lines, with further narrow contexts and widget builders
+needed to get there.
+
+**Alternatives rejected.** Qt slot mixins and partial-bound signal connections remain rejected by
+D-051. A mechanical conversion of every controller to an object would change signal ownership and
+instance-level extension points in one step; migrate a bounded responsibility with its tests
+instead. Duplicate worker registries are unnecessary because JobManager already exposes active
+jobs for cancellation and shutdown.
+
+**Consequences.** The private-access baseline makes remaining design coupling visible and prevents
+growth, but does not make every controller independent of `MainWindow` yet. This is a measured
+intermediate boundary, not completion of the line-count target.
+
+## 2026-10 · D-149 · Physical props separate fixed structure, material motion, and evidence
+
+**Context.** D-113 correctly models one running wheel, but a belt, a ball, and a horizontal ladder
+do not share its bar geometry or its scalar rotation. Naming them all wheels, or generalizing
+`EncoderBinding.turn()` to every object, would produce convincing but false animation.
+
+**Decision.** A physical prop has fixed structure in a calibrated frame, a kind-specific map from
+material coordinates and motion state to world coordinates, and separately recorded evidence.
+Wheel motion is axial angle, belt surface motion is signed travel along a declared direction,
+ball motion is 3D orientation, and a ladder is static. Ladder geometry is the ordered set of
+individual user-clicked points or rung ends. No equal pitch, common height, missing rung, or rail
+is inferred from its name: regular and irregular steps use the same evidence model. A one-camera
+click stays a 2D observation until calibrated multi-view evidence locates it in 3D (D-116).
+A moving surface need not move its support geometry. Each sensor mapping states its units and
+observability; one scalar never determines a ball's full orientation. Unknown motion is reported as
+unknown and never filled by an assumed animal trajectory. Fit residuals, ambiguous alternatives,
+user checks, and raw clicks remain
+inspectable; an accepted model requires an explicit command. The plugin may offer apparatus hints
+but cannot silently accept one (D-113, D-132).
+
+**Compatibility.** Existing wheels keep `Wheel`, `SetWheelCommand`, their Wheels editor and
+`.wheel.toml` semantics during the migration. A general Props inspector may contain that editor;
+only after the new action and surfaces work end to end may it replace the current label. New kinds
+use versioned, kind-tagged `.prop.toml` sidecars in `pose-3d/`, with tombstones on removal.
+The `.avv` session holds references and presentation state, not duplicate measurements. Both
+suffixes are reserved from source loaders. Motion samples use the existing TimeMap and the shown
+frame's presentation time (D-113, D-124, D-131). All visible edits use the command bus, all
+overlays are registered, and long fits use `_run_job` (rules 11, 13, 14).
+
+**Alternatives rejected.** A universal angle or speed field loses ball orientation and static
+apparatus. A single rigid transform for the whole prop moves a belt's frame with its surface.
+A free-form dictionary of shape-specific parameters would hide units and unobservable degrees of
+freedom from mypy and from the review panel. Rewriting wheel files into a new schema on read would
+alter accepted evidence without a user command.
+
+**Consequences.** The typed core model can be tested against synthetic ground truth for all four
+kinds. Each kind still needs its own placement, fitting, validation, and renderer. The detailed
+slices and app acceptance criteria are in `PHYSICAL_PROPS_PLAN.md`.
+
+The first UI slice adds one Props tab, one registered camera layer, and discovery calls at video
+and pose import. This deliberately raises D-148's reviewed ceilings for `MainWindow.__init__`
+(565→569 lines), the window (3991→4001), and the affected import, video, and session controller
+functions/lines by only their routing calls; prop editing and persistence live in separate modules.
+
+## 2026-10 · D-150 · Stimulus-grid playback speed scales source time, not output frame rate
+
+**Context.** A 230 fps source exported at 30 fps and 1x keeps real time, so the comparison MP4
+shows only about every eighth source frame. Reinterpreting the source's nominal fps as 30 would
+silently alter its accepted camera/TTL alignment. Exact nominal sample times can also fall a few
+microseconds before rounded source PTS, repeating one frame while skipping the next.
+
+**Decision.** The stimulus-grid dialog offers the player's speed presets and a precise custom
+rate, separately from output fps. One speed scales the shared master-time clock for every camera
+and the TTL cursor. The output duration is the selected source window divided by that speed; at
+1x, the default two-second source window remains a two-second MP4. For speeds below 1x, each
+output frame samples the middle of its source-time presentation interval. At 1x, it retains the
+existing exact-start seek. Each camera tile uses the frame selected at that same sample time. The
+final source frame remains available through its estimated presentation interval,
+bounded by recent positive PTS spacing rather than stopping at its start timestamp.
+
+**Alternatives rejected.** Changing the encoded fps alone changes file cadence but cannot reveal
+source frames skipped by real-time sampling. A separate speed per camera would break the shared
+master-time comparison. Sampling slow-motion frames exactly at nominal source-frame boundaries
+loses frames when the container rounded those PTS upward.
+
+**Consequences.** A 230 fps source window can show every frame in a 30 fps MP4 at about 0.130435x;
+the output lasts about 7.67 times as long. A ground-truth PyAV fixture checks every requested frame
+index, output cadence, and duration, and the app-action test checks that the dialog speed reaches
+the registered export worker.
+
+## 2026-10 · D-151 · Stimulus-grid exports cap composite frame rate
+
+**Context.** Merging every source transition made a 230 fps camera produce hundreds of composite
+frames per second, even when the comparison only needed a moving cursor and a representative view
+of each camera. Encoding and rendering every transition made exports slow and produced larger files.
+
+**Decision.** The dialog's cursor update rate is also the maximum composite output rate (default
+10 fps). Merge mapped camera-change candidates with cursor ticks, but emit no composite frames
+closer than the configured rate permits. At each emitted timestamp, every tile samples its latest
+camera frame through the accepted TimeMap. Preserve the selected, potentially variable timestamps
+and explicit packet durations, without B-frames; omit source transitions that fall between emitted
+times. Playback speed scales source time, so slow motion can retain more transitions when they fit
+the selected output rate. Keep the final packet duration at the selected window boundary.
+
+**Consequences.** A 230 fps source at real time is sampled at no more than the chosen composite
+rate; setting 30 fps and about 0.130435x can represent its roughly 30 output-frame-per-second
+slow-motion sequence. Output remains VFR-capable, but no longer promises every source frame.
+Ground-truth tests cover rate-capped real-time sampling, slow-motion retention, offsets, packet
+timestamps, and durations. The published demo still goes through the application's export action.
+
+## 2026-10 · D-152 · Stimulus-grid exports omit frame-number badges
+
+**Context.** Frame-number badges are redrawn over camera pixels on every composite frame. They
+consume render time and obscure footage, while the camera row names and event column labels already
+identify the comparison layout.
+
+**Decision.** Keep camera rows and event columns one pixel apart. Do not burn frame-number badges
+or other changing text over the camera tiles. Keep camera names in the left gutter, event labels
+above their columns, and the moving cursor in the shared trace/ruler area. Missing coverage retains
+its centered No Footage label.
+
+**Consequences.** The composite avoids per-frame badge painting and leaves the video tiles clear.
+The generated MP4 and tests cover the remaining labels and camera imagery.
+
+## 2026-10 · D-153 · Stimulus-grid columns follow camera aspect ratio
+
+**Context.** The physical column gap is one pixel, but fixed 16:9 cells leave wide horizontal
+letterbox bands around 4:3 camera footage, which look like gaps between event columns.
+
+**Decision.** Use each camera's coded aspect ratio for its row height, with a shared column width
+across the grid. Fit each camera without cropping or stretching. Keep the physical row and column
+gap at one pixel.
+
+**Consequences.** Mixed-aspect camera rows have different heights, but event columns remain aligned
+and neither horizontal nor vertical letterbox bands separate the video tiles.
+
+## 2026-10 · D-154 · Physical props share one editor and sidecar
+
+**Context.** The first physical-props slice kept wheels in a separate Wheels tab and treated
+`.wheel.toml` as authoritative, while ladders used the new Props inspector and `.prop.toml`. That
+split leaves belt and ball unable to share the user's prop workflow and gives each kind a separate
+file authority.
+
+**Decision.** Wheel, belt, ball, and horizontal ladder use one Props inspector with a kind selector
+and kind-specific fields. A kind-sensitive Add control inside Props is the only entry point for
+wheel placement; there is no separate Add Wheel menu or toolbar action. The proven wheel
+placement/review flow remains intact as the Wheel page inside that inspector. Every new or edited
+prop writes a versioned, kind-tagged `.prop.toml` record.
+Existing `.wheel.toml` files are read-only import input: they are never rewritten, moved, or removed.
+A generalized active record or tombstone takes precedence over a same-named legacy wheel. All
+visible edits remain inverse document commands, and overlays remain registered. Missing or
+unobservable motion stays explicitly unknown.
+
+**Alternatives rejected.** Keeping separate editor tabs and authoritative formats preserves the
+split the shared inspector is meant to remove. Rewriting old wheel files in place risks accepted
+evidence. Universal angle/speed fields lose the belt's signed travel and the ball's 3D orientation.
+
+**Consequences.** `wheel_file` imports old wheel files but new mutations use `prop_file`; the wheel
+model and fitting/controller logic remain specialized. Belt/ball geometry declarations and static
+guides are integrated, while sensor binding and later-frame motion verification remain future work.
+This supersedes D-149's wheel-format/editor compatibility boundary only; its mathematical and
+evidence rules remain in force.
+
+**Status.** D-155 supersedes this decision's read-only `.wheel.toml` import allowance.
+
+## 2026-10 · D-155 · Physical props have no legacy wheel-sidecar reader
+
+**Context.** D-154 kept `.wheel.toml` discovery as a read-only bridge while new wheel mutations
+used `.prop.toml`. That still leaves two recognized persistence formats and keeps a second parser,
+suffix filter, tombstone interaction, and name-collision rule in the app.
+
+**Decision.** `.prop.toml` is the only supported physical-prop sidecar. The app does not discover,
+read, migrate, rewrite, or delete `.wheel.toml` files. All four prop kinds, including wheels, use
+versioned kind-tagged `.prop.toml` records. Existing old files remain untouched on disk.
+
+**Alternatives rejected.** Keeping a read-only importer still maintains a second format and a
+parallel reader; automatic conversion would write to user data without an explicit request.
+
+**Consequences.** The wheel-specific codec handles tables embedded in `.prop.toml`; wheel discovery
+filters generalized prop records only. This supersedes D-154's legacy import allowance and D-113's
+wheel-specific sidecar path, while preserving wheel click, fit, binding, and verification evidence.
+
+## 2026-10 · D-156 · One accepted prop store and one sidecar job path
+
+**Context.** Moving wheel records to `.prop.toml` still left a separate wheel store,
+reader job, and synchronous wheel writer. Two discovery jobs could race to adopt
+the same name, and a wheel save could perform file IO on the UI thread.
+
+**Decision.** `PropStore` owns all four accepted kinds. `WheelView` filters that
+store for the existing wheel fitting and drawing code without holding another
+copy. Every prop mutation queues the same `PropsApp.persist` background writer,
+and video and pose registration call the same `PropsApp.adopt` reader. The
+wheel-specific module only encodes and decodes tables within `.prop.toml`.
+Names are reserved across kinds without case distinctions, matching the filesystems
+on which two names differing only by case would share a sidecar path.
+
+**Consequences.** One name namespace and one read/write queue determine prop
+state and persistence. The former wheel file controller, worker, and store are
+removed; the wheel gesture, fit, encoder checks, and registered overlays remain
+kind-specific. Existing `.wheel.toml` files remain untouched and unsupported.
+
+## 2026-10 · D-157 · Belt and ball motion use explicit sampled evidence
+
+**Context.** Fixed belt paths and sphere guides were visible, but moving their
+material from an unqualified scalar would claim information the source did not
+provide. The same displayed video frame can cover many master-clock times.
+
+**Decision.** A belt moves an identified path mark only after the user declares
+travel direction, reference distance, displacement channel, and positive distance
+per reading unit. A ball rotates an identified surface direction only when four
+distinct quaternion components from one loaded source have a synchronized sample.
+The ball mark is entered as a world direction on the reference frame; later
+orientation applies `q(t) × inverse(q(reference))` to that direction.
+Both sample the current and reference readings through the plot row's live TimeMap at each
+displayed frame's presentation time, keeping the identified mark anchored on its reference frame
+after an alignment edit. They hide moving marks outside source coverage or inside observed
+timestamp gaps. A later-frame verification click
+records the real camera pixel, displayed frame, source readings, and pixel residual;
+it never silently changes a binding. Geometry, bindings, and checks remain in the
+single prop store and `.prop.toml` sidecar, with document commands for every edit.
+
+**Consequences.** Static support guides remain usable without motion data.
+A scalar ball encoder and a belt lacking direction remain underdetermined.
+Visual-only displacement and multi-landmark orientation can be added later as
+distinct evidence adapters without changing the prop store's authority.
+
+## 2026-10 · D-158 · The categorical cycle drops yellow and is six colours
+
+**Context.** D-094 chose Okabe–Ito for colour-blind separation and lifts it
+uniformly on dark surfaces. On the light plot canvas its yellow reaches 1.1:1
+contrast as a 1.4 px trace, and orange and sky blue about 1.8:1. Darkening each
+colour to 3:1 takes the worst pair under deuteranopia to 0.017, far below the
+0.04 floor; a uniform darkening keeps separation but leaves yellow below 1.2:1.
+
+**Decision.** Yellow leaves the cycle, as black already had, because it is a
+fill colour rather than a line colour. `OKABE_ITO` is six colours and
+`MARKER_COLOR_COUNT` follows it, so the colour-vision-safe palette and the hue
+wheel repeat at the same index. The worst pairs are unchanged on a light
+surface (0.084 protanopia, 0.094 deuteranopia, 0.091 tritanopia) and stay above
+the floor on a dark one. The tests that evidence D-094 keep measuring the
+wheel at the seven hues it was decided against.
+
+**Consequences.** A trace or marker with colour index 3 and above shifts by
+one colour. Nothing persists a resolved colour, so no session file changes.
+Orange and sky blue remain under 3:1 on the light canvas; that is the price of
+keeping the separation, not an oversight.
+
+## 2026-10 · D-159 · Timeline coverage spans are tints with solid ends, and data has its own hue
+
+**Context.** D-079 left video and data coverage on the accent and the `Link`
+role. `Link` is the accent at another lightness, so the two coverage rows
+differed only in how light one blue was. Once the accent came from the
+platform's real `Accent` role instead of its dimmed selection tint, two
+near-opaque full-width blue bands became the loudest thing on screen.
+
+**Decision.** Data coverage takes its own hue, a sixth of a turn back from the
+accent (forward when that lands on the defect red), with lightness solved
+against the surface like every derived lane. It stays clear of the messages
+lane and both loop pins for any accent. Coverage and annotation ranges are
+filled as a tint of their colour, with the colour at full weight in a 2 px cap
+at each end, because where a span ends is what a coverage row says.
+
+**Consequences.** Video coverage still follows the user's accent exactly. The
+lanes stay labelled, so no lane is told apart by colour alone (rule 17).
+
+
+## 2026-10 · D-160 · Everything derived lives in one per-user cache folder; sidecars use `_`, not `.` — amends D-004, D-099, D-112, D-141, D-149, D-155
+
+**Context.** The cache was a `<file>.avialcache/` directory beside every source, so a recording
+folder filled with derived data, and clearing it meant finding every one by hand. A large session's
+accepted sync mappings were written to `<session>.avv.avialcache/`, which is named like cache but
+which the session will not open without. Hand corrections, identity swaps, custom markers and prop
+records used compound extensions (`pose.csv.avialfix.csv`, `x.custom_markers.csv`,
+`wheel.prop.toml`) that tools disagree about. AvialSync has no installed users yet, so there is no
+old layout to migrate.
+
+**Decision.** Ask of every file: *if it were deleted, could AvialSync rebuild it exactly from files
+that still exist?*
+
+- **Yes → cache.** One per-user folder, as desktop media tools keep derived data: macOS
+  `~/Library/Caches/avialsync`, Windows `%LOCALAPPDATA%\avialsync\Cache`, Linux
+  `$XDG_CACHE_HOME/avialsync`; `AVIALSYNC_CACHE_DIR` overrides it. One entry per source,
+  `sources/<file name>-<16 hex of sha256(normcase(abspath))>/`, so a file has one entry however it
+  arrived, holding the pyramids, a video's frame-timestamp table and the `edited/` generations.
+  Staging (`.tmp-*`) and backups sit in the same `sources/` folder, so a commit stays a rename.
+- **No → beside the data or the session.** Corrections `pose_csv_avialfix.csv`, swaps
+  `pose_csv_avialswap.csv` (the source's full name, dots made underscores, then a tag — the full
+  name still keeps `a.csv` and `a.h5` apart), markers `<stem>_custom_markers.csv`, props
+  `pose-3d/<name>_prop.toml`, accepted sync arrays in `<session>_avv_sync/` beside the `.avv`.
+- **Exports and proxies** stay where the user put them: rebuildable, but files they asked for and
+  open themselves.
+
+Every entry carries `source.json` (`format: avialsync-cache-entry/1` and the source path). Removal
+goes through `core/cache_store` only, which deletes a directory only when it is directly inside
+`sources/`, is not a symlink and carries that record, and renames it to `.trash-*` before deleting
+so a file Windows holds open leaves the entry whole. **File → Cache** offers *Delete Cache for This
+Trial* (every entry whose source lies in the deepest folder holding the loaded sources, falling
+back to the sources themselves when that folder would be a root or would contain the home folder),
+*Delete All Cache* and *Show Cache Folder*. A loaded trial is captured, closed, emptied and restored
+in place, still dirty if it was, without discarding the recovery snapshot; both deletions wait for
+background jobs to finish.
+
+**Alternatives rejected.** A per-dataset `.avialsync/` folder (the `.git` model): a trial assembled
+from two drives has no one root, and data folders still fill with derived files. A content-hash
+entry name that survives moving the file: it needs a read of the file to find its entry, and makes
+"this trial's cache" ambiguous when one file is copied into two trials. A confirmation dialog before
+deleting: nothing the user made is in the cache (rule 10).
+
+**Consequences.** A data folder holds only the recording, the user's sidecars and their sessions.
+Copying a folder to another machine no longer carries its cache; the first open re-imports. Moving a
+file is a cache miss and leaves an orphaned entry until the user deletes the cache. Folder scanners
+no longer special-case `.avialcache`, and any such directories left from development builds are
+ignored and must be removed by hand. The test suite points `AVIALSYNC_CACHE_DIR` at a temporary
+folder in `conftest.py`. Do not add a second code path that deletes from the cache root, and do not
+put anything a user made into it.
+
+---
+
+## 2026-10 · D-161 · A typed wheel radius several times off the clicks gives way to them — amends D-123
+
+A wheel was again drawn as a thin rod: 12.5 cm typed against an mm calibration, clicks implying
+180.2, 1342 % apart. D-123 let the typed radius give way only when it produced no plausible fit,
+but with long bars in the image the wrong-units fit reprojected at 22.6 px, inside `fit_issue`'s
+5 %-of-bar-length tolerance, so it won and the panel only warned. `fit_labelled` now also skips a
+typed-radius fit whose implied radius is more than `_CONTRADICTION_FACTOR` (2×) larger or smaller,
+and moves on to the clicks' own radius. Click noise moves the implied radius by tens of percent;
+wrong units move it by 10×, 100× or 1000×. A typed radius within 2× still wins whenever it fits,
+as D-113 and D-123 intended. If nothing else fits, the contradicted fit is still drawn (D-123).
+A wheel saved before this keeps its stored fit until a wheel field changes and re-fits it.
+
+---
+
+## 2026-10 · D-162 · Prop geometry edits preserve visual observations
+
+Editing a belt's declared support path or a ball's declared centre, radius or units keeps every
+raw, named camera click. Visual positions and orientation are derived on demand from those clicks
+against the current geometry and calibration, so a corrected declaration can recover a track
+without re-clicking. A stereo mark off the belt path or sphere is reported as a geometry mismatch;
+camera views that disagree and ambiguous marks get distinct explanations. Motion stays unknown
+where evidence and declared geometry disagree. The app does not move a declared path or sphere to
+fit one mark: a single belt mark cannot recover the path, and three ball landmarks do not uniquely
+determine a sphere. Sensor-derived checks still clear when their geometry changes.
+
+---
+
+## 2026-10 · D-163 · A treadmill belt is a measured two-roller loop
+
+**Context.** A generic polyline can display a belt, but straight chords through the two ends
+give the wrong material distance and omit the animal-facing surface and roller wraps. The
+[horizontal ladder task](https://pmc.ncbi.nlm.nih.gov/articles/PMC2796662/) places rungs along a
+level walkway; [belt-drive geometry](https://mechanics.ju.se/MachineElements/belts.html) describes
+the two straight tangents joined by wrap arcs.
+
+**Decision.** A new treadmill belt records two level roller centres, one radius, measured width,
+and a top direction perpendicular to the centre line. Its centreline has two straight runs of
+length `L` and two semicircles of radius `r`, giving exact loop length `2L + 2πr`. Material marks
+and stereo-click fitting use this analytic path. The viewer tessellates the same path into a
+measured-width mesh; sampling never sets the motion distance. Direction and lap counts remain
+explicit motion evidence. Old vertex-path belts keep their original interpretation and editing
+mode, and their saved files are not silently changed.
+
+**Alternatives rejected.** A four-corner rectangle invents sharp belt turns at the rollers. A
+sampled polyline as the motion authority changes loop length when display resolution changes.
+An arbitrary strip around a path has no measured width or surface orientation.
+
+**Consequences.** The new optional `[belt.rollers]` sidecar section records these measurements;
+the existing vertex list remains as a display and compatibility record. Changing roller geometry
+clears sensor bindings but retains raw visual clicks for a fresh fit. The default belt editor uses
+two rollers. The legacy path choice remains for apparatus that cannot be represented by equal
+rollers. The usual ladder example and documentation show a horizontal rung walkway; individual
+clicked heights remain measured facts.
+
+---
+
+## 2026-10 · D-164 · Ladder supports and irregular places are declared
+
+**Context.** A horizontal ladder's rungs are held by side rails or a central beam, and the places
+where the walkway departs from its pattern (a missing, raised, lowered or shifted rung) are what an
+experiment cares about.
+
+**Decision.** `Ladder.support` is `none`, `side_rails` or `centre_beam`. Bars are drawn through the
+rungs (`core/ladder_support.py`): rails join same-side rung ends, paired so they do not cross; a beam
+joins step middles. A gap appears where an end is unknown in that space. Bars are dashed in camera
+views because they are drawn between clicks. `LadderStep.irregular` is a closed tag set; the clicks
+remain the geometry, and the tag is shown as text beside the label.
+
+**Alternatives rejected.** Fitting rails as straight lines would hide a bent rail.
+
+**Consequences.** Sidecars gain an optional `[ladder] support` and `[[step]] irregular`; older files
+read unchanged.
+
+---
+
+## 2026-10 · D-165 · Regular rungs may be extrapolated; belts are placed from four clicks, in 3D or one view
+
+**Context.** Clicking every rung of a long regular ladder is slow, and most rigs film the apparatus
+from a side camera that may have no stereo partner or calibration. The user measures the apparatus
+with a ruler; the clicks only need to say where it is. This amends D-149's rule that rungs are never
+generated from a pitch, at the project owner's request.
+
+**Decision.** A `RungPattern` names two clicked neighbouring rungs and a total rung count. In each
+camera the four rung ends fix a homography from rung coordinates to that image
+(`core/plane_view.py`), so extrapolated rungs have correct perspective from a single, uncalibrated
+view; in 3D the rungs repeat the two rungs' mean spacing. Extrapolated rungs are labelled estimates,
+drawn dashed, never stored as clicks, and a clicked rung within 0.3 spacings of one replaces it.
+Support bars then follow the walkway order. A belt is placed from four clicks: in 3D, the top run's
+corners (two near each roller, each in two calibrated cameras) fix the top plane, facing the
+cameras, the run, the width and the middle, and the measured centre distance and radius set the
+size (`rollers_from_corners`); without a typed centre distance the clicked span stands in. In one
+camera, both roller hubs and the top above each are four known points of the side plane, so a
+`BeltSideView` maps the measured profile into that view without calibration. A one-camera belt is
+not placed in 3D, draws only in its own view, and tracks a mark from one click per frame through
+the inverse map.
+
+**Alternatives rejected.** Fitting a straight row of rungs to image pixels ignores perspective.
+Assuming a one-camera belt lies at some depth would invent a 3D placement no evidence supports.
+Using the clicked span as the roller distance when a measurement exists trades a ruler for a
+click.
+
+**Consequences.** Sidecars gain `[ladder] pattern_first/pattern_second/rung_count`,
+`[[belt.corner]]` click tables, and `[belt.side_view]`; older files read unchanged.
+
+---
+
+## 2026-10 · D-166 · Overlay labels are placed by one layout, after the geometry
+
+**Context.** Prop, wheel and 3D labels were each drawn at a fixed offset from their mark. Clustered
+marks (a belt's corners, a rung's ends, a wheel's clicks) produced overlapping text, and labels near
+the top of a frame landed under the pane's file name and timing readout.
+
+**Decision.** `ui/label_layout.LabelLayout` places every overlay label after its drawing's
+geometry: a small pill in the mark's colour on a dark translucent backing, tried at positions
+around the mark (nearest first, right and above preferred), kept inside the visible picture, clear
+of other labels, marks, and the pane's name, timing and zoom chrome, and preferring the fewest
+crossed lines on a coarse occupancy grid. A label placed beyond the first ring keeps a faint leader
+line. When every ring is taken, a bounded search finds the nearest free spot (a few per paint, so
+a dense frame stays fast); only then is the least-crowded position used rather than hiding the
+name. An extrapolated run is captioned at its first and last estimate only. Saved
+placement points are drawn as uncaptioned marks (`UNNAMED`); they are named only while being
+clicked. A clicked and a projected mark share one name and differ by solid versus dashed outline.
+
+**Alternatives rejected.** Hiding colliding labels loses the name of a click. A force-directed
+layout is not deterministic from paint to paint, so labels would jitter while scrubbing.
+
+**Consequences.** `draw_props` and `draw_wheel_clicks` accept the picture bounds and chrome to avoid;
+the wheel placement cue moves to the bottom of the picture.
+
+## 2026-10 · D-167 · Every button that reaches a command is that command's action; literals are gated wherever they are shown
+
+**Context.** Phase 7 made the live `QAction` the one authority for a command's label (rule 15,
+D-092), naming "Open Video(s)…" against "Open Videos" as the case it existed to end. The sidebar's
+Open Files group kept three plain buttons with their own text; the empty state wrote a third
+spelling, "Open Sensor / Ephys Data…"; the plot header's "Reset plots" and View's "Reset Plot Zoom"
+were one Ctrl+0 command under two names; and Reset Session existed only as a sidebar button, so
+the menu bar, the command palette and the shortcut editor could not reach the most destructive
+command in the application. Separately, the translation gate scanned setter calls only, so 77
+literals handed to widget constructors, combo entries and form rows sat unwrapped while
+`translatable_ratio` read 100 % (INTERFACE_DESIGN_PLAN F-18 – F-21).
+
+**Decision.**
+* Open Files and the empty state's two open buttons are `ActionButton`s on File's actions. File
+  gains **Reset Session** (undoable, unconfirmed, as UX_FOUNDATIONS WP-2 settled), and the sidebar
+  button is that action.
+* The plot pane owns one **Reset Plots** action; its header button and View show the same object.
+  "Open Video(s)…" becomes **Open Videos…**.
+* A renamed action keeps the shortcut-override id its old label produced, pinned in its `av_id`
+  property beside the rename, so a remapped shortcut survives (`file_open_video_s`,
+  `view_reset_plot_zoom`).
+* `i18n.untranslated_calls` also scans the first argument of `QLabel`, `QPushButton`, `QCheckBox`,
+  `QRadioButton`, `QGroupBox`, `QToolButton`, `QAction` and `QMenu` constructors and of `addItem`
+  and `addRow`. A string with fewer than two letters ("✕", "—", "00:00:00.000") is a glyph, not
+  text, and is not counted. All 77 found are wrapped.
+* The settings store is opened only through `ui/app_settings.app_settings()` (Phase 9 DS-0); the
+  layout state still kept outside `core/settings_schema.py` (splitters, collapse flags, the
+  inspector page, recent files) is mechanical rather than a preference and stays where it is.
+
+**Alternatives rejected.** Keeping the sidebar's request signals beside the actions would leave two
+paths to one command. A table mapping new ids to old ones is the second naming place D-092 forbids;
+the pin sits on the action. Wrapping glyphs would put untranslatable strings in every catalogue.
+
+**Consequences.** `SidebarPane.open_video_requested`, `open_sensor_requested`,
+`reset_session_requested`, `EmptyState.open_videos_requested`, `open_data_requested` and
+`PlotHeader.reset_requested` are gone. A button's text can no longer be asserted on a standalone
+panel without installing an action first.
+
+---
+
+## 2026-10 · D-168 · Interface spacing and button roles come from shared tokens
+
+**Context.** The interface design audit found inconsistent spacing and no visible hierarchy between the next action, incidental tools, and destructive commands (F-24). Theme stylesheets would pin colours and change widget rendering.
+
+**Decision.** `ui/design_tokens.py` owns spacing, density, type, and control roles. Buttons default to secondary; each surface marks at most one primary action. Tool buttons use an icon with the action name in the tooltip and accessible name. Destructive controls use a removal or reset shape and the palette's error colour. `apply_role` uses native button properties, fonts, and palette-aware icons, never a stylesheet. Application font scaling also scales spacing tokens. Role assignment does not move a control or change its command.
+
+**Consequences.** A window-level role inventory can check that every button has a declared role and that each surface has at most one primary. Future controls use the same helper.
+
+---
+
+## 2026-10 · D-169 · AvialSync owns its small interface glyph set
+
+**Context.** Close, information, remove, playback, and zoom controls used different character and platform glyphs (F-10, F-23). The glyphs varied across operating systems and did not all remain legible across themes.
+
+**Decision.** Use original 24-unit SVG drawings for the interface glyphs, distributed as Python package data in `ui/icon_glyphs.py` and licensed AGPL-3.0-or-later with AvialSync. `ui/icons.py` re-inks each drawing from the button palette and refreshes it on appearance changes. No third-party icon dependency or external asset path is required.
+
+**Consequences.** The wheel and PyInstaller bundle carry the same icon definitions as source installations. Glyph-only controls retain a tooltip and accessible name.
+
+---
+
+## 2026-10 · D-170 · Playback, coverage, and status each have one home
+
+**Context.** At 1280×800, five full-width control strips below the videos leave too little height for plot rows (INTERFACE_DESIGN_PLAN F-01–F-06). Loop and rate controls sit in the Data Streams header, away from Play; application status is there as well, while the status bar only reports jobs. The bare seek slider does not show available coverage.
+
+**Decision.** The plot controls and time span share one row. Data Streams keeps its header and coverage lanes, with no playback or application status controls. The transport orders jump and frame controls, Play, editable time, a coverage-aware scrubber, end time, loop controls, and rate. The status bar owns a `StatusLine` beside the activity area; `Transport.set_status` and `status_text` remain forwarding APIs for existing callers. This amends D-126's bottom-row placement while retaining its video toolbar placement. The scrubber caches its coverage, annotation, and loop painting; cursor ticks only move its handle.
+
+**Consequences.** Tests that pin the old geometry are amended to assert the new ordering and the same signals. Existing seek, stepping, and timeline mapping semantics stay the same.
+
+---
+
+## 2026-10 · D-171 · Data Streams lanes have a density and a visible-row cap
+
+**Context.** The Data Streams overview expands a few lanes to fill the space offered by the splitter, while a crowded session compresses rows until labels and evidence become hard to inspect (INTERFACE_DESIGN_PLAN F-07).
+
+**Decision.** Each lane's height follows the application font plus the shared density spacing token. Compact is the default. The overview keeps its complete lane list at that height; a vertical scroll viewport shows up to the configured number of lanes. Compact defaults to ten visible lanes, so four videos and six data sources fit without scrolling; comfortable defaults to eight. Density and each density's row cap live in the settings schema. Labels elide inside their gutter and reveal their full text on hover. Coverage spans retain their tinted bodies and solid 2 px end caps in both themes.
+
+**Consequences.** More lanes remain accessible by vertical scrolling without squeezing the rows or expanding the bottom area indefinitely. Changing font size or density recalculates lane height without changing timeline time or evidence.
+
+---
+
+## 2026-10 · D-172 · The inspector is a page rail; Tasks opens from the status bar
+
+**Context.** Six text tabs shared a 280 px inspector and elided to "Sour…", "Mess…" and "Tas" (INTERFACE_DESIGN_PLAN F-13); resizing the window made it worse, and there was no keyboard or palette path to a page other than clicking its tab.
+
+**Decision.** The pages are Sources, Values, Messages, Changes and Props, in that order, chosen from a vertical rail of icon-and-label buttons (`ui/inspector_nav.py`). The rail is as wide as its widest label, so no name elides at any font size, and it scrolls vertically when the window is too short rather than cropping a button or raising the window's minimum height. Up and Down move between pages; View → Inspector holds one live action per page, so the command palette reaches each. The page is persisted by name under the `inspector/page` setting; the pre-rail `inspector/tab` index is still read once. Tasks leaves the inspector for a status-bar tool button beside the activity area whose popover hosts the same `JobsPanel`.
+
+**Alternatives.** Scroll arrows on a `QTabBar` still elide one title and hide the rest; a combo box hides every page but one.
+
+**Consequences.** `InspectorNav` keeps the `QTabWidget` calls callers used (`addTab`, `currentIndex`, `setCurrentWidget`, `tabText`), so workspaces and screenshot tools are unchanged apart from Tasks, which is captured as a popover.
+
+---
+
+## 2026-10 · D-173 · One decimal separator: the full stop
+
+**Context.** Under a decimal-comma locale the offset spin boxes read "0,000000 s" while plot axes, readouts, the OSD and the master time read "0.5" (INTERFACE_DESIGN_PLAN F-30). Qt widgets formatted with the system locale; everything formatted in Python used a full stop.
+
+**Decision.** Every number AvialSync shows or accepts uses a full stop and no digit grouping. `ui/time_format.apply_number_locale()` makes a C locale with `OmitGroupSeparator` Qt's default before any widget exists, so spin boxes and validators agree with pyqtgraph and the Python-formatted readouts. Translation still follows the system language. File I/O is unchanged and stays locale-independent; the import wizard still parses decimal-comma data files.
+
+**Not done.** DS-10 step 3 proposed fewer decimals on offsets for low-rate sources. `QDoubleSpinBox` rounds its stored value to the decimals it displays, and it is the one authority for an applied offset, so trimming display precision would round accepted sync offsets. Offsets keep six decimals.
+
+**Alternatives.** Following `QLocale` everywhere means overriding pyqtgraph's tick strings and every f-string readout, and mixing separators in text the user copies from the window.
+
+---
+
+## 2026-10 · D-174 · Video pane chrome: one header line, a declared label contract, picture-shaped panes
+
+**Context.** The OSD was a four-line block that clipped at three cameras, the camera name and OSD overlapped on narrow panes, a single camera sat small in a black field, and the D-166 label layout found the chrome to avoid by looking widgets up by attribute name, so renaming one would silently put labels back under the header (INTERFACE_DESIGN_PLAN F-08–F-12, F-35).
+
+**Decision.**
+- `VideoPane.chrome_rects()` is the contract `PaintCanvas._label_area` reads: the visible name and OSD, and the zoom tools' rectangle **always**, shown or not, so labels never move when the tools appear.
+- One header row: the camera name elides first; the OSD is one line, time and frame (`compact`), or the previous block (`full`), chosen by the `overlays/osd_detail` setting. Hiding it stays with the registered `camera.osd` layer.
+- Snapshot, Fit All Videos and Fullscreen are glyph `ActionButton`s on their menu actions (`ActionButton.set_icon_only`), which retires D-126's exception for two plain buttons. "Toggle Pane Fullscreen" is renamed "Fullscreen". The zoom tools drop their duplicate "+"/"-" text and stay raised buttons, because a flat glyph over video has no ground of its own.
+- One or two strip cameras are sized to their pictures' combined aspect through the grid's margins and column stretches; three or more, the NxN grid and fullscreen fill their cells as before. Panes take width by stretch only.
+- **Stated exception (F-35):** chrome painted over video keeps its fixed white-on-translucent-black stylesheet, because the picture behind it, not the theme, decides what is legible. It sets no font weight and no other chrome uses it.
+
+**Alternatives.** Painting the header text instead of labels would remove the stylesheet but duplicate eliding and accessibility the labels already have.
+
+**Consequences.** A snapshot caption always carries the full readout, formatted by the same `format_video_osd`, whatever the pane shows.
+
+---
+
+## 2026-10 · D-175 · Compact source cards; one Open button; Reset Session apart
+
+**Context.** Every source card showed its offset and drift spin boxes expanded, a sensor card printed a temporary directory's full path, and the Open group stacked Open Videos, Open Sensor/Ephys Data and Reset Session with equal weight (INTERFACE_DESIGN_PLAN F-19, F-25, F-26). A 4-camera, 12-file session filled the page with spin boxes.
+
+**Decision.** A card's header holds visibility (videos), a kind glyph, the eliding name with the full path in its tooltip, the quality badge, and one `⋯` overflow: Properties, Copy details, and Remove last, after a separator, with the bin glyph. Offset and drift sit behind a Timing disclosure that shows both values inline while closed; it wraps the card's own spin boxes, so they remain the one authority and an offset drag is still one undo command (D-087). Paths show `…/folder/name`. The Open group becomes one split button whose click runs File → Open Videos… and whose arrow lists the File menu's open actions (the same QActions); Reset Session moves to a separate session overflow beside it, marked with the danger reset glyph, and stays in File.
+
+**Alternatives.** A collapsible whole card hides the badge; a second row of text buttons for Remove keeps the equal weight F-24 objected to.
+
+---
+
+## 2026-10 · D-176 · Guided flows share one step panel; empty pages say what fills them
+
+**Context.** Wheel placement showed about twelve equally weighted buttons and a paragraph of instructions; the props header was four unlabelled controls; Props, Changes and Tasks had no empty state; inspector pages scrolled sideways by policy (INTERFACE_DESIGN_PLAN F-14–F-17).
+
+**Decision.** `ui/step_panel.StepPanel` is the one layout for a guided flow: title and "Step n of m", one sentence of instruction, at most one primary action, a short secondary row, the flow's own controls, an overflow for rarely used and destructive choices (destructive last, with the bin glyph), explanation behind More…, and a Learn more link to the user guide (`about.docs_url`, built on `[project.urls]`). Flows keep their widgets and signals; an overflow entry triggers the flow's own button and follows its enablement, so the flow still decides what is possible. Wheel placement is the first flow: Next Point is primary; Undo Click, Go to Frame and Done Labelling are secondary; Flip Side and Discard Clicks are in the overflow; the legend and projected-mark note are behind More…. Pages that can be empty say what fills them and offer that action. Text wraps to the page; horizontal scrolling remains only as the backstop.
+
+Ladder, belt and ball editors, identity review and the alignment dialog use the same panel; the props header is labelled Kind · Saved · New. Values, Messages, Changes, Props and the Tasks popover show an `EmptyNote` naming what fills them; Messages and Values offer File → Open Sensor/Ephys Data…. No inspector page's minimum width exceeds the 280 px default, for every props kind; the minimum, not the preferred width, is what decides whether a page's scroll area shows its horizontal bar.
+
+**Consequences.** Tests that click the flows' buttons are unchanged; the buttons are the same objects, some now reached through the overflow.
+
+---
+
+## 2026-10 · D-177 · Plot rows: the gutter names each trace; quiet row tools; lighter rules
+
+**Context.** D-094 required that categorical colour never carry meaning alone and deferred the structural fix. Row close buttons were always drawn, rules and grid outweighed the traces in Light, and the default row height showed about two and a half rows at 1280×800 (INTERFACE_DESIGN_PLAN F-28, F-29).
+
+**Decision.**
+- **Redundant encoding is the direct label.** A plot row draws exactly one trace, and its gutter names it (with unit and range), so the trace is identified by its own label and position, never by hue alone. No dash cycle: a dashed pen costs pyqtgraph far more per segment than a solid one, against the 16 ms pan budget, and would add nothing a per-row label does not already say. A future surface that overlays several traces in one plot must label each trace directly.
+- Each row's close tool is transparent until the pointer is over the row or the tool has keyboard focus (still focusable by Tab); the row's context menu gains Hide, the same command. Hover is computed on mouse movement only, never on the clock tick.
+- Axis lines and tick marks are text colour moved 55 % toward the canvas; tick numbers and titles keep full text contrast; the grid alpha drops from 0.18 to 0.10, in both themes.
+- Plot rows default to Compact, and a row added later takes the density currently chosen (it always took 110 px before).
+
+**Consequences.** `test_bench_plot_pane.py` medians stayed within 5 % of the previous commit.
+
+---
+
+## 2026-10 · D-178 · No main toolbar; Align gets a one-click entry beside Open
+
+**Context.** F-31: there is no `QToolBar`, and Phase 7 WP-10 promised Align a toolbar entry. DS-11 asked whether to ship a slim toolbar (Open…, Align, Add Prop, Command Palette, Fullscreen).
+
+**Decision.** No main toolbar. Every candidate already has a one-click home after DS-3–DS-8: Open is the split button at the top of Sources, Fullscreen is a glyph under the videos, Add Prop is the Props page's Add, and the Command Palette has its shortcut and Help → Commands…. A toolbar row would cost about 36 px, and the window's minimum height on macOS is 469 px against the 640×480 floor. The one entry without a home, Align → Synchronize TTL / events…, becomes a glyph `ActionButton` on that action beside Open in the Sources page, where the recordings it aligns are listed.
+
+**Alternatives.** A hidden-by-default toolbar would push the window over 480 px whenever it was shown; a status-bar Align button would sit away from the sources it acts on.
+
+---
+
+## 2026-10 · D-179 · Painted surfaces describe themselves on query
+
+**Context.** Plot rows, Data Streams lanes, video panes and the 3D view are painted, so assistive technology found nameless rectangles (INTERFACE_DESIGN_PLAN F-32).
+
+**Decision.** `ui/accessible_views.register_painted` records a role and describer functions per widget, and one `QAccessible.installFactory` factory returns a `QAccessibleWidget` subclass whose Value and Description call them when a client asks. Plots (Chart): each shown row's name, value at the playhead and unit, capped at 32 rows; lanes (Chart): the playhead, and each lane's span or event count; a camera (Graphic): time and frame, with the full readout as description; the 3D view (Graphic): point count and view angles. One interface per widget rather than per-row child interfaces: a Python-owned interface with no QObject behind it is deleted by Qt's accessibility cache, which is a crash waiting on a platform's timing. Nothing calls `QAccessible.updateAccessibility` on the clock tick. Every primary button takes Tab focus.
+
+**Alternatives.** Rewriting `accessibleDescription` on every tick would push values per frame, against the 60 Hz budget.
+
+---
+
+## 2026-10 · D-180 · The inspector is a dock; the workspace column keeps its splitters
+
+**Context.** The window was four nested splitters, so nothing could move to a second display except the plots' own Detach Plots (INTERFACE_DESIGN_PLAN F-34, carried from UX_FOUNDATIONS WP-11). The three inner splitters carry load-bearing contracts: proportional resize and minimum enforcement through `PaneProportions` (D-049, D-061, D-098), and the empty-window layout that holds plots and Data Streams at their minimum for the drop target (D-127).
+
+**Decision.** The inspector becomes a `QDockWidget` (`inspector_dock`): left or right, floatable onto another display, closable, with its toggle under View → Inspector and View → Bring Panels Back re-docking it. Its arrangement is saved with `QMainWindow.saveState` under `window/dock_state`, and named workspaces store it as `dock_state`. A layout or workspace saved before this keeps its inspector width: the width is read from the old `splitter/horizontal` bytes and applied with `resizeDocks`, once, and the old key is removed. The workspace column — videos, 3D, plots, Data Streams, transport — stays the central widget with its three splitters, so `PaneProportions` and D-127 apply unchanged; the plots keep Detach Plots for a second display.
+
+**Alternatives.** Docking every pane would replace the proportion and empty-layout contracts with `QMainWindow`'s dock layout, which has no notion of either, and nested bottom docks cannot hold the transport full width under the plots.
+
+**Consequences.** `MainWindow._h_splitter` is gone; tests that pinned it assert the dock instead. The default dock width is the page rail plus the old 280 px, so a page keeps its full width (the first cut left Sources 190 px against its 200 px minimum). `PaneProportions.distribute` now honours each pane's maximum as well as its minimum: Data Streams, sized by its lanes (D-171), keeps exactly that height and the surplus goes to video and plots instead of a blank band. The content split is therefore sized by content, not by a remembered ratio; the hand-set-ratio guarantee is asserted on the video/plot handle. The 640×480 floor and the empty layout hold.
+
+---
+
+## 2026-10 · D-181 · Every way in is visible; minimal axis labels; one look for glyph buttons
+
+**Context.** After DS-7 only Open Videos was visible; Sensor/Ephys Data sat behind a split button's arrow and Reset Session behind `⋯`, and the user found loading slower than with the old stacked buttons. Plot gutters stacked name, unit and fitted range although the ticks already state the range. Glyph buttons were a mix of `QToolButton`s, which macOS draws boxed and with a drop-down arrow when they carry a menu, and flat push buttons; the video tools mixed text and glyphs. The Props page carried the belt editor's height under the ladder editor as an empty list.
+
+**Decision.**
+- The Sources page opens with **Open Files**: Open Videos… (primary), Open Sensor/Ephys Data…, Open Session…, Synchronize TTL / events…, then, after a gap, Reset Session marked destructive. One full-width button each, each its menu's own QAction; stacked, so no label widens the page. This amends D-175's split button and session overflow and D-178's Align glyph.
+- A plot gutter names the axis: channel, and unit in parentheses. The range line is gone (amends the PLOT_UX_PLAN three-line gutter).
+- Glyph buttons are flat `QPushButton`s throughout. `MenuGlyphButton` keeps its menu to itself and pops it on click, so no platform arrow appears. Every video tool is a glyph, names in tooltips and accessible names. Nav rail buttons stay tool buttons, as a distinct navigation control.
+- The Props editor pages are shown one at a time in a plain container, so the container is the page's height, and lists stop at four rows.
+
+**Consequences.** Tests that pinned the split button, the session overflow, the three-line gutter and the text toolbar buttons assert the new policy.
+
+---
+
+## 2026-10 · D-182 · The workspace column scrolls when the window is shorter than it
+
+**Context.** The window's minimum height is the sum of the workspace panes' floors. It fitted 640×480 at the default font, but needed 487 px at 16 pt and 545 px at 20 pt, and a minimum taller than the display leaves the window unresizable with its bottom out of reach. The panes were already near their floors.
+
+**Decision.** The workspace column (notifications, videos and 3D, plots, Data Streams, transport) sits in a frameless scroll area. When the window is at least the column's minimum, the column fills the viewport exactly as before; below it, a vertical scrollbar appears. The window minimum therefore no longer depends on font size. The inspector dock is unaffected; its pages scroll on their own.
+
+**Alternatives.** Lowering every pane's floor further would make panes unusable at small fonts to fit large ones; refusing to shrink is what this replaces.
+
+---
+
+## 2026-10 · D-183 · The overlay says what the picture is; properties always open; nothing clips
+
+**Context.** A camera's resolution and bit depth were only in the collapsed card panel. The quality badge and the picture's Properties… opened an import-report dialog that listed no properties and returned silently when no report was recorded, so properties seemed lost. The full OSD block kept its natural width and ran off narrow panes.
+
+**Decision.**
+- The compact overlay is two lines: time and frame, then resolution and bit depth (`1440×1080 · 12-bit`). The full block adds a Picture line with the pixel format. Depth comes from the decoded frame (`SourceFormat.bits`) once one exists, before that from the pixel format (`video_timing.bit_depth_of`).
+- The timecode label takes its natural width when the pane has room and wraps at its spaces when it does not, leaving the camera name its shortest form; the name elides first. Every word stays inside the pane.
+- One properties dialog for badge, card and picture: the source's properties panel as text first (now with Bit depth), then the import report when there is one. It opens whether or not a report exists.
+
+**Amends** D-174 ("compact is one line").
+
+---
+
+## 2026-10 · D-184 · Clock drift is milliseconds gained per hour, everywhere
+
+**Context.** Drift was held, stored, fitted and shown in parts per million, a dimensionless scale that says nothing about time to someone aligning recordings, and the user asked for it to be removed in favour of time or sample units.
+
+**Decision.** One unit end to end: `drift_ms_per_hour`, the milliseconds a source's clock gains on master time per hour of recording. `TimeMap` multiplies by `drift / 3,600,000` (seconds per second); the sync fit reports `(scale − 1) × 3,600,000`; sessions write `drift_ms_per_hour` and the schema becomes 12; the drift fields hold and show ms/h with two decimals and give the same drift in frames per hour in their tooltip when the rate is known; every message uses `core.drift.describe_drift` (`+54.0 ms/h`, `+3.6 s/h` past a second an hour). The plausibility limit is 720 ms/h. Files from before schema 12 stored the drift ×1e6 under the old key; `core/drift.drift_from_legacy_entry` converts it on read (× 3.6), the only place the old key appears, and it is never written again.
+
+**Consequences.** Earlier entries in this log quote drifts in the old unit; multiply them by 3.6 for ms/h. Every time mapping is unchanged numerically; tests that encode a drift's physics were converted by the same factor, not loosened.
+
+---
+
+## 2026-10 · D-185 · Display precision follows what a reader can use
+
+**Context.** Several readouts carried more digits than the quantity supports: frame rates at three decimals, master times on hover at microseconds, thresholds and event times at six decimals.
+
+**Decision.** Frame and sample rates show one decimal, or two when tenths would hide the difference (29.97 against 30 is 3.6 s per hour), through `time_format.format_rate`: overlay, Video Properties, source cards. Times a person reads -- Data Streams hover, metadata start, stimulus-grid events and windows, nudge messages -- show milliseconds. Threshold fields take three decimals. Kept at full precision on purpose: offsets (the spin box rounds what it stores, D-173), alignment residuals, the copyable Values text summary, props coordinates and calibration factors, and the stimulus grid's custom speed (30/230 real-time slow motion needs it).
+
+---
+
+## 2026-10 · D-186 · Plot labels carry the unit the file declares
+
+**Context.** Loaders declare each channel's unit (`ChannelInfo.unit`: µV or mV from Neo/Open Ephys, deg and rpm from the AOL encoder, px from 2D tracking), but only units typed into the import wizard reached the plots, so an encoder velocity row read "encoder_velocity" with no unit.
+
+**Decision.** The importer records the declared units on `SourceInspection.channel_units` (omitting channels that declare none), which rides the cache manifest so a cache hit keeps them. `SourceInspection.units()` merges import-wizard units over the declared ones; the import controller scopes them per source and hands them to the plot gutter (`name` then `(unit)`, D-181) and the Values panel. A manifest written before this field exists is back-filled once on its next open: the worker asks the loader for its channel list only -- no samples are parsed -- and rewrites the manifest. A loader that cannot answer leaves the bare name.
+
+**Consequences.** No cache version bump and no re-import; a unit appears the first time an existing recording is reopened.
+
+---
+
+## 2026-10 · D-187 · Units reach every row, in one spelling, and are never guessed
+
+**Context.** On an Open Ephys recording only CH1 showed µV. The import's units arrive once, when it finishes, but plot rows are built in slices across later event-loop turns (D-060), and units were applied only to rows that already existed. Separately, `NeoLoader` defaulted a signal's unit to "uV" before reading neo's, and gave TTL event channels the pseudo-unit "TTL".
+
+**Decision.** `PlotPane` keeps the units it is given, keyed per source, and applies them to each row as it is built. `NeoLoader` takes the unit only from neo's quantity (empty when it has none) and gives event lines no unit -- their name already says TTL. `core.source.display_unit` is the one normalising step every loader's declared unit passes through at import: "dimensionless" and similar read as no unit, and ASCII micro spellings (`uV`, `um`, `us`) read as `µV`, `µm`, `µs`. All electrophysiology still enters through `NeoLoader`; Open Ephys sessions hand each stream to it, and `open_ephys_format` reads only what neo does not expose.
+
+---
+
+## 2026-10 · D-188 · NWB files open as a session, read with h5py alone
+
+**Context.** Neurodata Without Borders is the standard container for neurophysiology: one file per session holding electrophysiology, imaging, behaviour, trials and spike-sorted units, each with its own clock, all counting from one declared instant. Nothing here could open one. Three things about the application shaped the design: a source is identified by its path everywhere (sidebar, coverage, inspections, offsets, undo), a session scanner was only ever asked about folders, and the importer could read either one shared clock (`read_all_chunks`) or channels one at a time.
+
+**Decision.**
+- **Reader.** `loaders/nwb_format.py` (structure), `nwb_read.py` (samples), `nwb_types.py` (type ancestry) and `nwb_text.py`, on h5py, which is already a dependency. A `TimeSeries` is recognised by structure -- a `data` dataset plus `timestamps` or `starting_time` -- so extension types load; `neurodata_type`, resolved through the specification cached in the file, only refines how (`ElectricalSeries` columns are named by electrode id, `RoiResponseSeries` by ROI id, `SpatialSeries` by axis; anything inheriting `ImageSeries` is imaging). Values are `data × channel_conversion × conversion + offset` in the declared unit. NWB 1.x, Zarr-backed NWB and plain HDF5 are refused by name. Declined objects (`SpikeEventSeries`, `DecompositionSeries`, `ImageMaskSeries`, empty or 3-D non-image data) are listed with their reason.
+- **Session from a file.** `NWBSessionSource` claims `.nwb` files, so the drop scan now offers *every* dropped path to session scanners, not only folders (`SessionSource.can_open` documents it; every existing scanner already returned 0.0 for files). Every item declares the file's `timestamps_reference_time` (else `session_start_time`) as its epoch, which also becomes the session zero: placement needs no fit. A start time without a zone is read as UTC and reported.
+- **Time series: one source per file, one channel group per series.** `NWBLoader` exposes every series as channels named by where they sit (`ophys.DfOverF.RoiResponseSeries.roi12`; `.` nests in the channel tree and is safe in cache file names). It offers `iter_channel_groups()`, a third importer path beside `read_all_chunks` and per-channel reads: each group is one series on its own clock, read in one pass over its rows through the bulk builder, storing one timestamp array. A source's bounds are now the union of its groups.
+- **Intervals and spikes.** `IntervalSeries` and `TimeIntervals` tables (trials, epochs) become 0/1 channels on a regular grid of at most 1 kHz and 4 M samples, where a sample reads 1 if any interval overlaps its cell -- edge samples alone draw a trial as a ramp or, past the 10×-median gap threshold, not at all. Units become pulse trains with exact spike times, the shape `NeoLoader` gives TTL lines. Trial rows and `AnnotationSeries` become messages.
+- **Imaging: its own path inside the file.** Each imaging series is a `VideoSource`, `NWBImagingSource`, named `session.nwb/acquisition/TwoPhotonSeries` because the file's own path already names its time series and a shared path made the two one source (coverage, inspections and offset nudges all resolved to the video). `core.source.container_of` / `source_exists` make such a path count as present on restore and relink without naming any format: its nearest existing ancestor is a *file*. The frames are written once to a lossless FFV1 MP4 proxy in the cache, pixels as stored (`gray16le` for 16-bit, so display levels window the real range), with each frame's NWB timestamp as its presentation time -- MP4 because Matroska rounds to the millisecond, and a series starting before zero is written from its first frame and placed by a declared offset because MP4 drops negative presentation times. The proxy's entry is keyed on file *and* series so it never takes the time series' entry (HANDOUT trap 0g). Clip and stimulus-grid export now read the media a pane decodes (`VideoGrid.media_path_for`), not its name.
+- **A removed plot row's button is deleted by Qt, on the GUI thread.** The 3.11 suite hung intermittently (3 runs in 8) in a test fixture: the main thread waited on a pyramid-save worker, and the worker was inside `~QToolButtonWrapper → ~QWidget → QWindow::close → flushWindowSystemEvents`, holding the GIL while waiting for the main thread. Python's cycle collector had picked that worker to free a removed row's close button, which `_RevealOnFocus` kept in a cycle with its `QGraphicsProxyWidget`; a proxied widget is a hidden top-level window, whose destructor waits on the GUI thread. The same could happen in the application on any importer or decode thread. Rows now leave through `plot_row.detach_row`, which `deleteLater`s the proxy, and the filter holds the proxy weakly so no cycle remains.
+- **The video probe never leaves PyAV's log callback behind.** Found while chasing that hang, and fixed on its own merits: `video_standard._holds_video_stream` quietened FFmpeg with `av.logging.set_level(PANIC)` and restored what it saw, a process-wide swap; two overlapping probes each saved the other's PANIC, and the last restore left PyAV's Python callback installed, which takes the GIL and two Python locks from inside FFmpeg's threads. NWB paths made overlapping probes common. The probe now skips anything that is not a regular file and `.nwb`, leaves logging alone when PyAV is already silent (its default since 13), and serialises the swap when it is not.
+- **Kind-aware resolution.** `LoaderRegistry.find_best_loader(path, kind=...)`: one `.nwb` is both a time-series and a video source, so video opening and restore ask for a `VideoSource`, data import for a `TimeSeriesSource`.
+
+**Amends D-070.** NWB electrophysiology does not go through neo. neo's `NWBIO` imports pynwb, reads into neo objects eagerly, and reads only the ephys -- not imaging, behaviour, trials or units -- so it could serve one part of a file through a second reader while the rest went through this one. D-070's point stands for acquisition formats (Open Ephys, Neuralynx, SpikeGLX): one reader per *kind of file*, and NWB is one kind of file read by one reader.
+
+**Alternatives rejected.** *pynwb*: its HDF5 layer is h5py, so it reads samples no faster; it refused a real DANDI file whose cached specification conflicted with pynwb 4 unless namespaces were not loaded (the feature it would have been here for); it builds the whole object tree before returning and adds pandas. *One source per series*: every series would need its own path. *Imaging under the file's own path*: measured in the running application -- one coverage lane and one inspection for two sources, and nudging the series' offset moved the imaging. *One imaging series per file*: multi-plane files hold several, and with a path each there is nothing to gain by hiding them; the review dialog is where an unwanted plane is skipped.
+
+**Measured** (`tests/benchmarks/test_bench_nwb.py`, Apple Silicon): 32 ch × 30 kHz × 60 s gzip ephys imports in 3.8 s; 600 ROI channels × 50 000 samples in 2.2 s (13.5 s before `ChannelStage.materialize` wrote and returned one-chunk channels without a memory map: creating, flushing and re-mapping each fresh file cost ~17 ms per channel on macOS); a 512×512 16-bit proxy encodes at ~230 frames/s on incompressible data; scanning a file's structure 1.3 ms; a second open (import and proxy cached) 57 ms. Budgets are in BLUEPRINT.md.
+
+**Superseded by D-189 for storage support and D-191 for the default imaging viewer.** ndx-pose as a pose schema, ragged trial columns as
+message text, and external videos' per-frame timestamps remain outside this decision.
+
+## 2026-10 · D-189 · NWB 1.x, Zarr and DANDI streams use the NWB chunk reader
+
+**Decision.** D-070's only sample-reader exception remains NWB. A small storage adapter gives the
+D-188 structural scanner and chunk reader local HDF5, NWB 1.x HDF5, Zarr v2/v3, and remote DANDI
+HDF5/Zarr handles. NWB 1.x places series under `acquisition/timeseries`, may put version and epoch
+in datasets, and may declare its type through `ancestry`; these are read explicitly. PyNWB-compatible
+NWB 2 files keep the D-188 structure, scaling and timing semantics. The reader does not build an
+eager PyNWB/neo object tree for every source, so a cached extension specification conflict does not
+refuse the rest of a session.
+
+**Streaming.** File → Open NWB from DANDI accepts a DANDI asset download URL or its public S3
+content URL. A small `.nwb-link` containing that address lives under the per-user application-data
+folder, outside the derived-data cache, so saved sessions can reopen it. `fsspec` reads HDF5 by
+HTTP ranges and Zarr by metadata and requested chunks over HTTPS. Older hdmf-zarr v2 stores with a
+numeric fill value for object arrays are corrected in memory at the Zarr store boundary only.
+External videos named by a streamed NWB remain local-file references and are reported as such.
+
+**Dependencies.** `zarr` (MIT), `fsspec` (BSD-3-Clause), and `aiohttp` (MIT AND Apache-2.0)
+are pip-installable on Windows, macOS and Linux and compatible with AGPL-3.0-or-later.
+Each is needed for lazy local Zarr or remote range/chunk reads; none requires an OS package. Proxy
+encoding remains one atomic operation: cancellation is available before encoding and disabled
+while the copy is being written, while its percentage appears in the status area and Tasks panel.
+
+---
+
+## 2026-10 · D-190 · Two-photon stacks are imaging sources with their own viewer
+
+**Context.** A two-photon acquisition is a time-indexed array, not a camera container. Feeding
+HDF5 or TIFF stacks through PyAV would lose dataset axes, channels and acquisition timing, and
+eagerly loading a stack would exceed the idle-RAM budget. Users need to adjust brightness and
+contrast, smooth noisy frames, and overlay channels -- and none of that may move a frame in time.
+
+**Decision.** `ImagingSource` is a third file-source plugin contract alongside the frozen
+`TimeSeriesSource` and `VideoSource`: `open(path, config) -> ImagingMetadata` (frame times,
+shape, dtype, channel count) and `read_frame(index, channel=0)` returning one 2D plane. The
+HDF5 reader reads one hyperslab, the TIFF reader one page (plain, OME, and ScanImage's
+channel-interleaved pages with its scan rate as timing). Channels are a view choice; a dataset,
+axis order, depth plane or missing frame rate is an import choice, raised as
+`ImagingChoiceRequired`, asked once, and saved in the session -- never guessed. A typed frame
+rate beats the file's.
+
+The viewer sits in the lower half of a vertical split beneath the 3D pane and picks the frame
+whose presentation interval contains master `t`, like video. One reader thread per shown stack
+coalesces requests, caches raw planes under a 128 MiB byte budget (strided to ≤ 1024 px), and
+renders there, not on the UI thread (the D-093 rule for video): each channel has a measured
+reference window (0.5/99.5 percentiles) plus brightness (moves the centre by up to one
+reference width) and contrast (scales the width by up to 16× either way); the moving average
+is **centred and odd-length (1–31)**, truncated at the stack ends, so averaging never shifts an
+event in time; visible channels add in named colours (defaults green/magenta/cyan/yellow,
+CVD-checked, colour named beside each swatch). Display edits are undoable
+`SetImagingViewCommand`s that merge per stack and control; a measured reference window is
+stored with the view so a reopened session draws the same picture. `.avv` schema 13 records
+loader, import choices, time mapping (ms/h, D-184) and display view per stack. File → Open 2P
+Imaging… has a button on the Sources page (D-181).
+
+**Dependencies.** Existing `h5py` and new `tifffile` are BSD-3-Clause and compatible with
+AGPL-3.0-or-later. `tifffile` is pure Python and pip-installable on Windows, macOS, and Linux.
+`napari`, `Dask`, and `imagecodecs` are not runtime dependencies; a page needing an absent
+codec is reported for that page. PyAV remains the decoder for videos. The PyInstaller bundle
+collects the installed `h5py` and `tifffile` licence notices under `licenses/`.
+
+---
+
+## 2026-10 · D-191 · NWB image series use the two-photon viewer by default
+
+**Decision.** An NWB session offers each embedded `ImageSeries` as an `ImagingSource` in the
+two-photon viewer. `NWBStackSource` opens the selected HDF5, Zarr or DANDI container and slices
+one stored image plane per frame request. NWB timestamps remain the source frame times, so the
+series keeps its position against the file's time series on the master clock. A named series path
+is still the source identity for undo, coverage, save and relink. The existing `NWBImagingSource`
+video proxy remains available for video-compatible consumers; encoding it reports progress and
+finishes an in-progress copy before publishing its cache entry.
+
+---
+
+## 2026-10 · D-192 · The imaging viewer counts its average either side, zooms like the video, and reads NWB depth as depth
+
+**Decision.** *Average* is entered as a half-width -- Off, ±1 … ±15 frames -- and stored, as
+before, as the odd frame count (`ImagingView.average`, schema unchanged). A frame count accepted
+values it could not show: the centred window has no even length, so a typed 2 was silently
+rounded back to 1. The imaging picture, the video panes and the 3D view carry the same
+`ui/zoom_controls.ZoomControls` strip in their bottom-left corner, each driving its own view's
+zoom (wheel zoom about the cursor, middle-drag pan, double-click to fit, as on video); the 3D
+orientation triad moves up to clear it. Reset in 3D restores zoom and pan, not the orbit. The
+imaging controls sit below the picture, Average shares the slider headings' row and Auto levels
+the frame status line, so the picture takes the height. `NWBStackSource` treats a third frame
+axis on a `TwoPhotonSeries`/`OnePhotonSeries` as depth planes and asks for `z`, as the HDF5 loader
+does; NWB keeps optical channels in separate series, so overlaying planes as colours was wrong.
+
+**Alternatives rejected.** *Rounding even counts up* still shows a value other than the one typed.
+*A shared zoom across panes*: the panes show different things at different scales. *Treating any
+third axis as channels*: true only of plain `ImageSeries` colour images, which keep that reading.
+
+---
+
+## 2026-10 · D-193 · NWB ROIs are shown together as a grid, and plot rows paint once per load
+
+**Decision.** `loaders/nwb_roi_grid.NWBRoiGridSource` is an `ImagingSource` that tiles every ROI
+of a `PlaneSegmentation` into one picture per frame, in reading order on a near-square grid with
+one-pixel NaN gutters. Each tile is the strongest evidence the file holds: raw pixels in the box
+around the ROI when an image series on the same imaging plane covers every mask, otherwise the
+mask with its pixels set to the ROI's value in that frame of the `RoiResponseSeries` (DfOverF
+before Fluorescence), labelled as such. Pixels outside a mask are NaN, so the levels are
+measured on cells. A tile is sized to the ROI's nonzero-weight pixels: some writers list a cell's
+whole scan patch with zero weights outside the cell, and boxing those left each cell a speck. The NWB session offers each such grid as an item next to the image series;
+its path is the segmentation's object path, and `can_open` claims only paths through
+`ImageSegmentation`. Masks are read once at open; a frame is one response row or one raw plane
+(about 0.6 ms for 231 ROIs).
+
+While queued plot rows are being built (D-060), the plot view has updates disabled and paints
+once in `_finish_loading`. Each slice used to repaint and re-lay-out every row built so far,
+which is quadratic: a 234-row NWB import blocked the UI thread for about 11 s, and the slicing
+did not help because the paint, not the construction, was the cost.
+
+**Alternatives rejected.** *Tiling separate image series*: patch-scanned files may store only one,
+which leaves nothing to tile. *Making up per-cell movies from the trace and the mask*: that would
+look like imaging; the trace on the mask is labelled as a map of the trace. *Building plot rows
+in larger slices*: the paint cost still grows with every row.
+
+---
+
+## 2026-10 · D-194 · An imaging stack opens with a default reading; the pane corrects it
+
+**Amends D-190.** A stack no longer asks for its axis order or depth plane before it opens. The
+loaders use the configured order, else the file's tag when it forms a valid order (T present,
+YX last, leading axes from T/C/Z), else `core/imaging_axes.default_axes`: the largest leading
+dimension is time, one of at most four is channels, the rest depth. The first depth plane is shown
+until another is picked. `ImagingMetadata` carries the stored `shape`, the `axes` used and
+`depth_planes`, and the imaging pane offers every other valid order in an **Axes** list named by
+meaning and size ("Time 2000 · Channels 2") and a **Plane** box, shown only when there is a choice.
+A pick is a `SetImagingLayoutCommand` that reopens the stack with the new `axes`/`z` import choices
+(kept in the session), its time mapping intact and its levels re-measured; undo reopens it as
+before. The reopen is not a new source and records no `AddSourceCommand`.
+
+Users who could not say what "TCYX" meant were stuck at the question with no data on screen; the
+data itself is the best help in choosing. A wrong default is visible at once (frames that are
+channels flicker, a channel axis shows a few frames), unlike a wrong frame rate, which is still
+asked: it shifts every event with nothing looking wrong. ImageJ's `fps` tag is not read as the
+acquisition rate; it is the playback speed the file was saved with.
+
+---
+
+## 2026-10 · D-195 · Acquired channels are named and chosen apart from their display colour
+
+**Decision.** The imaging controls are a headed grid -- Channel, Colour, Brightness, Contrast --
+with one tick box per *acquired* channel, labelled with the name the file gives it
+(`ImagingMetadata.channel_names`: OME `Channel@Name`, an HDF5 `channel_names` attribute, NWB
+series names or the plane's single `OpticalChannel`; `Ch N` otherwise). The tick box is shown even
+for one channel. The colour list beside it is only the display colour. With one channel the box used
+to be hidden and the row read "Image [Grey]", so the only control in sight was the colour, and it
+was taken for the channel selector.
+
+`NWBStackSource` reads series that share an imaging plane (compared as objects), a frame shape,
+a length and identical frame times as the channels of one stack; the NWB session offers each such
+group as one item whose path is its first series, with the others in the `channels` import choice.
+NWB stores each optical channel as its own series, so without this a green and a red recording
+could only be viewed one at a time. Merged channels are named by what distinguishes their series
+(`TwoPhotonSeriesGreen`/`Red` -> `Green`/`Red`).
+
+**Kept.** Default colours stay green/magenta (D-190) even for channels named Red: red/green is the
+pair colour-vision deficiencies lose.
+
+---
+
+## 2026-10 · D-196 · Imaging is a source like any other; one vocabulary per concept
+
+**Context.** The imaging and NWB work (D-188 – D-195) postdated Phase 9 and did not adopt its
+patterns: stacks had no Sources card, so no Properties, Copy details or overflow Remove, and their
+offset and drift were edited on the pane, a second home beside the cards' spin boxes (D-175). Data
+Streams labelled them "Data"; the pane counted frames from one and printed raw seconds where the
+video overlay counts from zero (the integer an exported row carries) and shows `HH:MM:SS.mmm`;
+video and imaging levels offered different buttons; "Open Video(s)" survived as a dialog title;
+DANDI had no Sources button; and the translation gate did not read notifications, standard
+dialogs or f-strings.
+
+**Decision.**
+- Each stack has an `ImagingInfoWidget` card in an Imaging group on the Sources page (hidden when
+  empty), with the camera card's header, overflow and Timing disclosure. The pane keeps the stack
+  choice, the picture and its display controls. Data Streams labels the lane Imaging.
+- The pane's readout is the video overlay's: `format_clock` time, zero-based `f i / n-1`, then
+  `describe_picture` (`512×512 · 16-bit`). Export Snapshot includes the imaging picture.
+- Both levels panels offer **Auto** and **Full range**. Their slider models stay: Black/White/Gamma
+  on 8–16-bit video, Brightness/Contrast on imaging, both standard (ImageJ shows both) and both
+  stored in session files.
+- "Open 2P Imaging…" is **Open Imaging…** (id pinned as `file_open_2p_imaging`); loader names say
+  the kind of data with the format in brackets, not the rig. Open dialogs take their title from
+  their action and accept several files, and none filters by extension, since a plugin may claim
+  any (rule 5). Open NWB from DANDI… becomes **Open NWB…** (id pinned as `file_open_nwb_from_dandi`), taking a local file or folder or a DANDI asset URL in one field, with a Sources button (D-181).
+- A malformed axis order is reported, not asked for as letters (D-194); the unreachable plane
+  prompt is gone.
+- `i18n.untranslated_calls` also reads `notifications.show_*`, `QInputDialog`/`QFileDialog`
+  titles and prompts, and f-strings in every scanned position.
+- Margins and gaps use `design_tokens.spacing` throughout `ui/`; off-scale values rounded down so
+  no minimum grows. The saved-layout commands moved from `MainWindow` to `ui/workspaces.py`.
+
+**Not done.** The imaging pane has no Fullscreen of its own; only video panes do. `main_window.py`
+remains far above D-148's 1 000-line target.
+
+---
+
+## 2026-10 · D-197 · One publication path for authored files and exports
+
+**Decision.** `core/artifacts.py` names every authored file and requested export by stable ID,
+destination class, schema, provenance carrier, overwrite policy and read-back status. Cache entries
+stay outside this registry: they are disposable and `cache_store` remains their deletion authority
+(D-160). `core/artifact_io.py` stages a unique sibling, syncs it and its containing folder where
+supported, and publishes it atomically. It protects every loaded source and the cache root, and
+rejects names Windows cannot represent. Failure or cancellation removes only its own stage. A
+locked destination is an `ExportError` with the recovery of closing it in the other program and
+retrying.
+
+Authored sidecars are queued as plain-data jobs through `MainWindow._run_job`; while one path is
+being written, later revisions of that path coalesce to the newest. Export files use the same
+publication boundary. The Exports inspector is the visible home for requested outputs; File menu
+actions remain live `QAction`s and supply their labels and enablement (D-092). This amends D-100's
+choice to keep recording exports outside its dialog: that dialog continues to group a person's
+changes, while the inspector provides the shared entry point.
+
+Where an external format has no extensible metadata field, a sibling `<name>_avialsync.json`
+records provenance. CSV remains UTF-8 without a BOM, because the strict DeepLabCut header and
+non-Excel parsers depend on its first cell. BIDS physio is outside this decision. A retraining CSV
+remains DeepLabCut's three-row layout; a lab can use DeepLabCut's `convertcsv2h5` to produce
+`CollectedData_<scorer>.h5`, avoiding a new pandas/PyTables runtime dependency. The app does not
+claim the CSV alone is a complete HDF5 training package.
+
+Custom-marker sidecars retain the existing DeepLabCut stem-based filenames
+(`FaceCam_eks.csv` → `FaceCam_eks_custom_markers.csv`) so saved sessions and
+anipose scans keep finding them. Their naming rule is explicit in the registry;
+other source-derived sidecars use D-160's full-name encoding.
+
+**Consequences.** A writer that needs a new format gets one registry entry and uses `publish` or
+`publish_dir`. Format metadata records `avialsync <version>`, schema, UTC write time, source names
+and sizes, session and accepted TimeMap when supplied, and edit counts. The publication boundary
+protects source files even when a caller's save dialog gives back a loaded source's path.
+
+Export prompts follow D-196: a save or folder prompt takes its title from its File action, and
+`i18n.untranslated_calls` reads the titles passed to `choose_file` and `choose_folder`. The Exports
+page has no heading of its own, since its tab names it, and uses its sibling pages' margins. A
+folder prompt opens in that kind's last folder.
+
+## 2026-10 · D-198 · Retraining exports are copyable, complete project-root trees
+
+**Decision.** Export Changes offers a new bundle folder for each corrected pose source. Its
+contents, rather than the folder itself, are copied into an existing pose-training project root;
+the export never asks for or writes into that project. The user enters the project's scorer name.
+The DeepLabCut profile writes `labeled-data/<video>/CollectedData_<scorer>.csv` and its PNGs;
+multi-animal sources retain the `individuals` header. The Lightning Pose profile writes a
+single-view `CollectedData.csv` at the bundle root and its PNGs under `labeled-data/<video>/`.
+Lightning Pose multiview is not represented by independently exported view files: its rows must be
+matched across cameras using accepted timing evidence before such a profile can be offered.
+
+The worker publishes the bundle as one directory only after every requested frame decodes, every
+PNG saves, and all written coordinates are finite and inside the image. A failure or cancellation
+leaves no partial training set; an existing bundle is left alone. High-bit-depth greyscale frames
+use the same worker-side display window as the video pane. The provenance companion lists the
+exported frame indices, body parts, and label counts so the contents can be reviewed.
+
+**Retained choices.** Unedited model predictions on corrected frames remain labels (D-100), as
+requested for the current training workflow. DeepLabCut H5 conversion stays in the target project,
+per D-197; AvialSync does not add pandas/PyTables to its runtime. The scorer placeholder is blank
+until the user enters a name, so a hard-coded scorer cannot silently miss the target project.

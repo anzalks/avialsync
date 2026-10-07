@@ -3,18 +3,21 @@
 import logging
 import math
 import time
+from collections.abc import Mapping
 from pathlib import Path
 
 import pyqtgraph as pg
-from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QResizeEvent
+from PySide6.QtCore import QEvent, Qt, QTimer, Signal
+from PySide6.QtGui import QAccessible, QAction, QResizeEvent
 from PySide6.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
 
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.timeline import TimeMap
+from avialsync.ui.accessible_views import register_painted
 from avialsync.ui.annotations import AnnotationStore
+from avialsync.ui.app_settings import app_settings
 from avialsync.ui.i18n import tr
-from avialsync.ui.plot_header import PlotHeader
+from avialsync.ui.plot_header import PlotControlStrip, PlotHeader
 from avialsync.ui.plot_interactions import PlotInteractionController
 from avialsync.ui.plot_row import (
     Y_AUTO,
@@ -24,6 +27,7 @@ from avialsync.ui.plot_row import (
     apply_channel_palette,
     apply_channel_visibility,
     create_channel_plot,
+    detach_row,
     enforce_channel_visibility,
     fit_channel_y,
     point_budget_for_width,
@@ -116,15 +120,24 @@ class PlotPane(QWidget):
         self._plot_header.presentation_changed.connect(self._on_presentation_changed)
         self._plot_header.fit_all_requested.connect(self.fit_all_y)
         self._plot_header.row_height_changed.connect(self._set_row_height)
-        self._plot_header.reset_requested.connect(self.reset_zoom)
+        self.reset_action = QAction(tr("Reset Plots"), self)
+        self.reset_action.setToolTip(tr("Reset the shared time span and fit every visible plot"))
+        self.reset_action.triggered.connect(self.reset_zoom)
+        self._plot_header.reset_button.set_action(self.reset_action)
         self.presentation_combo = self._plot_header.presentation_combo
         self.page_label = self._plot_header.page_label
         self.fit_all_button = self._plot_header.fit_all_button
         self.row_height_combo = self._plot_header.row_height_combo
         self.reset_button = self._plot_header.reset_button
-        _layout.addWidget(self._plot_header)
 
         self.graphics_layout = pg.GraphicsLayoutWidget()
+        self.graphics_layout.setAccessibleName(tr("Plot rows"))
+        register_painted(
+            self.graphics_layout,
+            QAccessible.Role.Chart,
+            self.accessible_value,
+            self.accessible_detail,
+        )
         self.graphics_layout.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.graphics_layout.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         # The channel stack scrolls in an ordinary scroll area, not in the
@@ -145,12 +158,16 @@ class PlotPane(QWidget):
         _layout.addWidget(self._plot_scroll)
 
         self._sweep_control = SweepWindowControl(self)
+        self._sweep_control.set_focus_target(self)
         self._sweep_control.window_changed.connect(self._on_window_changed)
         self.window_limit_spin = self._sweep_control.limit_spin
         self.window_unit_combo = self._sweep_control.unit_combo
         self.window_slider = self._sweep_control.slider
         self.window_value_label = self._sweep_control.value_label
-        _layout.addWidget(self._sweep_control)
+        # D-170: one row contains the existing plot and time-span controls.
+        self._plot_header.insert_span_control(self._sweep_control)
+        self._header_strip = PlotControlStrip(self._plot_header, self)
+        _layout.addWidget(self._header_strip)
         self._resize_refresh_timer = QTimer(self)
         self._resize_refresh_timer.setSingleShot(True)
         self._resize_refresh_timer.setInterval(75)
@@ -168,13 +185,17 @@ class PlotPane(QWidget):
         self.channels: list[ChannelPlot] = []
         # One TimeMap per source cache dir, shared by all of that source's rows.
         self._source_time_maps: dict[Path, TimeMap] = {}
+        # Units arrive once, when the import finishes, but rows are built in
+        # slices across later event-loop turns; kept here so a row built after
+        # the units arrived still gets its own (D-186).
+        self._units: dict[ChannelKey | str, str] = {}
         self.follow_playhead = True
         self._playing = False
         self._scrubbing = False
         self._live_presentation = PlotPresentation.SCOPE
         self._time_mode = TimeDisplayMode.RELATIVE
         self._t_epoch = 0.0
-        self._settings = QSettings("AvialSync", "AvialSync")
+        self._settings = app_settings()
         saved_presentation = self._settings.value(
             "plot/live_presentation", PlotPresentation.SCOPE.value
         )
@@ -188,6 +209,7 @@ class PlotPane(QWidget):
         self._master_plot: pg.PlotItem | None = None
         self._interactions = PlotInteractionController(self)
         self.graphics_layout.scene().sigMouseClicked.connect(self._interactions.on_scene_clicked)
+        self.graphics_layout.scene().sigMouseMoved.connect(self._interactions.on_scene_moved)
 
     def changeEvent(self, event: QEvent) -> None:
         """Keep pyqtgraph's canvas aligned with an application palette change."""
@@ -238,13 +260,14 @@ class PlotPane(QWidget):
         interactions = getattr(self, "_interactions", None)
         if interactions is not None:
             interactions.redraw_measure_lines()
+            interactions.redraw_identity_markers()
 
     def load_channels(
         self,
         cache_dir: Path,
         channel_names: list[str],
         offset: float = 0.0,
-        drift_ppm: float = 0.0,
+        drift_ms_per_hour: float = 0.0,
         source_id: str = "",
     ) -> None:
         """Load multiple data sources from cache and build plot rows.
@@ -257,9 +280,14 @@ class PlotPane(QWidget):
 
         time_map = self._source_time_maps.setdefault(cache_dir, TimeMap())
         time_map.offset = float(offset)
-        time_map.drift_ppm = float(drift_ppm)
+        time_map.drift_ms_per_hour = float(drift_ms_per_hour)
 
         self._pending_rows.extend((cache_dir, name, time_map, source_id) for name in channel_names)
+        # Each slice yields to the event loop, and every yield used to repaint
+        # and re-lay-out every row built so far: a 234-ROI NWB file froze the
+        # window for ~11 s, quadratic in the row count. The view stays frozen
+        # (not the window) until the last row exists, then paints once.
+        self.graphics_layout.setUpdatesEnabled(False)
         self._build_pending_rows()
 
     def _build_pending_rows(self) -> None:
@@ -286,6 +314,8 @@ class PlotPane(QWidget):
                 self._request_channel_close,
                 time_map,
                 source_id,
+                # The density chosen now, not the dataclass default (D-177).
+                row_height=int(self.row_height_combo.currentData()),
             )
             if self._master_plot is None:
                 self._master_plot = channel.plot_item
@@ -299,6 +329,9 @@ class PlotPane(QWidget):
                     channel.plot_item.setXRange(0.0, self.window_duration, padding=0)
                 channel.plot_item.setXLink(self._master_plot)
             self.channels.append(channel)
+            unit = self._units.get(channel.reader.key) or self._units.get(name)
+            if unit:
+                set_channel_unit(channel, unit)
             # Fill this row in now rather than leaving all 64 pyramid queries to
             # the end, and inside the timed region so the slice budget covers it.
             self._refresh_rows([channel])
@@ -347,15 +380,16 @@ class PlotPane(QWidget):
         """
         self._pending_rows.clear()
         self._pending_refresh.clear()
+        self.graphics_layout.setUpdatesEnabled(True)
 
     def clear_sources(self) -> None:
         """Remove every plotted source and its pending row work."""
         self.cancel_pending_rows()
         for channel in self.channels:
-            self.graphics_layout.removeItem(channel.plot_item)
-            self.graphics_layout.removeItem(channel.close_proxy)
+            detach_row(self.graphics_layout, channel)
         self.channels.clear()
         self._source_time_maps.clear()
+        self._units.clear()
         self._master_plot = None
         self._link_x_axes()
         self._relayout_rows()
@@ -380,6 +414,7 @@ class PlotPane(QWidget):
         # the view's real size, which is what pushes geometry onto the item.
         # The stack's height is part of the geometry being pushed, so it is set
         # before the resize rather than with the rest of the row layout after it.
+        self.graphics_layout.setUpdatesEnabled(True)
         self._apply_stack_height()
         self.graphics_layout.resizeEvent(None)
         self.graphics_layout.ci.layout.activate()
@@ -407,7 +442,7 @@ class PlotPane(QWidget):
         # that asked to wait needs it applied before it continues.
         self._finish_loading()
 
-    def set_source_mapping(self, cache_dir: Path, offset: float, drift_ppm: float) -> None:
+    def set_source_mapping(self, cache_dir: Path, offset: float, drift_ms_per_hour: float) -> None:
         """Re-align one time-series source against the master clock.
 
         The rows keep their readers; only the shared ``TimeMap`` changes, so this
@@ -417,7 +452,7 @@ class PlotPane(QWidget):
         if time_map is None:
             return
         time_map.offset = float(offset)
-        time_map.drift_ppm = float(drift_ppm)
+        time_map.drift_ms_per_hour = float(drift_ms_per_hour)
         for channel in self.channels:
             if channel.reader.cache_dir == cache_dir:
                 channel.coverage_bounds = channel.reader.coverage()
@@ -425,11 +460,11 @@ class PlotPane(QWidget):
         self._interactions.redraw_annotations()
 
     def source_mapping(self, cache_dir: Path) -> tuple[float, float]:
-        """Return the ``(offset, drift_ppm)`` currently applied to a source."""
+        """Return the ``(offset, drift_ms_per_hour)`` currently applied to a source."""
         time_map = self._source_time_maps.get(cache_dir)
         if time_map is None:
             return 0.0, 0.0
-        return time_map.offset, time_map.drift_ppm
+        return time_map.offset, time_map.drift_ms_per_hour
 
     def source_bounds(self, cache_dir: Path) -> tuple[float, float] | None:
         """Return one source's master-time coverage across all of its channels."""
@@ -443,13 +478,34 @@ class PlotPane(QWidget):
             return None
         return min(span[0] for span in spans), max(span[1] for span in spans)
 
+    def read_channels_from(self, source_id: str, directories: Mapping[str, Path]) -> None:
+        """Read one source's rows from the directories named in *directories*.
+
+        What makes an accepted identity swap visible in the plots: the row keeps
+        its colour, its Y scale, its unit and its visibility, and only the
+        arrays underneath it change (:mod:`avialsync.core.edit_cache`).  Every
+        channel is named, including the unedited ones, so undoing the last edit
+        points the rows home again by the same path that pointed them away.
+        """
+        touched = False
+        for channel in self.channels:
+            directory = directories.get(channel.reader.channel_id)
+            if directory is None or channel.reader.source_id != source_id:
+                continue
+            if channel.reader.source_reader.cache_dir != directory:
+                channel.reader.read_from(directory)
+                touched = True
+        if touched:
+            self.update_plots()
+
     def remove_channels(self, cache_dir: Path) -> None:
         """Remove all channels associated with a specific cache_dir (source)."""
         self._source_time_maps.pop(cache_dir, None)
         to_remove = [ch for ch in self.channels if ch.reader.cache_dir == cache_dir]
         for ch in to_remove:
-            self.graphics_layout.removeItem(ch.plot_item)
-            self.graphics_layout.removeItem(ch.close_proxy)
+            self._units.pop(ch.reader.key, None)
+        for ch in to_remove:
+            detach_row(self.graphics_layout, ch)
             self.channels.remove(ch)
 
             if self._master_plot == ch.plot_item:
@@ -485,8 +541,7 @@ class PlotPane(QWidget):
         """Remove the row(s) identified by *channel*."""
         to_remove = self._matching(channel)
         for ch in to_remove:
-            self.graphics_layout.removeItem(ch.plot_item)
-            self.graphics_layout.removeItem(ch.close_proxy)
+            detach_row(self.graphics_layout, ch)
             self.channels.remove(ch)
 
             if self._master_plot == ch.plot_item:
@@ -653,6 +708,7 @@ class PlotPane(QWidget):
 
     def set_channel_unit(self, channel: ChannelKey | str, unit: str) -> None:
         """Update the fixed channel gutter after import metadata is available."""
+        self._units[channel] = unit
         for ch in self._matching(channel):
             set_channel_unit(ch, unit)
 
@@ -892,6 +948,30 @@ class PlotPane(QWidget):
             self._page_label_text = text
             self.page_label.setText(text)
 
+    def accessible_value(self) -> str:
+        """Each shown row's value at the playhead, read on query (D-179)."""
+        visible = [channel for channel in self.channels if channel.visible][:32]
+        if not visible or self.sweep_start is None:
+            return tr("No channels are shown.")
+        t = self.sweep_start + float(visible[0].cursor_line.value())
+        parts = []
+        for channel in visible:
+            sample = channel.reader.sample_at(t)
+            value = "—" if sample is None else f"{sample[1]:.4g}"
+            unit = f" {channel.unit}" if channel.unit else ""
+            parts.append(f"{channel.name}: {value}{unit}")
+        return "; ".join(parts)
+
+    def accessible_detail(self) -> str:
+        shown = sum(channel.visible for channel in self.channels)
+        return tr("{n} channel rows over a {window} s window").format(
+            n=shown, window=f"{self.window_duration:g}"
+        )
+
+    def hide_channel_row(self, channel_id: str) -> None:
+        """Hide a row as its close tool does, from the row's context menu (D-177)."""
+        self._request_channel_close(channel_id)
+
     def _request_channel_close(self, channel_id: str) -> None:
         """Row close button: hide this source's row and tell the sidebar which one."""
         match = next((ch for ch in self.channels if ch.reader.channel_id == channel_id), None)
@@ -937,6 +1017,10 @@ class PlotPane(QWidget):
     def set_gap_markers(self, channel_id: str, gap_times: list[float]) -> None:
         """Overlay thin red vertical lines at gap positions for one channel."""
         self._interactions.set_gap_markers(channel_id, gap_times)
+
+    def set_identity_events(self, source_id: str, events: list[tuple[float, str]]) -> None:
+        """Mark accepted flip boundaries on rows belonging to one pose source."""
+        self._interactions.set_identity_events(source_id, events)
 
     def set_annotation_store(self, store: AnnotationStore) -> None:
         """Subscribe to and render the authoritative annotation store."""

@@ -46,7 +46,8 @@ def test_fit_recovers_known_offset_and_drift_with_missing_pulses() -> None:
 
     assert proposal.acceptable
     assert proposal.fit.offset == pytest.approx(1.25, abs=1e-6)
-    assert proposal.fit.drift_ppm == pytest.approx(3.5, abs=1e-5)
+    # 3.5e-6 seconds gained per second is 12.6 ms per hour.
+    assert proposal.fit.drift_ms_per_hour == pytest.approx(12.6, abs=3.6e-5)
     assert proposal.fit.matched_count == len(source)
     assert proposal.fit.rejected_count == 4
 

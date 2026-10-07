@@ -15,12 +15,12 @@ from PySide6.QtWidgets import QMenu
 from avialsync.ui.annotations import AnnotationStore
 from avialsync.ui.i18n import tr
 from avialsync.ui.plot_row import ChannelPlot
-from avialsync.ui.plot_theme import gap_marker_pen, measure_pen
+from avialsync.ui.plot_theme import gap_marker_pen, identity_marker_pen, measure_pen
 
 logger = logging.getLogger(__name__)
 
 ContextAction = Literal[
-    "annotate", "measure_a", "measure_b", "clear_measure", "fit_y", "auto_y", "hold_y"
+    "annotate", "measure_a", "measure_b", "clear_measure", "fit_y", "auto_y", "hold_y", "hide"
 ]
 
 
@@ -44,20 +44,23 @@ def show_context_menu(
     view_pos = channel.plot_item.vb.mapSceneToView(scene_pos)
     time = sweep_start + float(view_pos.x())
     menu = QMenu()
-    annotate = menu.addAction(f"Add marker here  ({time:.3f} s)")
+    annotate = menu.addAction(tr("Add marker here  ({time} s)").format(time=f"{time:.3f}"))
     menu.addSeparator()
-    measure_a = menu.addAction(f"Set Measure A  ({time:.3f} s)")
-    measure_b = menu.addAction(f"Set Measure B  ({time:.3f} s)")
+    measure_a = menu.addAction(tr("Set Measure A  ({time} s)").format(time=f"{time:.3f}"))
+    measure_b = menu.addAction(tr("Set Measure B  ({time} s)").format(time=f"{time:.3f}"))
     clear_measure = menu.addAction(tr("Clear Measure"))
     menu.addSeparator()
-    fit_y = menu.addAction(f"Fit {channel.name} Y (hold)")
-    auto_y = menu.addAction(f"Auto-scale {channel.name} Y")
-    hold_y = menu.addAction(f"Hold {channel.name} Y scale")
+    fit_y = menu.addAction(tr("Fit {name} Y (hold)").format(name=channel.name))
+    auto_y = menu.addAction(tr("Auto-scale {name} Y").format(name=channel.name))
+    hold_y = menu.addAction(tr("Hold {name} Y scale").format(name=channel.name))
     extras = tuple(extra_actions)
     if extras:
         menu.addSeparator()
         for extra in extras:
             menu.addAction(extra)
+    # The row's own close, also here so it never depends on hovering (D-177).
+    menu.addSeparator()
+    hide = menu.addAction(tr("Hide {name}").format(name=channel.name))
     chosen = menu.exec(event.screenPos().toPoint())
     actions: dict[QAction, ContextAction] = {
         annotate: "annotate",
@@ -67,6 +70,7 @@ def show_context_menu(
         fit_y: "fit_y",
         auto_y: "auto_y",
         hold_y: "hold_y",
+        hide: "hide",
     }
     action = actions.get(chosen)
     if action is None:
@@ -132,6 +136,36 @@ def redraw_gap_markers(
             line.setZValue(3)
             channel.plot_item.addItem(line)
             channel.gap_markers.append(line)
+
+
+def redraw_identity_markers(
+    channels: list[ChannelPlot],
+    events: dict[str, tuple[tuple[float, str], ...]],
+    display_x: Callable[[float], float | None],
+    palette: QPalette,
+    old_items: list[tuple[pg.PlotItem, pg.InfiniteLine]],
+) -> list[tuple[pg.PlotItem, pg.InfiniteLine]]:
+    """Draw accepted flips on the affected source's visible plot rows."""
+    for plot_item, line in old_items:
+        try:
+            plot_item.removeItem(line)
+        except RuntimeError:
+            logger.debug("Plot item was already deleted", exc_info=True)
+    pen = identity_marker_pen(palette)
+    new_items: list[tuple[pg.PlotItem, pg.InfiniteLine]] = []
+    for channel in channels:
+        if not channel.visible:
+            continue
+        for time, label in events.get(channel.reader.source_id, ()):
+            x = display_x(time)
+            if x is None:
+                continue
+            line = pg.InfiniteLine(pos=x, angle=90, movable=False, pen=pen)
+            line.setZValue(4)
+            line.setToolTip(label)
+            channel.plot_item.addItem(line)
+            new_items.append((channel.plot_item, line))
+    return new_items
 
 
 def redraw_annotations(

@@ -185,6 +185,25 @@ def test_release_tag_must_agree_with_the_declared_version() -> None:
     assert "src/avialsync/__init__.py" in release_workflow
 
 
+def test_release_activates_the_exact_readthedocs_tag() -> None:
+    """A release must not leave its matching documentation version inactive.
+
+    The Read the Docs GitHub webhook discovers a tag but does not necessarily
+    activate it.  The release workflow explicitly synchronizes the tag and
+    activates that exact version before any distribution can be published.
+    """
+    workflow = yaml.safe_load(Path(".github/workflows/release.yml").read_text(encoding="utf-8"))
+    publish_docs = workflow["jobs"]["publish_docs"]
+    release_workflow = WORKFLOW_PATHS[1].read_text(encoding="utf-8")
+
+    assert publish_docs["needs"] == ["verify_release_ref", "docs"]
+    assert "READTHEDOCS_TOKEN" in release_workflow
+    assert "sync-versions/" in release_workflow
+    assert "verbose_name=$READTHEDOCS_TAG" in release_workflow
+    assert "--data '{\"active\": true}'" in release_workflow
+    assert "publish_docs" in workflow["jobs"]["distributions"]["needs"]
+
+
 def test_prerelease_tags_are_not_published_as_stable_releases() -> None:
     """A PEP 440 pre-release tag must be marked as one on the release page."""
     release_workflow = WORKFLOW_PATHS[1].read_text(encoding="utf-8")

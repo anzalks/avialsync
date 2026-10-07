@@ -5,14 +5,30 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
-import os
 import uuid
+from functools import partial
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+from avialsync.core.drift import drift_from_legacy_entry
+
 _EXACT_MAPPING_INLINE_LIMIT = 500
+
+#: Appended to a session's stem for the folder holding its large exact-sync
+#: mappings: ``trial.avv`` -> ``trial_avv_sync/``.
+EXACT_MAPPING_DIR_SUFFIX = "_avv_sync"
+
+
+def exact_mapping_dir(session_path: Path) -> Path:
+    """Return the folder beside *session_path* holding its exact-sync arrays.
+
+    Part of the session, not the cache (D-160): a mapping the user accepted is
+    a decision, and the session will not open without the arrays it names.
+    Keeping them out of the cache root is what makes that root safe to delete.
+    """
+    return session_path.with_name(f"{session_path.stem}{EXACT_MAPPING_DIR_SUFFIX}")
 
 
 @dataclasses.dataclass
@@ -21,9 +37,29 @@ class VideoEntry:
 
     path: str
     offset: float = 0.0
-    drift_ppm: float = 0.0
+    drift_ms_per_hour: float = 0.0
     integrity_flags: dict[str, object] = dataclasses.field(default_factory=dict)
     metadata: dict[str, object] = dataclasses.field(default_factory=dict)
+
+
+@dataclasses.dataclass
+class ImagingEntry:
+    """Persisted imaging stack, its import choices, mapping and display (schema v13).
+
+    ``import_config`` holds the scientific choices made at import -- dataset,
+    axis order, depth plane, a typed frame rate -- so a reopened session reads
+    the same planes at the same times without asking again. ``display`` holds
+    the viewer's channel, level and averaging choices
+    (:class:`avialsync.core.imaging_display.ImagingView`); it never changes
+    which plane is shown when.
+    """
+
+    path: str
+    loader_id: str
+    import_config: dict[str, Any] = dataclasses.field(default_factory=dict)
+    offset: float = 0.0
+    drift_ms_per_hour: float = 0.0
+    display: dict[str, Any] = dataclasses.field(default_factory=dict)
 
 
 @dataclasses.dataclass
@@ -39,7 +75,12 @@ class SensorEntry:
     #: offset/drift treatment as video so a sensor recorded on its own clock can
     #: be aligned without rewriting cached samples.
     offset: float = 0.0
-    drift_ppm: float = 0.0
+    drift_ms_per_hour: float = 0.0
+    #: Per-tracker presentation choices (schema v11).  They are intentionally
+    #: per source: a 2D pose file may be compared against raw footage without
+    #: hiding another camera's tracker, and a dense pose need not occupy plots.
+    tracking_overlay_visible: bool = True
+    tracking_plot_visible: bool = False
 
 
 @dataclasses.dataclass
@@ -59,7 +100,7 @@ class SyncProvenance:
     reference_id: str
     target_id: str
     offset: float
-    drift_ppm: float
+    drift_ms_per_hour: float
     rms_residual: float
     max_residual: float
     matched_count: int
@@ -128,6 +169,7 @@ class SessionState:
     """
 
     videos: list[VideoEntry] = dataclasses.field(default_factory=list)
+    imaging: list[ImagingEntry] = dataclasses.field(default_factory=list)
     sensors: list[SensorEntry] = dataclasses.field(default_factory=list)
     markers: list[MarkerEntry] = dataclasses.field(default_factory=list)
     sync_provenance: list[SyncProvenance] = dataclasses.field(default_factory=list)
@@ -157,9 +199,18 @@ class SessionState:
     #: Trigger evidence the user loaded and typed (schema v9). Evidence, not
     #: data: nothing here is ever plotted.
     triggers: list[TriggerEntry] = dataclasses.field(default_factory=list)
+    #: Accepted identity swaps per pose source, schema v10 (D-141). Normally a
+    #: count and where the swaps live, exactly as `point_edits` records a count:
+    #: the authority is the `_avialswap.csv` beside the pose file, and the count
+    #: is what lets a missing one be reported rather than silently obeyed. The
+    #: events themselves appear here only when that file could not be written.
+    identity_swaps: list[dict[str, Any]] = dataclasses.field(default_factory=list)
+    #: Session view choice: compare the estimator's imported tracker against
+    #: the edited generation without changing either one (D-145).
+    show_original_tracker: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict (always writes version 9)."""
+        """Serialise to a JSON-compatible dict (always writes version 13)."""
         provenance = []
         for item in self.sync_provenance:
             encoded = dataclasses.asdict(item)
@@ -175,8 +226,9 @@ class SessionState:
             )
             provenance.append(encoded)
         return {
-            "version": 9,
+            "version": 13,
             "videos": [dataclasses.asdict(v) for v in self.videos],
+            "imaging": [dataclasses.asdict(v) for v in self.imaging],
             "sensors": [dataclasses.asdict(s) for s in self.sensors],
             "markers": [dataclasses.asdict(m) for m in self.markers],
             "sync_provenance": provenance,
@@ -189,25 +241,32 @@ class SessionState:
             "point_edits": self.point_edits,
             "session_start_time": self.session_start_time,
             "triggers": [dataclasses.asdict(entry) for entry in self.triggers],
+            "identity_swaps": self.identity_swaps,
+            "show_original_tracker": self.show_original_tracker,
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SessionState:
-        """Deserialise from a parsed JSON dict (accepts v1 through v8).
+        """Deserialise from a parsed JSON dict (accepts v1 through v13).
 
-        Every v8 field is optional with a default, so a v7 file loads and
+        Schema 12 (D-184) stores clock drift as ``drift_ms_per_hour``; earlier
+        versions stored a rate per million, converted on read by
+        :func:`avialsync.core.drift.drift_from_legacy_entry`. Schema 13 (D-190)
+        adds two-photon imaging stacks; an older file has none.
+
+        Every added field is optional with a default, so an older file loads and
         renders exactly as it did before the bump -- that equivalence is the
         migration test, not an aspiration.
         """
         version = data.get("version", 1)
-        if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9):
+        if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13):
             raise ValueError(f"Unsupported session file version: {version}")
 
         videos = [
             VideoEntry(
                 path=v["path"],
                 offset=v.get("offset", 0.0),
-                drift_ppm=v.get("drift_ppm", 0.0),
+                drift_ms_per_hour=drift_from_legacy_entry(v),
                 integrity_flags=v.get("integrity_flags", {}),
                 metadata=v.get("metadata", {}),
             )
@@ -222,7 +281,9 @@ class SessionState:
                 import_report=s.get("import_report"),
                 # Pre-v6 sessions have no sensor mapping; identity is correct.
                 offset=float(s.get("offset", 0.0)),
-                drift_ppm=float(s.get("drift_ppm", 0.0)),
+                drift_ms_per_hour=drift_from_legacy_entry(s),
+                tracking_overlay_visible=bool(s.get("tracking_overlay_visible", False)),
+                tracking_plot_visible=bool(s.get("tracking_plot_visible", False)),
             )
             for s in data.get("sensors", [])
         ]
@@ -240,7 +301,7 @@ class SessionState:
                 reference_id=str(item["reference_id"]),
                 target_id=str(item["target_id"]),
                 offset=float(item["offset"]),
-                drift_ppm=float(item["drift_ppm"]),
+                drift_ms_per_hour=drift_from_legacy_entry(item),
                 rms_residual=float(item["rms_residual"]),
                 max_residual=float(item["max_residual"]),
                 matched_count=int(item["matched_count"]),
@@ -273,6 +334,17 @@ class SessionState:
 
         return cls(
             videos=videos,
+            imaging=[
+                ImagingEntry(
+                    path=str(item["path"]),
+                    loader_id=str(item.get("loader_id", "")),
+                    import_config=dict(item.get("import_config", {})),
+                    offset=float(item.get("offset", 0.0)),
+                    drift_ms_per_hour=float(item.get("drift_ms_per_hour", 0.0)),
+                    display=dict(item.get("display", {})),
+                )
+                for item in data.get("imaging", [])
+            ],
             sensors=sensors,
             markers=markers,
             sync_provenance=sync_provenance,
@@ -288,6 +360,8 @@ class SessionState:
             overlays=data.get("overlays") or {},
             display_levels=data.get("display_levels") or {},
             point_edits=list(data.get("point_edits") or []),
+            identity_swaps=list(data.get("identity_swaps") or []),
+            show_original_tracker=bool(data.get("show_original_tracker", False)),
         )
 
     def save(self, path: Path) -> None:
@@ -301,7 +375,7 @@ class SessionState:
         # on a mismatch, so it has already run for all of them by the time this
         # loop starts; repeating the check here was unreachable.
         payload = self.to_dict()
-        sidecar_dir = path.with_suffix(f"{path.suffix}.avialcache")
+        sidecar_dir = exact_mapping_dir(path)
         for index, provenance in enumerate(self.sync_provenance):
             master = np.asarray(provenance.exact_master, dtype=np.float64)
             source = np.asarray(provenance.exact_source, dtype=np.float64)
@@ -310,22 +384,36 @@ class SessionState:
             sidecar_dir.mkdir(parents=True, exist_ok=True)
             filename = f"exact-sync-{index}-{uuid.uuid4().hex}.npz"
             mapping_path = sidecar_dir / filename
-            temporary_path = sidecar_dir / f".{filename}.tmp.npz"
-            np.savez_compressed(temporary_path, master=master, source=source)
-            digest = hashlib.sha256(temporary_path.read_bytes()).hexdigest()
-            os.replace(temporary_path, mapping_path)
+            from avialsync.core.artifact_io import publish
+
+            publish(
+                mapping_path,
+                partial(np.savez_compressed, master=master, source=source),
+                kind="sync-array",
+            )
+            digest = hashlib.sha256(mapping_path.read_bytes()).hexdigest()
             item = payload["sync_provenance"][index]
             item["exact_master"] = []
             item["exact_source"] = []
             item["exact_mapping"] = {
-                "file": str(mapping_path.relative_to(path.parent)),
+                "file": mapping_path.relative_to(path.parent).as_posix(),
                 "sha256": digest,
                 "count": int(len(master)),
             }
-        tmp = path.with_suffix(".avv.tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2)
-        tmp.replace(path)
+        from avialsync.core.artifact_io import publish
+        from avialsync.core.artifact_provenance import record
+
+        source_paths = tuple(entry.path for entry in self.videos)
+        source_paths += tuple(entry.path for entry in self.sensors)
+        source_paths += tuple(entry.path for entry in self.imaging)
+        payload["format"] = "avialsync-session/13"
+        payload["provenance"] = record("session", source_paths, session=path)
+
+        def write(temporary: Path) -> None:
+            with open(temporary, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, indent=2)
+
+        publish(path, write, kind="session", sources=source_paths)
 
     @classmethod
     def load(cls, path: Path) -> SessionState:

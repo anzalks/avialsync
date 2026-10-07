@@ -153,8 +153,12 @@ def _osd_detail(pane: VideoPane) -> str:
     that decides how a frame number or rate is written (AGENTS rule 15).  On
     screen it is a stacked block clipped to the pane's width; here it has a full
     caption line, which is where the truncated "Time: 00:0" came from.
+
+    Always the full detail (D-174): the pane may show one compact line, but a
+    figure for a report keeps the rate and codec beside the frame.
     """
-    return " · ".join(line.strip() for line in pane.lbl_osd.text().splitlines() if line.strip())
+    text = pane.osd_text("full") if hasattr(pane, "osd_text") else pane.lbl_osd.text()
+    return " · ".join(line.strip() for line in text.splitlines() if line.strip())
 
 
 def capture_video_tile(pane: VideoPane, title: str) -> SnapshotTile | None:
@@ -206,6 +210,15 @@ def capture_tracking_tile(pane: Any) -> SnapshotTile | None:
     finally:
         painter.end()
     return SnapshotTile(image, "3D Tracking", pane.status_label.text())
+
+
+def capture_imaging_tile(pane: Any) -> SnapshotTile | None:
+    """The imaging picture as rendered, with its readout, or None when none is shown."""
+    image = getattr(pane, "_image", None)
+    if image is None or pane.isHidden():
+        return None
+    title = pane.source_choice.currentText() or "Imaging"
+    return SnapshotTile(image.copy(), title, pane.status_label.text())
 
 
 def plot_aspect(plot_pane: Any) -> float | None:
@@ -287,7 +300,7 @@ def _subtitle(window: MainWindow, tiles: int) -> str:
 
 def _footer(window: MainWindow) -> str:
     """Name the session and when the figure was written."""
-    session = window._session_path
+    session = window.session_runtime.path
     name = session.name if session is not None else "unsaved session"
     stamp = datetime.datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
     return f"AvialSync · {name} · exported {stamp}"
@@ -295,23 +308,27 @@ def _footer(window: MainWindow) -> str:
 
 def _title(window: MainWindow) -> str:
     """Title the figure after the session, matching the window title's name."""
-    session = window._session_path
+    session = window.session_runtime.path
     return session.stem if session is not None else "Untitled session"
 
 
 def capture_figure(window: MainWindow) -> SnapshotFigure:
     """Capture every displayed surface into one layout-planned figure."""
     tiles = _video_tiles(window)
-    tracking = capture_tracking_tile(window.tracking_3d_pane)
-    if tracking is not None:
-        tiles.append(tracking)
+    cameras = len(tiles)
+    for extra in (
+        capture_tracking_tile(window.tracking_3d_pane),
+        capture_imaging_tile(window.imaging_pane),
+    ):
+        if extra is not None:
+            tiles.append(extra)
 
     layout = plan_media_layout(tiles, plot_aspect(window.plot_pane))
     return SnapshotFigure(
         layout=layout,
         plot=capture_plot_image(window.plot_pane, layout.content_width),
         title=_title(window),
-        subtitle=_subtitle(window, len(tiles) - (1 if tracking is not None else 0)),
+        subtitle=_subtitle(window, cameras),
         footer=_footer(window),
         theme=capture_theme(),
     )

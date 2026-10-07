@@ -9,7 +9,7 @@ DeepLabCut or LightningPose needs to be told what to fix.
 
 ## Flag a frame
 
-![The Flag Frame and Snapshot buttons on the Data Streams strip](../_static/screenshots/guide_flag_and_snapshot.png)
+![The Flag Frame and Snapshot buttons on the toolbar under the videos](../_static/screenshots/guide_flag_and_snapshot.png)
 
 1. **Flag Frame** (shortcut `M`) records an annotation at the current time.
 2. **Snapshot** (`Ctrl+E`) writes a composed figure of the current moment.
@@ -42,13 +42,17 @@ it back.
 
 ## Export
 
-Everything is under **File**, and each export is a distinct job:
+The **Exports** inspector page shows every output as a visible button. The same commands are in
+**File** and the command palette; their labels and availability come from the same actions.
+
+![The Exports inspector: one button per export, each following its File command and greyed out until there is something to write](../_static/screenshots/exports_inspector.png)
 
 | Export | What you get | Use it for |
 |---|---|---|
-| **Export Changes…** | One row per (marker, camera): `label`, `comment`, `t_master`, `video_path`, `frame_index`, `media_timestamp` — and, where you corrected tracking, the corrected pose data and a DeepLabCut retraining set | A corrections list for pose-model retraining |
+| **Export Changes…** | Annotation rows, one edited pose copy per source with corrections or accepted identity swaps, and a DeepLabCut or single-view Lightning Pose retraining set when frames were hand-corrected | Analysis and pose-model retraining |
 | **Export Snapshot…** | A composed figure of the current moment | Figures, notes, lab reports |
 | **Export Trimmed Video Clip…** | The marked range, copied out of the source | Sharing a moment without re-encoding it |
+| **Export Stimulus Grid…** | Selected sensor-triggered windows, arranged as camera rows and event columns above one shared signal trace and relative-time ruler | Comparing repeated stimuli across cameras and trials |
 | **Export Data Slice…** | The marked range of the loaded signals | Analysis in another tool |
 
 **Export Changes…** is also the **Export…** button in the Changes tab; it is one action, so the two
@@ -61,12 +65,31 @@ loaded signals, Export Trimmed Video Clip needs a video and a marked A/B range, 
 needs something on screen. Hover a greyed item and its tooltip names what is missing, so you find
 out before you commit to the gesture rather than after.
 
-**Exports run in the background and report when they finish.** Each one appears in the **Tasks**
-tab beside the sidebar while it runs, with a Cancel in the status area, and the result arrives as a
+**Exports run in the background and report when they finish.** Each one appears under **Tasks**
+in the status bar while it runs, with a Cancel in the status area, and the result arrives as a
 line at the bottom of the window rather than a dialog you have to dismiss. If several finish at
 once they queue: one message shows, a count beside it says how many are waiting, and Dismiss brings
 up the next. A failure stays until you dismiss it and keeps the technical detail behind **Show
 details**, ready to paste into a bug report.
+Each successful export has a **Reveal** action that opens its containing folder. The save dialog
+remembers a separate last folder for each export kind. A failed or cancelled write leaves an
+existing output intact, and a destination that names a loaded source or the disposable cache is
+rejected before writing.
+
+Exports carry an `avialsync` schema ID, program version, UTC write time, and source names and sizes
+where their format permits it. Corrected pose and retraining CSVs keep their strict
+three-row headers (four for multi-animal DeepLabCut) and get a sibling `<name>_avialsync.json`
+provenance file. Annotation CSVs also
+get a JSON companion. Data slice CSVs have a final provenance comment; Parquet embeds the record
+in schema metadata; PNG snapshots carry PNG text fields; MP4 clips record their actual keyframe
+start in the container comment. CSV files use UTF-8 without a BOM. For a retraining set, enter your
+project scorer and select a new export folder. Copy its *contents* into your project root; the
+CSV's image paths then point to the included PNGs. Lightning Pose (single view) gets
+`CollectedData.csv` at the root. DeepLabCut gets
+`labeled-data/<video>/CollectedData_<scorer>.csv` and still needs `convertcsv2h5` before training.
+Unedited points on corrected frames remain model predictions in the label file; review them before
+training. A missing frame or failed image leaves no incomplete training folder, and the JSON
+companion lists exported frames and counts.
 
 **A snapshot is composed, not grabbed.** Every displayed camera goes in at the resolution it decoded
 at, with the 3D pose and the whole channel stack including rows you would have to scroll to reach —
@@ -81,12 +104,75 @@ second generation of them, which matters when someone measures from it later. Th
 the nearest keyframe at or before your start point, because a clip beginning mid-GOP would have no
 frame to decode from.
 
+### Export an event-aligned video grid with its TTL trace
+
+Run `avialsync demo` for four generated cameras and a channel named **TTL**, or open your own
+aligned videos and stimulus channel. Choose **File → Export Stimulus Grid…**. In the dialog, select
+the stimulus channel, set a rising threshold and minimum event spacing, then choose **Scan events**.
+Select up to twelve events and set the time before and after each one. **Cursor update rate**
+defaults to 10 fps and caps the composite output rate. Each camera is sampled at emitted output
+times; source transitions between them are skipped. **Playback speed** stretches or compresses
+the mapped timestamps for the whole grid. The dialog shows the resulting video length before you
+export.
+
+![The stimulus-grid dialog showing the TTL trace, selected events, export window, frame rate, and playback speed](../_static/screenshots/stimulus_grid_select_events.png)
+
+Choose **Continue to export**, then save the MP4. The default half-second before and 1.5 seconds
+after each event at **1x** produce a **two-second video**. At the default 10 fps, each output frame
+samples every camera at that instant; a 230 fps source is therefore rate-limited instead of writing
+all 230 transitions per second. **Custom… → 0.130435x** stretches the same two-second source
+window to about 15.33 seconds. At 30 fps, that slow-motion rate can represent the 230 fps source's
+transitions at about 33 ms each. Faster playback may skip more transitions. The shared TTL cursor
+follows the selected speed, and its labels remain relative to stimulus onset.
+
+Saving over an existing MP4 replaces it when the export finishes. AvialSync confirms the
+replacement in its notification strip. If that MP4 is already open in a video player, reopen it
+to see the new version. Choose an output path separate from the camera source videos; AvialSync
+rejects source/output collisions. A cancelled or failed export leaves the existing file intact.
+While encoding, a temporary `.tmp.mp4` file is written beside the target and renamed to the final
+MP4 only after a successful encode.
+
+![The export dialog at a 30 fps base rate and a custom 0.130435x playback speed, previewing a 15.33-second MP4](../_static/screenshots/stimulus_grid_slow_motion.png)
+
+Each camera becomes a row and each selected event becomes a column, so a three-camera, twelve-event
+export is a wide grid. Video tiles are separated by just one pixel. Camera names remain in the left
+gutter and event labels remain above their columns; frame-number badges are not burned into the
+video. Each camera row follows that camera's aspect ratio, so mixed-aspect footage fills its tile
+without cropping, stretching, or letterboxing. Camera names and event labels remain aligned outside
+the tiles; the static trace is rendered once, while the cursor follows the output time.
+
+All selected signal windows are overlaid in **one full-width trace below the video grid** on a
+shared relative-time axis. The axis labels and moving light cursor show time relative to stimulus
+onset; the red line marks zero. The dashed horizontal line is the detection threshold. The trace
+uses the selected channel's actual cached samples and accepted time mapping, with gaps left open.
+The generated example below uses synthetic footage of a three-prong marker from three camera angles
+on a muted gray background. The marker moves and an off-white point appears only around each trigger;
+those details are part of the generated source videos, not export graphics.
+
+![Generated three-camera footage in tightly joined rows and event columns, without in-tile frame-number badges, above one shared relative-time TTL trace](../_static/screenshots/stimulus_grid_export.png)
+
+<video controls playsinline preload="metadata" poster="../_static/screenshots/stimulus_grid_export.png" aria-label="Demo of an event-aligned three-camera grid with a shared TTL trace">
+  <source src="../_static/screenshots/stimulus_grid_demo.mp4" type="video/mp4">
+  Your browser does not support embedded video. <a href="../_static/screenshots/stimulus_grid_demo.mp4">Download the demo MP4</a>.
+</video>
+
+Missing video coverage is labeled in its tile. The MP4 uses each camera's accepted time mapping and
+display levels; the source recordings are never modified. The grid is resized and encoded as an
+H.264 MP4, so it is a visual comparison rather than a pixel-identical copy of the source. **Output
+detail** defaults to **Standard**, which keeps the existing compact bounds. **High detail (UHD 4K)**
+allows a 3840×2160 composite and larger tiles; a three-camera, twelve-event grid gets about
+307×173 pixels per tile instead of about 200×112. Larger output dimensions can increase file size,
+so keep Standard for compact comparisons. H.264 uses the `ultrafast` preset at CRF 17 for higher visual
+quality while retaining source frame timing. The screenshots and demo video above show the current
+renderer and are captured through the app's File → Export Stimulus Grid action, using synthetic data
+generated by `conda run -n avialsync python tools/generate_stimulus_grid_demo.py`.
+
 ## What is not exported
 
 AvialSync does not write your analysis, and it never modifies a source recording. Offsets, drift,
 accepted mappings, and annotations live in the session file (`.avv`) beside your data — so the
 alignment a colleague sees is the one you accepted, with the evidence behind it.
 
-Tracking corrections are the one thing kept outside the session, in `<pose file>.avialfix.csv` next
+Tracking corrections are the one thing kept outside the session, in `pose_csv_avialfix.csv` (for a `pose.csv`) next
 to the pose file, so they travel with the recording rather than with the session. Your pose files
 themselves are still never modified.

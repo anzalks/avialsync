@@ -34,6 +34,7 @@ from enum import Enum
 from typing import Protocol, cast
 
 from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
+from shiboken6 import isValid
 
 
 class BackgroundWorker(Protocol):
@@ -155,7 +156,15 @@ class _OnUiThread(QObject):
         self._fn(*cast(tuple, args))
 
     def __call__(self, *args: object) -> None:
-        self._fire.emit(args)
+        # Qt disconnects the receiver when its window dies, but a worker may
+        # still hold this Python callable until its own final signal fires.
+        if not isValid(self):
+            return
+        try:
+            self._fire.emit(args)
+        except RuntimeError:
+            if isValid(self):
+                raise
 
 
 def on_ui_thread(fn: Callable[..., None], anchor: QObject) -> Callable[..., None]:
@@ -186,6 +195,7 @@ class Job:
     state: JobState = JobState.RUNNING
     started_at: float = field(default_factory=time.monotonic)
     last_progress_at: float = field(default_factory=time.monotonic)
+    progress_percent: int | None = None
 
     @property
     def elapsed(self) -> float:
@@ -193,7 +203,17 @@ class Job:
 
     def can_cancel(self) -> bool:
         """Whether the worker offers a cooperative cancel."""
+        available = getattr(self.worker, "can_cancel", None)
+        if callable(available):
+            return bool(available())
         return callable(getattr(self.worker, "cancel", None))
+
+    def panel_row(self) -> tuple[str, str, float]:
+        """Show progress beside the job state in the Tasks panel."""
+        state = self.state.value
+        if self.progress_percent is not None:
+            state = f"{state} ({self.progress_percent}%)"
+        return self.label, state, self.elapsed
 
 
 class JobManager(QObject):
@@ -286,7 +306,8 @@ class JobManager(QObject):
             suffix = f" (+{len(stalled) - 2} more)" if len(stalled) > 2 else ""
             return f"Not responding: {names}{suffix}"
         if len(jobs) == 1:
-            return f"{jobs[0].label}…"
+            percent = jobs[0].progress_percent
+            return f"{jobs[0].label}… {percent}%" if percent is not None else f"{jobs[0].label}…"
         return f"{jobs[0].label} (+{len(jobs) - 1} more)…"
 
     # ── Cancelling and shutdown ──────────────────────────────────────
@@ -349,14 +370,21 @@ class JobManager(QObject):
             # The worker's C++ side is already gone; nothing left to cancel.
             logger.debug("Cancel skipped for finished job %s", job.label)
 
-    def _note_progress(self, *_args: object) -> None:
+    def _note_progress(self, *args: object) -> None:
         """Refresh the watchdog clock for whichever job reported."""
         sender = self.sender()
         for job in self._jobs.values():
             if job.worker is sender:
                 job.last_progress_at = time.monotonic()
+                changed = False
+                if args and type(args[0]) is int and 0 <= args[0] <= 100:
+                    if job.progress_percent != args[0]:
+                        job.progress_percent = args[0]
+                        changed = True
                 if job.state is JobState.NOT_RESPONDING:
                     job.state = JobState.RUNNING
+                    changed = True
+                if changed:
                     self.jobs_changed.emit()
                 return
 

@@ -25,17 +25,23 @@ class VideoOpenWorker(QObject):
         self._path = path
         self._config = {} if config is None else config
         self._cancelled = False
+        self._atomic_preparing = False
+
+    def can_cancel(self) -> bool:
+        """Allow cancellation until an atomic imaging copy starts encoding."""
+        return not self._atomic_preparing
 
     @Slot()
     def cancel(self) -> None:
         """Request cancellation between source operations."""
-        self._cancelled = True
+        if self.can_cancel():
+            self._cancelled = True
 
     @Slot()
     def run(self) -> None:
         """Open the selected source and emit a usable media path on success."""
         try:
-            loader_class = LoaderRegistry().find_best_loader(self._path)
+            loader_class = LoaderRegistry().find_best_loader(self._path, kind=VideoSource)
             if loader_class is None or not issubclass(loader_class, VideoSource):
                 raise SourceOpenError(f"No video loader can open: {self._path}")
             if self._cancelled:
@@ -49,10 +55,17 @@ class VideoOpenWorker(QObject):
                 return
 
             if loader.needs_conversion():
+                # Encoding an NWB imaging copy is atomic work. The converter
+                # reports progress and commits its cache entry on completion;
+                # a cancellation request made during that call cannot stop it.
+                self._atomic_preparing = loader.prepare_is_atomic()
+                if self._cancelled:
+                    self.cancelled.emit()
+                    return
                 media_path = loader.prepare(self._emit_progress)
             else:
                 media_path = loader.media_path()
-            if self._cancelled:
+            if self._cancelled and not loader.prepare_is_atomic():
                 self.cancelled.emit()
                 return
             self.progress.emit(100)

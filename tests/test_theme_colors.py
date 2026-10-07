@@ -41,7 +41,11 @@ DARK = _palette("#1e1e1e")
 LIGHT = _palette("#f5f5f5")
 
 #: Every lane that derives its colour rather than taking a palette role.
-DERIVED_LANES = ["gap", "message"]
+#: Every lane colour derived from the live palette rather than stored.
+#: "identity" joins them so an accepted-swap mark is held to the same
+#: two promises as the rest: readable on both surfaces, and different on
+#: each (D-141).
+DERIVED_LANES = ["gap", "message", "identity"]
 
 
 def _contrast(color: QColor, palette: QPalette) -> float:
@@ -168,23 +172,34 @@ def test_a_stylesheet_widget_re_derives_its_colour_on_a_palette_change(qtbot) ->
     the moment it is set — nothing re-runs the f-string that built it. Every
     hardcoded ``setStyleSheet("color: #...")`` in this application froze at
     whichever theme was current when its widget was built.
+
+    Driven by an application palette change, because that is what a theme
+    switch is. This test used to set the palette on the label itself — the one
+    path Qt still delivers to a styled widget — and so passed while every real
+    switch left followed widgets on the launch theme. The full switch is covered
+    in ``test_theme_followers.py``.
     """
-    from PySide6.QtWidgets import QLabel
+    from PySide6.QtWidgets import QApplication, QLabel
 
     from avialsync.ui.theme import follow_palette
 
+    app = QApplication.instance()
+    assert isinstance(app, QApplication)
     label = QLabel()
     qtbot.addWidget(label)
     follow_palette(label, lambda palette: f"color: {status_color(palette, 'error').name()};")
     before = label.styleSheet()
 
-    label.setPalette(
-        LIGHT
-        if label.palette().color(QPalette.ColorRole.AlternateBase).lightnessF() < 0.5
-        else DARK
-    )
-
-    assert label.styleSheet() != before, "a theme switch must re-derive the colour"
+    entry = QPalette(app.palette())
+    try:
+        app.setPalette(
+            LIGHT
+            if label.palette().color(QPalette.ColorRole.AlternateBase).lightnessF() < 0.5
+            else DARK
+        )
+        assert label.styleSheet() != before, "a theme switch must re-derive the colour"
+    finally:
+        app.setPalette(entry)
 
 
 def test_the_timeline_lanes_repaint_when_the_appearance_changes(qtbot) -> None:
@@ -211,3 +226,132 @@ def test_the_timeline_lanes_repaint_when_the_appearance_changes(qtbot) -> None:
     overview.changeEvent(QEvent(QEvent.Type.PaletteChange))
 
     assert repaints, "the lanes would keep the previous theme's colours"
+
+
+# ── a proposal is not a fault (D-141) ────────────────────────────────
+
+
+@pytest.mark.parametrize("palette", [DARK, LIGHT], ids=["dark", "light"])
+def test_a_proposed_crossing_wears_the_identity_colour_not_the_caution_one(
+    palette: QPalette,
+) -> None:
+    """Reserved colours are reserved.
+
+    A candidate crossing borrowed the caution colour, which says *fault* about
+    something nobody has acted on, and spends a status colour on a series. Both
+    kinds of crossing are the same kind of thing: same hue, and fill and weight
+    say which is which.
+    """
+    from avialsync.ui.identity_braid import _node_color
+
+    accepted = _node_color(palette, accepted=True)
+    proposed = _node_color(palette, accepted=False)
+
+    assert proposed == accepted, "one hue; the fill says which kind it is"
+    assert proposed.alpha() == 255, (
+        "a faded proposal disappears into the lane it sits on, which is the one "
+        "mark a person is hunting for"
+    )
+    assert _distance(proposed, status_color(palette, "warning")) > 0.05
+
+
+@pytest.mark.parametrize("palette", [DARK, LIGHT], ids=["dark", "light"])
+def test_a_proposed_crossing_stays_readable_on_both_surfaces(palette: QPalette) -> None:
+    """Lighter, but never so light that the proposal cannot be seen."""
+    from avialsync.ui.identity_braid import _node_color
+
+    assert _contrast(_node_color(palette, accepted=False), palette) > _MIN_CONTRAST
+
+
+@pytest.mark.parametrize("palette", [DARK, LIGHT], ids=["dark", "light"])
+def test_the_identity_lane_is_a_stated_colour_not_a_rotation(palette: QPalette) -> None:
+    """It is chosen, not computed from whatever accent the machine reports.
+
+    Rotating from the accent sent this mark wherever the accent happened to
+    point -- magenta one way, a status-like mint green the other. The pair is
+    stated instead, and this pins it so a later edit does not quietly go back
+    to arithmetic.
+    """
+    identity = evidence_color(palette, "identity")
+    red, green, blue = identity.red(), identity.green(), identity.blue()
+
+    assert blue > green, f"expected the muted violet, got {identity.name()}"
+    assert red < blue, f"expected the muted violet, got {identity.name()}"
+
+
+def test_the_identity_lane_does_not_follow_the_accent(qapp) -> None:
+    """Two very different accents, one identity colour."""
+    from PySide6.QtGui import QColor
+
+    from avialsync.ui.theme import _palette_with_surfaces
+
+    blue = _palette_with_surfaces(True, QColor("#0a84ff"))
+    red = _palette_with_surfaces(True, QColor("#ff3b30"))
+
+    assert evidence_color(blue, "identity") == evidence_color(red, "identity")
+
+
+@pytest.mark.parametrize("palette", [DARK, LIGHT], ids=["dark", "light"])
+def test_the_identity_lane_is_tellable_from_every_status_colour(palette: QPalette) -> None:
+    identity = evidence_color(palette, "identity")
+
+    for severity in ("busy", "warning", "error"):
+        assert _distance(identity, status_color(palette, severity)) > 0.15, severity
+
+
+# ── The surface evidence is drawn on ─────────────────────────────────────
+
+
+def test_a_contradictory_platform_surface_is_not_taken_at_its_word() -> None:
+    """macOS's dark palette reports an opaque light-grey ``AlternateBase``.
+
+    Measured ``#989898`` inside a ``#323232`` window. The timeline filled its
+    lanes with it under the System appearance on a dark desktop, and every mark
+    solved against it chose ink for a light surface.
+    """
+    from avialsync.ui.theme import surface_color
+
+    palette = QPalette()
+    palette.setColor(QPalette.ColorRole.Window, QColor("#323232"))
+    palette.setColor(QPalette.ColorRole.Base, QColor("#171717"))
+    palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#989898"))
+
+    assert surface_color(palette).lightnessF() < 0.5
+    assert on_surface(palette, 0.33).lightnessF() > 0.5, "marks chose light-surface ink"
+
+
+@pytest.mark.parametrize("palette", [DARK, LIGHT], ids=["dark", "light"])
+def test_a_consistent_surface_is_used_as_given(palette: QPalette) -> None:
+    from avialsync.ui.theme import surface_color
+
+    assert surface_color(palette) == palette.color(QPalette.ColorRole.AlternateBase)
+
+
+# ── Data coverage is its own colour ──────────────────────────────────────
+
+
+def _hue_distance(first: QColor, second: QColor) -> float:
+    return abs((first.hslHueF() - second.hslHueF() + 0.5) % 1.0 - 0.5)
+
+
+@pytest.mark.parametrize(
+    "accent", ["#0a84ff", "#ff9f0a", "#30d158", "#bf5af2", "#ff375f", "#8e8e93"]
+)
+@pytest.mark.parametrize("surface", ["#1e1e1e", "#f5f5f5"], ids=["dark", "light"])
+def test_data_coverage_is_tellable_from_every_other_timeline_meaning(
+    accent: str, surface: str
+) -> None:
+    """Data coverage took ``Link`` -- the accent at another lightness -- so the
+    two coverage rows differed only in how light one blue was."""
+    palette = _palette(surface, accent)
+    data = evidence_color(palette, "data")
+    others = {
+        "video": on_surface(palette, accent_hue(palette)),
+        "gap": evidence_color(palette, "gap"),
+        "message": evidence_color(palette, "message"),
+        "loop in": loop_pin_color(palette, "in"),
+        "loop out": loop_pin_color(palette, "out"),
+    }
+    for name, colour in others.items():
+        assert _hue_distance(data, colour) >= 0.07, f"data coverage looks like {name}"
+    assert _contrast(data, palette) > _MIN_CONTRAST

@@ -24,7 +24,7 @@ CHANNEL_COUNT = 128
 @pytest.fixture(scope="module")
 def channel_cache(tmp_path_factory) -> Path:
     """Built once: 128 pyramids are slow enough to matter per test."""
-    cache = tmp_path_factory.mktemp("sliced") / "sliced.avialcache"
+    cache = tmp_path_factory.mktemp("sliced") / "sliced_cache"
     cache.mkdir(parents=True, exist_ok=True)
     times = np.linspace(0.0, 60.0, 20_000)
     for index in range(CHANNEL_COUNT):

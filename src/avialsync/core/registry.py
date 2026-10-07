@@ -12,10 +12,35 @@ from pathlib import Path
 from types import ModuleType
 from typing import Protocol, TypeVar
 
+from avialsync.core.custom_markers import is_custom_marker_path
+from avialsync.core.identity_sidecar import is_swap_path
 from avialsync.core.point_edit_sidecar import is_correction_path
-from avialsync.core.source import SessionSource, TimeSeriesSource, TriggerSource, VideoSource
+from avialsync.core.prop_file import is_prop_path
+from avialsync.core.source import (
+    ImagingSource,
+    SessionSource,
+    TimeSeriesSource,
+    TriggerSource,
+    VideoSource,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def is_own_sidecar(path: Path | str) -> bool:
+    """Return whether *path* is a file AvialSync writes beside a recording.
+
+    The one list every filter consults. Each of these is a well-formed CSV or
+    TOML that a generic loader claims on extension alone, and listing them at
+    each call site is how the identity-swap sidecar came to be offered back as a
+    time series: two filters named three of the four.
+    """
+    return (
+        is_correction_path(path)
+        or is_swap_path(path)
+        or is_custom_marker_path(path)
+        or is_prop_path(path)
+    )
 
 
 class _Capability(Protocol):
@@ -49,7 +74,14 @@ _BUILTIN_LOADERS: tuple[tuple[str, str], ...] = (
     ("avialsync.loaders.csv_loader", "CSVLoader"),
     ("avialsync.loaders.video_standard", "VideoStandardLoader"),
     ("avialsync.loaders.tracking_loader", "TrackingLoader"),
+    ("avialsync.loaders.vicon_c3d_loader", "ViconC3DLoader"),
     ("avialsync.loaders.neo_loader", "NeoLoader"),
+    ("avialsync.loaders.nwb_loader", "NWBLoader"),
+    ("avialsync.loaders.nwb_imaging", "NWBImagingSource"),
+    ("avialsync.loaders.nwb_stack", "NWBStackSource"),
+    ("avialsync.loaders.nwb_roi_grid", "NWBRoiGridSource"),
+    ("avialsync.loaders.imaging_loader", "HDF5ImagingLoader"),
+    ("avialsync.loaders.imaging_loader", "TIFFImagingLoader"),
 )
 
 #: The built-in trigger providers. A third kind beside loaders and sessions,
@@ -63,6 +95,8 @@ _BUILTIN_TRIGGERS: tuple[tuple[str, str], ...] = (
 _BUILTIN_SESSIONS: tuple[tuple[str, str], ...] = (
     ("avialsync.loaders.aol_session_loader", "AOLSessionSource"),
     ("avialsync.loaders.open_ephys_session", "OpenEphysSessionSource"),
+    ("avialsync.loaders.vicon_session_loader", "ViconSessionSource"),
+    ("avialsync.loaders.nwb_session", "NWBSessionSource"),
 )
 
 
@@ -70,7 +104,7 @@ class LoaderRegistry:
     """Discovers and loads source plugins."""
 
     def __init__(self, plugin_dirs: Iterable[Path] | None = None) -> None:
-        self._loaders: list[type[TimeSeriesSource | VideoSource]] = []
+        self._loaders: list[type[TimeSeriesSource | VideoSource | ImagingSource]] = []
         self._sessions: list[type[SessionSource]] = []
         self._triggers: list[type[TriggerSource]] = []
         #: Plugins that were found but could not be used, as ``(source, reason)``.
@@ -274,8 +308,8 @@ class LoaderRegistry:
                 if not isinstance(candidate, type):
                     continue
                 if (
-                    candidate not in (TimeSeriesSource, VideoSource)
-                    and issubclass(candidate, (TimeSeriesSource, VideoSource))
+                    candidate not in (TimeSeriesSource, VideoSource, ImagingSource)
+                    and issubclass(candidate, (TimeSeriesSource, VideoSource, ImagingSource))
                     and candidate not in self._loaders
                 ):
                     self._loaders.append(candidate)
@@ -290,13 +324,14 @@ class LoaderRegistry:
             if exported == 0:
                 logger.warning(
                     "Plugin %s exported no TimeSeriesSource, VideoSource, or SessionSource "
-                    "subclass.",
+                    "subclass (nor ImagingSource).",
                     path.name,
                 )
                 self._plugin_errors.append(
                     (
                         path.name,
-                        "exported no TimeSeriesSource, VideoSource, or SessionSource subclass",
+                        "exported no TimeSeriesSource, VideoSource, or SessionSource "
+                        "subclass (nor ImagingSource)",
                     )
                 )
 
@@ -360,19 +395,33 @@ class LoaderRegistry:
                 best = candidate
         return best
 
-    def find_best_loader(self, path: Path) -> type[TimeSeriesSource | VideoSource] | None:
+    def find_best_loader(
+        self,
+        path: Path,
+        kind: type[TimeSeriesSource] | type[VideoSource] | type[ImagingSource] | None = None,
+    ) -> type[TimeSeriesSource | VideoSource | ImagingSource] | None:
         """Return the loader with the highest can_open() score > 0.
 
+        *kind* limits the answer to time-series or video loaders. One file can
+        be both: an NWB file holds its time series and its imaging, and the
+        session that opened it records which of the two each source was. Asked
+        without a kind, the highest score wins as before (D-188).
+
         Our own corrections sidecars are excluded here rather than in each
-        loader: a ``.avialfix.csv`` is a perfectly well-formed CSV, so the
+        loader: a ``_avialfix.csv`` is a perfectly well-formed CSV, so the
         generic CSV loader claims it on extension alone and offers to import
         the user's hand corrections back as a time series beside the pose file
         they belong to (D-099). One place, so a plugin cannot reintroduce it.
         """
         self.ensure_discovered()
-        if is_correction_path(path):
+        if is_own_sidecar(path):
             return None
-        return self._best_by_capability(self._loaders, path, "loader")
+        candidates = (
+            self._loaders
+            if kind is None
+            else [loader for loader in self._loaders if issubclass(loader, kind)]
+        )
+        return self._best_by_capability(candidates, path, "loader")
 
     def find_best_session(self, path: Path) -> type[SessionSource] | None:
         """Return the session scanner claiming *path*, if any.
@@ -383,7 +432,7 @@ class LoaderRegistry:
         self.ensure_discovered()
         return self._best_by_capability(self._sessions, path, "session")
 
-    def loaders(self) -> list[type[TimeSeriesSource | VideoSource]]:
+    def loaders(self) -> list[type[TimeSeriesSource | VideoSource | ImagingSource]]:
         """Return all discovered source loaders."""
         self.ensure_discovered()
         return list(self._loaders)

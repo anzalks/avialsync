@@ -52,8 +52,15 @@ __all__ = [
 #:
 #: Their set is eight including black. Black is dropped here: it is the text
 #: colour on a light surface and invisible on a dark one, and a categorical
-#: series must not depend on which theme is active. That leaves the seven
-#: below, which is exactly ``MARKER_COLOR_COUNT``.
+#: series must not depend on which theme is active.
+#:
+#: Yellow is dropped too, for the same reason in the other direction: it is a
+#: fill colour, not a line colour. Measured on the light plot canvas, a 1.4 px
+#: yellow trace reaches 1.1:1 contrast -- invisible -- and no uniform darkening
+#: that keeps the palette's separation brings it above 1.2:1, while darkening
+#: it alone takes the worst pair below the floor. Without it the worst pairs
+#: are unchanged on a light surface (0.084 / 0.094 / 0.091) and stay above the
+#: floor on a dark one. That leaves the six below, exactly ``MARKER_COLOR_COUNT``.
 #:
 #: An eighth colour was **not** invented to replace black. A first draft added
 #: a violet and it took the worst pair under protanopia from 0.084 to 0.048 --
@@ -64,7 +71,6 @@ OKABE_ITO: tuple[tuple[int, int, int], ...] = (
     (230, 159, 0),  # orange
     (86, 180, 233),  # sky blue
     (0, 158, 115),  # bluish green
-    (240, 228, 66),  # yellow
     (0, 114, 178),  # blue
     (213, 94, 0),  # vermillion
     (204, 121, 167),  # reddish purple

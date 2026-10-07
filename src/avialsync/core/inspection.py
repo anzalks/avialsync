@@ -9,6 +9,7 @@ import dataclasses
 from typing import Any
 
 from avialsync.core.messages import Message
+from avialsync.core.pose import PoseSchema
 
 
 @dataclasses.dataclass(frozen=True)
@@ -139,6 +140,25 @@ class SourceInspection:
     #: meaning, and a recording re-imported once gains its messages.
     messages: tuple[Message, ...] = ()
 
+    #: What this source's channels *mean*, when it is a pose (D-140). It rides
+    #: here for the same reason ``messages`` does: this is what reaches the UI
+    #: intact on a cache hit, where the loader is never opened. ``None`` for
+    #: every source that is not a pose, which is most of them.
+    pose: PoseSchema | None = None
+    #: Each channel's unit as its loader declared it -- ``µV`` for ephys, ``deg``
+    #: for an encoder angle -- so the plot labels can name what an axis is. It
+    #: rides here because this reaches the UI on a cache hit. ``None`` when the
+    #: manifest predates the field (not "no units"); empty units are omitted.
+    channel_units: dict[str, str] | None = None
+
+    def units(self) -> dict[str, str]:
+        """Each channel's unit: the loader's, overridden by any the import set."""
+        merged = dict(self.channel_units or {})
+        configured = self.import_config.get("units", {})
+        if isinstance(configured, dict):
+            merged.update({str(name): str(unit) for name, unit in configured.items() if unit})
+        return merged
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "path": self.path,
@@ -148,6 +168,8 @@ class SourceInspection:
             "integrity_flags": self.integrity_flags.as_dict(),
             "fps_binding": self.fps_binding,
             "messages": [message.as_dict() for message in self.messages],
+            "pose": self.pose.as_dict() if self.pose else None,
+            "channel_units": dict(self.channel_units) if self.channel_units is not None else None,
         }
 
     @classmethod
@@ -161,4 +183,10 @@ class SourceInspection:
             integrity_flags=IntegrityFlags.from_dict(d.get("integrity_flags", {})),
             fps_binding=d.get("fps_binding", ""),
             messages=tuple(Message.from_dict(m) for m in d.get("messages", [])),
+            pose=PoseSchema.from_dict(d["pose"]) if d.get("pose") else None,
+            channel_units=(
+                {str(k): str(v) for k, v in d["channel_units"].items()}
+                if isinstance(d.get("channel_units"), dict)
+                else None
+            ),
         )

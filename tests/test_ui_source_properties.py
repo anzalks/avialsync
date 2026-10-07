@@ -106,8 +106,8 @@ class TestVideoPropertiesPanel:
         text = VideoPropertiesPanel(Loader()).as_plain_text()
 
         assert "VFR" in text
-        assert "15.000–30.000" in text
-        assert "30.000 fps" in text
+        assert "15.0–30.0" in text  # D-185: rates read at one decimal
+        assert "30.0 fps" in text
 
 
 class TestSensorPropertiesPanel:

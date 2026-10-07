@@ -5,22 +5,22 @@ plots tall and the video small; checking a tracking overlay wants the opposite;
 reading recorded messages wants the inspector wide. Rearranging the splitters
 each time is the kind of friction that stops people doing it at all.
 
-A workspace is the window geometry plus every splitter position and the
-inspector's selected tab — exactly the state ``session_controller`` already
-persists as *the* layout, stored under a name instead of as the single
-implicit one.
+A workspace is the window geometry plus every splitter position, the
+inspector's selected tab, and the optional detached Plot pane geometry — the
+state ``session_controller`` already persists as *the* layout, stored under a
+name instead of as the single implicit one.
 
 **Layout is not session data.** These live in ``QSettings`` beside the window
 geometry, not in the ``.avv`` file, because a layout belongs to the person and
 their screen rather than to the recording. That boundary is already correct in
 ``core/session.py`` and this does not move it.
 
-**Scope note.** WP-11 also specified converting the splitters to
-``QDockWidget`` for multi-monitor use. That is not done here and it is not an
-oversight: the four nested splitters carry ``PaneProportions`` tracking, a
-policy re-assertion, and a collapsed-pane repair, and §3 of the plan protects
-the plot behaviour that depends on them. Restructuring that is its own change
-with its own evidence, not a rider on this one.
+**Scope note.** The Plot pane can float as a separate window for a second
+display while its original splitter slot remains reserved and restorable.
+Converting all four nested splitters to ``QDockWidget`` is still out of scope:
+they carry ``PaneProportions`` tracking, a policy re-assertion, and a
+collapsed-pane repair, and §3 of the plan protects the plot behaviour that
+depends on them.
 """
 
 from __future__ import annotations
@@ -28,7 +28,17 @@ from __future__ import annotations
 import dataclasses
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QByteArray, QSettings
+from PySide6.QtCore import QByteArray, QSettings, Qt
+from PySide6.QtWidgets import QInputDialog
+
+from avialsync.ui.app_settings import app_settings
+from avialsync.ui.i18n import tr
+from avialsync.ui.inspector_dock import (
+    apply_dock_state,
+    default_dock_width,
+    dock_state,
+    inspector_width_from_splitter_state,
+)
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
@@ -37,8 +47,11 @@ __all__ = ["Workspace", "capture", "apply", "save", "load", "names", "remove"]
 
 _GROUP = "workspaces"
 
-#: The splitters that make up a layout, by the attribute that holds each.
-_SPLITTERS = ("_h_splitter", "_v_splitter", "_media_splitter", "_content_splitter")
+#: The splitters that make up a layout, by the attribute that holds each. The
+#: inspector is a dock now (D-180); its place is in ``dock_state``.
+_SPLITTERS = ("_v_splitter", "_media_splitter", "imaging_splitter", "_content_splitter")
+#: Where a workspace saved before D-180 kept the inspector's width.
+_LEGACY_INSPECTOR = "_h_splitter"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -48,10 +61,16 @@ class Workspace:
     geometry: QByteArray
     splitters: dict[str, QByteArray]
     inspector_tab: int
+    plots_detached: bool = False
+    plots_geometry: QByteArray = dataclasses.field(default_factory=QByteArray)
+    #: ``QMainWindow.saveState``: where the inspector dock sits (D-180).
+    dock_state: QByteArray = dataclasses.field(default_factory=QByteArray)
+    #: A pre-D-180 workspace's inspector width, read from its old splitter state.
+    legacy_inspector_width: int | None = None
 
 
 def _store() -> QSettings:
-    return QSettings("AvialSync", "AvialSync")
+    return app_settings()
 
 
 def capture(window: MainWindow) -> Workspace:
@@ -62,6 +81,13 @@ def capture(window: MainWindow) -> Workspace:
             name: getattr(window, name).saveState() for name in _SPLITTERS if hasattr(window, name)
         },
         inspector_tab=window._left_tabs.currentIndex(),
+        plots_detached=window._plots_detached,
+        plots_geometry=(
+            window._detached_plot_window.saveGeometry()
+            if window._plots_detached and window._detached_plot_window is not None
+            else QByteArray()
+        ),
+        dock_state=dock_state(window),
     )
 
 
@@ -81,9 +107,23 @@ def apply(window: MainWindow, workspace: Workspace) -> None:
         splitter = getattr(window, name, None)
         if splitter is not None and state:
             splitter.restoreState(state)
+    if not workspace.dock_state.isEmpty():
+        apply_dock_state(window, window.inspector_dock, workspace.dock_state)
+    elif workspace.legacy_inspector_width:
+        window.resizeDocks(
+            [window.inspector_dock],
+            [default_dock_width(window._left_tabs, workspace.legacy_inspector_width)],
+            Qt.Orientation.Horizontal,
+        )
 
     tab_count = window._left_tabs.count()
     window._left_tabs.setCurrentIndex(max(0, min(workspace.inspector_tab, tab_count - 1)))
+    window._act_detach_plots.setChecked(workspace.plots_detached)
+    if workspace.plots_detached and not workspace.plots_geometry.isEmpty():
+        detached = window._detached_plot_window
+        if detached is not None:
+            detached.restoreGeometry(workspace.plots_geometry)
+            window._bring_onto_screen(detached)
 
     window._enforce_splitter_policy()
     window._repair_collapsed_panes()
@@ -102,6 +142,9 @@ def save(name: str, workspace: Workspace) -> None:
     for splitter_name, state in workspace.splitters.items():
         store.setValue(f"splitter_{splitter_name}", state)
     store.setValue("inspector_tab", workspace.inspector_tab)
+    store.setValue("plots_detached", workspace.plots_detached)
+    store.setValue("plots_geometry", workspace.plots_geometry)
+    store.setValue("dock_state", workspace.dock_state)
     store.endGroup()
 
 
@@ -125,7 +168,32 @@ def load(name: str) -> Workspace | None:
             tab_index = int(str(tab))
         except (TypeError, ValueError):
             tab_index = 0
-        return Workspace(geometry=geometry, splitters=splitters, inspector_tab=tab_index)
+        stored_detached = store.value("plots_detached", False)
+        if isinstance(stored_detached, bool):
+            plots_detached = stored_detached
+        else:
+            plots_detached = str(stored_detached).strip().lower() in {"1", "true", "yes"}
+        plots_geometry = store.value("plots_geometry", QByteArray())
+        if not isinstance(plots_geometry, QByteArray):
+            plots_geometry = QByteArray()
+        docks = store.value("dock_state", QByteArray())
+        if not isinstance(docks, QByteArray):
+            docks = QByteArray()
+        legacy = store.value(f"splitter_{_LEGACY_INSPECTOR}")
+        legacy_width = (
+            inspector_width_from_splitter_state(legacy)
+            if docks.isEmpty() and isinstance(legacy, QByteArray)
+            else None
+        )
+        return Workspace(
+            geometry=geometry,
+            splitters=splitters,
+            inspector_tab=tab_index,
+            plots_detached=plots_detached,
+            plots_geometry=plots_geometry,
+            dock_state=docks,
+            legacy_inspector_width=legacy_width,
+        )
     finally:
         store.endGroup()
 
@@ -142,3 +210,82 @@ def names() -> list[str]:
 
 def remove(name: str) -> None:
     _store().remove(f"{_GROUP}/{name}")
+
+
+# ── View → Workspace commands (WP-11) ────────────────────────────────
+
+
+def rebuild_menu(window: MainWindow) -> None:
+    """Regenerate the Workspace menu from what is actually stored."""
+    menu = window._workspace_menu
+    menu.clear()
+    saved = names()
+    if saved:
+        for name in saved:
+            act = menu.addAction(name)
+            act.triggered.connect(lambda _c, n=name: apply_named(window, n))
+    else:
+        act = menu.addAction(tr("(no saved layouts)"))
+        act.setEnabled(False)
+    menu.addSeparator()
+    act = menu.addAction(tr("Save Current Layout…"))
+    act.triggered.connect(lambda: save_current(window))
+    if saved:
+        act = menu.addAction(tr("Delete Layout…"))
+        act.triggered.connect(lambda: delete_one(window))
+
+
+def save_current(window: MainWindow) -> None:
+    """Name the current arrangement and store it."""
+    name, accepted = QInputDialog.getText(window, tr("Save Layout"), tr("Name this layout:"))
+    if not accepted or not name.strip():
+        return
+    save(name, capture(window))
+    rebuild_menu(window)
+    window.notifications.show_success(tr("Layout saved as “{name}”.").format(name=name.strip()))
+
+
+def apply_named(window: MainWindow, name: str) -> None:
+    """Arrange the window as the stored layout *name*."""
+    workspace = load(name)
+    if workspace is None:
+        window.notifications.show_warning(
+            tr("Layout “{name}” is no longer stored.").format(name=name)
+        )
+        rebuild_menu(window)
+        return
+    apply(window, workspace)
+
+
+def delete_one(window: MainWindow) -> None:
+    """Delete a saved layout, and offer it back for as long as the message shows.
+
+    The deletion happens and the layout is offered back under Undo on the
+    notification strip rather than behind an "are you sure?" gate: never
+    block, always inform (D-107).
+    """
+    saved = names()
+    if not saved:
+        return
+    name, accepted = QInputDialog.getItem(
+        window, tr("Delete Layout"), tr("Layout:"), saved, 0, False
+    )
+    if not (accepted and name):
+        return
+    removed = load(name)
+    remove(name)
+    rebuild_menu(window)
+    if removed is None:
+        window.notifications.show_warning(tr("Layout “{name}” was already gone.").format(name=name))
+        return
+
+    def _restore() -> None:
+        save(name, removed)
+        rebuild_menu(window)
+        window.notifications.show_success(tr("Layout “{name}” is back.").format(name=name))
+
+    window.notifications.show_warning(
+        tr("Deleted layout “{name}”.").format(name=name),
+        action_label=tr("Undo"),
+        on_action=_restore,
+    )

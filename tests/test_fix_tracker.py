@@ -13,12 +13,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 from PySide6.QtCore import QEvent, QPointF, Qt
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtGui import QImage, QMouseEvent, QPainter, QPaintEvent
 from PySide6.QtWidgets import QApplication, QWidget
 from shiboken6 import isValid
 
 from avialsync.core import point_edit_sidecar
 from avialsync.core.point_edits import PointEditStore, PointKey, PointMove
+from avialsync.core.pyramid import PyramidBuilder, PyramidReader
 from avialsync.ui import recovery
 from avialsync.ui.controllers import corrections_controller
 from avialsync.ui.main_window import MainWindow
@@ -162,6 +163,90 @@ def test_a_point_inside_a_gap_is_not_drawn(qtbot) -> None:
     canvas = _canvas(qtbot, track, t=1.0)
 
     assert canvas._resolve(track) == []
+
+
+def test_a_missing_edited_channel_skips_only_its_point_and_recovers(
+    qtbot, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A pruned generation cannot raise through the video paint callback."""
+    cache = tmp_path / "pose.csv_cache" / "edited" / "old-generation"
+    cache.mkdir(parents=True)
+    times = np.array([0.0, 1.0])
+    for channel, values in (
+        ("missing_x", [10.0, 11.0]),
+        ("missing_y", [20.0, 21.0]),
+        ("visible_x", [30.0, 31.0]),
+        ("visible_y", [40.0, 41.0]),
+    ):
+        PyramidBuilder(cache, channel).build_and_save(times, np.array(values))
+    removed = cache / "missing_y_v.npy"
+    restored = removed.read_bytes()
+    removed.unlink()
+    missing_y = PyramidReader(cache, "missing_y")
+    track = _track(
+        {
+            "missing": (PyramidReader(cache, "missing_x"), missing_y),
+            "visible": (
+                PyramidReader(cache, "visible_x"),
+                PyramidReader(cache, "visible_y"),
+            ),
+        }
+    )
+    canvas = _canvas(qtbot, track)
+    canvas.resize(*VIDEO_SIZE)
+
+    image = QImage(*VIDEO_SIZE, QImage.Format.Format_ARGB32)
+    image.fill(Qt.GlobalColor.transparent)
+    canvas.render(image)
+    assert [(point.name, point.x, point.y) for point in canvas._resolve(track)] == [
+        ("visible", 30.0, 40.0)
+    ]
+    assert sum("missing_y" in record.message for record in caplog.records) == 1
+
+    # Only the deleted file comes back. Rebuilding the channel would rewrite
+    # missing_y_t.npy too, which the reader above still maps -- and Windows
+    # refuses to write over a mapped file.
+    removed.write_bytes(restored)
+    assert {point.name for point in canvas._resolve(track)} == {"missing", "visible"}
+
+
+def test_a_missing_loose_channel_does_not_escape_paint(qtbot, tmp_path: Path) -> None:
+    """The older loose-reader overlay uses value_at and needs the same guard."""
+    canvas = _canvas(qtbot, _track({}))
+    canvas.set_readers([PyramidReader(tmp_path / "missing", "nose_x")])
+    image = QImage(*VIDEO_SIZE, QImage.Format.Format_ARGB32)
+    image.fill(Qt.GlobalColor.transparent)
+
+    canvas.render(image)
+
+
+def test_paint_ends_its_painter_when_a_layer_raises(qtbot, monkeypatch) -> None:
+    """An unexpected drawing failure must not leave Qt's backing store active."""
+    canvas = _canvas(qtbot, _one_point_track([10.0], [10.0], [0.0]))
+    painters = []
+
+    class _Painter:
+        RenderHint = QPainter.RenderHint
+
+        def __init__(self, _widget):
+            self.active = True
+            painters.append(self)
+
+        def setRenderHint(self, _hint):
+            pass
+
+        def end(self):
+            self.active = False
+
+    def fail(*_args):
+        raise RuntimeError("draw failed")
+
+    monkeypatch.setattr("avialsync.ui.video_overlay.QPainter", _Painter)
+    monkeypatch.setattr(canvas, "_paint_layers", fail)
+    with pytest.raises(RuntimeError, match="draw failed"):
+        canvas.paintEvent(QPaintEvent(canvas.rect()))
+    assert len(painters) == 1
+    assert not painters[0].active
 
 
 # ── the gesture ──────────────────────────────────────────────────────
@@ -434,10 +519,13 @@ def window(qapp: QApplication, qtbot) -> MainWindow:
 def test_the_menu_entry_and_the_button_are_the_same_action(window: MainWindow) -> None:
     """Rule 15: a menu item and its button may not be named independently."""
     action = window._act_fix_tracker
-    button = window.transport.evidence.fix_tracker_button
+    button = window.view_toolbar.fix_tracker_button
 
     assert button.action is action
-    assert button.text() == action.text()
+    # D-181: a glyph, so the action's name is the button's accessible name; the
+    # tooltip is still the action's own.
+    assert button.text() == ""
+    assert button.accessibleName() == action.text().replace("&", "").rstrip("…").strip()
     assert button.toolTip() == action.toolTip()
     assert action.isCheckable() and button.isCheckable()
 
@@ -450,14 +538,14 @@ def test_the_button_looks_like_the_ones_beside_it(window: MainWindow) -> None:
     """
     from PySide6.QtWidgets import QPushButton
 
-    header = window.transport.evidence
-    assert isinstance(header.fix_tracker_button, QPushButton)
-    assert isinstance(header.flag_button, QPushButton)
+    toolbar = window.view_toolbar
+    assert isinstance(toolbar.fix_tracker_button, QPushButton)
+    assert isinstance(toolbar.snapshot_button, QPushButton)
 
 
 def test_the_button_and_the_menu_stay_in_step(window: MainWindow) -> None:
     """Either one may be used; neither may end up showing the other's state."""
-    button = window.transport.evidence.fix_tracker_button
+    button = window.view_toolbar.fix_tracker_button
 
     window._act_fix_tracker.setChecked(True)
     assert button.isChecked() is True
@@ -568,7 +656,9 @@ def test_an_unregistered_source_falls_back_to_the_index(window: MainWindow) -> N
     assert corrections_controller.index_for(window, "/nowhere.csv", 7) == 7
 
 
-def test_a_correction_is_written_at_the_video_frame_it_names(window: MainWindow, tmp_path) -> None:
+def test_a_correction_is_written_at_the_video_frame_it_names(
+    window: MainWindow, tmp_path, qtbot
+) -> None:
     pose = _pose_file(tmp_path)
     _register_pose_source(window, str(pose), [10.0, 10.1, 10.2, 10.3], rate=10.0)
 
@@ -576,6 +666,7 @@ def test_a_correction_is_written_at_the_video_frame_it_names(window: MainWindow,
         PointMove(key=PointKey(str(pose), "nose", 1), before=None, after=(5.0, 6.0))
     )
 
+    qtbot.waitUntil(lambda: point_edit_sidecar.read(pose) is not None, timeout=5000)
     written = point_edit_sidecar.read(pose)
     assert written is not None
     assert [entry.frame for entry in written.entries] == [101]
@@ -621,7 +712,7 @@ def _pose_file(tmp_path) -> Path:
     return path
 
 
-def test_a_correction_is_written_beside_its_pose_file(window: MainWindow, tmp_path) -> None:
+def test_a_correction_is_written_beside_its_pose_file(window: MainWindow, tmp_path, qtbot) -> None:
     """A correction is a fact about the recording, so it lives with it (D-099).
 
     Not on Ctrl+S: two hundred careful drags are collected data, and leaving
@@ -633,13 +724,15 @@ def test_a_correction_is_written_beside_its_pose_file(window: MainWindow, tmp_pa
 
     window.video_grid.point_moved.emit(PointMove(key=key, before=None, after=(12.5, 34.5)))
 
+    qtbot.waitUntil(lambda: point_edit_sidecar.read(pose) is not None, timeout=5000)
     written = point_edit_sidecar.read(pose)
     assert written is not None
     assert [(e.frame, e.bodypart, e.x, e.y) for e in written.entries] == [(120, "nose", 12.5, 34.5)]
+    qtbot.waitUntil(lambda: "eks.csv" in window.notifications.message, timeout=5000)
     assert "eks.csv" in window.notifications.message
 
 
-def test_undoing_a_correction_reaches_the_file_too(window: MainWindow, tmp_path) -> None:
+def test_undoing_a_correction_reaches_the_file_too(window: MainWindow, tmp_path, qtbot) -> None:
     """Undo is a correction like any other, and takes the same route to disk."""
     pose = _pose_file(tmp_path)
     key = PointKey(str(pose), "nose", 120)
@@ -647,17 +740,25 @@ def test_undoing_a_correction_reaches_the_file_too(window: MainWindow, tmp_path)
 
     window.document.undo(window._mutations)
 
+    qtbot.waitUntil(
+        lambda: (held := point_edit_sidecar.read(pose)) is not None and held.entries == [],
+        timeout=5000,
+    )
     written = point_edit_sidecar.read(pose)
     assert written is not None
     assert written.entries == [], "the file is emptied, never deleted"
     assert point_edit_sidecar.sidecar_path(pose).exists()
 
 
-def test_the_session_records_a_count_not_the_coordinates(window: MainWindow, tmp_path) -> None:
+def test_the_session_records_a_count_not_the_coordinates(
+    window: MainWindow, tmp_path, qtbot
+) -> None:
     """One authority. The count is what makes a lost sidecar reportable."""
     pose = _pose_file(tmp_path)
     key = PointKey(str(pose), "nose", 120)
     window.video_grid.point_moved.emit(PointMove(key=key, before=None, after=(12.5, 34.5)))
+
+    qtbot.waitUntil(lambda: window._point_edit_storage.get(str(pose)) == "sidecar", timeout=5000)
 
     state = window._build_session_state()
 
@@ -665,7 +766,7 @@ def test_the_session_records_a_count_not_the_coordinates(window: MainWindow, tmp
 
 
 def test_a_folder_that_cannot_be_written_keeps_the_work_in_the_session(
-    window: MainWindow, tmp_path
+    window: MainWindow, tmp_path, qtbot
 ) -> None:
     """An archived acquisition on read-only media is the ordinary case."""
     missing = tmp_path / "not-a-folder" / "eks.csv"
@@ -676,8 +777,16 @@ def test_a_folder_that_cannot_be_written_keeps_the_work_in_the_session(
     state = window._build_session_state()
     assert state.point_edits[0]["storage"] == "session"
     assert state.point_edits[0]["edits"] == [
-        {"source": str(missing), "point": "nose", "index": 120, "x": 12.5, "y": 34.5}
+        {
+            "source": str(missing),
+            "point": "nose",
+            "index": 120,
+            "x": 12.5,
+            "y": 34.5,
+            "shown_as": "nose",
+        }
     ]
+    qtbot.waitUntil(lambda: "could not be written" in window.notifications.message, timeout=5000)
     assert "could not be written" in window.notifications.message
 
 
@@ -724,3 +833,39 @@ def test_a_session_whose_corrections_file_is_gone_says_so(window: MainWindow, tm
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(pytest.main([__file__]))
+
+
+# ── a drag under a swapped label (D-141, D-143) ──────────────────────
+#
+# Once an identity flip is accepted, the readers behind a marker are the
+# *edited* ones: the point labelled testMouse is drawing conSpecific's
+# trajectory. A correction is a fact about that trajectory, so it has to be
+# keyed to the column the pixels came from, and the label has to be kept as
+# provenance. Keying it by the label instead writes the fix onto the other
+# animal -- in a file that reads as valid and says nothing about it.
+
+
+def test_a_drag_corrects_the_column_the_label_is_showing(qtbot) -> None:
+    canvas = _canvas(qtbot, _one_point_track([100.0], [100.0], [0.0]))
+    canvas.set_identity_resolver(lambda source_id, name, index: "conSpecific_snout")
+    canvas.set_edit_mode(True)
+    moved: list[PointMove] = []
+    canvas.point_moved.connect(moved.append)
+
+    _drag(canvas, (100.0, 100.0), (150.0, 130.0))
+
+    assert len(moved) == 1
+    assert moved[0].key.point == "conSpecific_snout"
+    assert moved[0].shown_as == "nose"
+
+
+def test_without_a_flip_the_column_and_the_label_are_the_same(qtbot) -> None:
+    canvas = _canvas(qtbot, _one_point_track([100.0], [100.0], [0.0]))
+    canvas.set_edit_mode(True)
+    moved: list[PointMove] = []
+    canvas.point_moved.connect(moved.append)
+
+    _drag(canvas, (100.0, 100.0), (150.0, 130.0))
+
+    assert moved[0].key.point == "nose"
+    assert moved[0].shown_as == "nose"

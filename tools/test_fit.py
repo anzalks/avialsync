@@ -27,6 +27,6 @@ try:
     proposal = fit_sync_events(ephys, video, reference_id="ref", target_id="tgt")
     print(f"Matched: {proposal.fit.matched_count}")
     print(f"Offset: {proposal.fit.offset}")
-    print(f"Drift PPM: {proposal.fit.drift_ppm}")
+    print(f"Drift (ms/h): {proposal.fit.drift_ms_per_hour}")
 except Exception as e:
     print(f"Match failed: {e}")

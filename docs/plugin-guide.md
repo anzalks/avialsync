@@ -84,6 +84,10 @@ class MyRigSession(SessionSource):
         )
 ```
 
+The session scanner supplies the candidate files and their labels, kinds, and import defaults. They
+are shown in the same batch review used for ordinary drops, where the user confirms or changes each
+choice. A session plugin never imports its candidates without that review.
+
 ```toml
 [project.entry-points."avialsync.sessions"]
 myrig = "my_plugin:MyRigSession"
@@ -97,8 +101,11 @@ Return session-wide settings as `SessionLayout` fields, not as extra items:
 `session_epoch` (the UTC instant you want master-clock zero to be — usually when
 the recording started), `anchor_epoch` (the UTC instant relative timestamps are
 measured from — it also switches the display to wall-clock time), `camera_fps`,
-and `skeleton` (body-part pairs; declaring them takes precedence over the
-skeleton the 3D view otherwise detects from pairwise rigidity, D-082). Set a
+`skeleton` (body-part pairs; declaring them takes precedence over the
+skeleton the 3D view otherwise detects from pairwise rigidity, D-082), and
+`rotary` (a `RotaryHint` naming the channel that carries a running wheel's
+cumulative angle in degrees, and the wheel's bar count and radius when your rig
+records them, D-113 — it pre-fills the wheel setup in Props and is never applied on its own). Set a
 `SessionItem.loader` of `None` to let capability resolution pick one, which is
 what you should do for ordinary video.
 
@@ -127,7 +134,7 @@ offset:
 nothing: 34526 is equally 09:35:26 and a nine-hour elapsed time, and the
 application cannot tell which you meant.
 
-**Never put a placement in `config`.** `config` is hashed into the sidecar cache
+**Never put a placement in `config`.** `config` is hashed into the cache
 key, so an offset there lets a re-placement invalidate the samples underneath it
 — and it lands in the offset control the user nudges by hand, which is how an
 AOL session came to open with -34526 s already typed into every camera (D-110).
@@ -149,6 +156,13 @@ cache key — so put what the loader needs to *read* the file there, and nothing
 about where the file belongs in time. One key is interpreted by the application:
 `role` routes a source away from the plot rows — `"pose3d"` to the 3D view,
 `"overlay2d"` (with `overlay_video`) to that camera's overlay.
+
+For a direct file import, a `TimeSeriesSource` that can yield coordinate channels can override
+`pose_roles()` to offer `"pose3d"` and/or `"overlay2d"` in the import review. The default is
+empty, so existing plugins keep their current behavior. The user chooses the role and, for 2D,
+the target video. A session scanner can declare the same choice in each `SessionItem.config`;
+the review starts with that choice selected. The application checks for complete `_x/_y` or
+`_x/_y/_z` channel groups after import and plots the channels if the declared pose is unusable.
 
 A bare `offset` in `config` still works, and means the whole source-to-master
 mapping rather than a correction on top of a placement. Prefer `source_epoch`:
@@ -210,7 +224,7 @@ closing comment has no place on the clock, and AvialSync shows those as untimed
 notes rather than pinning them to the start of the recording. Do not substitute
 `0.0`: that asserts a moment the file never recorded.
 
-Messages are displayed read-only, in their own Inspector tab and timeline lane.
+Messages are displayed read-only, in their own Inspector page and timeline lane.
 They are not annotations — the user's own markers are separate, editable, and
 exported as their work (see D-078).
 
@@ -240,9 +254,27 @@ offset always takes precedence.
 Override it to return `VideoMetadata` when the format exposes codec, byte size, and
 timestamp-derived CFR/VFR evidence.
 
+## Imaging plugins
+
+Subclass `ImagingSource` for a time-indexed image stack that is not a video container.
+`open(path, config)` returns `ImagingMetadata` with a one-dimensional, strictly increasing
+`frame_times` array in source seconds, image shape, pixel dtype, and `channel_count`.
+`read_frame(index, channel=0)` returns one two-dimensional NumPy plane at that presentation index
+and channel, in the file's own pixel units. `close()` releases the handle. The application opens
+and reads the source on a background thread, requests only the planes the current picture needs,
+and coalesces requests during playback. A plugin should use native slice or page reads and must
+not materialize the entire stack. Publish it under `avialsync.loaders`.
+
+When the file does not settle something only the user can answer — a frame rate, which dataset or
+series, the axis order, a depth plane — raise `avialsync.core.errors.ImagingChoiceRequired` with
+the config key as `choice` (`fps`, `dataset`, `series`, `axes` or `z`) and the valid answers as
+`options` when the file lists them. The application asks, adds the answer to `config`, opens
+again, and saves the answer with the session. Never substitute a default. The HDF5/TIFF built-ins
+demonstrate the contract; a session plugin can also provide these choices in `SessionItem.config`.
+
 ## Trigger plugins
 
-A trigger plugin is the third source kind, beside time-series and video, and it
+A trigger plugin is another source kind beside time-series, video, and imaging, and it
 answers a different question from either: not *what* was recorded but *when
 things happened*, and what those instants are evidence **of**.
 

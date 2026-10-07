@@ -1,5 +1,7 @@
 """Exact, bounded-memory export and statistics regression tests."""
 
+import csv
+import json
 from pathlib import Path
 
 import numpy as np
@@ -32,7 +34,8 @@ def test_export_and_stats_use_only_the_requested_raw_slice(tmp_path: Path) -> No
     assert lines[0].startswith("# Source: ")
     assert lines[1] == "# Channel: signal"
     assert lines[2] == "time,signal"
-    assert len(lines) == len(expected) + 4
+    assert len(lines) == len(expected) + 5
+    assert lines[-1].startswith('"# avialsync: ')
 
 
 def test_background_export_and_stats_open_worker_local_readers(tmp_path: Path) -> None:
@@ -59,7 +62,38 @@ def test_background_export_and_stats_open_worker_local_readers(tmp_path: Path) -
     assert export_results == [str(output)]
     lines = output.read_text(encoding="utf-8").splitlines()
     assert lines[0].startswith("# Source: ")
-    assert len(lines) == 7
+    assert len(lines) == 8
+
+
+def test_data_export_preserves_source_identity_and_mapping(tmp_path: Path) -> None:
+    source = tmp_path / "signal.csv"
+    source.write_text("original", encoding="utf-8")
+    cache = tmp_path / "pyramid"
+    cache.mkdir()
+    PyramidBuilder(cache, "signal").build_and_save(np.array([0.0, 1.0]), np.array([2.0, 3.0]))
+    reference = ReaderReference(cache, "signal", 0.25, 1.5, str(source))
+    session = tmp_path / "trial.avv"
+    output = tmp_path / "slice.csv"
+    worker = DataExportWorker([reference], 0.0, 2.0, output, session)
+    finished: list[str] = []
+    worker.finished.connect(finished.append)
+    worker.run()
+    assert finished == [str(output)]
+    rows = list(csv.reader(output.open(encoding="utf-8", newline="")))
+    provenance = json.loads(rows[-1][0].removeprefix("# avialsync: "))
+    assert provenance["sources"] == [{"name": "signal.csv", "size_bytes": 8}]
+    assert provenance["session"] == str(session)
+    assert provenance["time_maps"][str(source)] == {
+        "offset_seconds": 0.25,
+        "drift_ms_per_hour": 1.5,
+    }
+
+    blocked = DataExportWorker([reference], 0.0, 2.0, source, session)
+    errors: list[str] = []
+    blocked.error.connect(errors.append)
+    blocked.run()
+    assert errors and "loaded source" in errors[0]
+    assert source.read_text(encoding="utf-8") == "original"
 
 
 def test_video_clip_worker_runs_ffmpeg_jobs_off_the_ui_path(tmp_path: Path, monkeypatch) -> None:

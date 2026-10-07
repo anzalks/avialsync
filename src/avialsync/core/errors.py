@@ -24,8 +24,24 @@ class SourceOpenError(AvialSyncError):
     pass
 
 
+class ImagingChoiceRequired(SourceOpenError):
+    """An imaging stack needs a scientific choice its file does not settle (D-190).
+
+    ``choice`` names the import-config key that answers it -- ``fps``,
+    ``dataset``, ``series``, ``axes`` or ``z`` -- and ``options`` lists the valid
+    answers when the file enumerates them. The UI asks rather than guesses: a
+    frame rate or an axis order invented on the user's behalf would put every
+    plane at the wrong time without anything looking wrong.
+    """
+
+    def __init__(self, choice: str, message: str, options: tuple[str, ...] = ()) -> None:
+        self.choice = choice
+        self.options = options
+        super().__init__(message)
+
+
 class CacheError(AvialSyncError):
-    """Raised when the sidecar binary cache encounters an error."""
+    """Raised when the binary import cache encounters an error."""
 
     pass
 
@@ -81,3 +97,27 @@ class ExportError(AvialSyncError):
     That difference is the whole message, so it earns its own type rather than
     reaching the generic presenter.
     """
+
+
+class CalibrationError(AvialSyncError):
+    """Raised when a camera calibration cannot be read, resolved, or fitted.
+
+    Distinct from :class:`SourceOpenError`: the recordings are fine, but
+    nothing places their cameras in one 3D frame, so a point clicked in each
+    view cannot be triangulated. The recovery is always the same pair of
+    choices -- point at a calibration file, or fit one from the tracking.
+    """
+
+
+class WheelFitError(AvialSyncError):
+    """Raised when the clicked bars do not determine a wheel.
+
+    The recordings and the calibration are fine; the clicks are not enough, or
+    contradict each other -- one bar end seen by a single camera, two clicks on
+    the same bar, a bar count that does not fit the spacing clicked. The
+    recovery is always more or better clicks, never a guessed wheel.
+    """
+
+
+class PropModelError(AvialSyncError):
+    """Raised when declared prop geometry or motion is mathematically invalid."""

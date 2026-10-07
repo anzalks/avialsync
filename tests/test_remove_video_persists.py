@@ -88,7 +88,7 @@ def window(qtbot) -> MainWindow:
 def test_removing_a_video_writes_the_session_first(window, tmp_path: Path, qtbot) -> None:
     """End to end: the file on disk is correct before teardown could crash."""
     session = tmp_path / "s.avv"
-    window._session_path = session
+    window.session_runtime.path = session
 
     order: list[str] = []
     pane = _FakePane(order)
@@ -111,7 +111,7 @@ def test_removing_a_video_writes_the_session_first(window, tmp_path: Path, qtbot
 
 def test_no_session_open_means_nothing_is_written(window, qtbot) -> None:
     """Removal must not invent a session file for someone who never saved one."""
-    window._session_path = None
+    window.session_runtime.path = None
     pane = _FakePane([])
     window.video_grid.panes = [pane]
     window.video_grid._paths = ["camera.mp4"]

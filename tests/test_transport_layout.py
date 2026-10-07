@@ -1,62 +1,170 @@
 """Tests for the two-row timeline and status transport layout."""
 
 import pytest
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
+from PySide6.QtGui import QColor, QImage, QMouseEvent, QPainter
+from PySide6.QtWidgets import QApplication
 
+from avialsync.ui.main_window import MainWindow
+from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.theme import status_color
-from avialsync.ui.transport import Transport
+from avialsync.ui.transport import Transport, _paint_span
+from avialsync.ui.view_toolbar import ViewToolbar
 
 
 def test_seek_row_orders_playhead_ab_end_time_and_rate_controls(qtbot) -> None:
-    """Seek-row controls follow the compact visual-inspection workflow."""
+    """D-170/171: playback is ordered, and the capped lane area follows its header."""
     transport = Transport()
     qtbot.addWidget(transport)
     transport.resize(1000, 220)
     transport.show()
     qtbot.waitExposed(transport)
 
-    assert transport._jump_fwd_btn.geometry().x() < transport._time_edit.geometry().x()
+    playhead_buttons = (
+        transport._jump_back_btn,
+        transport._step_back_btn,
+        transport.play_btn,
+        transport._step_fwd_btn,
+        transport._jump_fwd_btn,
+    )
+    assert [button.geometry().x() for button in playhead_buttons] == sorted(
+        button.geometry().x() for button in playhead_buttons
+    )
+    assert transport._jump_fwd_btn.geometry().right() < transport._time_edit.geometry().x()
     assert transport._time_edit.geometry().right() < transport.slider.geometry().x()
     assert transport.slider.geometry().right() < transport._end_time_label.geometry().x()
-    assert transport._end_time_label.geometry().right() < transport._ab_in_btn.geometry().x()
-    assert transport._ab_clear_btn.geometry().x() < transport._speed_label.geometry().x()
-    assert transport._speed_label.geometry().right() < transport.rate_combo.geometry().x()
-    assert transport.evidence.reset_zoom_button.geometry().x() > transport.slider.geometry().x()
+    assert transport._ab_in_btn.parentWidget() is transport
+    # Same row: compare layout cells, since macOS frames a default button 2 px lower.
+    row = transport._timeline_layout
+    assert (
+        row.itemAt(row.indexOf(transport._ab_in_btn)).geometry().center().y()
+        == row.itemAt(row.indexOf(transport.play_btn)).geometry().center().y()
+    )
+    assert transport._time_edit.geometry().top() > transport.evidence.geometry().bottom()
+    assert transport._ab_in_btn.geometry().x() < transport._ab_out_btn.geometry().x()
+    assert transport._ab_out_btn.geometry().x() < transport._ab_clear_btn.geometry().x()
+    assert transport._ab_clear_btn.geometry().x() < transport.rate_combo.geometry().x()
+    tools = (
+        transport._jump_back_btn,
+        transport._step_back_btn,
+        transport._step_fwd_btn,
+        transport._jump_fwd_btn,
+        transport._ab_in_btn,
+        transport._ab_out_btn,
+        transport._ab_clear_btn,
+    )
+    assert all(
+        button.text() == "" and button.accessibleName() and button.toolTip() for button in tools
+    )
+    # D-170: the one Data Streams header sits above its lanes.
+    evidence = transport.evidence
+    assert evidence.collapse_button.parentWidget() is evidence
+    assert evidence.collapse_button.geometry().bottom() <= evidence.lane_scroll.geometry().top()
+    assert evidence.lane_scroll.widget() is evidence.overview
 
 
-def test_transport_status_and_reset_signal(qtbot) -> None:
-    """Status updates do not block controls and reset has one explicit signal."""
+def test_descriptive_transport_controls_leave_a_usable_slider_at_narrow_width(qtbot) -> None:
     transport = Transport()
     qtbot.addWidget(transport)
-    reset_requests: list[bool] = []
-    transport.reset_zoom_requested.connect(lambda: reset_requests.append(True))
+    transport.resize(640, 220)
+    transport.show()
+    qtbot.waitExposed(transport)
+
+    assert transport.slider.width() > 0
+    assert transport._time_edit.width() >= 110
+    assert transport._end_time_label.width() >= 110
+
+
+def test_plot_header_buttons_name_their_effect(qtbot) -> None:
+    """Reset is the pane's own action, which the View menu shows too (rule 15).
+
+    It read "Reset plots" here and "Reset Plot Zoom" in the menu for the same
+    Ctrl+0 command, so its text now comes only from that action.
+    """
+    pane = PlotPane()
+    qtbot.addWidget(pane)
+    header = pane._plot_header
+
+    assert header.fit_all_button.text() == "Fit Y"
+    assert header.fit_all_button.accessibleName() == "Fit Y ranges for visible channels"
+    assert header.reset_button.action is pane.reset_action
+    assert header.reset_button.text() == pane.reset_action.text() == "Reset Plots"
+    assert header.reset_button.accessibleName() == "Reset plot ranges and time span"
+
+
+def test_transport_status_does_not_block_controls(qtbot) -> None:
+    """D-170: forwarding updates the status line and leaves playback enabled."""
+    transport = Transport()
+    qtbot.addWidget(transport)
 
     transport.set_bounds(0.0, 62.5)
     transport.set_status("Importing sensor data 62%", "busy")
-    transport.evidence.reset_zoom_button.click()
 
     assert transport._end_time_label.text() == "00:01:02.500"
-    assert transport.evidence._status_label.text() == "Status: Importing sensor data 62%"
-    # Asserted as the derived colour, not as a hex literal. Pinning the literal
-    # is what let the hardcoded amber sit here unnoticed: it read as dark grey
-    # on a light theme, and the test agreed with it either way.
-    label = transport.evidence._status_label
-    assert status_color(label.palette(), "busy").name() in label.styleSheet()
-    assert status_color(label.palette(), "busy") != status_color(label.palette(), "error")
-    assert reset_requests == [True]
+    assert transport.status_line.text() == "Working: Importing sensor data 62%"
+    assert transport.status_text() == "Importing sensor data 62%"
+    line = transport.status_line
+    assert line.ink_color() == status_color(line.palette(), "busy")
+    assert not line.styleSheet()
     assert transport.play_btn.focusPolicy() == Qt.FocusPolicy.TabFocus
 
 
-def test_status_timer_is_owned_by_data_streams(qtbot) -> None:
-    """A pending status clear cannot outlive and call a deleted label."""
+def test_status_timer_is_owned_by_status_line(qtbot) -> None:
+    """D-170: a pending clear cannot outlive its status line."""
     transport = Transport()
     transport.set_status("Ready")
 
-    timer = transport.evidence._status_clear_timer
-    assert timer.parent() is transport.evidence
+    timer = transport.status_line._status_clear_timer
+    assert timer.parent() is transport.status_line
     timer.start(1)
     transport.deleteLater()
     qtbot.wait(10)
+
+
+def test_status_line_sits_beside_activity_in_status_bar(qtbot) -> None:
+    """D-170: application status and jobs share the status bar without overlap."""
+    window = MainWindow()
+    qtbot.addWidget(window)
+    window.resize(1280, 800)
+    window.show()
+    qtbot.waitExposed(window)
+    window.transport.set_status("Loading", "busy")
+    window.activity_bar.show()
+    qtbot.wait(10)
+
+    line = window.transport.status_line
+    assert line.parentWidget() is window.statusBar()
+    assert line.geometry().right() <= window.activity_bar.geometry().left()
+    assert line.status_text() == "Loading"
+    window.close()
+
+
+def test_moved_loop_and_rate_controls_keep_their_signals(qtbot) -> None:
+    """D-170 changes placement and labels, preserving the playback signals."""
+    transport = Transport()
+    qtbot.addWidget(transport)
+    transport.set_bounds(0.0, 10.0)
+    transport.set_time(2.0)
+    loops: list[tuple[float | None, float | None]] = []
+    rates: list[float] = []
+    transport.ab_loop_changed.connect(lambda start, end: loops.append((start, end)))
+    transport.rate_changed.connect(rates.append)
+
+    transport._ab_in_btn.click()
+    transport.set_time(4.0)
+    transport._ab_out_btn.click()
+    transport._ab_clear_btn.click()
+    transport.rate_combo.setCurrentIndex(transport.rate_combo.currentIndex() + 1)
+
+    assert loops == [(2.0, None), (2.0, 4.0), (None, None)]
+    assert rates == [transport.rate_combo.currentData()]
+
+
+def test_end_time_explains_its_difference_from_plot_span(qtbot) -> None:
+    """D-170: loaded duration and visible page width have distinct names."""
+    transport = Transport()
+    qtbot.addWidget(transport)
+    assert "Time span" in transport._end_time_label.toolTip()
 
 
 def test_play_pause_text_never_changes_seek_bar_geometry(qtbot) -> None:
@@ -75,31 +183,44 @@ def test_play_pause_text_never_changes_seek_bar_geometry(qtbot) -> None:
 
 
 def test_flag_button_emits_annotation_request(qtbot) -> None:
-    """Flag lives in the Data Streams header and retains the annotation action."""
-    transport = Transport()
-    qtbot.addWidget(transport)
+    """Flag lives with the video tools (D-126) and retains the annotation request."""
+    toolbar = ViewToolbar()
+    qtbot.addWidget(toolbar)
     requests: list[bool] = []
-    transport.annotate_requested.connect(lambda: requests.append(True))
+    toolbar.flag_requested.connect(lambda: requests.append(True))
 
-    transport.evidence.flag_button.click()
+    toolbar.flag_button.click()
 
-    assert transport.evidence.flag_button.text() == "Flag Frame"
+    # D-181: a glyph, named by its accessible name and tooltip.
+    assert toolbar.flag_button.accessibleName() == "Flag Frame"
+    assert toolbar.flag_button.toolTip() == "Flag the current frame (M)"
     assert requests == [True]
 
 
 def test_data_streams_header_buttons_have_explanatory_tooltips(qtbot) -> None:
-    """Header actions explain their user-visible purpose without relying on icons."""
+    """D-170: the lane header owns only its collapse control.
+
+    D-174: Snapshot and Fullscreen are glyph buttons on their menu actions, so
+    they carry a tooltip once those actions are installed, as the window does.
+    """
+    from PySide6.QtGui import QAction
+
     transport = Transport()
     qtbot.addWidget(transport)
 
+    toolbar = ViewToolbar()
+    qtbot.addWidget(toolbar)
+    toolbar.install_snapshot_action(QAction("Export Snapshot…", toolbar))
+    toolbar.install_fullscreen_action(QAction("Fullscreen", toolbar))
     for button in (
         transport.evidence.collapse_button,
-        transport.evidence.flag_button,
-        transport.evidence.snapshot_button,
-        transport.evidence.fullscreen_button,
-        transport.evidence.reset_zoom_button,
+        toolbar.flag_button,
+        toolbar.snapshot_button,
+        toolbar.fullscreen_button,
     ):
         assert button.toolTip()
+    assert transport.evidence.layout().count() == 2
+    assert transport._ab_in_btn.parentWidget() is transport
 
 
 def test_overview_renders_inspection_evidence_and_seeks(qtbot) -> None:
@@ -254,7 +375,7 @@ def test_evidence_event_detail_identifies_type_source_and_time(qtbot) -> None:
     detail = transport.overview._event_detail(x, lane_height + 5)
 
     assert "Accepted sync / TTL event" in detail
-    assert "40.000000 s" in detail
+    assert "40.000 s" in detail  # D-185: ms is the readable unit
     assert "camera.mp4" in detail
 
     transport.set_gap_events([(50.0, "Source: sensors.csv")])
@@ -322,3 +443,98 @@ def test_overview_keeps_labels_clear_of_clipped_master_time_coverage(qtbot) -> N
     assert later_span is not None
     assert negative_span[0] == transport.overview._LABEL_WIDTH
     assert later_span[0] > transport.overview._LABEL_WIDTH
+
+
+def test_ten_compact_sources_fit_before_data_streams_scrolls(qtbot) -> None:
+    """D-171: four video and six data lanes use the compact cap without squeezing."""
+    transport = Transport()
+    qtbot.addWidget(transport)
+    transport.resize(1280, 800)
+    transport.show()
+    qtbot.waitExposed(transport)
+    transport.set_bounds(0.0, 10.0)
+    for index in range(10):
+        kind = "video" if index < 4 else "data"
+        transport.set_source_coverage(f"/recording/source_{index}", 0.0, 10.0, kind)
+
+    overview = transport.overview
+    scroll = transport.evidence.lane_scroll
+    assert len(overview.lane_labels()) == 10
+    assert overview.height() == 10 * overview.lane_height()
+    assert scroll.height() == overview.height()
+    assert scroll.verticalScrollBar().maximum() == 0
+
+    transport.set_source_coverage("/recording/extra", 0.0, 10.0, "data")
+    assert overview.height() == 11 * overview.lane_height()
+    assert scroll.height() == 10 * overview.lane_height()
+    assert scroll.verticalScrollBar().maximum() > 0
+
+
+def test_data_streams_cap_and_density_follow_preferences(qtbot) -> None:
+    """D-171: the remembered cap and density change the live viewport."""
+    from avialsync.ui.app_settings import app_settings
+
+    transport = Transport()
+    qtbot.addWidget(transport)
+    transport.set_bounds(0.0, 10.0)
+    for index in range(5):
+        transport.set_source_coverage(f"/recording/source_{index}", 0.0, 10.0, "data")
+    compact_height = transport.overview.lane_height()
+    settings = app_settings()
+    settings.setValue("interface/density", "comfortable")
+    settings.setValue("timeline/comfortable_visible_lanes", 3)
+    try:
+        transport.evidence.reload_preferences()
+        assert transport.overview.lane_height() > compact_height
+        assert transport.evidence.lane_scroll.height() == 3 * transport.overview.lane_height()
+    finally:
+        # Shared by every later test in the session; a leftover Comfortable
+        # density made the empty-window layout test fail at large fonts.
+        settings.remove("interface/density")
+        settings.remove("timeline/comfortable_visible_lanes")
+
+
+def test_data_streams_long_label_elides_but_hover_reveals_it(qtbot) -> None:
+    """D-171: a long lane name remains available when its painted text is short."""
+    transport = Transport()
+    qtbot.addWidget(transport)
+    transport.resize(800, 200)
+    transport.show()
+    qtbot.waitExposed(transport)
+    transport.set_bounds(0.0, 10.0)
+    name = "camera_with_a_very_long_identifier_that_will_not_fit_in_the_lane_label.mp4"
+    transport.set_source_coverage(f"/recording/{name}", 0.0, 10.0, "video")
+    overview = transport.overview
+    label = overview.lane_labels()[0]
+    assert "…" in overview.fontMetrics().elidedText(
+        label, Qt.TextElideMode.ElideMiddle, overview._LABEL_WIDTH - 14
+    )
+    # Deliver the hover directly: a synthetic cursor move is not reliable on every platform.
+    point = QPointF(20, overview.lane_height() // 2)
+    QApplication.sendEvent(
+        overview,
+        QMouseEvent(
+            QEvent.Type.MouseMove,
+            point,
+            overview.mapToGlobal(point),
+            Qt.MouseButton.NoButton,
+            Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+        ),
+    )
+    assert overview.toolTip() == label
+
+
+def test_coverage_span_keeps_solid_two_pixel_caps(qtbot) -> None:
+    """D-159/171: tinted coverage still has opaque edges at both ends."""
+    del qtbot
+    picture = QImage(40, 20, QImage.Format.Format_ARGB32)
+    picture.fill(QColor("white"))
+    painter = QPainter(picture)
+    _paint_span(painter, 5, 4, 20, 10, QColor("#123456"))
+    painter.end()
+    assert picture.pixelColor(5, 8) == QColor("#123456")
+    assert picture.pixelColor(6, 8) == QColor("#123456")
+    assert picture.pixelColor(23, 8) == QColor("#123456")
+    assert picture.pixelColor(24, 8) == QColor("#123456")
+    assert picture.pixelColor(14, 8) != QColor("#123456")

@@ -67,7 +67,7 @@ def test_data_streams_uses_the_video_plot_native_splitter_style(
     assert main_window.transport.parentWidget() is not main_window._content_splitter
 
 
-def test_inspector_uses_compact_tabs_for_sources_values_messages_and_annotations(
+def test_inspector_uses_compact_tabs_for_sources_values_messages_annotations_and_props(
     main_window: MainWindow,
 ) -> None:
     """The inspector preserves its panels without stacked panes consuming workspace height.
@@ -83,6 +83,10 @@ def test_inspector_uses_compact_tabs_for_sources_values_messages_and_annotations
     assert main_window._left_tabs.widget(1) is main_window.readout_panel
     assert main_window._left_tabs.widget(2) is main_window.message_panel
     assert main_window._left_tabs.widget(3) is main_window.changes_panel
+    assert main_window._left_tabs.tabText(4) == "Props"
+    assert main_window._left_tabs.widget(4) is main_window.props_app.tab
+    assert main_window.wheel_tab.parentWidget() is not None
+    assert main_window.wheel_panel.parentWidget() is not main_window.sidebar
 
 
 def test_reset_session_button_requests_a_clean_workspace(main_window: MainWindow, qtbot) -> None:
@@ -91,32 +95,34 @@ def test_reset_session_button_requests_a_clean_workspace(main_window: MainWindow
 
     video_path = "/tmp/camera.mp4"
     sensor_path = "/tmp/sensor.csv"
-    cache_dir = Path("/tmp/sensor.avialcache")
+    cache_dir = Path("/tmp/sensor_cache")
     pane = QWidget()
     main_window.video_grid.panes.append(pane)
     main_window.video_grid._paths.append(video_path)
     main_window.video_grid._pane_enabled.append(True)
     main_window.sidebar.add_video(video_path, {})
     main_window.sidebar.add_sensor(sensor_path, ["force"])
-    main_window._session_path = Path("/tmp/prior.avv")
+    main_window.session_runtime.path = Path("/tmp/prior.avv")
     main_window._video_fps[video_path] = 30.0
     main_window._sensor_cache_dirs[sensor_path] = cache_dir
     main_window._overlay_sources[video_path] = {}
     main_window._pose_3d_sources[sensor_path] = []
     main_window._sync_provenance.append(object())
     main_window._overview_gaps[1.0] = "Source: sensor.csv"
-    main_window._session_item_labels[sensor_path] = "Force"
+    main_window.session_runtime.item_labels[sensor_path] = "Force"
     main_window.plot_pane._source_time_maps[cache_dir] = TimeMap()
     main_window.annotation_store.add_point(1.0, "mark")
     main_window.message_store._by_source[sensor_path] = ()
     main_window.transport.set_source_coverage(video_path, 0.0, 2.0, "video")
     main_window.transport.set_gap_events([(1.0, "gap")])
 
-    with qtbot.waitSignal(main_window.sidebar.reset_session_requested):
+    # The button is File → Reset Session's own action (rule 15, D-181).
+    assert main_window.sidebar.btn_reset_session.action is main_window._act_reset_session
+    with qtbot.waitSignal(main_window._act_reset_session.triggered):
         main_window.sidebar.btn_reset_session.click()
 
-    assert main_window._session_path is None
-    assert main_window._session_generation == 1
+    assert main_window.session_runtime.path is None
+    assert main_window.session_runtime.generation == 1
     assert not main_window.video_grid.panes
     assert not main_window.video_grid.pane_paths()
     assert not main_window.sidebar._video_widgets
@@ -175,7 +181,7 @@ def test_accepted_sync_mapping_updates_video_and_session(main_window: MainWindow
     proposal = SyncProposal(
         reference_id="sensor:ttl",
         target_id="/fake/camera.mp4",
-        fit=SyncFit(1.25, 3.5, 0.0, 0.0, 4, 0),
+        fit=SyncFit(1.25, 12.6, 0.0, 0.0, 4, 0),
         matches=(SyncMatch(0.0, 1.25, 0.0),),
         tolerance=0.01,
     )
@@ -184,7 +190,7 @@ def test_accepted_sync_mapping_updates_video_and_session(main_window: MainWindow
 
     assert pane.time_map.to_source(100.0) == pytest.approx(101.25035)
     state = main_window._build_session_state()
-    assert state.videos[0].drift_ppm == pytest.approx(3.5)
+    assert state.videos[0].drift_ms_per_hour == pytest.approx(12.6)
     assert state.sync_provenance[0].target_id == "/fake/camera.mp4"
 
 
@@ -202,7 +208,7 @@ def test_session_restore_queues_exact_mapping_for_async_video_open(
                 reference_id="trigger",
                 target_id=str(video),
                 offset=0.0,
-                drift_ppm=0.0,
+                drift_ms_per_hour=0.0,
                 rms_residual=0.0,
                 max_residual=0.0,
                 matched_count=3,
@@ -224,11 +230,11 @@ def test_session_restore_queues_exact_mapping_for_async_video_open(
 def test_programmatic_import_completion_needs_no_progress_dialog(
     main_window: MainWindow, tmp_path: Path
 ) -> None:
-    """Demo/programmatic imports may finish without an interactive progress dialog."""
+    """D-170: programmatic imports finish through status bar, never a dialog."""
     from avialsync.core.inspection import SourceInspection
     from avialsync.core.pyramid import PyramidBuilder
 
-    cache_dir = tmp_path / "demo.avialcache"
+    cache_dir = tmp_path / "demo_cache"
     cache_dir.mkdir()
     PyramidBuilder(cache_dir, "ttl").build_and_save(np.array([0.0, 1.0]), np.array([0.0, 1.0]))
     main_window._on_import_finished(
@@ -239,7 +245,8 @@ def test_programmatic_import_completion_needs_no_progress_dialog(
         SourceInspection(path="demo.csv"),
     )
 
-    assert main_window.data_streams._status_label.text() == "Status: Ready · imported demo.csv"
+    assert main_window.transport.status_line.text() == "Status: Ready · imported demo.csv"
+    assert main_window.transport.status_text() == "Ready · imported demo.csv"
 
 
 # ── Bug b: _start_csv_import → _start_data_import ────────────────────
@@ -260,6 +267,83 @@ def test_session_restore_calls_data_import(main_window: MainWindow) -> None:
     with patch.object(main_window, "_start_data_import") as mock_import:
         main_window._restore_session(state)
         mock_import.assert_called_once_with(csv_path)
+
+
+def test_session_restore_replays_manual_pose_role_and_camera(
+    main_window: MainWindow, tmp_path: Path
+) -> None:
+    video = tmp_path / "camera.mp4"
+    pose = tmp_path / "points.csv"
+    video.touch()
+    pose.touch()
+    config = {"role": "overlay2d", "overlay_video": str(video), "fps": 30.0}
+    state = SessionState(sensors=[SensorEntry(path=str(pose), import_config=config)])
+
+    with patch.object(main_window, "_start_data_import") as mock_import:
+        main_window._restore_session(state)
+
+    mock_import.assert_called_once_with(pose, pre_config=config, restoring=True)
+
+
+def test_loader_wizard_keeps_pose_role_chosen_in_import_review(
+    main_window: MainWindow, tmp_path: Path
+) -> None:
+    path = tmp_path / "points.csv"
+    config = {"role": "overlay2d", "overlay_video": str(tmp_path / "camera.mp4")}
+
+    with (
+        patch("avialsync.ui.import_wizard.ImportWizard") as wizard_class,
+        patch.object(main_window, "_enqueue_import") as enqueue,
+    ):
+        wizard = wizard_class.return_value
+        wizard.exec.return_value = wizard_class.DialogCode.Accepted
+        wizard.config.return_value = {"time_col": "time"}
+        main_window._start_data_import(path, CSVLoader, config)
+
+    enqueue.assert_called_once_with(path, CSVLoader, {**config, "time_col": "time"})
+
+
+def test_single_unclaimed_file_reaches_import_review(
+    main_window: MainWindow, tmp_path: Path
+) -> None:
+    """An unknown file remains available for a manually chosen loader."""
+    path = tmp_path / "recording.xyz"
+    candidates = [(path, None, None)]
+
+    with patch.object(main_window, "_process_drop_candidates") as review:
+        main_window._on_drop_scan_finished(candidates, SessionLayout())
+
+    review.assert_called_once_with(candidates)
+
+
+@pytest.mark.parametrize("role", ["overlay2d", "pose3d_overlay2d"])
+def test_single_declared_session_pair_reaches_import_review(
+    main_window: MainWindow,
+    tmp_path: Path,
+    role: str,
+) -> None:
+    from avialsync.core.source import SessionItem
+    from avialsync.loaders.vicon_c3d_loader import ViconC3DLoader
+
+    video = tmp_path / "trial.avi"
+    tracking = tmp_path / "trial.c3d"
+    config = {"role": role, "overlay_video": str(video), "xcp_path": "trial.xcp"}
+    layout = SessionLayout(
+        items=[
+            SessionItem(path=video, loader=VideoStandardLoader),
+            SessionItem(path=tracking, loader=ViconC3DLoader, config=config),
+        ]
+    )
+    candidates = [(video, VideoStandardLoader, {}), (tracking, ViconC3DLoader, config)]
+
+    with (
+        patch.object(main_window, "_process_drop_candidates") as review,
+        patch.object(main_window, "_route_import_candidate") as route,
+    ):
+        main_window._on_drop_scan_finished(candidates, layout)
+
+    review.assert_called_once_with(candidates)
+    route.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -344,8 +428,9 @@ def test_video_load_keeps_worker_alive_until_thread_finishes(
 
     main_window._load_video(Path("camera.mp4"))
 
-    assert len(main_window._video_load_jobs) == 1
-    for thread in main_window._video_load_jobs:
+    assert len(main_window.video_load_state.active_probes) == 1
+    assert len(main_window._job_manager.jobs()) == 1
+    for thread in main_window.video_load_state.active_probes:
         thread.quit()
         assert thread.wait(1_000)
 
@@ -384,14 +469,14 @@ def test_video_probes_run_bounded_in_parallel(
 
     qtbot.waitUntil(lambda: len(started) == _MAX_VIDEO_PROBES, timeout=2_000)
     # Bounded: the remaining files wait rather than spawning a probe each.
-    assert len(main_window._video_load_jobs) == _MAX_VIDEO_PROBES
-    assert len(main_window._pending_video_loads) == len(paths) - _MAX_VIDEO_PROBES
+    assert len(main_window.video_load_state.active_probes) == _MAX_VIDEO_PROBES
+    assert len(main_window.video_load_state.pending) == len(paths) - _MAX_VIDEO_PROBES
 
     release.set()
 
     qtbot.waitUntil(lambda: len(started) == len(paths), timeout=4_000)
-    qtbot.waitUntil(lambda: not main_window._video_load_jobs, timeout=4_000)
-    assert not main_window._pending_video_loads
+    qtbot.waitUntil(lambda: not main_window.video_load_state.active_probes, timeout=4_000)
+    assert not main_window.video_load_state.pending
 
 
 def test_video_panes_are_built_one_at_a_time_in_request_order(
@@ -404,10 +489,10 @@ def test_video_panes_are_built_one_at_a_time_in_request_order(
         "_create_video_pane",
         lambda self, path, loader, media: (
             built.append(path),
-            setattr(self, "_video_pane_initializing", path),
+            setattr(self.video_load_state, "pane_initializing", path),
         )[0],
     )
-    main_window._video_request_order = ["a.mp4", "b.mp4", "c.mp4"]
+    main_window.video_load_state.request_order = ["a.mp4", "b.mp4", "c.mp4"]
 
     # "b" probes first — it must still wait for "a".
     main_window._on_video_opened("b.mp4", object(), "b.mp4")
@@ -415,16 +500,16 @@ def test_video_panes_are_built_one_at_a_time_in_request_order(
 
     main_window._on_video_opened("a.mp4", object(), "a.mp4")
     assert built == ["a.mp4"]
-    assert main_window._video_pane_initializing == "a.mp4"
+    assert main_window.video_load_state.pane_initializing == "a.mp4"
 
     # Only when "a" reports ready does "b" get built — never two at once.
     main_window._on_video_pane_ready()
     assert built == ["a.mp4", "b.mp4"]
-    assert main_window._video_pane_initializing == "b.mp4"
+    assert main_window.video_load_state.pane_initializing == "b.mp4"
 
     main_window._on_video_pane_ready()
     assert built == ["a.mp4", "b.mp4"]  # "c" has not probed yet
-    assert main_window._video_request_order == ["c.mp4"]
+    assert main_window.video_load_state.request_order == ["c.mp4"]
 
 
 def test_a_failed_probe_does_not_block_later_panes(
@@ -437,11 +522,11 @@ def test_a_failed_probe_does_not_block_later_panes(
         "_create_video_pane",
         lambda self, path, loader, media: (
             built.append(path),
-            setattr(self, "_video_pane_initializing", path),
+            setattr(self.video_load_state, "pane_initializing", path),
         )[0],
     )
     monkeypatch.setattr(QMessageBox, "critical", lambda *args, **kwargs: None)
-    main_window._video_request_order = ["broken.mp4", "good.mp4"]
+    main_window.video_load_state.request_order = ["broken.mp4", "good.mp4"]
     main_window._on_video_opened("good.mp4", object(), "good.mp4")
 
     main_window._on_video_open_error("broken.mp4", "unreadable")
@@ -490,7 +575,7 @@ def test_drop_real_video_completes_async_open(
 
     main_window._load_video(video)
 
-    qtbot.waitUntil(lambda: not main_window._video_load_jobs, timeout=10_000)
+    qtbot.waitUntil(lambda: not main_window.video_load_state.active_probes, timeout=10_000)
     assert str(video) in main_window._video_fps
     assert widget_threads == [True]
     pane.set_vfr.assert_called_once_with(False)
@@ -539,21 +624,22 @@ def test_video_coverage_is_projected_onto_master_time(main_window: MainWindow, m
     coverage = MagicMock()
     monkeypatch.setattr(main_window.transport, "set_source_coverage", coverage)
 
-    main_window._set_video_coverage("camera.mp4", (0.0, 10.0), offset=1.0, drift_ppm=0.0)
+    main_window._set_video_coverage("camera.mp4", (0.0, 10.0), offset=1.0, drift_ms_per_hour=0.0)
 
     coverage.assert_called_once_with("camera.mp4", -1.0, 9.0, "video")
 
 
-def test_real_drop_event_routes_sensor_file(
+def test_real_drop_event_reviews_sensor_file(
     main_window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, qtbot
 ) -> None:
-    """Qt delivery of a drop event must route a supported sensor without closing the window."""
+    """A supported single-file drop still opens review without closing the window."""
     from avialsync.engine.drop_worker import DropScanWorker
     from avialsync.loaders.csv_loader import CSVLoader
 
     sensor = tmp_path / "sensor.csv"
     sensor.write_text("time,value\n0,1\n", encoding="utf-8")
     data_calls: list[tuple[Path, type]] = []
+    review_calls: list[list[tuple[Path, type | None, dict | None]]] = []
 
     monkeypatch.setattr(
         main_window._registry,
@@ -565,6 +651,7 @@ def test_real_drop_event_routes_sensor_file(
         "_start_data_import",
         lambda path, loader, pre_config=None: data_calls.append((path, loader)),
     )
+    monkeypatch.setattr(main_window, "_process_drop_candidates", review_calls.append)
 
     def sync_start_drop_scan(paths):
         worker = DropScanWorker(paths, main_window._registry)
@@ -592,19 +679,22 @@ def test_real_drop_event_routes_sensor_file(
 
     assert event.isAccepted()
     assert main_window.isVisible()
-    assert data_calls == [(sensor, CSVLoader)]
+    assert len(review_calls) == 1
+    assert [(path, loader) for path, loader, _ in review_calls[0]] == [(sensor, CSVLoader)]
+    assert data_calls == []
 
 
-def test_drop_over_video_grid_forwards_to_main_router(
+def test_drop_over_video_grid_forwards_to_import_review(
     main_window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, qtbot
 ) -> None:
-    """A drop over the video grid reaches the same mixed-source router."""
+    """A single supported file dropped over video reaches the same review dialog."""
     from avialsync.engine.drop_worker import DropScanWorker
     from avialsync.loaders.csv_loader import CSVLoader
 
     sensor = tmp_path / "sensor.csv"
     sensor.write_text("time,value\n0,1\n", encoding="utf-8")
     data_calls: list[tuple[Path, type]] = []
+    review_calls: list[list[tuple[Path, type | None, dict | None]]] = []
 
     monkeypatch.setattr(
         main_window._registry,
@@ -616,6 +706,7 @@ def test_drop_over_video_grid_forwards_to_main_router(
         "_start_data_import",
         lambda path, loader, pre_config=None: data_calls.append((path, loader)),
     )
+    monkeypatch.setattr(main_window, "_process_drop_candidates", review_calls.append)
 
     def sync_start_drop_scan(paths):
         worker = DropScanWorker(paths, main_window._registry)
@@ -643,4 +734,6 @@ def test_drop_over_video_grid_forwards_to_main_router(
 
     assert drop_event.isAccepted()
     assert main_window.isVisible()
-    assert data_calls == [(sensor, CSVLoader)]
+    assert len(review_calls) == 1
+    assert [(path, loader) for path, loader, _ in review_calls[0]] == [(sensor, CSVLoader)]
+    assert data_calls == []

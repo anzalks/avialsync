@@ -35,6 +35,7 @@ requirements:
     - pyside6
     - pyqtgraph
     - av >=12
+    - c3d >=0.6.0
     - numpy
     - polars
     - xxhash
@@ -43,6 +44,11 @@ requirements:
     # The toolbox's exported per-camera .mat is MATLAB v7.3, which is HDF5;
     # scipy.io handles v7.2 and below only.
     - h5py
+    # NWB Zarr storage and DANDI HTTP range/chunk streaming (D-189).
+    - zarr >=3.0,<4
+    - fsspec >=2025.3
+    - aiohttp >=3.11
+    - tifffile >=2024.9.20
     - neo
     # A floor on neo's own dependency: through 0.16.2 `quantities` reads the
     # `np.ndarray.ptp` method that NumPy 2 removed, so `import neo` raises.

@@ -123,22 +123,22 @@ def test_advance_while_paused():
 
 @given(
     offset=st.floats(min_value=-1e6, max_value=1e6),
-    drift_ppm=st.floats(min_value=-1000.0, max_value=1000.0),
+    drift_ms_per_hour=st.floats(min_value=-3600.0, max_value=3600.0),
     t_source=st.floats(min_value=-1e6, max_value=1e6),
 )
-def test_timemap_inverses(offset: float, drift_ppm: float, t_source: float):
+def test_timemap_inverses(offset: float, drift_ms_per_hour: float, t_source: float):
     # Skip NaNs and infs for exact identity tests
     if (
         math.isnan(offset)
-        or math.isnan(drift_ppm)
+        or math.isnan(drift_ms_per_hour)
         or math.isnan(t_source)
         or math.isinf(offset)
-        or math.isinf(drift_ppm)
+        or math.isinf(drift_ms_per_hour)
         or math.isinf(t_source)
     ):
         return
 
-    tmap = TimeMap(offset=offset, drift_ppm=drift_ppm)
+    tmap = TimeMap(offset=offset, drift_ms_per_hour=drift_ms_per_hour)
     t_master = tmap.to_master(t_source)
     t_source_roundtrip = tmap.to_source(t_master)
 
@@ -148,7 +148,7 @@ def test_timemap_inverses(offset: float, drift_ppm: float, t_source: float):
 @given(
     t_master=st.floats(min_value=-1e6, max_value=1e6),
     new_offset=st.floats(min_value=-100.0, max_value=100.0),
-    new_drift=st.floats(min_value=-10.0, max_value=10.0),
+    new_drift=st.floats(min_value=-36.0, max_value=36.0),
 )
 def test_timemap_continuity_on_update(t_master: float, new_offset: float, new_drift: float):
     if (
@@ -161,7 +161,7 @@ def test_timemap_continuity_on_update(t_master: float, new_offset: float, new_dr
     ):
         return
 
-    tmap = TimeMap(offset=5.0, drift_ppm=1.0)
+    tmap = TimeMap(offset=5.0, drift_ms_per_hour=1.0)
     t_source_before = tmap.to_source(t_master)
 
     tmap.update(new_offset, new_drift, t_master)
@@ -171,12 +171,12 @@ def test_timemap_continuity_on_update(t_master: float, new_offset: float, new_dr
 
 
 def test_drift_closed_form():
-    """Drift of 2ppm over 1h maps within float64 precision of closed form value."""
-    tmap = TimeMap(offset=0.0, drift_ppm=2.0)
+    """A clock gaining 7.2 ms/h is 7.2 ms ahead after one hour, to float64 precision."""
+    tmap = TimeMap(offset=0.0, drift_ms_per_hour=7.2)
     t_master = 3600.0  # 1 hour
 
-    # Expected: t_source = t_master + drift * t_master
-    # 3600 + (2.0 * 1e-6) * 3600 = 3600 + 0.0072 = 3600.0072
+    # Expected: t_source = t_master + gain per hour * hours
+    # 3600 + 7.2 ms = 3600.0072
     expected = 3600.0072
     actual = tmap.to_source(t_master)
 
@@ -184,20 +184,20 @@ def test_drift_closed_form():
 
 
 def test_timemap_properties():
-    tmap = TimeMap(offset=1.23, drift_ppm=4.5)
+    tmap = TimeMap(offset=1.23, drift_ms_per_hour=4.5)
     assert tmap.offset == 1.23
-    assert tmap.drift_ppm == 4.5
+    assert tmap.drift_ms_per_hour == 4.5
 
 
 def test_timemap_set_mapping_reproduces_accepted_fit() -> None:
     """An accepted fit replaces the mapping instead of preserving a stale live anchor."""
-    tmap = TimeMap(offset=10.0, drift_ppm=-100.0)
+    tmap = TimeMap(offset=10.0, drift_ms_per_hour=-100.0)
     tmap.update(0.0, 20.0, 50.0)
 
-    tmap.set_mapping(offset=1.25, drift_ppm=3.5)
+    tmap.set_mapping(offset=1.25, drift_ms_per_hour=12.6)
 
     assert tmap.to_source(0.0) == 1.25
-    assert tmap.to_source(200.0) == 201.2507
+    assert tmap.to_source(200.0) == pytest.approx(201.2507, abs=1e-12)
 
 
 def test_time_map_exact_mapping_is_validated_and_copied() -> None:
@@ -212,6 +212,22 @@ def test_time_map_exact_mapping_is_validated_and_copied() -> None:
     assert tmap.to_source(1.0) == pytest.approx(11.5)
     assert tmap.to_master(11.5) == pytest.approx(1.0)
     assert tmap.rate_scale == pytest.approx(2.0 / 3.0)
+
+
+def test_time_map_copy_preserves_affine_anchor_and_exact_mapping() -> None:
+    affine = TimeMap(offset=2.0, drift_ms_per_hour=3.0)
+    affine.update(4.0, 20.0, 50.0)
+    affine_copy = affine.copy()
+    assert affine_copy.to_source(75.0) == pytest.approx(affine.to_source(75.0))
+
+    exact = TimeMap(offset=5.0, drift_ms_per_hour=10.0)
+    exact.set_exact_mapping(np.array([0.0, 1.0, 3.0]), np.array([10.0, 12.0, 15.0]))
+    exact_copy = exact.copy()
+    exact.set_mapping(0.0, 0.0)
+
+    assert exact_copy.has_exact_mapping
+    assert exact_copy.to_source(0.5) == pytest.approx(11.0)
+    assert exact_copy.to_master(12.0) == pytest.approx(1.0)
 
 
 @pytest.mark.parametrize(
@@ -235,7 +251,7 @@ def test_affine_edit_explicitly_replaces_exact_mapping() -> None:
     tmap = TimeMap()
     tmap.set_exact_mapping(np.array([0.0, 1.0]), np.array([5.0, 7.0]))
 
-    tmap.drift_ppm = 10.0
+    tmap.drift_ms_per_hour = 36.0  # 10 us gained per second
 
     assert tmap.to_source(1.0) == pytest.approx(1.00001)
     assert tmap.rate_scale == pytest.approx(1.00001)

@@ -243,7 +243,7 @@ class NeoLoader(TimeSeriesSource):
                 logger.debug("Skipping unreadable directory %s: %s", current, error)
                 continue
             for child in children:
-                if child.name.startswith(".") or child.name.endswith(".avialcache"):
+                if child.name.startswith("."):
                     continue
                 queue.append((child, depth + 1))
         return None
@@ -265,7 +265,7 @@ class NeoLoader(TimeSeriesSource):
             logger.debug("Cannot inspect %s for sibling media: %s", path, error)
             return False
         for entry in entries:
-            if entry.name.startswith(".") or entry.name.endswith(".avialcache"):
+            if entry.name.startswith("."):
                 continue
             if entry.is_file() and entry.suffix.lower() in _SESSION_SIBLING_SUFFIXES:
                 return False
@@ -303,7 +303,7 @@ class NeoLoader(TimeSeriesSource):
         Config keys:
             ``root``: the dataset directory to hand neo, when it differs from
                 *path*.  A session points each stream at its own directory so the
-                streams get separate sidecar caches — a cache is named after its
+                streams get separate cache entries — an entry is named after its
                 source path, so sources sharing one path overwrite each other —
                 while neo is still opened on the recording that contains them.
             ``stream_id``: import only the neo signal stream with this id.  All
@@ -408,7 +408,10 @@ class NeoLoader(TimeSeriesSource):
                 length = int(asig.shape[0])
                 clocks.add((seg_idx, start, rate, length))
 
-                unit = "uV"
+                # The signal's own unit, as neo read it from the file -- never a
+                # guess: a default of "uV" labelled every unit-less stream as
+                # microvolts (D-186).
+                unit = ""
                 if hasattr(asig, "units") and hasattr(asig.units, "dimensionality"):
                     unit = str(asig.units.dimensionality.string)
                 dtype = str(getattr(asig, "dtype", np.dtype(np.float64)))
@@ -470,7 +473,8 @@ class NeoLoader(TimeSeriesSource):
                     stem = f"TTL-{label}" if label else event_name
                     name = self._unique(safe_channel_name(stem))
                     self._schema_channels.append(
-                        ChannelInfo(name=name, unit="TTL", dtype="float64", rate_hz=None)
+                        # A line's state, 0 or 1: no unit; the name says TTL.
+                        ChannelInfo(name=name, unit="", dtype="float64", rate_hz=None)
                     )
                     self._event_map[name] = (seg_idx, ev_idx, label)
 

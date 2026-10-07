@@ -21,6 +21,7 @@ from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
 from avialsync.ui.transport import Transport
+from avialsync.ui.view_toolbar import ViewToolbar
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -35,10 +36,20 @@ def transport(qtbot):
 
 
 @pytest.fixture
-def main_window(qapp: QApplication):
+def main_window(qapp: QApplication, qtbot):
+    """Registered with ``qtbot``, which is not decoration.
+
+    Without it the window is never handed to pytest-qt for teardown, and this
+    module's process segfaulted at interpreter exit -- reproducibly, on code
+    that predates these tests. Qt tears the widget tree down after the
+    interpreter has begun dropping the Python wrappers, and a menu walk that
+    catches that moment reads freed QActions ("Internal C++ object already
+    deleted") instead of the menu it asked for.
+    """
     from avialsync.ui.main_window import MainWindow
 
     win = MainWindow()
+    qtbot.addWidget(win)
     win.show()
     yield win
     # Qt may already have deleted it: pytest-qt runs processEvents()
@@ -64,18 +75,33 @@ def test_jump_fwd_btn_emits_jump_requested(transport: Transport) -> None:
     assert received == [1.0], "Jump-fwd button must emit jump_requested(+1.0)"
 
 
-def test_snapshot_btn_emits_snapshot_requested(transport: Transport) -> None:
+def test_snapshot_btn_triggers_the_export_snapshot_action(qtbot) -> None:
+    """D-174: the glyph button is the File menu's action, not a signal of its own."""
+    toolbar = ViewToolbar()
+    qtbot.addWidget(toolbar)
+    action = QAction("Export Snapshot…", toolbar)
+    action.setShortcut("Ctrl+E")
     fired: list[Any] = []
-    transport.snapshot_requested.connect(lambda: fired.append(1))
-    transport.evidence.snapshot_button.click()
-    assert fired, "Snapshot button must emit snapshot_requested"
+    action.triggered.connect(lambda: fired.append(1))
+    toolbar.install_snapshot_action(action)
+    toolbar.snapshot_button.click()
+    assert fired, "Snapshot button must trigger Export Snapshot"
+    assert toolbar.snapshot_button.text() == ""
+    assert toolbar.snapshot_button.accessibleName() == "Export Snapshot"
+    assert toolbar.snapshot_button.toolTip().startswith("Export Snapshot (")
 
 
-def test_fullscreen_btn_emits_fullscreen_requested(transport: Transport) -> None:
+def test_fullscreen_btn_triggers_the_fullscreen_action(qtbot) -> None:
+    """D-174: one QAction behind View → Fullscreen and the glyph button."""
+    toolbar = ViewToolbar()
+    qtbot.addWidget(toolbar)
+    action = QAction("Fullscreen", toolbar)
     fired: list[Any] = []
-    transport.fullscreen_requested.connect(lambda: fired.append(1))
-    transport.evidence.fullscreen_button.click()
-    assert fired, "Fullscreen button must emit fullscreen_requested"
+    action.triggered.connect(lambda: fired.append(1))
+    toolbar.install_fullscreen_action(action)
+    toolbar.fullscreen_button.click()
+    assert fired, "Fullscreen button must trigger View → Fullscreen"
+    assert toolbar.fullscreen_button.accessibleName() == "Fullscreen"
 
 
 # ── A/B active-state tests (D-022.5) ─────────────────────────────────────────
@@ -361,3 +387,61 @@ def test_k_while_paused_stays_paused(main_window) -> None:
     assert not main_window.transport.play_btn.isChecked(), (
         "Transport play button must remain unchecked (paused) after K"
     )
+
+
+# ── Preferences stays where the user (and the docs) look (D-135) ──────────────
+
+
+def _file_menu(window):
+    """Return the File menu *and the action that owns it*, both to be held.
+
+    Two references, deliberately. A helper that returns only the menu, or only
+    a list of its actions, hands the caller objects whose owner it has already
+    dropped: PySide deletes the real ``QMenu`` when the last wrapper referring
+    to it is collected, so every action in the list then answers "Internal C++
+    object already deleted" -- which reads like a torn-down window and is
+    really a dropped reference.
+    """
+    for bar_act in window.menuBar().actions():
+        if bar_act.text() == "File":
+            return bar_act, bar_act.menu()
+    pytest.fail("the window has no File menu")
+
+
+def test_preferences_is_in_the_file_menu(main_window) -> None:
+    """`PreferencesRole` moved it into the macOS application menu.
+
+    That menu is named after the running process, so anyone starting AvialSync
+    from a terminal or a conda env found it under a menu called "python" --
+    while the File menu, the command palette and the user guide all said File.
+    Quit and About keep their roles; this one is ours (D-135).
+    """
+    _owner, menu = _file_menu(main_window)
+    texts = [action.text() for action in menu.actions()]
+    assert "Preferences…" in texts, texts
+
+
+def test_preferences_is_not_relocated_by_a_menu_role(main_window) -> None:
+    _owner, menu = _file_menu(main_window)
+    actions = [a for a in menu.actions() if a.text() == "Preferences…"]
+    assert actions, "no Preferences action in the File menu"
+    assert actions[0].menuRole() == QAction.MenuRole.NoRole, (
+        "any role but NoRole moves the item out of the File menu on macOS"
+    )
+    assert actions[0].shortcut() == QKeySequence(QKeySequence.StandardKey.Preferences), (
+        "the platform shortcut stays whatever menu holds the item"
+    )
+
+
+def test_quit_and_about_keep_their_platform_roles(main_window) -> None:
+    """The exception proves the rule: those two belong in the app menu (D-022.3)."""
+    roles = {}
+    for bar_act in main_window.menuBar().actions():
+        menu = bar_act.menu()
+        if menu is None:
+            continue
+        for action in menu.actions():
+            if action.text() in ("Quit", "About AvialSync"):
+                roles[action.text()] = action.menuRole()
+    assert roles.get("Quit") == QAction.MenuRole.QuitRole
+    assert roles.get("About AvialSync") == QAction.MenuRole.AboutRole

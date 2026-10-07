@@ -179,7 +179,7 @@ def _proposal(matched: np.ndarray, unmatched: tuple[float, ...]) -> SyncProposal
         target_id="camera.mp4",
         fit=SyncFit(
             offset=1.0,
-            drift_ppm=0.0,
+            drift_ms_per_hour=0.0,
             rms_residual=0.001,
             max_residual=0.002,
             matched_count=len(matched),

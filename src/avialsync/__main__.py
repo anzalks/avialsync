@@ -57,6 +57,7 @@ def main() -> None:
     from avialsync.ui.i18n import install_translator
     from avialsync.ui.main_window import MainWindow
     from avialsync.ui.theme import load_saved_font_size, load_saved_theme
+    from avialsync.ui.time_format import apply_number_locale
 
     app = QApplication(sys.argv)
     app_icon = QIcon(str(files("avialsync.resources").joinpath("avialsync.png")))
@@ -66,6 +67,9 @@ def main() -> None:
     # retranslate text already set. Silent when no catalogue matches the
     # locale, which is the common case and not an error (WP-12).
     install_translator(app)
+    # After the translator, which reads the system locale to pick a catalogue,
+    # and before any widget, which reads the default to format its numbers.
+    apply_number_locale()
 
     # Qt sets LC_NUMERIC from the user's locale, so "1.5" parses as 1 in a
     # decimal-comma locale. This existed for libmpv, whose option parser was
@@ -101,14 +105,14 @@ def main() -> None:
             videos_ready = (
                 len(panes) == DEMO_VIDEO_COUNT
                 and all(pane._media_loaded for pane in panes)
-                and not win._pending_video_loads
-                and not win._video_load_jobs
-                and win._video_pane_initializing is None
+                and not win.video_load_state.pending
+                and not win.video_load_state.active_probes
+                and win.video_load_state.pane_initializing is None
             )
             data_ready = (
                 len(win.plot_pane.channels) == DEMO_CHANNEL_COUNT
-                and not win._pending_imports
-                and win._import_thread is None
+                and not win.import_state.pending
+                and win.import_state.active_thread is None
             )
             if videos_ready and data_ready:
                 win.close()

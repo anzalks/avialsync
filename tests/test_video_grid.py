@@ -15,6 +15,8 @@ def test_file_loaded_callback_is_connected_before_playback(monkeypatch, qapp) ->
         right_clicked = Signal(object)
         file_loaded = Signal()
         point_moved = Signal(object)
+        marker_clicked = Signal(float, float)
+        custom_point_moved = Signal(str, int, float, float)
 
         def __init__(self, parent: QWidget) -> None:
             super().__init__(parent)
@@ -28,13 +30,14 @@ def test_file_loaded_callback_is_connected_before_playback(monkeypatch, qapp) ->
 
     monkeypatch.setattr(video_grid, "VideoPane", _ImmediatePane)
     grid = video_grid.VideoGrid()
+    grid.pane_attached.connect(lambda _path: events.append("attached"))
 
     grid.add_pane(
         "camera.mp4",
         on_file_loaded=lambda: events.append("ready"),
     )
 
-    assert events == ["open", "ready"]
+    assert events == ["open", "ready", "attached"]
     assert grid.pane_paths() == ["camera.mp4"]
 
 
@@ -46,6 +49,8 @@ def test_unchecked_video_stays_hidden_through_relayout(monkeypatch, qtbot) -> No
         right_clicked = Signal(object)
         file_loaded = Signal()
         point_moved = Signal(object)
+        marker_clicked = Signal(float, float)
+        custom_point_moved = Signal(str, int, float, float)
 
         def __init__(self, parent: QWidget) -> None:
             super().__init__(parent)
@@ -79,13 +84,17 @@ class _RecordingPane(QWidget):
     right_clicked = Signal(object)
     file_loaded = Signal()
     point_moved = Signal(object)
+    marker_clicked = Signal(float, float)
+    custom_point_moved = Signal(str, int, float, float)
 
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
         self.overlay_tracks: list = []
         self.tracking_readers: list = []
         self.point_edits: object | None = None
+        self.identity_resolver: object | None = None
         self.point_edit_mode = False
+        self.prop_source: object | None = None
 
     def open(self, _path: str) -> None:
         self.file_loaded.emit()
@@ -102,8 +111,26 @@ class _RecordingPane(QWidget):
     def set_point_edits(self, edits: object) -> None:
         self.point_edits = edits
 
+    def set_identity_resolver(self, resolver: object) -> None:
+        self.identity_resolver = resolver
+
     def set_point_edit_mode(self, enabled: bool) -> None:
         self.point_edit_mode = enabled
+
+    def set_custom_markers(self, _markers: dict) -> None:
+        return
+
+    def set_marker_place_mode(self, _enabled: bool) -> None:
+        return
+
+    def set_reprojection_source(self, _source: object) -> None:
+        return
+
+    def set_wheel_source(self, _source: object) -> None:
+        return
+
+    def set_prop_source(self, source: object) -> None:
+        self.prop_source = source
 
 
 def test_overlay_tracks_wait_for_a_pane_that_does_not_exist_yet(monkeypatch, qtbot) -> None:
@@ -157,6 +184,19 @@ def test_broadcast_tracking_readers_reach_a_later_pane(monkeypatch, qtbot) -> No
 
     assert early.tracking_readers == ["reader"]
     assert late.tracking_readers == ["reader"]
+
+
+def test_physical_props_reach_panes_built_after_the_store(monkeypatch, qtbot) -> None:
+    """A later camera gets its own projected prop source before first paint."""
+    monkeypatch.setattr(video_grid, "VideoPane", _RecordingPane)
+    grid = video_grid.VideoGrid()
+    qtbot.addWidget(grid)
+    grid.set_prop_source(lambda path, _time: [path])
+
+    first = grid.add_pane("Front.mp4")
+    second = grid.add_pane("Side.mp4")
+    assert first.prop_source is not None and first.prop_source(0.0) == ["Front.mp4"]
+    assert second.prop_source is not None and second.prop_source(0.0) == ["Side.mp4"]
 
 
 def test_removing_a_camera_releases_its_held_tracks(monkeypatch, qtbot) -> None:

@@ -36,7 +36,12 @@ from __future__ import annotations
 import dataclasses
 import time
 from collections.abc import Callable, Iterator, Sequence
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    from avialsync.core.custom_markers import CustomMarker
+    from avialsync.core.physical_props import Ladder, LadderLayout, LadderStep, PhysicalProp
+    from avialsync.core.wheel import Wheel
 
 __all__ = [
     "MAX_LOG_ENTRIES",
@@ -79,7 +84,7 @@ class SourceRecord:
     path: str
     kind: str
     offset: float = 0.0
-    drift_ppm: float = 0.0
+    drift_ms_per_hour: float = 0.0
     visible: bool = True
     payload: dict[str, Any] = dataclasses.field(default_factory=dict)
 
@@ -96,11 +101,11 @@ class MutationTarget(Protocol):
     architecture rule 3 applies to undo as much as to anything else.
     """
 
-    def set_source_mapping(self, source_id: str, offset: float, drift_ppm: float) -> None:
-        """Apply a source-to-master ``offset`` and ``drift_ppm``."""
+    def set_source_mapping(self, source_id: str, offset: float, drift_ms_per_hour: float) -> None:
+        """Apply a source-to-master ``offset`` and ``drift_ms_per_hour``."""
 
     def source_mapping(self, source_id: str) -> tuple[float, float]:
-        """Return the current ``(offset, drift_ppm)`` for *source_id*."""
+        """Return the current ``(offset, drift_ms_per_hour)`` for *source_id*."""
 
     def add_marker(self, marker: MarkerRecord) -> None:
         """Insert *marker* into the annotation store."""
@@ -120,14 +125,84 @@ class MutationTarget(Protocol):
     def set_overlay_visible(self, overlay_id: str, camera: str | None, visible: bool) -> None:
         """Show or hide a registered overlay layer, globally or for one camera."""
 
+    def set_tracking_visible(self, source_id: str, surface: str, visible: bool) -> None:
+        """Show or hide one tracking source on its overlay/view or plot surface."""
+
+    def set_original_tracker_visible(self, visible: bool) -> None:
+        """Choose the raw or edited pose cache for this session's readers."""
+
     def set_tracked_point(
-        self, source_id: str, point: str, index: int, position: tuple[float, float] | None
+        self,
+        source_id: str,
+        point: str,
+        index: int,
+        position: tuple[float, float] | None,
+        shown_as: str = "",
     ) -> None:
         """Override one tracked coordinate, or clear it when *position* is None.
 
-        ``index`` is the sample index within *source_id*; ``position`` is in
-        that recording's own video pixels.  The imported file and its cache are
-        never written -- see :mod:`avialsync.core.point_edits`.
+        ``index`` is the sample index within *source_id*; ``point`` is the
+        column in the pose file and ``position`` is in that recording's own
+        video pixels.  *shown_as* is the name the point carried on screen, which
+        differs from ``point`` while an identity flip is in force (D-143).  The
+        imported file and its cache are never written -- see
+        :mod:`avialsync.core.point_edits`.
+        """
+
+    def set_identity_swap(self, source_id: str, event: Any, accepted: bool) -> None:
+        """Accept or undo one identity flip on a pose source.
+
+        *event* is a :class:`~avialsync.core.identity_swaps.SwapEvent`; it is
+        typed loosely here for the same reason the marker is not -- this
+        protocol names what the UI must provide, not what each store holds.
+        Nothing about the recording or its cache is carried: the edited data is
+        reproduced from the accepted set (D-141, D-142).
+        """
+
+    def set_identity_group(self, source_id: str, group: Any, present: bool) -> None:
+        """Declare or remove a user-named identity group beside one pose source."""
+
+    def set_custom_marker(self, name: str, frame: int, marker: CustomMarker | None) -> None:
+        """Place, move, or remove one hand-placed 3D marker.
+
+        *marker* carries its per-camera clicks and its triangulated position,
+        both resolved before the command was built, so replaying it needs no
+        calibration. None removes the marker from every camera and the 3D view.
+        """
+
+    def set_wheel(self, name: str, wheel: Wheel | None) -> None:
+        """Place, re-fit, or remove one wheel (D-113).
+
+        *wheel* carries its clicks, its fit, and its encoder binding, all
+        resolved before the command was built, so replaying it needs neither the
+        calibration nor the encoder. None removes it from every view.
+        """
+
+    def set_ladder(self, name: str, ladder: Ladder | None) -> None:
+        """Accept or remove one physical prop, preserving its click evidence."""
+
+    def set_physical_prop(self, name: str, prop: PhysicalProp | None) -> None:
+        """Set or remove one typed physical prop through the shared mutation funnel."""
+
+    def set_ladder_step(
+        self, name: str, step_id: str, step: LadderStep | None, position: int | None = None
+    ) -> None:
+        """Change one ladder step without copying the other steps into history."""
+
+    def move_ladder_step(self, name: str, step_id: str, position: int) -> None:
+        """Change one step's position without storing all its neighbours."""
+
+    def set_ladder_layout(self, name: str, layout: LadderLayout) -> None:
+        """Change one ladder's support and rung pattern, keeping every click."""
+
+    def set_imaging_layout(self, source_id: str, layout: dict[str, Any]) -> None:
+        """Reopen an imaging stack with *layout*'s ``axes`` and ``z`` import choices."""
+
+    def set_imaging_view(self, source_id: str, view: dict[str, Any]) -> None:
+        """Show an imaging stack with *view*: channels, levels and averaging.
+
+        *view* is :meth:`avialsync.core.imaging_display.ImagingView.to_dict`
+        output; it changes how planes look, never which plane is shown when.
         """
 
     def add_source(self, record: SourceRecord) -> None:
@@ -136,7 +211,9 @@ class MutationTarget(Protocol):
     def remove_source(self, source_id: str) -> None:
         """Unload a source from the workspace."""
 
-    def apply_sync(self, source_id: str, offset: float, drift_ppm: float, evidence: Any) -> None:
+    def apply_sync(
+        self, source_id: str, offset: float, drift_ms_per_hour: float, evidence: Any
+    ) -> None:
         """Apply an accepted synchronization proposal, retaining its evidence."""
 
     def capture_workspace(self) -> Any:

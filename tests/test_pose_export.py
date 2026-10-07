@@ -167,8 +167,113 @@ def test_a_file_that_is_not_a_pose_export_is_refused_by_name(tmp_path: Path) -> 
     source = tmp_path / "short.csv"
     source.write_text("a,b\n1,2\n")
 
-    with pytest.raises(ValueError, match="header rows"):
+    # The condition is no longer "fewer than three rows" -- a valid
+    # multi-animal header has four -- but the refusal still names the file.
+    with pytest.raises(ValueError, match="short.csv.*header block"):
         pose_export.write_corrected_copy(source, tmp_path / "out.csv", {})
+
+
+def _multi_animal_pose_file(tmp_path: Path) -> Path:
+    """A four-header-row maDLC export where both animals have a ``snout``."""
+    individuals = ["testMouse", "conSpecific"]
+    coords = ["x", "y", "likelihood"]
+    path = tmp_path / "madlc.csv"
+    with open(path, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["scorer"] + [SCORER] * (len(individuals) * len(coords)))
+        writer.writerow(["individuals"] + [name for name in individuals for _ in coords])
+        writer.writerow(["bodyparts"] + ["snout"] * (len(individuals) * len(coords)))
+        writer.writerow(["coords"] + coords * len(individuals))
+        for frame in range(3):
+            row: list[str] = [str(frame)]
+            for index in range(len(individuals)):
+                row += [str(10.0 + index), str(20.0 + index), "0.05"]
+            writer.writerow(row)
+    return path
+
+
+def test_a_correction_lands_on_the_animal_it_was_made_on(tmp_path: Path) -> None:
+    """Both mice have a ``snout``; keying by body part alone would overwrite one."""
+    source = _multi_animal_pose_file(tmp_path)
+    target = tmp_path / "out.csv"
+
+    report = pose_export.write_corrected_copy(
+        source, target, {1: {"conSpecific_snout": (99.0, 98.0)}}
+    )
+
+    assert report.corrected_points == 1
+    with open(target, newline="", encoding="utf-8") as handle:
+        rows = list(csv.reader(handle))
+    header, data = rows[:4], rows[4:]
+    # The four header rows survive, and the individuals row is still there.
+    assert header[1][0] == "individuals"
+    assert len(data) == 3
+    corrected = data[1]
+    # conSpecific occupies columns 4-6; testMouse's own snout is untouched.
+    assert corrected[4:7] == ["99.0", "98.0", pose_export.CORRECTED_LIKELIHOOD]
+    assert corrected[1:4] == ["10.0", "20.0", "0.05"]
+
+
+def test_a_multi_animal_copy_is_marked_in_every_scorer_column(tmp_path: Path) -> None:
+    source = _multi_animal_pose_file(tmp_path)
+    target = tmp_path / "out.csv"
+
+    pose_export.write_corrected_copy(source, target, {})
+
+    with open(target, newline="", encoding="utf-8") as handle:
+        scorers = next(csv.reader(handle))
+    assert all(value.endswith(pose_export.SCORER_SUFFIX) for value in scorers[1:])
+
+
+def test_a_correction_follows_its_column_through_a_swap(tmp_path: Path) -> None:
+    """The exported pose must agree with the edited cache about both identities."""
+    source = _multi_animal_pose_file(tmp_path)
+    original = source.read_bytes()
+    target = tmp_path / "out.csv"
+    route = {"testMouse_snout": "conSpecific_snout", "conSpecific_snout": "testMouse_snout"}
+
+    report = pose_export.write_corrected_copy(
+        source,
+        target,
+        {1: {"conSpecific_snout": (99.0, 98.0)}},
+        routes=((1, route), (2, {})),
+    )
+
+    with target.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.reader(handle))[4:]
+    assert rows[0][1:7] == ["10.0", "20.0", "0.05", "11.0", "21.0", "0.05"]
+    assert rows[1][1:7] == ["99.0", "98.0", "1.0", "10.0", "20.0", "0.05"]
+    assert rows[2][1:7] == ["10.0", "20.0", "0.05", "11.0", "21.0", "0.05"]
+    assert report.corrected_points == 1
+    assert report.swapped_rows == 1
+    assert source.read_bytes() == original
+
+
+def test_the_corrected_copy_cannot_replace_the_recording(tmp_path: Path) -> None:
+    source = _pose_file(tmp_path)
+    original = source.read_bytes()
+
+    with pytest.raises(ValueError, match="different path"):
+        pose_export.write_corrected_copy(source, source, {})
+
+    assert source.read_bytes() == original
+
+
+def test_a_swap_keeps_every_field_of_a_point_together(tmp_path: Path) -> None:
+    """Depth and model diagnostics belong to the same identity as x and y."""
+    source = tmp_path / "pose.csv"
+    with source.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["scorer"] + [SCORER] * 8)
+        writer.writerow(["bodyparts"] + [part for part in ("left", "right") for _ in range(4)])
+        writer.writerow(["coords"] + ["x", "y", "z", "likelihood"] * 2)
+        writer.writerow([0, 1, 2, 3, 0.1, 10, 20, 30, 0.9])
+
+    pose_export.write_corrected_copy(
+        source, tmp_path / "out.csv", {}, routes=((0, {"left": "right", "right": "left"}),)
+    )
+
+    assert _read(tmp_path / "out.csv")[1][0][1:] == ["10", "20", "30", "0.9", "1", "2", "3", "0.1"]
 
 
 def test_the_default_output_sits_beside_the_source(tmp_path: Path) -> None:
@@ -249,6 +354,41 @@ def test_the_image_path_is_the_one_dlc_looks_for(tmp_path: Path) -> None:
     assert dlc_export.collected_data_path(tmp_path, "SideCam", "me") == (
         tmp_path / "labeled-data" / "SideCam" / "CollectedData_me.csv"
     )
+
+
+def test_training_csv_locations_are_relative_to_the_copyable_root(tmp_path: Path) -> None:
+    assert dlc_export.training_csv_path(tmp_path, "SideCam", "Alice", "dlc") == (
+        tmp_path / "labeled-data" / "SideCam" / "CollectedData_Alice.csv"
+    )
+    assert (
+        dlc_export.training_csv_path(tmp_path, "SideCam", "Alice", "lightning_pose")
+        == tmp_path / "CollectedData.csv"
+    )
+    with pytest.raises(ValueError, match="scorer"):
+        dlc_export.training_csv_path(tmp_path, "SideCam", "", "dlc")
+
+
+def test_multi_animal_labels_keep_the_individual_header(tmp_path: Path) -> None:
+    target = tmp_path / "CollectedData_Alice.csv"
+    dlc_export.write_labeled_data(
+        target,
+        "SideCam",
+        "Alice",
+        ["mouseA_snout", "mouseB_snout"],
+        [
+            dlc_export.LabeledFrame(
+                frame=2, positions={"mouseA_snout": (1.0, 2.0), "mouseB_snout": (3.0, 4.0)}
+            )
+        ],
+        point_labels={
+            "mouseA_snout": ("mouseA", "snout"),
+            "mouseB_snout": ("mouseB", "snout"),
+        },
+    )
+    rows = list(csv.reader(target.open(newline="", encoding="utf-8")))
+    assert rows[1] == ["individuals", "mouseA", "mouseA", "mouseB", "mouseB"]
+    assert rows[2] == ["bodyparts", "snout", "snout", "snout", "snout"]
+    assert rows[4][1:] == ["1.0", "2.0", "3.0", "4.0"]
 
 
 def test_the_exports_need_no_qt() -> None:

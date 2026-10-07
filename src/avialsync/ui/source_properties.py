@@ -23,10 +23,14 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.core.drift import describe_drift
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.source import VideoMetadata
+from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import follow_palette
+from avialsync.ui.time_format import format_rate
+from avialsync.ui.video_timing import bit_depth_of
 
 if TYPE_CHECKING:
     pass
@@ -63,8 +67,8 @@ class _PropertiesBase(QGroupBox):
         self._collapsed = True
 
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(4, 4, 4, 4)
-        outer.setSpacing(2)
+        outer.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
+        outer.setSpacing(spacing("xs"))
 
         hdr = QHBoxLayout()
         self._toggle_btn = QPushButton("▶ " + title)
@@ -90,7 +94,7 @@ class _PropertiesBase(QGroupBox):
         self._toggle_btn.clicked.connect(self._toggle)
         hdr.addWidget(self._toggle_btn, stretch=1)
 
-        self._copy_btn = QPushButton("Copy")
+        self._copy_btn = QPushButton(tr("Copy"))
         self._copy_btn.setFixedWidth(44)
         self._copy_btn.setToolTip(tr("Copy properties as plain text"))
         self._copy_btn.clicked.connect(
@@ -101,8 +105,8 @@ class _PropertiesBase(QGroupBox):
 
         self._body = QWidget()
         self._form = QFormLayout(self._body)
-        self._form.setContentsMargins(4, 2, 4, 2)
-        self._form.setSpacing(2)
+        self._form.setContentsMargins(spacing("s"), spacing("xs"), spacing("s"), spacing("xs"))
+        self._form.setSpacing(spacing("xs"))
         # Below the width where label and value both fit, put the value on
         # its own line rather than letting the pair force the panel wider.
         self._form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
@@ -112,6 +116,10 @@ class _PropertiesBase(QGroupBox):
 
         self._rows: list[tuple[str, QLabel]] = []
         self._title = title
+
+    def toggle_expanded(self) -> None:
+        """Open or close the section, as its own header button does."""
+        self._toggle()
 
     def _toggle(self) -> None:
         self._collapsed = not self._collapsed
@@ -177,15 +185,17 @@ class VideoPropertiesPanel(_PropertiesBase):
         w = metadata.width
         h = metadata.height
         self._add_row("Resolution", f"{w}×{h}" if w and h else "—")
+        depth = bit_depth_of(metadata.pixel_format)
+        self._add_row("Bit depth", f"{depth}-bit" if depth is not None else "—")
         self._add_row("Timing", "VFR" if metadata.is_vfr else "CFR")
-        self._add_row("Nominal CFR", f"{metadata.nominal_fps:.3f} fps")
+        self._add_row("Nominal CFR", f"{format_rate(metadata.nominal_fps)} fps")
         if metadata.is_vfr:
             measured = (
-                f"{metadata.measured_fps:.3f} fps average "
-                f"({metadata.min_frame_rate:.3f}–{metadata.max_frame_rate:.3f})"
+                f"{format_rate(metadata.measured_fps)} fps average "
+                f"({format_rate(metadata.min_frame_rate)}–{format_rate(metadata.max_frame_rate)})"
             )
         else:
-            measured = f"{metadata.measured_fps:.3f} fps"
+            measured = f"{format_rate(metadata.measured_fps)} fps"
         self._add_row("Timestamp rate", measured)
         self._add_row("Frames", _frame_count_text(metadata))
         self._add_row("Decoder fps", "—")
@@ -194,10 +204,10 @@ class VideoPropertiesPanel(_PropertiesBase):
         self._add_row("Frame count", str(fc) if fc is not None else "—")
         self._add_row("Duration", f"{metadata.duration:.3f} s")
         st = metadata.start_time
-        self._add_row("Metadata start", f"{st:.6f} s" if st is not None else "—")
+        self._add_row("Metadata start", f"{st:.3f} s" if st is not None else "—")
         sz = metadata.file_size_bytes
         self._add_row("File size", f"{sz / 1_048_576:.1f} MB" if sz else "—")
-        self._add_row("Drift (ppm)", "—")
+        self._add_row("Clock drift", "—")
 
     def set_pane(self, pane: Any) -> None:
         self._pane = pane
@@ -213,17 +223,21 @@ class VideoPropertiesPanel(_PropertiesBase):
         pane = self._pane
         if pane is None or not getattr(pane, "has_media", False):
             return
-        self._update_row("Decoder fps", f"{pane.displayed_frame_rate_now():.3f}")
+        self._update_row("Decoder fps", format_rate(pane.displayed_frame_rate_now()))
         self._update_row("Decode mode", "software (PyAV)")
+        # The decoded frame is the authority on depth; the pixel format only
+        # names what the encoder was asked for.
+        decoded = getattr(pane, "source_format", None)
+        if decoded is not None:
+            self._update_row("Bit depth", f"{decoded.bits}-bit ({decoded.pix_fmt})")
 
     def _toggle(self) -> None:
         super()._toggle()
         if not self._collapsed:
             self.refresh_live()
 
-    def set_drift(self, drift_ppm: float) -> None:
-        label = f"{drift_ppm:+.2f} ppm" if drift_ppm != 0.0 else "0 ppm"
-        self._update_row("Drift (ppm)", label)
+    def set_drift(self, drift_ms_per_hour: float) -> None:
+        self._update_row("Clock drift", describe_drift(drift_ms_per_hour))
 
 
 class SensorPropertiesPanel(_PropertiesBase):

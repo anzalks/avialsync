@@ -24,7 +24,7 @@ def test_sync_wizard_requires_preview_before_acceptance(qtbot) -> None:
 
     assert wizard.proposal is not None
     assert accept.isEnabled()
-    # Ten pulses across nine seconds cannot support a rate -- 1 ppm over that
+    # Ten pulses across nine seconds cannot support a rate -- 3.6 ms/h over that
     # span is nine microseconds -- so the automatic ladder reports the offset it
     # measured and declines to quote a drift it cannot resolve.
     summary = wizard._summary.text()
@@ -45,7 +45,7 @@ def test_sync_wizard_allows_explicit_manual_fallback(qtbot) -> None:
 
     assert wizard.proposal is not None
     assert wizard.proposal.fit.offset == 1.25
-    assert wizard.proposal.fit.drift_ppm == 4.0
+    assert wizard.proposal.fit.drift_ms_per_hour == 4.0
 
 
 def test_a_manual_mapping_counts_nothing_and_claims_nothing(qtbot) -> None:
@@ -144,6 +144,39 @@ def test_the_tolerance_that_judged_the_fit_is_visible(qtbot) -> None:
     # A quarter of the smaller median interval, which for this train is ~1 s.
     assert wizard.proposal.tolerance == pytest.approx(0.25, rel=0.25)
     assert f"{wizard.proposal.tolerance:.6f}" in wizard._tolerance.toolTip()
+    assert f"{wizard.proposal.tolerance:.6g} s (derived from pulse spacing)" == (
+        wizard._effective_tolerance.text()
+    )
+
+
+def test_a_user_set_tolerance_is_visible_with_its_provenance(qtbot) -> None:
+    reference = EventEvidenceSpec("sensor:ttl", np.arange(0.0, 10.0, 1.0))
+    target = EventEvidenceSpec("video:camera", np.arange(0.0, 10.0, 1.0) + 1.25)
+    wizard = SyncWizard([reference], [target])
+    qtbot.addWidget(wizard)
+    wizard._tolerance.setValue(0.005)
+
+    wizard._preview()
+    qtbot.waitUntil(lambda: wizard._thread is None, timeout=3000)
+
+    assert wizard.proposal is not None
+    assert wizard._effective_tolerance.text() == "0.005 s (set by you)"
+
+
+def test_changing_tolerance_invalidates_the_preview(qtbot) -> None:
+    reference = EventEvidenceSpec("sensor:ttl", np.arange(0.0, 10.0, 1.0))
+    target = EventEvidenceSpec("video:camera", np.arange(0.0, 10.0, 1.0) + 1.25)
+    wizard = SyncWizard([reference], [target])
+    qtbot.addWidget(wizard)
+    wizard._preview()
+    qtbot.waitUntil(lambda: wizard._thread is None, timeout=3000)
+
+    assert wizard.proposal is not None
+    wizard._tolerance.setValue(0.005)
+
+    assert wizard.proposal is None
+    assert not wizard._buttons.button(QDialogButtonBox.StandardButton.Ok).isEnabled()
+    assert "Preview is out of date" in wizard._effective_tolerance.text()
 
 
 def test_a_typed_tolerance_is_what_the_fit_is_judged_by(qtbot) -> None:

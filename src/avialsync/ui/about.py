@@ -20,7 +20,7 @@ import platform
 import sys
 from importlib import metadata
 
-__all__ = ["project_urls", "version_report", "citation_text"]
+__all__ = ["docs_url", "project_urls", "version_report", "citation_text"]
 
 #: Fallbacks used only when the package metadata is unavailable — a source tree
 #: run without an install. Never the primary source.
@@ -44,6 +44,16 @@ def project_urls() -> dict[str, str]:
         if url:
             urls[label.strip()] = url.strip()
     return urls or dict(_FALLBACK_URLS)
+
+
+def docs_url(page: str) -> str:
+    """The published user guide's *page* (``"tutorials/first-session.html"``).
+
+    Built on the declared ``Documentation`` URL, so the only address written
+    down is the one in ``[project.urls]`` (DS-13).
+    """
+    base = project_urls().get("Documentation") or _FALLBACK_URLS["Documentation"]
+    return f"{base.rstrip('/')}/en/latest/{page.lstrip('/')}"
 
 
 def _library_version(module_name: str, attribute: str = "__version__") -> str:

@@ -196,3 +196,9 @@ TENSS26_Anzal/
 [0-2][0-9]-[0-5][0-9]-[0-5][0-9]/
 09-37-33/
 09-35-24/
+GiveToAnzal/
+/Mocap charlotte/
+
+# DANDI test-data sandbox (separate venv + downloaded NWB; never tracked)
+.venv_dandi/
+data/dandi_test_data/

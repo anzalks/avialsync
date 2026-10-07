@@ -21,6 +21,8 @@ import re
 from PySide6.QtCore import QSettings
 from PySide6.QtGui import QAction, QKeySequence
 
+from avialsync.ui.app_settings import app_settings
+
 __all__ = [
     "action_id",
     "load_override",
@@ -39,7 +41,7 @@ _DEFAULTS: dict[str, str] = {}
 
 
 def _store() -> QSettings:
-    return QSettings("AvialSync", "AvialSync")
+    return app_settings()
 
 
 def action_id(action: QAction) -> str:
@@ -47,7 +49,15 @@ def action_id(action: QAction) -> str:
 
     Derived rather than declared. A hand-maintained id table is a second place
     an action is named, and the one that goes stale when a label changes.
+
+    Derived from the label, so renaming an action would orphan the shortcut a
+    user remapped under the old one. A renamed action therefore pins the id its
+    old label produced in its ``av_id`` property -- set beside the rename, where
+    the old label is known, rather than in a table.
     """
+    pinned = action.property("av_id")
+    if pinned:
+        return str(pinned)
     category = str(action.property("av_category") or "general")
     text = action.text().replace("&", "").strip()
     slug = re.sub(r"[^a-z0-9]+", "_", f"{category}_{text}".lower()).strip("_")

@@ -47,8 +47,8 @@ def window(qapp: QApplication, qtbot) -> MainWindow:
 
 
 def _splitters(window: MainWindow):
+    """The workspace column's splitters; the inspector is a dock (D-180)."""
     return {
-        "horizontal": window._h_splitter,
         "content": window._content_splitter,
         "vertical": window._v_splitter,
         "media": window._media_splitter,
@@ -71,6 +71,9 @@ def test_every_visible_pane_starts_with_real_size(window: MainWindow) -> None:
         for index in range(splitter.count()):
             if splitter.widget(index).isVisible():
                 assert sizes[index] > 0, f"{name} pane {index} started collapsed"
+    # D-180: the inspector is a dock; it starts docked and with real width.
+    dock = window.inspector_dock
+    assert dock.isVisible() and not dock.isFloating() and dock.width() > 0
 
 
 # ── Drag can never destroy a pane ─────────────────────────────────────
@@ -129,6 +132,7 @@ def test_shrinking_the_window_keeps_all_panes_visible(
         for index in range(splitter.count()):
             if splitter.widget(index).isVisible():
                 assert sizes[index] > 0, f"{name} pane {index} vanished when shrinking"
+    assert window.inspector_dock.width() > 0, "the inspector vanished when shrinking"
 
 
 def test_compact_viewport_keeps_every_workspace_surface_available(
@@ -163,6 +167,28 @@ def test_compact_viewport_keeps_every_workspace_surface_available(
     canvas = window.tracking_3d_pane.canvas
     assert 0 < canvas.width() <= window.tracking_3d_pane.width()
     assert 0 < canvas.height() <= window.tracking_3d_pane.height()
+
+
+def test_wide_3d_controls_scroll_without_collapsing_video(
+    window: MainWindow, qapp: QApplication
+) -> None:
+    """A wider platform font must leave both sides of the media split visible."""
+    tracking = window.tracking_3d_pane
+    font = tracking.font()
+    font.setPointSize(15)
+    tracking.setFont(font)
+    tracking.setVisible(True)
+    window.resize(640, 480)
+    qapp.processEvents()
+    window._pane_proportions.reapply()
+    qapp.processEvents()
+
+    assert window.video_grid.width() > 0
+    assert tracking.canvas.width() > 0
+    assert tracking.header_scroll.horizontalScrollBar().maximum() > 0
+    header = tracking.title_label.parentWidget()
+    assert header is not None
+    assert tracking.header_scroll.viewport().height() >= header.height()
 
 
 #: The narrowest laptop panel the project supports. The window must fit inside
@@ -257,7 +283,8 @@ def test_tracking_pane_appears_once_a_source_has_triplets(
     assert tracking_width > 0
     # The documented session has three video columns: the 3D view occupies a
     # fourth column and may never be wider than one video pane.
-    assert tracking_width * 3 <= video_width
+    # An exact quarter split rounds to whole pixels, so allow the 1 px rounding.
+    assert tracking_width <= video_width / 3 + 1
 
 
 def test_video_keeps_the_full_media_width_without_tracking_data(
@@ -267,3 +294,40 @@ def test_video_keeps_the_full_media_width_without_tracking_data(
     qapp.processEvents()
 
     assert window.video_grid.width() == window._media_splitter.width()
+
+
+def test_a_large_font_scrolls_the_workspace_instead_of_outgrowing_640x480(
+    qapp: QApplication, qtbot
+) -> None:
+    """D-182: a large font makes the column taller than the viewport, so it scrolls.
+
+    At 20 pt the column can still fit on Windows, depending on font metrics.
+    At 24 pt it must overflow the viewport while the window itself stays within
+    the display, with every surface reachable by scrolling.
+    """
+    from PySide6.QtWidgets import QScrollArea
+
+    original = qapp.font()
+    large = qapp.font()
+    large.setPointSizeF(24.0)
+    qapp.setFont(large)
+    try:
+        win = MainWindow()
+        qtbot.addWidget(win)
+        win.tracking_3d_pane.setVisible(True)
+        win.resize(640, 480)
+        win.show()
+        qapp.processEvents()
+        assert win.minimumSizeHint().height() <= 480
+        scroll = win.findChild(QScrollArea, "workspace_scroll")
+        assert scroll is not None
+        column = scroll.widget()
+        assert column.minimumSizeHint().height() > scroll.viewport().height()
+        # The area re-ranges on the column's posted LayoutRequest, which can land
+        # one event pass later (seen with Linux's DejaVu Sans metrics).
+        qtbot.waitUntil(lambda: scroll.verticalScrollBar().maximum() > 0, timeout=2000)
+        for pane in (win.video_grid, win.tracking_3d_pane, win.plot_pane, win.transport):
+            assert pane.width() > 0 and pane.height() > 0
+        win.close()
+    finally:
+        qapp.setFont(original)

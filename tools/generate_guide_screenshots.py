@@ -7,43 +7,60 @@ talking about.
 Run with ``conda run -n avialsync python tools/generate_guide_screenshots.py``.
 Do **not** set ``QT_QPA_PLATFORM=offscreen`` — see ``tools/screenshot_kit.py``.
 
-Uses the checked-in sample session, so these are reproducible from a clean
-clone and never touch private field data (AGENTS.md rule 5).
+Builds short synthetic camera, sensor, and strobe inputs in a temporary
+directory, so these are reproducible from a clean clone and never touch private
+field data (AGENTS.md rule 5).
 """
 
 from __future__ import annotations
 
 import sys
+import tempfile
 from pathlib import Path
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
+from avialsync.core.triggers import TriggerKind
 from avialsync.engine.importer import ImportWorker
+from avialsync.engine.trigger_worker import TriggerReadWorker
 from avialsync.loaders.csv_loader import CSVLoader
+from avialsync.loaders.trigger_csv import LEVEL, TriggerCSVSource
 from avialsync.loaders.video_standard import VideoStandardLoader
 from avialsync.ui.import_wizard import ImportWizard
 from avialsync.ui.main_window import MainWindow
 from avialsync.ui.sync_wizard import SyncWizard
-from avialsync.ui.transport import TimelineEvidence
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from screenshot_kit import capture, pin_appearance, pin_layout, settle  # noqa: E402
+from screenshot_kit import (  # noqa: E402
+    capture,
+    pin_appearance,
+    pin_layout,
+    settle,
+    wait_until,
+    write_synthetic_sync_fixture,
+)
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = REPOSITORY_ROOT / "docs" / "_static" / "screenshots"
-SESSION = REPOSITORY_ROOT / "tests" / "fixtures" / "sample_session"
 
 
-def _load_session(window: MainWindow, app: QApplication) -> None:
+def _load_session(window: MainWindow, app: QApplication, session: Path) -> None:
     """Open the sample video and signal through the ordinary code paths."""
-    video = SESSION / "camera_1.mp4"
+    video = session / "camera_1.mp4"
     loader = VideoStandardLoader()
     loader.open(video, {})
     window._on_video_opened(str(video), loader, str(video))
+    pane = window.video_grid.panes[-1]
+    wait_until(
+        app,
+        lambda: pane.surface._buffer is not None,
+        "the first decoded video frame",
+    )
     settle(app)
 
     # ImportWorker takes the loader *class* and a config dict, in that order.
-    csv_path = SESSION / "signal_base.csv"
+    csv_path = session / "signal_base.csv"
     worker = ImportWorker(csv_path, {}, CSVLoader)
     worker.finished.connect(
         lambda p, c, ch, b, i: window._on_import_finished(p, c, ch, b, i)  # noqa: PLW0108
@@ -51,9 +68,36 @@ def _load_session(window: MainWindow, app: QApplication) -> None:
     worker.run()
     settle(app)
 
+    trigger_path = session / "frame_triggers.csv"
+    trigger_config = {
+        "time_column": "t",
+        "trains": [
+            {
+                "id": "cam_strobe",
+                "column": "cam_strobe",
+                "kind": str(TriggerKind.FRAME_STROBE),
+                "mode": LEVEL,
+                "target": "",
+            }
+        ],
+    }
+    trigger_worker = TriggerReadWorker(TriggerCSVSource(), trigger_path, trigger_config)
+    trigger_worker.finished.connect(
+        lambda results: window._on_trigger_trains_read(str(trigger_path), results)
+    )
+    window._trigger_configs[str(trigger_path)] = trigger_config
+    trigger_worker.run()
+    settle(app)
+
 
 def generate(out_dir: Path = DEFAULT_OUTPUT_DIR) -> None:
-    """Write every annotated guide screenshot."""
+    """Write guide screenshots from synthetic inputs in a temporary directory."""
+    with tempfile.TemporaryDirectory(prefix="avialsync-guide-screenshots-") as scratch:
+        session = write_synthetic_sync_fixture(Path(scratch))
+        _generate(out_dir, session)
+
+
+def _generate(out_dir: Path, session: Path) -> None:
     app = QApplication.instance() or QApplication(sys.argv)
     pin_appearance(app)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -64,12 +108,13 @@ def generate(out_dir: Path = DEFAULT_OUTPUT_DIR) -> None:
     settle(app)
     pin_layout(window)
     settle(app)
-    _load_session(window, app)
+    _load_session(window, app, session)
     window.transport.set_status("Ready")
     settle(app)
 
     try:
-        _capture_all(window, app, out_dir)
+        _capture_all(window, app, out_dir, session)
+        _capture_messages(window, app, out_dir, session)
     finally:
         # Ownership is explicit: each pane owns a decode thread, and Qt aborts
         # if one is still running when its QThread is destroyed. A failure
@@ -79,12 +124,54 @@ def generate(out_dir: Path = DEFAULT_OUTPUT_DIR) -> None:
     print(f"Wrote guide screenshots to {out_dir}")
 
 
-def _capture_all(window: MainWindow, app: QApplication, out_dir: Path) -> None:
+def _capture_messages(window: MainWindow, app: QApplication, out_dir: Path, session: Path) -> None:
+    """Show the Messages tab with a few generated rig messages in it.
+
+    The fixtures carry no prose of their own: the generated Open Ephys session's
+    ``sync_messages.txt`` holds clock-sync lines, and the tab rightly shows none
+    of them. So the store is fed the way ``tests/test_messages.py`` feeds it, and
+    the messages are worded and attributed to a file called ``synthetic_rig_log``
+    so the image says for itself that nobody's recording wrote them.
+    """
+    from avialsync.core.messages import Message
+
+    window.message_store.set_source_messages(
+        str(session / "synthetic_rig_log.txt"),
+        (
+            Message(text="Generated example: these lines were written for this image."),
+            Message(text="trial 1: stimulus on", time=0.5, channel="MessageCenter"),
+            Message(text="trial 1: reward delivered", time=1.6, channel="MessageCenter"),
+            Message(text="trial 2: stimulus on", time=2.7, channel="MessageCenter"),
+            Message(text="trial 2: no response", time=3.5, channel="MessageCenter"),
+        ),
+    )
+    window._left_tabs.setCurrentWidget(window.message_panel)
+    # The message text is the last column; at the inspector's usual width it is
+    # scrolled off the right edge, and the image would show times and a source
+    # but not a single message.
+    window.resizeDocks([window.inspector_dock], [640], Qt.Orientation.Horizontal)
+    settle(app)
+    capture(
+        window,
+        out_dir / "guide_messages_tab.png",
+        [window.message_panel],
+        crop=window._left_tabs,
+    )
+    window._left_tabs.setCurrentIndex(0)
+    window.message_store.clear()
+    pin_layout(window)
+    settle(app)
+
+
+def _capture_all(window: MainWindow, app: QApplication, out_dir: Path, session: Path) -> None:
     """Write each annotated capture in turn."""
     info = _video_info_widget(window)
 
     # --- Offsets and drift, on the source itself -----------------------
     if info is not None:
+        # Behind each card's Timing disclosure (D-175); open it for the shot.
+        info.timing.set_open(True)
+        settle(app)
         capture(
             window,
             out_dir / "guide_offset_fields.png",
@@ -92,17 +179,16 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path) -> None:
             numbered=True,
         )
 
-    # --- Data Streams strip: flagging a frame, snapshot ----------------
-    # Those buttons live on the TimelineEvidence strip rather than on
-    # Transport itself, so they are looked up rather than assumed.
-    evidence = window.findChild(TimelineEvidence)
-    if evidence is not None:
-        capture(
-            window,
-            out_dir / "guide_flag_and_snapshot.png",
-            [evidence.flag_button, evidence.snapshot_button],
-            numbered=True,
-        )
+    # --- Under the videos: flagging a frame, snapshot -------------------
+    # Both buttons live on the view toolbar beneath the video grid, not on
+    # Transport or the Data Streams strip they used to sit on.
+    toolbar = window.view_toolbar
+    capture(
+        window,
+        out_dir / "guide_flag_and_snapshot.png",
+        [toolbar.flag_button, toolbar.snapshot_button],
+        numbered=True,
+    )
 
     transport = window.transport
     capture(
@@ -113,7 +199,7 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path) -> None:
     )
 
     # --- The import wizard, field by field -----------------------------
-    wizard = ImportWizard(SESSION / "signal_base.csv")
+    wizard = ImportWizard(session / "signal_base.csv")
     wizard.show()
     settle(app)
     capture(
@@ -153,18 +239,26 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path) -> None:
     if wizards:
         wizard = wizards[0]
         settle(app)
+        _select_by_text(wizard._reference_combo, "cam_strobe")
+        wizard._use_all_times_chk.setChecked(False)
         capture(
             wizard,
             out_dir / "guide_sync_evidence.png",
             [wizard._reference_combo, wizard._target_combo],
             numbered=True,
         )
+        _select_by_text(wizard._reference_combo, "TTL")
         capture(
             wizard,
             out_dir / "guide_sync_ttl_threshold.png",
             [wizard._threshold, wizard._use_all_times_chk],
             numbered=True,
         )
+        _select_by_text(wizard._reference_combo, "cam_strobe")
+        # The fitting choices sit behind More… (D-176); open it for the shots.
+        wizard.steps.more_toggle.setChecked(True)
+        settle(app)
+        wizard._strategy_combo.setCurrentIndex(wizard._strategy_combo.findData("auto"))
         capture(
             wizard,
             out_dir / "guide_sync_strategy.png",
@@ -177,6 +271,15 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path) -> None:
             [wizard._manual_offset, wizard._manual_drift, wizard._manual_button],
             numbered=True,
         )
+        wizard._preview_button.click()
+        wait_until(
+            app,
+            lambda: wizard._thread is None,
+            "the synchronization preview",
+        )
+        if wizard.proposal is None:
+            raise RuntimeError(f"Synchronization preview failed: {wizard._summary.text()}")
+        settle(app)
         capture(
             wizard,
             out_dir / "guide_sync_preview_accept.png",
@@ -185,6 +288,15 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path) -> None:
         )
         wizard.close()
         settle(app)
+
+
+def _select_by_text(combo, fragment: str) -> None:
+    """Select the first evidence choice whose label contains *fragment*."""
+    for index in range(combo.count()):
+        if fragment in combo.itemText(index):
+            combo.setCurrentIndex(index)
+            return
+    raise RuntimeError(f"No synchronization evidence choice contains {fragment!r}.")
 
 
 def _video_info_widget(window: MainWindow):

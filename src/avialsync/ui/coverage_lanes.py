@@ -26,6 +26,7 @@ import dataclasses
 
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from avialsync.ui.i18n import tr
@@ -36,9 +37,23 @@ __all__ = ["CoverageLanes", "SourceCoverage"]
 
 #: Vertical room one source's lane occupies, in arbitrary plot units. The bands
 #: are drawn inside it at fixed fractions so every lane reads the same way.
+#: The evidence band is deliberately the thinner of the two: it is context for
+#: the recording, and drawn at equal weight it was the loudest thing in the
+#: dialog while saying the least.
 _LANE_HEIGHT = 1.0
-_DATA_BAND = (0.15, 0.55)
-_EVIDENCE_BAND = (0.60, 0.85)
+_DATA_BAND = (0.16, 0.54)
+_EVIDENCE_BAND = (0.62, 0.76)
+
+#: How solid each band is. A full-weight fill reads as a slab of colour rather
+#: than as a span with ends, and where a recording *ends* is the whole question
+#: a coverage lane exists to answer. Only a little is taken: these are the
+#: theme's own status colours, and draining them reads as a different palette
+#: rather than as the same one with room to breathe. Defects keep all of their
+#: weight -- a gap is not context, it is the finding.
+_DATA_ALPHA = 235
+_EVIDENCE_ALPHA = 175
+_EXTENDED_ALPHA = 210
+_GAP_ALPHA = 255
 
 #: Enough left-axis width for a filename. Without a floor the names go
 #: undrawn: the axis sizes to its tick text once, and text set later does not
@@ -68,6 +83,18 @@ def _key_text() -> str:
         "extended past the last sync point, and marked differently again where the "
         "recording stops and resumes."
     )
+
+
+def _weighted(color: QColor, alpha: int) -> QColor:
+    """The same colour, carrying less of the surface.
+
+    Weight is the encoding here as much as hue is: the recording is the mark,
+    where the alignment was measured is context behind it, and a gap is the one
+    thing that should still be loud.
+    """
+    shaded = QColor(color)
+    shaded.setAlpha(alpha)
+    return shaded
 
 
 @dataclasses.dataclass(frozen=True)
@@ -153,17 +180,29 @@ class CoverageLanes(QWidget):
         palette = self.palette()
         for index, source in enumerate(sources):
             base = float(len(sources) - 1 - index) * _LANE_HEIGHT
-            self._draw_band(source.data, base, _DATA_BAND, coverage_color(palette))
+            self._draw_band(
+                source.data, base, _DATA_BAND, _weighted(coverage_color(palette), _DATA_ALPHA)
+            )
             for span in source.extrapolated():
                 # Same band, marked: this is data the alignment reaches by
                 # extension rather than by measurement.
-                self._draw_band(span, base, _DATA_BAND, status_color(palette, "warning"))
+                self._draw_band(
+                    span,
+                    base,
+                    _DATA_BAND,
+                    _weighted(status_color(palette, "warning"), _EXTENDED_ALPHA),
+                )
             if source.evidence is not None:
                 self._draw_band(
-                    source.evidence, base, _EVIDENCE_BAND, status_color(palette, "info")
+                    source.evidence,
+                    base,
+                    _EVIDENCE_BAND,
+                    _weighted(status_color(palette, "info"), _EVIDENCE_ALPHA),
                 )
             for gap in source.gaps:
-                self._draw_band(gap, base, _DATA_BAND, status_color(palette, "error"))
+                self._draw_band(
+                    gap, base, _DATA_BAND, _weighted(status_color(palette, "error"), _GAP_ALPHA)
+                )
 
         axis = self._plot.getPlotItem().getAxis("left")
         axis.setTicks(

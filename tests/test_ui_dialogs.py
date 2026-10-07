@@ -332,6 +332,74 @@ def test_batch_dialog_returns_the_selected_loader_for_each_file(
     assert config == {"time_col": "t"}
 
 
+def test_unclaimed_file_can_use_a_manually_selected_loader(
+    qapp: QApplication, qtbot, tmp_path: Path
+) -> None:
+    from avialsync.loaders.csv_loader import CSVLoader
+
+    path = tmp_path / "recording.xyz"
+    dialog = BatchImportDialog([(path, None, None)])
+    qtbot.addWidget(dialog)
+    combo = dialog._combos[0]
+    combo.setCurrentIndex(combo.findData(CSVLoader))
+
+    assert dialog.get_selections() == [(path, CSVLoader, None)]
+
+
+def test_c3d_import_can_select_a_dropped_xcp_calibration(
+    qapp: QApplication, qtbot, tmp_path: Path
+) -> None:
+    from avialsync.loaders.vicon_c3d_loader import ViconC3DLoader
+
+    c3d_path = tmp_path / "trial.c3d"
+    xcp_path = tmp_path / "camera.xcp"
+    video_path = tmp_path / "trial.avi"
+    dialog = BatchImportDialog(
+        [(c3d_path, None, None), (xcp_path, None, None)], video_paths=[str(video_path)]
+    )
+    qtbot.addWidget(dialog)
+
+    c3d_row = next(index for index, item in enumerate(dialog._candidates) if item[0] == c3d_path)
+    dialog._combos[c3d_row].setCurrentIndex(dialog._combos[c3d_row].findData(ViconC3DLoader))
+    calibration = dialog._calibration_combos[c3d_row]
+    assert calibration.isEnabled()
+    assert calibration.currentData() == str(xcp_path)
+
+    roles = dialog._role_combos[c3d_row]
+    roles.setCurrentIndex(roles.findData(["pose3d_overlay2d", str(video_path)]))
+    assert dialog.get_selections() == [
+        (
+            c3d_path,
+            ViconC3DLoader,
+            {
+                "role": "pose3d_overlay2d",
+                "overlay_video": str(video_path),
+                "xcp_path": str(xcp_path),
+            },
+        )
+    ]
+    roles.setCurrentIndex(roles.findData(["", ""]))
+
+    assert dialog.get_selections() == [(c3d_path, ViconC3DLoader, {"xcp_path": str(xcp_path)})]
+    sidecar_row = next(
+        index for index, item in enumerate(dialog._candidates) if item[0] == xcp_path
+    )
+    assert not dialog._combos[sidecar_row].isEnabled()
+    assert dialog._combos[sidecar_row].currentData() is None
+
+
+@pytest.mark.parametrize("suffix", [".xcp", ".x2d"])
+def test_vicon_sidecar_cannot_be_assigned_as_tracking_source(
+    qapp: QApplication, qtbot, tmp_path: Path, suffix: str
+) -> None:
+    path = tmp_path / f"trial{suffix}"
+    dialog = BatchImportDialog([(path, None, None)])
+    qtbot.addWidget(dialog)
+
+    assert not dialog._combos[0].isEnabled()
+    assert dialog._combos[0].currentData() is None
+
+
 def test_batch_dialog_preserves_each_files_own_config(
     qapp: QApplication, qtbot, tmp_path: Path
 ) -> None:
@@ -348,3 +416,210 @@ def test_batch_dialog_preserves_each_files_own_config(
 
     configs = [config for _path, _loader, config in dialog.get_selections()]
     assert configs == [{"time_col": "t_a"}, {"time_col": "t_b"}]
+
+
+def test_manual_tracking_can_be_assigned_to_a_camera_or_the_3d_view(
+    qapp: QApplication, qtbot, tmp_path: Path
+) -> None:
+    from avialsync.loaders.tracking_loader import TrackingLoader
+
+    path = tmp_path / "points.csv"
+    video = str(tmp_path / "camera.mp4")
+    dialog = BatchImportDialog([(path, TrackingLoader, None)], video_paths=[video])
+    qtbot.addWidget(dialog)
+    roles = dialog._role_combos[0]
+
+    roles.setCurrentIndex(roles.findData(["pose3d", ""]))
+    assert dialog.get_selections() == [(path, TrackingLoader, {"role": "pose3d"})]
+
+    roles.setCurrentIndex(roles.findData(["overlay2d", video]))
+    assert dialog.get_selections() == [
+        (path, TrackingLoader, {"role": "overlay2d", "overlay_video": video})
+    ]
+
+
+def test_session_pose_declaration_remains_selected_in_import_review(
+    qapp: QApplication, qtbot, tmp_path: Path
+) -> None:
+    from avialsync.loaders.aol_eks_loader import AOLEksLoader
+
+    path = tmp_path / "points_eks.csv"
+    video = str(tmp_path / "camera.mp4")
+    config = {"role": "overlay2d", "overlay_video": video, "fps": 30.0}
+    dialog = BatchImportDialog([(path, AOLEksLoader, config)], video_paths=[video])
+    qtbot.addWidget(dialog)
+
+    assert dialog.get_selections() == [(path, AOLEksLoader, config)]
+
+
+# ── a pose file that names its own camera (D-146) ─────────────────────
+
+
+def test_a_tracking_file_defaults_to_the_camera_it_is_named_after(
+    qapp: QApplication, qtbot, tmp_path: Path
+) -> None:
+    """Defaulting to Data channels is how a pose file becomes 81 plotted columns.
+
+    It still draws dots, because the overlay accepts loose readers, so
+    everything looks right while nothing knows it is a pose: no schema, no
+    corrections, and Fix Identities greyed out with no way to find out why.
+    """
+    from avialsync.loaders.tracking_loader import TrackingLoader
+
+    dialog = BatchImportDialog(
+        [(tmp_path / "FrontCam_eks.csv", TrackingLoader, None)],
+        video_paths=["/data/FaceCam.mp4", "/data/FrontCam.mp4", "/data/SideCam.mp4"],
+    )
+    qtbot.addWidget(dialog)
+
+    assert dialog._role_combos[0].currentData() == ["overlay2d", "/data/FrontCam.mp4"]
+    _path, _loader, config = dialog.get_selections()[0]
+    assert config == {"role": "overlay2d", "overlay_video": "/data/FrontCam.mp4"}
+
+
+def test_one_camera_needs_no_name_match(qapp: QApplication, qtbot, tmp_path: Path) -> None:
+    from avialsync.loaders.tracking_loader import TrackingLoader
+
+    dialog = BatchImportDialog(
+        [(tmp_path / "predictions.csv", TrackingLoader, None)],
+        video_paths=["/data/only.mp4"],
+    )
+    qtbot.addWidget(dialog)
+
+    assert dialog._role_combos[0].currentData() == ["overlay2d", "/data/only.mp4"]
+
+
+def test_several_cameras_and_no_match_leaves_the_choice_with_the_person(
+    qapp: QApplication, qtbot, tmp_path: Path
+) -> None:
+    """The dialog exists for the genuinely ambiguous case; guessing is worse."""
+    from avialsync.loaders.tracking_loader import TrackingLoader
+
+    dialog = BatchImportDialog(
+        [(tmp_path / "predictions.csv", TrackingLoader, None)],
+        video_paths=["/data/FaceCam.mp4", "/data/SideCam.mp4"],
+    )
+    qtbot.addWidget(dialog)
+
+    assert dialog._role_combos[0].currentData() == ["", ""]
+
+
+def test_what_the_session_declared_still_wins(qapp: QApplication, qtbot, tmp_path: Path) -> None:
+    from avialsync.loaders.tracking_loader import TrackingLoader
+
+    dialog = BatchImportDialog(
+        [
+            (
+                tmp_path / "FrontCam_eks.csv",
+                TrackingLoader,
+                {"role": "overlay2d", "overlay_video": "/data/SideCam.mp4"},
+            )
+        ],
+        video_paths=["/data/FrontCam.mp4", "/data/SideCam.mp4"],
+    )
+    qtbot.addWidget(dialog)
+
+    assert dialog._role_combos[0].currentData() == ["overlay2d", "/data/SideCam.mp4"]
+
+
+def test_a_plain_csv_is_still_data_channels(qapp: QApplication, qtbot, tmp_path: Path) -> None:
+    from avialsync.loaders.csv_loader import CSVLoader
+
+    dialog = BatchImportDialog(
+        [(tmp_path / "FrontCam_forces.csv", CSVLoader, None)],
+        video_paths=["/data/FrontCam.mp4"],
+    )
+    qtbot.addWidget(dialog)
+
+    assert dialog._role_combos[0].currentData() == ["", ""]
+
+
+def test_the_candidate_list_keeps_both_ends_of_a_name(
+    qapp: QApplication, qtbot, tmp_path: Path
+) -> None:
+    """A DeepLabCut folder names everything after the same model and snapshot.
+
+    What tells `..._el.csv` from `..._full.mp4` is the tail, so cutting the
+    tail leaves a column of identical prefixes and nothing to choose between.
+    """
+    from PySide6.QtCore import Qt
+
+    from avialsync.loaders.tracking_loader import TrackingLoader
+
+    stem = "Trial     2DLC_Resnet50_SocialInteractionsJAWSJan18shuffle1_snapshot_140"
+    dialog = BatchImportDialog(
+        [
+            (tmp_path / f"{stem}_el.csv", TrackingLoader, None),
+            (tmp_path / f"{stem}_full.mp4", None, None),
+        ]
+    )
+    qtbot.addWidget(dialog)
+
+    from PySide6.QtWidgets import QLabel
+
+    from avialsync.ui.elided_label import ElidedLabel
+
+    assert dialog._table.textElideMode() == Qt.TextElideMode.ElideMiddle
+    labels = [dialog._table.cellWidget(row, 0) for row in range(dialog._table.rowCount())]
+    assert all(isinstance(label, ElidedLabel) for label in labels)
+
+    # Laid out for real rather than resized by hand. An ElidedLabel re-elides
+    # on its resize event, and a dialog that was never shown never delivers
+    # one: on Windows every label sat at its minimum size hint and each name
+    # came out "Tri…csv", while macOS happened to deliver the event and
+    # passed. Showing it gives the column the width the user actually gets,
+    # which is the width worth asserting about.
+    dialog.show()
+    dialog.resize(dialog.minimumSizeHint())
+    qapp.processEvents()
+    shown = [QLabel.text(label) for label in labels]
+    # The tail -- the only part that differs -- has to survive. Read through
+    # QLabel, because ElidedLabel.text() answers with the unabridged string by
+    # design.
+    #
+    # Asserted as the property rather than as a character count: how much tail
+    # fits is the column's width in the platform's font, and Windows keeps
+    # "ll.mp4" where macOS keeps "full.mp4". Both are the thing this is about
+    # -- two rows that can be told apart by their ends, instead of a column of
+    # identical "Trial …" prefixes.
+    assert all("…" in text for text in shown), "a squeezed name should be elided, not clipped"
+    assert shown[0] != shown[1], shown
+    assert any(text.endswith(".csv") for text in shown), shown
+    assert any(text.endswith(".mp4") for text in shown), shown
+
+    # And the whole path stays reachable without guessing.
+    assert str(tmp_path) in labels[0].toolTip()
+    assert dialog._table.item(0, 0).text().startswith("Trial")
+
+
+def test_help_menu_routes_project_links_through_window_controller(
+    qapp: QApplication, qtbot, monkeypatch
+) -> None:
+    from PySide6.QtGui import QDesktopServices
+    from PySide6.QtWidgets import QMenu
+
+    from avialsync.ui.about import project_urls
+    from avialsync.ui.main_window import MainWindow
+
+    window = MainWindow()
+    qtbot.addWidget(window)
+    controller = window._help_controller
+    assert controller.parent() is window
+    assert controller.thread() == window.thread()
+
+    opened: list[str] = []
+    monkeypatch.setattr(
+        QDesktopServices,
+        "openUrl",
+        staticmethod(lambda url: opened.append(url.toString())),
+    )
+    documentation = next(
+        action
+        for menu in window.findChildren(QMenu)
+        for action in menu.actions()
+        if action.text() == "Documentation"
+    )
+
+    documentation.trigger()
+
+    assert opened == [project_urls()["Documentation"]]

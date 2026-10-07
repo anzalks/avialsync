@@ -24,7 +24,7 @@ def test_three_camera_four_stream_session_can_be_cached_and_queried(tmp_path: Pa
     times = np.arange(sample_rate_hz * duration_s, dtype=np.float64) / sample_rate_hz
     readers: list[PyramidReader] = []
     for channel in range(4):
-        cache_dir = tmp_path / f"stream_{channel}.avialcache"
+        cache_dir = tmp_path / f"stream_{channel}_cache"
         cache_dir.mkdir()
         values = np.sin(times * (channel + 1))
         PyramidBuilder(cache_dir, f"stream_{channel}").build_and_save(times, values)

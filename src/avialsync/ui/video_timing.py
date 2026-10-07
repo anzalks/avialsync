@@ -14,6 +14,7 @@ from avialsync.core.timeline import TimeMap
 # the same call this readout names it with — one authority, never two (D-075).
 # Re-exported here because this is the import path the UI already knows.
 from avialsync.core.video_timing import adjacent_frame_time, frame_index_at
+from avialsync.ui.time_format import format_rate
 
 
 def instantaneous_frame_rate(frame_times: np.ndarray | None, t: float, fallback: float) -> float:
@@ -62,13 +63,65 @@ def human_file_size(size_bytes: int) -> str:
     return "0 B"
 
 
+#: Pixel formats whose name does not carry a depth but whose samples are 8-bit.
+_EIGHT_BIT_FORMATS = ("gray", "rgb24", "bgr24", "rgba", "bgra", "argb", "abgr", "nv12", "nv21")
+
+
+def bit_depth_of(pixel_format: str) -> int | None:
+    """Bits per sample named by an FFmpeg pixel format, or None when it says nothing.
+
+    ``gray12le`` and ``yuv420p10le`` carry the depth in the name; ``yuv420p``
+    and ``gray`` are 8-bit; ``rgb48le`` is 16. A decoded frame is still the
+    authority (``SourceFormat.bits``); this is for before the first frame.
+    """
+    import re
+
+    name = pixel_format.lower().strip()
+    if not name:
+        return None
+    if name.startswith(("rgb48", "bgr48", "rgba64", "bgra64")):
+        return 16
+    match = re.search(r"(?:gray|p|f)(\d{1,2})(?:le|be)?$", name)
+    if match and 8 <= int(match.group(1)) <= 32:
+        return int(match.group(1))
+    if name in _EIGHT_BIT_FORMATS or re.fullmatch(r"yuv[aj]?4[0-4][0-4]p", name):
+        return 8
+    return None
+
+
+def format_picture(metadata: VideoMetadata, bits: int | None = None) -> str:
+    """``1440×1080 · 12-bit``: what the picture is, for the overlay and properties."""
+    depth = bits if bits is not None else bit_depth_of(metadata.pixel_format)
+    parts = []
+    if metadata.width and metadata.height:
+        parts.append(f"{metadata.width}×{metadata.height}")
+    if depth is not None:
+        parts.append(f"{depth}-bit")
+    return " · ".join(parts)
+
+
+def format_clock(t: float) -> str:
+    """``HH:MM:SS.mmm``, the clock every picture overlay shows."""
+    h = int(t // 3600)
+    m = int((t % 3600) // 60)
+    return f"{h:02d}:{m:02d}:{t % 60:06.3f}"
+
+
 def format_video_osd(
     t: float,
     current_fps: float,
     metadata: VideoMetadata,
     frame: tuple[int, int | None] | None = None,
+    detail: str = "full",
+    bits: int | None = None,
 ) -> str:
-    """Build the compact, timestamp-authoritative video-pane information block.
+    """Build the timestamp-authoritative video-pane information block.
+
+    ``detail`` is ``"compact"`` -- time and frame, then resolution and bit
+    depth on a second line, the default on a pane (D-174, D-183) -- or
+    ``"full"``, which adds
+    the rate, codec, pixel format and size lines. ``bits`` is the decoded
+    frame's depth when known; otherwise it is read from the pixel format.
 
     ``frame`` is ``(index, total)``, both counted the way every other frame
     number in the app is: zero-based, so what the overlay shows is the same
@@ -76,29 +129,38 @@ def format_video_osd(
     when the rate is unknown, because a guessed frame number would be indistin-
     guishable from a measured one.
     """
-    h = int(t // 3600)
-    m = int((t % 3600) // 60)
-    s = t % 60
-    if metadata.is_vfr:
-        rate_lines = (
-            f"VFR: {metadata.min_frame_rate:.1f}–{metadata.max_frame_rate:.1f} fps"
-            f" · now {current_fps:.1f}\n"
-            f"Nominal CFR: {metadata.nominal_fps:.1f} fps"
-        )
-    else:
-        measured = metadata.measured_fps or current_fps
-        rate_lines = f"CFR: {metadata.nominal_fps:.3f} fps · measured {measured:.3f}"
-    codec = metadata.codec.upper() if metadata.codec else "UNKNOWN"
+    clock = format_clock(t)
     if frame is None:
         frame_text = "—"
     else:
         index, total = frame
         frame_text = f"{index}" if total is None else f"{index} / {total - 1}"
+    picture = format_picture(metadata, bits)
+    if detail == "compact":
+        # Two short lines rather than one long one: when; then what the picture
+        # is. One long line wrapped wherever the pane ran out, and squeezed the
+        # camera name beside it.
+        compact = f"{clock} · f {frame_text}"
+        return f"{compact}\n{picture}" if picture else compact
+    if metadata.is_vfr:
+        rate_lines = (
+            f"VFR: {format_rate(metadata.min_frame_rate)}–"
+            f"{format_rate(metadata.max_frame_rate)} fps · now {format_rate(current_fps)}\n"
+            f"Nominal CFR: {format_rate(metadata.nominal_fps)} fps"
+        )
+    else:
+        measured = metadata.measured_fps or current_fps
+        rate_lines = (
+            f"CFR: {format_rate(metadata.nominal_fps)} fps · measured {format_rate(measured)}"
+        )
+    codec = metadata.codec.upper() if metadata.codec else "UNKNOWN"
     return (
-        f"Time: {h:02d}:{m:02d}:{s:06.3f}\n"
+        f"Time: {clock}\n"
         f"Frame: {frame_text}\n"
         f"{rate_lines}\n"
         f"Codec: {codec} · Size: {human_file_size(metadata.file_size_bytes)}"
+        + (f"\nPicture: {picture}" if picture else "")
+        + (f" · {metadata.pixel_format}" if picture and metadata.pixel_format else "")
     )
 
 
@@ -126,6 +188,8 @@ class VideoTimingMixin:
     frame_presented: Any
     lbl_osd: Any
     paint_canvas: Any
+    _osd_detail: str
+    _osd_last: tuple[float, float]
 
     def _queue_osd_update(self, t: float, fps: float) -> None:
         """Queue the concrete pane's coalesced UI-thread update."""
@@ -148,8 +212,17 @@ class VideoTimingMixin:
             return None
         return max(0, int(source_time * fps)), None
 
+    def osd_text(self, detail: str) -> str:
+        """The readout for the frame last shown, at *detail* (a snapshot asks for full)."""
+        t, fps = getattr(self, "_osd_last", (0.0, 0.0))
+        # The decoded frame's depth when there is one: the file's pixel format
+        # only names what the encoder was asked for.
+        bits = getattr(getattr(self, "source_format", None), "bits", None)
+        return format_video_osd(t, fps, self._metadata, self._source_frame(t), detail, bits)
+
     def _update_osd(self, t: float, fps: float) -> None:
-        self.lbl_osd.setText(format_video_osd(t, fps, self._metadata, self._source_frame(t)))
+        self._osd_last = (t, fps)
+        self.lbl_osd.setText(self.osd_text(self._osd_detail))
         # The overlay's data readers expect master time (via MappedChannelReader)
         master_t = self.time_map.to_master(t)
         self.paint_canvas.update_time(master_t)

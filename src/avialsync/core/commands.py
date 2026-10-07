@@ -18,7 +18,10 @@ from __future__ import annotations
 import dataclasses
 from typing import Any
 
+from avialsync.core.custom_markers import CustomMarker
 from avialsync.core.document import MarkerRecord, MutationTarget, SourceRecord
+from avialsync.core.physical_props import Ladder, LadderLayout, LadderStep, PhysicalProp
+from avialsync.core.wheel import Wheel
 
 __all__ = [
     "SetSourceMappingCommand",
@@ -26,10 +29,23 @@ __all__ = [
     "RemoveMarkerCommand",
     "RelabelMarkerCommand",
     "SetSourceVisibleCommand",
+    "SetImagingViewCommand",
     "SetChannelVisibleCommand",
     "SetChannelGroupVisibleCommand",
     "SetOverlayVisibleCommand",
+    "SetTrackingVisibleCommand",
+    "SetOriginalTrackerVisibleCommand",
     "SetTrackedPointCommand",
+    "SetIdentitySwapCommand",
+    "SetIdentityGroupCommand",
+    "ClearIdentitySwapsCommand",
+    "SetCustomMarkerCommand",
+    "SetWheelCommand",
+    "SetLadderCommand",
+    "SetPhysicalPropCommand",
+    "SetLadderStepCommand",
+    "MoveLadderStepCommand",
+    "SetLadderLayoutCommand",
     "AcceptSyncCommand",
     "AddSourceCommand",
     "RemoveSourceCommand",
@@ -75,6 +91,66 @@ class SetSourceMappingCommand:
         if other.source_id != self.source_id:
             return None
         return dataclasses.replace(self, after=other.after)
+
+
+@dataclasses.dataclass
+class SetImagingViewCommand:
+    """Change how an imaging stack is shown: channels, levels, averaging (D-190).
+
+    Merges with the next change to the same *aspect* of the same stack, so a
+    brightness drag is one undo step while a brightness drag followed by a
+    contrast drag stays two.
+    """
+
+    source_id: str
+    before: dict[str, Any]
+    after: dict[str, Any]
+    aspect: str
+    display_name: str = ""
+    command_id: str = "imaging.view"
+
+    @property
+    def label(self) -> str:
+        return f"Change {self.aspect} for {self.display_name or self.source_id}"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_imaging_view(self.source_id, self.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_imaging_view(self.source_id, self.before)
+
+    def merge_with(self, other: object) -> SetImagingViewCommand | None:
+        if not isinstance(other, SetImagingViewCommand):
+            return None
+        if (other.source_id, other.aspect) != (self.source_id, self.aspect):
+            return None
+        return dataclasses.replace(self, after=other.after)
+
+
+@dataclasses.dataclass
+class SetImagingLayoutCommand:
+    """Read an imaging stack with another axis order or depth plane (D-194).
+
+    *before* and *after* hold the ``axes`` and ``z`` import choices. A stack
+    opens with a default order so it is visible at once; this is how the user
+    corrects it, and how that correction is undone.
+    """
+
+    source_id: str
+    before: dict[str, Any]
+    after: dict[str, Any]
+    display_name: str = ""
+    command_id: str = "imaging.layout"
+
+    @property
+    def label(self) -> str:
+        return f"Change axes for {self.display_name or self.source_id}"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_imaging_layout(self.source_id, self.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_imaging_layout(self.source_id, self.before)
 
 
 @dataclasses.dataclass
@@ -245,6 +321,47 @@ class SetOverlayVisibleCommand:
 
 
 @dataclasses.dataclass
+class SetTrackingVisibleCommand:
+    """Show or hide one tracking source on one presentation surface."""
+
+    source_id: str
+    surface: str
+    visible: bool
+    display_name: str = ""
+    command_id: str = "tracking.visible"
+
+    @property
+    def label(self) -> str:
+        name = self.display_name or self.source_id
+        verb = "Show" if self.visible else "Hide"
+        return f"{verb} {self.surface} for {name}"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_tracking_visible(self.source_id, self.surface, self.visible)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_tracking_visible(self.source_id, self.surface, not self.visible)
+
+
+@dataclasses.dataclass
+class SetOriginalTrackerVisibleCommand:
+    """Switch the pose readers between the raw and edited cache generations."""
+
+    visible: bool
+    command_id: str = "tracking.original_view"
+
+    @property
+    def label(self) -> str:
+        return "Play original tracking" if self.visible else "Play edited tracking"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_original_tracker_visible(self.visible)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_original_tracker_visible(not self.visible)
+
+
+@dataclasses.dataclass
 class SetTrackedPointCommand:
     """Move one tracked body part to where the user says it really was.
 
@@ -271,21 +388,281 @@ class SetTrackedPointCommand:
     #: column, which ``core/`` has no business reaching for (the caller passes
     #: it, as ``display_name`` is passed elsewhere here).
     display_frame: int | None = None
+    #: What the point was called on screen when it was dragged. Differs from
+    #: ``point`` -- the file's own column -- only while an identity flip is in
+    #: force, and is carried so undo and redo record the same provenance the
+    #: original drag did (D-143).
+    shown_as: str = ""
     command_id: str = "tracking.point"
 
     @property
     def label(self) -> str:
         frame = self.index if self.display_frame is None else self.display_frame
+        name = self.shown_as or self.point
         if self.after is None:
-            return f"Restore predicted {self.point} at frame {frame}"
+            return f"Restore predicted {name} at frame {frame}"
         x, y = self.after
-        return f"Move {self.point} to ({x:.1f}, {y:.1f}) px at frame {frame}"
+        return f"Move {name} to ({x:.1f}, {y:.1f}) px at frame {frame}"
 
     def apply(self, target: MutationTarget) -> None:
-        target.set_tracked_point(self.source_id, self.point, self.index, self.after)
+        target.set_tracked_point(self.source_id, self.point, self.index, self.after, self.shown_as)
 
     def revert(self, target: MutationTarget) -> None:
-        target.set_tracked_point(self.source_id, self.point, self.index, self.before)
+        target.set_tracked_point(self.source_id, self.point, self.index, self.before, self.shown_as)
+
+
+@dataclasses.dataclass
+class SetIdentitySwapCommand:
+    """Accept or undo one identity flip on a pose source (D-141).
+
+    The inverse of accepting a flip is *removing* it, not accepting its
+    opposite: two transpositions compose to the identity and would look the
+    same on screen, while leaving two events in the sidecar that say a person
+    judged two crossings where they judged one.
+
+    Carries no data, only the statement: the recording, its imported cache and
+    the derived generation are all reproduced from this plus the corrections
+    (:mod:`avialsync.core.edit_program`), so an undo costs nothing to store.
+    """
+
+    source_id: str
+    event: Any
+    accepted: bool
+    #: The video frame ``event.index`` names, for the menu text only -- the same
+    #: reason `SetTrackedPointCommand` carries one.
+    display_frame: int | None = None
+    command_id: str = "tracking.identity"
+
+    @property
+    def label(self) -> str:
+        frame = self.display_frame if self.display_frame is not None else self.event.index
+        first, second = self.event.lanes
+        if self.accepted:
+            return f"Swap {first} and {second} from frame {frame}"
+        return f"Undo the {first}/{second} swap at frame {frame}"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_identity_swap(self.source_id, self.event, self.accepted)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_identity_swap(self.source_id, self.event, not self.accepted)
+
+
+@dataclasses.dataclass
+class ClearIdentitySwapsCommand:
+    """Undo every accepted flip on one pose source, as one step.
+
+    Carries the events rather than a snapshot of anything: they *are* the
+    state, a few integers each, and putting them back is the whole inverse
+    (rule 14 -- commands carry inverse operations, never snapshots).
+    """
+
+    source_id: str
+    events: tuple[Any, ...]
+    command_id: str = "tracking.identity_clear"
+
+    @property
+    def label(self) -> str:
+        return f"Remove {len(self.events)} identity swap(s)"
+
+    def apply(self, target: MutationTarget) -> None:
+        for event in self.events:
+            target.set_identity_swap(self.source_id, event, False)
+
+    def revert(self, target: MutationTarget) -> None:
+        for event in self.events:
+            target.set_identity_swap(self.source_id, event, True)
+
+
+@dataclasses.dataclass
+class SetIdentityGroupCommand:
+    """Add one declared group; undo removes only that declaration."""
+
+    source_id: str
+    group: Any
+    command_id: str = "tracking.identity_group"
+
+    @property
+    def label(self) -> str:
+        return f"Add identity group {self.group.name}"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_identity_group(self.source_id, self.group, True)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_identity_group(self.source_id, self.group, False)
+
+
+@dataclasses.dataclass
+class SetCustomMarkerCommand:
+    """Add, move, or delete one hand-placed 3D marker on one frame.
+
+    ``before`` and ``after`` are whole markers -- a handful of floats, the
+    clicks plus the triangulated point -- so undoing a move restores the 3D
+    position it had without triangulating again. ``None`` on either side is
+    "no marker": ``before=None`` is an add, ``after=None`` a delete.
+    """
+
+    name: str
+    frame: int
+    before: CustomMarker | None
+    after: CustomMarker | None
+    command_id: str = "tracking.custom_marker"
+
+    @property
+    def label(self) -> str:
+        if self.before is None:
+            return f"Add 3D marker {self.name} at frame {self.frame}"
+        if self.after is None:
+            return f"Delete 3D marker {self.name} at frame {self.frame}"
+        return f"Move 3D marker {self.name} at frame {self.frame}"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_custom_marker(self.name, self.frame, self.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_custom_marker(self.name, self.frame, self.before)
+
+
+def _diameter_only(before: Any, after: Any) -> bool:
+    """Whether *after* is *before* with only its bar diameter changed."""
+    if before is None or after is None or before == after:
+        return False
+    return bool(dataclasses.replace(before, bar_diameter=after.bar_diameter) == after)
+
+
+@dataclasses.dataclass
+class SetWheelCommand:
+    """Add, re-fit, or remove one wheel (D-113).
+
+    ``before`` and ``after`` are whole wheels -- clicks, fit, and binding, a few
+    dozen floats -- so undoing a re-fit restores the geometry it had without
+    fitting again. ``None`` on either side is "no wheel".
+    """
+
+    name: str
+    before: Wheel | None
+    after: Wheel | None
+    command_id: str = "tracking.wheel"
+
+    @property
+    def label(self) -> str:
+        if self.before is None:
+            return f"Add wheel {self.name}"
+        if self.after is None:
+            return f"Remove wheel {self.name}"
+        return f"Change wheel {self.name}"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_wheel(self.name, self.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_wheel(self.name, self.before)
+
+    def merge_with(self, other: object) -> SetWheelCommand | None:
+        """Coalesce a run of bar-diameter steps into one undo step.
+
+        Only a change of ``bar_diameter`` and nothing else merges, and only when
+        it continues from where this one left off: arrow keys held on the
+        diameter field are one adjustment, but a re-fit after it is not.
+        """
+        if not isinstance(other, SetWheelCommand) or other.name != self.name:
+            return None
+        if other.before != self.after:
+            return None
+        if not (
+            _diameter_only(self.before, self.after) and _diameter_only(other.before, other.after)
+        ):
+            return None
+        return dataclasses.replace(self, after=other.after)
+
+
+@dataclasses.dataclass
+class SetLadderCommand:
+    """Accept or remove one ladder; removal's inverse retains its evidence."""
+
+    name: str
+    before: Ladder | None
+    after: Ladder | None
+    label: str
+    command_id: str = "props.ladder"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_ladder(self.name, self.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_ladder(self.name, self.before)
+
+
+@dataclasses.dataclass
+class SetPhysicalPropCommand:
+    """Add, edit, or remove one physical prop through the document bus."""
+
+    name: str
+    before: PhysicalProp | None
+    after: PhysicalProp | None
+    label: str
+    command_id: str = "props.physical_prop"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_physical_prop(self.name, self.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_physical_prop(self.name, self.before)
+
+
+@dataclasses.dataclass
+class SetLadderStepCommand:
+    """Change one clicked step; other steps are not copied into undo history."""
+
+    ladder_name: str
+    step_id: str
+    before: LadderStep | None
+    after: LadderStep | None
+    label: str
+    position: int | None = None
+    command_id: str = "props.ladder_step"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_ladder_step(self.ladder_name, self.step_id, self.after, self.position)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_ladder_step(self.ladder_name, self.step_id, self.before, self.position)
+
+
+@dataclasses.dataclass
+class MoveLadderStepCommand:
+    """Reorder one step using only its old and new indices."""
+
+    ladder_name: str
+    step_id: str
+    before: int
+    after: int
+    label: str
+    command_id: str = "props.ladder_step_move"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.move_ladder_step(self.ladder_name, self.step_id, self.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.move_ladder_step(self.ladder_name, self.step_id, self.before)
+
+
+@dataclasses.dataclass
+class SetLadderLayoutCommand:
+    """Change a ladder's support or rung pattern, carrying only the two layouts."""
+
+    ladder_name: str
+    before: LadderLayout
+    after: LadderLayout
+    label: str
+    command_id: str = "props.ladder_layout"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_ladder_layout(self.ladder_name, self.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_ladder_layout(self.ladder_name, self.before)
 
 
 @dataclasses.dataclass

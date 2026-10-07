@@ -4,15 +4,24 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QEvent, QObject, QRegularExpression, QSettings, Qt, QTimer, Signal
+from PySide6.QtCore import (
+    QEvent,
+    QObject,
+    QPoint,
+    QRegularExpression,
+    Qt,
+    Signal,
+)
 from PySide6.QtGui import (
-    QAction,
+    QAccessible,
     QColor,
     QFontDatabase,
     QKeyEvent,
     QMouseEvent,
     QPainter,
     QPaintEvent,
+    QPen,
+    QPolygon,
     QRegularExpressionValidator,
     QResizeEvent,
 )
@@ -23,6 +32,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QSlider,
     QStyle,
@@ -31,29 +41,99 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from avialsync.ui.action_button import ActionButton
+from avialsync.core.settings_schema import setting_for
+from avialsync.ui.accessible_views import register_painted
+from avialsync.ui.app_settings import app_settings
+from avialsync.ui.design_tokens import DENSITY_ROW_HEIGHT, ControlRole, Density, apply_role, spacing
+from avialsync.ui.feedback.status_line import StatusLine
 from avialsync.ui.i18n import tr
+from avialsync.ui.icons import set_svg_icon
+from avialsync.ui.playback_rates import PLAYBACK_RATE_STEPS, rate_label
+from avialsync.ui.preferences_dialog import read_setting
+from avialsync.ui.scrub_bar import ScrubBar
 from avialsync.ui.theme import (
     evidence_color,
     follow_palette,
     loop_pin_color,
+    neutral_on_canvas,
+    separator_color,
     set_font_family,
-    status_color,
+    surface_color,
     system_accent,
 )
 from avialsync.ui.time_format import TimeDisplayMode, format_time
 
+#: Surface left above and below every mark in a lane, so rows read as a rhythm
+#: and a span never touches the one above it.
+_LANE_INSET = 4
 
-class JumpSlider(QSlider):
-    """A QSlider that instantly jumps to the clicked position."""
+#: Coverage and range fills are spans, not slabs: a tint of the colour, rounded,
+#: with the colour at full weight only at the two ends. What a coverage row says
+#: is where it *ends*; a full-weight block across the width of the window said
+#: that worst, and with the platform's real accent two of them were the loudest
+#: thing on screen.
+_SPAN_FILL_ALPHA = 110
+_SPAN_CAP_WIDTH = 2
+_SPAN_RADIUS = 3
 
-    def mousePressEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
-            val = self.minimum() + int(
-                (self.maximum() - self.minimum()) * event.position().x() / self.width()
-            )
-            self.setValue(val)
-        super().mousePressEvent(event)
+#: A lane whose marks are glyphs rather than spans draws them at two pixels and
+#: a little larger: a one-pixel outline at this size is legible on a screenshot
+#: and not on a screen, which is the difference between a mark being present and
+#: being findable.
+_GLYPH_WIDTH = 2
+_GLYPH_RADIUS = 5
+
+#: How far the identity lane's ground is lifted off the strip behind it. Small:
+#: enough that a diamond has something to be seen against, not so much that the
+#: row reads as selected.
+_GROUND_LIFT = 26
+
+
+def _lane_ground(palette: QColor | object) -> QColor:
+    """A slightly lighter bed for a lane whose marks are small glyphs.
+
+    Derived from the surface rather than stated, so it lifts on a dark theme
+    and settles on a light one instead of being a grey that only works in one.
+    """
+    base = surface_color(palette)  # type: ignore[arg-type]
+    dark = base.lightnessF() < 0.5
+    lift = _GROUND_LIFT if dark else -_GROUND_LIFT
+    return QColor(
+        max(0, min(255, base.red() + lift)),
+        max(0, min(255, base.green() + lift)),
+        max(0, min(255, base.blue() + lift)),
+    )
+
+
+#: A periodic train collapses to one tick per pixel column. Drawn full height at
+#: full weight that is a striped slab which says only "there are many of these";
+#: a shorter, lighter mark says the same thing without drowning the lane.
+_RUG_ALPHA = 200
+
+
+def _paint_span(
+    painter: QPainter, left: int, top: int, width: int, height: int, color: QColor
+) -> None:
+    """Fill one span as a tint of *color*, with *color* itself at both ends."""
+    width = max(2, width)
+    fill = QColor(color)
+    fill.setAlpha(_SPAN_FILL_ALPHA)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(fill)
+    painter.drawRoundedRect(left, top, width, height, _SPAN_RADIUS, _SPAN_RADIUS)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing, False)
+    cap = min(_SPAN_CAP_WIDTH, width)
+    painter.fillRect(left, top, cap, height, color)
+    painter.fillRect(left + width - cap, top, cap, height, color)
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+
+
+def _rug_pen(color: QColor) -> QPen:
+    """A light pen for dense event ticks."""
+    faded = QColor(color)
+    faded.setAlpha(_RUG_ALPHA)
+    return QPen(faded, 1)
 
 
 _EMPTY_TIMES = np.empty(0, dtype=np.float64)
@@ -125,14 +205,19 @@ class TimelineOverview(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setMinimumHeight(28)
-        self.setMaximumHeight(180)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._density = Density.COMPACT
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setMouseTracking(True)
         self.setToolTip(tr("Data Streams. Click to seek."))
         self.setAccessibleName(tr("Data Streams lanes"))
+        register_painted(
+            self, QAccessible.Role.Chart, self.accessible_value, self.accessible_detail
+        )
         self.setAccessibleDescription(
-            tr("Named data, synchronization, gap, and annotation evidence on the master timeline.")
+            tr(
+                "Named data, synchronization, gap, identity-swap, and annotation "
+                "evidence on the master timeline."
+            )
         )
         self._bounds = (0.0, 0.0)
         self._cursor = 0.0
@@ -143,6 +228,8 @@ class TimelineOverview(QWidget):
         self._ttl_events: tuple[tuple[float, str], ...] = ()
         self._gap_events: tuple[tuple[float, str], ...] = ()
         self._message_events: tuple[tuple[float, str], ...] = ()
+        self._identity_events: tuple[tuple[float, str], ...] = ()
+        self._identity_candidates: tuple[tuple[float, str], ...] = ()
         # Sorted time index per event lane.  Paint and hover binary-search this
         # instead of scanning every event, so a 100k-event session costs the
         # same per frame as a 100-event one (P3.5 P1 hot path).
@@ -150,6 +237,8 @@ class TimelineOverview(QWidget):
             "ttl": _EMPTY_TIMES,
             "gap": _EMPTY_TIMES,
             "message": _EMPTY_TIMES,
+            "identity": _EMPTY_TIMES,
+            "identity_candidate": _EMPTY_TIMES,
         }
         self._markers: tuple[tuple[float, float | None, str], ...] = ()
         self._viewport_start = 0.0
@@ -157,6 +246,7 @@ class TimelineOverview(QWidget):
         self._viewport_phase = 0.0
         self._dragging_viewport = False
         self._viewport_drag_offset = 0.0
+        self._on_evidence_changed()
 
     def changeEvent(self, event: QEvent) -> None:
         """Repaint the lanes when the platform appearance changes.
@@ -169,7 +259,21 @@ class TimelineOverview(QWidget):
         """
         if event.type() == QEvent.Type.PaletteChange:
             self.update()
+        elif event.type() == QEvent.Type.FontChange and hasattr(self, "_coverage"):
+            self._on_evidence_changed()
         super().changeEvent(event)
+
+    def set_density(self, density: Density) -> None:
+        """Resize evidence rows using the shared density token."""
+        self._density = density
+        self._on_evidence_changed()
+
+    def lane_height(self) -> int:
+        """Return a single readable row at the current font and density."""
+        return max(
+            self._MIN_LANE_HEIGHT,
+            self.fontMetrics().height() + DENSITY_ROW_HEIGHT[self._density],
+        )
 
     def set_bounds(self, t0: float, t1: float) -> None:
         """Set the shared master-time range rendered by this overview."""
@@ -242,6 +346,27 @@ class TimelineOverview(QWidget):
         self._event_times["message"] = _time_index(self._message_events)
         self._on_evidence_changed()
 
+    def set_identity_events(
+        self, events: list[float | tuple[float, str]] | tuple[float, ...]
+    ) -> None:
+        """Display accepted identity swaps, where a tracker lost track of who is who.
+
+        Beside the gap lane deliberately: both answer "where is this recording
+        not what it appears to be", and a reviewer looking for one is looking in
+        the same place for the other (D-141).
+        """
+        self._identity_events = _normalise_events(events)
+        self._event_times["identity"] = _time_index(self._identity_events)
+        self._on_evidence_changed()
+
+    def set_identity_candidates(
+        self, events: list[float | tuple[float, str]] | tuple[float, ...]
+    ) -> None:
+        """Show proposals from the selected braid slice as hollow diamonds."""
+        self._identity_candidates = _normalise_events(events)
+        self._event_times["identity_candidate"] = _time_index(self._identity_candidates)
+        self._on_evidence_changed()
+
     def _visible_event_x(self, kind: str, t0: float, t1: float) -> list[int]:
         """Return the distinct pixel columns of the events inside ``[t0, t1]``.
 
@@ -273,6 +398,8 @@ class TimelineOverview(QWidget):
             "ttl": self._ttl_events,
             "gap": self._gap_events,
             "message": self._message_events,
+            "identity": self._identity_events,
+            "identity_candidate": self._identity_candidates,
         }.get(kind, ())
 
     def _nearest_event(self, kind: str, time: float, tolerance: float):
@@ -295,26 +422,39 @@ class TimelineOverview(QWidget):
         self._markers = tuple(markers)
         self._on_evidence_changed()
 
+    def accessible_value(self) -> str:
+        """The playhead, read when assistive technology asks (D-179)."""
+        return tr("Playhead at {time} s").format(time=f"{self._cursor:.3f}")
+
+    def accessible_detail(self) -> str:
+        """Each lane: a source's span, or how many events or markers it carries."""
+        parts: list[str] = []
+        for label, _kind, payload in self._lanes():
+            if isinstance(payload, _CoverageLane):
+                parts.append(f"{label}: {payload.start:.3f}–{payload.end:.3f} s")
+            elif isinstance(payload, _EventLane):
+                parts.append(tr("{lane}: {n} events").format(lane=label, n=len(payload.events)))
+            elif isinstance(payload, _AnnotationLane):
+                parts.append(tr("{lane}: {n} markers").format(lane=label, n=len(payload.markers)))
+        return "; ".join(parts) or tr("No sources are loaded.")
+
     def lane_labels(self) -> list[str]:
         """Return the currently populated lanes, in their rendered order.
 
-        Read from the lanes themselves rather than rebuilt beside them: the two
-        listings have to agree on how many lanes there are, since the height
-        each one gets is the widget height divided by this count.
+        Read from the lanes themselves so the height and painted rows agree.
         """
         return [label for label, _, _ in self._lanes()]
 
     def _on_evidence_changed(self) -> None:
         """Refresh labels and ensure populated lanes have usable vertical space."""
         lane_count = max(1, len(self.lane_labels()))
-        requested_height = max(28, lane_count * self._MIN_LANE_HEIGHT + 4)
-        self.setMinimumHeight(min(180, requested_height))
+        self.setFixedHeight(max(28, lane_count * self.lane_height()))
         self.evidence_changed.emit()
         self.update()
 
     @staticmethod
     def _coverage_label(source_id: str, kind: str) -> str:
-        kind_label = "Video" if kind == "video" else "Data"
+        kind_label = {"video": tr("Video"), "imaging": tr("Imaging")}.get(kind, tr("Data"))
         return f"{kind_label} · {Path(source_id).name}"
 
     def _coverage_lanes(
@@ -371,6 +511,8 @@ class TimelineOverview(QWidget):
             lanes.append(("Sync / TTL", "ttl", _EventLane(self._ttl_events)))
         if self._gap_events:
             lanes.append(("Data gaps", "gap", _EventLane(self._gap_events)))
+        if self._identity_events or self._identity_candidates:
+            lanes.append(("Identity", "identity", _EventLane(self._identity_events)))
         if self._message_events:
             lanes.append(("Messages", "message", _EventLane(self._message_events)))
         if self._markers:
@@ -422,8 +564,15 @@ class TimelineOverview(QWidget):
             self._move_viewport(event.position().x(), exact=False)
             event.accept()
             return
-        detail = self._event_detail(event.position().x(), event.position().y())
-        self.setToolTip(detail or "Data Streams. Click to seek.")
+        x, y = event.position().x(), event.position().y()
+        if x < self._LABEL_WIDTH:
+            labels = self.lane_labels()
+            index = int(y // self.lane_height())
+            self.setToolTip(
+                labels[index] if 0 <= index < len(labels) else tr("Data Streams. Click to seek.")
+            )
+        else:
+            self.setToolTip(self._event_detail(x, y) or tr("Data Streams. Click to seek."))
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
@@ -449,7 +598,7 @@ class TimelineOverview(QWidget):
     def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
         palette = self.palette()
-        painter.fillRect(self.rect(), palette.color(palette.ColorRole.AlternateBase))
+        painter.fillRect(self.rect(), surface_color(palette))
         t0, t1 = self._bounds
         lanes = self._lanes()
         if t1 <= t0:
@@ -461,45 +610,93 @@ class TimelineOverview(QWidget):
         if not lanes:
             lanes = [("Navigator", "navigator", None)]
 
-        lane_height = max(self._MIN_LANE_HEIGHT, self.height() // len(lanes))
+        lane_height = self.lane_height()
         accent = system_accent(palette)
-        data_color = palette.color(palette.ColorRole.Link)
-        label_pen = palette.color(palette.ColorRole.WindowText)
+        data_color = evidence_color(palette, "data")
         label_width = min(self._LABEL_WIDTH, max(1, self.width() - 1))
         for lane_index, (label, lane_kind, payload) in enumerate(lanes):
             top = lane_index * lane_height
             bottom = min(self.height() - 1, top + lane_height - 1)
-            painter.setPen(label_pen)
             painter.fillRect(
                 0, top, label_width, lane_height, palette.color(palette.ColorRole.Base)
             )
+            # Muted: the label says which row this is, the row says the data.
+            # A label at full ink weight competes with the evidence beside it.
+            painter.setPen(neutral_on_canvas(palette, 0.88))
             painter.drawText(
-                4,
+                8,
                 top,
-                label_width - 8,
+                label_width - 14,
                 lane_height,
                 Qt.AlignmentFlag.AlignVCenter,
-                label,
+                painter.fontMetrics().elidedText(
+                    label, Qt.TextElideMode.ElideMiddle, max(1, label_width - 14)
+                ),
             )
-            painter.setPen(palette.color(palette.ColorRole.Mid))
+            painter.setPen(separator_color(palette))
             painter.drawLine(self._LABEL_WIDTH, bottom, self.width() - 1, bottom)
+            # Every row's marks sit inside the same inset, so the rows read as
+            # one rhythm and a span never touches the row above it.
+            band_top = top + _LANE_INSET
+            band_height = max(3, lane_height - 2 * _LANE_INSET)
             if isinstance(payload, _CoverageLane):
                 span = self._visible_span_x(payload.start, payload.end)
                 if span is None:
                     continue
                 left, right = span
                 color = accent if payload.kind == "video" else data_color
-                painter.fillRect(
-                    left, top + 2, max(1, right - left), max(2, lane_height - 4), color
-                )
+                _paint_span(painter, left, band_top, right - left, band_height, color)
             elif lane_kind == "ttl":
-                painter.setPen(accent)
+                # A rug, not a picket fence. A periodic train collapses to one
+                # tick per pixel column, and at full height that is a striped
+                # slab saying only "there are many" -- which is exactly what a
+                # shorter, lighter mark says without shouting it.
+                painter.setPen(_rug_pen(accent))
+                foot = band_top + band_height
                 for x in self._visible_event_x("ttl", t0, t1):
-                    painter.drawLine(x, top + 2, x, bottom - 2)
+                    painter.drawLine(x, foot - max(3, band_height // 2), x, foot)
             elif lane_kind == "gap":
                 painter.setPen(evidence_color(palette, "gap"))
                 for x in self._visible_event_x("gap", t0, t1):
-                    painter.drawLine(x, top + 2, x, bottom - 2)
+                    painter.drawLine(x, band_top, x, band_top + band_height)
+            elif lane_kind == "identity":
+                # This lane's marks are small glyphs rather than spans, and a
+                # small glyph on the strip's own mid-grey is the one thing a
+                # person is hunting for and the hardest thing to find. The lane
+                # gets a lighter ground to sit on, taken from the palette so it
+                # lifts on dark and settles on light.
+                painter.fillRect(
+                    label_width,
+                    band_top,
+                    max(0, self.width() - 1 - label_width),
+                    band_height,
+                    _lane_ground(palette),
+                )
+                # Two crossing strokes, not a tick: this lane says two labels
+                # exchanged, and the glyph says it without relying on its
+                # colour (rule 17).
+                painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+                painter.setPen(QPen(evidence_color(palette, "identity"), _GLYPH_WIDTH))
+                for x in self._visible_event_x("identity", t0, t1):
+                    painter.drawLine(x - 3, band_top, x + 3, band_top + band_height)
+                    painter.drawLine(x + 3, band_top, x - 3, band_top + band_height)
+                # The same hue at the same strength. Fading a proposal was the
+                # obvious way to say "not yet" and it said "not there" instead;
+                # hollow against the accepted crossing's stroke carries it
+                # without spending contrast (rule 17).
+                painter.setPen(QPen(evidence_color(palette, "identity"), _GLYPH_WIDTH))
+                middle = (top + bottom) // 2
+                for x in self._visible_event_x("identity_candidate", t0, t1):
+                    painter.drawPolygon(
+                        QPolygon(
+                            [
+                                QPoint(x, middle - _GLYPH_RADIUS),
+                                QPoint(x + _GLYPH_RADIUS, middle),
+                                QPoint(x, middle + _GLYPH_RADIUS),
+                                QPoint(x - _GLYPH_RADIUS, middle),
+                            ]
+                        )
+                    )
             elif lane_kind == "message":
                 # Neither the accent nor the defect red: a note the experimenter
                 # typed is neither a sync match nor an error, and colouring it
@@ -507,7 +704,7 @@ class TimelineOverview(QWidget):
                 # accent, so that separation holds under any theme.
                 painter.setPen(evidence_color(palette, "message"))
                 for x in self._visible_event_x("message", t0, t1):
-                    painter.drawLine(x, top + 2, x, bottom - 2)
+                    painter.drawLine(x, band_top, x, band_top + band_height)
             elif isinstance(payload, _AnnotationLane):
                 for start, end, marker_color in payload.markers:
                     span = self._visible_span_x(start, start if end is None else end)
@@ -515,16 +712,15 @@ class TimelineOverview(QWidget):
                         continue
                     left, right = span
                     if end is None:
-                        painter.fillRect(
-                            left, top + 2, 2, max(2, lane_height - 4), QColor(marker_color)
-                        )
+                        painter.fillRect(left, band_top, 2, band_height, QColor(marker_color))
                     else:
-                        painter.fillRect(
+                        _paint_span(
+                            painter,
                             left,
-                            top + 2,
-                            max(2, right - left),
-                            max(2, lane_height - 4),
-                            QColor(marker_color).darker(130),
+                            band_top,
+                            right - left,
+                            band_height,
+                            QColor(marker_color),
                         )
 
         viewport = self._visible_span_x(
@@ -549,8 +745,8 @@ class TimelineOverview(QWidget):
             return ""
         lanes = self._lanes()
         if not lanes:
-            return f"Navigator\nMaster time: {self._time_at_x(x):.6f} s"
-        lane_height = max(self._MIN_LANE_HEIGHT, self.height() // len(lanes))
+            return f"Navigator\nMaster time: {self._time_at_x(x):.3f} s"
+        lane_height = self.lane_height()
         lane_index = min(len(lanes) - 1, int(y // lane_height))
         label, kind, payload = lanes[lane_index]
         time = self._time_at_x(x)
@@ -560,139 +756,110 @@ class TimelineOverview(QWidget):
                 source = Path(payload.source_id).name
                 if payload.members > 1:
                     source = f"{source} ({payload.members} sources)"
-                return f"Coverage\nSource: {source}\nMaster time: {time:.6f} s"
-        if kind in {"ttl", "gap", "message"}:
+                return f"Coverage\nSource: {source}\nMaster time: {time:.3f} s"
+        if kind in {"ttl", "gap", "message", "identity"}:
+            if kind == "identity":
+                candidate = self._nearest_event("identity_candidate", time, tolerance)
+                accepted = self._nearest_event("identity", time, tolerance)
+                if candidate is not None and (
+                    accepted is None or abs(candidate[0] - time) < abs(accepted[0] - time)
+                ):
+                    return tr("Possible identity swap\nMaster time: {time:.3f} s\n{detail}").format(
+                        time=candidate[0], detail=candidate[1]
+                    )
             nearest = self._nearest_event(kind, time, tolerance)
             if nearest is not None:
                 event_name = {
                     "ttl": "Accepted sync / TTL event",
                     "gap": "Imported data gap",
                     "message": "Recorded message",
+                    "identity": "Accepted identity swap",
                 }[kind]
                 extra = f"\n{nearest[1]}" if nearest[1] else ""
-                return f"{event_name}\nMaster time: {nearest[0]:.6f} s{extra}"
+                return f"{event_name}\nMaster time: {nearest[0]:.3f} s{extra}"
         if isinstance(payload, _AnnotationLane):
             for start, end, _ in payload.markers:
                 if start - tolerance <= time <= (end if end is not None else start) + tolerance:
-                    return f"Annotation\nMaster time: {start:.6f} s"
-        return f"{label}\nMaster time: {time:.6f} s"
+                    return f"Annotation\nMaster time: {start:.3f} s"
+        return f"{label}\nMaster time: {time:.3f} s"
 
 
 class TimelineEvidence(QWidget):
     """Titled, collapsible Data Streams shell for named TimelineOverview lanes."""
 
-    snapshot_requested = Signal()
-    reset_zoom_requested = Signal()
-    flag_requested = Signal()
-    fullscreen_requested = Signal()
-
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._settings = QSettings("AvialSync", "AvialSync")
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        self._settings = app_settings()
+        self._layout = QVBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.setSpacing(0)
         header = QHBoxLayout()
-        header.setContentsMargins(2, 0, 2, 0)
-        header.setSpacing(6)
-        self.title = QLabel("Data Streams", self)
+        header.setContentsMargins(spacing("xs"), 0, spacing("xs"), 0)
+        header.setSpacing(spacing("s"))
+        self.title = QLabel(tr("Data Streams"), self)
         self.title.setAccessibleName(tr("Data Streams title"))
         header.addWidget(self.title)
-        self.collapse_button = QPushButton("Hide", self)
+        self.collapse_button = QPushButton(tr("Hide"), self)
         self.collapse_button.setAccessibleName(tr("Hide Data Streams"))
         self.collapse_button.setToolTip(tr("Hide or show the Data Streams lanes"))
         self.collapse_button.clicked.connect(self.toggle_collapsed)
         header.addWidget(self.collapse_button)
-        self.flag_button = QPushButton("Flag Frame", self)
-        self.flag_button.setToolTip(tr("Flag the current frame (M)"))
-        self.flag_button.clicked.connect(self.flag_requested.emit)
-        header.addWidget(self.flag_button)
-        # Filled by install_fix_tracker_action once the window has built the
-        # QAction; kept in the layout from the start so adding it later does
-        # not shuffle the row. A push button like the ones either side of it --
-        # a QToolButton with a default action is Qt's shortcut for this and does
-        # not look like its neighbours (see ui/action_button.py).
-        self.fix_tracker_button = ActionButton(self)
-        header.addWidget(self.fix_tracker_button)
         header.addStretch(1)
-        self.snapshot_button = QPushButton("Snapshot", self)
-        self.snapshot_button.setToolTip(tr("Export snapshot (Ctrl+E)"))
-        self.snapshot_button.clicked.connect(self.snapshot_requested.emit)
-        header.addWidget(self.snapshot_button)
-        self.fullscreen_button = QPushButton("Fullscreen Toggle", self)
-        self.fullscreen_button.setToolTip(tr("Toggle the active video pane fullscreen (F11)"))
-        self.fullscreen_button.clicked.connect(self.fullscreen_requested.emit)
-        header.addWidget(self.fullscreen_button)
-        self.reset_zoom_button = QPushButton("Reset Zoom", self)
-        self.reset_zoom_button.setToolTip(tr("Reset plot zoom to all loaded data (Ctrl+0)"))
-        self.reset_zoom_button.clicked.connect(self.reset_zoom_requested.emit)
-        header.addWidget(self.reset_zoom_button)
-        self._status_label = QLabel(self)
-        self._status_label.setAccessibleName(tr("Application status"))
-        self._status_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self._status_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        self._status_label.setToolTip(tr("Non-blocking application status"))
-        self._status_label.hide()
-        # The severity is state, so the builder reads it rather than closing over
-        # one value: a theme switch must re-colour whatever severity is showing
-        # at that moment, not the one this widget was built with.
-        self._status_severity = "info"
-        follow_palette(
-            self._status_label,
-            lambda palette: f"color: {status_color(palette, self._status_severity).name()};",
-        )
-        self._status_clear_timer = QTimer(self)
-        self._status_clear_timer.setSingleShot(True)
-        self._status_clear_timer.timeout.connect(self._clear_status)
-        header.addWidget(self._status_label)
-        layout.addLayout(header)
         self.overview = TimelineOverview(self)
-        layout.addWidget(self.overview)
+        self.lane_scroll = QScrollArea(self)
+        self.lane_scroll.setAccessibleName(tr("Data Streams scroll area"))
+        self.lane_scroll.setAccessibleDescription(
+            tr("Scroll vertically to inspect additional Data Streams lanes.")
+        )
+        self.lane_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.lane_scroll.setWidgetResizable(True)
+        self.lane_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.lane_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.lane_scroll.setWidget(self.overview)
+        self._layout.addLayout(header)
+        self._layout.addWidget(self.lane_scroll)
+        self.overview.evidence_changed.connect(self._resize_lanes)
+        self.reload_preferences()
         collapsed = bool(self._settings.value("timeline_evidence/collapsed", False, type=bool))
         self.set_collapsed(collapsed, persist=False)
 
-    def install_fix_tracker_action(self, action: QAction) -> None:
-        """Show the Fix Tracker toggle, driven by the menu's own QAction.
+    def reload_preferences(self) -> None:
+        """Apply density and its row cap after a preference or font change."""
+        density_setting = setting_for("interface/density")
+        assert density_setting is not None
+        raw_density = read_setting(density_setting)
+        try:
+            density = Density(raw_density)
+        except ValueError:
+            density = Density(density_setting.default)
+        self._density = density
+        cap_setting = setting_for(f"timeline/{density.value}_visible_lanes")
+        assert cap_setting is not None
+        self._visible_cap = max(1, min(32, read_setting(cap_setting)))
+        self.overview.set_density(density)
+        self._resize_lanes()
 
-        The label, tooltip and checked state come from the action, so the button
-        cannot drift out of step with the menu entry that does the same thing
-        (architecture rule 15).
-        """
-        self.fix_tracker_button.set_action(action)
-        self.fix_tracker_button.setAccessibleDescription(
-            tr("Toggle dragging of tracked points in every video pane")
-        )
+    def _resize_lanes(self) -> None:
+        visible = min(self._visible_cap, max(1, len(self.overview.lane_labels())))
+        self.lane_scroll.setFixedHeight(max(28, visible * self.overview.lane_height()))
+        self._limit_shell_height()
+
+    def _limit_shell_height(self) -> None:
+        """Return unused splitter space to the video and plots."""
+        self._layout.activate()
+        self.setMaximumHeight(self._layout.sizeHint().height())
 
     def toggle_collapsed(self) -> None:
         self.set_collapsed(not self.overview.isHidden())
 
-    def status_text(self) -> str:
-        """The currently displayed status message, without its label prefix."""
-        return self._status_label.text().removeprefix("Status: ")
-
-    def set_status(self, message: str, severity: str = "info") -> None:
-        """Show active work beside Reset Zoom and clear non-active messages shortly after."""
-        self._status_severity = severity
-        self._status_label.setText(f"Status: {message}")
-        self._status_label.setStyleSheet(
-            f"color: {status_color(self._status_label.palette(), severity).name()};"
-        )
-        self._status_label.show()
-        if severity == "busy":
-            self._status_clear_timer.stop()
-        else:
-            self._status_clear_timer.start(5000)
-
-    def _clear_status(self) -> None:
-        self._status_label.clear()
-        self._status_label.hide()
-
     def set_collapsed(self, collapsed: bool, *, persist: bool = True) -> None:
         self.overview.setVisible(not collapsed)
-        self.collapse_button.setText("Show" if collapsed else "Hide")
+        self.lane_scroll.setVisible(not collapsed)
+        self.collapse_button.setText(tr("Show") if collapsed else tr("Hide"))
         self.collapse_button.setAccessibleName(
-            "Show Data Streams" if collapsed else "Hide Data Streams"
+            tr("Show Data Streams") if collapsed else tr("Hide Data Streams")
         )
+        self._limit_shell_height()
         if persist:
             self._settings.setValue("timeline_evidence/collapsed", collapsed)
 
@@ -734,48 +901,42 @@ class Transport(QWidget):
     A/B loop, rate control, and inline time display / jump.
 
     New signals (D-022):
-      snapshot_requested   — snapshot button or Ctrl+E
-      fullscreen_requested — fullscreen button or F11
       jump_requested(float)— jump ±Ns (negative = back)
+
+    Snapshot and Fullscreen moved to the ViewToolbar under the videos, and the
+    Data Streams "Reset Zoom" -- a twin of the plots' own Reset -- was removed
+    (D-126).
     """
 
     play_toggled = Signal(bool)
     seek_requested = Signal(float, bool)  # t, exact
     rate_changed = Signal(float)
     frame_step_requested = Signal(int)  # -1 or +1
-    annotate_requested = Signal()
     ab_loop_changed = Signal(object, object)  # t_in|None, t_out|None
-    snapshot_requested = Signal()
-    fullscreen_requested = Signal()
     jump_requested = Signal(float)  # delta in seconds
-    reset_zoom_requested = Signal()
 
     # Ordered playback-rate steps (J/K/L model, D-022.4)
-    _RATE_STEPS = [0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 10.0]
+    _RATE_STEPS = PLAYBACK_RATE_STEPS
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._root_layout = QVBoxLayout(self)
-        self._root_layout.setContentsMargins(5, 3, 5, 5)
-        self._root_layout.setSpacing(2)
+        self._root_layout.setContentsMargins(
+            spacing("s"), spacing("xs"), spacing("s"), spacing("s")
+        )
+        self._root_layout.setSpacing(spacing("xs"))
         self._timeline_layout = QHBoxLayout()
-        self._timeline_layout.setSpacing(5)
-        self._controls_layout = QHBoxLayout()
-        self._controls_layout.setSpacing(4)
+        self._timeline_layout.setSpacing(spacing("s"))
         self.evidence = TimelineEvidence(self)
+        self.status_line = StatusLine(self)
         self.overview = self.evidence.overview
         self.overview.seek_requested.connect(lambda t: self.seek_requested.emit(t, True))
         self.overview.viewport_seek_requested.connect(
             lambda t, exact: self.seek_requested.emit(t, exact)
         )
-        self.evidence.snapshot_requested.connect(self.snapshot_requested.emit)
-        self.evidence.reset_zoom_requested.connect(self.reset_zoom_requested.emit)
-        self.evidence.flag_requested.connect(self.annotate_requested.emit)
-        self.evidence.fullscreen_requested.connect(self.fullscreen_requested.emit)
         self._root_layout.addWidget(self.evidence)
         self._root_layout.addLayout(self._timeline_layout)
-        self._root_layout.addLayout(self._controls_layout)
 
         # ── Timeline row: playhead controls, scrub bar, A/B, end time, rate ──
         mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
@@ -800,8 +961,9 @@ class Transport(QWidget):
         self._time_edit.textEdited.connect(self._on_text_edited)
         self._timeline_layout.addWidget(self._time_edit)
 
-        self.slider = JumpSlider(Qt.Orientation.Horizontal)
+        self.slider = ScrubBar(self)
         self.slider.setRange(0, 10000)
+        self.slider.setAccessibleName(tr("Master timeline scrubber"))
         self.slider.setToolTip(tr("Master timeline — drag to scrub; release for an exact seek"))
         self.slider.sliderPressed.connect(self._on_slider_pressed)
         self.slider.sliderMoved.connect(self._on_slider_moved)
@@ -812,69 +974,80 @@ class Transport(QWidget):
         self._end_time_label.setMinimumWidth(110)
         self._end_time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         set_font_family(self._end_time_label, mono_font)
-        self._end_time_label.setToolTip(tr("End of the loaded master timeline"))
+        self._end_time_label.setToolTip(
+            tr("End of the loaded master timeline; plot Time span is the width of the current page")
+        )
         self._timeline_layout.addWidget(self._end_time_label)
 
         # ── Jump back 1 s ─────────────────────────────────────────────
-        self._jump_back_btn = QPushButton("–1s")
-        self._jump_back_btn.setFixedWidth(36)
+        self._jump_back_btn = QPushButton(tr("Back 1 s"))
+        self._jump_back_btn.setAccessibleName(tr("Jump back one second"))
         self._jump_back_btn.setToolTip(tr("Jump back 1 second (J or Shift+←)"))
+        apply_role(self._jump_back_btn, ControlRole.TOOL, "jump-back")
         self._jump_back_btn.clicked.connect(lambda: self.jump_requested.emit(-1.0))
 
         # ── Frame step back ───────────────────────────────────────────
-        self._step_back_btn = QPushButton("◀")
-        self._step_back_btn.setFixedWidth(28)
+        self._step_back_btn = QPushButton(tr("Prev frame"))
+        self._step_back_btn.setAccessibleName(tr("Step back one frame"))
         self._step_back_btn.setToolTip(tr("Step back 1 frame (← or ,)"))
+        apply_role(self._step_back_btn, ControlRole.TOOL, "frame-back")
         self._step_back_btn.clicked.connect(lambda: self.frame_step_requested.emit(-1))
 
         # ── Play / Pause ──────────────────────────────────────────────
-        self.play_btn = QPushButton("Play")
-        self.play_btn.setFixedWidth(58)
+        self.play_btn = QPushButton(tr("Play"))
         self.play_btn.setCheckable(True)
+        apply_role(self.play_btn, ControlRole.PRIMARY, "play")
+        # Wide enough for either label, so toggling playback does not reflow
+        # the row under the pointer.
+        self.play_btn.setText(tr("Pause"))
+        self.play_btn.setMinimumWidth(max(60, self.play_btn.sizeHint().width()))
+        self.play_btn.setText(tr("Play"))
+        self.play_btn.setAccessibleName(tr("Start playback"))
         self.play_btn.setToolTip(tr("Play / Pause (Space)"))
         self.play_btn.clicked.connect(self._on_play_clicked)
 
         # ── Frame step forward ────────────────────────────────────────
-        self._step_fwd_btn = QPushButton("▶")
-        self._step_fwd_btn.setFixedWidth(28)
+        self._step_fwd_btn = QPushButton(tr("Next frame"))
+        self._step_fwd_btn.setAccessibleName(tr("Step forward one frame"))
         self._step_fwd_btn.setToolTip(tr("Step forward 1 frame (→ or .)"))
+        apply_role(self._step_fwd_btn, ControlRole.TOOL, "frame-forward")
         self._step_fwd_btn.clicked.connect(lambda: self.frame_step_requested.emit(1))
 
         # ── Jump forward 1 s ──────────────────────────────────────────
-        self._jump_fwd_btn = QPushButton("+1s")
-        self._jump_fwd_btn.setFixedWidth(36)
+        self._jump_fwd_btn = QPushButton(tr("Forward 1 s"))
+        self._jump_fwd_btn.setAccessibleName(tr("Jump forward one second"))
         self._jump_fwd_btn.setToolTip(tr("Jump forward 1 second (Shift+→)"))
+        apply_role(self._jump_fwd_btn, ControlRole.TOOL, "jump-forward")
         self._jump_fwd_btn.clicked.connect(lambda: self.jump_requested.emit(1.0))
 
         # ── A/B loop buttons (checkable — D-022.5) ────────────────────
-        self._ab_in_btn = QPushButton("[")
-        self._ab_in_btn.setFixedWidth(28)
+        self._ab_in_btn = QPushButton(tr("Set In"))
         self._ab_in_btn.setCheckable(True)
-        self._ab_in_btn.setToolTip(tr("Set loop in-point here ([ or I)"))
+        self._ab_in_btn.setAccessibleName(tr("Set loop in-point"))
+        self._ab_in_btn.setToolTip(tr("Set the loop start here (I)"))
+        apply_role(self._ab_in_btn, ControlRole.TOOL, "loop-in")
         self._ab_in_btn.clicked.connect(self._on_ab_in_clicked)
 
-        self._ab_out_btn = QPushButton("]")
-        self._ab_out_btn.setFixedWidth(28)
+        self._ab_out_btn = QPushButton(tr("Set Out"))
         self._ab_out_btn.setCheckable(True)
-        self._ab_out_btn.setToolTip(tr("Set loop out-point here (] or O)"))
+        self._ab_out_btn.setAccessibleName(tr("Set loop out-point"))
+        self._ab_out_btn.setToolTip(tr("Set the loop end here (O)"))
+        apply_role(self._ab_out_btn, ControlRole.TOOL, "loop-out")
         self._ab_out_btn.clicked.connect(self._on_ab_out_clicked)
 
-        self._ab_clear_btn = QPushButton("✕")
-        self._ab_clear_btn.setFixedWidth(24)
+        self._ab_clear_btn = QPushButton(tr("Clear Loop"))
+        self._ab_clear_btn.setAccessibleName(tr("Clear loop points"))
         self._ab_clear_btn.setToolTip(tr("Clear A/B loop"))
+        apply_role(self._ab_clear_btn, ControlRole.TOOL, "loop-clear")
         self._ab_clear_btn.clicked.connect(self._on_ab_clear)
 
         # ── Rate combo (0.01× – 10×) ──────────────────────────────────
         self.rate_combo = QComboBox()
         for r in self._RATE_STEPS:
-            label = f"{r}x" if r >= 0.1 else f"{r:.2f}x"
-            self.rate_combo.addItem(label, r)
+            self.rate_combo.addItem(rate_label(r), r)
         self.rate_combo.setCurrentText("1.0x")
         self.rate_combo.setToolTip(tr("Playback rate (L = step up, K = pause)"))
         self.rate_combo.currentIndexChanged.connect(self._on_rate_changed)
-        self._speed_label = QLabel("Speed", self)
-        self._speed_label.setToolTip(tr("Playback speed selector"))
-
         playhead_buttons = (
             self._jump_back_btn,
             self._step_back_btn,
@@ -884,13 +1057,8 @@ class Transport(QWidget):
         )
         for index, button in enumerate(playhead_buttons):
             self._timeline_layout.insertWidget(index, button)
-        end_time_index = self._timeline_layout.indexOf(self._end_time_label)
-        for index, button in enumerate(
-            (self._ab_in_btn, self._ab_out_btn, self._ab_clear_btn), start=end_time_index + 1
-        ):
-            self._timeline_layout.insertWidget(index, button)
-
-        self._timeline_layout.addWidget(self._speed_label)
+        for button in (self._ab_in_btn, self._ab_out_btn, self._ab_clear_btn):
+            self._timeline_layout.addWidget(button)
         self._timeline_layout.addWidget(self.rate_combo)
 
         self._bounds = (0.0, 0.0)
@@ -899,6 +1067,8 @@ class Transport(QWidget):
         self._ab_out_t: float | None = None
         self._time_mode = TimeDisplayMode.RELATIVE
         self._t_epoch = 0.0
+        self.overview.evidence_changed.connect(self._sync_scrub_track)
+        self._sync_scrub_track()
 
         # Overlay pins for A/B markers
         self._pin_in = _ABPin("in", self)
@@ -917,10 +1087,6 @@ class Transport(QWidget):
         """Set the A/B loop in-point at the current slider position (public, D-022.1)."""
         self._on_ab_in()
 
-    def install_fix_tracker_action(self, action: QAction) -> None:
-        """Expose the Fix Tracker toggle in the Data Streams header."""
-        self.evidence.install_fix_tracker_action(action)
-
     def detach_data_streams(self) -> TimelineEvidence:
         """Detach Data Streams so the main workspace splitter can own its height."""
         index = self._root_layout.indexOf(self.evidence)
@@ -933,6 +1099,18 @@ class Transport(QWidget):
     def ab_out(self) -> None:
         """Set the A/B loop out-point at the current slider position (public, D-022.1)."""
         self._on_ab_out()
+
+    def set_ab_region(self, start: float, end: float) -> None:
+        """Show a review span using the same A/B pins as the transport buttons."""
+        low, high = self._bounds
+        self._ab_in_t = max(low, min(high, float(start)))
+        self._ab_out_t = max(self._ab_in_t, min(high, float(end)))
+        self._ab_in_btn.setChecked(True)
+        self._ab_out_btn.setChecked(True)
+        self._pin_in.pin_to_slider(self.slider, self._time_to_frac(self._ab_in_t))
+        self._pin_out.pin_to_slider(self.slider, self._time_to_frac(self._ab_out_t))
+        self._sync_scrub_track()
+        self.ab_loop_changed.emit(self._ab_in_t, self._ab_out_t)
 
     @property
     def bounds(self) -> tuple[float, float]:
@@ -947,6 +1125,17 @@ class Transport(QWidget):
         self._bounds = (t0, t1)
         self._end_time_label.setText(format_time(t1, self._time_mode, self._t_epoch))
         self.overview.set_bounds(t0, t1)
+        self._sync_scrub_track()
+
+    def _sync_scrub_track(self) -> None:
+        """Snapshot changed evidence for the slider, never called by a cursor tick."""
+        coverage = tuple((start, end) for start, end, _, _ in self.overview._coverage.values())
+        self.slider.set_track_data(
+            self._bounds,
+            coverage,
+            self.overview._markers,
+            (self._ab_in_t, self._ab_out_t),
+        )
 
     def set_time_mode(self, mode: TimeDisplayMode) -> None:
         self._time_mode = mode
@@ -969,11 +1158,11 @@ class Transport(QWidget):
 
     def status_text(self) -> str:
         """The currently displayed status message."""
-        return self.evidence.status_text()
+        return self.status_line.status_text()
 
     def set_status(self, message: str, severity: str = "info") -> None:
-        """Show compact, non-blocking status text beside Reset Zoom."""
-        self.evidence.set_status(message, severity)
+        """Show compact, non-blocking status text in the status bar."""
+        self.status_line.set_status(message, severity)
 
     def set_source_coverage(
         self, source_id: str, t0: float, t1: float, kind: str, group: str = ""
@@ -1004,6 +1193,18 @@ class Transport(QWidget):
         """Show messages the sources recorded in the overview strip."""
         self.overview.set_message_events(events)
 
+    def set_identity_events(
+        self, events: list[float | tuple[float, str]] | tuple[float, ...]
+    ) -> None:
+        """Show accepted identity swaps as crossings in the overview strip."""
+        self.overview.set_identity_events(events)
+
+    def set_identity_candidates(
+        self, events: list[float | tuple[float, str]] | tuple[float, ...]
+    ) -> None:
+        """Show proposals for the currently selected identity group and part."""
+        self.overview.set_identity_candidates(events)
+
     def set_annotation_markers(self, markers: list[tuple[float, float | None, str]]) -> None:
         """Show point and range annotations in the overview strip."""
         self.overview.set_markers(markers)
@@ -1030,7 +1231,9 @@ class Transport(QWidget):
     def set_playing(self, playing: bool) -> None:
         self.play_btn.blockSignals(True)
         self.play_btn.setChecked(playing)
-        self.play_btn.setText("Pause" if playing else "Play")
+        self.play_btn.setText(tr("Pause") if playing else tr("Play"))
+        set_svg_icon(self.play_btn, "pause" if playing else "play")
+        self.play_btn.setAccessibleName(tr("Pause playback") if playing else tr("Start playback"))
         self.play_btn.blockSignals(False)
 
     def step_rate_up(self) -> None:
@@ -1104,6 +1307,7 @@ class Transport(QWidget):
         self._ab_in_t = self._t_from_slider(self.slider.value())
         self._ab_in_btn.setChecked(True)
         self._pin_in.pin_to_slider(self.slider, self._time_to_frac(self._ab_in_t))
+        self._sync_scrub_track()
         self.ab_loop_changed.emit(self._ab_in_t, self._ab_out_t)
 
     def _on_ab_in_clicked(self, _checked: bool = False) -> None:
@@ -1115,6 +1319,7 @@ class Transport(QWidget):
         self._ab_out_t = self._t_from_slider(self.slider.value())
         self._ab_out_btn.setChecked(True)
         self._pin_out.pin_to_slider(self.slider, self._time_to_frac(self._ab_out_t))
+        self._sync_scrub_track()
         self.ab_loop_changed.emit(self._ab_in_t, self._ab_out_t)
 
     def _on_ab_out_clicked(self, _checked: bool = False) -> None:
@@ -1128,6 +1333,7 @@ class Transport(QWidget):
         self._ab_out_btn.setChecked(False)
         self._pin_in.hide()
         self._pin_out.hide()
+        self._sync_scrub_track()
         self.ab_loop_changed.emit(None, None)
 
     def _on_jump(self) -> None:

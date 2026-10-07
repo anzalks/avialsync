@@ -35,6 +35,7 @@ def rigged_player(qapp: QApplication) -> tuple[Player, MagicMock, MagicMock, Mag
     player = Player.__new__(Player)
     player.plot_pane = plot_pane
     player.transport = transport
+    player.video_grid = MagicMock()
     player.tracking_3d_pane = pose
     player._readout_panel = readout
     player._last_presentation_at = 0.0
@@ -75,6 +76,22 @@ def test_forced_update_bypasses_the_rate_limit(rigged_player) -> None:
     player._update_timeline_views(0.002, now=0.002, force=True)
 
     assert readout.set_cursor.call_count == 3
+
+
+def test_readout_receives_authoritative_video_frame_records(rigged_player) -> None:
+    player, _plot, readout, _pose = rigged_player
+    player.video_grid.frame_records_at.return_value = [
+        {
+            "path": "/recording/FaceCam.mp4",
+            "frame_index": 37,
+            "media_timestamp": 1.2345,
+        }
+    ]
+
+    player._update_timeline_views(2.0, now=1.0, force=True)
+
+    readout.set_camera_frame_records.assert_called_once_with([("FaceCam.mp4", 37, 1.2345)])
+    player.video_grid.frame_records_at.assert_called_once_with(2.0)
 
 
 def test_presentation_never_samples_the_clock_itself(rigged_player, monkeypatch) -> None:

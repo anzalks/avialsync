@@ -40,6 +40,13 @@ def widget(qtbot) -> VideoInfoWidget:
 
 
 class TestTheBadgeSaysWhatTheFileCannot:
+    def test_the_badge_has_a_clear_native_icon(self, widget: VideoInfoWidget) -> None:
+        """Source findings use an icon with a usable click target, not emoji text."""
+        assert widget._badge_btn.text() == ""
+        assert not widget._badge_btn.icon().isNull()
+        assert widget._badge_btn.size().width() == 24
+        assert widget._badge_btn.accessibleName() == "Source issues"
+
     def test_an_unaligned_source_is_reported_as_unaligned(self, widget: VideoInfoWidget) -> None:
         """A clean file with no accepted alignment still has something to say."""
         widget.set_inspection(SourceInspection(path=CAMERA))
@@ -62,7 +69,7 @@ class TestTheBadgeSaysWhatTheFileCannot:
         assert "set by hand" in widget._badge_btn.toolTip()
 
     def test_a_screen_reader_gets_the_findings_too(self, widget: VideoInfoWidget) -> None:
-        """Rule 17: a coloured glyph is not a report."""
+        """Rule 17: a coloured button is not a report."""
         widget.set_inspection(SourceInspection(path=CAMERA))
         widget.set_alignment("no accepted alignment", accepted=False)
 
@@ -86,7 +93,7 @@ class TestTheWindowKeepsItCurrent:
                 reference_id="/tmp/ephys.csv",
                 target_id=CAMERA,
                 offset=1.0,
-                drift_ppm=0.0,
+                drift_ms_per_hour=0.0,
                 rms_residual=0.001,
                 max_residual=0.003,
                 matched_count=47,
@@ -109,7 +116,7 @@ class TestTheWindowKeepsItCurrent:
                 reference_id="/tmp/ephys.csv",
                 target_id=CAMERA,
                 offset=1.25,
-                drift_ppm=0.0,
+                drift_ms_per_hour=0.0,
                 rms_residual=0.0,
                 max_residual=0.0,
                 matched_count=0,
