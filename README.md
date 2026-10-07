@@ -48,7 +48,7 @@ pane draws. Nothing in AvialSync knows this lab's format.*
   playback speed for high-speed footage; see the
   [illustrated export demo](https://avialsync.readthedocs.io/en/latest/tutorials/annotating-and-exporting.html#export-an-event-aligned-video-grid-with-its-ttl-trace).
 - Correction of a wrong pose estimate by hand, saved beside the pose file and exportable either as
-  corrected data or as a DeepLabCut retraining set.
+  corrected data or as a DeepLabCut or single-view Lightning Pose retraining set.
 - Repair of a tracker that swapped two animals or left/right body parts, by accepting the crossings
   it proposes; the original pose file is never modified.
 - Physical apparatus — wheels, ladders, treadmill belts and balls in one Props inspector. Ladders

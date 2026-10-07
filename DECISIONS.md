@@ -6304,3 +6304,25 @@ Export prompts follow D-196: a save or folder prompt takes its title from its Fi
 `i18n.untranslated_calls` reads the titles passed to `choose_file` and `choose_folder`. The Exports
 page has no heading of its own, since its tab names it, and uses its sibling pages' margins. A
 folder prompt opens in that kind's last folder.
+
+## 2026-10 · D-198 · Retraining exports are copyable, complete project-root trees
+
+**Decision.** Export Changes offers a new bundle folder for each corrected pose source. Its
+contents, rather than the folder itself, are copied into an existing pose-training project root;
+the export never asks for or writes into that project. The user enters the project's scorer name.
+The DeepLabCut profile writes `labeled-data/<video>/CollectedData_<scorer>.csv` and its PNGs;
+multi-animal sources retain the `individuals` header. The Lightning Pose profile writes a
+single-view `CollectedData.csv` at the bundle root and its PNGs under `labeled-data/<video>/`.
+Lightning Pose multiview is not represented by independently exported view files: its rows must be
+matched across cameras using accepted timing evidence before such a profile can be offered.
+
+The worker publishes the bundle as one directory only after every requested frame decodes, every
+PNG saves, and all written coordinates are finite and inside the image. A failure or cancellation
+leaves no partial training set; an existing bundle is left alone. High-bit-depth greyscale frames
+use the same worker-side display window as the video pane. The provenance companion lists the
+exported frame indices, body parts, and label counts so the contents can be reviewed.
+
+**Retained choices.** Unedited model predictions on corrected frames remain labels (D-100), as
+requested for the current training workflow. DeepLabCut H5 conversion stays in the target project,
+per D-197; AvialSync does not add pandas/PyTables to its runtime. The scorer placeholder is blank
+until the user enters a name, so a hard-coded scorer cannot silently miss the target project.

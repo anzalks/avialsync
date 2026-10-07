@@ -256,10 +256,16 @@ from, which you can edit or choose with **Browse**. Three things can be written:
 - **Edited pose data** — one full copy of the pose file with your corrections and accepted identity swaps applied, for analysis. It is offered even if a swap is the only edit. The scorer name is marked so the file never reads as raw model output, and a corrected
   point's likelihood is set to 1.0 so that code filtering on likelihood does not throw your
   correction away.
-- **Retraining set (DeepLabCut)** — the corrected frames as `labeled-data`, with their images, ready
-  to merge into a training set and retrain the network on its own mistakes. Every body part on a
-  corrected frame is written, not just the one you moved, because a training label is a whole pose.
-  Off by default: it decodes a video frame for each label.
+- **Retraining set** — choose DeepLabCut or Lightning Pose (single view), enter the scorer used by
+  your project, and choose a new export folder. Copy that folder's *contents* into the project root.
+  DeepLabCut puts `CollectedData_<scorer>.csv` beside the extracted PNGs in
+  `labeled-data/<video>/`; Lightning Pose puts `CollectedData.csv` at the root and the PNGs in
+  `labeled-data/<video>/`. The CSV's image paths resolve from that root. Multi-animal pose keeps
+  its `individuals` header in the DeepLabCut profile. Every body part on a corrected frame is
+  written, including unchanged model predictions, so review those predictions as training labels.
+  This export is off by default. A missing frame, image write failure, or coordinate outside its
+  image leaves no partial folder. The sibling `_avialsync.json` lists the frames, body parts, and
+  label counts. DeepLabCut still needs its CSV-to-H5 conversion before training.
 
 Nothing is written until you choose it, and your original pose files are never modified.
 

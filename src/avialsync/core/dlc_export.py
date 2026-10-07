@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import csv
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -33,7 +34,13 @@ from avialsync.core.artifact_provenance import record, write_companion
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["LabeledFrame", "LabeledDataReport", "collected_data_path", "write_labeled_data"]
+__all__ = [
+    "LabeledFrame",
+    "LabeledDataReport",
+    "collected_data_path",
+    "training_csv_path",
+    "write_labeled_data",
+]
 
 #: DLC keys each labelled image by its path relative to the project root.
 _IMAGE_ROOT = "labeled-data"
@@ -77,6 +84,17 @@ def collected_data_path(root: Path | str, video_stem: str, scorer: str) -> Path:
     return Path(root) / _IMAGE_ROOT / video_stem / f"CollectedData_{scorer}.csv"
 
 
+def training_csv_path(root: Path | str, video_stem: str, scorer: str, profile: str) -> Path:
+    """Locate a label CSV inside a bundle ready to copy into a project root."""
+    if not scorer or any(char in scorer for char in '<>:"/\\|?*'):
+        raise ValueError("Enter a portable scorer name from the target project.")
+    if profile == "dlc":
+        return collected_data_path(root, video_stem, scorer)
+    if profile == "lightning_pose":
+        return Path(root) / "CollectedData.csv"
+    raise ValueError(f"Unknown training format: {profile}")
+
+
 def write_labeled_data(
     target: Path | str,
     video_stem: str,
@@ -85,6 +103,8 @@ def write_labeled_data(
     frames: list[LabeledFrame],
     *,
     sources: tuple[Path | str, ...] = (),
+    point_labels: Mapping[str, tuple[str, str]] | None = None,
+    kind: str = "dlc-retraining",
 ) -> LabeledDataReport:
     """Write *frames* as a DLC ``CollectedData`` CSV at *target*.
 
@@ -98,11 +118,15 @@ def write_labeled_data(
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
     scorer_row = ["scorer"]
+    individual_row = ["individuals"] if point_labels else None
     bodypart_row = ["bodyparts"]
     coord_row = ["coords"]
     for part in bodyparts:
+        individual, bodypart = point_labels[part] if point_labels else ("", part)
         scorer_row += [scorer, scorer]
-        bodypart_row += [part, part]
+        if individual_row is not None:
+            individual_row += [individual, individual]
+        bodypart_row += [bodypart, bodypart]
         coord_row += ["x", "y"]
 
     labelled = 0
@@ -113,6 +137,8 @@ def write_labeled_data(
         with open(temporary, "w", newline="", encoding="utf-8") as handle:
             writer = csv.writer(handle)
             writer.writerow(scorer_row)
+            if individual_row is not None:
+                writer.writerow(individual_row)
             writer.writerow(bodypart_row)
             writer.writerow(coord_row)
             for item in sorted(frames, key=lambda frame: frame.frame):
@@ -128,11 +154,18 @@ def write_labeled_data(
                     labelled += 1
                 writer.writerow(row)
 
-    publish(target_path, write, kind="dlc-retraining", sources=sources)
-    write_companion(
-        target_path,
-        record("dlc-retraining", sources, edit_counts={"labelled_frames": len(frames)}),
-        sources=sources,
+    publish(target_path, write, kind=kind, sources=sources)
+    provenance = record(kind, sources, edit_counts={"labelled_frames": len(frames)})
+    provenance.update(
+        {
+            "scorer": scorer,
+            "video": video_stem,
+            "frames": sorted(item.frame for item in frames),
+            "bodyparts": bodyparts,
+            "labelled_points": labelled,
+            "missing_points": missing,
+        }
     )
+    write_companion(target_path, provenance, sources=sources)
 
     return LabeledDataReport(frames=len(frames), labelled_points=labelled, missing_points=missing)

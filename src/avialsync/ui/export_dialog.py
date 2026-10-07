@@ -29,10 +29,12 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QHeaderView,
     QLabel,
+    QLineEdit,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -40,7 +42,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from avialsync.ui.export_destinations import choose_file, remember, suggested
+from avialsync.core.dlc_export import training_csv_path
+from avialsync.ui.export_destinations import choose_file, choose_folder, remember, suggested
 from avialsync.ui.i18n import tr
 from avialsync.ui.tables import ThemedTable
 
@@ -51,7 +54,7 @@ ANNOTATIONS = "annotations"
 CORRECTED_POSE = "corrected_pose"
 RETRAINING_SET = "retraining_set"
 
-_COLUMNS = ("Export", "Destination", "")
+_COLUMNS = ("Export", "Destination", "Format", "Scorer", "")
 
 
 @dataclasses.dataclass
@@ -67,6 +70,9 @@ class ExportItem:
     #: The video the pose source overlays, for a retraining set's images.
     video: str = ""
     selected: bool = True
+    profile: str = "dlc"
+    scorer: str = ""
+    multi_animal: bool = False
 
 
 class ExportChangesDialog(QDialog):
@@ -75,7 +81,7 @@ class ExportChangesDialog(QDialog):
     def __init__(self, items: list[ExportItem], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle(tr("Export Changes"))
-        self.setMinimumSize(680, 320)
+        self.setMinimumSize(900, 320)
         self._items = items
 
         layout = QVBoxLayout(self)
@@ -83,8 +89,8 @@ class ExportChangesDialog(QDialog):
         intro = QLabel(
             tr(
                 "Only recordings with something to export are listed. Each "
-                "destination defaults to the folder its data came from; edit it "
-                "or use Browse to put the file somewhere else."
+                "destination defaults beside its data. A retraining destination "
+                "is a folder whose contents can be copied into your project root."
             )
         )
         intro.setWordWrap(True)
@@ -96,6 +102,8 @@ class ExportChangesDialog(QDialog):
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
         self._table.verticalHeader().hide()
         self._table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
         self._table.setAccessibleName(tr("Artifacts to export"))
@@ -118,12 +126,31 @@ class ExportChangesDialog(QDialog):
             destination.setToolTip(str(item.target))
             self._table.setItem(row, 1, destination)
 
+            if item.kind == RETRAINING_SET:
+                profile = QComboBox(self._table)
+                profile.addItem(tr("DeepLabCut"), "dlc")
+                if not item.multi_animal:
+                    profile.addItem(tr("Lightning Pose (single view)"), "lightning_pose")
+                profile.setAccessibleName(
+                    tr("Training format for {title}").format(title=item.title)
+                )
+                profile.setAccessibleDescription(tr("Choose the project format for these labels"))
+                profile.setCurrentIndex(max(0, profile.findData(item.profile)))
+                self._table.setCellWidget(row, 2, profile)
+
+                scorer = QLineEdit(self._table)
+                scorer.setText(item.scorer)
+                scorer.setPlaceholderText(tr("Project scorer"))
+                scorer.setAccessibleName(tr("Project scorer for {title}").format(title=item.title))
+                scorer.setAccessibleDescription(tr("Enter the scorer name used by your project"))
+                self._table.setCellWidget(row, 3, scorer)
+
             browse = QPushButton(tr("Browse…"))
             browse.setAccessibleName(
                 tr("Choose a destination for {title}").format(title=item.title)
             )
             browse.clicked.connect(lambda _checked=False, index=row: self._browse(index))
-            self._table.setCellWidget(row, 2, browse)
+            self._table.setCellWidget(row, 4, browse)
 
         layout.addWidget(self._table)
 
@@ -134,18 +161,58 @@ class ExportChangesDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+        self._export_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        self._table.itemChanged.connect(self._update_can_export)
+        for row, item in enumerate(items):
+            if item.kind == RETRAINING_SET:
+                scorer_widget = self._table.cellWidget(row, 3)
+                if isinstance(scorer_widget, QLineEdit):
+                    scorer_widget.textChanged.connect(self._update_can_export)
+        self._update_can_export()
+
+    def _update_can_export(self) -> None:
+        """A selected training set needs a scorer before it can be written."""
+        valid = True
+        for row, item in enumerate(self._items):
+            title = self._table.item(row, 0)
+            if item.kind != RETRAINING_SET or title is None:
+                continue
+            if title.checkState() != Qt.CheckState.Checked:
+                continue
+            destination = self._table.item(row, 1)
+            if destination is None or not destination.text().strip():
+                valid = False
+            scorer = self._table.cellWidget(row, 3)
+            if not isinstance(scorer, QLineEdit):
+                valid = False
+                continue
+            try:
+                training_csv_path(Path("."), "video", scorer.text().strip(), "dlc")
+            except ValueError:
+                valid = False
+        self._export_button.setEnabled(valid)
+        self._export_button.setToolTip(
+            "" if valid else tr("Enter a portable scorer name used by the target project")
+        )
 
     def _browse(self, index: int) -> None:
         item = self._table.item(index, 1)
         if item is None:
             return
-        chosen = choose_file(
-            self,
-            "changes",
-            tr("Export To"),
-            Path(item.text()),
-            tr("CSV files (*.csv);;All files (*)"),
-        )
+        target = Path(item.text())
+        if self._items[index].kind == RETRAINING_SET:
+            parent = choose_folder(
+                self, "changes", tr("Choose Export Parent Folder"), target.parent
+            )
+            chosen = parent / target.name if parent else None
+        else:
+            chosen = choose_file(
+                self,
+                "changes",
+                tr("Export To"),
+                target,
+                tr("CSV files (*.csv);;All files (*)"),
+            )
         if chosen:
             item.setText(str(chosen))
             item.setToolTip(str(chosen))
@@ -165,5 +232,20 @@ class ExportChangesDialog(QDialog):
                 continue
             target = Path(text)
             remember("changes", target)
-            chosen.append(dataclasses.replace(item, target=target, selected=True))
+            if item.kind == RETRAINING_SET:
+                profile = self._table.cellWidget(row, 2)
+                scorer = self._table.cellWidget(row, 3)
+                if not isinstance(profile, QComboBox) or not isinstance(scorer, QLineEdit):
+                    continue
+                chosen.append(
+                    dataclasses.replace(
+                        item,
+                        target=target,
+                        profile=str(profile.currentData()),
+                        scorer=scorer.text().strip(),
+                        selected=True,
+                    )
+                )
+            else:
+                chosen.append(dataclasses.replace(item, target=target, selected=True))
         return chosen

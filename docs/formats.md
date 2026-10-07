@@ -78,7 +78,8 @@ Correcting a point by hand writes `pose_csv_avialfix.csv` (for a `pose.csv`) bes
 `pd.read_csv(path, comment="#")`. **The pose file itself is never modified**, so deleting the
 corrections file restores exactly what the model predicted. Corrections can be exported either as a
 corrected copy of the pose CSV, which anything that read the original will read unchanged, or as a
-DeepLabCut `labeled-data` retraining set. See [Correcting a tracked
+retraining set for DeepLabCut or single-view Lightning Pose: a new folder whose contents are copied
+into the project root. See [Correcting a tracked
 point](user-guide/index.md#correcting-a-tracked-point).
 
 ### Vicon Nexus motion capture

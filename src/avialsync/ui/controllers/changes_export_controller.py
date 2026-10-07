@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QDialog
 
-from avialsync.core import dlc_export, pose_export
+from avialsync.core import pose_export
 from avialsync.ui.annotations import marker_rows
 from avialsync.ui.controllers import corrections_controller, identity_controller
 from avialsync.ui.export_dialog import (
@@ -37,11 +37,6 @@ if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
 
 logger = logging.getLogger(__name__)
-
-#: Scorer name written into a retraining set. DLC keys labelled data by scorer,
-#: so a set produced here stays distinguishable from the model's own and from a
-#: colleague's, which is the point of the field.
-RETRAINING_SCORER = "avialsync"
 
 
 def available_exports(window: MainWindow) -> list[ExportItem]:
@@ -87,20 +82,20 @@ def available_exports(window: MainWindow) -> list[ExportItem]:
         if not video:
             continue
         video_path = Path(video)
+        schema = identity_controller.schema_for(window, source_id)
         items.append(
             ExportItem(
                 kind=RETRAINING_SET,
-                title=tr("Retraining set (DeepLabCut) — {source}").format(source=source.name),
+                title=tr("Retraining set — {source}").format(source=source.name),
                 detail=tr(
                     "The {n} corrected frame(s) as labeled data, with their images, "
                     "ready to merge into a training set."
                 ).format(n=len(_corrected_indices(window, source_id))),
-                target=dlc_export.collected_data_path(
-                    video_path.parent, video_path.stem, RETRAINING_SCORER
-                ),
+                target=video_path.parent / f"{video_path.stem}_{source.stem}_training_export",
                 source_id=source_id,
                 video=video,
                 selected=False,
+                multi_animal=bool(schema and schema.multi_animal),
             )
         )
     return items
@@ -193,7 +188,6 @@ def _job_for(window: MainWindow, item: ExportItem) -> object | None:
     """
     from avialsync.engine.changes_export_worker import (
         CorrectedPoseJob,
-        RetrainingJob,
     )
 
     if item.kind == ANNOTATIONS:
@@ -220,20 +214,46 @@ def _job_for(window: MainWindow, item: ExportItem) -> object | None:
         )
 
     if item.kind == RETRAINING_SET:
-        bodyparts, frames = corrections_controller.labeled_frames(window, item.source_id)
-        if not frames:
-            return None
-        video = Path(item.video)
-        return RetrainingJob(
-            target=item.target,
-            video=video,
-            video_stem=video.stem,
-            scorer=RETRAINING_SCORER,
-            bodyparts=bodyparts,
-            frames=frames,
-            write_images=video.exists(),
-        )
+        return _retraining_job_for(window, item)
     return None
+
+
+def _retraining_job_for(window: MainWindow, item: ExportItem) -> object | None:
+    """Capture one camera's labels, schema, and display window for the worker."""
+    from avialsync.engine.changes_export_worker import RetrainingJob
+
+    bodyparts, frames = corrections_controller.labeled_frames(window, item.source_id)
+    if not frames:
+        return None
+    schema = identity_controller.schema_for(window, item.source_id)
+    point_labels = (
+        {point.name: (point.individual, point.bodypart) for point in schema.points}
+        if schema is not None and schema.multi_animal
+        else None
+    )
+    levels = next(
+        (
+            pane.display_levels()
+            for path, pane in zip(
+                window.video_grid.pane_paths(), window.video_grid.panes, strict=False
+            )
+            if path == item.video
+        ),
+        None,
+    )
+    return RetrainingJob(
+        target=item.target,
+        # The source, never its proxy: a proxy is downscaled and lossy, and the
+        # labels are in the source's pixel coordinates.
+        video=Path(item.video),
+        video_stem=Path(item.video).stem,
+        scorer=item.scorer,
+        bodyparts=bodyparts,
+        frames=frames,
+        profile=item.profile,
+        point_labels=point_labels,
+        **({"display_levels": levels} if levels is not None else {}),
+    )
 
 
 def _annotation_job(window: MainWindow, item: ExportItem) -> object | None:

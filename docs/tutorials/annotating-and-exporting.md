@@ -49,7 +49,7 @@ The **Exports** inspector page shows every output as a visible button. The same 
 
 | Export | What you get | Use it for |
 |---|---|---|
-| **Export Changes…** | Annotation rows, one edited pose copy per source with corrections or accepted identity swaps, and a DeepLabCut retraining set when frames were hand-corrected | Analysis and pose-model retraining |
+| **Export Changes…** | Annotation rows, one edited pose copy per source with corrections or accepted identity swaps, and a DeepLabCut or single-view Lightning Pose retraining set when frames were hand-corrected | Analysis and pose-model retraining |
 | **Export Snapshot…** | A composed figure of the current moment | Figures, notes, lab reports |
 | **Export Trimmed Video Clip…** | The marked range, copied out of the source | Sharing a moment without re-encoding it |
 | **Export Stimulus Grid…** | Selected sensor-triggered windows, arranged as camera rows and event columns above one shared signal trace and relative-time ruler | Comparing repeated stimuli across cameras and trials |
@@ -77,12 +77,19 @@ existing output intact, and a destination that names a loaded source or the disp
 rejected before writing.
 
 Exports carry an `avialsync` schema ID, program version, UTC write time, and source names and sizes
-where their format permits it. Corrected pose and DeepLabCut retraining CSVs keep their strict
-three-row headers and get a sibling `<name>_avialsync.json` provenance file. Annotation CSVs also
+where their format permits it. Corrected pose and retraining CSVs keep their strict
+three-row headers (four for multi-animal DeepLabCut) and get a sibling `<name>_avialsync.json`
+provenance file. Annotation CSVs also
 get a JSON companion. Data slice CSVs have a final provenance comment; Parquet embeds the record
 in schema metadata; PNG snapshots carry PNG text fields; MP4 clips record their actual keyframe
-start in the container comment. CSV files use UTF-8 without a BOM. A DeepLabCut workflow that
-requires `CollectedData_<scorer>.h5` can run DeepLabCut's `convertcsv2h5` on the exported CSV.
+start in the container comment. CSV files use UTF-8 without a BOM. For a retraining set, enter your
+project scorer and select a new export folder. Copy its *contents* into your project root; the
+CSV's image paths then point to the included PNGs. Lightning Pose (single view) gets
+`CollectedData.csv` at the root. DeepLabCut gets
+`labeled-data/<video>/CollectedData_<scorer>.csv` and still needs `convertcsv2h5` before training.
+Unedited points on corrected frames remain model predictions in the label file; review them before
+training. A missing frame or failed image leaves no incomplete training folder, and the JSON
+companion lists exported frames and counts.
 
 **A snapshot is composed, not grabbed.** Every displayed camera goes in at the resolution it decoded
 at, with the 3D pose and the whole channel stack including rows you would have to scroll to reach —

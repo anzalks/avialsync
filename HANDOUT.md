@@ -611,12 +611,12 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/controllers/identity_controller.py`, `engine/identity_worker.py` | Sidecar adoption, registered edited-cache rebuild, and source-reader repointing; Show original switches readers back without changing edits (D-141, D-142, D-145) | `program_for()`, `refresh()`, `apply_reader_view()`, `MaterialiseWorker` |
 | `ui/identity_panel.py` (gestures) | Three ways to name a frame, one meaning: drag a lane, review a crossing, or press **Swap at playhead** (Ctrl+Shift+S) while watching. Clicking either plot seeks the main timeline | `event_at()`, `index_at()`, `swap_here_requested` |
 | `ui/controllers/identity_view.py`, `ui/identity_braid.py` | One selected group and part's evidence, routing, and command-bus gesture (D-144) | `model_for()`, `detect()`, `swap()`, `BraidModel` |
-| `core/dlc_export.py` | Corrected frames as DLC labeled data for retraining; whole pose per frame, blank never `0,0` (D-100) | `write_labeled_data()`, `LabeledFrame`, `collected_data_path()` |
+| `core/dlc_export.py` | Corrected frames as DLC or single-view Lightning Pose labeled data; root-relative images, multi-animal DLC headers, whole pose per frame, blank never `0,0` (D-100, D-198) | `write_labeled_data()`, `LabeledFrame`, `collected_data_path()`, `training_csv_path()` |
 | `ui/changes_panel.py` | One time-ordered list of flags, ranges, corrected points, and accepted flips; selecting seeks and Delete reverses a change through the command bus (D-100, D-145) | `ChangesPanel`, `ChangeRow` |
-| `ui/export_dialog.py` | One row per artifact that has content, destination pre-filled beside its data and editable. Shaped like `relink_dialog` / `batch_import_dialog` (D-100) | `ExportChangesDialog`, `ExportItem` |
+| `ui/export_dialog.py` | One row per artifact that has content; retraining adds profile, scorer, and a new bundle-folder destination (D-100, D-198) | `ExportChangesDialog`, `ExportItem` |
 | `ui/action_button.py` | A `QPushButton` (`ActionButton`) or `QCheckBox` (`ActionCheckBox`) bound to a `QAction`. Use it wherever a control duplicates a menu command — `QToolButton.setDefaultAction` is Qt's shortcut and does not look like a push button (D-100). `MainWindow._apply_overlay_state` no longer blocks the overlay actions' signals, so followers hear an undo too (D-124) `set_icon_only(glyph)` shows a glyph and keeps the action's text as accessible name and tooltip (D-174) | `ActionButton.set_action()`, `ActionButton.set_icon_only()`, `ActionCheckBox.set_action()` |
 | `ui/controllers/changes_export_controller.py` | The one channel the user's own work leaves by; builds the offer and the jobs (D-100) | `available_exports()`, `export_changes()` |
-| `engine/changes_export_worker.py` | Writes every selected artifact off the UI thread and reports one answer; decodes the retraining set's frames | `ChangesExportWorker`, `AnnotationJob`, `CorrectedPoseJob`, `RetrainingJob` |
+| `engine/changes_export_worker.py` | Writes every selected artifact off the UI thread and reports one answer; publishes complete retraining bundles only after every frame, image, and coordinate validates (D-198) | `ChangesExportWorker`, `AnnotationJob`, `CorrectedPoseJob`, `RetrainingJob` |
 | `engine/artifact_write_worker.py`, `ui/controllers/artifact_write_controller.py` | Registered background writer and latest-revision-per-path queue for authored sidecars (D-197) | `ArtifactWriteWorker`, `ArtifactWriteQueue` |
 | `ui/export_panel.py`, `ui/export_destinations.py` | Exports inspector buttons follow live File actions; one remembered folder per export kind (D-197) | `ExportPanel`, `choose_file()`, `remember()` |
 | `ui/export_sources.py` | Captures all loaded source paths for export guards without growing `MainWindow` or letting controllers inspect its private maps | `loaded_source_paths()` |
@@ -1396,8 +1396,9 @@ the user's own markers back to them as a fourth camera's tracking.
 ### 0c-septies. Export writers do not create the folder you typed (D-100)
 A missing parent directory means the path has a typo in it; creating it hides the mistake instead of
 reporting it, and the error path is what `tests/test_changes_export.py` pins. The single exception is
-the retraining set: `labeled-data/<video>/` is part of DLC's format rather than part of the path the
-user chose, so `dlc_export.write_labeled_data` creates it. Do not "fix" the others to match.
+the retraining set: its new bundle folder contains `labeled-data/<video>/` as part of the training
+format, so `dlc_export.write_labeled_data` creates that subtree inside an unpublished stage.
+Do not "fix" the others to match. The user copies the bundle contents into a project root (D-198).
 
 ### 0c-octies. Do not reach for `QToolButton.setDefaultAction` (D-100)
 It is Qt's one-line way to bind a button to a `QAction`, it is the reason rule 15 is easy to obey —

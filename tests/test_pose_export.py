@@ -356,6 +356,41 @@ def test_the_image_path_is_the_one_dlc_looks_for(tmp_path: Path) -> None:
     )
 
 
+def test_training_csv_locations_are_relative_to_the_copyable_root(tmp_path: Path) -> None:
+    assert dlc_export.training_csv_path(tmp_path, "SideCam", "Alice", "dlc") == (
+        tmp_path / "labeled-data" / "SideCam" / "CollectedData_Alice.csv"
+    )
+    assert (
+        dlc_export.training_csv_path(tmp_path, "SideCam", "Alice", "lightning_pose")
+        == tmp_path / "CollectedData.csv"
+    )
+    with pytest.raises(ValueError, match="scorer"):
+        dlc_export.training_csv_path(tmp_path, "SideCam", "", "dlc")
+
+
+def test_multi_animal_labels_keep_the_individual_header(tmp_path: Path) -> None:
+    target = tmp_path / "CollectedData_Alice.csv"
+    dlc_export.write_labeled_data(
+        target,
+        "SideCam",
+        "Alice",
+        ["mouseA_snout", "mouseB_snout"],
+        [
+            dlc_export.LabeledFrame(
+                frame=2, positions={"mouseA_snout": (1.0, 2.0), "mouseB_snout": (3.0, 4.0)}
+            )
+        ],
+        point_labels={
+            "mouseA_snout": ("mouseA", "snout"),
+            "mouseB_snout": ("mouseB", "snout"),
+        },
+    )
+    rows = list(csv.reader(target.open(newline="", encoding="utf-8")))
+    assert rows[1] == ["individuals", "mouseA", "mouseA", "mouseB", "mouseB"]
+    assert rows[2] == ["bodyparts", "snout", "snout", "snout", "snout"]
+    assert rows[4][1:] == ["1.0", "2.0", "3.0", "4.0"]
+
+
 def test_the_exports_need_no_qt() -> None:
     """``core/`` is headless (architecture rule 2)."""
     import subprocess
