@@ -283,7 +283,8 @@ def test_tracking_pane_appears_once_a_source_has_triplets(
     assert tracking_width > 0
     # The documented session has three video columns: the 3D view occupies a
     # fourth column and may never be wider than one video pane.
-    assert tracking_width * 3 <= video_width
+    # An exact quarter split rounds to whole pixels, so allow the 1 px rounding.
+    assert tracking_width <= video_width / 3 + 1
 
 
 def test_video_keeps_the_full_media_width_without_tracking_data(
@@ -322,7 +323,9 @@ def test_a_large_font_scrolls_the_workspace_instead_of_outgrowing_640x480(
         assert scroll is not None
         column = scroll.widget()
         assert column.minimumSizeHint().height() > scroll.viewport().height()
-        assert scroll.verticalScrollBar().maximum() > 0, "the rest is a scroll away"
+        # The area re-ranges on the column's posted LayoutRequest, which can land
+        # one event pass later (seen with Linux's DejaVu Sans metrics).
+        qtbot.waitUntil(lambda: scroll.verticalScrollBar().maximum() > 0, timeout=2000)
         for pane in (win.video_grid, win.tracking_3d_pane, win.plot_pane, win.transport):
             assert pane.width() > 0 and pane.height() > 0
         win.close()
