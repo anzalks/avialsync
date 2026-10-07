@@ -428,9 +428,10 @@ Two product laws govern that phase and outrank convention:
   The AppDir also includes its required `.DirIcon` symlink and runs `desktop-file-validate` before
   AppImageTool, so malformed desktop metadata fails before artifact construction.
 - P5.3 Read the Docs deployment: CI and Read the Docs both build the pinned Ubuntu 24.04 / Python
-  3.12 documentation environment with warnings as errors. A release tag synchronizes and activates
-  its exact Read the Docs version through the project API before distributions may publish; the
-  repository secret `READTHEDOCS_TOKEN` is therefore a release prerequisite.
+  3.12 documentation environment with warnings as errors. Read the Docs builds through its GitHub
+  App: `latest` on every push to `main`, `stable` on each version tag. The release workflow does not
+  call Read the Docs and needs no documentation credential. The 2026-08-27 owner move disconnected
+  the app and no build ran until 2026-10-07, when it was given access to the repository again.
 - Session/folder plugin API — **done 2026-08-03 (D-068)**. `SessionSource` in `core/source.py`,
   published under the `avialsync.sessions` entry-point group and also discovered from drop-in plugin
   directories. `engine/drop_worker.py` holds no format knowledge; AOL moved wholesale into

@@ -193,16 +193,15 @@ The repository is already configured — `.readthedocs.yaml` pins Ubuntu 24.04, 
    badge and links already use. A different name means editing both.
 3. Leave the default branch as `main`. Read the Docs finds `.readthedocs.yaml` itself; do not set a
    configuration path.
-4. Create a Read the Docs API token with access to this project and save it as the GitHub Actions
-   repository secret `READTHEDOCS_TOKEN`. The tag workflow uses it to synchronise repository tags
-   and activate the exact tagged version; it fails before publishing a distribution if the secret
-   is absent or the tag cannot be found.
-5. Trigger the first build from **Builds → Build version**. It takes about a minute.
+4. Trigger the first build from **Builds → Build version**. It takes about a minute.
 
-The GitHub connection installs the webhook. On each release, the workflow also calls the Read the
-Docs API directly, which avoids a webhook/automation-rule race and guarantees the release tag is
-activated. Until step 2 is done the documentation badge stays grey and
-`https://avialsync.readthedocs.io/` returns 404.
+The Read the Docs GitHub App delivers pushes and tags, so `latest` rebuilds on every push to `main`
+and `stable` follows the newest version tag. No credential is stored in this repository. If the
+repository changes owner, the app loses access: the project's **Settings → Integrations** page
+shows the GitHub App as *Disconnected* and nothing builds until the app is given access to the
+repository again (GitHub → Settings → Applications → Read the Docs → Repository access). Until
+step 2 is done the documentation badge stays grey and `https://avialsync.readthedocs.io/` returns
+404.
 
 ## Releases
 
@@ -213,9 +212,8 @@ platform installers. PyPI publishing starts only after every installer succeeds,
 the release last. The workflow pins and verifies the AppImage build tool before creating the Linux
 AppImage; no package-upload token or repository variable is needed.
 
-Three things must exist before a tag can complete, and none lives in this repository. Confirm them
-before tagging: the documentation credential is checked before distributions publish, while PyPI
-approval and platform packaging complete later in the workflow.
+Two things must exist before a tag can complete, and neither lives in this repository. Both fail
+late — after every installer has already been built — so confirm them before tagging:
 
 1. **PyPI trusted publishing** for the `avialsync` project, naming this repository, the `Release`
    workflow, and the `pypi` environment. If the `pypi` GitHub environment has required reviewers,
@@ -223,9 +221,6 @@ approval and platform packaging complete later in the workflow.
 2. **A tag reachable from `main`.** The workflow refuses to publish a side branch, and it requires
    the tag, `pyproject.toml`, and `src/avialsync/__init__.py` to name one identical version — which
    is what `tools/prepare_release.py` guarantees.
-3. **The `READTHEDOCS_TOKEN` repository secret.** It lets the release workflow discover and
-   activate the tagged documentation version. This is intentionally a release gate: publishing a
-   package with no matching live documentation is a broken release, not a follow-up task.
 
 Prepare a tag from a clean `main` checkout with the guarded helper rather than editing versions or
 creating tags by hand:
@@ -237,9 +232,8 @@ conda run -n avialsync python tools/prepare_release.py 0.1.0b1
 
 It validates the version, updates every package-version authority (`pyproject.toml`,
 `src/avialsync/__init__.py`, `CITATION.cff`, and `packaging/conda/meta.yaml`), builds and checks the
-wheel/sdist, commits the change, creates annotated `v0.1.0b1`, and pushes it. That tag starts the guarded release
-workflow, which verifies the documentation and activates the matching Read the Docs version before
-it can publish a distribution. The helper permits only the offline `graphify-out/graph.json` as a
+wheel/sdist, commits the change, creates annotated `v0.1.0b1`, and pushes it. That tag starts the
+guarded release workflow, and Read the Docs moves `stable` to it through its GitHub App. The helper permits only the offline `graphify-out/graph.json` as a
 pre-existing dirty file; commit or resolve every other change first.
 
 The four files are updated together or not at all: every declaration is matched before the first

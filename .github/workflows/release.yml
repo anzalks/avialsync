@@ -171,71 +171,9 @@ jobs:
       - run: pip install -e ".[docs]"
       - run: sphinx-build -W --keep-going -b html docs docs/_build/html
 
-  publish_docs:
-    name: Publish tagged Read the Docs version
-    needs: [verify_release_ref, docs]
-    runs-on: ubuntu-24.04
-    permissions: {}
-    env:
-      READTHEDOCS_API: https://app.readthedocs.org/api/v3
-      READTHEDOCS_PROJECT: avialsync
-      READTHEDOCS_TAG: ${{ github.ref_name }}
-      READTHEDOCS_TOKEN: ${{ secrets.READTHEDOCS_TOKEN }}
-    steps:
-      - name: Synchronise and activate the tagged documentation
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -z "$READTHEDOCS_TOKEN" ]]; then
-            echo "READTHEDOCS_TOKEN is required to publish documentation for a release." >&2
-            exit 1
-          fi
-
-          request() {
-            curl --fail --silent --show-error --retry 3 --retry-delay 2 \
-              -H "Authorization: Token $READTHEDOCS_TOKEN" "$@"
-          }
-
-          request -X POST "$READTHEDOCS_API/projects/$READTHEDOCS_PROJECT/sync-versions/"
-          versions="$RUNNER_TEMP/readthedocs-versions.json"
-          for attempt in {1..10}; do
-            request --get \
-              --data-urlencode "type=tag" \
-              --data-urlencode "verbose_name=$READTHEDOCS_TAG" \
-              "$READTHEDOCS_API/projects/$READTHEDOCS_PROJECT/versions/" -o "$versions"
-            if version_slug="$(python3 - "$versions" "$READTHEDOCS_TAG" <<'PY'
-          import json
-          import sys
-
-          path, tag = sys.argv[1:]
-          matches = [
-              item for item in json.loads(open(path, encoding="utf-8").read())["results"]
-              if item["type"] == "tag" and item["verbose_name"] == tag
-          ]
-          if len(matches) == 1:
-              print(matches[0]["slug"])
-              raise SystemExit(0)
-          raise SystemExit(1)
-          PY
-            )"; then
-              break
-            fi
-            if [[ "$attempt" == 10 ]]; then
-              echo "Read the Docs did not discover tag $READTHEDOCS_TAG." >&2
-              exit 1
-            fi
-            sleep 3
-          done
-
-          request -X PATCH \
-            -H "Content-Type: application/json" \
-            --data '{"active": true}' \
-            "$READTHEDOCS_API/projects/$READTHEDOCS_PROJECT/versions/$version_slug/"
-          echo "Activated Read the Docs version $version_slug for $READTHEDOCS_TAG."
-
   distributions:
     name: Build Python distributions
-    needs: [verify_release_ref, quality, docs, publish_docs]
+    needs: [verify_release_ref, quality, docs]
     runs-on: ubuntu-24.04
     permissions:
       contents: read
