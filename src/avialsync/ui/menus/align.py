@@ -35,7 +35,7 @@ def build_align_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMen
         window._has_alignment_evidence,
         tr(
             "Load a video with frame timestamps, and either a TTL-bearing sensor "
-            "channel or a second such video, to have evidence to fit."
+            "channel or declared trigger train, to have shared evidence to fit."
         ),
     )
 

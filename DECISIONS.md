@@ -6400,3 +6400,40 @@ vertical-axis choices in a registered worker. The old pose clears when a new sel
 the UI installs only the newest result and can
 change vertical axis without rerunning geometry inference there. This keeps cold mmap reads and
 derived geometry off the event loop while retaining the same per-source inference rule.
+
+## 2026-10 · D-201 · Sync confidence requires shared evidence and bounded presentation work
+
+**Context.** Equal-rate independent videos can have identical presentation timestamps; a fit can
+also pair events within a broad search window while leaving precision between events unknown.
+Missing TTL samples and an already-mapped reference clock add further ways to misstate confidence.
+Separately, plot pages, evidence plots, and million-frame exact mappings did data-sized work on the
+UI thread.
+
+**Decision.** Local video PTS are target time axes only, and a video is refused as a reference in
+every fitting mode. Exact index mapping requires a recorded exposure strobe declared for that
+camera, complete pulses, no index offset, matching frame count, and agreeing interval patterns;
+when those hold, `auto` returns it before the affine search. Every reference carries its clock's
+accepted TimeMap and is fitted in master time; each match keeps its raw time and the proposal its
+clock identity. Missing samples, non-finite values, and the recording start are unknown, never low:
+pulses with an edge there are excluded, counted, and refuse exact indices. The pair-search
+tolerance is separate from the required precision. Precision is verified only when the worst
+residual and the plausible free-clock wander (`MAX_PLAUSIBLE_DRIFT_MS_PER_HOUR`) over the largest
+unsupported interval and over the target-side extrapolation all fit the requirement; piecewise fits
+use leave-one-out knot error as their residual. Unverified fits remain applicable and say so; a
+requirement of zero means "not assessed", for records older than this. Videos, sensors, and
+trigger files are placed through one install path for accept, undo, and redo. Plot pages and
+evidence summaries are prepared on registered workers and installed whole only when current; plot
+page jobs announce themselves only past 0.5 s. The page worker reads each row's own pyramid reader
+with a frozen copy of its TimeMap; `PyramidReader` locks its level cache. Exact arrays are
+validated once and frozen on a worker, then installed by identity (`PreparedExactMapping.adopt`)
+everywhere after, including a reopened session, and interpolated by binary search.
+
+**Alternatives.** Equal frame rates and count agreement alone cannot show a shared start or rule
+out a drop plus an extra event. Tightening the search tolerance to the precision requirement would
+discard useful matches without testing long unsupported spans. Judging extrapolation on the
+reference side marked a fully covered video unverified when the DAQ ran longer, and passed a
+sensor whose recording outran its pulses. Revalidating and copying exact arrays on every
+acceptance or undo would stall the UI and double memory use, and `np.interp` copies read-only
+arrays on every call (16 MB per lookup at a million frames). Opening a fresh reader per row per
+page made a warm 48-row page seven times dearer and held extra memory maps. Announcing every page
+job replaced whatever the status line said on each page flip.

@@ -316,3 +316,36 @@ class TestRestrictingTheFit:
 
         assert not wizard._restrict.isChecked()
         assert "Preview a fit first" in wizard._summary.text()
+
+
+def test_closing_the_wizard_cancels_a_running_preview(qtbot) -> None:
+    """A preview nobody will read is stopped, not left to finish in the background."""
+    import numpy as np
+
+    from avialsync.engine.sync_worker import EventEvidenceSpec
+    from avialsync.ui.job_manager import _ABANDONED
+
+    events = np.cumsum(np.random.default_rng(3).uniform(0.8, 1.2, 20_000))
+    wizard = SyncWizard(
+        [EventEvidenceSpec("daq", events, clock_id="daq")],
+        [EventEvidenceSpec("box", events + 3.0, clock_id="box")],
+    )
+    qtbot.addWidget(wizard)
+    wizard._preview_button.click()
+    worker = wizard._worker
+    assert worker is not None
+
+    wizard.reject()
+
+    assert not worker.can_cancel(), "closing must ask the running fit to stop"
+
+    def stopped() -> bool:
+        running = []
+        for job in _ABANDONED:
+            try:
+                running.append(job.thread.isRunning())
+            except RuntimeError:
+                continue
+        return not any(running)
+
+    qtbot.waitUntil(stopped, timeout=5000)

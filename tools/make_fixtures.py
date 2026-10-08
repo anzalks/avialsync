@@ -22,6 +22,61 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 from tests.util_framestrip import encode_frame_index
 
 
+def generate_sync_ground_truth(out_path: pathlib.Path) -> None:
+    """Write physical clock truth, known timing error, and misleading local PTS.
+
+    Every array is a statement about clocks whose true relation is known:
+
+    * ``master_events`` are the true instants, irregularly spaced (0.8-1.2 s).
+    * ``reference_raw`` is the DAQ's record of them on a clock running 45 ppm
+      fast from 2.0 s (TimeMap(2.0, 162.0)); ``target_raw`` is a second
+      recorder 60 ppm fast from 3.0 s (TimeMap(3.0, 216.0)).
+    * ``camera_pts`` is a camera's container clock for one exposure per event,
+      counting from its own first frame and running 30 ppm fast.
+    * ``target_jitter_small``/``_large`` add bounded uniform timing error of
+      ``jitter_small_bound``/``jitter_large_bound`` seconds to ``target_raw``.
+    * ``video_a_pts``/``video_b_pts`` are identical 30 fps grids from cameras
+      whose true starts differ by 7.25 s -- the false exact alignment.
+    * ``dropped_strobe``/``extra_strobe`` lose or gain one pulse at event 185.
+    * ``sparse_*`` keep events 0-99 and 300-399, leaving a ~200 s gap.
+    """
+    rng = np.random.default_rng(20261008)
+    master_events = np.cumsum(rng.uniform(0.8, 1.2, 400))
+    reference_raw = master_events * (1.0 + 45e-6) + 2.0
+    target_raw = master_events * (1.0 + 60e-6) + 3.0
+    camera_pts = (master_events - master_events[0]) * (1.0 + 30e-6)
+    jitter_small_bound = 0.0004
+    jitter_large_bound = 0.003
+    local_video_pts = np.arange(900, dtype=np.float64) / 30.0
+    # Identical PTS grids with unrelated physical starts are the false exact
+    # alignment this fixture must continue to expose.
+    video_a_master_start = 10.0
+    video_b_master_start = 17.25
+    dropped = np.delete(master_events, 185)
+    extra = np.sort(np.append(master_events, master_events[185] + 0.17))
+    sparse_indices = np.r_[0:100, 300:400]
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(
+        out_path,
+        master_events=master_events,
+        reference_raw=reference_raw,
+        target_raw=target_raw,
+        camera_pts=camera_pts,
+        target_jitter_small=target_raw + rng.uniform(-1.0, 1.0, 400) * jitter_small_bound,
+        target_jitter_large=target_raw + rng.uniform(-1.0, 1.0, 400) * jitter_large_bound,
+        jitter_small_bound=jitter_small_bound,
+        jitter_large_bound=jitter_large_bound,
+        video_a_pts=local_video_pts,
+        video_b_pts=local_video_pts.copy(),
+        video_a_master_start=video_a_master_start,
+        video_b_master_start=video_b_master_start,
+        dropped_strobe=dropped,
+        extra_strobe=extra,
+        sparse_reference=master_events[sparse_indices],
+        sparse_target=target_raw[sparse_indices],
+    )
+
+
 def generate_video(
     out_path: pathlib.Path,
     fps: float,
@@ -729,6 +784,9 @@ def main() -> None:
     generate_signal(sig_dir / "signal_bom.csv", path_dur, variant="bom")
     generate_signal(sig_dir / "signal_units_row.csv", path_dur, variant="units_row")
     generate_signal(sig_dir / "signal_nan_gap_sentinel.csv", path_dur, variant="nan_gap_sentinel")
+    # Known clocks, known timing error: what the sync confidence labels are
+    # checked against (D-201). Tests also regenerate it into their tmp dirs.
+    generate_sync_ground_truth(sig_dir / "sync_ground_truth.npz")
 
     # 3. Generate DLC tracking data (match default video length of 10s)
     generate_dlc_tracking(sig_dir / "tracking_dlc.csv", 10.0, fps)

@@ -116,8 +116,12 @@ class TestTheRungsThatWereUnreachable:
         rng = np.random.default_rng(41)
         reference = np.cumsum(rng.uniform(0.02, 0.05, 400))
         worker = SyncWorker(
-            EventEvidenceSpec("cam:strobe", reference, kind=TriggerKind.FRAME_STROBE),
-            EventEvidenceSpec("cam.mp4", reference + 1.5, kind=TriggerKind.FRAME_STROBE),
+            EventEvidenceSpec(
+                "cam:strobe", reference, kind=TriggerKind.FRAME_STROBE, strobe_for="cam.mp4"
+            ),
+            EventEvidenceSpec(
+                "cam.mp4", reference + 1.5, clock_id="cam.mp4", is_video_time_axis=True
+            ),
             mode="auto",
         )
         seen: list[object] = []
@@ -227,7 +231,7 @@ class TestBothEdgesReachTheFit:
         rises = self._cache(tmp_path, width=0.02, period=0.1, count=20)
         spec = SignalEvidenceSpec("cam:strobe", tmp_path, "strobe", kind=TriggerKind.FRAME_STROBE)
 
-        times = SyncWorker._event_times(spec)
+        times = SyncWorker(spec, spec)._event_times(spec)
 
         assert times[0] == pytest.approx(rises[0] + 0.01, abs=2e-3)
 
@@ -238,7 +242,7 @@ class TestBothEdgesReachTheFit:
         rises = self._cache(tmp_path, width=0.02, period=0.1, count=20)
         spec = SignalEvidenceSpec("daq:sync", tmp_path, "strobe", kind=TriggerKind.SYNC_TRAIN)
 
-        times = SyncWorker._event_times(spec)
+        times = SyncWorker(spec, spec)._event_times(spec)
 
         assert times[0] == pytest.approx(rises[0], abs=2e-3)
 
@@ -247,6 +251,6 @@ class TestBothEdgesReachTheFit:
         rises = self._cache(tmp_path, width=0.02, period=0.1, count=20)
         spec = SignalEvidenceSpec("unlabelled", tmp_path, "strobe")
 
-        times = SyncWorker._event_times(spec)
+        times = SyncWorker(spec, spec)._event_times(spec)
 
         assert times[0] == pytest.approx(rises[0], abs=2e-3)

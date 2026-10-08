@@ -100,6 +100,22 @@ def save_geometry(window: MainWindow) -> None:
     window._left_tabs.save_page(settings)
 
 
+def _trigger_entries(window: MainWindow) -> list[TriggerEntry]:
+    """Each trigger file's declaration, and where its clock was placed."""
+    entries = []
+    for path, config in window._trigger_configs.items():
+        mapping = window.trigger_mapping(path)
+        entries.append(
+            TriggerEntry(
+                path=path,
+                config=dict(config),
+                offset=mapping.offset,
+                drift_ms_per_hour=mapping.drift_ms_per_hour,
+            )
+        )
+    return entries
+
+
 def build_session_state(window: MainWindow) -> SessionState:
     """Snapshot current app state into a SessionState."""
     from avialsync.ui.sidebar import SensorInfoWidget
@@ -168,10 +184,7 @@ def build_session_state(window: MainWindow) -> SessionState:
         markers=markers,
         sync_provenance=list(window._sync_provenance),
         session_start_time=window.session_start_time,
-        triggers=[
-            TriggerEntry(path=path, config=dict(config))
-            for path, config in window._trigger_configs.items()
-        ],
+        triggers=_trigger_entries(window),
         t_start=bounds[0],
         t_end=bounds[1],
         plot_x0=plot_x0,
@@ -400,8 +413,7 @@ def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
     # declared.
     window._source_base_offsets.clear()
     window._declared_source_epochs.clear()
-    window._trigger_trains.clear()
-    window._trigger_configs.clear()
+    window.clear_trigger_sources()
     window._pending_exact_mappings.clear()
     window._overview_gaps.clear()
     window._frame_indexed_sources.clear()

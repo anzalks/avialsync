@@ -57,12 +57,13 @@ and the master clock seeks there, so you can look at the footage before deciding
 
 ![Selecting reference and target evidence in the synchronization wizard](../_static/screenshots/guide_sync_evidence.png)
 
-1. **Reference evidence** — the source you trust. Usually the acquisition system's TTL channel, a
-   trigger file, or another camera.
-2. **Target video evidence** — the recording being aligned *to* that reference.
+1. **Reference evidence** — a recorded TTL channel or declared trigger train whose clock is already
+   placed on the master timeline when it has an accepted mapping.
+2. **Target evidence** — the video, sensor channel, or trigger file being aligned to that reference.
 
-A camera can be either. Two cameras that saw the same trigger are evidence about each other, so a
-rig with no sensor at all can still align its cameras from their frame timestamps.
+A video's presentation timestamps describe its own frames, but cannot establish when another
+camera or the DAQ started. Two equal-rate videos can have identical timestamps and unrelated
+physical starts. Record a shared event or camera exposure strobe to align them.
 
 ### Tell it how to read the reference
 
@@ -74,6 +75,9 @@ rig with no sensor at all can still align its cameras from their frame timestamp
 2. **Use all samples as events** — check this when your reference is *already* a list of event
    times, such as a CSV of frame triggers, rather than a voltage to be thresholded. It disables the
    threshold, because there is nothing to threshold.
+3. **Recorded exposure strobe** — check only if this channel contains pulses emitted by the
+   selected camera for exposures that actually happened. Missing samples and incomplete pulses
+   prevent an exact claim.
 
 Getting this wrong is the most common cause of a poor fit: a threshold outside the signal's range
 finds either no edges or every sample.
@@ -94,8 +98,8 @@ dialog; most alignments never need them.
    - **Exact index (1:1 frame mapping)** — forces mapping video frame *n* to reference event *n*.
      Only correct when the reference genuinely records each exposure that *happened*; if it records
      each exposure that was *requested*, a dropped frame shifts everything after it.
-2. **Index Offset** — enabled only for Exact index. Sets which reference event video frame 0
-   corresponds to. Leave it at 0 unless recording started mid-sequence.
+2. **Index Offset** — exact index pairing requires zero offset and matching frame and strobe
+   counts. A nonzero offset leaves frame identity unproved; use a shared event fit instead.
 
 ### Set the tolerance, if the default is not good enough
 
@@ -104,8 +108,9 @@ blank it is derived from your pulse rate — a quarter of the interval between e
 rule about telling one pulse from the next, not about the precision your work needs. On a 1 Hz sync
 pulse that is 250 ms, and it will accept a 100 ms misalignment without complaint.
 
-If your timing budget is tighter than that, type it. The same evidence is then judged by the
-precision you actually need.
+Set **Required precision** separately. The search tolerance finds candidate pairs; the precision
+requirement checks their residuals, coverage, the largest interval without a match, and any
+extrapolation. Sparse evidence remains usable with a visible **precision unverified** state.
 
 ### Fit only part of a recording
 
@@ -155,10 +160,9 @@ is the one to read first.
 - Ink along the margins is rejected evidence, drawn where it sits in time. A margin that is mostly
   solid means most of your events found no partner.
 
-**The middle panel — residuals.** How tightly the matched pairs agree, against the tolerance band
-that judged them. This measures *precision*, and only means something once the panel above has
-established that the pairs are the right ones. A perfect-looking residual is exactly what a
-badly-matched fit produces.
+**The middle panel — residuals.** How tightly the matched pairs agree, against the search-tolerance
+band. Residuals do not prove physical precision between sparse events. The summary reports the
+separate precision check and the largest unsupported interval.
 
 **The bottom panel — coverage.** Where each recording has data, where its alignment was actually
 measured, and where the recording stops and resumes. The distinction that matters: between the
@@ -170,9 +174,9 @@ along its whole length.
 
 In descending order of strength, whichever the evidence supports:
 
-- **Exact** — a camera strobe whose pulse count matches the frames in the file. Each frame takes the
-  time its own exposure was measured at. No model is fitted, so there is nothing to be uncertain
-  about; the confidence is the count agreement.
+- **Exact** — a recorded camera-to-DAQ exposure strobe declared for that camera, with matching
+  stored-frame count, complete pulses, and agreeing interval pattern. Each frame takes the time
+  its own exposure was measured at. Local video timestamps alone never license this mapping.
 - **Interpolated between sync edges** — a shared pulse train. The mapping follows the two clocks at
   every edge, so no single rate has to hold across the whole recording. This is the answer when
   clocks wander unpredictably, as they do when a room warms up.

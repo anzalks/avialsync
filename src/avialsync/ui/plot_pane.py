@@ -8,16 +8,18 @@ from pathlib import Path
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QEvent, Qt, QTimer, Signal
-from PySide6.QtGui import QAccessible, QAction, QResizeEvent
+from PySide6.QtCore import QEvent, Qt, QThread, QTimer, Signal, Slot
+from PySide6.QtGui import QAccessible, QAction, QCloseEvent, QResizeEvent
 from PySide6.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
 
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.timeline import TimeMap
+from avialsync.engine.plot_page_worker import PlotPage, PlotPageWorker, PlotRowRequest
 from avialsync.ui.accessible_views import register_painted
 from avialsync.ui.annotations import AnnotationStore
 from avialsync.ui.app_settings import app_settings
 from avialsync.ui.i18n import tr
+from avialsync.ui.job_manager import JobManager
 from avialsync.ui.plot_header import PlotControlStrip, PlotHeader
 from avialsync.ui.plot_interactions import PlotInteractionController
 from avialsync.ui.plot_row import (
@@ -32,7 +34,6 @@ from avialsync.ui.plot_row import (
     enforce_channel_visibility,
     fit_channel_y,
     point_budget_for_width,
-    refresh_channel_plot,
     set_channel_unit,
     update_channel_coverage,
 )
@@ -69,6 +70,8 @@ _CURSOR_REPAINT_SLACK_S = 1.0 / 120.0
 #: least one row, so one expensive row sets the floor: shrinking this further
 #: cannot push the worst case below the cost of a single row.
 _ROW_BUILD_SLICE_S = 0.008
+#: A plot page job is shown in the status bar only once it has run this long.
+_PAGE_ANNOUNCE_S = 0.5
 
 #: Every budget in this module is a fraction of a frame, so they are timed on
 #: `perf_counter`, never `time.monotonic`. On Windows `monotonic` is
@@ -106,9 +109,16 @@ class PlotPane(QWidget):
     channels_loaded = Signal()
     # Rows still queued for construction, 0 when the load is complete.
     rows_pending = Signal(int)
+    page_ready = Signal(int)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
+        self._page_generation = 0
+        self._last_installed_generation = 0
+        self._page_thread: QThread | None = None
+        self._page_worker: PlotPageWorker | None = None
+        self._page_manager: JobManager | None = None
+        self._closed = False
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         _layout = QVBoxLayout()
         _layout.setContentsMargins(0, 0, 0, 0)
@@ -176,7 +186,8 @@ class PlotPane(QWidget):
         self._last_point_budget = 0
         self._last_cursor_repaint = 0.0
         self._pending_rows: list[tuple[Path, str, TimeMap, str]] = []
-        self._pending_refresh: list[ChannelPlot] = []
+        # The rows the page in flight was requested for, by request index.
+        self._requested_rows: tuple[ChannelPlot, ...] = ()
         # Worst observed cost of one row, used to stop a slice before the next
         # row would overrun its budget rather than after one already has.
         self._row_build_cost_s = 0.0
@@ -217,6 +228,24 @@ class PlotPane(QWidget):
         super().changeEvent(event)
         if event.type() in (QEvent.Type.PaletteChange, QEvent.Type.ApplicationPaletteChange):
             self._apply_palette()
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Cancel a standalone pane's outstanding page before Qt destroys it."""
+        self.shutdown()
+        super().closeEvent(event)
+
+    def shutdown(self) -> None:
+        """Stop requesting pages and cancel the one in flight, for good.
+
+        Called by the window's close sequence before its jobs shut down, and by
+        :meth:`closeEvent` for a standalone pane. Without the flag, the
+        cancelled page's thread ends, sees a newer generation, and starts
+        another page into a job manager that has already shut down.
+        """
+        self._closed = True
+        self.cancel_pending_rows()
+        if self._page_manager is not None:
+            self._page_manager.shutdown()
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         """Coalesce resize storms before selecting a new pyramid resolution."""
@@ -334,9 +363,9 @@ class PlotPane(QWidget):
             unit = self._units.get(channel.reader.key) or self._units.get(name)
             if unit:
                 set_channel_unit(channel, unit)
-            # Fill this row in now rather than leaving all 64 pyramid queries to
-            # the end, and inside the timed region so the slice budget covers it.
-            self._refresh_rows([channel])
+            # No data yet: the view stays frozen until the last row exists, and
+            # `_finish_loading` then requests one page for all of them from the
+            # worker. Querying here made each UI slice wait on cold mmap pages.
 
             # Stop before the *next* row would overrun, not after this one
             # already has. Checking afterwards let a slice run to twice its
@@ -357,22 +386,6 @@ class PlotPane(QWidget):
         # near 90 ms.
         QTimer.singleShot(0, self, self._finish_loading)
 
-    def _refresh_rows(self, channels: list[ChannelPlot]) -> None:
-        """Load pyramid data for *channels* only, if a page is established."""
-        if self.sweep_start is None or not channels:
-            return
-        t0 = self.sweep_start
-        t1 = t0 + self.window_duration
-        budget = point_budget_for_width(int(self.graphics_layout.viewport().width()))
-        for channel in channels:
-            if not channel.visible:
-                continue
-            refresh_channel_plot(channel, t0, t1, budget)
-            if channel.y_mode == Y_FIT_ONCE and channel.y_range is None:
-                fit_channel_y(channel)
-                if channel.y_range is not None:
-                    channel.y_mode = Y_MANUAL
-
     def cancel_pending_rows(self) -> None:
         """Abandon queued row building.
 
@@ -381,7 +394,9 @@ class PlotPane(QWidget):
         never wait for construction it no longer needs.
         """
         self._pending_rows.clear()
-        self._pending_refresh.clear()
+        self._page_generation += 1
+        if self._page_worker is not None:
+            self._page_worker.cancel()
         self.graphics_layout.setUpdatesEnabled(True)
 
     def clear_sources(self) -> None:
@@ -438,8 +453,6 @@ class PlotPane(QWidget):
         """
         while self._pending_rows:
             self._build_pending_rows()
-        while self._pending_refresh:
-            self._refresh_pending_slice()
         # `_build_pending_rows` defers completion to the event loop; a caller
         # that asked to wait needs it applied before it continues.
         self._finish_loading()
@@ -571,67 +584,113 @@ class PlotPane(QWidget):
         """Backwards compatibility for Phase 2 single-channel load."""
         self.load_channels(cache_dir, [channel_id])
 
-    def update_plots(self, *, sliced: bool = False) -> None:
-        """Refresh the current sweep from the decimation pyramid.
+    def update_plots(self) -> None:
+        """Request a worker-prepared page; install only its latest complete result.
 
-        ``sliced`` spreads the requery across event-loop turns. It is opt-in
-        because a page flip during playback must be atomic: rows that changed
-        page in different turns would briefly disagree about which page they
-        show. Only a user-driven change of the shared time span asks for it,
-        where a row arriving a turn late reads as progressive redraw and a
-        synchronous pass reads as a freeze (D-063).
+        No pyramid row is queried here. Requests coalesce: one page is in
+        flight at a time, a newer request cancels it, and the newest is started
+        when it stops. Every row of a page is installed in one callback, so
+        rows never disagree about which page they show (D-201).
         """
         if self.sweep_start is None or not self.channels:
             return
-
-        if sliced:
-            self._pending_refresh = [ch for ch in self.channels if ch.visible]
-            self._refresh_pending_slice()
+        self._page_generation += 1
+        self._hold_rows_at_their_times()
+        if self._page_worker is not None:
+            self._page_worker.cancel()
             return
+        self._start_page_job()
 
-        t0 = self.sweep_start
-        t1 = t0 + self.window_duration
-        point_budget = point_budget_for_width(int(self.graphics_layout.viewport().width()))
-        self._last_point_budget = point_budget
+    def _hold_rows_at_their_times(self) -> None:
+        """Keep each row's samples at their true time until its new page arrives.
 
-        for ch in self.channels:
-            if not ch.visible:
-                continue
-            self._refresh_one_row(ch, t0, t1, point_budget)
-
-    def _refresh_one_row(self, channel: ChannelPlot, t0: float, t1: float, budget: int) -> None:
-        """Requery one row and settle its once-only Y fit."""
-        refresh_channel_plot(channel, t0, t1, budget)
-        if channel.y_mode == Y_FIT_ONCE and channel.y_range is None:
-            fit_channel_y(channel)
-            if channel.y_range is not None:
-                channel.y_mode = Y_MANUAL
-
-    def _refresh_pending_slice(self) -> None:
-        """Requery queued rows for one time slice, then yield to the event loop.
-
-        The window is read afresh every slice, so a span change arriving while
-        a refresh is in flight lands on the remaining rows rather than being
-        drawn at the previous span and corrected later.
+        The axis and cursor move with the page at once; the data follows from a
+        worker. Offsetting a row by how far its data's page start is from the
+        new one shows the previous samples where they belong -- usually off
+        screen -- rather than drawn under times they were never recorded at.
         """
         if self.sweep_start is None:
-            self._pending_refresh.clear()
             return
-        started = _elapsed()
+        for channel in self.channels:
+            if channel.page_t0 is not None:
+                channel.curve.setPos(channel.page_t0 - self.sweep_start, 0.0)
+
+    def _start_page_job(self) -> None:
+        if self._closed or self.sweep_start is None or not self.channels:
+            return
         t0 = self.sweep_start
-        t1 = t0 + self.window_duration
-        point_budget = point_budget_for_width(int(self.graphics_layout.viewport().width()))
-        self._last_point_budget = point_budget
+        budget = point_budget_for_width(int(self.graphics_layout.viewport().width()))
+        self._last_point_budget = budget
+        self._requested_rows = tuple(channel for channel in self.channels if channel.visible)
+        rows = tuple(
+            PlotRowRequest(
+                index,
+                channel.reader.source_reader,
+                channel.reader.source_id,
+                channel.reader.time_map.copy(),
+            )
+            for index, channel in enumerate(self._requested_rows)
+        )
+        worker = PlotPageWorker(self._page_generation, t0, t0 + self.window_duration, budget, rows)
+        self._page_worker = worker
 
-        while self._pending_refresh:
-            self._refresh_one_row(self._pending_refresh.pop(0), t0, t1, point_budget)
-            if _elapsed() - started > _ROW_BUILD_SLICE_S:
-                break
+        def configure(thread: QThread) -> None:
+            worker.finished.connect(self._on_page_ready)
+            worker.error.connect(self._on_page_error)
+            thread.finished.connect(self._on_page_thread_finished)
 
-        if self._pending_refresh:
-            # Context-object overload: Qt drops the callback if this pane is
-            # destroyed first, rather than firing into a deleted C++ object.
-            QTimer.singleShot(0, self, self._refresh_pending_slice)
+        # Registered like every job, but announced only if it outlasts
+        # rule 11's half second: a page usually lands within a frame or two.
+        label = tr("Preparing plot page")
+        run_job = getattr(self.window(), "_run_job", None)
+        if callable(run_job):
+            self._page_thread = run_job(
+                worker, label=label, configure=configure, announce_after_s=_PAGE_ANNOUNCE_S
+            )
+        else:
+            if self._page_manager is None:
+                self._page_manager = JobManager(self)
+            self._page_thread = self._page_manager.start(
+                label, worker, configure=configure, announce_after_s=_PAGE_ANNOUNCE_S
+            )
+
+    @Slot(object)
+    def _on_page_ready(self, page: object) -> None:
+        """Install a whole current page in one callback; drop anything older."""
+        if not isinstance(page, PlotPage) or page.generation != self._page_generation:
+            return
+        if self.sweep_start != page.t0:
+            return
+        # Rows are matched by identity, not position: a row removed while the
+        # page was prepared must not hand its curve to the row after it.
+        alive = {id(channel) for channel in self.channels}
+        for index, x, y in page.rows:
+            channel = self._requested_rows[index]
+            if id(channel) not in alive:
+                continue
+            channel.curve.setData(x, y)
+            channel.curve.setPos(0.0, 0.0)
+            channel.page_t0 = page.t0
+            if channel.y_mode == Y_AUTO or (
+                channel.y_mode == Y_FIT_ONCE and channel.y_range is None
+            ):
+                fit_channel_y(channel)
+                if channel.y_mode == Y_FIT_ONCE and channel.y_range is not None:
+                    channel.y_mode = Y_MANUAL
+        self._last_installed_generation = page.generation
+        self.page_ready.emit(page.generation)
+
+    @Slot(str)
+    def _on_page_error(self, message: str) -> None:
+        logger.warning("Plot page preparation failed: %s", message)
+
+    @Slot()
+    def _on_page_thread_finished(self) -> None:
+        finished = self._page_worker
+        self._page_worker = None
+        self._page_thread = None
+        if finished is not None and finished.generation != self._page_generation:
+            self._start_page_job()
 
     def set_cursor(self, t: float, *, immediate: bool = False) -> None:
         """Advance the fixed sweep from the master-clock time.
@@ -676,14 +735,10 @@ class PlotPane(QWidget):
         for ch in self._matching(channel):
             ch.visible = visible
             apply_channel_visibility(ch)
-            if visible and self.sweep_start is not None:
-                refresh_channel_plot(
-                    ch,
-                    self.sweep_start,
-                    self.sweep_start + self.window_duration,
-                    point_budget_for_width(int(self.graphics_layout.viewport().width())),
-                )
-                self._redraw_sweep_overlays()
+        if visible and self.sweep_start is not None:
+            # The shown row's page comes from the worker like any other.
+            self.update_plots()
+            self._redraw_sweep_overlays()
         self._relayout_rows()
 
     def reset_zoom(self) -> None:
@@ -802,13 +857,13 @@ class PlotPane(QWidget):
         return self._interactions._extra_context_actions
 
     def _on_window_changed(self, _seconds: float) -> None:
-        """Requery every row for the new span, without freezing the window.
+        """Request every row for the new span from the page worker.
 
         At 128 channels a synchronous requery averaged 38 ms against the
-        30 ms UI-callback ceiling, so this is the one refresh that slices.
+        30 ms UI-callback ceiling; no page is queried on this thread now.
         """
         self._configure_shared_x_range()
-        self._set_sweep_for_time(self._sweep_control.last_master_time, force=True, sliced=True)
+        self._set_sweep_for_time(self._sweep_control.last_master_time, force=True)
 
     def _refresh_after_resize(self) -> None:
         enforce_channel_visibility(self.channels)
@@ -907,11 +962,11 @@ class PlotPane(QWidget):
         for channel in self.channels:
             channel.curve.set_reveal_enabled(not review)
 
-    def _set_sweep_for_time(self, t: float, *, force: bool = False, sliced: bool = False) -> float:
+    def _set_sweep_for_time(self, t: float, *, force: bool = False) -> float:
         """Derive sweep position from master time and refresh only at boundaries."""
         position = self._sweep_control.advance(t)
         if position.changed or force:
-            self.update_plots(sliced=sliced)
+            self.update_plots()
             self._redraw_sweep_overlays()
 
         # Time has already advanced; from here down we are only moving pixels.

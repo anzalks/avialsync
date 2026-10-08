@@ -26,11 +26,14 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.document import MarkerRecord, SourceRecord
 from avialsync.core.point_edits import PointKey
 from avialsync.ui import imaging_integration
 from avialsync.ui.annotations import Marker
+from avialsync.ui.sync_acceptance import install_sync_mapping
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
@@ -369,17 +372,28 @@ class WindowMutationTarget:
         window = self._window
         with self.replaying():
             # The command carries the residual the sidebar shows; the pane and
-            # the coverage registry want the whole mapping.
-            effective = window.effective_offset(source_id, offset)
-            window.video_grid.set_offset(source_id, effective)
-            window.sidebar.set_video_offset(source_id, offset)
-            window._video_time_mappings[source_id] = (effective, drift_ms_per_hour)
-            window._recorded_mappings[source_id] = (offset, drift_ms_per_hour)
+            # the coverage registry want the whole mapping. Exact arrays come
+            # back as the frozen buffers the accepted fit made, so restoring a
+            # million-frame mapping shares them rather than copying.
+            # `asarray` hands back the very array a float64 one already is,
+            # which is what lets `adopt` recognise it as frozen.
+            raw_master = np.asarray(getattr(evidence, "exact_master", []), dtype=np.float64)
+            raw_source = np.asarray(getattr(evidence, "exact_source", []), dtype=np.float64)
+            install_sync_mapping(
+                window,
+                source_id,
+                window.effective_offset(source_id, offset),
+                drift_ms_per_hour,
+                raw_master if len(raw_master) else None,
+                raw_source if len(raw_source) else None,
+                strict=False,
+            )
             window._sync_provenance = [
                 entry for entry in window._sync_provenance if entry.target_id != source_id
             ]
             if evidence is not None:
                 window._sync_provenance.append(evidence)
+            window.refresh_alignment_badges()
 
     # ── whole workspace (Reset Session only) ─────────────────────────
 

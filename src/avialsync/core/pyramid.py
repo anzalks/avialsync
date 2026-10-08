@@ -3,6 +3,7 @@
 import math
 import os
 import struct
+import threading
 import warnings
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
@@ -363,6 +364,10 @@ class PyramidReader:
         self.cache_dir = cache_dir
         self.channel_id = channel_id
         self._arrays: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = {}
+        # A plot row's reader is also read by the page worker. The lock keeps a
+        # level loaded from a directory `reopen` has just replaced out of the
+        # cache, where it would serve the old generation from then on.
+        self._lock = threading.Lock()
 
     def reopen(self, cache_dir: Path) -> None:
         """Read this channel from *cache_dir* from now on.
@@ -377,32 +382,41 @@ class PyramidReader:
         is the difference between a directory that can be replaced and one that
         cannot.
         """
-        if cache_dir == self.cache_dir:
-            return
-        self.cache_dir = cache_dir
-        self._arrays.clear()
+        with self._lock:
+            if cache_dir == self.cache_dir:
+                return
+            self.cache_dir = cache_dir
+            self._arrays.clear()
 
     def _load_level(self, level: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         key = f"{self.channel_id}_{level}"
-        if key not in self._arrays:
-            if level == 1:
-                t = np.load(self.cache_dir / f"{self.channel_id}_t.npy", mmap_mode="r")
-                v = np.load(self.cache_dir / f"{self.channel_id}_v.npy", mmap_mode="r")
-                gap = np.load(self.cache_dir / f"{self.channel_id}_gap.npy", mmap_mode="r")
-                self._arrays[key] = (t, v, v, gap)
-            else:
-                t = np.load(self.cache_dir / f"{self.channel_id}_pyr_{level}_t.npy", mmap_mode="r")
-                vmin = np.load(
-                    self.cache_dir / f"{self.channel_id}_pyr_{level}_vmin.npy", mmap_mode="r"
-                )
-                vmax = np.load(
-                    self.cache_dir / f"{self.channel_id}_pyr_{level}_vmax.npy", mmap_mode="r"
-                )
-                gap = np.load(
-                    self.cache_dir / f"{self.channel_id}_pyr_{level}_gap.npy", mmap_mode="r"
-                )
-                self._arrays[key] = (t, vmin, vmax, gap)
-        return self._arrays[key]
+        with self._lock:
+            cached = self._arrays.get(key)
+            cache_dir = self.cache_dir
+        if cached is not None:
+            return cached
+        # Opened outside the lock: a cold mmap open must not hold up a reader
+        # on another thread that only wants a level already loaded.
+        if level == 1:
+            t = np.load(cache_dir / f"{self.channel_id}_t.npy", mmap_mode="r")
+            v = np.load(cache_dir / f"{self.channel_id}_v.npy", mmap_mode="r")
+            gap = np.load(cache_dir / f"{self.channel_id}_gap.npy", mmap_mode="r")
+            loaded = (t, v, v, gap)
+        else:
+            stem = f"{self.channel_id}_pyr_{level}"
+            loaded = (
+                np.load(cache_dir / f"{stem}_t.npy", mmap_mode="r"),
+                np.load(cache_dir / f"{stem}_vmin.npy", mmap_mode="r"),
+                np.load(cache_dir / f"{stem}_vmax.npy", mmap_mode="r"),
+                np.load(cache_dir / f"{stem}_gap.npy", mmap_mode="r"),
+            )
+        with self._lock:
+            if self.cache_dir == cache_dir:
+                return self._arrays.setdefault(key, loaded)
+        # Replaced while loading. This read is already obsolete -- the caller's
+        # page or sample is superseded by the change that replaced it -- but it
+        # is never cached, so nothing reads the old generation again.
+        return loaded
 
     # ── Public bounded read API (Trap 13) ─────────────────────────────
     #

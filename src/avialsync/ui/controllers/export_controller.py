@@ -253,6 +253,14 @@ def on_data_export_error(window: MainWindow, error: str) -> None:
 # ── Video clip ───────────────────────────────────────────────────────
 
 
+def _source_range(window: MainWindow, path: str, t0: float, t1: float) -> tuple[float, float]:
+    """The master-time A/B loop on this camera's own clock, which a trim cuts by."""
+    mapping = window.video_grid.time_map_for(path)
+    if mapping is None:
+        return t0, t1
+    return mapping.to_source(t0), mapping.to_source(t1)
+
+
 def export_video_clip(window: MainWindow) -> None:
     """Export a trimmed video clip for all loaded videos based on A/B loop."""
     if not window.video_grid._paths:
@@ -280,7 +288,10 @@ def export_video_clip(window: MainWindow) -> None:
         )
         if not path:
             return
-        clips = [(window.video_grid.media_path_for(window.video_grid._paths[0]), t0, t1, path)]
+        only = window.video_grid._paths[0]
+        clips = [
+            (window.video_grid.media_path_for(only), *_source_range(window, only, t0, t1), path)
+        ]
     else:
         out_dir = choose_folder(window, "clip", tr("Export Trimmed Video Clip"), Path.home())
         if not out_dir:
@@ -291,8 +302,7 @@ def export_video_clip(window: MainWindow) -> None:
         clips = [
             (
                 media[orig_path],
-                t0,
-                t1,
+                *_source_range(window, orig_path, t0, t1),
                 out_dir / f"{Path(orig_path).stem}_trim{Path(media[orig_path]).suffix}",
             )
             for orig_path in window.video_grid._paths

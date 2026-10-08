@@ -29,6 +29,7 @@ short to show it is not a clock measurement; it is noise in a parameter, and
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Callable
 
 import numpy as np
 
@@ -41,6 +42,7 @@ from avialsync.core.sync import (
     SyncMatch,
     SyncProposal,
     fit_sync_events,
+    with_precision,
 )
 from avialsync.core.triggers import Reconciliation, TriggerKind
 
@@ -153,6 +155,9 @@ def fit_piecewise(
     reference_id: str,
     target_id: str,
     tolerance: float | None = None,
+    precision_requirement: float = 0.001,
+    is_cancelled: Callable[[], bool] | None = None,
+    target_span: tuple[float, float] | None = None,
 ) -> SyncProposal:
     """Interpolate linearly between matched sync edges, TPrime's model.
 
@@ -173,6 +178,9 @@ def fit_piecewise(
         reference_id=reference_id,
         target_id=target_id,
         max_residual=tolerance,
+        precision_requirement=precision_requirement,
+        is_cancelled=is_cancelled,
+        target_span=target_span,
     )
     if len(affine.matches) < MIN_PIECEWISE_KNOTS:
         raise SyncEvidenceError(
@@ -193,7 +201,18 @@ def fit_piecewise(
     # Residuals are zero at every knot by construction -- that is what
     # interpolation means -- so the quality of this mapping is not in its
     # residuals. It is in how far apart the knots are, which `coverage` and the
-    # match rate carried over from the affine search both speak to.
+    # match rate carried over from the affine search both speak to, and in how
+    # well each knot is predicted by interpolating across it: that
+    # leave-one-out error holds edge jitter and the wander a line between two
+    # knots misses, over twice the spacing the mapping actually spans.
+    from avialsync.core.timeline import PreparedExactMapping
+
+    spacing = master[2:] - master[:-2]
+    predicted = source[:-2] + (source[2:] - source[:-2]) * (master[1:-1] - master[:-2]) / spacing
+    knot_error = float(np.max(np.abs(source[1:-1] - predicted)))
+
+    prepared = PreparedExactMapping.prepare(master, source)
+    master, source = prepared.master, prepared.source
     fit = ExactSyncFit(
         offset=float(source[0] - master[0]),
         drift_ms_per_hour=affine.fit.drift_ms_per_hour,
@@ -208,6 +227,15 @@ def fit_piecewise(
         method=AlignmentMethod.PIECEWISE,
         exact_master=master,
         exact_source=source,
+        prepared_mapping=prepared,
+    )
+    fit = with_precision(
+        fit,
+        master,
+        source,
+        target_span or (float(np.min(target_times)), float(np.max(target_times))),
+        precision_requirement,
+        worst_residual=knot_error,
     )
     matches = tuple(SyncMatch(float(m), float(s), 0.0) for m, s in zip(master, source, strict=True))
     return SyncProposal(

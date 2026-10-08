@@ -292,14 +292,42 @@ Two product laws govern that phase and outrank convention:
   plugin-owned.
 - Core preserves raw timestamps and models raw events, matched pairs, affine offset/drift,
   residuals, and accepted session provenance. It remains headless.
-- `SyncWizard` lets the user choose a cached TTL channel and video frame-event source, preview the
-  mapping, then explicitly accept it. Never silently alter a `TimeMap`.
+- `SyncWizard` lets the user choose reference evidence (a TTL channel or a declared trigger train)
+  and a target (a video, a sensor, or a trigger file), preview the mapping, then explicitly accept
+  it. Never silently alter a `TimeMap`.
 - `SyncWorker` extracts chunks off the UI thread; matching is deterministic. Unit/Qt coverage includes
   chunk boundaries, drift, missing/spurious/ambiguous pulses, session round-trip, and acceptance.
   `test_bench_sync.py` gates a 10,000-event preview at ≤250 ms locally; GitHub Actions checks the
   representative workload for correctness only and uses no timing multiplier.
 - Follow-up: native plugin event providers remain separate API work; manual offset/drift fallback is
   available in the Sync Wizard.
+
+**Sync evidence hardening (D-201).** Video PTS are local time axes, never a frame strobe, and
+`SyncWorker` refuses a video as the *reference* in every mode: two equal-rate cameras have
+identical timestamps whatever their true starts. Exact mapping needs a recorded exposure strobe
+declared for that camera, with complete pulses, no index offset, equal counts and agreeing
+intervals (a drop hidden by an extra pulse fails the intervals); `auto` tries it first, because
+a regular frame train is exactly what makes the affine search ambiguous. Each reference carries
+its clock's accepted `TimeMap`, so the fit runs in master time; matches keep `raw_reference_time`
+and the proposal its `reference_clock_id`. `extract_pulses` treats gaps, non-finite values and the
+recording's start as unknown: a pulse with an edge there is excluded and counted
+(`excluded_incomplete_count`), and any exclusion refuses exact indices. Trigger-file strobes pass
+their unfinished final pulse through `EventEvidenceSpec.incomplete_indices`. The search tolerance
+finds pairs; `core/sync.with_precision` then judges the worst residual, the largest unsupported
+interval and the target-side extrapolation (over a sensor's whole recording, not just its
+pulses) against `precision_requirement`, at `MAX_PLAUSIBLE_DRIFT_MS_PER_HOUR` of wander per
+unsupported second. Piecewise fits are judged by leave-one-out knot error. Unverified fits stay
+applicable; `precision_requirement == 0` means "not assessed" (pre-D-201 records). Videos,
+sensors and trigger files are placed by `ui/sync_acceptance.install_sync_mapping`, for accept,
+undo and redo alike; a reopened sensor gets its piecewise arrays back (`take_pending_exact_mapping`).
+Plot pages come from `engine/plot_page_worker.py` on the rows' own readers (`PyramidReader` is
+thread-safe for that), coalesce, install whole, and hold stale rows at their true times
+(`ChannelPlot.page_t0`); page jobs are registered with `announce_after_s=0.5`. The evidence view
+draws `prepare_display_summary` (worst residual per run, equal-rank rejects, full span).
+`PreparedExactMapping` validates and freezes exact arrays on the worker; `adopt` installs those
+exact buffers by identity everywhere after, including a session reopened from its sidecar.
+Video clip export trims each camera at its own clock's A/B times, which it never did before.
+Fixture: `tools/make_fixtures.generate_sync_ground_truth`.
 
 ### Open items
 - **Delivered: Phase 9 interface design** — `archive/plans/INTERFACE_DESIGN_PLAN.md`; the TESTING.md
@@ -541,9 +569,9 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 
 | File | Responsibility | Key API |
 |---|---|---|
-| `core/timeline.py` | Single master clock — HEADLESS, no PySide6 | `MasterClock`, `TimeMap`, `ClockState` |
+| `core/timeline.py` | Single master clock — HEADLESS, no PySide6. Exact mappings interpolate by binary search: `np.interp` copies read-only arrays (D-201) | `MasterClock`, `TimeMap`, `ClockState`, `PreparedExactMapping` |
 | `core/session_time.py` | The session's declared zero, after NWB's `session_start_time`. A source carrying wall-clock time is **placed** against it through its own TimeMap — nothing is rewritten | `is_absolute()`, `reference_epoch()`, `rebase_offset()`, `ABSOLUTE_EPOCH_FLOOR` |
-| `core/pyramid.py` | Decimation pyramid (1×/16×/256×/4096×) | `PyramidReader`, `PyramidBuilder` |
+| `core/pyramid.py` | Decimation pyramid (1×/16×/256×/4096×). A reader's level cache is locked, so a plot row's reader can also serve the page worker and `reopen` never caches a replaced generation | `PyramidReader`, `PyramidBuilder` |
 | `core/cache.py` | Binary cache in one per-user folder, content-hash key; entry naming and its `source.json` ownership record (D-160) | `CacheManager`, `cache_root()`, `cache_dir_for()` |
 | `core/cache_leases.py` | Process-local reader pins shared by cache replacement, pruning, and removal (D-200) | `GenerationPin`, `pin_reader_directory()`, `cache_entry_pinned()` |
 | `core/cache_store.py` | The only code that deletes from the cache: lists entries, finds a trial's, and trims old or over-budget entries only inside `sources/` with our record (D-160, D-199) | `list_entries()`, `entries_under()`, `remove_entries()`, `remove_all()`, `trim_cache()`, `working_folders()` |
@@ -553,6 +581,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `core/artifact_provenance.py` | Versioned provenance and JSON companions for strict external layouts | `record()`, `write_companion()` |
 | `core/source.py` | Plugin ABCs — time-series/video APIs plus `ImagingSource` for random-access 2D frames; `VideoSource.prepare_is_atomic()` marks an uncancellable conversion; `TriggerSource` returns evidence instants | `TimeSeriesSource`, `VideoSource`, `ImagingSource`, `ImagingMetadata`, `TriggerSource` |
 | `ui/coverage_lanes.py` | Where each source has data, where its alignment is **measured** rather than extended past the last sync point, and where it stops and resumes. Always the whole session — never auto-ranged to the overlap | `CoverageLanes`, `SourceCoverage`, `SourceCoverage.extrapolated()` |
+| `ui/sync_acceptance.py` | Gathers what the wizard may offer -- references on their own clocks with their accepted mappings, targets acceptance can place -- and places a video, sensor, or trigger file by one path for accept, undo, and redo (D-201) | `collect_sync_evidence()`, `install_sync_mapping()`, `accept_sync_proposal()` |
 | `ui/trigger_dialog.py` | Where the user says what each trigger column **is**. Leads with the kind, because the difference between a strobe and a trigger is the difference between an exact mapping and a fitted one | `TriggerEvidenceDialog`, `TrainChoice` |
 | `engine/trigger_worker.py` | Reads every declared train in one job, off the UI thread. All or nothing — a partial set leaves the user to notice which train went missing | `TriggerReadWorker`, `TriggerTrainResult` |
 | `loaders/trigger_csv.py` | Trigger evidence from a delimited file, either a sampled line or a column of event times. The config declares each train's `TriggerKind` — `suggest_trains` never guesses `frame_strobe` | `TriggerCSVSource`, `LEVEL`, `TIMESTAMPS` |
@@ -573,7 +602,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `core/messages.py` | Headless record for free text the rig stored with the data (D-078) | `Message`, `clean()`, `bounded()`, `MAX_MESSAGES` |
 | `core/triggers.py` | What a TTL train is evidence **of**, which depends on which way the wire ran. Keeps both edges, so a strobe is timestamped at its exposure midpoint and carries its duration | `TriggerKind`, `TriggerTrain`, `extract_pulses()`, `locate_drops()`, `reconcile_with_frames()` |
 | `core/alignment.py` | The model ladder: exact → piecewise → affine → shift → unvalidated, chosen from the evidence and the span rather than offered as a dropdown | `choose_method()`, `fit_piecewise()`, `drift_is_identifiable()`, `residual_trend()`, `demote_to_shift()` |
-| `core/sync.py` | Headless synchronization evidence/model layer (D-026). Carries the guards a residual plot structurally cannot express: match rate, ambiguity margin, plausible-rate search constraint | `SyncEvent`, `SyncProposal`, `AlignmentMethod`, `SyncFit.describe()`, `SyncProposal.applicable`/`.refusal` |
+| `core/sync.py` | Headless synchronization evidence/model layer (D-026, D-201). Carries match rate, ambiguity margin, plausible-rate search, physical exact-evidence contract, precision quality, and bounded display summary | `SyncEvent`, `SyncProposal`, `AlignmentMethod`, `SyncFit.describe()`, `prepare_display_summary()`, `SyncProposal.applicable`/`.refusal` |
 | `core/channel_reader.py` | Master-clock view of a cached channel + scoped identity (D-045). `sample_at()` retains cursor clamping; `available_sample_at()` rejects times outside coverage or inside timestamp gaps for prop motion evidence | `MappedChannelReader`, `ChannelKey`, `disambiguate()` |
 | `core/point_edits.py` | Hand corrections to tracked points, in memory — sparse overrides keyed by `(source, body part, sample index)`. HEADLESS. **Never writes the pose file or its cache** (D-099) | `PointEditStore`, `PointKey`, `PointMove` |
 | `core/point_edit_sidecar.py` | Where those corrections live: `<pose name>_<ext>_avialfix.csv` beside the source, written on every edit. Commented header, atomic replace, emptied never deleted (D-099) | `sidecar_path()`, `is_correction_path()`, `read()`, `write()` |
@@ -647,7 +676,8 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `loaders/aol_video_extraction_loader.py` | Video-extraction-toolbox per-camera export: v7.3/HDF5 + JSON sidecar, one channel per (ROI, column). Carries its own time axis, so NOT frame-indexed (D-081). In a session it is timed from the camera start, not from `absolute_times`, which is an hour out against the session's wall-clock axis (D-083) | `AOLVideoExtractionLoader`, `TIME_BASE_CAMERA_START`, `read_sidecar()`, `sidecar_path()` |
 | `engine/importer.py` | Background import worker (QThread); emits SourceInspection | `ImportWorker` — signals: `finished(path, cache_dir, channels, bounds, inspection)`, `progress`, `error` |
 | `engine/proxy.py` | ffmpeg proxy generation (cancelable poll loop) | `ProxyWorker` |
-| `engine/sync_worker.py` | Chunked event extraction and deterministic alignment fit (D-026) | `SyncWorker`, evidence specs |
+| `engine/sync_worker.py` | Gap-aware event extraction, master-clock reference conversion, cancellable fit, bounded evidence summary (D-201) | `SyncWorker`, evidence specs |
+| `engine/plot_page_worker.py` | Cancellable, bounded pyramid page preparation; the UI installs only a current complete page | `PlotPageWorker`, `PlotPage`, `PlotRowRequest` |
 | `engine/session_worker.py` | Off-UI-thread session save/load and annotation export (D-046) | `SessionSaveWorker`, `SessionLoadWorker`, `AnnotationExportWorker` |
 | `engine/export.py` | Bounded CSV/Parquet data slices, video clip, region stats; Parquet `gap_after` marks a gap following that sample (D-199) | `export_data_slice_csv()`, `export_data_slice_parquet()`, `trim_video_clip()`, `compute_region_stats()` |
 | `engine/snapshot.py` | Snapshot figure: tiles, negotiated page width, opaque composition (D-101). Layout is planned once and both the capture and the render use that plan | `SnapshotFigure`, `SnapshotTile`, `plan_media_layout()`, `content_width_for()`, `figure_size()`, `render_figure()`, `save_figure()` |
@@ -658,7 +688,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/video_timing.py` | Timestamp rate/readout helpers and pane timing mixin; re-exports the two `core/video_timing.py` selectors `bit_depth_of()` and `format_picture()` give resolution and depth; compact OSD is two lines, time · frame then picture (D-183). | `VideoTimingMixin`, `format_video_osd()`, `frame_interval_at_master()` (replaced `sync_tolerance_at_master()`) |
 | `ui/video_overlay.py` | Transparent current-frame tracking paint layer; also the "Fix Tracker" drag surface (D-099). Draws the wheel under the tracking through `ui/wheel_overlay.py`, on its own layers so hiding points does not hide the wheel (D-113) | `PaintCanvas`, `OverlayTrack`, `ResolvedPoint`, `set_wheel_source()`, `set_wheel_visible()` |
 | `ui/video_grid.py` | N VideoPanes; persistent visibility; single `QGridLayout`; `_relayout()`; one or two strip panes are sized to their pictures through the layout's margins and column stretches (D-174). `reset_all_views()` is View → Fit All Videos (Ctrl+Shift+0), also a video tools button: every pane to 1.00×, no pan. Fix Tracker and marker/wheel placement are the grid's modes, so a pane built later joins them (D-099, D-112, D-113) | `add_pane()`, `remove_pane()`, `set_pane_visible()`, `visible_panes()`, `set_grid_mode()`, `set_point_edit_mode()`, `set_point_edits()`, `set_marker_place_mode()`, `set_custom_markers()`, `set_reprojection_source()`, `set_wheel_source()`, `custom_marker_at()`; signals `marker_clicked`, `custom_point_moved` |
-| `ui/plot_pane.py` | Coordinator for linked pyramid plot rows, presentation, shared X/Y state, and navigator signal. The row stack lives in a `QScrollArea` (`_plot_scroll`); the one control strip below it holds the existing time-span editor and scrolls at compact widths (D-170) | `load_channels()`, `set_window_duration()`, `set_cursor()`, `set_channel_y_mode()` |
+| `ui/plot_pane.py` | Coordinator for linked pyramid plot rows, presentation, shared X/Y state, and navigator signal. The row stack lives in a `QScrollArea` (`_plot_scroll`); the one control strip below it holds the existing time-span editor and scrolls at compact widths (D-170). Never queries a pyramid: `update_plots()` requests a page from the worker and `_on_page_ready` installs the newest whole (D-201); `shutdown()` stops requests before the window's jobs stop | `load_channels()`, `set_window_duration()`, `set_cursor()`, `set_channel_y_mode()`, `update_plots()`, `shutdown()`, `page_ready` |
 | `ui/plot_header.py` | One compact plot and time-span control row (D-170) | `PlotHeader.insert_span_control()`, `PlotControlStrip` |
 | `ui/plot_row.py` | One channel row's bounded envelope, retained sweep page, gutter, Y state, coverage, and close control. The close tool is transparent until its row is hovered or it has focus; `reveal_row_tools()` decides, the row menu has Hide (D-177) | `ChannelPlot`, `create_channel_plot()`, `apply_channel_palette()`, `fit_channel_y()` |
 | `ui/plot_sweep.py` | Review/Sweep/Scope state and shared unit-converting logarithmic time-span control; `set_focus_target()` weakly names the pane that regains focus, avoiding a Qt/Python parent cycle (D-170) | `PlotPresentation`, `SweepWindowControl`, `SweepCurveItem` |
@@ -697,7 +727,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `loaders/aol_video_extraction_loader.py` | Video-extraction-toolbox per-camera ROI metric ingest | `AOLVideoExtractionLoader` |
 | `ui/video_overlay.py` | Live pose overlay with named markers; resolves each point once for both painting and hit-testing (D-099) | `PaintCanvas`, `OverlayTrack`, `ResolvedPoint` |
 | `ui/point_edit_tool.py` | The "Fix Tracker" drag: hit test, grab, clamp, handles. `set_edit_mode()` makes markers draggable and emits `point_moved(PointMove)` — **it never writes the store itself** (D-099). `set_place_mode()` turns a left click into `marker_clicked(x, y)` for marker and wheel placement (D-112, D-113) | `PointEditMixin`, `point_at()`, `set_edit_mode()`, `set_place_mode()` |
-| `ui/job_manager.py` | One owner for every background job: labels, watchdog, cancel, abandon-at-shutdown. **Every job now actually goes through it** — the four export registries, the import, the proxy and the video probes were migrated in D-107, and a raw `QThread` in `src/` fails `tests/test_feedback_surface.py` | `JobManager`, `Job`, `JobState`; reached through `MainWindow._run_job` |
+| `ui/job_manager.py` | One owner for every background job: labels, watchdog, cancel, abandon-at-shutdown. `announce_after_s` keeps a job that usually ends within frames (a plot page) out of the status bar and Tasks panel unless it outlasts that; it is registered either way (D-201). **Every job now actually goes through it** — the four export registries, the import, the proxy and the video probes were migrated in D-107, and a raw `QThread` in `src/` fails `tests/test_feedback_surface.py` | `JobManager`, `Job`, `JobState`; reached through `MainWindow._run_job` |
 | `ui/feedback/notifications.py` | One message shown, the rest queued behind it (D-107). A sticky message is never displaced; a transient success never holds up a failure, and never queues behind another success — only the newest one is kept, so a three-file import is one line rather than eighteen seconds of them (D-134). The waiting count is shown, so a queue is never silent. An optional `on_dismiss` callback is distinct from the named action (D-118) | `NotificationStrip.show_success/show_warning/show_error()`, `clear()`, `clear_all()`, `pending_count` |
 | `ui/app_settings.py` | The one place the `QSettings` store is opened, in `QSettings.defaultFormat()` so the test and screenshot sandboxes reach it (Phase 9 F-36) | `app_settings()` |
 | `ui/design_tokens.py` | Phase 9 spacing, type, density, and button roles; uses Qt font and icon APIs, no stylesheet (D-168) | `SPACE`, `spacing()`, `TypeRole`, `ControlRole`, `apply_type_role()`, `apply_role()` |
@@ -724,7 +754,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `core/source.py` | Plugin ABCs: `TimeSeriesSource`, `VideoSource`, and `SessionSource` for folder layouts (D-068); all three name themselves via `_Nameable`. `SessionLayout.warnings` carries what a scan could not lay out, so a dropped recording is never silent (D-085). `TimeSeriesSource.pose_roles()` offers direct-import 2D/3D uses (D-132) | `SessionSource`, `SessionLayout` (incl. `warnings`), `SessionItem` (incl. `label`), `display_name()`, `VideoSource.exact_time_mapping()` (D-072) |
 | `ui/controllers/cache_controller.py` | File → Cache: delete this trial's cache, all cache, or trim unused entries to 10 GB / 30 days; deletion closes and restores a loaded trial, while trim protects it without reimporting (D-160, D-199) | `delete_trial_cache()`, `delete_all_cache()`, `trim_cache()`, `show_cache_folder()` |
 | `ui/controllers/session_controller.py` | `.avv` save/load/restore, geometry, autosave, recent files. Also the recovery snapshot's UI side: `note_pending_recovery()` holds what a launch found, `offer_pending_recovery()` posts the opt-in bar, `recover_unsaved_work()` is the File command, `forget_pending_recovery()` drops the held offer beside every `clear_recovery()` (D-133) | `build_session_state()`, `restore_session()`, `start_session_save()` |
-| `ui/controllers/export_controller.py` | Snapshot, data slice, video clip, annotations, region stats | `export_snapshot()`, `start_data_export()`, `start_region_stats()` |
+| `ui/controllers/export_controller.py` | Snapshot, data slice, video clip, annotations, region stats. A clip's A/B loop is mapped onto each camera's clock before trimming | `export_snapshot()`, `start_data_export()`, `start_region_stats()` |
 | `ui/snapshot_capture.py` | UI-thread capture for the snapshot figure (D-101): each camera re-rendered at its decoded resolution and cropped free of letterbox, the 3D pose re-projected, the whole channel stack rather than the scroll viewport | `capture_figure()`, `capture_pane_figure()`, `capture_video_tile()`, `capture_plot_image()`, `plot_aspect()` |
 | `ui/controllers/video_controller.py` | Bounded concurrent probes; serialized pane build (D-040); validates and installs loader-declared per-frame mappings (D-072) | `load_video()`, `create_video_pane()`, `_declared_exact_mapping()`, `MAX_VIDEO_PROBES` |
 | `ui/controllers/import_controller.py` | Time-series import queue; pose → overlay/3D routing (D-046) | `start_data_import()`, `on_import_finished()`, `register_tracking_source()` |

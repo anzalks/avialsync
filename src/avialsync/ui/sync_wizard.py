@@ -22,11 +22,13 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.drift import describe_drift
 from avialsync.core.sync import AlignmentMethod, SyncFit, SyncProposal
+from avialsync.core.triggers import TriggerKind
 from avialsync.engine.sync_worker import EvidenceSpec, SignalEvidenceSpec, SyncWorker
 from avialsync.ui.about import docs_url
 from avialsync.ui.coverage_lanes import SourceCoverage
 from avialsync.ui.drift_spin import DriftSpinBox
 from avialsync.ui.i18n import tr
+from avialsync.ui.job_manager import JobManager
 from avialsync.ui.step_panel import StepPanel
 from avialsync.ui.sync_evidence_view import SyncEvidenceView
 
@@ -57,13 +59,14 @@ class SyncWizard(QDialog):
         self._proposal: SyncProposal | None = None
         self._thread: QThread | None = None
         self._worker: SyncWorker | None = None
+        self._local_jobs: JobManager | None = None
 
         layout = QVBoxLayout(self)
         layout.addWidget(
             QLabel(
                 tr(
-                    "Choose reference and video event evidence. The proposed mapping is "
-                    "not applied until you explicitly accept it."
+                    "Choose reference evidence and the source to align to it. The proposed "
+                    "mapping is not applied until you explicitly accept it."
                 )
             )
         )
@@ -74,11 +77,11 @@ class SyncWizard(QDialog):
         self._reference_combo = QComboBox(self)
         self._target_combo = QComboBox(self)
         for spec in self._references:
-            self._reference_combo.addItem(spec.source_id)
+            self._reference_combo.addItem(spec.display_name or spec.source_id)
         for spec in self._targets:
-            self._target_combo.addItem(spec.source_id)
+            self._target_combo.addItem(spec.display_name or spec.source_id)
         form.addRow(tr("Reference evidence:"), self._reference_combo)
-        form.addRow(tr("Target video evidence:"), self._target_combo)
+        form.addRow(tr("Target evidence:"), self._target_combo)
         self._threshold = QDoubleSpinBox(self)
         self._threshold.setRange(-1e12, 1e12)
         self._threshold.setDecimals(3)
@@ -97,6 +100,16 @@ class SyncWizard(QDialog):
             lambda checked: self._threshold.setEnabled(not checked)
         )
         form.addRow("", self._use_all_times_chk)
+        self._recorded_strobe = QCheckBox(
+            tr("This reference is the selected camera's recorded exposure strobe"), self
+        )
+        self._recorded_strobe.setToolTip(
+            tr(
+                "Select only when the camera sent one measured strobe per exposure "
+                "into the reference recorder. A frame timestamp or trigger request is insufficient."
+            )
+        )
+        form.addRow("", self._recorded_strobe)
         # Fitting choices most alignments never touch: behind More… (D-176).
         advanced = QFormLayout()
 
@@ -152,6 +165,18 @@ class SyncWizard(QDialog):
         advanced.addRow(tr("Match tolerance:"), self._tolerance)
         self._effective_tolerance = QLabel(tr("Calculated when you preview the evidence."), self)
         advanced.addRow(tr("Effective match tolerance:"), self._effective_tolerance)
+        self._precision_requirement = QDoubleSpinBox(self)
+        self._precision_requirement.setRange(0.000001, 1.0)
+        self._precision_requirement.setDecimals(6)
+        self._precision_requirement.setValue(0.001)
+        self._precision_requirement.setSuffix(" s")
+        self._precision_requirement.setToolTip(
+            tr(
+                "Required timing precision. Matching may search a wider window, "
+                "but residuals and unsupported intervals are judged against this value."
+            )
+        )
+        advanced.addRow(tr("Required precision:"), self._precision_requirement)
 
         self._restrict = QCheckBox(tr("Fit only part of the recording"))
         self._restrict.setToolTip(
@@ -213,7 +238,7 @@ class SyncWizard(QDialog):
     @property
     def target_id(self) -> str:
         """Return the target identifier associated with the accepted proposal."""
-        return self._target_combo.currentText()
+        return self._targets[self._target_combo.currentIndex()].source_id
 
     def _preview(self) -> None:
         if self._thread is not None:
@@ -225,6 +250,12 @@ class SyncWizard(QDialog):
                 reference,
                 threshold=self._threshold.value(),
                 use_all_times=self._use_all_times_chk.isChecked(),
+                kind=(
+                    TriggerKind.FRAME_STROBE
+                    if self._recorded_strobe.isChecked()
+                    else reference.kind
+                ),
+                strobe_for=(target.clock_id if self._recorded_strobe.isChecked() else ""),
             )
         self._proposal = None
         self._preview_button.setEnabled(False)
@@ -232,7 +263,6 @@ class SyncWizard(QDialog):
         self._summary.setText(tr("Extracting event evidence and fitting alignment…"))
         self._effective_tolerance.setText(tr("Calculating from the selected evidence…"))
 
-        self._thread = QThread(self)
         mode = self._strategy_combo.currentData()
         index_offset = self._index_offset.value()
         # The reference's own declaration reaches the fit through the spec
@@ -246,24 +276,30 @@ class SyncWizard(QDialog):
             mode=mode,
             index_offset=index_offset,
             tolerance=tolerance,
+            precision_requirement=self._precision_requirement.value(),
             restrict_to=self._evidence.restriction(),
         )
-        self._worker.moveToThread(self._thread)
-        self._thread.started.connect(self._worker.run)
-        self._worker.finished.connect(self._on_finished)
-        self._worker.error.connect(self._on_error)
-        self._worker.finished.connect(self._thread.quit)
-        self._worker.error.connect(self._thread.quit)
-        # No `self._thread.finished.connect(self._worker.deleteLater)`:
-        # `finished` is emitted in the worker thread and the worker lives
-        # there, so that connection is direct and ~QObject would run inside
-        # the dying thread — severing connections while holding one of Qt's
-        # pooled signal/slot mutexes and then taking the GIL for PySide's
-        # disconnectNotify, deadlocking a UI thread that holds the GIL and
-        # waits on a colliding mutex from that pool (D-062).
-        # `_on_thread_finished` drops the reference on the UI thread instead.
-        self._thread.finished.connect(self._on_thread_finished)
-        self._thread.start()
+
+        def configure(thread: QThread) -> None:
+            assert self._worker is not None
+            self._worker.finished.connect(self._on_finished)
+            self._worker.error.connect(self._on_error)
+            self._worker.cancelled.connect(self._on_cancelled)
+            thread.finished.connect(self._on_thread_finished)
+
+        parent = self.parentWidget()
+        run_job = getattr(parent, "_run_job", None)
+        if callable(run_job):
+            self._thread = run_job(
+                self._worker, label=tr("Fitting synchronization evidence"), configure=configure
+            )
+        else:
+            # Standalone wizard previews (including pytest-qt) still use the
+            # same job lifetime machinery; production uses MainWindow._run_job.
+            self._local_jobs = JobManager(self)
+            self._thread = self._local_jobs.start(
+                tr("Fitting synchronization evidence"), self._worker, configure=configure
+            )
 
     def _on_restrict_toggled(self, checked: bool) -> None:
         """Show a window over the middle half of the evidence, or clear it.
@@ -300,8 +336,8 @@ class SyncWizard(QDialog):
         from whether it is acceptable on evidence, and it has none.
         """
         self._proposal = SyncProposal(
-            reference_id=self._reference_combo.currentText(),
-            target_id=self._target_combo.currentText(),
+            reference_id=self._references[self._reference_combo.currentIndex()].source_id,
+            target_id=self.target_id,
             fit=SyncFit(
                 offset=self._manual_offset.value(),
                 drift_ms_per_hour=self._manual_drift.value(),
@@ -400,9 +436,19 @@ class SyncWizard(QDialog):
         self._effective_tolerance.setText(tr("Unavailable because preview did not produce a fit."))
 
     @Slot()
+    def _on_cancelled(self) -> None:
+        self._summary.setText(tr("Synchronization preview cancelled."))
+
+    @Slot()
     def _on_thread_finished(self) -> None:
-        if self._thread is not None:
-            self._thread.deleteLater()
         self._thread = None
         self._worker = None
         self._preview_button.setEnabled(True)
+
+    def done(self, result: int) -> None:
+        """Cancel a preview still running when the wizard closes: nothing reads it."""
+        if self._worker is not None:
+            self._worker.cancel()
+        if self._local_jobs is not None:
+            self._local_jobs.shutdown()
+        super().done(result)

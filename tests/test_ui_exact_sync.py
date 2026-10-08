@@ -5,6 +5,7 @@ import pytest
 
 from avialsync.core.pyramid import PyramidBuilder
 from avialsync.loaders.video_standard import VideoStandardLoader
+from avialsync.ui.job_manager import _ABANDONED
 from avialsync.ui.main_window import MainWindow
 from avialsync.ui.sync_wizard import SyncWizard
 
@@ -44,6 +45,7 @@ def test_exact_sync_flow(qtbot, tmp_path: Path):
     # picked out of the old order silently selects a different strategy.
     wizard._strategy_combo.setCurrentIndex(wizard._strategy_combo.findData("exact_index"))
     wizard._use_all_times_chk.setChecked(True)
+    wizard._recorded_strobe.setChecked(True)
     wizard._preview_button.click()
     qtbot.waitUntil(lambda: wizard._thread is None, timeout=5000)
 
@@ -59,3 +61,4 @@ def test_exact_sync_flow(qtbot, tmp_path: Path):
     assert session.sync_provenance[0].exact_source[5] == pytest.approx(frame_times[5])
 
     window.close()
+    assert not [job.label for job in _ABANDONED if job.thread.isRunning()]

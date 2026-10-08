@@ -38,7 +38,6 @@ from shiboken6 import isValid
 
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.commands import (
-    AcceptSyncCommand,
     AddMarkerCommand,
     AddSourceCommand,
     RelabelMarkerCommand,
@@ -74,7 +73,6 @@ from avialsync.core.session_time import (
 )
 from avialsync.core.source import ImagingSource, TimeSeriesSource, VideoSource
 from avialsync.core.timeline import MasterClock, TimeMap
-from avialsync.core.triggers import TriggerKind
 from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
@@ -437,6 +435,7 @@ class MainWindow(QMainWindow):
         #: Trigger trains the user has loaded and typed, by file path. Evidence
         #: for the alignment wizard, not data: nothing here is ever plotted.
         self._trigger_trains: dict[str, list[Any]] = {}
+        self._trigger_time_maps: dict[str, TimeMap] = {}
         #: The configuration each trigger file was read with, by path. Saved in
         #: the session; the trains themselves are re-read from it on restore.
         self._trigger_configs: dict[str, dict[str, Any]] = {}
@@ -862,6 +861,8 @@ class MainWindow(QMainWindow):
         worker: _JobWorker,
         label: str = "Working",
         configure: Callable[[QThread], None] | None = None,
+        *,
+        announce_after_s: float = 0.0,
     ) -> QThread:
         """Own a worker/thread pair for the whole life of a background job.
 
@@ -873,6 +874,10 @@ class MainWindow(QMainWindow):
         thread is already running by then, and a worker that finishes first
         emits into nothing (D-062, and the no-op drops this file's tests pin).
         """
+        if announce_after_s:
+            return self._job_manager.start(
+                label, worker, configure=configure, announce_after_s=announce_after_s
+            )
         return self._job_manager.start(label, worker, configure=configure)
 
     def _install_empty_state(self) -> None:
@@ -894,16 +899,10 @@ class MainWindow(QMainWindow):
         specs, so the menu item and the command agree about availability rather
         than the command discovering it a click later.
         """
-        if self._trigger_trains:
-            # A trigger file the user has typed is evidence on its own terms;
-            # it does not need a video to be worth fitting against.
-            return True
-        timed_videos = sum(1 for times in self._video_frame_times.values() if len(times) >= 3)
-        if not timed_videos:
-            return False
-        # Either a sensor channel to fit against, or a second camera -- two
-        # cameras carrying frame timestamps are evidence about each other.
-        return bool(self.plot_pane.channels) or timed_videos >= 2
+        clocks = {channel.reader.source_id for channel in self.plot_pane.channels}
+        clocks.update(self._trigger_trains)
+        clocks.update(path for path, times in self._video_frame_times.items() if len(times) >= 3)
+        return len(clocks) >= 2 and bool(self.plot_pane.channels or self._trigger_trains)
 
     def _require(self, action: QAction, precondition: Callable[[], bool], reason: str) -> QAction:
         """Register *action* as available only while *precondition* holds.
@@ -1080,7 +1079,7 @@ class MainWindow(QMainWindow):
             show_text(self, presented.title, presented.details, lead=message)
 
     def _refresh_jobs_panel(self) -> None:
-        running = [job.panel_row() for job in self._job_manager.jobs()]
+        running = [job.panel_row() for job in self._job_manager.announced_jobs()]
         self.jobs_panel.refresh(running)
 
     def _on_jobs_changed(self) -> None:
@@ -1723,7 +1722,7 @@ class MainWindow(QMainWindow):
             "re-attaching the detached plot pane",
             lambda: self._act_detach_plots.setChecked(False),
         )
-        self._close_step("cancelling queued plot rows", self.plot_pane.cancel_pending_rows)
+        self._close_step("cancelling queued plot rows", self.plot_pane.shutdown)
         self._close_step("stopping the heartbeat", self._heartbeat.stop)
         self._close_step("stopping playback", self.player.stop)
         self._close_step("saving window geometry", self._save_geometry)
@@ -2013,6 +2012,13 @@ class MainWindow(QMainWindow):
                 if len(entry.restricted_to) == 2
                 else None
             ),
+            precision_requirement=entry.precision_requirement,
+            precision_verified=entry.precision_verified,
+            coverage_fraction=entry.coverage_fraction,
+            largest_unsupported_interval=entry.largest_unsupported_interval,
+            extrapolated_before=entry.extrapolated_before,
+            extrapolated_after=entry.extrapolated_after,
+            excluded_incomplete_count=entry.excluded_incomplete_count,
         ).describe()
 
     # ── Overlays (D-090) ─────────────────────────────────────────────
@@ -3317,6 +3323,17 @@ class MainWindow(QMainWindow):
         channels have. The *declaration* is what the session owns.
         """
         for entry in entries:
+            mapping = TimeMap(entry.offset, entry.drift_ms_per_hour)
+            provenance = next(
+                (item for item in self._sync_provenance if item.target_id == entry.path), None
+            )
+            if provenance is not None and len(provenance.exact_master):
+                mapping.set_exact_mapping(
+                    np.asarray(provenance.exact_master, dtype=np.float64),
+                    np.asarray(provenance.exact_source, dtype=np.float64),
+                )
+            self._trigger_time_maps[entry.path] = mapping
+            self._recorded_mappings[entry.path] = (entry.offset, entry.drift_ms_per_hour)
             path = Path(entry.path)
             if not path.exists():
                 self.notifications.show_warning(
@@ -3333,60 +3350,35 @@ class MainWindow(QMainWindow):
                 continue
             self._start_trigger_read(provider_cls(), path, dict(entry.config))
 
+    def trigger_mapping(self, path: str) -> TimeMap:
+        """Return the accepted mapping for a trigger file, or its local clock."""
+        return self._trigger_time_maps.get(path, TimeMap())
+
+    def set_trigger_mapping(self, path: str, mapping: TimeMap) -> None:
+        """Place a trigger file's clock on the master timeline."""
+        self._trigger_time_maps[path] = mapping
+
+    def take_pending_exact_mapping(self, path: str) -> tuple[np.ndarray, np.ndarray] | None:
+        """Claim the exact mapping a restored session holds for *path*, once."""
+        return self._pending_exact_mappings.pop(path, None)
+
+    def clear_trigger_sources(self) -> None:
+        """Discard trigger evidence and placements when the workspace is reset."""
+        self._trigger_trains.clear()
+        self._trigger_time_maps.clear()
+        self._trigger_configs.clear()
+
     def _open_sync_wizard(self) -> None:
         """Open evidence-based TTL/frame-event alignment for loaded sources."""
-        from avialsync.engine.sync_worker import (
-            EventEvidenceSpec,
-            EvidenceSpec,
-            SignalEvidenceSpec,
-        )
+        from avialsync.ui.sync_acceptance import collect_sync_evidence
         from avialsync.ui.sync_wizard import SyncWizard
 
-        references: list[EvidenceSpec] = [
-            SignalEvidenceSpec(
-                source_id=(
-                    f"{Path(channel.reader.source_id).name or channel.reader.cache_dir.name} : "
-                    f"{channel.reader.channel_id}"
-                ),
-                cache_dir=channel.reader.cache_dir,
-                channel_id=channel.reader.channel_id,
-            )
-            for channel in self.plot_pane.channels
-        ]
-        # A container's own frame timestamps are one per *stored* frame, which
-        # is what FRAME_STROBE means: evidence the frame happened, not that it
-        # was requested.
-        targets = [
-            EventEvidenceSpec(path, frame_times, kind=TriggerKind.FRAME_STROBE)
-            for path, frame_times in self._video_frame_times.items()
-            if len(frame_times) >= 3
-        ]
-        # Every loaded trigger train, on whichever side it belongs. A train the
-        # user said is evidence *about* a video is a target; everything else is
-        # a reference other sources can be fitted to.
-        for file_path, trains in self._trigger_trains.items():
-            for train in trains:
-                spec = EventEvidenceSpec(
-                    f"{Path(file_path).name} : {train.train_id}",
-                    train.times,
-                    kind=train.kind,
-                )
-                if train.target:
-                    targets.append(spec)
-                else:
-                    references.append(spec)
-
-        # A camera can be a reference too. Two cameras that saw the same trigger
-        # had no path to each other before this: each had to be fitted to a
-        # sensor separately, and a rig with no sensor at all could not align its
-        # cameras even when their frame timestamps agreed perfectly. The fitter
-        # already refuses a source against itself.
-        references = references + list(targets)
+        references, targets = collect_sync_evidence(self)
         if not references or not targets:
             self.notifications.show_warning(
                 tr(
-                    "Load a TTL-bearing sensor channel, or a second video with frame "
-                    "timestamps, before aligning."
+                    "Load reference evidence -- a TTL-bearing sensor or a declared "
+                    "trigger train -- and a source on another clock before aligning."
                 )
             )
             return
@@ -3427,115 +3419,10 @@ class MainWindow(QMainWindow):
         self.player.seek(float(reference_time), exact=True)
 
     def _accept_sync_proposal(self, target_path: str, proposal: object) -> None:
-        """Apply an explicitly accepted proposal and retain reproducible provenance."""
-        from avialsync.core.sync import SyncProposal
+        """Apply a proposal through the shared acceptance path."""
+        from avialsync.ui.sync_acceptance import accept_sync_proposal
 
-        if not isinstance(proposal, SyncProposal) or not proposal.applicable:
-            raise ValueError("Only an applicable synchronization proposal can be applied.")
-        if target_path not in self.video_grid.pane_paths():
-            raise ValueError(f"Synchronization target is not a loaded video: {target_path}")
-
-        fit = proposal.fit
-
-        exact_master = getattr(fit, "exact_master", None)
-        exact_source = getattr(fit, "exact_source", None)
-
-        self.video_grid.set_sync_mapping(
-            target_path, fit.offset, fit.drift_ms_per_hour, exact_master, exact_source
-        )
-        if target_path in self._video_source_bounds:
-            self._set_video_coverage(
-                target_path,
-                self._video_source_bounds[target_path],
-                fit.offset,
-                fit.drift_ms_per_hour,
-                exact_master,
-                exact_source,
-            )
-        provenance = SyncProvenance(
-            reference_id=proposal.reference_id,
-            target_id=target_path,
-            offset=fit.offset,
-            drift_ms_per_hour=fit.drift_ms_per_hour,
-            rms_residual=fit.rms_residual,
-            max_residual=fit.max_residual,
-            matched_count=fit.matched_count,
-            rejected_count=fit.rejected_count,
-            tolerance=proposal.tolerance,
-            method=str(fit.method),
-            reference_count=fit.reference_count,
-            target_count=fit.target_count,
-            offset_stderr=fit.offset_stderr,
-            ambiguity_margin=fit.ambiguity_margin,
-            restricted_to=list(fit.restricted_to) if fit.restricted_to else [],
-            matches=[
-                {
-                    "reference_time": match.reference_time,
-                    "target_time": match.target_time,
-                    "residual": match.residual,
-                }
-                for match in proposal.matches[:500]
-            ],
-            exact_master=(
-                np.asarray(exact_master, dtype=np.float64).copy()
-                if exact_master is not None
-                else []
-            ),
-            exact_source=(
-                np.asarray(exact_source, dtype=np.float64).copy()
-                if exact_source is not None
-                else []
-            ),
-        )
-        previous_provenance = next(
-            (item for item in self._sync_provenance if item.target_id == target_path), None
-        )
-        self._sync_provenance = [
-            item for item in self._sync_provenance if item.target_id != target_path
-        ]
-        self._sync_provenance.append(provenance)
-        # Acceptance stays explicit (architecture rule 8); recording it only
-        # makes the accepted result reversible, so a user who takes the wrong
-        # fit is not left reconstructing their previous mapping by hand.
-        self._record(
-            AcceptSyncCommand(
-                source_id=target_path,
-                before=self._recorded_mappings.get(target_path, (0.0, 0.0)),
-                after=(self.user_offset(target_path, fit.offset), fit.drift_ms_per_hour),
-                evidence=provenance,
-                before_evidence=previous_provenance,
-            )
-        )
-        # A fit is an absolute mapping; the sidebar and the undo record both
-        # work in residuals, so it is converted once, here, and the control the
-        # user would nudge next now shows what the fit actually left them at.
-        accepted_residual = self.user_offset(target_path, fit.offset)
-        self.sidebar.set_video_mapping(target_path, accepted_residual, fit.drift_ms_per_hour)
-        self._recorded_mappings[target_path] = (accepted_residual, fit.drift_ms_per_hour)
-        self.refresh_alignment_badges()
-        self.transport.set_status(f"Aligned · {fit.describe()}", "info")
-        self.transport.set_ttl_events(
-            [
-                (
-                    match.reference_time,
-                    f"Target: {Path(target_path).name} · residual: {match.residual * 1000:.3f} ms",
-                )
-                for match in proposal.matches
-            ]
-        )
-
-        # Merge missing video frames into the global overview gaps dictionary
-        self._overview_gaps.update(
-            {time: "Missing video frame" for time in getattr(proposal, "unmatched_references", ())}
-        )
-        self.transport.set_gap_events(sorted(self._overview_gaps.items()))
-        self.player.seek(self.clock.state.t, exact=True)
-
-        self.statusBar().showMessage(
-            f"Accepted TTL/event alignment for {Path(target_path).name}: "
-            f"{fit.max_residual * 1000:.3f} ms maximum residual.",
-            5000,
-        )
+        accept_sync_proposal(self, target_path, proposal)
 
     def _on_video_remove_requested(self, path: str) -> None:
         self._record(RemoveSourceCommand(self._source_record(path, "video")))

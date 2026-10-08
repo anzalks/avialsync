@@ -60,6 +60,11 @@ class ChannelPlot:
     y_range: tuple[float, float] | None = None
     row_height: int = 110
     visible: bool = True
+    #: The page start its curve data is relative to, once a page is installed.
+    #: Pages arrive from a worker, so between a page change and its arrival
+    #: the row is offset by the difference and its samples stay at their
+    #: true times instead of reading as the new page's.
+    page_t0: float | None = None
 
 
 def point_budget_for_width(width: int) -> int:

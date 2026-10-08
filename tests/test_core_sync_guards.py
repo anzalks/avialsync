@@ -96,25 +96,42 @@ class TestExactIndexMapping:
 
     def test_identical_sources_are_refused(self) -> None:
         with pytest.raises(SyncEvidenceError, match="must differ"):
-            fit_exact_index_mapping(_pulses(8), _pulses(8), reference_id="s", target_id="s")
+            fit_exact_index_mapping(
+                _pulses(8), _pulses(8), reference_id="s", target_id="s", verified_shared_strobe=True
+            )
 
     def test_an_offset_beyond_the_overlap_is_refused(self) -> None:
         """Shifting past the end leaves nothing to pair."""
         with pytest.raises(SyncEvidenceError, match="overlapping frames"):
             fit_exact_index_mapping(
-                _pulses(4), _pulses(4), reference_id="a", target_id="b", index_offset=10
+                _pulses(4),
+                _pulses(4),
+                reference_id="a",
+                target_id="b",
+                index_offset=10,
+                verified_shared_strobe=True,
             )
 
     def test_a_negative_offset_beyond_the_overlap_is_refused(self) -> None:
         with pytest.raises(SyncEvidenceError, match="overlapping frames"):
             fit_exact_index_mapping(
-                _pulses(4), _pulses(4), reference_id="a", target_id="b", index_offset=-10
+                _pulses(4),
+                _pulses(4),
+                reference_id="a",
+                target_id="b",
+                index_offset=-10,
+                verified_shared_strobe=True,
             )
 
     def test_a_positive_offset_pairs_from_the_shifted_index(self) -> None:
         """Video frame 0 maps to reference index N, the documented behaviour."""
         proposal = fit_exact_index_mapping(
-            _pulses(10), _pulses(10), reference_id="a", target_id="b", index_offset=2
+            _pulses(10),
+            _pulses(10),
+            reference_id="a",
+            target_id="b",
+            index_offset=2,
+            verified_shared_strobe=True,
         )
 
         assert proposal.fit.matched_count == 8

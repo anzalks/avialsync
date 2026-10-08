@@ -370,6 +370,16 @@ conda run -n avialsync python tools/generate_session_screenshot.py <recording fo
 - `QImage` does not copy the array it wraps. A pane holds the decoded buffer for as long as the
   image built from it lives; dropping it faults during a repaint instead of raising.
 - Pyramid must be NaN-aware (nanmin/nanmax) and gap-aware (gap_mask); never draw across gaps.
+- `np.interp` (NumPy 2) copies a read-only `xp`/`fp` on every call. Exact mappings are frozen so
+  they can be shared, so one scalar lookup on a million-frame mapping allocated 16 MB and took
+  1.6 ms, on every seek and tick. Interpolate frozen arrays with `core/timeline._interp` (D-201).
+- An instance-level wrapper around a worker's slot (`obj.slot = wrapper`) is a plain callable, so
+  the signal calls it *on the worker thread*. Patch the class with a `Slot`-decorated,
+  `functools.wraps` wrapper, or the probe itself touches widgets off-thread and segfaults.
+- On Python 3.11, `tracemalloc.stop()` races allocations on other threads and segfaults about one
+  run in two once a video pane's decoder is running (3.12 does not). Start tracing before any
+  window exists, stop it after every window is closed and `drain_abandoned_decoders()` has run,
+  and read per-step peaks with `reset_peak()` in between (`tests/test_exact_mapping_scale.py`).
 - Cache key includes a content-hash tail (ARCHITECTURE §5b); (path,size,mtime) alone is a lie.
 - Timezone-naive timestamps: force an explicit user choice in the wizard; silent-UTC caused real
   1–2 h "corruption" reports in comparable tools.

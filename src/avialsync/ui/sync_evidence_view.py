@@ -228,6 +228,7 @@ class SyncEvidenceView(QWidget):
         self.setAccessibleName(tr("Alignment evidence"))
         self._proposal: SyncProposal | None = None
         self._residuals: np.ndarray = np.empty(0)
+        self._display_indices: np.ndarray = np.empty(0, dtype=np.int64)
 
     # ── following the appearance ─────────────────────────────────────
 
@@ -303,14 +304,32 @@ class SyncEvidenceView(QWidget):
             )
             return
 
-        times = np.array([match.reference_time for match in proposal.matches], dtype=float)
-        residuals = np.array([match.residual * 1000.0 for match in proposal.matches], dtype=float)
+        display = proposal.display
+        times = (
+            display.reference_times
+            if display is not None
+            else np.array([match.reference_time for match in proposal.matches], dtype=float)
+        )
+        residuals = (
+            display.residual_ms
+            if display is not None
+            else np.array([match.residual * 1000.0 for match in proposal.matches], dtype=float)
+        )
+        rejected_times = (
+            display.rejected_times
+            if display is not None
+            else np.asarray(proposal.unmatched_references, dtype=float)
+        )
 
         # Everything is drawn relative to the first piece of evidence, matched
         # or not. Five-digit tick labels whose leading four digits never change
         # spend the axis on a constant the reader has to subtract by eye; the
         # constant belongs in the label, stated once.
-        origin = _evidence_origin(times, proposal.unmatched_references)
+        origin = (
+            display.origin
+            if display is not None
+            else _evidence_origin(times, proposal.unmatched_references)
+        )
         self._plot.setLabel(
             "bottom",
             tr("Time from {origin} (s)").format(
@@ -342,11 +361,11 @@ class SyncEvidenceView(QWidget):
             symbolBrush=pg.mkBrush(status_color(self.palette(), "info")),
         )
 
-        if proposal.unmatched_references:
+        if len(rejected_times):
             # Rejected events at the foot of the plot: where they sit in time
             # is the question -- a cluster at one end means the recordings
             # only overlap partly, which no residual can show.
-            rejected = np.array(proposal.unmatched_references, dtype=float) - origin
+            rejected = rejected_times - origin
             floor = float(np.min(plotted_residuals)) if len(plotted_residuals) else 0.0
             self._plot.plot(
                 rejected,
@@ -358,13 +377,27 @@ class SyncEvidenceView(QWidget):
             )
 
         self._plotted_times = times - origin
+        self._display_indices = (
+            display.match_indices if display is not None else np.arange(len(times), dtype=np.int64)
+        )
         self._origin = origin
         self._residuals = residuals
-        self._draw_pairing(times - origin, proposal, origin)
-        self._set_home_range(times - origin, residuals, proposal, origin)
+        targets = (
+            display.target_times
+            if display is not None
+            else np.array([match.target_time for match in proposal.matches], dtype=float)
+        )
+        self._draw_pairing(times - origin, targets, rejected_times - origin)
+        self._set_home_range(
+            times - origin,
+            residuals,
+            proposal,
+            rejected_times - origin,
+            display.span if display is not None else None,
+        )
         self._reading.setText(self._read_the_shape(times, residuals, proposal))
 
-    def _draw_pairing(self, times: np.ndarray, proposal: SyncProposal, origin: float) -> None:
+    def _draw_pairing(self, times: np.ndarray, targets: np.ndarray, rejected: np.ndarray) -> None:
         """Reference time against the target time it was matched to.
 
         A correct alignment is a dense diagonal with clean margins. The ink on
@@ -373,7 +406,6 @@ class SyncEvidenceView(QWidget):
         solid, which is a quantity of ink rather than a percentage in a clause
         at the bottom of the dialog.
         """
-        targets = np.array([match.target_time for match in proposal.matches], dtype=float)
         if not len(targets):
             return
         targets = targets - targets[0]
@@ -401,8 +433,7 @@ class SyncEvidenceView(QWidget):
         guide.setZValue(-5)
         self._pairing.addItem(guide)
 
-        if proposal.unmatched_references:
-            rejected = np.array(proposal.unmatched_references, dtype=float) - origin
+        if len(rejected):
             floor = float(np.min(plotted_y))
             self._pairing.plot(
                 rejected,
@@ -419,7 +450,8 @@ class SyncEvidenceView(QWidget):
         times: np.ndarray,
         residuals: np.ndarray,
         proposal: SyncProposal,
-        origin: float,
+        rejected: np.ndarray,
+        span: tuple[float, float] | None = None,
     ) -> None:
         """Declare what "all" means, and start there.
 
@@ -432,8 +464,12 @@ class SyncEvidenceView(QWidget):
         residuals a scale.
         """
         spans = [times]
-        if proposal.unmatched_references:
-            spans.append(np.array(proposal.unmatched_references, dtype=float) - origin)
+        if len(rejected):
+            spans.append(rejected)
+        if span is not None:
+            # A bounded summary keeps the worst pairs, not necessarily the
+            # first and last; the summary carries the whole extent instead.
+            spans.append(np.asarray(span, dtype=float))
         everything = np.concatenate(spans)
         x_home = (float(np.min(everything)), float(np.max(everything)))
 
@@ -507,8 +543,12 @@ class SyncEvidenceView(QWidget):
             absolute = float(self._plotted_times[index]) + self._origin
             self._readout.setText(
                 tr("Event {n} of {total} at {when} · residual {residual:.3f} ms").format(
-                    n=index + 1,
-                    total=len(self._plotted_times),
+                    n=int(self._display_indices[index]) + 1,
+                    total=(
+                        self._proposal.fit.matched_count
+                        if self._proposal
+                        else len(self._plotted_times)
+                    ),
                     when=format_time(absolute, TimeDisplayMode.RELATIVE),
                     residual=float(self._residuals[index]),
                 )

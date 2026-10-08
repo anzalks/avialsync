@@ -55,9 +55,11 @@ def build_window(
     return win
 
 
-def _run_inline(worker, label: str = "Working", configure=None) -> QThread:
+def _run_inline(
+    worker, label: str = "Working", configure=None, *, announce_after_s: float = 0.0
+) -> QThread:
     """``MainWindow._run_job`` without the thread: wire the worker, then run it here."""
-    del label
+    del label, announce_after_s
     thread = QThread()
     if configure is not None:
         configure(thread)

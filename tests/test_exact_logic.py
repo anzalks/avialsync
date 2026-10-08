@@ -16,6 +16,7 @@ def test_exact_index_mapping_preserves_raw_pairs_and_nonlinear_timestamps() -> N
         target,
         reference_id="trigger",
         target_id="camera",
+        verified_shared_strobe=True,
     )
     mapping = proposal.fit.to_time_map()
 
@@ -45,6 +46,7 @@ def test_exact_index_offset_records_unmatched_reference_evidence(
         reference_id="trigger",
         target_id="camera",
         index_offset=index_offset,
+        verified_shared_strobe=True,
     )
 
     assert [match.reference_time for match in proposal.matches] == expected_reference
@@ -59,6 +61,7 @@ def test_exact_index_rejects_dense_samples_mistaken_for_frame_triggers() -> None
             np.linspace(0.0, 10.0, 100),
             reference_id="dense signal",
             target_id="camera",
+            verified_shared_strobe=True,
         )
 
 
@@ -71,6 +74,7 @@ def test_exact_index_mapping_bounds_display_evidence_but_keeps_full_mapping() ->
         target,
         reference_id="trigger",
         target_id="camera",
+        verified_shared_strobe=True,
     )
 
     assert proposal.fit.matched_count == len(reference)

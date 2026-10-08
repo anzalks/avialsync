@@ -165,7 +165,12 @@ class TestItReachesTheWizard:
     def test_loaded_trains_make_alignment_available(
         self, window: MainWindow, tmp_path: Path
     ) -> None:
-        """A trigger file is evidence on its own terms, with no video loaded."""
+        """A trigger file is reference evidence on its own terms, with no sensor loaded.
+
+        It still needs a second clock to place: on its own, every fit would be
+        refused as the same clock, and the command would accept a click only to
+        refuse it (AGENTS rule 15, D-201).
+        """
         assert not window._has_alignment_evidence()
 
         path = _write_daq(tmp_path / "ttl.csv")
@@ -186,6 +191,9 @@ class TestItReachesTheWizard:
         worker.run()
 
         assert window._trigger_trains
+        assert not window._has_alignment_evidence(), "one clock is nothing to align"
+
+        window._video_frame_times["cam1.mp4"] = [0.0, 0.1, 0.2]
         assert window._has_alignment_evidence()
 
     def test_a_train_with_gaps_says_so_on_arrival(

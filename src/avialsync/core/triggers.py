@@ -93,6 +93,10 @@ class TriggerTrain:
     #: Indices in :attr:`times` *after* which the train skips a beat. Empty for
     #: an irregular train, where the idea does not apply.
     drops: tuple[int, ...] = ()
+    #: Pulses whose start or end crossed unavailable samples. These cannot
+    #: establish a frame index, even when the visible pulse count agrees.
+    incomplete_count: int = 0
+    incomplete_indices: tuple[int, ...] = ()
 
     @property
     def count(self) -> int:
@@ -164,7 +168,7 @@ class Reconciliation:
 
 
 def extract_pulses(
-    chunks: Iterable[tuple[np.ndarray, np.ndarray]],
+    chunks: Iterable[tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]],
     *,
     source_id: str,
     kind: TriggerKind,
@@ -173,8 +177,15 @@ def extract_pulses(
 ) -> TriggerTrain:
     """Extract complete pulses -- both edges -- from chronological chunks.
 
+    Missing data is unknown, never low. A pulse with an edge inside a gap, a
+    non-finite (or loader-masked sentinel) run, or before the first sample is
+    left out and counted in ``incomplete_count``: treating the hole as low
+    would split one pulse into two. A final pulse still high when the
+    recording stops keeps its rise and is listed in ``incomplete_indices``.
+
     Args:
-        chunks: One-dimensional ``(time, value)`` chunks in strict time order.
+        chunks: One-dimensional ``(time, value[, gap_after])`` chunks in strict
+            time order. A true gap marks the interval after that sample unknown.
         source_id: Stable identifier of the evidence source.
         kind: What this train is evidence of.
         threshold: Values at or above this level are logical high.
@@ -192,13 +203,24 @@ def extract_pulses(
     falling: list[float] = []
     previous_high: bool | None = None
     previous_time: float | None = None
+    gap_after_previous = False
+    # Before the first sample the line's state is unknown, exactly as after a
+    # gap: a recording that opens mid-pulse has lost that pulse's rise.
+    unknown = True
+    unknown_counted = False
     last_rise = -np.inf
+    incomplete = 0
 
-    for times, values in chunks:
+    for chunk in chunks:
+        times, values = chunk[:2]
+        gaps = chunk[2] if len(chunk) == 3 else np.zeros(len(times), dtype=bool)
         times_arr = np.asarray(times, dtype=np.float64)
         values_arr = np.asarray(values)
+        gaps_arr = np.asarray(gaps, dtype=bool)
         if times_arr.ndim != 1 or values_arr.ndim != 1 or len(times_arr) != len(values_arr):
             raise SyncEvidenceError("Trigger chunks must be equally sized one-dimensional arrays.")
+        if gaps_arr.shape != times_arr.shape:
+            raise SyncEvidenceError("Trigger gap masks must match their chunks.")
         if not np.all(np.isfinite(times_arr)):
             raise SyncEvidenceError("Trigger timestamps must be finite.")
         if len(times_arr) and np.any(np.diff(times_arr) <= 0):
@@ -206,18 +228,48 @@ def extract_pulses(
         if previous_time is not None and len(times_arr) and times_arr[0] <= previous_time:
             raise SyncEvidenceError("Trigger timestamps must be strictly increasing across chunks.")
 
-        highs = np.asarray(values_arr >= threshold, dtype=bool)
-        for time, high in zip(times_arr, highs, strict=True):
+        for time, value, gap_after in zip(times_arr, values_arr, gaps_arr, strict=True):
+            sample_unknown = (gap_after_previous and bool(gap_after)) or not np.isfinite(value)
+            if gap_after_previous or sample_unknown:
+                if previous_high:
+                    incomplete += 1
+                    unknown_counted = True
+                    if len(rising) > len(falling):
+                        rising.pop()
+                previous_high = None
+                unknown = True
+            if sample_unknown:
+                gap_after_previous = bool(gap_after)
+                previous_time = float(time)
+                continue
+            high = bool(value >= threshold)
+            if previous_high is None and high and unknown and not unknown_counted:
+                # A high after missing data may be the tail of an earlier
+                # pulse. Wait for a known low before accepting a new rise.
+                incomplete += 1
+                unknown_counted = True
+            if not high:
+                unknown = False
+                unknown_counted = False
             if previous_high is not None:
                 if not previous_high and high and time - last_rise >= min_interval:
-                    rising.append(float(time))
-                    last_rise = float(time)
+                    if not unknown:
+                        rising.append(float(time))
+                        last_rise = float(time)
                 elif previous_high and not high and len(rising) > len(falling):
                     falling.append(float(time))
             previous_high = bool(high)
             previous_time = float(time)
+            gap_after_previous = bool(gap_after)
 
-    return _train_from_edges(rising, falling, source_id=source_id, kind=kind)
+    train = _train_from_edges(rising, falling, source_id=source_id, kind=kind)
+    incomplete_indices: tuple[int, ...] = ()
+    if len(rising) > len(falling):
+        incomplete += 1
+        incomplete_indices = (len(train.times) - 1,)
+    return dataclasses.replace(
+        train, incomplete_count=incomplete, incomplete_indices=incomplete_indices
+    )
 
 
 def _train_from_edges(

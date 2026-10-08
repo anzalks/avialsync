@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 
 from avialsync.core.drift import drift_from_legacy_entry
+from avialsync.core.timeline import PreparedExactMapping
 
 _EXACT_MAPPING_INLINE_LIMIT = 500
 
@@ -139,6 +140,19 @@ class SyncProvenance:
     matches: list[dict[str, float]] = dataclasses.field(default_factory=list)
     exact_master: list[float] | np.ndarray = dataclasses.field(default_factory=list)
     exact_source: list[float] | np.ndarray = dataclasses.field(default_factory=list)
+    #: The clock the reference events were recorded on. Matches carry both its
+    #: raw times and the master times the fit used after that clock's own
+    #: accepted mapping was applied.
+    reference_clock_id: str = ""
+    #: 0.0 for a record saved before precision was assessed (D-201): "not
+    #: assessed" is reported, never "unverified".
+    precision_requirement: float = 0.0
+    precision_verified: bool = False
+    coverage_fraction: float = 0.0
+    largest_unsupported_interval: float = 0.0
+    extrapolated_before: float = 0.0
+    extrapolated_after: float = 0.0
+    excluded_incomplete_count: int = 0
 
 
 @dataclasses.dataclass
@@ -158,6 +172,8 @@ class TriggerEntry:
 
     path: str
     config: dict[str, Any] = dataclasses.field(default_factory=dict)
+    offset: float = 0.0
+    drift_ms_per_hour: float = 0.0
 
 
 @dataclasses.dataclass
@@ -316,11 +332,22 @@ class SessionState:
                 target_count=int(item.get("target_count", 0)),
                 offset_stderr=float(item.get("offset_stderr", 0.0)),
                 ambiguity_margin=float(item.get("ambiguity_margin", 1.0)),
+                reference_clock_id=str(item.get("reference_clock_id", "")),
+                precision_requirement=float(item.get("precision_requirement", 0.0)),
+                precision_verified=bool(item.get("precision_verified", False)),
+                coverage_fraction=float(item.get("coverage_fraction", 0.0)),
+                largest_unsupported_interval=float(item.get("largest_unsupported_interval", 0.0)),
+                extrapolated_before=float(item.get("extrapolated_before", 0.0)),
+                extrapolated_after=float(item.get("extrapolated_after", 0.0)),
+                excluded_incomplete_count=int(item.get("excluded_incomplete_count", 0)),
                 superseded_by=str(item.get("superseded_by", "")),
                 restricted_to=[float(value) for value in item.get("restricted_to", [])],
                 matches=[
                     {
                         "reference_time": float(match["reference_time"]),
+                        "raw_reference_time": float(
+                            match.get("raw_reference_time", match["reference_time"])
+                        ),
                         "target_time": float(match["target_time"]),
                         "residual": float(match["residual"]),
                     }
@@ -354,7 +381,12 @@ class SessionState:
             plot_x1=data.get("plot_x1"),
             session_start_time=float(data.get("session_start_time", 0.0)),
             triggers=[
-                TriggerEntry(path=str(item["path"]), config=dict(item.get("config", {})))
+                TriggerEntry(
+                    path=str(item["path"]),
+                    config=dict(item.get("config", {})),
+                    offset=float(item.get("offset", 0.0)),
+                    drift_ms_per_hour=float(item.get("drift_ms_per_hour", 0.0)),
+                )
                 for item in data.get("triggers", [])
             ],
             overlays=data.get("overlays") or {},
@@ -436,10 +468,14 @@ class SessionState:
                     source = np.asarray(arrays["source"], dtype=np.float64)
                 if len(master) != len(source) or len(master) != int(mapping["count"]):
                     raise ValueError("array length mismatch")
+                # Validated and frozen here, on the load worker, so restoring a
+                # million-frame mapping installs shared buffers on the UI thread
+                # instead of scanning and copying them there.
+                prepared = PreparedExactMapping.prepare(master, source)
             except (KeyError, OSError, ValueError):
                 raise ValueError(
                     f"Invalid exact synchronization sidecar for entry {index}."
                 ) from None
-            state.sync_provenance[index].exact_master = master
-            state.sync_provenance[index].exact_source = source
+            state.sync_provenance[index].exact_master = prepared.master
+            state.sync_provenance[index].exact_source = prepared.source
         return state

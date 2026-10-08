@@ -127,10 +127,6 @@ _UNMANAGED_THREAD_FILES = {
     # video decoder it coalesces time requests, has no completion event, and
     # is joined explicitly by ImagingPane.shutdown() at window close.
     "src/avialsync/ui/imaging_pane.py",
-    # Owned by a modal the user explicitly opened, which is its own progress
-    # and cancel surface (AGENTS rule 11 permits exactly this). Neither can
-    # outlive its dialog, so neither can strand the window.
-    "src/avialsync/ui/sync_wizard.py",
     "src/avialsync/demo.py",
     # JobManager is where the managed ones are created.
     "src/avialsync/ui/job_manager.py",

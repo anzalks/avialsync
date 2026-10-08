@@ -11,6 +11,7 @@ from PySide6.QtCore import QMargins, Qt, Signal
 from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import QGridLayout, QLabel, QSizePolicy, QWidget
 
+from avialsync.core.timeline import PreparedExactMapping, TimeMap
 from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 from avialsync.ui.video_grid_overlays import GridOverlayMixin
@@ -140,6 +141,14 @@ class VideoGrid(GridOverlayMixin, QWidget):
     def pane_paths(self) -> list[str]:
         """Return a copy of the loaded video paths, parallel to self.panes."""
         return list(self._paths)
+
+    def time_map_for(self, path: str) -> TimeMap | None:
+        """Return the mapping the pane named *path* decodes by, if it is loaded."""
+        try:
+            mapping: TimeMap = self.panes[self._paths.index(path)].time_map
+        except ValueError:
+            return None
+        return mapping
 
     def media_path_for(self, path: str) -> str:
         """Return the file the pane named *path* decodes: its proxy if it has one."""
@@ -297,13 +306,18 @@ class VideoGrid(GridOverlayMixin, QWidget):
         drift_ms_per_hour: float,
         exact_master: np.ndarray | None = None,
         exact_source: np.ndarray | None = None,
+        prepared_mapping: PreparedExactMapping | None = None,
     ) -> None:
         """Apply a user-accepted absolute synchronization mapping to one video."""
         try:
             idx = self._paths.index(path)
             pane = self.panes[idx]
             pane.time_map.set_mapping(offset, drift_ms_per_hour)
-            if exact_master is not None and exact_source is not None:
+            if prepared_mapping is not None:
+                pane.time_map.install_prepared_exact_mapping(prepared_mapping)
+            elif exact_master is not None and exact_source is not None:
+                # Undo and a reopened session hand back the frozen arrays the
+                # fit produced; `set_exact_mapping` shares those unscanned.
                 pane.time_map.set_exact_mapping(exact_master, exact_source)
         except ValueError:
             pass

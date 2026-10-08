@@ -19,6 +19,7 @@ import numpy as np
 import pytest
 
 from avialsync.core.pyramid import PyramidBuilder
+from avialsync.engine.plot_page_worker import PlotPage, PlotPageWorker, PlotRowRequest
 from avialsync.ui.plot_pane import PlotPane
 
 # ★ Full populated cursor update per tick.
@@ -27,6 +28,8 @@ _CURSOR_BUDGET_S = 0.002
 _FRAME_BUDGET_S = 0.016
 # Hard ceiling for any UI-thread callback.
 _UI_CALLBACK_CEILING_S = 0.030
+# Target for any UI-thread callback (BLUEPRINT.md "Any UI-thread callback").
+_UI_CALLBACK_TARGET_S = 0.008
 
 
 def _channel_cache(tmp_path: Path, count: int, samples: int = 6_000) -> Path:
@@ -91,12 +94,10 @@ def test_bench_populated_cursor_tick(benchmark, qtbot, tmp_path: Path, channels:
 def test_bench_window_duration_change(benchmark, qtbot, tmp_path: Path, channels: int) -> None:
     """Changing the shared time span must not overrun the UI-callback ceiling.
 
-    This measures the *callback*, which is what the ceiling governs, not the
-    total requery: rows beyond the first slice are refreshed in later
-    event-loop turns (D-063). Row work is bounded to the slice budget and the
-    axis-label re-render is gone, so what remains is pyqtgraph applying the new
-    range to each linked ViewBox — irreducible per row without giving up the
-    shared X link the layout is built on.
+    This measures the *callback*, which is what the ceiling governs. No row
+    is queried in it: the page comes from the page worker (D-201). What remains
+    is pyqtgraph applying the new range to each linked ViewBox — irreducible
+    per row without giving up the shared X link the layout is built on.
     """
     pane = _populated_pane(qtbot, tmp_path, channels)
     pane.set_timeline_bounds(0.0, 60.0)
@@ -108,10 +109,9 @@ def test_bench_window_duration_change(benchmark, qtbot, tmp_path: Path, channels
         counter["index"] += 1
 
     benchmark(zoom)
-    # The last iteration leaves rows queued behind a zero-delay timer. Left
-    # armed it keeps firing through whatever benchmark runs next and steals the
-    # CPU that benchmark is measuring.
-    pane.cancel_pending_rows()
+    # The last iteration leaves a page in flight on the worker. Left running it
+    # competes for the GIL with whatever benchmark runs next.
+    pane.shutdown()
 
     stats = benchmark.stats
     if stats is None:
@@ -177,3 +177,85 @@ def test_bench_row_build_slice(benchmark, qtbot, tmp_path: Path) -> None:
         f"first row-build slice averaged {stats['mean'] * 1000:.2f} ms "
         f"against a {_UI_CALLBACK_CEILING_S * 1000:.0f} ms ceiling"
     )
+
+
+def _settled_page(qtbot, pane: PlotPane) -> PlotPage:
+    """Prepare the pane's current page synchronously, exactly as the worker would."""
+    qtbot.waitUntil(
+        lambda: (
+            pane._page_worker is None and pane._last_installed_generation == pane._page_generation
+        ),
+        timeout=20_000,
+    )
+    assert pane.sweep_start is not None
+    rows = tuple(
+        PlotRowRequest(
+            index,
+            channel.reader.source_reader,
+            channel.reader.source_id,
+            channel.reader.time_map.copy(),
+        )
+        for index, channel in enumerate(pane._requested_rows)
+    )
+    worker = PlotPageWorker(
+        pane._page_generation,
+        pane.sweep_start,
+        pane.sweep_start + pane.window_duration,
+        pane._last_point_budget,
+        rows,
+    )
+    pages: list[PlotPage] = []
+    worker.finished.connect(pages.append)
+    worker.run()
+    return pages[0]
+
+
+def test_bench_page_install(benchmark, qtbot, tmp_path: Path) -> None:
+    """Installing a prepared 128-row page is the page's only UI-thread cost."""
+    pane = _populated_pane(qtbot, tmp_path, 128)
+    pane.set_timeline_bounds(0.0, 60.0)
+    pane.set_window_duration(10.0)
+    page = _settled_page(qtbot, pane)
+
+    benchmark(pane._on_page_ready, page)
+
+    stats = benchmark.stats
+    if stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
+    assert stats["mean"] <= _UI_CALLBACK_TARGET_S, (
+        f"128-row page install averaged {stats['mean'] * 1000:.2f} ms "
+        f"against the {_UI_CALLBACK_TARGET_S * 1000:.0f} ms UI-callback target"
+    )
+    assert stats["max"] <= _UI_CALLBACK_CEILING_S
+
+
+def test_bench_page_request(benchmark, qtbot, tmp_path: Path) -> None:
+    """Asking for a page must cost the UI thread nothing that scales with data."""
+    pane = _populated_pane(qtbot, tmp_path, 128)
+    pane.set_timeline_bounds(0.0, 60.0)
+    pane.set_window_duration(10.0)
+    _settled_page(qtbot, pane)
+
+    benchmark(pane.update_plots)
+    pane.shutdown()
+
+    stats = benchmark.stats
+    if stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
+    assert stats["mean"] <= _UI_CALLBACK_TARGET_S
+
+
+def test_bench_page_preparation_warm(benchmark, qtbot, tmp_path: Path) -> None:
+    """Off the UI thread, but still the latency before a page appears."""
+    pane = _populated_pane(qtbot, tmp_path, 128)
+    pane.set_timeline_bounds(0.0, 60.0)
+    pane.set_window_duration(10.0)
+    _settled_page(qtbot, pane)
+
+    benchmark(_settled_page, qtbot, pane)
+
+    stats = benchmark.stats
+    if stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
+    # One frame at 60 Hz: a playback page flip lands before the next tick.
+    assert stats["mean"] <= _FRAME_BUDGET_S

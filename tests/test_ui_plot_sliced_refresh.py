@@ -45,32 +45,38 @@ def pane(qtbot, channel_cache: Path) -> PlotPane:
 
 
 def test_a_span_change_defers_rows_instead_of_requerying_all_of_them(pane: PlotPane) -> None:
-    """The callback must hand work back to the event loop, not finish it all."""
+    """A span change schedules a page without querying any row in the callback."""
     pane.set_window_duration(7.0)
 
-    assert pane._pending_refresh, "every row was requeried in one callback"
-    assert len(pane._pending_refresh) < CHANNEL_COUNT, "no row was refreshed at all"
+    assert pane._page_worker is not None
+    assert pane._last_installed_generation < pane._page_generation
 
 
-def test_every_deferred_row_is_eventually_refreshed(pane: PlotPane) -> None:
+def test_every_deferred_row_is_eventually_refreshed(pane: PlotPane, qtbot) -> None:
     """Deferring must not mean dropping."""
     pane.set_window_duration(7.0)
 
-    pane.wait_for_pending_rows()
+    qtbot.waitUntil(
+        lambda: pane._last_installed_generation == pane._page_generation,
+        timeout=10000,
+    )
 
-    assert not pane._pending_refresh
+    assert all(channel.page_t0 == pane.sweep_start for channel in pane.channels)
     for channel in pane.channels:
         times, _ = channel.curve.getData()
         assert times is not None and len(times) > 0, f"{channel.name} was never drawn"
 
 
-def test_a_later_span_wins_over_one_still_in_flight(pane: PlotPane) -> None:
+def test_a_later_span_wins_over_one_still_in_flight(pane: PlotPane, qtbot) -> None:
     """A drag emits several spans; rows must settle on the newest, not a mix."""
     pane.set_window_duration(30.0)
-    assert pane._pending_refresh, "the first change must leave work queued"
+    assert pane._page_worker is not None
 
     pane.set_window_duration(5.0)
-    pane.wait_for_pending_rows()
+    qtbot.waitUntil(
+        lambda: pane._last_installed_generation == pane._page_generation,
+        timeout=10000,
+    )
 
     assert pane.window_duration == pytest.approx(5.0)
     for channel in pane.channels:
@@ -79,24 +85,31 @@ def test_a_later_span_wins_over_one_still_in_flight(pane: PlotPane) -> None:
         assert times.max() <= 5.0 + 1e-6, f"{channel.name} kept the superseded span"
 
 
-def test_playback_page_flips_are_not_deferred(pane: PlotPane) -> None:
+def test_playback_page_flips_are_not_deferred(pane: PlotPane, qtbot) -> None:
     """Rows crossing a page boundary must flip together, or they disagree.
 
     Only the user-driven span change slices; the playback path stays atomic.
     """
     pane.set_window_duration(5.0)
-    pane.wait_for_pending_rows()
+    qtbot.waitUntil(
+        lambda: pane._last_installed_generation == pane._page_generation,
+        timeout=10000,
+    )
 
     pane.set_cursor(30.0, immediate=True)
 
-    assert not pane._pending_refresh, "a page flip left rows on the previous page"
+    qtbot.waitUntil(
+        lambda: pane._last_installed_generation == pane._page_generation,
+        timeout=10000,
+    )
+    assert all(channel.curve.getData()[0].max() <= 5.0 for channel in pane.channels)
 
 
 def test_a_queued_slice_does_not_outlive_the_pane(pane: PlotPane) -> None:
     """Closing must abandon queued work rather than fire into dying widgets."""
     pane.set_window_duration(7.0)
-    assert pane._pending_refresh
+    assert pane._page_worker is not None
 
     pane.cancel_pending_rows()
 
-    assert not pane._pending_refresh
+    assert pane._page_worker is not None and not pane._page_worker.can_cancel()

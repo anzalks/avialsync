@@ -196,6 +196,16 @@ class Job:
     started_at: float = field(default_factory=time.monotonic)
     last_progress_at: float = field(default_factory=time.monotonic)
     progress_percent: int | None = None
+    #: How long the job runs before it is shown. Registered either way -- it
+    #: is still cancelled, watched for stalls and abandoned at shutdown -- but
+    #: work that usually finishes within a frame or two, such as a plot page,
+    #: would otherwise flash through the status bar and replace what it said.
+    announce_after_s: float = 0.0
+
+    @property
+    def announced(self) -> bool:
+        """Whether the job has run long enough to be shown to the user."""
+        return self.elapsed >= self.announce_after_s
 
     @property
     def elapsed(self) -> float:
@@ -237,11 +247,15 @@ class JobManager(QObject):
         label: str,
         worker: BackgroundWorker,
         configure: Callable[[QThread], None] | None = None,
+        *,
+        announce_after_s: float = 0.0,
     ) -> QThread:
         """Own *worker* on a new thread and start it.
 
         ``configure`` runs after the standard wiring and before the thread
         starts, so callers can connect their own result signals.
+        ``announce_after_s`` keeps a job that ends sooner out of the status bar
+        and Tasks panel; AGENTS rule 11 asks for reporting past ~500 ms.
         """
         # Deliberately unparented: see `_ABANDONED`. A thread parented to this
         # manager is destroyed with it, and destroying a running QThread aborts
@@ -250,7 +264,7 @@ class JobManager(QObject):
         _drop_finished_threads()
         thread = QThread()
         worker.moveToThread(thread)
-        job = Job(label=label, worker=worker, thread=thread)
+        job = Job(label=label, worker=worker, thread=thread, announce_after_s=announce_after_s)
         self._jobs[thread] = job
         _ABANDONED.append(job)
 
@@ -279,14 +293,26 @@ class JobManager(QObject):
         if not self._watchdog.isActive():
             self._watchdog.start()
         thread.start()
-        self.jobs_changed.emit()
+        if announce_after_s > 0:
+            QTimer.singleShot(int(announce_after_s * 1000), self, lambda: self._announce(thread))
+        else:
+            self.jobs_changed.emit()
         return thread
+
+    def _announce(self, thread: QThread) -> None:
+        """Show a delayed job that is still running; one that ended stays unseen."""
+        if thread in self._jobs:
+            self.jobs_changed.emit()
 
     # ── Reporting ────────────────────────────────────────────────────
 
     def jobs(self) -> list[Job]:
         """Every job currently owned, newest last."""
         return list(self._jobs.values())
+
+    def announced_jobs(self) -> list[Job]:
+        """The jobs the user is shown: every one past its announce delay."""
+        return [job for job in self._jobs.values() if job.announced]
 
     def is_busy(self) -> bool:
         return bool(self._jobs)
@@ -297,7 +323,7 @@ class JobManager(QObject):
 
     def status_text(self) -> str:
         """A one-line summary for the transport status area."""
-        jobs = self.jobs()
+        jobs = self.announced_jobs()
         if not jobs:
             return ""
         stalled = [job for job in jobs if job.state is JobState.NOT_RESPONDING]
@@ -384,7 +410,7 @@ class JobManager(QObject):
                 if job.state is JobState.NOT_RESPONDING:
                     job.state = JobState.RUNNING
                     changed = True
-                if changed:
+                if changed and job.announced:
                     self.jobs_changed.emit()
                 return
 
@@ -404,9 +430,12 @@ class JobManager(QObject):
         if self._shutting_down:
             return
         finished = [thread for thread in self._jobs if thread.isFinished()]
+        # Only a job that was shown needs its disappearance shown: announcing
+        # the end of one nobody saw would reset the status line it never used.
+        seen = any(self._jobs[thread].announced for thread in finished)
         for thread in finished:
             self._jobs.pop(thread, None)
         if not self._jobs:
             self._watchdog.stop()
-        if finished:
+        if seen:
             self.jobs_changed.emit()

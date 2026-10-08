@@ -1,11 +1,16 @@
 """Master timeline and synchronization logic."""
 
 import dataclasses
+import weakref
 from collections.abc import Callable
 
 import numpy as np
 
 from avialsync.core.drift import MS_PER_HOUR
+
+#: Arrays :meth:`PreparedExactMapping.prepare` validated and froze, by ``id``.
+#: Weak, so a mapping nobody holds is not kept alive by having been checked.
+_FROZEN: "weakref.WeakValueDictionary[int, np.ndarray]" = weakref.WeakValueDictionary()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -16,6 +21,101 @@ class PlaybackState:
     rate: float
     t: float
     bounds: tuple[float, float]
+
+
+def _interp_scalar(x: float, xp: np.ndarray, fp: np.ndarray) -> float:
+    """One lookup of :func:`_interp`, in plain floats: a seek or a clock tick."""
+    if x < xp[0]:
+        return float(fp[0])
+    if x >= xp[-1]:
+        return float(fp[-1])
+    left = int(np.searchsorted(xp, x, side="right")) - 1
+    x0 = float(xp[left])
+    y0 = float(fp[left])
+    if x == x0:
+        return y0
+    slope = (float(fp[left + 1]) - y0) / (float(xp[left + 1]) - x0)
+    return slope * (x - x0) + y0
+
+
+def _interp(x: np.ndarray, xp: np.ndarray, fp: np.ndarray) -> np.ndarray:
+    """``np.interp``, without its copy of read-only ``xp`` and ``fp``.
+
+    NumPy 2 copies a non-writeable array before interpolating, and exact
+    mappings are frozen precisely so they can be shared: one scalar lookup on a
+    million-frame mapping allocated 16 MB and took 1.6 ms, on every seek and
+    playback tick. A binary search reads only the knots it needs. The formula,
+    the exact value at a knot, and the clamping at both ends are NumPy's; the
+    result agrees to a rounding step (NumPy's C may fuse the multiply-add).
+    """
+    values = np.asarray(x, dtype=np.float64)
+    right = np.searchsorted(xp, values, side="right")
+    left = np.clip(right - 1, 0, len(xp) - 2)
+    x0 = xp[left]
+    y0 = fp[left]
+    slope = (fp[left + 1] - y0) / (xp[left + 1] - x0)
+    result = np.where(values == x0, y0, slope * (values - x0) + y0)
+    result = np.where(values < xp[0], fp[0], result)
+    return np.asarray(np.where(values >= xp[-1], fp[-1], result), dtype=np.float64)
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class PreparedExactMapping:
+    """Validated, owned, immutable frame pairs ready for a short UI install.
+
+    A million-frame mapping is scanned and copied once, on the worker that
+    produced it. Every later holder -- each TimeMap, the provenance record, the
+    undo stack, a saved session reopened -- shares those same two buffers.
+    """
+
+    master: np.ndarray
+    source: np.ndarray
+
+    @classmethod
+    def adopt(cls, master_times: np.ndarray, source_times: np.ndarray) -> "PreparedExactMapping":
+        """Reuse arrays an earlier :meth:`prepare` froze; prepare anything else.
+
+        The check is identity against what :meth:`prepare` produced, not the
+        writeable flag: a read-only view over memory someone else can still
+        change is not frozen, and installing it unvalidated would let it change
+        under a live mapping.
+        """
+        if (
+            _FROZEN.get(id(master_times)) is master_times
+            and _FROZEN.get(id(source_times)) is source_times
+            and len(master_times) == len(source_times)
+        ):
+            return cls(master_times, source_times)
+        return cls.prepare(master_times, source_times)
+
+    @classmethod
+    def prepare(cls, master_times: np.ndarray, source_times: np.ndarray) -> "PreparedExactMapping":
+        """Validate and freeze arrays before crossing into the UI thread."""
+        master = np.asarray(master_times, dtype=np.float64)
+        source = np.asarray(source_times, dtype=np.float64)
+        if (
+            master.ndim != 1
+            or source.ndim != 1
+            or len(master) != len(source)
+            or len(master) < 2
+            or not np.all(np.isfinite(master))
+            or not np.all(np.isfinite(source))
+            or np.any(np.diff(master) <= 0)
+            or np.any(np.diff(source) <= 0)
+        ):
+            raise ValueError(
+                "Exact mapping timestamps must be equal-length, finite, strictly "
+                "increasing one-dimensional arrays with at least two points."
+            )
+        # bytes owns storage that numpy cannot mark writable later. A readonly
+        # ndarray over mutable owned memory is only advisory to its owner.
+        mapping = cls(
+            np.frombuffer(master.tobytes(), dtype=np.float64),
+            np.frombuffer(source.tobytes(), dtype=np.float64),
+        )
+        _FROZEN[id(mapping.master)] = mapping.master
+        _FROZEN[id(mapping.source)] = mapping.source
+        return mapping
 
 
 class MasterClock:
@@ -200,7 +300,7 @@ class TimeMap:
     def to_source(self, t_master: float) -> float:
         t_master = float(t_master)
         if self._exact_master is not None and self._exact_source is not None:
-            return float(np.interp(t_master, self._exact_master, self._exact_source))
+            return _interp_scalar(t_master, self._exact_master, self._exact_source)
         return (
             t_master
             + self._base_offset
@@ -210,7 +310,7 @@ class TimeMap:
     def to_master(self, t_source: float) -> float:
         t_source = float(t_source)
         if self._exact_master is not None and self._exact_source is not None:
-            return float(np.interp(t_source, self._exact_source, self._exact_master))
+            return _interp_scalar(t_source, self._exact_source, self._exact_master)
         # to_source: ts = tm + offset + drift*(tm - t_ref)
         # ts = tm*(1 + drift) + offset - drift*t_ref
         # tm*(1 + drift) = ts - offset + drift*t_ref
@@ -226,8 +326,7 @@ class TimeMap:
         """
         source = np.asarray(t_source, dtype=np.float64)
         if self._exact_master is not None and self._exact_source is not None:
-            interpolated: np.ndarray = np.interp(source, self._exact_source, self._exact_master)
-            return interpolated
+            return _interp(source, self._exact_source, self._exact_master)
         drift_coeff = self._drift_ms_per_hour / MS_PER_HOUR
         return (source - self._base_offset + drift_coeff * self._t_ref) / (1.0 + drift_coeff)
 
@@ -235,8 +334,7 @@ class TimeMap:
         """Vectorised :meth:`to_source` for an already-bounded array."""
         master = np.asarray(t_master, dtype=np.float64)
         if self._exact_master is not None and self._exact_source is not None:
-            interpolated: np.ndarray = np.interp(master, self._exact_master, self._exact_source)
-            return interpolated
+            return _interp(master, self._exact_master, self._exact_source)
         return (
             master
             + self._base_offset
@@ -286,34 +384,22 @@ class TimeMap:
         """Set a piecewise interpolation array for exact non-affine mapping.
 
         This overrides offset/drift parameters during to_source and to_master evaluations.
+        Arrays a worker already prepared are shared as they are; anything else is
+        validated and frozen here.
         """
-        master = np.asarray(master_times, dtype=np.float64)
-        source = np.asarray(source_times, dtype=np.float64)
-        if (
-            master.ndim != 1
-            or source.ndim != 1
-            or len(master) != len(source)
-            or len(master) < 2
-            or not np.all(np.isfinite(master))
-            or not np.all(np.isfinite(source))
-            or np.any(np.diff(master) <= 0)
-            or np.any(np.diff(source) <= 0)
-        ):
-            raise ValueError(
-                "Exact mapping timestamps must be equal-length, finite, strictly "
-                "increasing one-dimensional arrays with at least two points."
-            )
-        self._exact_master = master.copy()
-        self._exact_source = source.copy()
-        self._exact_master.flags.writeable = False
-        self._exact_source.flags.writeable = False
+        self.install_prepared_exact_mapping(PreparedExactMapping.adopt(master_times, source_times))
+
+    def install_prepared_exact_mapping(self, mapping: PreparedExactMapping) -> None:
+        """Install worker-prepared frame pairs without scanning or copying them."""
+        self._exact_master = mapping.master
+        self._exact_source = mapping.source
 
     def copy(self) -> "TimeMap":
         """Snapshot settings while sharing immutable exact-evidence arrays."""
         copied = TimeMap(self._offset, self._drift_ms_per_hour)
         copied._t_ref = self._t_ref
         copied._base_offset = self._base_offset
-        # set_exact_mapping already copied and froze both arrays. A later
+        # Both arrays were frozen when they were installed. A later
         # mapping change replaces them, so copying millions of pairs for each
         # worker reference buys no isolation and can stall the UI.
         copied._exact_master = self._exact_master

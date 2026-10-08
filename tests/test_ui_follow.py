@@ -31,6 +31,10 @@ def sweep_pane(qtbot, tmp_path: Path) -> PlotPane:
     # (D-060); a test that asserts on every row must wait for them.
     pane.wait_for_pending_rows()
     pane.set_window_duration(5.5)
+    qtbot.waitUntil(
+        lambda: pane._last_installed_generation == pane._page_generation,
+        timeout=5000,
+    )
     return pane
 
 
@@ -141,24 +145,20 @@ def test_row_height_control_uses_one_scrollable_plot_stack(sweep_pane) -> None:
     assert pane.graphics_layout.minimumHeight() >= 2 * 160
 
 
-def test_pyramid_is_not_requeried_on_every_master_clock_tick(sweep_pane, monkeypatch) -> None:
+def test_pyramid_is_not_requeried_on_every_master_clock_tick(sweep_pane, qtbot) -> None:
     pane = sweep_pane
-    calls = 0
-    original = pane.channels[0].reader.query
-
-    def counted_query(t0: float, t1: float, max_points: int):
-        nonlocal calls
-        calls += 1
-        return original(t0, t1, max_points)
-
-    monkeypatch.setattr(pane.channels[0].reader, "query", counted_query)
+    generation = pane._page_generation
     pane.set_cursor(101.0)
     pane.set_cursor(102.0)
     pane.set_cursor(103.0)
-    assert calls == 0
+    assert pane._page_generation == generation
 
     pane.set_cursor(106.0)
-    assert calls == 1
+    assert pane._page_generation == generation + 1
+    qtbot.waitUntil(
+        lambda: pane._last_installed_generation == pane._page_generation,
+        timeout=5000,
+    )
 
 
 def test_decimated_plot_preserves_minimum_and_maximum_envelope(qtbot, tmp_path: Path) -> None:
@@ -196,45 +196,37 @@ def test_decimated_plot_preserves_minimum_and_maximum_envelope(qtbot, tmp_path: 
     assert np.nanmin(y) == pytest.approx(0.0)
 
 
-def test_slider_drag_coalesces_pyramid_refreshes(qtbot, sweep_pane, monkeypatch) -> None:
+def test_slider_drag_coalesces_pyramid_refreshes(qtbot, sweep_pane) -> None:
     pane = sweep_pane
-    calls = 0
-    original = pane.channels[0].reader.query
-
-    def counted_query(t0: float, t1: float, max_points: int):
-        nonlocal calls
-        calls += 1
-        return original(t0, t1, max_points)
-
-    monkeypatch.setattr(pane.channels[0].reader, "query", counted_query)
+    start_generation = pane._page_generation
     pane.window_slider.sliderPressed.emit()
     for value in range(200, 1200, 20):
         pane.window_slider.setValue(value)
 
-    assert calls == 0
-    qtbot.waitUntil(lambda: calls >= 1, timeout=1000)
+    assert pane._page_generation == start_generation
+    qtbot.waitUntil(lambda: pane._page_generation > start_generation, timeout=1000)
+    assert pane._page_generation < start_generation + 50
 
     pane.window_slider.setValue(1300)
     pane.window_slider.setValue(1400)
     pane.window_slider.sliderReleased.emit()
-    qtbot.waitUntil(lambda: calls >= 2, timeout=1000)
+    qtbot.waitUntil(
+        lambda: pane._last_installed_generation == pane._page_generation,
+        timeout=5000,
+    )
 
 
-def test_hidden_rows_are_not_queried(sweep_pane, monkeypatch) -> None:
+def test_hidden_rows_are_not_queried(sweep_pane, qtbot) -> None:
     pane = sweep_pane
-    calls = 0
-    original = pane.channels[1].reader.query
-
-    def counted_query(t0: float, t1: float, max_points: int):
-        nonlocal calls
-        calls += 1
-        return original(t0, t1, max_points)
-
-    monkeypatch.setattr(pane.channels[1].reader, "query", counted_query)
+    _, old_y = pane.channels[1].curve.getData()
+    old_y = old_y.copy()
     pane.set_channel_visible("beta", False)
     pane.set_cursor(106.0)
-
-    assert calls == 0
+    qtbot.waitUntil(
+        lambda: pane._last_installed_generation == pane._page_generation,
+        timeout=5000,
+    )
+    assert np.array_equal(pane.channels[1].curve.getData()[1], old_y, equal_nan=True)
 
 
 def test_hidden_plot_stays_hidden_through_resize_storm(qtbot, sweep_pane) -> None:
@@ -336,11 +328,15 @@ def test_fit_all_button_fits_and_freezes_every_visible_row(sweep_pane) -> None:
     assert alpha.plot_item.viewRange()[1] == pytest.approx([low, high]), "frozen through playback"
 
 
-def test_reset_button_shows_the_whole_timeline(sweep_pane) -> None:
+def test_reset_button_shows_the_whole_timeline(sweep_pane, qtbot) -> None:
     pane = sweep_pane
     assert pane.window_duration == pytest.approx(5.5)
 
     pane._plot_header.reset_button.click()
 
     assert pane.window_duration == pytest.approx(40.0)
+    qtbot.waitUntil(
+        lambda: pane._last_installed_generation == pane._page_generation,
+        timeout=5000,
+    )
     assert all(channel.y_range is not None for channel in pane.channels)

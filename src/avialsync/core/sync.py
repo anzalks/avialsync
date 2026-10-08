@@ -7,18 +7,19 @@ responsible for showing the evidence and obtaining user acceptance.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
+from collections.abc import Callable, Iterable, Iterator
+from dataclasses import dataclass, replace
 from enum import StrEnum
-from typing import Literal
+from typing import Literal, TypeVar
 
 import numpy as np
 
 from avialsync.core.drift import describe_drift, drift_from_rate
 from avialsync.core.errors import SyncAmbiguityError, SyncEvidenceError
-from avialsync.core.timeline import TimeMap
+from avialsync.core.timeline import PreparedExactMapping, TimeMap
 
 Edge = Literal["rising", "falling"]
+_Fit = TypeVar("_Fit", bound="SyncFit")
 _MAX_PRESENTED_EVIDENCE = 500
 
 
@@ -128,6 +129,22 @@ class SyncFit:
     #: one over all of it -- it says nothing about the part excluded -- so the
     #: restriction belongs in the record rather than in how the number was made.
     restricted_to: tuple[float, float] | None = None
+    #: The timing precision the user asked for, judged separately from the
+    #: pair-search tolerance. Zero means this fit was never assessed against
+    #: one -- a hand-made record, or one saved before the assessment existed --
+    #: which is a different statement from "assessed and not met".
+    precision_requirement: float = 0.0
+    precision_verified: bool = False
+    #: Fraction of the target recording lying between its first and last
+    #: matched event; outside that span the mapping is extrapolated.
+    coverage_fraction: float = 0.0
+    #: Longest master-time stretch with no matched event inside it.
+    largest_unsupported_interval: float = 0.0
+    #: Target-clock seconds before the first and after the last matched event.
+    extrapolated_before: float = 0.0
+    extrapolated_after: float = 0.0
+    #: Reference pulses that crossed missing data and were left out.
+    excluded_incomplete_count: int = 0
 
     @property
     def match_rate(self) -> float:
@@ -155,22 +172,43 @@ class SyncFit:
             return (
                 f"interpolated between {self.matched_count} matched sync edges, "
                 f"{self.match_rate * 100:.0f}% of the reference paired -- no single rate "
-                "assumed across the recording"
+                "assumed across the recording" + self._precision_description()
             )
         if self.method is AlignmentMethod.UNVALIDATED:
-            return f"placed by {self.matched_count} events, with none left over to check it against"
+            return (
+                f"placed by {self.matched_count} events, with none left over to check it against"
+                + self._precision_description()
+            )
         if self.restricted_to is not None:
             start, end = self.restricted_to
             return (
                 f"{self._describe_fit()}, over {start:.3f}–{end:.3f} s only, "
-                "claiming nothing outside that window"
+                "claiming nothing outside that window" + self._precision_description()
             )
         if self.method is AlignmentMethod.SHIFT:
             return (
                 f"offset {self.offset:+.6f} s ± {self.offset_stderr * 1000:.3f} ms from "
                 f"{self.matched_count} of {self.reference_count} events, no rate fitted"
+                + self._precision_description()
             )
-        return self._describe_fit()
+        return self._describe_fit() + self._precision_description()
+
+    def _precision_description(self) -> str:
+        """State precision independently of the pair-search tolerance."""
+        excluded = (
+            f", {self.excluded_incomplete_count} incomplete pulses excluded"
+            if self.excluded_incomplete_count
+            else ""
+        )
+        if self.precision_requirement <= 0.0:
+            return f"; precision not assessed{excluded}"
+        state = "precision verified" if self.precision_verified else "precision unverified"
+        return (
+            f"; {state} at {self.precision_requirement * 1000:.3f} ms, "
+            f"coverage {self.coverage_fraction * 100:.0f}%, largest unsupported "
+            f"interval {self.largest_unsupported_interval:.3f} s, extrapolation "
+            f"{self.extrapolated_before:.3f}/{self.extrapolated_after:.3f} s{excluded}"
+        )
 
     def _describe_fit(self) -> str:
         """The affine wording, shared with the restricted-window sentence."""
@@ -192,10 +230,13 @@ class ExactSyncFit(SyncFit):
 
     exact_master: np.ndarray | None = None
     exact_source: np.ndarray | None = None
+    prepared_mapping: PreparedExactMapping | None = None
 
     def to_time_map(self) -> TimeMap:
         tm = super().to_time_map()
-        if self.exact_master is not None and self.exact_source is not None:
+        if self.prepared_mapping is not None:
+            tm.install_prepared_exact_mapping(self.prepared_mapping)
+        elif self.exact_master is not None and self.exact_source is not None:
             tm.set_exact_mapping(self.exact_master, self.exact_source)
         return tm
 
@@ -207,6 +248,61 @@ class SyncMatch:
     reference_time: float
     target_time: float
     residual: float
+    raw_reference_time: float | None = None
+
+
+@dataclass(frozen=True)
+class SyncDisplaySummary:
+    """Fixed-size plot data prepared off the UI thread from complete evidence."""
+
+    origin: float
+    reference_times: np.ndarray
+    target_times: np.ndarray
+    residual_ms: np.ndarray
+    rejected_times: np.ndarray
+    #: Every piece of evidence's extent, relative to :attr:`origin`. The kept
+    #: points need not include the first and last match, and "all" must.
+    span: tuple[float, float]
+    #: Position of each kept match among all of them, for "event n of N".
+    match_indices: np.ndarray
+
+
+def prepare_display_summary(proposal: SyncProposal, limit: int = 800) -> SyncDisplaySummary:
+    """Bound what the evidence view draws, keeping what a reader must see.
+
+    Matches are cut into *limit* equal runs and each run keeps its largest
+    absolute residual, so the worst pairs survive however many there are.
+    Rejected events are sampled at equal rank, which keeps their density: a
+    stretch with many rejections keeps many markers. Runs on the fitting
+    worker; the complete evidence stays on the proposal for inspection and
+    export.
+    """
+    matched = proposal.matches
+    count = len(matched)
+    times = np.fromiter((m.reference_time for m in matched), dtype=np.float64, count=count)
+    targets = np.fromiter((m.target_time for m in matched), dtype=np.float64, count=count)
+    residuals = np.fromiter((m.residual * 1000.0 for m in matched), dtype=np.float64, count=count)
+    rejected = np.asarray(proposal.unmatched_references, dtype=np.float64)
+    present = [values for values in (times, rejected) if len(values)]
+    origin = min(float(values[0]) for values in present) if present else 0.0
+    last = max(float(values[-1]) for values in present) if present else 0.0
+
+    indices = np.arange(count, dtype=np.int64)
+    if count > limit:
+        edges = np.linspace(0, count, limit + 1, dtype=np.int64)
+        indices = np.array(
+            [
+                start + int(np.argmax(np.abs(residuals[start:stop])))
+                for start, stop in zip(edges[:-1], edges[1:], strict=True)
+            ],
+            dtype=np.int64,
+        )
+        times, targets, residuals = times[indices], targets[indices], residuals[indices]
+    if len(rejected) > limit:
+        rejected = rejected[np.linspace(0, len(rejected) - 1, limit, dtype=np.int64)]
+    return SyncDisplaySummary(
+        origin, times, targets, residuals, rejected, (0.0, last - origin), indices
+    )
 
 
 @dataclass(frozen=True)
@@ -219,6 +315,8 @@ class SyncProposal:
     matches: tuple[SyncMatch, ...]
     tolerance: float
     unmatched_references: tuple[float, ...] = ()
+    reference_clock_id: str = ""
+    display: SyncDisplaySummary | None = None
 
     @property
     def acceptable(self) -> bool:
@@ -349,11 +447,21 @@ def fit_exact_index_mapping(
     reference_id: str,
     target_id: str,
     index_offset: int = 0,
+    verified_shared_strobe: bool = False,
+    precision_requirement: float = 0.001,
 ) -> SyncProposal:
     """Create a deterministic exact index mapping, overriding affine limits.
 
     Frames are paired exactly 1-to-1 based on index_offset.
+    *verified_shared_strobe* is the caller's statement that the reference is
+    a recorded exposure strobe from this camera, checked for complete pulses
+    and a matching frame count. A video's own timestamps are never that.
     """
+    if not verified_shared_strobe:
+        raise SyncEvidenceError(
+            "Exact index mapping requires a recorded camera-to-DAQ strobe "
+            "paired with that camera's stored frames."
+        )
     reference = _validated_times(reference_times, "reference")
     target = _validated_times(target_times, "target")
 
@@ -375,6 +483,9 @@ def fit_exact_index_mapping(
             "per-frame trigger timestamps rather than dense signal samples."
         )
 
+    prepared = PreparedExactMapping.prepare(matched_ref, matched_tgt)
+    matched_ref = prepared.master
+    matched_tgt = prepared.source
     evidence_indices = _evidence_indices(length)
     matches = tuple(
         SyncMatch(float(matched_ref[index]), float(matched_tgt[index]), 0.0)
@@ -393,6 +504,16 @@ def fit_exact_index_mapping(
         method=AlignmentMethod.EXACT,
         exact_master=matched_ref,
         exact_source=matched_tgt,
+        prepared_mapping=prepared,
+    )
+    # Every paired frame carries its own measured time, so there is no
+    # residual; what remains to judge is the frames left unpaired at the ends.
+    fit = with_precision(
+        fit,
+        matched_ref,
+        matched_tgt,
+        (float(target[0]), float(target[-1])),
+        precision_requirement,
     )
 
     unmatched_values = np.concatenate(
@@ -412,6 +533,53 @@ def fit_exact_index_mapping(
     )
 
 
+def with_precision(
+    fit: _Fit,
+    matched_reference: np.ndarray,
+    matched_target: np.ndarray,
+    target_span: tuple[float, float],
+    precision_requirement: float,
+    worst_residual: float | None = None,
+) -> _Fit:
+    """Judge *fit* by the precision asked for, not by the search tolerance.
+
+    Residuals test only the matched instants. Between two of them, and beyond
+    the outermost where the mapping is extrapolated over the rest of the target
+    recording, a free-running clock can wander by up to the plausible drift
+    times the distance without any residual showing it. Precision is verified
+    only when the worst residual *and* that bound over the largest unsupported
+    interval and the longer extrapolation all fit inside the requirement.
+    Failing that leaves the fit usable and says so, rather than refusing it.
+    *worst_residual* replaces ``fit.max_residual`` for a model whose own
+    residuals are zero by construction.
+    """
+    if precision_requirement <= 0 or not np.isfinite(precision_requirement):
+        raise SyncEvidenceError("Precision requirement must be finite and positive.")
+    wander = MAX_PLAUSIBLE_DRIFT_MS_PER_HOUR / 3_600_000.0
+    first, last = target_span
+    before = max(0.0, float(matched_target[0]) - first)
+    after = max(0.0, last - float(matched_target[-1]))
+    largest_gap = float(np.max(np.diff(matched_reference))) if len(matched_reference) > 1 else 0.0
+    span = last - first
+    supported = float(matched_target[-1] - matched_target[0])
+    coverage = min(1.0, supported / span) if span > 0 else 1.0
+    worst = fit.max_residual if worst_residual is None else worst_residual
+    verified = (
+        worst <= precision_requirement
+        and largest_gap * wander <= precision_requirement
+        and max(before, after) * wander <= precision_requirement
+    )
+    return replace(
+        fit,
+        precision_requirement=float(precision_requirement),
+        precision_verified=bool(verified),
+        coverage_fraction=float(coverage),
+        largest_unsupported_interval=largest_gap,
+        extrapolated_before=before,
+        extrapolated_after=after,
+    )
+
+
 def _evidence_indices(length: int) -> np.ndarray:
     """Return every small evidence set or an evenly distributed bounded sample."""
     if length <= _MAX_PRESENTED_EVIDENCE:
@@ -427,6 +595,9 @@ def fit_sync_events(
     target_id: str,
     min_pairs: int = 3,
     max_residual: float | None = None,
+    precision_requirement: float = 0.001,
+    is_cancelled: Callable[[], bool] | None = None,
+    target_span: tuple[float, float] | None = None,
 ) -> SyncProposal:
     """Fit a deterministic affine target-time mapping from event timestamps.
 
@@ -434,6 +605,11 @@ def fit_sync_events(
     refined with least squares.  This handles missing pulses and a modest number
     of spurious edges without reordering either source.  Equal-quality sequence
     offsets are rejected as ambiguous instead of guessed.
+
+    *max_residual* is the pair-search tolerance; *precision_requirement* is
+    what the result is then judged by (:func:`with_precision`). *target_span*
+    is the whole target recording in its own clock, when it runs beyond its
+    events, so the extrapolated part is reported rather than assumed away.
     """
     reference = _validated_times(reference_times, "reference")
     target = _validated_times(target_times, "target")
@@ -448,12 +624,16 @@ def fit_sync_events(
     tolerance = max_residual if max_residual is not None else _default_tolerance(reference, target)
     if tolerance <= 0 or not np.isfinite(tolerance):
         raise SyncEvidenceError("Synchronization residual tolerance must be finite and positive.")
+    if precision_requirement <= 0 or not np.isfinite(precision_requirement):
+        raise SyncEvidenceError("Precision requirement must be finite and positive.")
 
     evidence_span = float(reference[-1] - reference[0])
     candidates: list[tuple[np.ndarray, float, float, float]] = []
     implausible: list[tuple[int, float]] = []
     for seed_scale in _seed_scales(scale):
         for ref_index, target_index in _candidate_indices(len(reference), len(target)):
+            if is_cancelled is not None and is_cancelled():
+                raise SyncEvidenceError("Synchronization preview was cancelled.")
             offset = target[target_index] - seed_scale * reference[ref_index]
             pairs = _match_pairs(reference, target, seed_scale, offset, tolerance)
             if len(pairs) < min_pairs:
@@ -535,6 +715,13 @@ def fit_sync_events(
         target_count=len(target),
         offset_stderr=rms / np.sqrt(len(matches)) if len(matches) else 0.0,
         ambiguity_margin=margin,
+    )
+    fit = with_precision(
+        fit,
+        reference[best_pairs[:, 0]],
+        target[best_pairs[:, 1]],
+        target_span or (float(target[0]), float(target[-1])),
+        precision_requirement,
     )
     matched_indices = set(best_pairs[:, 0])
     unmatched_references = tuple(
