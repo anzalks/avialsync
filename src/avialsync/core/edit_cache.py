@@ -34,7 +34,6 @@ import json
 import logging
 import os
 import shutil
-import threading
 import uuid
 from collections.abc import Iterable
 from pathlib import Path
@@ -42,6 +41,14 @@ from pathlib import Path
 import numpy as np
 
 from avialsync.core.cache import EDITED_SUBDIR
+from avialsync.core.cache_leases import (
+    _PIN_LOCK,
+    _PINNED,
+    GenerationPin,
+    cache_entry_mutating,
+    pin_reader_directory,
+    pinned_cache_entries,
+)
 from avialsync.core.edit_program import EditProgram
 from avialsync.core.pose import PosePoint, PoseSchema
 from avialsync.core.pyramid import PyramidBuilder, PyramidReader
@@ -54,6 +61,9 @@ __all__ = [
     "materialise",
     "load",
     "prune",
+    "GenerationPin",
+    "pin_reader_directory",
+    "pinned_cache_entries",
 ]
 
 #: Where generations live inside a source's own cache entry. Owned
@@ -332,53 +342,6 @@ def _write_manifest(
 #: Three bounds the disk at a few edited channels per edit while leaving a job
 #: two edits behind something to read.
 KEEP_GENERATIONS = 3
-_PIN_LOCK = threading.Lock()
-_PINNED: dict[Path, int] = {}
-
-
-class GenerationPin:
-    """Keep a reader's cache directory available while a job holds it."""
-
-    def __init__(self, directory: Path) -> None:
-        pinned = directory.absolute()
-        self.directory: Path | None = None
-        with _PIN_LOCK:
-            if not pinned.is_dir():
-                raise FileNotFoundError(pinned)
-            _PINNED[pinned] = _PINNED.get(pinned, 0) + 1
-            self.directory = pinned
-
-    def close(self) -> None:
-        """Release this generation once its reader reference is discarded."""
-        directory = getattr(self, "directory", None)
-        if directory is None:
-            return
-        with _PIN_LOCK:
-            remaining = _PINNED[directory] - 1
-            if remaining:
-                _PINNED[directory] = remaining
-            else:
-                del _PINNED[directory]
-        self.directory = None
-
-    def __del__(self) -> None:
-        self.close()
-
-
-def pin_reader_directory(directory: Path) -> GenerationPin | None:
-    """Pin a base or edited reader directory while a worker may open it."""
-    try:
-        return GenerationPin(directory)
-    except FileNotFoundError:
-        return None
-
-
-def pinned_cache_entries() -> frozenset[Path]:
-    """Return base entry paths held by worker snapshots."""
-    with _PIN_LOCK:
-        return frozenset(
-            path.parent.parent if path.parent.name == EDITED_DIR else path for path in _PINNED
-        )
 
 
 def prune(cache_dir: Path, keep: Iterable[str], generations: int = KEEP_GENERATIONS) -> list[str]:
@@ -419,7 +382,7 @@ def prune(cache_dir: Path, keep: Iterable[str], generations: int = KEEP_GENERATI
     removed: list[str] = []
     for entry in others[max(0, generations - len(kept)) :]:
         with _PIN_LOCK:
-            if entry.absolute() in _PINNED:
+            if entry.absolute() in _PINNED or cache_entry_mutating(cache_dir):
                 continue
             renamed = root / f"{_TEMP_PREFIX}prune-{uuid.uuid4().hex}"
             try:

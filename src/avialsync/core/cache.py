@@ -37,6 +37,7 @@ from typing import Any
 
 import xxhash
 
+from avialsync.core.cache_leases import reserve_cache_entry
 from avialsync.core.errors import CacheError
 
 #: Overrides the platform cache location when set to a non-empty path.
@@ -269,6 +270,14 @@ class CacheManager:
         # neither a trial's cleanup nor "delete all" will ever remove.
         write_entry_record(temp_dir, source_path)
 
+        with reserve_cache_entry(cache_dir) as reserved:
+            if not reserved:
+                raise CacheError("Cache entry is in use by a running reader; retry the import")
+            self._commit_cache_unpinned(source_path, cache_dir, temp_dir)
+
+    def _commit_cache_unpinned(self, source_path: Path, cache_dir: Path, temp_dir: Path) -> None:
+        """Swap a cache entry while no reader can pin its outgoing directory."""
+
         backup_dir: Path | None = None
         try:
             if cache_dir.exists():
@@ -354,14 +363,17 @@ class CacheManager:
         """Restore the most recent valid-entry backup after a process interruption."""
         if cache_dir.exists():
             return
-        backups = sorted(
-            cache_dir.parent.glob(f".{cache_dir.name}.backup-*"),
-            key=lambda path: path.stat().st_mtime,
-            reverse=True,
-        )
-        if not backups:
-            return
-        try:
-            os.replace(backups[0], cache_dir)
-        except OSError:
-            return
+        with reserve_cache_entry(cache_dir) as reserved:
+            if not reserved or cache_dir.exists():
+                return
+            backups = sorted(
+                cache_dir.parent.glob(f".{cache_dir.name}.backup-*"),
+                key=lambda path: path.stat().st_mtime,
+                reverse=True,
+            )
+            if not backups:
+                return
+            try:
+                os.replace(backups[0], cache_dir)
+            except OSError:
+                return

@@ -7,11 +7,16 @@ import av
 import numpy as np
 import pytest
 
+from avialsync.core.channel_reader import MappedChannelReader
+from avialsync.core.pyramid import PyramidBuilder, PyramidReader
+from avialsync.core.timeline import TimeMap
+from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.pyav_reader import PyAVReader
 from avialsync.engine.stimulus_grid_export import GridLabels, GridVideo
 from avialsync.engine.stimulus_grid_worker import (
     StimulusEventScanWorker,
     StimulusGridExportWorker,
+    StimulusTimelineWorker,
 )
 from avialsync.engine.transcode import encode_video
 
@@ -50,6 +55,23 @@ def test_event_scan_finds_rising_edges_across_chunk_boundaries() -> None:
     worker.run()
 
     assert results == [(0.1, 0.5)]
+
+
+def test_timeline_preview_copies_bounded_pyramid_result(tmp_path: Path) -> None:
+    PyramidBuilder(tmp_path, "stimulus").build_and_save(
+        np.arange(10_000, dtype=np.float64), np.ones(10_000)
+    )
+    reader = MappedChannelReader(PyramidReader(tmp_path, "stimulus"), TimeMap())
+    worker = StimulusTimelineWorker(2, ReaderReference.from_reader(reader))
+    results: list[tuple[int, object]] = []
+    worker.finished.connect(lambda *args: results.append(args))
+
+    worker.run()
+
+    assert results[0][0] == 2
+    _bounds, times, low, high, _gaps = results[0][1]
+    assert len(times) <= 1200
+    assert len(low) == len(high) == len(times)
 
 
 def test_event_scan_can_be_cancelled_between_chunks() -> None:

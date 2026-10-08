@@ -74,6 +74,20 @@ def test_trim_cache_respects_age_budget_and_reader_pins(tmp_path: Path) -> None:
     assert not old.exists()
 
 
+def test_direct_cache_removal_respects_reader_pin(tmp_path: Path) -> None:
+    root = tmp_path / "cache"
+    directory = _entry(root, _source(tmp_path / "data"))
+    pin = pin_reader_directory(directory)
+    assert pin is not None
+    try:
+        report = cache_store.remove_entries(cache_store.list_entries(root), root)
+        assert report.removed == 0
+        assert report.failed[0][1] == "in use by a running reader"
+        assert directory.is_dir()
+    finally:
+        pin.close()
+
+
 # ── where the root is ────────────────────────────────────────────────
 
 

@@ -1,6 +1,7 @@
 """Asynchronous data source importer pipeline."""
 
 import dataclasses
+import hashlib
 import json
 import logging
 import os
@@ -17,25 +18,37 @@ from avialsync.core.cache import CacheManager
 from avialsync.core.errors import LoaderContractError, SourceOpenError
 from avialsync.core.inspection import ImportReport, IntegrityFlags, SourceInspection
 from avialsync.core.messages import Message, bounded
-from avialsync.core.pyramid import ChannelStage, PyramidBuilder, build_gap_mask, count_nan
+from avialsync.core.pyramid import LEVELS, ChannelStage, PyramidBuilder, build_gap_mask, count_nan
 from avialsync.core.source import display_unit
 from avialsync.loaders.csv_loader import CSVLoader
 
 logger = logging.getLogger(__name__)
 
-# 5: the import manifest carries a pose schema, and a pose source's channel
-# set changed with it -- a Lightning Pose export no longer pyramids the eight
-# derived columns per body part it used to. A sidecar written before this has
-# neither, so it is re-imported rather than served with a shape nothing can
-# interpret (D-140).
-_IMPORT_CACHE_VERSION = 7
+# Increment when imported array layout or validation metadata changes.
+_IMPORT_CACHE_VERSION = 9
 _IMPORT_MANIFEST = "import.json"
 _STAGING_DIR = "_stage"
+_ARRAY_SAMPLE_BYTES = 4096
 
 #: Gap *locations* are display evidence, so they are capped; ``gap_count`` in the
 #: import report always stays exact.  A pathological recording can otherwise put
 #: millions of floats into the session file and the report dialog.
 MAX_GAP_LOCATIONS = 10_000
+
+
+def _array_fingerprint(path: Path) -> str:
+    """Fingerprint three bounded regions of one derived array."""
+    size = path.stat().st_size
+    digest = hashlib.blake2b(digest_size=16)
+    with path.open("rb") as stream:
+        for offset in (
+            0,
+            max(0, size // 2 - _ARRAY_SAMPLE_BYTES // 2),
+            max(0, size - _ARRAY_SAMPLE_BYTES),
+        ):
+            stream.seek(offset)
+            digest.update(stream.read(_ARRAY_SAMPLE_BYTES))
+    return digest.hexdigest()
 
 
 def _share_file(source: Path, target: Path) -> None:
@@ -96,6 +109,7 @@ class ImportWorker(QObject):
         self._cancel_flag = True
 
     def run(self) -> None:
+        temp_dir: Path | None = None
         try:
             cache_mgr = self._cache_manager()
             cached = self._cached_result(cache_mgr)
@@ -133,8 +147,6 @@ class ImportWorker(QObject):
             total_rows, total_nan, gap_count, all_gap_locations, t0, t1 = result
 
             if self._cancel_flag:
-                import shutil
-
                 shutil.rmtree(temp_dir, ignore_errors=True)
                 return
 
@@ -186,6 +198,9 @@ class ImportWorker(QObject):
         except Exception as e:
             traceback.print_exc()
             self.error.emit(str(e))
+        finally:
+            if temp_dir is not None and temp_dir.exists():
+                shutil.rmtree(temp_dir, ignore_errors=True)
 
     def _backfill_units(
         self,
@@ -283,15 +298,22 @@ class ImportWorker(QObject):
         if (
             not channels
             or bounds[1] < bounds[0]
-            or not self._arrays_intact(cache_dir, channels, manifest.get("array_sizes"))
+            or not self._arrays_intact(
+                cache_dir,
+                channels,
+                manifest.get("array_sizes"),
+                manifest.get("array_fingerprints"),
+            )
         ):
             return None
         return cache_dir, channels, bounds, inspection
 
     @staticmethod
-    def _arrays_intact(cache_dir: Path, channels: list[str], sizes: Any) -> bool:
+    def _arrays_intact(cache_dir: Path, channels: list[str], sizes: Any, fingerprints: Any) -> bool:
         """Reject missing, truncated, or structurally invalid cached arrays."""
-        if not isinstance(sizes, dict) or not sizes:
+        if not isinstance(sizes, dict) or not sizes or not isinstance(fingerprints, dict):
+            return False
+        if sizes.keys() != fingerprints.keys():
             return False
         try:
             for name, expected_size in sizes.items():
@@ -301,21 +323,46 @@ class ImportWorker(QObject):
                     or not name.endswith(".npy")
                     or not isinstance(expected_size, int)
                     or (cache_dir / name).stat().st_size != expected_size
+                    or _array_fingerprint(cache_dir / name) != fingerprints[name]
                 ):
                     return False
             for channel in channels:
-                columns = []
-                for suffix in ("t", "v", "gap"):
-                    name = f"{channel}_{suffix}.npy"
-                    if name not in sizes:
+                base = [f"{channel}_{suffix}.npy" for suffix in ("t", "v", "gap")]
+                if any(name not in sizes for name in base):
+                    return False
+                columns = [
+                    np.load(cache_dir / name, mmap_mode="r", allow_pickle=False) for name in base
+                ]
+                count = len(columns[0])
+                if (
+                    count == 0
+                    or any(column.ndim != 1 or len(column) != count for column in columns)
+                    or columns[0].dtype != np.float64
+                    or not np.issubdtype(columns[1].dtype, np.number)
+                    or columns[2].dtype != np.bool_
+                ):
+                    return False
+                for level in LEVELS[1:]:
+                    names = [
+                        f"{channel}_pyr_{level}_{suffix}.npy"
+                        for suffix in ("t", "vmin", "vmax", "gap")
+                    ]
+                    if any(name not in sizes for name in names):
                         return False
-                    columns.append(np.load(cache_dir / name, mmap_mode="r", allow_pickle=False))
-                if any(column.ndim != 1 for column in columns):
-                    return False
-                if len({len(column) for column in columns}) != 1 or len(columns[0]) == 0:
-                    return False
-                if columns[0].dtype != np.float64 or columns[2].dtype != np.bool_:
-                    return False
+                    pyramid = [
+                        np.load(cache_dir / name, mmap_mode="r", allow_pickle=False)
+                        for name in names
+                    ]
+                    expected_count = (count + level - 1) // level
+                    if (
+                        any(array.ndim != 1 or len(array) != expected_count for array in pyramid)
+                        or pyramid[0].dtype != np.float64
+                        or pyramid[3].dtype != np.bool_
+                        or not all(
+                            np.issubdtype(array.dtype, np.floating) for array in pyramid[1:3]
+                        )
+                    ):
+                        return False
         except (OSError, TypeError, ValueError):
             return False
         return True
@@ -489,11 +536,12 @@ class ImportWorker(QObject):
         all_gap_locations: list[float] = []
         gap_count = 0
         t0, t1 = 0.0, 0.0
+        time_axes: dict[tuple[int, str], Path] = {}
         try:
             for index, channel in enumerate(channel_names):
                 if self._cancel_flag:
                     break
-                time_stage = ChannelStage(staging_dir, f"{channel}__t")
+                time_stage = ChannelStage(staging_dir, f"{channel}__t", hash_content=True)
                 value_stage = ChannelStage(staging_dir, f"{channel}__v", allow_float32=True)
                 try:
                     for chunk_t, chunk_v in loader.read_chunks(channel):
@@ -501,7 +549,16 @@ class ImportWorker(QObject):
                         value_stage.append(np.asarray(chunk_v, dtype=np.float64))
                     if time_stage.count == 0:
                         continue
-                    times = time_stage.materialize(temp_dir / f"{channel}_t.npy")
+                    time_path = temp_dir / f"{channel}_t.npy"
+                    identity = (time_stage.count, time_stage.content_digest or "")
+                    earlier = time_axes.get(identity)
+                    if earlier is None:
+                        times = time_stage.materialize(time_path)
+                        time_axes[identity] = time_path
+                    else:
+                        time_stage.discard()
+                        _share_file(earlier, time_path)
+                        times = np.load(time_path, mmap_mode="r", allow_pickle=False)
                     values = value_stage.materialize(temp_dir / f"{channel}_v.npy")
                 finally:
                     time_stage.discard()
@@ -536,5 +593,8 @@ class ImportWorker(QObject):
             "bounds": list(bounds),
             "inspection": inspection.as_dict(),
             "array_sizes": {item.name: item.stat().st_size for item in temp_dir.glob("*.npy")},
+            "array_fingerprints": {
+                item.name: _array_fingerprint(item) for item in temp_dir.glob("*.npy")
+            },
         }
         (temp_dir / _IMPORT_MANIFEST).write_text(json.dumps(payload), encoding="utf-8")

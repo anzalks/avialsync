@@ -33,6 +33,7 @@ def window(qapp: QApplication, qtbot) -> MainWindow:
     win = MainWindow()
     qtbot.addWidget(win)
     win.show()
+    qtbot.waitUntil(lambda: not win._job_manager.jobs(), timeout=5000)
     yield win
     # Qt may already have deleted it: pytest-qt runs processEvents()
     # after the call phase, which executes pending deleteLater()s.

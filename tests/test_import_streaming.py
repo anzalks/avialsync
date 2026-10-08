@@ -76,6 +76,20 @@ def test_value_stage_compacts_only_when_float32_is_exact(tmp_path: Path) -> None
     np.testing.assert_array_equal(precise_values, expected)
 
 
+def test_time_stage_digest_does_not_depend_on_parser_chunk_sizes(tmp_path: Path) -> None:
+    values = np.arange(1001, dtype=np.float64) / 7.0
+    first = ChannelStage(tmp_path, "first", hash_content=True)
+    second = ChannelStage(tmp_path, "second", hash_content=True)
+    for start in range(0, len(values), 17):
+        first.append(values[start : start + 17])
+    for start in range(0, len(values), 101):
+        second.append(values[start : start + 101])
+
+    assert first.content_digest == second.content_digest
+    first.discard()
+    second.discard()
+
+
 def test_float64_stage_is_finalized_by_rename_without_copy(tmp_path: Path, monkeypatch) -> None:
     stage = ChannelStage(tmp_path, "time")
     stage.append(np.arange(100.0))

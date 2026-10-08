@@ -20,6 +20,11 @@ The following paths already have the correct ownership model:
 - Hidden video panes are paused and excluded from synchronization work.
 - Video opening, data import, synchronization fitting, proxy generation, and diagnostics have
   background-worker entry points.
+- Text import previews, stimulus-grid overviews, retraining-label assembly, and launch-time
+  recovery reads run in registered workers; their UI callbacks hand off bounded data or render
+  the resulting overview.
+- 3D pose setup opens XYZ cache arrays and derives orientation-specific skeletons in a registered
+  worker. Axis changes reuse those estimates, and a newer channel selection supersedes old results.
 - Plot queries select bounded mmap-backed pyramid slices, coalesce resize/window storms, and skip
   hidden plot rows.
 - Current-pose 3D sampling shares one timestamp lookup per source and never loads a trajectory into

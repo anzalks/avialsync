@@ -16,8 +16,8 @@ class _Reader:
         values = np.sin(times)
         return times, values - 0.1, values + 0.1, np.zeros(len(times), dtype=bool)
 
-    def value_at(self, time: float) -> float:
-        return float(np.sin(time))
+    def available_sample_at(self, time: float) -> tuple[int, float] | None:
+        return (0, float(np.sin(time))) if time <= 5.0 else None
 
 
 def test_dialog_shows_first_event_window_and_limits_selected_events(qtbot, tmp_path) -> None:
@@ -70,3 +70,19 @@ def test_dialog_shows_first_event_window_and_limits_selected_events(qtbot, tmp_p
     last.setCheckState(Qt.CheckState.Checked)
     assert len(dialog.selected_events()) == 12
     assert dialog.selected_events()[-1] == 14.0
+
+
+def test_dialog_draws_worker_overview_without_querying_source_on_ui(qtbot, tmp_path) -> None:
+    class NoUiQuery(_Reader):
+        def query(self, _start: float, _end: float, max_points: int):
+            raise AssertionError("The dialog must use the worker's overview")
+
+    dialog = StimulusGridDialog(
+        [StimulusChannelOption("stimulus", ReaderReference(tmp_path, "stimulus"), NoUiQuery())]
+    )
+    qtbot.addWidget(dialog)
+    times = np.array([0.0, 1.0, 2.0])
+    values = np.array([1.0, 2.0, 3.0])
+    dialog.set_preview(0, ((0.0, 2.0), times, values, values, np.zeros(3, dtype=bool)))
+
+    assert len(dialog.timeline.plotItem.listDataItems()) == 2

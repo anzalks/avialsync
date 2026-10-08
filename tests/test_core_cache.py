@@ -1,9 +1,12 @@
 import os
+import threading
+import time
 from pathlib import Path
 
 import pytest
 
 from avialsync.core.cache import CacheManager
+from avialsync.core.cache_leases import pin_reader_directory, reserve_cache_entry
 from avialsync.core.errors import CacheError
 
 
@@ -73,10 +76,59 @@ def test_atomic_commit(tmp_path: Path):
     manager.commit_cache(source, temp_dir)
 
     assert manager.is_cache_valid(source)
-
     cache_dir = manager.get_cache_dir(source)
     assert (cache_dir / "test_data.npy").exists()
     assert (cache_dir / "meta.json").exists()
+
+
+def test_pinned_reader_keeps_old_cache_until_replacement_can_commit(tmp_path: Path) -> None:
+    manager = CacheManager(root=tmp_path / "cache")
+    source = tmp_path / "data.csv"
+    source.write_text("source", encoding="utf-8")
+    first = manager.get_temp_cache_dir(source)
+    (first / "values.npy").write_bytes(b"old")
+    manager.commit_cache(source, first)
+    directory = manager.get_cache_dir(source)
+    pin = pin_reader_directory(directory)
+    assert pin is not None
+
+    second = manager.get_temp_cache_dir(source)
+    (second / "values.npy").write_bytes(b"new")
+    try:
+        with pytest.raises(CacheError, match="running reader"):
+            manager.commit_cache(source, second)
+        assert (directory / "values.npy").read_bytes() == b"old"
+        assert manager.is_cache_valid(source)
+    finally:
+        pin.close()
+
+    manager.commit_cache(source, second)
+    assert (directory / "values.npy").read_bytes() == b"new"
+
+
+def test_slow_cache_mutation_does_not_block_ui_reader_pin(tmp_path: Path) -> None:
+    directory = tmp_path / "cache"
+    directory.mkdir()
+    entered = threading.Event()
+    release = threading.Event()
+
+    def mutate() -> None:
+        with reserve_cache_entry(directory) as reserved:
+            assert reserved
+            entered.set()
+            assert release.wait(5)
+
+    thread = threading.Thread(target=mutate)
+    thread.start()
+    try:
+        assert entered.wait(5)
+        start = time.perf_counter()
+        assert pin_reader_directory(directory) is None
+        assert time.perf_counter() - start < 0.5
+    finally:
+        release.set()
+        thread.join(5)
+    assert not thread.is_alive()
 
 
 def test_cache_stale_invalidation(tmp_path: Path):

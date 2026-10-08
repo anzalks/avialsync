@@ -79,7 +79,7 @@ from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
 from avialsync.engine.snapshot import SnapshotFigure
-from avialsync.ui import dandi_open, imaging_integration, workspaces
+from avialsync.ui import dandi_open, imaging_integration, recovery_worker, workspaces
 from avialsync.ui.accessibility import apply_accessibility, install_show_time_sweep
 from avialsync.ui.annotations import AnnotationStore, Marker
 from avialsync.ui.changes_panel import ChangeRow, ChangesPanel
@@ -818,11 +818,11 @@ class MainWindow(QMainWindow):
         # Startup diagnostics (deferred so window shows first)
         QTimer.singleShot(500, self._run_diagnostics)
 
-        # Unsaved work from a previous run is read once here and held, which is
+        # Unsaved work from a previous run is read once by a worker and held, which is
         # what enables File → Recover Unsaved Work. The notification bar on top
         # of that is opt-in and off by default, so a launch is quiet unless the
         # user asked to be told (D-089, D-133).
-        session_controller.offer_pending_recovery(self)
+        recovery_worker.start_recovery_check(self)
 
         # Start player tick
         self.player.start()

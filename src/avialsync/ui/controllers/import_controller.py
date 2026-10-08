@@ -83,14 +83,10 @@ def start_data_import(
 
     if getattr(loader_cls, "needs_import_wizard", lambda: False)():
         if not restoring and not config.get("auto_resolved"):
-            from avialsync.ui.import_wizard import ImportWizard
+            from avialsync.ui.import_preview import start_preview
 
-            wizard = ImportWizard(path, window)
-            if wizard.exec() != ImportWizard.DialogCode.Accepted:
-                return
-            # The import review may have assigned a pose role or camera before
-            # this loader asks how to parse its time column. Keep that choice.
-            config = {**config, **wizard.config()}
+            start_preview(window, path, loader_cls, config)
+            return
     elif config.get("_is_frame_indexed") or loader_cls().is_frame_indexed():
         # A frame rate already in the config is a decision -- a restored
         # session's, or a session scanner's -- and is not re-derived here.
@@ -605,9 +601,9 @@ def refresh_pose_3d(window: MainWindow) -> None:
         readers.extend(
             reader for reader in source_readers if selected is None or reader.channel_id in selected
         )
-    window.tracking_3d_pane.set_readers(readers)
-    window.tracking_3d_pane.set_cursor(window.clock.state.t)
-    window._update_tracking_pane_visibility()
+    from avialsync.ui.tracking_3d_worker import start_pose_preparation
+
+    start_pose_preparation(window, readers)
 
 
 def update_tracking_pane_visibility(window: MainWindow) -> None:

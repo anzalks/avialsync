@@ -15,17 +15,21 @@ import csv
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
+from avialsync.core.channel_reader import MappedChannelReader
 from avialsync.core.dlc_export import LabeledFrame
 from avialsync.core.errors import ExportError
 from avialsync.core.identity_groups import ANIMALS, groups_for_schema
 from avialsync.core.identity_swaps import SwapEvent
 from avialsync.core.point_edits import PointKey, PointMove
 from avialsync.core.pose_header import read_pose_header
+from avialsync.core.pyramid import PyramidBuilder, PyramidReader
+from avialsync.core.timeline import TimeMap
 from avialsync.engine.changes_export_worker import (
     AnnotationJob,
     ChangesExportWorker,
@@ -43,6 +47,22 @@ from avialsync.ui.annotations import (
 from avialsync.ui.controllers import changes_export_controller
 from avialsync.ui.export_dialog import ANNOTATIONS, CORRECTED_POSE, RETRAINING_SET
 from avialsync.ui.main_window import MainWindow
+
+
+def _register_export_pose(
+    window: MainWindow, source: str, times: list[float], rate: float, cache: Path
+) -> None:
+    """Register real cached channels so export snapshots can reopen them on a worker."""
+    from tests.test_fix_tracker import _register_pose_source
+
+    _register_pose_source(window, source, times, rate)
+    cache.mkdir()
+    axis = np.asarray(times, dtype=np.float64)
+    points = []
+    for channel in ("nose_x", "nose_y"):
+        PyramidBuilder(cache, channel).build_and_save(axis, np.zeros(len(axis)))
+        points.append(MappedChannelReader(PyramidReader(cache, channel), TimeMap(), source))
+    window._overlay_sources["cam.mp4"][source]["points"] = {"nose": tuple(points)}
 
 
 @pytest.fixture(autouse=True)
@@ -342,10 +362,8 @@ def test_a_retraining_job_decodes_the_source_not_its_proxy(
     """A proxy is downscaled; the labels are in the source's pixels."""
     import dataclasses
 
-    from tests.test_fix_tracker import _register_pose_source
-
     pose = _pose_file(tmp_path)
-    _register_pose_source(window, str(pose), [0.0, 0.1, 0.2, 0.3], rate=10.0)
+    _register_export_pose(window, str(pose), [0.0, 0.1, 0.2, 0.3], 10.0, tmp_path / "cache")
     window.video_grid.point_moved.emit(
         PointMove(key=PointKey(str(pose), "nose", 1), before=None, after=(99.0, 88.0))
     )
@@ -442,10 +460,8 @@ def test_the_retraining_set_is_not_ticked_by_default(window: MainWindow, tmp_pat
 
 def test_a_retraining_job_carries_the_whole_pose(window: MainWindow, tmp_path: Path) -> None:
     """Every body part on the frame, with the correction substituted in."""
-    from tests.test_fix_tracker import _register_pose_source
-
     pose = _pose_file(tmp_path)
-    _register_pose_source(window, str(pose), [0.0, 0.1, 0.2, 0.3], rate=10.0)
+    _register_export_pose(window, str(pose), [0.0, 0.1, 0.2, 0.3], 10.0, tmp_path / "cache")
     window.video_grid.point_moved.emit(
         PointMove(key=PointKey(str(pose), "nose", 1), before=None, after=(99.0, 88.0))
     )
@@ -458,6 +474,42 @@ def test_a_retraining_job_carries_the_whole_pose(window: MainWindow, tmp_path: P
     assert len(frames) == 1
     assert frames[0].frame == 1
     assert frames[0].positions["nose"] == (99.0, 88.0)
+
+    from avialsync.engine.changes_export_worker import build_labeled_frames
+
+    item = next(
+        item
+        for item in changes_export_controller.available_exports(window)
+        if item.kind == RETRAINING_SET
+    )
+    job = changes_export_controller._retraining_job_for(window, item)
+    assert isinstance(job, RetrainingJob)
+    assert job.snapshot is not None
+    assert job.frames == []
+    assert build_labeled_frames(job.bodyparts, job.snapshot) == frames
+
+
+def test_corrected_pose_frame_mapping_is_built_from_pinned_clock_on_worker(
+    window: MainWindow, tmp_path: Path
+) -> None:
+    from avialsync.engine.changes_export_worker import build_corrected_pose_inputs
+
+    pose = _pose_file(tmp_path)
+    _register_export_pose(window, str(pose), [10.0, 10.1, 10.2], 10.0, tmp_path / "cache")
+    window.point_edits.set(PointKey(str(pose), "nose", 1), (99.0, 88.0))
+    item = next(
+        item
+        for item in changes_export_controller.available_exports(window)
+        if item.kind == CORRECTED_POSE
+    )
+
+    job = changes_export_controller._job_for(window, item)
+
+    assert isinstance(job, CorrectedPoseJob)
+    assert job.corrections == {}
+    assert job.snapshot is not None
+    corrections, _routes = build_corrected_pose_inputs(job.snapshot)
+    assert corrections == {101: {"nose": (99.0, 88.0)}}
 
 
 def test_corrections_are_grouped_by_the_frame_they_sit_on(

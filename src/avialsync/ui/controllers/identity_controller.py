@@ -99,9 +99,15 @@ def data_point_for(window: MainWindow, source_id: str, name: str, index: int) ->
     ``Play original`` is on, because then the readers really are the
     imported prediction and what is on screen is what the model said (D-141).
     """
-    if window._show_original_tracker:
+    routes = displayed_routes_for(window, source_id)
+    if routes is None:
         return name
-    return routes_for(window, source_id).source_of(name, index)
+    return routes.source_of(name, index)
+
+
+def displayed_routes_for(window: MainWindow, source_id: str) -> EditProgram | None:
+    """Return accepted routing only when edited pose is currently displayed."""
+    return None if window._show_original_tracker else routes_for(window, source_id)
 
 
 def edited_cache(window: MainWindow, source_id: str) -> edit_cache.EditedCache | None:

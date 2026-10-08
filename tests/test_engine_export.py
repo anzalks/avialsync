@@ -8,7 +8,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from avialsync.core.cache_leases import reserve_cache_entry
 from avialsync.core.channel_reader import MappedChannelReader
+from avialsync.core.errors import CacheError
 from avialsync.core.pyramid import PyramidBuilder, PyramidReader
 from avialsync.core.timeline import TimeMap
 from avialsync.engine.export import (
@@ -71,6 +73,16 @@ def test_background_export_and_stats_open_worker_local_readers(tmp_path: Path) -
     lines = output.read_text(encoding="utf-8").splitlines()
     assert lines[0].startswith("# Source: ")
     assert len(lines) == 8
+
+
+def test_snapshot_open_refuses_a_generation_busy_with_replacement(tmp_path: Path) -> None:
+    PyramidBuilder(tmp_path, "signal").build_and_save(np.array([0.0]), np.array([1.0]))
+    reader = MappedChannelReader(PyramidReader(tmp_path, "signal"))
+    with reserve_cache_entry(tmp_path) as reserved:
+        assert reserved
+        reference = ReaderReference.from_reader(reader)
+        with pytest.raises(CacheError, match="in use"):
+            reference.open()
 
 
 def test_data_export_preserves_source_identity_and_mapping(tmp_path: Path) -> None:

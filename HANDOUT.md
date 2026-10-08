@@ -351,6 +351,15 @@ Two product laws govern that phase and outrank convention:
   decoder-settle-plus-rendered-frame latency are not yet recorded. Existing microbenchmarks are
   baselines, not freeze-free certification. Do not claim the BLUEPRINT latency budgets without
   those runs on a real mid-spec machine.
+- **D-200 cache and UI handoff.** Import previews read at most 64 KiB in a registered job;
+  stimulus-grid overviews, pose export frame mapping, retraining labels, and launch recovery reads
+  run on workers. Warm import checks every pyramid header and sampled content before reuse. A
+  running reader pin blocks replacement or
+  cache removal, which reports "in use" for retry. Separately streamed, identical long timestamp
+  grids share a cache file so the 3D pane recognizes them without comparing arrays on the UI thread.
+  Exact `TimeMap.copy()` snapshots share immutable evidence arrays rather than copying large mappings.
+  The 3D pose setup job opens XYZ arrays, samples trajectories, and infers skeletons for every
+  vertical-axis choice off the UI thread; only the newest selection is installed.
 - **P2 maintainability — composition still in progress.** `ui/main_window.py` is about 4 000
   lines after the mocap and scientific UX work. File, Edit, Align, View, and Help menus now live
   in `ui/menus/`, with labels still owned by their live actions. Wheel, video-load, import, and
@@ -536,6 +545,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `core/session_time.py` | The session's declared zero, after NWB's `session_start_time`. A source carrying wall-clock time is **placed** against it through its own TimeMap — nothing is rewritten | `is_absolute()`, `reference_epoch()`, `rebase_offset()`, `ABSOLUTE_EPOCH_FLOOR` |
 | `core/pyramid.py` | Decimation pyramid (1×/16×/256×/4096×) | `PyramidReader`, `PyramidBuilder` |
 | `core/cache.py` | Binary cache in one per-user folder, content-hash key; entry naming and its `source.json` ownership record (D-160) | `CacheManager`, `cache_root()`, `cache_dir_for()` |
+| `core/cache_leases.py` | Process-local reader pins shared by cache replacement, pruning, and removal (D-200) | `GenerationPin`, `pin_reader_directory()`, `cache_entry_pinned()` |
 | `core/cache_store.py` | The only code that deletes from the cache: lists entries, finds a trial's, and trims old or over-budget entries only inside `sources/` with our record (D-160, D-199) | `list_entries()`, `entries_under()`, `remove_entries()`, `remove_all()`, `trim_cache()`, `working_folders()` |
 | `core/sidecar_names.py` | How a sidecar beside a source is named: full name, dots → `_`, plus a tag (D-160) | `beside()`, `flat_name()` |
 | `core/artifacts.py` | Registry of authored file and export kinds (D-197); cache excluded | `KINDS`, `ArtifactKind`, `get_kind()` |
@@ -676,6 +686,10 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/import_report.py` | ImportReportDialog — scrollable import stats + "Copy as text" (D-020) Takes `properties=` text and a title, so one dialog shows a source's properties then its import report, with or without an inspection (D-183). | `ImportReportDialog` |
 | `ui/time_format.py` | TimeDisplayMode enum + format_time() — single formatting authority (D-020); the number policy: full stop, no grouping, made Qt's default locale at startup (D-173) | `TimeDisplayMode`, `format_time()`, `apply_number_locale()`, `format_number()` |
 | `engine/drop_worker.py` | Off-thread drop scanning and AOL session candidate collection | `DropScanWorker` |
+| `engine/import_preview_worker.py` | Bounded source prefix for the text import wizard; registered job (D-200) | `ImportPreviewWorker` |
+| `ui/import_preview.py` | UI handoff from the bounded preview job to the import wizard | `start_preview()` |
+| `ui/recovery_worker.py` | Registered launch-time recovery read and non-modal offer | `start_recovery_check()`, `RecoveryReadWorker` |
+| `ui/tracking_3d_worker.py` | Registered 3D pose preparation and stale-result rejection (D-200) | `start_pose_preparation()`, `Tracking3DPrepareWorker` |
 | `loaders/aol_session_loader.py` | AOL session manifest: raw videos, fused per-camera EKS, encoder | `build_manifest()`, `is_aol_session()` |
 | `loaders/aol_eks_loader.py` | AOL 2D/3D pose CSV ingest | `AOLEksLoader` |
 | `loaders/aol_encoder_loader.py` | AOL encoder log ingest | `AOLEncoderLoader` |

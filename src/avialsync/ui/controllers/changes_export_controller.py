@@ -188,29 +188,28 @@ def _job_for(window: MainWindow, item: ExportItem) -> object | None:
     """
     from avialsync.engine.changes_export_worker import (
         CorrectedPoseJob,
+        CorrectedPoseSnapshot,
     )
 
     if item.kind == ANNOTATIONS:
         return _annotation_job(window, item)
 
     if item.kind == CORRECTED_POSE:
-        program = identity_controller.program_for(window, item.source_id)
+        from avialsync.engine.export_worker import ReaderReference
+
+        program = identity_controller.routes_for(window, item.source_id)
         if not program:
             return None
-        corrections: dict[int, dict[str, tuple[float, float]]] = {}
-        for (point, index), value in program.corrections.items():
-            frame = corrections_controller.frame_for(window, item.source_id, index)
-            corrections.setdefault(frame, {})[point] = value
-        routes = tuple(
-            (corrections_controller.frame_for(window, item.source_id, index), mapping)
-            for index, mapping in zip(program.boundaries, program.maps, strict=True)
-        )
+        overlay = corrections_controller.pose_entry(window, item.source_id)
+        points = corrections_controller.points_for(window, item.source_id)
+        axis = ReaderReference.from_reader(next(iter(points.values()))[0]) if points else None
         return CorrectedPoseJob(
             source=Path(item.source_id),
             target=item.target,
-            corrections=corrections,
-            routes=routes,
+            corrections={},
+            routes=(),
             swaps=window.identity_swaps.count_for(item.source_id),
+            snapshot=CorrectedPoseSnapshot(program, axis, float(overlay.get("frame_rate", 0.0))),
         )
 
     if item.kind == RETRAINING_SET:
@@ -219,12 +218,27 @@ def _job_for(window: MainWindow, item: ExportItem) -> object | None:
 
 
 def _retraining_job_for(window: MainWindow, item: ExportItem) -> object | None:
-    """Capture one camera's labels, schema, and display window for the worker."""
-    from avialsync.engine.changes_export_worker import RetrainingJob
+    """Capture references and edits; assemble pose labels on the worker."""
+    from avialsync.engine.changes_export_worker import RetrainingJob, RetrainingSnapshot
+    from avialsync.engine.export_worker import ReaderReference
 
-    bodyparts, frames = corrections_controller.labeled_frames(window, item.source_id)
-    if not frames:
+    points = corrections_controller.points_for(window, item.source_id)
+    edits = window.point_edits.for_source(item.source_id)
+    if not points or not edits:
         return None
+    bodyparts = sorted(points)
+    axes = {
+        part: (ReaderReference.from_reader(pair[0]), ReaderReference.from_reader(pair[1]))
+        for part, pair in points.items()
+    }
+    overlay = corrections_controller.pose_entry(window, item.source_id)
+    snapshot = RetrainingSnapshot(
+        axes=axes,
+        indices=tuple(sorted({index for index, _point, _x, _y, _shown in edits})),
+        overrides={(point, index): (x, y) for index, point, x, y, _shown in edits},
+        routes=identity_controller.displayed_routes_for(window, item.source_id),
+        frame_rate=float(overlay.get("frame_rate", 0.0)),
+    )
     schema = identity_controller.schema_for(window, item.source_id)
     point_labels = (
         {point.name: (point.individual, point.bodypart) for point in schema.points}
@@ -249,9 +263,10 @@ def _retraining_job_for(window: MainWindow, item: ExportItem) -> object | None:
         video_stem=Path(item.video).stem,
         scorer=item.scorer,
         bodyparts=bodyparts,
-        frames=frames,
+        frames=[],
         profile=item.profile,
         point_labels=point_labels,
+        snapshot=snapshot,
         **({"display_levels": levels} if levels is not None else {}),
     )
 

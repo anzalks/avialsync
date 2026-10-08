@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from avialsync.ui.tracking_3d_pane import Tracking3DPane
+from avialsync.ui.tracking_3d_pane import Tracking3DPane, prepare_tracking_3d
 
 _CURSOR_BUDGET_S = 0.002
 
@@ -28,27 +28,33 @@ class _ArrayReader:
         return self._level
 
     def mapped_columns(self):
-        return self._level[:3]
+        return self._level[0], self._level[1], self._level[3]
+
+
+def _tracking_readers(tmp_path: Path) -> list[_ArrayReader]:
+    """Build 128 complete XYZ points with one shared on-disk time axis."""
+    times = np.linspace(0.0, 10.0, 3_001)
+    cache_dir = tmp_path / "tracking_cache"
+    cache_dir.mkdir()
+    seed = cache_dir / "shared_t.npy"
+    np.save(seed, times)
+    readers = []
+    for point_index in range(128):
+        for axis_index, axis in enumerate("xyz"):
+            name = f"point_{point_index}_{axis}"
+            (cache_dir / f"{name}_t.npy").hardlink_to(seed)
+            values = np.sin(times + point_index + axis_index)
+            readers.append(_ArrayReader(cache_dir, name, times, values))
+    return readers
 
 
 def test_bench_tracking_3d_cursor(benchmark, qapp, tmp_path: Path) -> None:
     """Sampling 128 XYZ points must leave room in the existing cursor budget."""
-    times = np.linspace(0.0, 10.0, 3_001)
-    readers = []
-    for point_index in range(128):
-        for axis_index, axis in enumerate("xyz"):
-            values = np.sin(times + point_index + axis_index)
-            readers.append(
-                _ArrayReader(
-                    tmp_path / "tracking_cache",
-                    f"point_{point_index}_{axis}",
-                    times,
-                    values,
-                )
-            )
+    readers = _tracking_readers(tmp_path)
 
     pane = Tracking3DPane()
     pane.set_readers(readers)
+    assert pane.canvas.point_count == 128
     benchmark(pane.set_cursor, 5.0)
 
     stats = benchmark.stats
@@ -56,6 +62,24 @@ def test_bench_tracking_3d_cursor(benchmark, qapp, tmp_path: Path) -> None:
         pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
     assert stats["mean"] <= _CURSOR_BUDGET_S, (
         f"3D cursor mean {stats['mean'] * 1000:.3f}ms exceeds {_CURSOR_BUDGET_S * 1000:.1f}ms."
+    )
+
+
+_INSTALL_BUDGET_S = 0.030
+
+
+def test_bench_tracking_3d_prepared_install(benchmark, qapp, tmp_path: Path) -> None:
+    """Installing worker results must fit the 30 ms UI callback ceiling."""
+    prepared = prepare_tracking_3d(_tracking_readers(tmp_path))
+    pane = Tracking3DPane()
+    benchmark(pane.set_prepared, prepared)
+    assert pane.canvas.point_count == 128
+    stats = benchmark.stats
+    if stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
+    assert stats["mean"] <= _INSTALL_BUDGET_S, (
+        f"3D result installation mean {stats['mean'] * 1000:.1f}ms "
+        f"exceeds {_INSTALL_BUDGET_S * 1000:.0f}ms."
     )
 
 

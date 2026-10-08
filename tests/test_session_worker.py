@@ -183,6 +183,7 @@ def test_ui_heartbeat_survives_a_large_session_write(qtbot, tmp_path: Path) -> N
 def test_main_window_autosave_uses_a_worker(qtbot, tmp_path: Path) -> None:
     window = MainWindow()
     qtbot.addWidget(window)
+    qtbot.waitUntil(lambda: not window._job_manager.jobs(), timeout=5000)
     window.session_runtime.path = tmp_path / "auto.avv"
 
     window._autosave()

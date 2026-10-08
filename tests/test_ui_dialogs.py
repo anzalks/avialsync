@@ -23,6 +23,12 @@ from avialsync.ui.relink_dialog import RelinkDialog
 # ── ImportWizard ──────────────────────────────────────────────────────
 
 
+def _wizard(path: Path) -> ImportWizard:
+    """Supply the bounded prefix a preview worker would return."""
+    with path.open("rb") as source:
+        return ImportWizard(path, source.read(64 * 1024))
+
+
 @pytest.fixture
 def csv_file(tmp_path: Path) -> Path:
     path = tmp_path / "signals.csv"
@@ -34,7 +40,7 @@ def csv_file(tmp_path: Path) -> Path:
 
 
 def test_wizard_previews_the_headers_it_found(qapp: QApplication, qtbot, csv_file: Path) -> None:
-    wizard = ImportWizard(csv_file)
+    wizard = _wizard(csv_file)
     qtbot.addWidget(wizard)
 
     assert wizard._headers == ["timestamp", "force_z", "angle"]
@@ -43,7 +49,7 @@ def test_wizard_previews_the_headers_it_found(qapp: QApplication, qtbot, csv_fil
 
 def test_wizard_guesses_the_time_column(qapp: QApplication, qtbot, csv_file: Path) -> None:
     """A column literally called "timestamp" must not need manual selection."""
-    wizard = ImportWizard(csv_file)
+    wizard = _wizard(csv_file)
     qtbot.addWidget(wizard)
 
     assert wizard.config()["time_col"] == "timestamp"
@@ -52,7 +58,7 @@ def test_wizard_guesses_the_time_column(qapp: QApplication, qtbot, csv_file: Pat
 def test_wizard_config_is_shaped_for_the_import_pipeline(
     qapp: QApplication, qtbot, csv_file: Path
 ) -> None:
-    wizard = ImportWizard(csv_file)
+    wizard = _wizard(csv_file)
     qtbot.addWidget(wizard)
 
     config = wizard.config()
@@ -75,7 +81,7 @@ def test_wizard_detects_a_semicolon_dialect(qapp: QApplication, qtbot, tmp_path:
     path = tmp_path / "euro.csv"
     path.write_text("time;value\n0,0;1,5\n0,1;1,6\n", encoding="utf-8")
 
-    wizard = ImportWizard(path)
+    wizard = _wizard(path)
     qtbot.addWidget(wizard)
 
     assert wizard.config()["separator"] == ";"
@@ -86,7 +92,7 @@ def test_wizard_survives_a_header_only_file(qapp: QApplication, qtbot, tmp_path:
     path = tmp_path / "empty.csv"
     path.write_text("time,value\n", encoding="utf-8")
 
-    wizard = ImportWizard(path)
+    wizard = _wizard(path)
     qtbot.addWidget(wizard)
 
     assert wizard._headers == ["time", "value"]
@@ -94,7 +100,7 @@ def test_wizard_survives_a_header_only_file(qapp: QApplication, qtbot, tmp_path:
 
 
 def test_wizard_euro_decimal_flag_round_trips(qapp: QApplication, qtbot, csv_file: Path) -> None:
-    wizard = ImportWizard(csv_file)
+    wizard = _wizard(csv_file)
     qtbot.addWidget(wizard)
 
     wizard._euro_chk.setChecked(True)
@@ -107,7 +113,7 @@ def test_wizard_euro_decimal_flag_round_trips(qapp: QApplication, qtbot, csv_fil
 
 def test_the_wizard_accepts_a_valid_file(qapp: QApplication, qtbot, csv_file: Path) -> None:
     """A guessed time column means the form is ready as soon as it opens."""
-    wizard = ImportWizard(csv_file)
+    wizard = _wizard(csv_file)
     qtbot.addWidget(wizard)
 
     assert wizard._blocking_reason() == ""
@@ -123,7 +129,7 @@ def test_a_missing_time_column_is_said_in_place(qapp: QApplication, qtbot, csv_f
     The user then clicked OK to get back to the very field they had to fix, and
     was told nothing at all until after they had pressed Import.
     """
-    wizard = ImportWizard(csv_file)
+    wizard = _wizard(csv_file)
     qtbot.addWidget(wizard)
     # `clear()`, not `setCurrentText("")`: the combo is not editable, so
     # setting text that is not one of its items silently does nothing and the
@@ -139,7 +145,7 @@ def test_a_missing_time_column_is_said_in_place(qapp: QApplication, qtbot, csv_f
 def test_an_anchor_date_left_empty_blocks_and_explains(
     qapp: QApplication, qtbot, csv_file: Path
 ) -> None:
-    wizard = ImportWizard(csv_file)
+    wizard = _wizard(csv_file)
     qtbot.addWidget(wizard)
 
     wizard._anchor_chk.setChecked(True)
@@ -159,7 +165,7 @@ def test_returning_on_an_invalid_form_does_not_accept(
     qapp: QApplication, qtbot, csv_file: Path
 ) -> None:
     """The button is the ordinary route; a dialog can also be accepted by Return."""
-    wizard = ImportWizard(csv_file)
+    wizard = _wizard(csv_file)
     qtbot.addWidget(wizard)
     # `clear()`, not `setCurrentText("")`: the combo is not editable, so
     # setting text that is not one of its items silently does nothing and the

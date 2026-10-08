@@ -32,6 +32,7 @@ def main_window(qapp: QApplication, qtbot) -> MainWindow:
     win = MainWindow()
     qtbot.addWidget(win)
     win.show()
+    qtbot.waitUntil(lambda: not win._job_manager.jobs(), timeout=5000)
     yield win
     # Qt may already have deleted it: pytest-qt runs processEvents()
     # after the call phase, which executes pending deleteLater()s.
@@ -286,9 +287,10 @@ def test_session_restore_replays_manual_pose_role_and_camera(
 
 
 def test_loader_wizard_keeps_pose_role_chosen_in_import_review(
-    main_window: MainWindow, tmp_path: Path
+    main_window: MainWindow, qtbot, tmp_path: Path
 ) -> None:
     path = tmp_path / "points.csv"
+    path.write_text("time,x\n0,1\n", encoding="utf-8")
     config = {"role": "overlay2d", "overlay_video": str(tmp_path / "camera.mp4")}
 
     with (
@@ -299,7 +301,9 @@ def test_loader_wizard_keeps_pose_role_chosen_in_import_review(
         wizard.exec.return_value = wizard_class.DialogCode.Accepted
         wizard.config.return_value = {"time_col": "time"}
         main_window._start_data_import(path, CSVLoader, config)
+        qtbot.waitUntil(lambda: enqueue.called, timeout=15_000)
 
+    wizard_class.assert_called_once_with(path, b"time,x\n0,1\n", main_window)
     enqueue.assert_called_once_with(path, CSVLoader, {**config, "time_col": "time"})
 
 

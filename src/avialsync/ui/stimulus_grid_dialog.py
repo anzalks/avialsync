@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
 from avialsync.core.channel_reader import MappedChannelReader
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.stimulus_grid_export import MAX_GRID_EVENTS
-from avialsync.engine.stimulus_grid_worker import StimulusEventScanWorker
+from avialsync.engine.stimulus_grid_worker import StimulusEventScanWorker, StimulusTimelineWorker
 from avialsync.ui.i18n import tr
 from avialsync.ui.playback_rates import PLAYBACK_RATE_STEPS, rate_label
 from avialsync.ui.tables import ThemedTable
@@ -46,6 +46,7 @@ class StimulusGridDialog(QDialog):
     """Inspect a sensor timeline and choose event-aligned video windows."""
 
     scan_requested = Signal(object)
+    preview_requested = Signal(object)
 
     def __init__(
         self, channels: list[StimulusChannelOption], parent: QWidget | None = None
@@ -57,6 +58,9 @@ class StimulusGridDialog(QDialog):
         self._events: tuple[float, ...] = ()
         self._scan_worker: StimulusEventScanWorker | None = None
         self._updating_events = False
+        self._preview: (
+            tuple[tuple[float, float], np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None
+        ) = None
 
         layout = QVBoxLayout(self)
         intro = QLabel(
@@ -211,6 +215,32 @@ class StimulusGridDialog(QDialog):
         self.event_table.itemChanged.connect(self._event_selection_changed)
         self._refresh_timeline()
 
+    def request_preview(self) -> None:
+        """Ask the registered job owner for a cached overview of this channel."""
+        if self._channels:
+            index = self.channel_combo.currentIndex()
+            self.preview_requested.emit(
+                StimulusTimelineWorker(index, self._channels[index].reference)
+            )
+
+    @Slot(int, object)
+    def set_preview(self, index: int, result: object) -> None:
+        """Render only the overview for the channel still selected."""
+        if index != self.channel_combo.currentIndex():
+            return
+        self._preview = cast(
+            "tuple[tuple[float, float], np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None",
+            result,
+        )
+        self._refresh_timeline()
+
+    @Slot(int, str)
+    def set_preview_error(self, index: int, _message: str) -> None:
+        """Keep the dialog usable when its optional overview is unavailable."""
+        if index == self.channel_combo.currentIndex():
+            self._preview = None
+            self._refresh_timeline()
+
     def _seconds_spin(
         self, minimum: float, maximum: float, value: float, accessible_name: str
     ) -> QDoubleSpinBox:
@@ -337,7 +367,8 @@ class StimulusGridDialog(QDialog):
     @Slot(int)
     def _channel_changed(self, _index: int) -> None:
         self._clear_events()
-        self._refresh_timeline()
+        self._preview = None
+        self.request_preview()
 
     @Slot(float)
     def _detection_settings_changed(self, _value: float) -> None:
@@ -395,11 +426,8 @@ class StimulusGridDialog(QDialog):
         if not self._channels:
             return
         reader = self.channel_option().reader
-        bounds = reader.coverage()
-        if bounds is None or bounds[1] <= bounds[0]:
-            return
-        times, low, high, gaps = reader.query(*bounds, max_points=1200)
-        if len(times):
+        if self._preview is not None:
+            bounds, times, low, high, gaps = self._preview
             low_values = np.asarray(low, dtype=np.float64).copy()
             high_values = np.asarray(high, dtype=np.float64).copy()
             gap_mask = np.asarray(gaps, dtype=bool)
@@ -414,11 +442,18 @@ class StimulusGridDialog(QDialog):
         self.timeline.addItem(threshold)
         selected = self.selected_events()
         if selected:
-            values = [reader.value_at(event_time) for event_time in selected]
-            markers = pg.ScatterPlotItem(
-                x=list(selected), y=values, symbol="t1", size=10, pen=None, brush="#ef665d"
-            )
-            self.timeline.addItem(markers)
+            samples = [(time, reader.available_sample_at(time)) for time in selected]
+            available = [(time, sample[1]) for time, sample in samples if sample is not None]
+            if available:
+                markers = pg.ScatterPlotItem(
+                    x=[time for time, _value in available],
+                    y=[value for _time, value in available],
+                    symbol="t1",
+                    size=10,
+                    pen=None,
+                    brush="#ef665d",
+                )
+                self.timeline.addItem(markers)
             self.timeline.addItem(
                 pg.InfiniteLine(pos=selected[0], angle=90, pen=pg.mkPen("#ef665d", width=2))
             )

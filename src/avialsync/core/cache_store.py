@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from avialsync.core.cache import SOURCES_DIR, cache_root, read_entry_record
+from avialsync.core.cache_leases import reserve_cache_entry
 from avialsync.core.edit_cache import pinned_cache_entries
 
 __all__ = [
@@ -156,9 +157,13 @@ def remove_entries(entries: Iterable[CacheEntry], root: Path | None = None) -> R
         if read_entry_record(directory) is None:
             report.failed.append((str(directory), "carries no AvialSync cache record"))
             continue
-        size = _tree_size(directory)
-        trash = sources / f"{TRASH_PREFIX}{uuid.uuid4().hex}"
-        error = _rename_aside(directory, trash)
+        with reserve_cache_entry(directory) as reserved:
+            if not reserved:
+                report.failed.append((str(directory), "in use by a running reader"))
+                continue
+            size = _tree_size(directory)
+            trash = sources / f"{TRASH_PREFIX}{uuid.uuid4().hex}"
+            error = _rename_aside(directory, trash)
         if error is not None:
             report.failed.append((str(directory), f"in use: {error.strerror or error}"))
             continue

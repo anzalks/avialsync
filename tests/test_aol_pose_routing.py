@@ -315,23 +315,23 @@ def test_3d_tracking_source_controls_its_view_and_plot(tmp_path: Path, qtbot, mo
     assert card is not None
     assert card.show_overlay.isChecked()
     assert not card.show_plot.isChecked()
-    assert window.tracking_3d_pane.canvas.point_count == 1
+    qtbot.waitUntil(lambda: window.tracking_3d_pane.canvas.point_count == 1)
     card._channel_items["head_bar_x"].setCheckState(0, Qt.CheckState.Unchecked)
-    assert window.tracking_3d_pane.canvas.point_count == 0
+    qtbot.waitUntil(lambda: window.tracking_3d_pane.canvas.point_count == 0)
     assert window.plot_pane.channels == []
     card._channel_items["head_bar_x"].setCheckState(0, Qt.CheckState.Checked)
-    assert window.tracking_3d_pane.canvas.point_count == 1
+    qtbot.waitUntil(lambda: window.tracking_3d_pane.canvas.point_count == 1)
     card.show_overlay.click()
-    assert window.tracking_3d_pane.canvas.point_count == 0
+    qtbot.waitUntil(lambda: window.tracking_3d_pane.canvas.point_count == 0)
     assert window.plot_pane.channels == []
     card.show_overlay.click()
-    assert window.tracking_3d_pane.canvas.point_count == 1
+    qtbot.waitUntil(lambda: window.tracking_3d_pane.canvas.point_count == 1)
     assert window.plot_pane.channels == []
     card.show_plot.click()
     qtbot.waitUntil(lambda: len(window.plot_pane.channels) == 3)
-    assert window.tracking_3d_pane.canvas.point_count == 1
+    qtbot.waitUntil(lambda: window.tracking_3d_pane.canvas.point_count == 1)
     card.show_overlay.click()
-    assert window.tracking_3d_pane.canvas.point_count == 0
+    qtbot.waitUntil(lambda: window.tracking_3d_pane.canvas.point_count == 0)
     window.close()
 
 
@@ -380,7 +380,7 @@ def test_combined_pose_routes_world_xyz_and_projected_xy(
         ),
     )
 
-    assert window.tracking_3d_pane.canvas.point_names == ("marker",)
+    qtbot.waitUntil(lambda: window.tracking_3d_pane.canvas.point_names == ("marker",))
     np.testing.assert_allclose(window.tracking_3d_pane.canvas.positions, [[1.0, 3.0, 5.0]])
     overlay = window._overlay_sources[video][source]["points"]["marker"]
     np.testing.assert_allclose(overlay[0].source_reader.mapped_columns()[1], [101.0, 102.0])

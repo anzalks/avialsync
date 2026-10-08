@@ -317,10 +317,16 @@ def video_for(window: MainWindow, source_id: str) -> str:
 
 def points_for(window: MainWindow, source_id: str) -> dict[str, tuple[Any, Any]]:
     """Return a pose source's body-part readers, keyed by name."""
+    entry = pose_entry(window, source_id)
+    return dict(entry.get("points") or {})
+
+
+def pose_entry(window: MainWindow, source_id: str) -> dict[str, Any]:
+    """Return the registered pose metadata used by import and export."""
     for sources in window._overlay_sources.values():
         entry = sources.get(source_id)
         if entry is not None:
-            return dict(entry.get("points") or {})
+            return entry
     return {}
 
 

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -665,6 +664,7 @@ def forget_pending_recovery(window: MainWindow) -> None:
     offer that outlives its file would put old work back over the current
     workspace.
     """
+    window.session_runtime.recovery_revision += 1
     window.session_runtime.pending_recovery = None
     window._refresh_action_availability()
 
@@ -705,26 +705,10 @@ def offer_pending_recovery(window: MainWindow) -> bool:
     then clear by hand. The snapshot is always written and **File → Recover
     Unsaved Work** always reaches it; only the unrequested bar is opt-in.
     """
-    snapshot = window.session_runtime.pending_recovery if note_pending_recovery(window) else None
-    if snapshot is None:
-        return False
-    if not offers_recovery_at_launch():
-        return False
+    from avialsync.ui.recovery_worker import present_pending_recovery
 
-    when = time.strftime("%H:%M on %d %b", time.localtime(snapshot.recovered_at))
-    if snapshot.describes_untitled_session:
-        message = tr("Unsaved work from {when} is available.").format(when=when)
-    else:
-        message = tr("Work from {when} is newer than {name}.").format(
-            when=when, name=Path(str(snapshot.session_path)).name
-        )
-    window.notifications.show_warning(
-        message,
-        action_label=tr("Restore"),
-        on_action=lambda: restore_pending_recovery(window, snapshot),
-        on_dismiss=lambda: recovery.dismiss_recovery(snapshot),
-    )
-    return True
+    snapshot = window.session_runtime.pending_recovery if note_pending_recovery(window) else None
+    return present_pending_recovery(window, snapshot)
 
 
 def restore_pending_recovery(window: MainWindow, snapshot: recovery.RecoverySnapshot) -> None:

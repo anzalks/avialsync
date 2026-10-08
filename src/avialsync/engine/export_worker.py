@@ -9,7 +9,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 
 from avialsync.core.channel_reader import MappedChannelReader
 from avialsync.core.edit_cache import GenerationPin, pin_reader_directory
-from avialsync.core.errors import AvialSyncError
+from avialsync.core.errors import AvialSyncError, CacheError
 from avialsync.core.pyramid import PyramidReader
 from avialsync.core.timeline import TimeMap
 from avialsync.engine.export import (
@@ -37,6 +37,7 @@ class ReaderReference:
     source_id: str = ""
     time_map: TimeMap | None = None
     _pin: GenerationPin | None = None
+    _pinned_snapshot: bool = False
 
     @classmethod
     def from_reader(cls, reader: MappedChannelReader) -> ReaderReference:
@@ -50,10 +51,15 @@ class ReaderReference:
             reader.source_id,
             reader.time_map.copy(),
             pin_reader_directory(directory),
+            True,
         )
 
     def open(self) -> MappedChannelReader:
         """Open a fresh mmap reader owned by the calling thread."""
+        if self._pinned_snapshot and (
+            self._pin is None or self._pin.directory != self.cache_dir.absolute()
+        ):
+            raise CacheError("Cached reader is in use or unavailable; retry when the job finishes")
         mapping = (
             self.time_map.copy()
             if self.time_map is not None

@@ -16,6 +16,8 @@ class SessionRuntimeState:
     generation: int = 0
     # Set before menu preconditions inspect it; no file read per sweep.
     pending_recovery: RecoverySnapshot | None = None
+    # Invalidates an in-flight launch read after save, reset, or restore.
+    recovery_revision: int = 0
     # Async source arrivals during restore must not register as user edits.
     restoring: bool = False
     # The generation whose restore puts back work no file holds, so it ends

@@ -44,6 +44,7 @@ from avialsync.engine.stimulus_grid_export import GridLabels, GridSignal, GridVi
 from avialsync.engine.stimulus_grid_worker import (
     StimulusEventScanWorker,
     StimulusGridExportWorker,
+    StimulusTimelineWorker,
 )
 from avialsync.ui.controllers.artifact_write_controller import loaded_sources, show_exported
 from avialsync.ui.export_destinations import choose_file, choose_folder
@@ -352,12 +353,9 @@ def on_video_clip_error(window: MainWindow, error: str) -> None:
 
 def export_stimulus_grid(window: MainWindow) -> None:
     """Choose sensor events and export their aligned camera windows."""
+    reference = ReaderReference.from_reader
     channels = [
-        StimulusChannelOption(
-            channel.name,
-            ReaderReference.from_reader(channel.reader),
-            channel.reader,
-        )
+        StimulusChannelOption(channel.name, reference(channel.reader), channel.reader)
         for channel in window.plot_pane.channels
     ]
     media = window.video_grid.media_path_for  # a proxy is what decodes (D-188)
@@ -367,13 +365,21 @@ def export_stimulus_grid(window: MainWindow) -> None:
     )
     dialog = StimulusGridDialog(channels, window)
 
-    def _scan(worker: StimulusEventScanWorker) -> None:
-        worker.finished.connect(dialog.set_events)
-        worker.error.connect(dialog.set_scan_error)
-        worker.cancelled.connect(dialog.set_scan_cancelled)
-        window._run_job(worker, label=tr("Finding stimulus events"))
+    def _start(worker: StimulusEventScanWorker | StimulusTimelineWorker) -> None:
+        if isinstance(worker, StimulusTimelineWorker):
+            worker.finished.connect(dialog.set_preview)
+            worker.error.connect(dialog.set_preview_error)
+            label = tr("Preparing stimulus timeline")
+        else:
+            worker.finished.connect(dialog.set_events)
+            worker.error.connect(dialog.set_scan_error)
+            worker.cancelled.connect(dialog.set_scan_cancelled)
+            label = tr("Finding stimulus events")
+        window._run_job(worker, label=label)
 
-    dialog.scan_requested.connect(_scan)
+    dialog.scan_requested.connect(_start)
+    dialog.preview_requested.connect(_start)
+    dialog.request_preview()
     if dialog.exec() != QDialog.DialogCode.Accepted:
         return
     events = dialog.selected_events()

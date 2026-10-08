@@ -336,13 +336,14 @@ def test_nothing_pending_offers_nothing(main_window, isolated_recovery_dir, offe
 
 
 def test_dismissed_offer_stays_quiet_without_deleting_work(
-    main_window, isolated_recovery_dir, offer_at_launch
+    main_window, isolated_recovery_dir, offer_at_launch, qtbot
 ):
     """The same unsaved work does not nag on every launch after Dismiss."""
     recovery.write_recovery({"videos": [{"path": "/data/cam1.mp4"}]}, None)
     session_controller.offer_pending_recovery(main_window)
 
     main_window.notifications._dismiss.click()
+    qtbot.waitUntil(lambda: recovery.pending_recovery() is None, timeout=5000)
 
     assert recovery.read_recovery() is not None, "declining must not delete the work"
     assert main_window.notifications.isVisible() is False
@@ -463,6 +464,7 @@ def test_constructing_the_window_is_what_makes_the_offer(
     # the strip was posted; the question here is whether anything posted it.
     win.show()
     try:
+        qtbot.waitUntil(lambda: win.notifications.action_label == "Restore", timeout=5000)
         assert win.notifications.isVisible(), "a fresh launch never mentioned the snapshot"
         assert win.notifications.action_label == "Restore"
     finally:
@@ -491,6 +493,7 @@ def test_a_quiet_launch_keeps_the_snapshot(qapp, qtbot, isolated_recovery_dir):
     qtbot.addWidget(win)
     win.show()
     try:
+        qtbot.waitUntil(lambda: win.session_runtime.pending_recovery is not None, timeout=5000)
         assert win.notifications.isVisible() is False, "a quiet launch posted the bar anyway"
         assert recovery.read_recovery() is not None, "the snapshot must survive the silence"
         assert win.session_runtime.pending_recovery is not None, (

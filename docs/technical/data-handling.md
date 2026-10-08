@@ -57,6 +57,14 @@ be renamed. The previous valid entry is retained or restored on replacement fail
 injection coverage exercises recovery. Cache durability is implemented, while target-scale import
 performance remains to be measured.
 
+An export or statistics job pins each cache generation it reads. Replacement and cache removal
+check those pins under the same process lock; a replacement attempted while a reader still uses the
+entry reports "in use" for retry. Warm import validates every pyramid array's header, shape,
+size, and sampled first/middle/last content. Sampled checks cannot detect changes confined to
+unsampled bytes when size and timestamps are preserved. Identical long timestamp grids from
+separately streamed channels share one read-only cache file, allowing 3D XYZ matching without a
+long comparison in the interface thread.
+
 ## Time and precision
 
 Master and source time are floating-point seconds. Timestamp arrays retain high precision. Plotting
@@ -88,10 +96,10 @@ were resolved by 2026-07-30 and are not current blockers.
    all be treated as master time. Raw timestamps stay unchanged; accepted mappings belong beside the
    source and must be applied consistently by plots, readouts, overlays, exports, and sessions.
 
-Sampling uses one shared rule: `sample_at` returns the last sample at or before the requested source
-time. `MappedChannelReader` converts master time through the source's `TimeMap` before delegating,
-so readouts, plots, exports, and tracking consumers do not independently choose a nearest-sample or
-interpolation policy.
+Sampling uses one shared rule: `available_sample_at` returns the last sample at or before the
+requested source time only when that time is within coverage and the sample is not in a measured
+gap. `MappedChannelReader` converts master time through the source's `TimeMap` before delegating,
+so readouts, plots, exports, accessibility text, and tracking consumers agree on absence.
 
 ## Gaps and missing values
 

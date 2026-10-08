@@ -6,6 +6,7 @@ import struct
 import warnings
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
+from hashlib import blake2b
 from pathlib import Path
 
 import numpy as np
@@ -193,12 +194,20 @@ class ChannelStage:
     into the cache without writing every sample a second time.
     """
 
-    def __init__(self, staging_dir: Path, name: str, *, allow_float32: bool = False) -> None:
+    def __init__(
+        self,
+        staging_dir: Path,
+        name: str,
+        *,
+        allow_float32: bool = False,
+        hash_content: bool = False,
+    ) -> None:
         self.path = staging_dir / f"{name}.stage"
         self._handle = self.path.open("wb")
         self._handle.write(self._header(0))
         self._count = 0
         self._compact = allow_float32
+        self._digest = blake2b(digest_size=16) if hash_content else None
 
     @staticmethod
     def _header(count: int) -> bytes:
@@ -213,6 +222,11 @@ class ChannelStage:
         """Number of samples appended so far."""
         return self._count
 
+    @property
+    def content_digest(self) -> str | None:
+        """Return a chunk-boundary-independent digest when requested at staging."""
+        return None if self._digest is None else self._digest.hexdigest()
+
     def append(self, values: np.ndarray) -> None:
         """Append one bounded chunk of samples."""
         if self._handle.closed:
@@ -222,6 +236,8 @@ class ChannelStage:
             block, block.astype(np.float32).astype(np.float64), equal_nan=True
         ):
             self._compact = False
+        if self._digest is not None:
+            self._digest.update(memoryview(block).cast("B"))
         block.tofile(self._handle)
         self._count += int(block.size)
 

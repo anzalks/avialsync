@@ -26,8 +26,10 @@ from PySide6.QtGui import QImage
 from avialsync.core import dlc_export, pose_export
 from avialsync.core.artifact_io import publish_dir
 from avialsync.core.dlc_export import LabeledFrame
+from avialsync.core.edit_program import EditProgram
 from avialsync.core.errors import ExportError
 from avialsync.engine.display_pipeline import DisplayLevels, to_display_array
+from avialsync.engine.export_worker import ReaderReference
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +57,37 @@ class CorrectedPoseJob:
     #: Ascending frame boundaries and the display-to-source routing in force.
     routes: tuple[tuple[int, Mapping[str, str]], ...] = ()
     swaps: int = 0
+    snapshot: CorrectedPoseSnapshot | None = None
+
+
+@dataclasses.dataclass
+class CorrectedPoseSnapshot:
+    """Accepted edits and optional pose clock for worker-side frame conversion."""
+
+    program: EditProgram
+    axis: ReaderReference | None
+    frame_rate: float
+
+
+def build_corrected_pose_inputs(
+    snapshot: CorrectedPoseSnapshot,
+) -> tuple[dict[int, dict[str, tuple[float, float]]], tuple[tuple[int, Mapping[str, str]], ...]]:
+    """Map accepted sample edits to video frames without UI-side mmap reads."""
+    times = snapshot.axis.open().source_reader.mapped_columns()[0] if snapshot.axis else None
+
+    def frame_for(index: int) -> int:
+        if times is None or snapshot.frame_rate <= 0 or not 0 <= index < len(times):
+            return index
+        return int(round(float(times[index]) * snapshot.frame_rate))
+
+    corrections: dict[int, dict[str, tuple[float, float]]] = {}
+    for (point, index), value in snapshot.program.corrections.items():
+        corrections.setdefault(frame_for(index), {})[point] = value
+    routes = tuple(
+        (frame_for(index), mapping)
+        for index, mapping in zip(snapshot.program.boundaries, snapshot.program.maps, strict=True)
+    )
+    return corrections, routes
 
 
 @dataclasses.dataclass
@@ -70,6 +103,51 @@ class RetrainingJob:
     profile: str = "dlc"
     point_labels: dict[str, tuple[str, str]] | None = None
     display_levels: DisplayLevels = dataclasses.field(default_factory=DisplayLevels)
+    snapshot: RetrainingSnapshot | None = None
+
+
+@dataclasses.dataclass
+class RetrainingSnapshot:
+    """Small UI snapshot for assembling corrected frames on the export worker."""
+
+    axes: dict[str, tuple[ReaderReference, ReaderReference]]
+    indices: tuple[int, ...]
+    overrides: dict[tuple[str, int], tuple[float, float]]
+    routes: EditProgram | None
+    frame_rate: float
+
+
+def build_labeled_frames(bodyparts: list[str], snapshot: RetrainingSnapshot) -> list[LabeledFrame]:
+    """Read pinned pose columns and assemble whole corrected frames off the UI."""
+    columns = {
+        part: (
+            axes[0].open().source_reader.mapped_columns()[1],
+            axes[1].open().source_reader.mapped_columns()[1],
+        )
+        for part, axes in snapshot.axes.items()
+    }
+    first = snapshot.axes[bodyparts[0]][0].open().source_reader.mapped_columns()[0]
+    frames: list[LabeledFrame] = []
+    for index in snapshot.indices:
+        positions: dict[str, tuple[float, float]] = {}
+        for part in bodyparts:
+            xs, ys = columns[part]
+            if not 0 <= index < len(xs) or not 0 <= index < len(ys):
+                continue
+            x, y = float(xs[index]), float(ys[index])
+            column = snapshot.routes.source_of(part, index) if snapshot.routes else part
+            override = snapshot.overrides.get((column, index))
+            if override is not None:
+                x, y = override
+            if not np.isnan(x) and not np.isnan(y):
+                positions[part] = (x, y)
+        frame = (
+            int(round(float(first[index]) * snapshot.frame_rate))
+            if snapshot.frame_rate > 0 and 0 <= index < len(first)
+            else index
+        )
+        frames.append(LabeledFrame(frame=frame, positions=positions))
+    return frames
 
 
 class ChangesExportWorker(QObject):
@@ -126,6 +204,9 @@ class ChangesExportWorker(QObject):
 
     @staticmethod
     def _write_corrected_pose(job: CorrectedPoseJob) -> str:
+        if job.snapshot is not None:
+            corrections, routes = build_corrected_pose_inputs(job.snapshot)
+            job = dataclasses.replace(job, corrections=corrections, routes=routes)
         report = pose_export.write_corrected_copy(
             job.source, job.target, job.corrections, routes=job.routes
         )
@@ -147,6 +228,8 @@ class ChangesExportWorker(QObject):
             raise ExportError(f"{job.target.name} already exists; choose a new export folder.")
         if job.profile == "lightning_pose" and job.point_labels:
             raise ExportError("Lightning Pose export needs a single-animal pose source.")
+        if job.snapshot is not None:
+            job = dataclasses.replace(job, frames=build_labeled_frames(job.bodyparts, job.snapshot))
         if not job.frames:
             raise ExportError("There are no corrected frames to export.")
         result: list[dlc_export.LabeledDataReport] = []

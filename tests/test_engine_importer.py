@@ -116,6 +116,80 @@ def test_import_rebuilds_when_cached_array_is_truncated(tmp_path: Path) -> None:
     assert _BulkLoader.bulk_calls == 2
 
 
+def test_import_rebuilds_when_pyramid_header_changes_without_size_change(tmp_path: Path) -> None:
+    source = tmp_path / "signal.csv"
+    source.write_text("source bytes", encoding="utf-8")
+    _BulkLoader.open_calls = 0
+    ImportWorker(source, {}, _BulkLoader).run()
+    level = cache_dir_for(source) / "left_pyr_16_vmin.npy"
+    size = level.stat().st_size
+    with level.open("r+b") as stream:
+        stream.write(b"bad")
+
+    ImportWorker(source, {}, _BulkLoader).run()
+
+    assert level.stat().st_size == size
+    assert _BulkLoader.open_calls == 2
+
+
+def test_import_rebuilds_when_pyramid_content_changes_without_size_change(tmp_path: Path) -> None:
+    source = tmp_path / "signal.csv"
+    source.write_text("source bytes", encoding="utf-8")
+    _BulkLoader.open_calls = 0
+    ImportWorker(source, {}, _BulkLoader).run()
+    level = cache_dir_for(source) / "left_pyr_16_vmin.npy"
+    size = level.stat().st_size
+    with level.open("r+b") as stream:
+        stream.seek(-4, 2)
+        stream.write(b"bad!")
+
+    ImportWorker(source, {}, _BulkLoader).run()
+
+    assert level.stat().st_size == size
+    assert _BulkLoader.open_calls == 2
+
+
+def test_separate_channels_with_identical_long_clocks_share_one_time_file(
+    tmp_path: Path, qtbot
+) -> None:
+    """The 3D pane can prove equal long grids by inode without UI-thread scanning."""
+
+    class PerChannelLoader:
+        def open(self, _path: Path, _config: dict[str, object]) -> None:
+            pass
+
+        def channels(self) -> list[ChannelInfo]:
+            return [ChannelInfo(f"point_{axis}", "", "Float64", None) for axis in "xyz"]
+
+        def read_chunks(self, channel: str):
+            times = np.arange(100_001, dtype=np.float64) / 100.0
+            width = {"point_x": 7001, "point_y": 11003, "point_z": 16001}[channel]
+            for start in range(0, len(times), width):
+                yield times[start : start + width], times[start : start + width]
+
+        def is_frame_indexed(self) -> bool:
+            return False
+
+    source = tmp_path / "pose.csv"
+    source.write_text("source bytes", encoding="utf-8")
+    errors: list[str] = []
+    worker = ImportWorker(source, {}, PerChannelLoader)
+    worker.error.connect(errors.append)
+    worker.run()
+
+    assert errors == []
+    cache = cache_dir_for(source)
+    assert (cache / "point_x_t.npy").samefile(cache / "point_y_t.npy")
+    assert (cache / "point_x_t.npy").samefile(cache / "point_z_t.npy")
+    from avialsync.core.pyramid import PyramidReader
+    from avialsync.ui.tracking_3d_pane import Tracking3DPane
+
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.set_readers([PyramidReader(cache, f"point_{axis}") for axis in "xyz"])
+    assert pane.canvas.point_count == 1
+
+
 def test_root_manifest_change_invalidates_stream_cache(tmp_path: Path) -> None:
     root = tmp_path / "recording"
     stream = root / "continuous" / "stream1"

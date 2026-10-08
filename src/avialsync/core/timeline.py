@@ -309,10 +309,13 @@ class TimeMap:
         self._exact_source.flags.writeable = False
 
     def copy(self) -> "TimeMap":
-        """Return an independent snapshot of this affine or exact mapping."""
+        """Snapshot settings while sharing immutable exact-evidence arrays."""
         copied = TimeMap(self._offset, self._drift_ms_per_hour)
         copied._t_ref = self._t_ref
         copied._base_offset = self._base_offset
-        if self._exact_master is not None and self._exact_source is not None:
-            copied.set_exact_mapping(self._exact_master, self._exact_source)
+        # set_exact_mapping already copied and froze both arrays. A later
+        # mapping change replaces them, so copying millions of pairs for each
+        # worker reference buys no isolation and can stall the UI.
+        copied._exact_master = self._exact_master
+        copied._exact_source = self._exact_source
         return copied

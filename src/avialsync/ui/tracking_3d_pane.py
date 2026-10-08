@@ -137,6 +137,48 @@ class _SourceSamples:
     time_map: TimeMap
 
 
+@dataclass(frozen=True)
+class PreparedTracking3D:
+    """Worker-prepared pose arrays and orientation-specific skeleton estimates."""
+
+    sources: tuple[_SourceSamples, ...]
+    mismatched: int
+    samples: tuple[tuple[tuple[str, ...], np.ndarray], ...]
+    detected_up: tuple[int, bool] | None
+    skeletons: dict[tuple[int, bool], SkeletonEstimate]
+
+
+def prepare_tracking_3d(readers: Iterable[MappedChannelReader]) -> PreparedTracking3D:
+    """Open pose arrays and derive skeletons away from the event loop."""
+    sources, mismatched = _build_sources(readers)
+    samples = tuple(
+        sample_trajectories(source.points, frame_budget(len(source.points))) for source in sources
+    )
+    skeletons: dict[tuple[int, bool], SkeletonEstimate] = {}
+    for axis in range(3):
+        for inverted in (False, True):
+            up = np.eye(3)[axis] * (-1.0 if inverted else 1.0)
+            estimates = [infer_skeleton(names, frames, up=up) for names, frames in samples]
+            skeletons[axis, inverted] = _combine_skeleton_estimates(estimates)
+    return PreparedTracking3D(sources, mismatched, samples, detect_up_axis(sources), skeletons)
+
+
+def _combine_skeleton_estimates(estimates: Iterable[SkeletonEstimate]) -> SkeletonEstimate:
+    """Join per-source estimates without inferring edges across recordings."""
+    edges: list[tuple[str, str]] = []
+    roots: list[str] = []
+    parents: dict[str, str] = {}
+    variation: dict[tuple[str, str], float] = {}
+    frames_used = 0
+    for estimate in estimates:
+        edges.extend(estimate.edges)
+        roots.extend(estimate.roots)
+        parents.update(estimate.parents)
+        variation.update(estimate.variation)
+        frames_used = max(frames_used, estimate.frames_used)
+    return SkeletonEstimate(tuple(edges), tuple(roots), parents, variation, frames_used)
+
+
 def _coordinate_name(channel_id: str) -> tuple[str, str] | None:
     """Return ``(point_name, axis)`` for a reader that carries only a name.
 
@@ -223,7 +265,7 @@ def _build_sources(
             if reference_times is None:
                 reference_times = arrays[0][0]
                 reference_reader = x_reader
-                source_time_map = getattr(x_reader, "time_map", source_time_map)
+                source_time_map = getattr(x_reader, "time_map", source_time_map).copy()
             if reference_reader is None or any(
                 not _same_time_axis(reference_reader, axes[axis], reference_times, arrays[index][0])
                 for index, axis in enumerate(("x", "y", "z"))
@@ -345,6 +387,7 @@ class Tracking3DCanvas(QWidget):
         # derived one, and so the view can say which it is drawing (D-082).
         self._declared_edges: list[tuple[str, str]] = []
         self._inference_samples: tuple[tuple[tuple[str, ...], np.ndarray], ...] = ()
+        self._prepared_skeletons: dict[tuple[int, bool], SkeletonEstimate] = {}
         self._inferred = SkeletonEstimate()
         self._bone_mode = BoneMode.AUTO
         self._active_edges: list[tuple[str, str]] = []
@@ -504,6 +547,7 @@ class Tracking3DCanvas(QWidget):
             sample_trajectories(source.points, frame_budget(len(source.points)))
             for source in self._sources
         )
+        self._prepared_skeletons = {}
         # Colours are decided here, on the whole point set, rather than at paint
         # time: a body part the 2D overlay already named keeps that colour, and
         # one only this view knows about gets its own.
@@ -519,6 +563,24 @@ class Tracking3DCanvas(QWidget):
                 self._up_axis = axis
                 self._up_inverted = inverted
                 self._view_basis = _view_matrix(axis, -1.0 if inverted else 1.0)
+        self._infer_skeleton()
+        self.set_cursor(self._time)
+
+    def set_prepared(self, prepared: PreparedTracking3D) -> None:
+        """Install arrays and estimates produced by a registered worker."""
+        self._sources = prepared.sources
+        self._clock_mismatch_count = prepared.mismatched
+        self._names = tuple(point.name for source in self._sources for point in source.points)
+        self._inference_samples = prepared.samples
+        self._prepared_skeletons = prepared.skeletons
+        register_points(self._names)
+        self._positions = np.full((len(self._names), 3), np.nan, dtype=np.float64)
+        self._valid = np.zeros(len(self._names), dtype=bool)
+        self._has_scene_bounds = False
+        self._bounds_held = False
+        if self._up_auto and prepared.detected_up is not None:
+            self._up_axis, self._up_inverted = prepared.detected_up
+            self._view_basis = _view_matrix(self._up_axis, -1.0 if self._up_inverted else 1.0)
         self._infer_skeleton()
         self.set_cursor(self._time)
 
@@ -571,26 +633,13 @@ class Tracking3DCanvas(QWidget):
         Per source, never across them: two caches share no timestamp array, so a
         pair drawn from both would be compared at times that never coincided.
         """
-        up = np.eye(3)[self._up_axis] * (-1.0 if self._up_inverted else 1.0)
-        edges: list[tuple[str, str]] = []
-        roots: list[str] = []
-        parents: dict[str, str] = {}
-        variation: dict[tuple[str, str], float] = {}
-        frames_used = 0
-        for names, samples in self._inference_samples:
-            estimate = infer_skeleton(names, samples, up=up)
-            edges.extend(estimate.edges)
-            roots.extend(estimate.roots)
-            parents.update(estimate.parents)
-            variation.update(estimate.variation)
-            frames_used = max(frames_used, estimate.frames_used)
-        self._inferred = SkeletonEstimate(
-            edges=tuple(edges),
-            roots=tuple(roots),
-            parents=parents,
-            variation=variation,
-            frames_used=frames_used,
-        )
+        prepared = self._prepared_skeletons.get((self._up_axis, self._up_inverted))
+        if prepared is None:
+            up = np.eye(3)[self._up_axis] * (-1.0 if self._up_inverted else 1.0)
+            prepared = _combine_skeleton_estimates(
+                infer_skeleton(names, samples, up=up) for names, samples in self._inference_samples
+            )
+        self._inferred = prepared
         self._refresh_bones()
 
     def _refresh_bones(self) -> None:
@@ -1179,6 +1228,7 @@ class Tracking3DPane(QWidget):
         self.setObjectName("tracking_3d_pane")
         self.setAccessibleName(tr("3D Tracking pane"))
         self.setMinimumWidth(112)
+        self._prepare_revision = 0
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -1280,7 +1330,31 @@ class Tracking3DPane(QWidget):
 
     def set_readers(self, readers: list[MappedChannelReader]) -> None:
         """Use complete XYZ channel triplets from the active cached readers."""
+        self._prepare_revision += 1
         self.canvas.set_readers(readers)
+        self._finish_readers()
+
+    def begin_prepare(self) -> int:
+        """Clear old pose evidence and invalidate superseded job results."""
+        self._prepare_revision += 1
+        self.canvas.set_prepared(PreparedTracking3D((), 0, (), None, {}))
+        self._finish_readers()
+        self.status_label.setText(tr("Preparing 3D tracking"))
+        return self._prepare_revision
+
+    @property
+    def prepare_revision(self) -> int:
+        """Revision used to reject results for a superseded channel selection."""
+        return self._prepare_revision
+
+    def set_prepared(self, prepared: PreparedTracking3D) -> None:
+        """Install a prepared pose result without opening files or deriving geometry."""
+        self._prepare_revision += 1
+        self.canvas.set_prepared(prepared)
+        self._finish_readers()
+
+    def _finish_readers(self) -> None:
+        """Refresh bounded widget state after the pose arrays have been installed."""
         self._refresh_status()
         self.fit_button.setEnabled(self.canvas.scene_available)
         self._sync_up_axis_combo()

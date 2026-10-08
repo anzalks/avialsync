@@ -970,7 +970,7 @@ class PlotPane(QWidget):
         t = self.sweep_start + float(visible[0].cursor_line.value())
         parts = []
         for channel in visible:
-            sample = channel.reader.sample_at(t)
+            sample = channel.reader.available_sample_at(t)
             value = "—" if sample is None else f"{sample[1]:.4g}"
             unit = f" {channel.unit}" if channel.unit else ""
             parts.append(f"{channel.name}: {value}{unit}")

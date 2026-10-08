@@ -6363,3 +6363,40 @@ entry can keep total usage above that limit. Trimming protects loaded sources wi
 reimporting the session. Cache versions were bumped so older imported arrays and video indexes
 rebuild on first reuse. This amends D-008's edge-only hash and D-023's
 conditional float32 implementation without changing the user's files or D-160's cache location.
+
+## 2026-10 · D-200 · Bounded previews and pinned, validated derived generations
+
+**Decision.** The import wizard receives a 64 KiB prefix read by a registered worker; constructing
+the dialog does not read the source. Stimulus-grid overviews query their pyramid on a registered
+worker. Retraining exports capture reader references and edits on the UI thread, then assemble
+whole corrected frames on the export worker. Corrected pose copies convert sample edits and identity
+routes to video frame numbers there as well, using a pinned source clock. The plotted accessible
+value and stimulus markers use the same gap-aware available-sample rule as other readouts (D-199).
+The launch-time recovery snapshot and dismissal marker are also read through a registered worker;
+its result is ignored after a save, reset, or restore invalidates that offer.
+`TimeMap.copy()` shares its already-copied, read-only exact-evidence arrays; changing either map
+replaces its array references, so an export snapshot keeps its original evidence without copying
+millions of pairs on the UI thread.
+
+A reader pin and cache replacement or eviction share one process-local lock. A pinned base entry
+or edited generation cannot be renamed, deleted, or replaced; a replacement requested during a
+running reader reports that the entry is in use and can be retried. The staging directory is
+removed on failed import. This also applies to direct cache removal, not only budget trimming.
+The lock reserves the entry briefly and is released during the slow file swap or tree removal, so
+starting a UI export never waits for that disk operation. The reservation coordinates work in one
+application process; another process can still modify the cache.
+
+Every imported array has a size and sampled first/middle/last fingerprint in the manifest. Warm
+reuse checks these and the dtype, length, and shape of every stored pyramid level on the import
+worker. The cache version increments so older manifests rebuild. As with the source key, an edit
+confined to unsampled content with preserved metadata remains undetectable without a full scan.
+Separate channels with identical float64 timestamp sequences share a read-only cache file after a
+streamed content digest confirms equality, so 3D XYZ grids longer than 100,000 samples can be
+recognized without scanning them on the UI thread. The importer copies when hard links are not
+available.
+
+The 3D pane prepares XYZ arrays, bounded trajectory samples, and skeleton estimates for all six
+vertical-axis choices in a registered worker. The old pose clears when a new selection starts;
+the UI installs only the newest result and can
+change vertical axis without rerunning geometry inference there. This keeps cold mmap reads and
+derived geometry off the event loop while retaining the same per-source inference rule.

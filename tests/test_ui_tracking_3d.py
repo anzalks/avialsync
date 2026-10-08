@@ -1,6 +1,8 @@
 """Tests for the timeline-synchronized 3D tracking pane."""
 
 from pathlib import Path
+from threading import Event, current_thread, main_thread
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -8,7 +10,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSplitter
 
 from avialsync.core.pyramid import PyramidBuilder, PyramidReader
-from avialsync.ui.tracking_3d_pane import Tracking3DPane
+from avialsync.ui.tracking_3d_pane import Tracking3DPane, prepare_tracking_3d
 from avialsync.ui.tracking_skeleton import BoneMode
 
 
@@ -49,6 +51,73 @@ def test_complete_xyz_triplets_follow_master_cursor(qtbot, tmp_path: Path) -> No
         pane.canvas.positions,
         np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]]),
     )
+
+
+def test_prepared_pose_installs_without_ui_skeleton_inference(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    """Worker results preserve sampling and all axis choices without recalculation."""
+    readers = _tracking_readers(tmp_path / "prepared_tracking")
+    prepared = prepare_tracking_3d(readers)
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+
+    def fail_inference(*_args, **_kwargs):
+        raise AssertionError("skeleton inference ran on the UI thread")
+
+    monkeypatch.setattr("avialsync.ui.tracking_3d_pane.infer_skeleton", fail_inference)
+    pane.set_prepared(prepared)
+    pane.set_cursor(0.5)
+    np.testing.assert_allclose(
+        pane.canvas.positions,
+        np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]]),
+    )
+    for axis in range(3):
+        pane.canvas.set_up_axis(axis, True)
+
+
+def test_pose_job_discards_superseded_result(qtbot, monkeypatch, tmp_path: Path) -> None:
+    """A slow pose job cannot restore points after a later selection wins."""
+    from avialsync.ui.main_window import MainWindow
+    from avialsync.ui.tracking_3d_pane import PreparedTracking3D
+    from avialsync.ui.tracking_3d_worker import start_pose_preparation
+
+    monkeypatch.setattr(MainWindow, "_run_diagnostics", lambda _self: None)
+    first_started = Event()
+    release_first = Event()
+    first_finished = Event()
+    calls = 0
+
+    def prepare(_readers):
+        nonlocal calls
+        assert current_thread() is not main_thread()
+        calls += 1
+        if calls == 1:
+            first_started.set()
+            assert release_first.wait(3)
+            first_finished.set()
+            return PreparedTracking3D((), 1, (), None, {})
+        return PreparedTracking3D((), 0, (), None, {})
+
+    monkeypatch.setattr("avialsync.ui.tracking_3d_worker.prepare_tracking_3d", prepare)
+    window = MainWindow()
+    qtbot.addWidget(window)
+    window.tracking_3d_pane.set_readers(_tracking_readers(tmp_path / "prior_pose"))
+    assert window.tracking_3d_pane.canvas.point_count == 2
+    readers = [SimpleNamespace(cache_dir=tmp_path)]
+    start_pose_preparation(window, readers)
+    assert window.tracking_3d_pane.canvas.point_count == 0
+    qtbot.waitUntil(first_started.is_set)
+    start_pose_preparation(window, readers)
+    second_revision = window.tracking_3d_pane.prepare_revision
+    qtbot.waitUntil(lambda: window.tracking_3d_pane.prepare_revision > second_revision)
+    release_first.set()
+    qtbot.waitUntil(first_finished.is_set)
+    qtbot.waitUntil(
+        lambda: all(job.label != "Preparing 3D tracking" for job in window._job_manager.jobs())
+    )
+    assert window.tracking_3d_pane.status_label.text() == "No XYZ tracking channels"
+    window.close()
 
 
 def test_incomplete_xy_points_are_not_presented_as_3d(qtbot, tmp_path: Path) -> None:

@@ -128,6 +128,7 @@ def test_status_line_sits_beside_activity_in_status_bar(qtbot) -> None:
     window.resize(1280, 800)
     window.show()
     qtbot.waitExposed(window)
+    qtbot.waitUntil(lambda: not window._job_manager.jobs(), timeout=5000)
     window.transport.set_status("Loading", "busy")
     window.activity_bar.show()
     qtbot.wait(10)

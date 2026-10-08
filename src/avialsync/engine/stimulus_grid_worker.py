@@ -26,6 +26,35 @@ from avialsync.engine.transcode import TranscodeCancelled
 logger = logging.getLogger(__name__)
 
 
+class StimulusTimelineWorker(QObject):
+    """Fetch the bounded overview pyramid without cold-cache I/O on the UI."""
+
+    finished = Signal(int, object)
+    error = Signal(int, str)
+
+    def __init__(self, index: int, reference: ReaderReference) -> None:
+        super().__init__()
+        self._index = index
+        self._reference = reference
+
+    @Slot()
+    def run(self) -> None:
+        """Return arrays owned by this result, independent of worker-local mmaps."""
+        try:
+            reader = self._reference.open()
+            bounds = reader.coverage()
+            if bounds is None or bounds[1] <= bounds[0]:
+                result = None
+            else:
+                result = (
+                    bounds,
+                    *(np.asarray(part).copy() for part in reader.query(*bounds, max_points=1200)),
+                )
+            self.finished.emit(self._index, result)
+        except (AvialSyncError, OSError, RuntimeError, ValueError) as error:
+            self.error.emit(self._index, str(error))
+
+
 class StimulusEventScanWorker(QObject):
     """Find threshold crossings without reading cached samples on the UI thread."""
 

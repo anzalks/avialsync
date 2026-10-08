@@ -230,6 +230,19 @@ def test_time_map_copy_preserves_affine_anchor_and_exact_mapping() -> None:
     assert exact_copy.to_master(12.0) == pytest.approx(1.0)
 
 
+def test_exact_time_map_copy_shares_frozen_evidence_without_sharing_settings() -> None:
+    mapping = TimeMap()
+    mapping.set_exact_mapping(np.array([0.0, 1.0]), np.array([2.0, 3.0]))
+
+    copied = mapping.copy()
+
+    assert copied._exact_master is mapping._exact_master
+    assert copied._exact_source is mapping._exact_source
+    assert copied._exact_master is not None and not copied._exact_master.flags.writeable
+    mapping.set_mapping(5.0, 0.0)
+    assert copied.to_source(0.5) == pytest.approx(2.5)
+
+
 @pytest.mark.parametrize(
     ("master", "source"),
     [
