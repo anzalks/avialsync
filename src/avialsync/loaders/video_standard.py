@@ -1,23 +1,18 @@
 """Standard Video Loader."""
 
 import logging
-import shutil
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 
-from avialsync.core.cache import CacheManager
-from avialsync.core.errors import CacheError, SourceOpenError
+from avialsync.core.errors import SourceOpenError
 from avialsync.core.source import VideoMetadata, VideoSource
 
 logger = logging.getLogger(__name__)
-
-_VIDEO_FRAME_CACHE_VERSION = 1
-_FRAME_TIMES_NAME = "video_frame_times.npy"
 
 #: Divisor turning a sidecar's integer timestamps into seconds.  Machine-vision
 #: cameras stamp a free-running nanosecond counter, which is why only the
@@ -294,13 +289,9 @@ class VideoStandardLoader(VideoSource):
         self._config = config
         self._probe_metadata(path)
 
-        # Frame timestamps are correctness evidence for VFR, stepping, and exact
-        # trigger alignment.  Cache them once: building the table is O(frames).
-        self._frame_times = self._load_cached_frame_times(path)
-        if self._frame_times is None:
-            self._extract_frame_times(path)
-            if self._frame_times is not None:
-                self._save_frame_times_cache(path, self._frame_times)
+        # The decoder validates and reuses its PTS index. Using that same
+        # authority here keeps VFR, stepping, and trigger alignment consistent.
+        self._extract_frame_times(path)
         # Override FPS and scale timestamps if explicitly requested (e.g. by a session plugin)
         override_fps = self._config.get("fps")
         if override_fps is not None and override_fps > 0 and self._fps > 0:
@@ -428,43 +419,6 @@ class VideoStandardLoader(VideoSource):
         if self._exact_master is None or self._exact_source is None:
             return None
         return self._exact_master, self._exact_source
-
-    @staticmethod
-    def _cache_manager() -> CacheManager:
-        return CacheManager(loader_version=_VIDEO_FRAME_CACHE_VERSION)
-
-    def _load_cached_frame_times(self, path: Path) -> np.ndarray | None:
-        manager = self._cache_manager()
-        cache_path = manager.get_cache_dir(path) / _FRAME_TIMES_NAME
-        if not manager.is_cache_valid(path) or not cache_path.is_file():
-            return None
-        try:
-            times = np.load(cache_path, mmap_mode="r", allow_pickle=False)
-        except (OSError, ValueError):
-            logger.warning("Ignoring invalid video timestamp cache for %s", path, exc_info=True)
-            return None
-        if times.ndim != 1 or len(times) == 0 or not np.all(np.isfinite(times)):
-            return None
-        if len(times) > 1 and np.any(np.diff(times) <= 0):
-            return None
-        return cast(np.ndarray, times)
-
-    def _save_frame_times_cache(self, path: Path, frame_times: np.ndarray) -> None:
-        manager = self._cache_manager()
-        temp_dir: Path | None = None
-        try:
-            # Inside the guard: creating the staging directory is the first
-            # write, and a cache folder that cannot be written must cost the
-            # cache, not the video.
-            temp_dir = manager.get_temp_cache_dir(path)
-            np.save(temp_dir / _FRAME_TIMES_NAME, frame_times, allow_pickle=False)
-            manager.commit_cache(path, temp_dir)
-        except (CacheError, OSError):
-            # Timestamp caching is an optimization.  The video must remain
-            # loadable with the in-memory evidence.
-            logger.warning("Could not cache video frame timestamps for %s", path, exc_info=True)
-            if temp_dir is not None:
-                shutil.rmtree(temp_dir, ignore_errors=True)
 
     def _extract_frame_times(self, path: Path) -> None:
         """Build the presentation-timestamp table with the decoder's own code.

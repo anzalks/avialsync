@@ -134,15 +134,15 @@ def sample(window: MainWindow, channel: tuple[str, str], t_master: float) -> flo
     """The encoder reading at *t_master*, or None where it has none.
 
     Read through the plot row's own reader, exactly as the Values tab reads it
-    (``sample_at``: the last sample at or before the time, through the source's
-    live offset and drift). One path to the synced values, so the wheel can
+    (the last available sample at or before the time, through the source's
+    live mapping). One path to the synced values, so the wheel can
     never turn by a number the plots and Values tab do not show.
     """
     reader = _channel_reader(window, channel)
     if reader is None:
         return None
     try:
-        found = reader.sample_at(t_master)
+        found = reader.available_sample_at(t_master)
     except (OSError, ValueError, KeyError):
         logger.warning("Could not read %s from %s", channel[1], channel[0], exc_info=True)
         return None

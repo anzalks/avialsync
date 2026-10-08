@@ -23,17 +23,30 @@ class CacheRemovalWorker(QObject):
     finished = Signal(object)  # cache_store.RemovalReport
     error = Signal(str)
 
-    def __init__(self, root: Path, folders: list[Path] | None) -> None:
+    def __init__(
+        self,
+        root: Path,
+        folders: list[Path] | None,
+        *,
+        trim: bool = False,
+        protected_sources: list[str] | None = None,
+    ) -> None:
         super().__init__()
         # Resolved by the caller, on the UI thread, so the folder the user was
         # shown and the folder emptied cannot differ.
         self._root = root
         self._folders = folders
+        self._trim = trim
+        self._protected_sources = protected_sources or []
 
     @Slot()
     def run(self) -> None:
         try:
-            if self._folders is None:
+            if self._trim:
+                report = cache_store.trim_cache(
+                    self._root, protected_sources=self._protected_sources
+                )
+            elif self._folders is None:
                 report = cache_store.remove_all(self._root)
             else:
                 entries = cache_store.entries_under(self._folders, self._root)

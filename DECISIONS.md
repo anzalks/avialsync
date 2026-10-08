@@ -6326,3 +6326,40 @@ exported frame indices, body parts, and label counts so the contents can be revi
 requested for the current training workflow. DeepLabCut H5 conversion stays in the target project,
 per D-197; AvialSync does not add pandas/PyTables to its runtime. The scorer placeholder is blank
 until the user enters a name, so a hard-coded scorer cannot silently miss the target project.
+
+## 2026-10 · D-199 · Reused cache and exported data follow the displayed source and clock
+
+**Decision.** A worker reference snapshots the array directory actually displayed, including an
+edited tracker generation, and a copy of the complete `TimeMap`, including exact frame-index
+evidence. It pins that directory while the reference lives. Data slice, A/B statistics and
+stimulus-grid workers use these snapshots. CSV writes float64 timestamps and values with
+round-trip text precision; CSV and Parquet iterate bounded chunks. Parquet names its mask
+`gap_after`, matching the stored fact that a timestamp gap follows that sample. Time-series
+readouts, wheel motion and pose overlays use the last available sample at or before the cursor,
+rejecting times outside coverage and in measured gaps. The 3D viewer refuses XYZ axes with
+differing timestamp grids instead of combining equal-length arrays from different clocks. For
+more than 100,000 samples, distinct timestamp files are treated as unmatched even when they may
+contain equal data; the view reports that it hid those points. Coarse plot queries reduce
+partial edge buckets from only in-window raw samples; interior bucket timestamps remain an overview
+approximation, so zooming to raw samples is required to date an extremum exactly.
+
+**Cache.** The derived cache survives normal session close. Invalidation keys now use nanosecond
+mtime and first/middle/last content samples, or a recursively named and sampled file tree for
+directory sources. An Open Ephys stream also depends on the recording root's `structure.oebin`.
+The warm importer checks the manifest's array sizes and the base arrays' shape and dtypes before
+reuse. The video loader obtains frame times through the playback decoder's one versioned
+PTS/keyframe index, validated against the source key, stream time base, monotonic order, and
+saved table checksums. No second frame-time array is stored. These sampled hashes reduce stale
+reuse risk
+without the open-time cost of hashing every byte of large recordings; a write confined to an
+unsampled region while size and mtime are both restored remains a limitation.
+
+**Storage and retention.** Time columns remain float64. A value column uses float32 only when
+each imported chunk survives a float64→float32→float64 round trip; otherwise it stays float64.
+The stage writes a valid `.npy` payload from the start and finalizes its fixed-width header before
+renaming, avoiding a second raw write for float64 arrays. File → Cache → Trim Cache is a manual
+cleanup of owned, unpinned entries unused for 30 days or beyond a 10 GB soft limit; an active
+entry can keep total usage above that limit. Trimming protects loaded sources without closing or
+reimporting the session. Cache versions were bumped so older imported arrays and video indexes
+rebuild on first reuse. This amends D-008's edge-only hash and D-023's
+conditional float32 implementation without changing the user's files or D-160's cache location.

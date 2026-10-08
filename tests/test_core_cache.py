@@ -24,6 +24,41 @@ def test_cache_manager_keys(tmp_path: Path):
     assert key1 != key2
 
 
+def test_cache_key_detects_middle_edit_with_preserved_metadata(tmp_path: Path) -> None:
+    source = tmp_path / "large.bin"
+    source.write_bytes(b"a" * (256 * 1024))
+    manager = CacheManager(root=tmp_path / "cache")
+    before = manager.generate_key(source)
+    stat = source.stat()
+    with source.open("r+b") as handle:
+        handle.seek(128 * 1024)
+        handle.write(b"changed")
+    os.utime(source, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+    assert manager.generate_key(source) != before
+
+
+def test_cache_key_detects_nested_file_edit(tmp_path: Path) -> None:
+    source = tmp_path / "recording"
+    nested = source / "stream" / "continuous.dat"
+    nested.parent.mkdir(parents=True)
+    nested.write_bytes(b"old")
+    manager = CacheManager(root=tmp_path / "cache")
+    before = manager.generate_key(source)
+    nested.write_bytes(b"new")
+    assert manager.generate_key(source) != before
+
+
+def test_directory_key_tolerates_broken_nested_symlink(tmp_path: Path) -> None:
+    source = tmp_path / "recording"
+    source.mkdir()
+    link = source / "missing.dat"
+    try:
+        link.symlink_to(source / "absent.dat")
+    except OSError:
+        pytest.skip("Symlink creation unavailable on this platform")
+    assert CacheManager().generate_key(source)
+
+
 def test_atomic_commit(tmp_path: Path):
     manager = CacheManager(loader_version=1)
 

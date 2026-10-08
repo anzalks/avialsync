@@ -34,6 +34,7 @@ import json
 import logging
 import os
 import shutil
+import threading
 import uuid
 from collections.abc import Iterable
 from pathlib import Path
@@ -331,6 +332,53 @@ def _write_manifest(
 #: Three bounds the disk at a few edited channels per edit while leaving a job
 #: two edits behind something to read.
 KEEP_GENERATIONS = 3
+_PIN_LOCK = threading.Lock()
+_PINNED: dict[Path, int] = {}
+
+
+class GenerationPin:
+    """Keep a reader's cache directory available while a job holds it."""
+
+    def __init__(self, directory: Path) -> None:
+        pinned = directory.absolute()
+        self.directory: Path | None = None
+        with _PIN_LOCK:
+            if not pinned.is_dir():
+                raise FileNotFoundError(pinned)
+            _PINNED[pinned] = _PINNED.get(pinned, 0) + 1
+            self.directory = pinned
+
+    def close(self) -> None:
+        """Release this generation once its reader reference is discarded."""
+        directory = getattr(self, "directory", None)
+        if directory is None:
+            return
+        with _PIN_LOCK:
+            remaining = _PINNED[directory] - 1
+            if remaining:
+                _PINNED[directory] = remaining
+            else:
+                del _PINNED[directory]
+        self.directory = None
+
+    def __del__(self) -> None:
+        self.close()
+
+
+def pin_reader_directory(directory: Path) -> GenerationPin | None:
+    """Pin a base or edited reader directory while a worker may open it."""
+    try:
+        return GenerationPin(directory)
+    except FileNotFoundError:
+        return None
+
+
+def pinned_cache_entries() -> frozenset[Path]:
+    """Return base entry paths held by worker snapshots."""
+    with _PIN_LOCK:
+        return frozenset(
+            path.parent.parent if path.parent.name == EDITED_DIR else path for path in _PINNED
+        )
 
 
 def prune(cache_dir: Path, keep: Iterable[str], generations: int = KEEP_GENERATIONS) -> list[str]:
@@ -355,6 +403,8 @@ def prune(cache_dir: Path, keep: Iterable[str], generations: int = KEEP_GENERATI
     if not root.is_dir():
         return []
     kept = set(keep)
+    with _PIN_LOCK:
+        kept.update(path.name for path in _PINNED if path.parent == root.absolute())
     others = [
         entry
         for entry in root.iterdir()
@@ -368,7 +418,16 @@ def prune(cache_dir: Path, keep: Iterable[str], generations: int = KEEP_GENERATI
     others.sort(key=lambda entry: entry.stat().st_mtime_ns, reverse=True)
     removed: list[str] = []
     for entry in others[max(0, generations - len(kept)) :]:
-        _remove_generation(entry)
+        with _PIN_LOCK:
+            if entry.absolute() in _PINNED:
+                continue
+            renamed = root / f"{_TEMP_PREFIX}prune-{uuid.uuid4().hex}"
+            try:
+                os.rename(entry, renamed)
+            except OSError:
+                logger.warning("Could not retire edited generation %s", entry, exc_info=True)
+                continue
+        _remove_generation(renamed)
         removed.append(entry.name)
     return removed
 

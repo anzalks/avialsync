@@ -558,6 +558,9 @@ def calibrate_overlay_timing(window: MainWindow, video: str) -> None:
         }
         for time_map in time_maps.values():
             time_map.set_exact_mapping(master_times, source_times)
+        cache_dir = getattr(window, "_pose_cache_dirs", {}).get(first_reader.source_id)
+        if cache_dir is not None and hasattr(window, "plot_pane"):
+            window.plot_pane.set_source_exact_mapping(cache_dir, master_times, source_times)
 
 
 def _report_uncalibrated_overlay(window: MainWindow, video: str, source_id: str) -> None:

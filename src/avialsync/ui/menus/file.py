@@ -211,7 +211,7 @@ def _file_exports(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
 
 
 def _file_cache(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
-    """Offer the cache folder: one trial's entries, all of them, or the folder (D-160)."""
+    """Offer deletion, trimming, and the cache folder (D-160, D-199)."""
     from avialsync.ui.controllers import cache_controller
 
     def idle() -> bool:
@@ -241,6 +241,14 @@ def _file_cache(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
         tr("Delete every cached import. Recordings, corrections and sessions are not touched.")
     )
     act.triggered.connect(lambda: cache_controller.delete_all_cache(window))
+    _reg(act, "File")
+    window._require(
+        act, idle, tr("Let background work finish first — it may be writing to the cache.")
+    )
+
+    act = cache_menu.addAction(tr("Trim Cache"))
+    act.setStatusTip(tr("Remove cached entries unused for 30 days or beyond 10 GB."))
+    act.triggered.connect(lambda: cache_controller.trim_cache(window))
     _reg(act, "File")
     window._require(
         act, idle, tr("Let background work finish first — it may be writing to the cache.")

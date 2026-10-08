@@ -9,6 +9,8 @@ still unsaved when it was unsaved.
 from __future__ import annotations
 
 import gc
+import os
+import time
 from pathlib import Path
 
 import pytest
@@ -108,7 +110,12 @@ def test_the_file_menu_offers_the_cache_commands(window: MainWindow) -> None:
     labels = [action.text() for action in cache_menu.actions()]
 
     assert cache_menu.menuAction() in _menu(window, "File").actions()
-    assert labels == ["Delete Cache for This Trial", "Delete All Cache", "Show Cache Folder"]
+    assert labels == [
+        "Delete Cache for This Trial",
+        "Delete All Cache",
+        "Trim Cache",
+        "Show Cache Folder",
+    ]
 
 
 def test_trial_deletion_needs_a_trial_and_an_idle_workspace(
@@ -182,6 +189,31 @@ def test_deleting_all_cache_with_nothing_loaded_empties_the_root(
 
     assert not window._anything_loaded()
     assert cache_root().is_dir()
+
+
+def test_trim_keeps_the_open_trial_without_reimporting(
+    window: MainWindow, qtbot, tmp_path: Path
+) -> None:
+    source = _recording(tmp_path / "data" / "trial1")
+    old = _other_trial_entry(tmp_path)
+    _import(window, qtbot, source)
+    active = cache_dir_for(source)
+    original_import = (active / "meta.json").stat().st_mtime_ns
+    generation = window.session_runtime.generation
+    old_time = time.time() - 40 * 86_400
+    os.utime(old, (old_time, old_time))
+
+    window._refresh_action_availability()
+    assert _action(window, "Trim Cache").isEnabled()
+    _action(window, "Trim Cache").trigger()
+    qtbot.waitUntil(lambda: not old.exists(), timeout=15_000)
+    qtbot.waitUntil(lambda: not window._job_manager.is_busy(), timeout=15_000)
+
+    assert not old.exists()
+    assert active.is_dir()
+    assert (active / "meta.json").stat().st_mtime_ns == original_import
+    assert str(source) in window._sensor_cache_dirs
+    assert window.session_runtime.generation == generation
 
 
 def test_show_cache_folder_opens_the_root(

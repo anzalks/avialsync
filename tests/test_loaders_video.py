@@ -128,19 +128,21 @@ def test_frame_timestamp_cache_avoids_reprobing_long_video(
     Building the table costs a full demux pass — 225 ms on a 716 MB session
     file — so the sidecar is what keeps a repeat open cheap.
     """
+    from avialsync.core.cache import cache_dir_for
+    from avialsync.engine.pyav_reader import PyAVReader
     from tests.util_pyav_fixtures import cfr_times, write_video
 
     video = tmp_path / "long.mp4"
     write_video(video, frame_times=cfr_times(90), gop_size=30)
 
     builds: list[Path] = []
-    original = VideoStandardLoader._extract_frame_times
+    original = PyAVReader._build_pts_table
 
-    def counting_extract(self: VideoStandardLoader, path: Path) -> None:
-        builds.append(path)
-        original(self, path)
+    def counting_build(self: PyAVReader) -> tuple[np.ndarray, np.ndarray]:
+        builds.append(self.path)
+        return original(self)
 
-    monkeypatch.setattr(VideoStandardLoader, "_extract_frame_times", counting_extract)
+    monkeypatch.setattr(PyAVReader, "_build_pts_table", counting_build)
 
     first = VideoStandardLoader()
     first.open(video, {})
@@ -149,7 +151,8 @@ def test_frame_timestamp_cache_avoids_reprobing_long_video(
 
     assert len(builds) == 1, "the second open rebuilt the table instead of reading the sidecar"
     np.testing.assert_array_equal(first.frame_times(), second.frame_times())
-    assert isinstance(second.frame_times(), np.memmap), "the cache must be mmap-read, not re-parsed"
+    cached_pts = np.load(cache_dir_for(video) / "video_pts_ticks.npy", mmap_mode="r")
+    assert isinstance(cached_pts, np.memmap), "the cached index must be mmap-readable"
     np.testing.assert_allclose(second.frame_times(), cfr_times(90), atol=1e-6)
 
 

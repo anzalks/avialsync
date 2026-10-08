@@ -143,9 +143,9 @@ Two product laws govern that phase and outrank convention:
 - Session save/load `.avv` schema v5, autosave 2 min, recent files, relink dialog
 - File → Reset Session (also Sources → Open Files) cancels pending loads and clears the current workspace without
   modifying recordings, their cache, or a saved `.avv` file.
-- File → Cache: Delete Cache for This Trial / Delete All Cache / Show Cache Folder
-  (`ui/controllers/cache_controller.py`, D-160). A loaded trial is closed, its entries removed
-  in a job, and the same workspace restored — still dirty if it was.
+- File → Cache: Delete Cache for This Trial / Delete All Cache / Trim Cache / Show Cache Folder
+  (`ui/controllers/cache_controller.py`, D-160, D-199). Deletion closes and restores a loaded
+  trial, still dirty if it was. Trimming protects the loaded trial and leaves it open.
 - Transport: unified `QLineEdit` 110px minimum, `HH:MM:SS.fff`, `_time_editing` guard
 - Theme: System/Dark/Light radio group in View menu; Ctrl+T cycles; System retains the platform
   style, palette, accent, and font, and follows Qt-reported palette changes while open. Explicit
@@ -536,7 +536,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `core/session_time.py` | The session's declared zero, after NWB's `session_start_time`. A source carrying wall-clock time is **placed** against it through its own TimeMap — nothing is rewritten | `is_absolute()`, `reference_epoch()`, `rebase_offset()`, `ABSOLUTE_EPOCH_FLOOR` |
 | `core/pyramid.py` | Decimation pyramid (1×/16×/256×/4096×) | `PyramidReader`, `PyramidBuilder` |
 | `core/cache.py` | Binary cache in one per-user folder, content-hash key; entry naming and its `source.json` ownership record (D-160) | `CacheManager`, `cache_root()`, `cache_dir_for()` |
-| `core/cache_store.py` | The only code that deletes from the cache: lists entries, finds a trial's, removes them only inside `sources/` and only with our record (D-160) | `list_entries()`, `entries_under()`, `remove_entries()`, `remove_all()`, `working_folders()` |
+| `core/cache_store.py` | The only code that deletes from the cache: lists entries, finds a trial's, and trims old or over-budget entries only inside `sources/` with our record (D-160, D-199) | `list_entries()`, `entries_under()`, `remove_entries()`, `remove_all()`, `trim_cache()`, `working_folders()` |
 | `core/sidecar_names.py` | How a sidecar beside a source is named: full name, dots → `_`, plus a tag (D-160) | `beside()`, `flat_name()` |
 | `core/artifacts.py` | Registry of authored file and export kinds (D-197); cache excluded | `KINDS`, `ArtifactKind`, `get_kind()` |
 | `core/artifact_io.py` | Validate, stage, sync and atomically publish files or directories; waits out a momentary Windows refusal (scanner, or a reader racing a replace). Read authored sidecars through `read_text()`, never `Path.read_text`, or a racing read drops the user's work on adopt | `publish()`, `publish_dir()`, `read_text()` |
@@ -588,7 +588,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/video_grid_overlays.py` | Routes tracking, corrections, markers, reprojection and the wheel to panes, holding each for a pane built later (D-114) | `GridOverlayMixin` |
 | `ui/controllers/wheel_controller.py` | Wheel placement starts from Props: select any point 1A–3B or Next Point. Each click re-projects at once and **generates the wheel as a registered background job** (`WheelFitWorker`, one at a time, a click during it fitted when it returns); the Wheel page says "Generating wheel…" and Done Labelling waits for the latest clicks' fit (rule 3, D-123). Done Labelling is live from the moment both ends of bars 1 and 2 have two real camera clicks each and stays live through bar 3 (D-122). **The wheel is always drawn, however poor**; a poor fit is a warning with Re-place, never hidden (D-123). The notification strip says when it is first generated. Done Labelling is one `SetWheelCommand`. Action availability refreshes when a queued video pane is created | `toggled()`, `on_clicked()`, `select_end()`, `next_end()`, `accept()`, `start_checking()`, `stop_checking()`, `replace()`, `reset()` |
 | `engine/prop_file_worker.py` | The one registered background reader and writer for all four prop kinds, including video-only wheel reopen (D-132, D-155) | `PropFileReadWorker`, `PropFileWriteWorker` |
-| `ui/controllers/wheel_display.py` | What a wheel draws per frame: bars cached by frame index, encoder at the frame's presentation time, read through the plot row's own `MappedChannelReader.sample_at` -- the value the Values tab shows -- never a second reader (D-131); no file IO and no projection on the paint path (D-113, D-116). A projected mark's click target is eight *displayed* pixels at the pane's zoom (D-120) | `pane_drawing()`, `scene()`, `refresh()`, `sample()`, `encoder_binding()`, `frame_and_time()`, `projected_hit_radius()` |
+| `ui/controllers/wheel_display.py` | What a wheel draws per frame: bars cached by frame index, encoder at the frame's presentation time, read through the plot row's own `MappedChannelReader.available_sample_at` -- the value the Values tab shows -- never a second reader (D-131, D-199); no file IO and no projection on the paint path (D-113, D-116). A projected mark's click target is eight *displayed* pixels at the pane's zoom (D-120) | `pane_drawing()`, `scene()`, `refresh()`, `sample()`, `encoder_binding()`, `frame_and_time()`, `projected_hit_radius()` |
 | `ui/controllers/wheel_placement.py` | The wheel being labelled, read without a window: its real clicks, the missing-view projections two clicks give (display only, never fit or file evidence, D-116), when Done Labelling is live (bars 1 and 2, not while a fit is running, D-122, D-123), and the Wheel page's review text, including what `fit_labelled` had to give way (a third bar, or a typed radius — with a units hint when it is ~10×/100×/1000× off) | `WheelPlacement`, `estimate_missing()`, `placement_view()`, `describe_adjustment()`, `end_label()` |
 | `ui/controllers/wheel_generation.py` | Generating the wheel being labelled as a registered background job, one at a time, re-running for clicks made meanwhile; announces the first generated wheel and a poor fit once each (D-123) | `refit()` |
 | `ui/controllers/wheel_edits.py` | Changing a placed wheel from the Wheel page in Props: bar count, units, radius (re-fit from its own clicks in the background; the latest edit wins), encoder direction and ratio, bar diameter (`preview_bar_diameter` draws a drag without recording; `edit_bar_diameter` commits, and `SetWheelCommand.merge_with` joins a run of diameter-only steps), removal. Each is one `SetWheelCommand` (D-113, D-128) | `edit_spec()`, `edit_bar_diameter()`, `preview_bar_diameter()`, `edit_binding()`, `remove()`, `spec_from()` |
@@ -639,7 +639,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `engine/proxy.py` | ffmpeg proxy generation (cancelable poll loop) | `ProxyWorker` |
 | `engine/sync_worker.py` | Chunked event extraction and deterministic alignment fit (D-026) | `SyncWorker`, evidence specs |
 | `engine/session_worker.py` | Off-UI-thread session save/load and annotation export (D-046) | `SessionSaveWorker`, `SessionLoadWorker`, `AnnotationExportWorker` |
-| `engine/export.py` | Data slice, video clip, region stats | `export_data_slice_csv()`, `trim_video_clip()`, `compute_region_stats()` |
+| `engine/export.py` | Bounded CSV/Parquet data slices, video clip, region stats; Parquet `gap_after` marks a gap following that sample (D-199) | `export_data_slice_csv()`, `export_data_slice_parquet()`, `trim_video_clip()`, `compute_region_stats()` |
 | `engine/snapshot.py` | Snapshot figure: tiles, negotiated page width, opaque composition (D-101). Layout is planned once and both the capture and the render use that plan | `SnapshotFigure`, `SnapshotTile`, `plan_media_layout()`, `content_width_for()`, `figure_size()`, `render_figure()`, `save_figure()` |
 | `ui/main_window.py`, `ui/menus/` | Widget construction, Qt slot wiring, live action identity, and menu builders; `_inspections` dict. Behaviour lives in `ui/controllers/` (D-066, D-148) | `MainWindow`, `build_menus()` |
 | `ui/controllers/{wheel_state,video_load_state,import_state,session_state}.py` | Typed transient state for wheel gestures, bounded video probes, serial imports, and session metadata. JobManager owns worker lifetimes; these objects hold only queue/capacity state (D-148) | `WheelState`, `VideoLoadState`, `ImportState`, `SessionRuntimeState` |
@@ -708,7 +708,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/diagnostics.py` | Startup probe (hardware-decode support, disk speed) — async daemon thread | `run_startup_diagnostics()`, `probe_hwdec()` |
 | `ui/controllers/drop_controller.py` | Drag/drop intake, drop scan, candidate routing (D-066) | `drop_event()`, `start_drop_scan()`, `route_import_candidate()` |
 | `core/source.py` | Plugin ABCs: `TimeSeriesSource`, `VideoSource`, and `SessionSource` for folder layouts (D-068); all three name themselves via `_Nameable`. `SessionLayout.warnings` carries what a scan could not lay out, so a dropped recording is never silent (D-085). `TimeSeriesSource.pose_roles()` offers direct-import 2D/3D uses (D-132) | `SessionSource`, `SessionLayout` (incl. `warnings`), `SessionItem` (incl. `label`), `display_name()`, `VideoSource.exact_time_mapping()` (D-072) |
-| `ui/controllers/cache_controller.py` | File → Cache: delete this trial's cache or all of it, show the folder; closes and restores a loaded trial around the removal (D-160) | `delete_trial_cache()`, `delete_all_cache()`, `show_cache_folder()` |
+| `ui/controllers/cache_controller.py` | File → Cache: delete this trial's cache, all cache, or trim unused entries to 10 GB / 30 days; deletion closes and restores a loaded trial, while trim protects it without reimporting (D-160, D-199) | `delete_trial_cache()`, `delete_all_cache()`, `trim_cache()`, `show_cache_folder()` |
 | `ui/controllers/session_controller.py` | `.avv` save/load/restore, geometry, autosave, recent files. Also the recovery snapshot's UI side: `note_pending_recovery()` holds what a launch found, `offer_pending_recovery()` posts the opt-in bar, `recover_unsaved_work()` is the File command, `forget_pending_recovery()` drops the held offer beside every `clear_recovery()` (D-133) | `build_session_state()`, `restore_session()`, `start_session_save()` |
 | `ui/controllers/export_controller.py` | Snapshot, data slice, video clip, annotations, region stats | `export_snapshot()`, `start_data_export()`, `start_region_stats()` |
 | `ui/snapshot_capture.py` | UI-thread capture for the snapshot figure (D-101): each camera re-rendered at its decoded resolution and cropped free of letterbox, the 3D pose re-projected, the whole channel stack rather than the scroll viewport | `capture_figure()`, `capture_pane_figure()`, `capture_video_tile()`, `capture_plot_image()`, `plot_aspect()` |
@@ -1435,6 +1435,14 @@ loader and config affect only the invalidation key inside it, not the directory 
 invalidating each other, and each import silently rebuilds what the last one wrote. This is why every
 Open Ephys stream is pointed at its own `continuous/<stream>` directory and `NeoLoader` accepts
 `config["root"]` for what neo should actually open (D-071).
+
+**D-199 update.** The import key also fingerprints an Open Ephys root's `structure.oebin`; the
+source path still names the entry. A warm hit checks expected array sizes and base array headers.
+Directory keys walk nested files, while large files sample first/middle/last content; neither is
+a whole-file cryptographic checksum. The video decoder and loader share one PTS/keyframe index.
+Cache survives a normal close; File → Cache → Trim Cache is the manual 10 GB / 30 day cleanup.
+Export worker references must use `ReaderReference.from_reader` so they retain the active edited
+generation and exact TimeMap, and keep that generation pinned until the worker lets it go.
 
 ### 0g-bis. Two sources from one file need two paths (D-188)
 A source is identified by its path in the sidebar, coverage lanes, `_inspections`, `_recorded_mappings`

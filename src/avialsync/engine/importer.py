@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # derived columns per body part it used to. A sidecar written before this has
 # neither, so it is re-imported rather than served with a shape nothing can
 # interpret (D-140).
-_IMPORT_CACHE_VERSION = 5
+_IMPORT_CACHE_VERSION = 7
 _IMPORT_MANIFEST = "import.json"
 _STAGING_DIR = "_stage"
 
@@ -101,6 +101,7 @@ class ImportWorker(QObject):
             cached = self._cached_result(cache_mgr)
             if cached is not None:
                 cache_dir, channels, bounds, inspection = cached
+                cache_mgr.record_access(self.path)
                 if inspection.channel_units is None:
                     inspection = self._backfill_units(cache_dir, channels, bounds, inspection)
                 self.progress.emit(100)
@@ -249,9 +250,18 @@ class ImportWorker(QObject):
         if callable(prepare_config):
             self.config = prepare_config(self.path, self.config)
         loader_name = f"{self.loader_class.__module__}.{self.loader_class.__qualname__}"
+        cache_config: dict[str, Any] = {"loader": loader_name, "config": self.config}
+        root = self.config.get("root")
+        if root:
+            manifest = Path(root) / "structure.oebin"
+            if manifest.is_file():
+                # Neo opens the recording root even though each stream's cache
+                # identity is its own directory. The root manifest controls
+                # channel layout and timing, so it must invalidate every stream.
+                cache_config["root_manifest"] = CacheManager().generate_key(manifest)
         return CacheManager(
             loader_version=_IMPORT_CACHE_VERSION,
-            cache_config={"loader": loader_name, "config": self.config},
+            cache_config=cache_config,
         )
 
     def _cached_result(
@@ -270,9 +280,45 @@ class ImportWorker(QObject):
             inspection = SourceInspection.from_dict(manifest["inspection"])
         except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
             return None
-        if not channels or bounds[1] < bounds[0]:
+        if (
+            not channels
+            or bounds[1] < bounds[0]
+            or not self._arrays_intact(cache_dir, channels, manifest.get("array_sizes"))
+        ):
             return None
         return cache_dir, channels, bounds, inspection
+
+    @staticmethod
+    def _arrays_intact(cache_dir: Path, channels: list[str], sizes: Any) -> bool:
+        """Reject missing, truncated, or structurally invalid cached arrays."""
+        if not isinstance(sizes, dict) or not sizes:
+            return False
+        try:
+            for name, expected_size in sizes.items():
+                if (
+                    not isinstance(name, str)
+                    or Path(name).name != name
+                    or not name.endswith(".npy")
+                    or not isinstance(expected_size, int)
+                    or (cache_dir / name).stat().st_size != expected_size
+                ):
+                    return False
+            for channel in channels:
+                columns = []
+                for suffix in ("t", "v", "gap"):
+                    name = f"{channel}_{suffix}.npy"
+                    if name not in sizes:
+                        return False
+                    columns.append(np.load(cache_dir / name, mmap_mode="r", allow_pickle=False))
+                if any(column.ndim != 1 for column in columns):
+                    return False
+                if len({len(column) for column in columns}) != 1 or len(columns[0]) == 0:
+                    return False
+                if columns[0].dtype != np.float64 or columns[2].dtype != np.bool_:
+                    return False
+        except (OSError, TypeError, ValueError):
+            return False
+        return True
 
     def _build_bulk_channels(
         self,
@@ -288,7 +334,10 @@ class ImportWorker(QObject):
         staging_dir = temp_dir / _STAGING_DIR
         staging_dir.mkdir(parents=True, exist_ok=True)
         time_stage = ChannelStage(staging_dir, "_shared_t")
-        value_stages = {channel: ChannelStage(staging_dir, channel) for channel in channel_names}
+        value_stages = {
+            channel: ChannelStage(staging_dir, channel, allow_float32=True)
+            for channel in channel_names
+        }
         try:
             for chunk in chunks:
                 if self._cancel_flag:
@@ -445,7 +494,7 @@ class ImportWorker(QObject):
                 if self._cancel_flag:
                     break
                 time_stage = ChannelStage(staging_dir, f"{channel}__t")
-                value_stage = ChannelStage(staging_dir, f"{channel}__v")
+                value_stage = ChannelStage(staging_dir, f"{channel}__v", allow_float32=True)
                 try:
                     for chunk_t, chunk_v in loader.read_chunks(channel):
                         time_stage.append(np.asarray(chunk_t, dtype=np.float64))
@@ -486,5 +535,6 @@ class ImportWorker(QObject):
             "channels": channels,
             "bounds": list(bounds),
             "inspection": inspection.as_dict(),
+            "array_sizes": {item.name: item.stat().st_size for item in temp_dir.glob("*.npy")},
         }
         (temp_dir / _IMPORT_MANIFEST).write_text(json.dumps(payload), encoding="utf-8")

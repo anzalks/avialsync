@@ -531,8 +531,11 @@ shell strings); unicode + spaces on Windows are first-class test cases.
 
 ## 5b. Cache invalidation key (updates D-004)
 
-Key = (path, size, mtime, loader_version, **xxhash of first+last 64 KB**). The content-hash tail
-catches Excel rewrites, cross-drive copies with preserved mtime, and coarse-mtime network shares.
+Key = (path, size, nanosecond mtime, loader_version, configuration, sampled content hash).
+Files include the first, middle and last 64 KB; directory sources include each nested file's
+relative path, size, nanosecond mtime and sampled content. Open Ephys stream entries also include
+the recording root's `structure.oebin` key, since neo opens that root. The sampled content hash
+catches common in-place rewrites with preserved metadata, though it is not a whole-file checksum.
 A stale cache silently showing old data is a trust-destroying bug class — when in doubt, rebuild.
 Multi-part recordings (one logical stream split across N files) are a loader concern: the loader
 presents them as ONE source; the cache key covers all parts.
@@ -542,9 +545,9 @@ presents them as ONE source; the cache key covers all parts.
 Per-source plot rows stop scaling past ~8 channels. Rule: a source row plots up to N overlaid
 channels with a legend; beyond that, channels are organized in a tree panel with
 check-to-show and optional user-defined groups (each group = one row). Overlay vs stacked is a
-per-row toggle. Sub-frame readout convention: readout shows the sample nearest to t_master
-(50 kHz ⇒ ~1,667 samples per video frame; "frame value" is undefined — we always use nearest
-sample to the exact master time, documented in the UI tooltip).
+per-row toggle. Sub-frame readout convention: the readout shows the last sample at or before
+`t_master`, only inside source coverage and outside observed gaps. At 50 kHz there are about
+1,667 samples per 30 fps video frame, so there is no single value belonging to a frame.
 
 ## 6. Packaging & shipping (D-012..D-017)
 

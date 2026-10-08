@@ -181,10 +181,8 @@ class PaintCanvas(MarkerOverlayMixin):
         rounds to the nearest sample, so between two frames it can name the
         coordinate belonging to a frame that is not on screen — harmless while
         the overlay only drew, wrong once a drag has to say which frame it
-        corrected.  ``sample_at`` clamps into range and does not consult the gap
-        mask, so both are checked here: without that, a pose source with a
-        genuinely missing stretch would show its last known coordinate pinned
-        in place rather than nothing, which ``value_at`` never did.
+        corrected. Mapped readers use the shared availability policy for gaps
+        and coverage; legacy readers use the local fallback below.
         """
         try:
             sample = self._sample_readable(reader)
@@ -196,6 +194,9 @@ class PaintCanvas(MarkerOverlayMixin):
 
     def _sample_readable(self, reader: Any) -> tuple[int, float] | None:
         """Read a point after the paint boundary has installed its error guard."""
+        available = getattr(reader, "available_sample_at", None)
+        if available is not None:
+            return cast(tuple[int, float] | None, available(self.t))
         sample_at = getattr(reader, "sample_at", None)
         if sample_at is None:
             value = float(reader.value_at(self.t))
@@ -458,14 +459,10 @@ class PaintCanvas(MarkerOverlayMixin):
     ) -> None:
         points: dict[str, dict[str, float]] = {}
         for reader in self.readers:
-            try:
-                value = reader.value_at(self.t)
-            except (OSError, ValueError) as error:
-                self._reader_unavailable(reader, error)
+            sample = self._sample(reader)
+            if sample is None or not np.isfinite(sample[1]):
                 continue
-            self._reported_reader_errors.discard(id(reader))
-            if np.isnan(value):
-                continue
+            value = sample[1]
             split = split_channel(reader.channel_id)
             if split is not None and split[1] in ("x", "y"):
                 points.setdefault(split[0], {})[split[1]] = value

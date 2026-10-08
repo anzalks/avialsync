@@ -61,6 +61,30 @@ def test_channel_stage_upcasts_to_float64(tmp_path: Path) -> None:
     assert mapped.tolist() == [1.0, 2.0, 3.0]
 
 
+def test_value_stage_compacts_only_when_float32_is_exact(tmp_path: Path) -> None:
+    compact = ChannelStage(tmp_path, "compact", allow_float32=True)
+    compact.append(np.array([0.0, 32767.0, np.nan]))
+    compact_values = compact.materialize(tmp_path / "compact.npy")
+    assert compact_values.dtype == np.float32
+    assert np.isnan(compact_values[-1])
+
+    precise = ChannelStage(tmp_path, "precise", allow_float32=True)
+    expected = np.array([0.0, 1.0 / 3.0])
+    precise.append(expected)
+    precise_values = precise.materialize(tmp_path / "precise.npy")
+    assert precise_values.dtype == np.float64
+    np.testing.assert_array_equal(precise_values, expected)
+
+
+def test_float64_stage_is_finalized_by_rename_without_copy(tmp_path: Path, monkeypatch) -> None:
+    stage = ChannelStage(tmp_path, "time")
+    stage.append(np.arange(100.0))
+    inode = stage.path.stat().st_ino
+    target = tmp_path / "time.npy"
+    stage.materialize(target)
+    assert target.stat().st_ino == inode
+
+
 def test_channel_stage_rejects_append_after_close(tmp_path: Path) -> None:
     stage = ChannelStage(tmp_path, "ch")
     stage.close()

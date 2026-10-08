@@ -60,16 +60,7 @@ logger = logging.getLogger(__name__)
 
 def reader_references(window: MainWindow) -> list[ReaderReference]:
     """Return worker-safe references for the currently visible data channels."""
-    return [
-        ReaderReference(
-            channel.reader.cache_dir,
-            channel.reader.channel_id,
-            channel.reader.time_map.offset,
-            channel.reader.time_map.drift_ms_per_hour,
-            channel.reader.source_id,
-        )
-        for channel in window.plot_pane.channels
-    ]
+    return [ReaderReference.from_reader(channel.reader) for channel in window.plot_pane.channels]
 
 
 # ── A/B region statistics ────────────────────────────────────────────
@@ -364,12 +355,7 @@ def export_stimulus_grid(window: MainWindow) -> None:
     channels = [
         StimulusChannelOption(
             channel.name,
-            ReaderReference(
-                channel.reader.cache_dir,
-                channel.reader.channel_id,
-                channel.reader.time_map.offset,
-                channel.reader.time_map.drift_ms_per_hour,
-            ),
+            ReaderReference.from_reader(channel.reader),
             channel.reader,
         )
         for channel in window.plot_pane.channels

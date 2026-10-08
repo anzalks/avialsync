@@ -1,4 +1,4 @@
-"""File → Cache: delete this trial's cache, delete all of it, or show it (D-160).
+"""File → Cache: delete, trim, or show derived entries (D-160, D-199).
 
 The cache holds only what AvialSync can rebuild from the files beside it, so
 these commands never ask "are you sure": nothing the user made can be lost,
@@ -7,7 +7,7 @@ from under a loaded trial, which is still reading them -- and on Windows cannot
 let go of them while it does.  So a loaded workspace is captured, closed,
 emptied of its cache and then put back exactly as it was: the same sources,
 mappings and markers, re-imported from the original files, and still marked
-unsaved when it was.
+unsaved when it was. Trimming leaves the workspace open and protects its entries.
 """
 
 from __future__ import annotations
@@ -57,6 +57,11 @@ def delete_all_cache(window: MainWindow) -> None:
     _remove(window, None, tr("every recording"))
 
 
+def trim_cache(window: MainWindow) -> None:
+    """Keep recent cached work within a 10 GB, 30 day manual cleanup policy."""
+    _remove(window, None, tr("older unused recordings"), trim=True)
+
+
 def show_cache_folder(window: MainWindow) -> None:
     """Open the cache folder in the platform's file manager."""
     root = cache_root()
@@ -68,20 +73,23 @@ def show_cache_folder(window: MainWindow) -> None:
     QDesktopServices.openUrl(QUrl.fromLocalFile(str(root)))
 
 
-def _remove(window: MainWindow, folders: list[Path] | None, where: str) -> None:
-    """Close what is loaded, remove the entries in a job, then put it back."""
+def _remove(
+    window: MainWindow, folders: list[Path] | None, where: str, *, trim: bool = False
+) -> None:
+    """Run cache cleanup; only explicit deletion closes and restores a trial."""
     from avialsync.engine.cache_worker import CacheRemovalWorker
 
     root = cache_root()
     state: SessionState | None = session_controller.build_session_state(window)
     path = window.session_runtime.path
     was_dirty = window.document.is_dirty
-    if state is not None and loaded_sources(state):
+    protected_sources = loaded_sources(state) if state is not None and trim else []
+    if state is not None and loaded_sources(state) and not trim:
         session_controller.reset_session(window, discard_recovery=False)
     else:
         state = None
     generation = window.session_runtime.generation
-    worker = CacheRemovalWorker(root, folders)
+    worker = CacheRemovalWorker(root, folders, trim=trim, protected_sources=protected_sources)
 
     def on_finished(report: cache_store.RemovalReport) -> None:
         restored = False
@@ -106,7 +114,8 @@ def _remove(window: MainWindow, folders: list[Path] | None, where: str) -> None:
         worker.finished.connect(on_ui_thread(on_finished, window))
         worker.error.connect(on_ui_thread(on_error, window))
 
-    window._run_job(worker, label=tr("Deleting cached imports"), configure=_wire)
+    label = tr("Trimming cached imports") if trim else tr("Deleting cached imports")
+    window._run_job(worker, label=label, configure=_wire)
 
 
 def _report(

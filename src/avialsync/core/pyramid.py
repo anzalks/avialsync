@@ -1,6 +1,8 @@
 """Pyramid module for decimation and plotting."""
 
 import math
+import os
+import struct
 import warnings
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
@@ -181,19 +183,30 @@ def _aggregate_gap_mask(gap_mask: np.ndarray, factor: int) -> np.ndarray:
 
 
 class ChannelStage:
-    """Append-only on-disk staging buffer for one float64 channel.
+    """Append-only, bounded-memory staging buffer for one numeric channel.
 
     An import worker appends bounded parser chunks as they arrive and then
     materialises the result once.  Peak memory stays at one chunk instead of one
     complete channel, which is what makes a 1 GB / 180 M-sample import survive on
-    a 16 GB machine.  Staged bytes are raw little-endian-native ``float64``; the
-    ``.npy`` header is written by :meth:`materialize` once the length is known.
+    a 16 GB machine. A fixed-width ``.npy`` header is reserved before the first sample and its
+    count is finalized in place. Lossless float64 channels are then renamed
+    into the cache without writing every sample a second time.
     """
 
-    def __init__(self, staging_dir: Path, name: str) -> None:
+    def __init__(self, staging_dir: Path, name: str, *, allow_float32: bool = False) -> None:
         self.path = staging_dir / f"{name}.stage"
         self._handle = self.path.open("wb")
+        self._handle.write(self._header(0))
         self._count = 0
+        self._compact = allow_float32
+
+    @staticmethod
+    def _header(count: int) -> bytes:
+        """Write a NumPy v2 header whose length never depends on the count."""
+        body = f"{{'descr': '<f8', 'fortran_order': False, 'shape': ({count:>20d},), }}"
+        padding = (-(12 + len(body) + 1)) % 64
+        payload = (body + " " * padding + "\n").encode("ascii")
+        return b"\x93NUMPY\x02\x00" + struct.pack("<I", len(payload)) + payload
 
     @property
     def count(self) -> int:
@@ -204,7 +217,11 @@ class ChannelStage:
         """Append one bounded chunk of samples."""
         if self._handle.closed:
             raise ValueError("ChannelStage is closed")
-        block = np.ascontiguousarray(values, dtype=np.float64)
+        block = np.ascontiguousarray(values, dtype="<f8")
+        if self._compact and not np.array_equal(
+            block, block.astype(np.float32).astype(np.float64), equal_nan=True
+        ):
+            self._compact = False
         block.tofile(self._handle)
         self._count += int(block.size)
 
@@ -219,45 +236,28 @@ class ChannelStage:
         self.path.unlink(missing_ok=True)
 
     def materialize(self, target: Path, chunk_size: int = RAW_CHUNK_SAMPLES) -> np.ndarray:
-        """Write staged samples to *target* as ``.npy`` and return them.
-
-        A channel longer than *chunk_size* is copied chunkwise through two
-        memory maps and returned as a read-only map of *target*, so this stays
-        bounded for any channel length. A shorter one is returned in memory,
-        which the same bound covers. The staging file is removed on success.
-        """
+        """Finalize the header, then rename or losslessly compact into *target*."""
         self.close()
-        if self._count <= chunk_size:
-            # A channel that fits in one copy chunk is read and written whole: the
-            # bound above is what keeps memory flat, and it holds here too. The
-            # writable map costs ~9 ms to create and flush on macOS against
-            # ~0.3 ms for a plain write, which a 600-ROI NWB matrix paid once
-            # per channel -- 5 of its 13 s import (D-188). Mapping the file
-            # straight back costs as much again while its pages are fresh, so
-            # the array already in memory is what is returned; it holds no map
-            # on the file either, which Windows would treat as a lock.
-            values = np.fromfile(self.path, dtype=np.float64, count=self._count)
-            with target.open("wb") as handle:
-                np.save(handle, values, allow_pickle=False)
+        with self.path.open("r+b") as handle:
+            handle.write(self._header(self._count))
+        if self._compact and self._count:
+            staged = np.load(self.path, mmap_mode="r", allow_pickle=False)
+            mapped = np.lib.format.open_memmap(
+                target, mode="w+", dtype=np.float32, shape=(self._count,)
+            )
+            for start in range(0, self._count, chunk_size):
+                stop = min(start + chunk_size, self._count)
+                mapped[start:stop] = staged[start:stop]
+            mapped.flush()
+            del mapped, staged
             self.path.unlink(missing_ok=True)
-            return values
-        # open_memmap returns a real np.memmap; the annotation keeps .flush() visible.
-        mapped: np.memmap = np.lib.format.open_memmap(
-            target, mode="w+", dtype=np.float64, shape=(self._count,)
-        )
-        if self._count:
-            staged = np.memmap(self.path, dtype=np.float64, mode="r", shape=(self._count,))
-            try:
-                for start in range(0, self._count, chunk_size):
-                    stop = min(start + chunk_size, self._count)
-                    mapped[start:stop] = staged[start:stop]
-            finally:
-                del staged
-        mapped.flush()
-        del mapped
-        self.path.unlink(missing_ok=True)
-        reopened: np.ndarray = np.load(target, mmap_mode="r")
-        return reopened
+        else:
+            os.replace(self.path, target)
+        if self._count <= chunk_size:
+            loaded: np.ndarray = np.load(target, allow_pickle=False)
+            return loaded
+        mapped_result: np.ndarray = np.load(target, mmap_mode="r", allow_pickle=False)
+        return mapped_result
 
 
 def count_nan(values: np.ndarray, chunk_size: int = RAW_CHUNK_SAMPLES) -> int:
@@ -452,6 +452,22 @@ class PyramidReader:
             stop = min(start + chunk_size, last)
             yield t[start:stop], v[start:stop]
 
+    def iter_raw_chunks_with_gaps(
+        self,
+        chunk_size: int = RAW_CHUNK_SAMPLES,
+        t0: float | None = None,
+        t1: float | None = None,
+    ) -> Iterator[tuple[np.ndarray, np.ndarray, np.ndarray]]:
+        """Yield bounded source-time, value, and gap views for export."""
+        if chunk_size <= 0:
+            raise ValueError("chunk_size must be positive")
+        times, values, _, gaps = self._load_level(1)
+        first = 0 if t0 is None else int(np.searchsorted(times, t0, side="left"))
+        last = len(times) if t1 is None else int(np.searchsorted(times, t1, side="right"))
+        for start in range(first, last, chunk_size):
+            stop = min(start + chunk_size, last)
+            yield times[start:stop], values[start:stop], gaps[start:stop]
+
     def mapped_columns(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Return the level-1 ``(t, v, gap)`` mmap views without copying.
 
@@ -497,13 +513,38 @@ class PyramidReader:
             chosen_level = level
 
         t, vmin, vmax, gap = self._load_level(chosen_level)
-
-        lvl_i0 = int(np.searchsorted(t, t0))
-        lvl_i1 = int(np.searchsorted(t, t1, side="right"))
-        t = t[lvl_i0:lvl_i1]
-        vmin = vmin[lvl_i0:lvl_i1]
-        vmax = vmax[lvl_i0:lvl_i1]
-        gap = gap[lvl_i0:lvl_i1]
+        if chosen_level == 1:
+            t, vmin, vmax, gap = (column[int(i0) : int(i1)] for column in (t, vmin, vmax, gap))
+        else:
+            # Stored buckets are aligned by sample index. Selecting by their
+            # first timestamp misses a bucket overlapping the left edge and
+            # includes out-of-window values at the right edge. Reduce only the
+            # two partial buckets from raw samples; the interior stays mmapped.
+            raw_t, raw_v, _, raw_gap = self._load_level(1)
+            first = int(i0)
+            last = int(i1)
+            left_stop = min(last, -(-first // chosen_level) * chosen_level)
+            full_stop = (last // chosen_level) * chosen_level
+            right_start = max(left_stop, full_stop)
+            parts: list[tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = []
+            if first < left_stop:
+                parts.append(self._edge_envelope(raw_t, raw_v, raw_gap, first, left_stop))
+            if left_stop < full_stop:
+                start_bucket = left_stop // chosen_level
+                stop_bucket = full_stop // chosen_level
+                parts.append(
+                    (
+                        t[start_bucket:stop_bucket],
+                        vmin[start_bucket:stop_bucket],
+                        vmax[start_bucket:stop_bucket],
+                        gap[start_bucket:stop_bucket],
+                    )
+                )
+            if right_start < last:
+                parts.append(self._edge_envelope(raw_t, raw_v, raw_gap, right_start, last))
+            if not parts:
+                return np.array([]), np.array([]), np.array([]), np.array([], dtype=bool)
+            t, vmin, vmax, gap = (np.concatenate(columns) for columns in zip(*parts, strict=True))
 
         if len(t) <= budget:
             return t, vmin, vmax, gap
@@ -512,6 +553,19 @@ class PyramidReader:
         factor = int(-(-len(t) // budget))
         t_dec, min_dec, max_dec = _aggregate_pyramid_level(t, vmin, vmax, factor)
         return t_dec, min_dec, max_dec, _aggregate_gap_mask(gap, factor)
+
+    @staticmethod
+    def _edge_envelope(
+        times: np.ndarray, values: np.ndarray, gaps: np.ndarray, start: int, stop: int
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Reduce one partial stored bucket using only visible raw samples."""
+        minimum, maximum = _nan_envelope(values[start:stop], values[start:stop])
+        return (
+            times[start : start + 1],
+            np.array([minimum]),
+            np.array([maximum]),
+            np.array([bool(np.any(gaps[start:stop]))]),
+        )
 
     def value_at(self, t_target: float) -> float:
         """

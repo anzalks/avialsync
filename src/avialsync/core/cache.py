@@ -142,11 +142,35 @@ class CacheManager:
         self._root = root
 
     def _hash_file_edges(self, path: Path) -> str:
-        """Hash the first and last 64KB of the file."""
+        """Fingerprint a file's sampled contents or a directory's full tree."""
         if path.is_dir():
-            # For directories, edge hashing is not applicable. The cache key
-            # will rely on the directory's mtime and size in generate_key.
-            return xxhash.xxh64(str(path.absolute()).encode("utf-8")).hexdigest()
+            digest = xxhash.xxh64()
+            for parent, folders, files in os.walk(path):
+                folders.sort()
+                for name in folders:
+                    child = Path(parent) / name
+                    digest.update(os.fsencode(child.relative_to(path)))
+                    if child.is_symlink():
+                        digest.update(os.fsencode(os.readlink(child)))
+                        try:
+                            digest.update(str(child.stat().st_mtime_ns).encode("ascii"))
+                        except OSError:
+                            digest.update(b"broken-link")
+                for name in sorted(files):
+                    child = Path(parent) / name
+                    relative = child.relative_to(path)
+                    digest.update(os.fsencode(relative))
+                    if child.is_symlink():
+                        digest.update(os.fsencode(os.readlink(child)))
+                    try:
+                        stat = child.stat()
+                    except OSError:
+                        digest.update(b"broken-link")
+                        continue
+                    digest.update(str((stat.st_size, stat.st_mtime_ns)).encode("ascii"))
+                    if child.is_file():
+                        digest.update(self._hash_file_edges(child).encode("ascii"))
+            return digest.hexdigest()
 
         size = path.stat().st_size
         chunk_size = 64 * 1024
@@ -157,7 +181,11 @@ class CacheManager:
             chunk = f.read(chunk_size)
             h.update(chunk)
 
-            # Last 64KB
+            # Middle and last 64KB. The middle sample catches in-place edits
+            # which leave both edges, size, and mtime unchanged.
+            if size > chunk_size * 2:
+                f.seek(max(chunk_size, size // 2 - chunk_size // 2))
+                h.update(f.read(chunk_size))
             if size > chunk_size:
                 seek_pos = max(chunk_size, size - chunk_size)
                 f.seek(seek_pos)
@@ -177,7 +205,7 @@ class CacheManager:
         key_data = {
             "path": str(path.absolute()),
             "size": stat.st_size,
-            "mtime": stat.st_mtime,
+            "mtime": stat.st_mtime_ns,
             "loader_version": self.loader_version,
             "cache_config": self._cache_config,
             "hash": edge_hash,
@@ -188,6 +216,13 @@ class CacheManager:
     def get_cache_dir(self, source_path: Path) -> Path:
         """Return the cache entry directory for *source_path*."""
         return cache_dir_for(source_path, self._root)
+
+    def record_access(self, source_path: Path) -> None:
+        """Mark a reused entry as recently used for optional cache trimming."""
+        try:
+            os.utime(self.get_cache_dir(source_path), None)
+        except OSError:
+            pass  # A read-only cache must not prevent opening the recording.
 
     def is_cache_valid(self, source_path: Path) -> bool:
         """Check if the cache directory exists and the key matches."""

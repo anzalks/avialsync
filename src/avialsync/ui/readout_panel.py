@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QFontDatabase, QPalette
@@ -21,6 +23,14 @@ from avialsync.ui.design_tokens import spacing
 from avialsync.ui.empty_note import EmptyNote
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import set_bold, set_font_family
+
+
+def _display_sample(reader: MappedChannelReader, time: float) -> tuple[int, float] | None:
+    """Use availability-aware sampling, retaining legacy reader adapters."""
+    available = getattr(reader, "available_sample_at", None)
+    if callable(available):
+        return cast(tuple[int, float] | None, available(time))
+    return reader.sample_at(time)
 
 
 def _set_monospace(widget: QWidget) -> None:
@@ -275,11 +285,11 @@ class ReadoutPanel(QGroupBox):
         self._refresh_empty()
 
     def set_cursor(self, t: float) -> None:
-        """Interpolate and display each channel's value at time *t*."""
+        """Display the last available sample at or before *t*."""
         self._cursor_time = float(t)
         for _name, (reader, row) in self._rows.items():
             try:
-                sample = reader.sample_at(t)
+                sample = _display_sample(reader, t)
                 if sample is None:
                     row.set_value(None)
                     continue
@@ -402,8 +412,8 @@ class ReadoutPanel(QGroupBox):
         for key, (reader, _) in self._rows.items():
             unit = self._units.get(key, "")
             try:
-                sample_a = reader.sample_at(t_a)
-                sample_b = reader.sample_at(t_b)
+                sample_a = _display_sample(reader, t_a)
+                sample_b = _display_sample(reader, t_b)
                 if sample_a is None or sample_b is None:
                     dv = None
                 else:

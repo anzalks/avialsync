@@ -98,6 +98,42 @@ def test_import_worker_uses_one_bulk_parse_then_reuses_valid_cache(tmp_path: Pat
     assert completed[-1][3] == (0.0, 2.0)
 
 
+def test_import_rebuilds_when_cached_array_is_truncated(tmp_path: Path) -> None:
+    source = tmp_path / "signal.csv"
+    source.write_text("source bytes", encoding="utf-8")
+    _BulkLoader.open_calls = 0
+    _BulkLoader.bulk_calls = 0
+    first = ImportWorker(source, {}, _BulkLoader)
+    first.run()
+    cached_value = cache_dir_for(source) / "left_v.npy"
+    with cached_value.open("r+b") as handle:
+        handle.truncate(cached_value.stat().st_size - 8)
+
+    second = ImportWorker(source, {}, _BulkLoader)
+    second.run()
+
+    assert _BulkLoader.open_calls == 2
+    assert _BulkLoader.bulk_calls == 2
+
+
+def test_root_manifest_change_invalidates_stream_cache(tmp_path: Path) -> None:
+    root = tmp_path / "recording"
+    stream = root / "continuous" / "stream1"
+    stream.mkdir(parents=True)
+    (stream / "continuous.dat").write_bytes(b"samples")
+    manifest = root / "structure.oebin"
+    manifest.write_text("before", encoding="utf-8")
+    _BulkLoader.open_calls = 0
+    config = {"root": str(root), "stream_id": "stream1"}
+    ImportWorker(stream, config, _BulkLoader).run()
+    ImportWorker(stream, config, _BulkLoader).run()
+    assert _BulkLoader.open_calls == 1
+
+    manifest.write_text("after", encoding="utf-8")
+    ImportWorker(stream, config, _BulkLoader).run()
+    assert _BulkLoader.open_calls == 2
+
+
 def test_import_cache_key_includes_accepted_loader_configuration(tmp_path: Path) -> None:
     source = tmp_path / "signal.csv"
     source.write_text("source bytes", encoding="utf-8")

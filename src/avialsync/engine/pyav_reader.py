@@ -12,14 +12,20 @@ several readers genuinely decode in parallel (AGENTS.md rule 3).  One reader is
 
 from __future__ import annotations
 
+import json
+import logging
+import shutil
 from collections import OrderedDict
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Protocol
 
 import av
 import numpy as np
+import xxhash
 
-from avialsync.core.errors import SourceOpenError
+from avialsync.core.cache import CacheManager
+from avialsync.core.errors import CacheError, SourceOpenError
 from avialsync.core.video_timing import frame_index_at
 
 # Imported at module scope deliberately. The rule forbidding a top-level decoder
@@ -37,6 +43,26 @@ from avialsync.core.video_timing import frame_index_at
 #: covers a slider drag's worth of back-and-forth on three cameras for ~166 MB,
 #: inside the 2.5 GB idle budget.
 DEFAULT_CACHE_FRAMES = 24
+VIDEO_INDEX_CACHE_VERSION = 3
+_PTS_NAME = "video_pts_ticks.npy"
+_KEYFRAMES_NAME = "video_keyframe_indices.npy"
+_INDEX_META_NAME = "video_index.json"
+logger = logging.getLogger(__name__)
+
+
+def _array_digest(values: np.ndarray) -> str:
+    """Detect a changed but still ordered cached timestamp or keyframe table."""
+    return xxhash.xxh64(memoryview(values).cast("B")).hexdigest()
+
+
+class _TimeBase(Protocol):
+    @property
+    def numerator(self) -> int: ...
+
+    @property
+    def denominator(self) -> int: ...
+
+    def __float__(self) -> float: ...
 
 
 class PyAVReader:
@@ -91,11 +117,78 @@ class PyAVReader:
                 f"Video stream declares no time base, so its timestamps cannot be read: {self.path}"
             )
 
-        self._pts_ticks, self._keyframe_indices = self._build_pts_table()
+        cached = self._load_cached_index(time_base)
+        if cached is None:
+            self._pts_ticks, self._keyframe_indices = self._build_pts_table()
+            if len(self._pts_ticks):
+                self._save_cached_index(time_base)
+        else:
+            self._pts_ticks, self._keyframe_indices = cached
+            self._cache_manager().record_access(self.path)
         if not len(self._pts_ticks):
             self._container.close()
             raise SourceOpenError(f"Video stream carries no timestamps: {self.path}")
         self._frame_times: np.ndarray = self._pts_ticks * float(time_base)
+
+    def _cache_manager(self) -> CacheManager:
+        """Use the loader's source entry for this decoder's index."""
+        return CacheManager(loader_version=VIDEO_INDEX_CACHE_VERSION)
+
+    def _load_cached_index(self, time_base: _TimeBase) -> tuple[np.ndarray, np.ndarray] | None:
+        """Reuse only a complete, ordered index for this file and stream time base."""
+        manager = self._cache_manager()
+        if not manager.is_cache_valid(self.path):
+            return None
+        directory = manager.get_cache_dir(self.path)
+        try:
+            metadata = json.loads((directory / _INDEX_META_NAME).read_text(encoding="utf-8"))
+            if metadata["time_base"] != [time_base.numerator, time_base.denominator]:
+                return None
+            pts = np.load(directory / _PTS_NAME, mmap_mode="r", allow_pickle=False)
+            keyframes = np.load(directory / _KEYFRAMES_NAME, mmap_mode="r", allow_pickle=False)
+            if (
+                pts.ndim != 1
+                or keyframes.ndim != 1
+                or pts.dtype != np.int64
+                or keyframes.dtype != np.int64
+                or len(pts) == 0
+                or len(keyframes) == 0
+                or keyframes[0] != 0
+                or keyframes[-1] >= len(pts)
+                or np.any(np.diff(pts) <= 0)
+                or np.any(np.diff(keyframes) <= 0)
+                or _array_digest(pts) != metadata["pts_hash"]
+                or _array_digest(keyframes) != metadata["keyframes_hash"]
+            ):
+                return None
+            return pts, keyframes
+        except (OSError, TypeError, ValueError, AttributeError, KeyError):
+            logger.warning("Ignoring invalid video index for %s", self.path, exc_info=True)
+            return None
+
+    def _save_cached_index(self, time_base: _TimeBase) -> None:
+        """Atomically persist the one table used for playback and loader timing."""
+        manager = self._cache_manager()
+        staging: Path | None = None
+        try:
+            staging = manager.get_temp_cache_dir(self.path)
+            np.save(staging / _PTS_NAME, self._pts_ticks, allow_pickle=False)
+            np.save(staging / _KEYFRAMES_NAME, self._keyframe_indices, allow_pickle=False)
+            (staging / _INDEX_META_NAME).write_text(
+                json.dumps(
+                    {
+                        "time_base": [time_base.numerator, time_base.denominator],
+                        "pts_hash": _array_digest(self._pts_ticks),
+                        "keyframes_hash": _array_digest(self._keyframe_indices),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            manager.commit_cache(self.path, staging)
+        except (CacheError, OSError):
+            logger.warning("Could not cache video index for %s", self.path, exc_info=True)
+            if staging is not None:
+                shutil.rmtree(staging, ignore_errors=True)
 
     # -- table -----------------------------------------------------------
 

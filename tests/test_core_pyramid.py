@@ -77,6 +77,23 @@ def test_pyramid_gap_mask():
     assert not mask[4]
 
 
+def test_coarse_query_uses_only_samples_inside_window_at_bucket_edges(tmp_path: Path) -> None:
+    times = np.arange(128, dtype=np.float64)
+    values = np.zeros(128, dtype=np.float64)
+    values[17] = 500.0  # outside the left edge, in the same stored bucket
+    values[19] = 99.0  # inside the left partial bucket
+    values[86] = 600.0  # outside the right edge, in the same stored bucket
+    PyramidBuilder(tmp_path, "signal").build_and_save(times, values)
+
+    result_times, minimum, maximum, _ = PyramidReader(tmp_path, "signal").query(18, 85, 3)
+
+    assert len(result_times) <= 3
+    assert result_times[0] >= 18
+    assert result_times[-1] <= 85
+    assert float(np.max(maximum)) == 99.0
+    assert float(np.min(minimum)) == 0.0
+
+
 def test_build_gap_mask():
     t = np.array([0.0, 1.0, 2.0, 3.0, 15.0, 16.0])
     mask = build_gap_mask(t)

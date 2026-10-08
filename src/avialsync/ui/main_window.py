@@ -3578,7 +3578,7 @@ class MainWindow(QMainWindow):
             # Pre-import removal: fall back to the manager's derived location.
             from avialsync.core.cache import CacheManager
 
-            cache_dir = CacheManager(loader_version=5).get_cache_dir(Path(path))
+            cache_dir = CacheManager().get_cache_dir(Path(path))
         self.plot_pane.remove_channels(cache_dir)
         self.sidebar.remove_sensor(path)
         self.message_store.remove_source(path)

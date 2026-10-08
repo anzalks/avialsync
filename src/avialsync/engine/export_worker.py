@@ -8,6 +8,7 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Signal, Slot
 
 from avialsync.core.channel_reader import MappedChannelReader
+from avialsync.core.edit_cache import GenerationPin, pin_reader_directory
 from avialsync.core.errors import AvialSyncError
 from avialsync.core.pyramid import PyramidReader
 from avialsync.core.timeline import TimeMap
@@ -34,12 +35,33 @@ class ReaderReference:
     offset: float = 0.0
     drift_ms_per_hour: float = 0.0
     source_id: str = ""
+    time_map: TimeMap | None = None
+    _pin: GenerationPin | None = None
+
+    @classmethod
+    def from_reader(cls, reader: MappedChannelReader) -> ReaderReference:
+        """Snapshot the displayed generation and its complete accepted clock."""
+        directory = reader.source_reader.cache_dir
+        return cls(
+            directory,
+            reader.channel_id,
+            reader.time_map.offset,
+            reader.time_map.drift_ms_per_hour,
+            reader.source_id,
+            reader.time_map.copy(),
+            pin_reader_directory(directory),
+        )
 
     def open(self) -> MappedChannelReader:
         """Open a fresh mmap reader owned by the calling thread."""
+        mapping = (
+            self.time_map.copy()
+            if self.time_map is not None
+            else TimeMap(self.offset, self.drift_ms_per_hour)
+        )
         return MappedChannelReader(
             PyramidReader(self.cache_dir, self.channel_id),
-            TimeMap(self.offset, self.drift_ms_per_hour),
+            mapping,
             self.source_id,
         )
 
@@ -71,14 +93,15 @@ class DataExportWorker(QObject):
         try:
             readers = [reference.open() for reference in self._readers]
             if self._path.suffix.lower() == ".parquet":
-                export_data_slice_parquet(
+                output = export_data_slice_parquet(
                     readers, self._t0, self._t1, self._path, session=self._session
                 )
             else:
                 export_data_slice_csv(
                     readers, self._t0, self._t1, self._path, session=self._session
                 )
-            self.finished.emit(str(self._path))
+                output = self._path
+            self.finished.emit(str(output))
         except (AvialSyncError, OSError, RuntimeError, ValueError) as error:
             self.error.emit(str(error))
 

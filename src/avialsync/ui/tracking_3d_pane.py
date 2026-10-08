@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -67,6 +68,8 @@ PropSceneSource = Callable[[float], list[tuple[str, tuple[np.ndarray | None, ...
 #: A wheel is structure, not a tracked point: achromatic, and behind the pose.
 _WHEEL_WEIGHT = 0.40
 _SAMPLE_TOLERANCE_S = 0.1
+_GRID_COMPARE_LIMIT = 100_000
+logger = logging.getLogger(__name__)
 
 # ── Achromatic structure, stated as distance from the canvas ─────────────
 #
@@ -162,7 +165,39 @@ def _nearest_index(times: np.ndarray, target: float) -> int | None:
     return index
 
 
-def _build_sources(readers: Iterable[MappedChannelReader]) -> tuple[_SourceSamples, ...]:
+def _same_time_axis(
+    reference: MappedChannelReader,
+    candidate: MappedChannelReader,
+    reference_times: np.ndarray,
+    candidate_times: np.ndarray,
+) -> bool:
+    """Accept only identical sample grids without scanning a long mmap on the UI thread."""
+    if len(reference_times) != len(candidate_times):
+        return False
+    left_reader = getattr(reference, "source_reader", reference)
+    right_reader = getattr(candidate, "source_reader", candidate)
+    left = left_reader.cache_dir / f"{reference.channel_id}_t.npy"
+    right = right_reader.cache_dir / f"{candidate.channel_id}_t.npy"
+    try:
+        if left.samefile(right):
+            return True
+    except OSError:
+        return False
+    return len(reference_times) <= _GRID_COMPARE_LIMIT and bool(
+        np.array_equal(reference_times, candidate_times)
+    )
+
+
+def _crosses_gap(times: np.ndarray, gaps: np.ndarray, index: int, target: float) -> bool:
+    """Whether the nearest sample would reach across a known missing interval."""
+    if target > float(times[index]):
+        return bool(gaps[index])
+    return index > 0 and target < float(times[index]) and bool(gaps[index - 1])
+
+
+def _build_sources(
+    readers: Iterable[MappedChannelReader],
+) -> tuple[tuple[_SourceSamples, ...], int]:
     """Group complete XYZ triplets by source cache and pre-warm their mmap arrays."""
     by_source: dict[Path, dict[str, dict[str, MappedChannelReader]]] = {}
     for reader in readers:
@@ -174,25 +209,27 @@ def _build_sources(readers: Iterable[MappedChannelReader]) -> tuple[_SourceSampl
         source_points.setdefault(point_name, {})[axis] = reader
 
     sources: list[_SourceSamples] = []
+    mismatched = 0
     for source_points in by_source.values():
         points: list[_PointChannels] = []
         reference_times: np.ndarray | None = None
-        reference_length = -1
+        reference_reader: MappedChannelReader | None = None
         source_time_map = TimeMap()
         for point_name, axes in source_points.items():
             if set(axes) != {"x", "y", "z"}:
                 continue
             arrays = [axes[axis].mapped_columns() for axis in ("x", "y", "z")]
-            # All rows of one source share a TimeMap, so any axis reports it.
-            source_time_map = getattr(axes["x"], "time_map", source_time_map)
-            lengths = {len(item[0]) for item in arrays}
-            if len(lengths) != 1:
-                continue
-            sample_count = lengths.pop()
+            x_reader = axes["x"]
             if reference_times is None:
                 reference_times = arrays[0][0]
-                reference_length = sample_count
-            if sample_count != reference_length:
+                reference_reader = x_reader
+                source_time_map = getattr(x_reader, "time_map", source_time_map)
+            if reference_reader is None or any(
+                not _same_time_axis(reference_reader, axes[axis], reference_times, arrays[index][0])
+                for index, axis in enumerate(("x", "y", "z"))
+            ):
+                logger.warning("Skipping 3D point %s with mismatched axis timestamps", point_name)
+                mismatched += 1
                 continue
             points.append(
                 _PointChannels(
@@ -209,7 +246,7 @@ def _build_sources(readers: Iterable[MappedChannelReader]) -> tuple[_SourceSampl
                     time_map=source_time_map,
                 )
             )
-    return tuple(sources)
+    return tuple(sources), mismatched
 
 
 def _mean_axis_position(
@@ -289,6 +326,7 @@ class Tracking3DCanvas(QWidget):
         self.setMouseTracking(True)
 
         self._sources: tuple[_SourceSamples, ...] = ()
+        self._clock_mismatch_count = 0
         self._names: tuple[str, ...] = ()
         self._positions = np.empty((0, 3), dtype=np.float64)
         self._valid = np.empty(0, dtype=bool)
@@ -460,7 +498,7 @@ class Tracking3DCanvas(QWidget):
 
     def set_readers(self, readers: Iterable[MappedChannelReader]) -> None:
         """Select complete XYZ triplets and retain only their mmap-backed arrays."""
-        self._sources = _build_sources(readers)
+        self._sources, self._clock_mismatch_count = _build_sources(readers)
         self._names = tuple(point.name for source in self._sources for point in source.points)
         self._inference_samples = tuple(
             sample_trajectories(source.points, frame_budget(len(source.points)))
@@ -577,12 +615,15 @@ class Tracking3DCanvas(QWidget):
         self._time = t_master
         position_index = 0
         for source in self._sources:
-            sample_index = _nearest_index(source.times, source.time_map.to_source(t_master))
+            source_time = source.time_map.to_source(t_master)
+            sample_index = _nearest_index(source.times, source_time)
             for point in source.points:
                 values = np.full(3, np.nan, dtype=np.float64)
                 if sample_index is not None:
                     for axis in range(3):
-                        if not point.gaps[axis][sample_index]:
+                        if not _crosses_gap(
+                            source.times, point.gaps[axis], sample_index, source_time
+                        ):
                             values[axis] = point.values[axis][sample_index]
                 self._positions[position_index] = values
                 position_index += 1
@@ -1254,8 +1295,13 @@ class Tracking3DPane(QWidget):
         a declared one has been handed a conclusion the recording never made.
         """
         count = self.canvas.point_count
+        missing = self.canvas._clock_mismatch_count
         if not count:
-            self.status_label.setText(tr("No XYZ tracking channels"))
+            self.status_label.setText(
+                tr("XYZ points hidden: their timestamps differ")
+                if missing
+                else tr("No XYZ tracking channels")
+            )
             return
         suffix = "" if count == 1 else "s"
         text = f"{count} tracked point{suffix}"
@@ -1263,6 +1309,8 @@ class Tracking3DPane(QWidget):
         if bones:
             origin = "detected" if self.canvas.skeleton_is_derived else "from session"
             text += f" · {bones} bone{'' if bones == 1 else 's'} ({origin})"
+        if missing:
+            text += " · " + tr("{count} point(s) hidden: timestamps differ").format(count=missing)
         self.status_label.setText(text)
 
     def _sync_up_axis_combo(self) -> None:

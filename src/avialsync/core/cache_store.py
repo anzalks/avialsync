@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from avialsync.core.cache import SOURCES_DIR, cache_root, read_entry_record
+from avialsync.core.edit_cache import pinned_cache_entries
 
 __all__ = [
     "CacheEntry",
@@ -41,6 +42,7 @@ __all__ = [
     "list_entries",
     "remove_all",
     "remove_entries",
+    "trim_cache",
     "working_folders",
 ]
 
@@ -170,6 +172,43 @@ def remove_entries(entries: Iterable[CacheEntry], root: Path | None = None) -> R
 def remove_all(root: Path | None = None) -> RemovalReport:
     """Delete every entry in the cache."""
     return remove_entries(list_entries(root), root)
+
+
+def trim_cache(
+    root: Path | None = None,
+    *,
+    max_bytes: int = 10_000_000_000,
+    max_age_days: int = 30,
+    protected_sources: Iterable[Path | str] = (),
+) -> RemovalReport:
+    """Evict old, unused derived entries until the optional disk budget fits.
+
+    Entries held by a worker snapshot or named as loaded sources are never
+    candidates. Their size still counts toward the budget, so a single large
+    active trial can exceed it without losing its arrays mid-read.
+    """
+    if max_bytes < 0 or max_age_days < 0:
+        raise ValueError("Cache limits must be non-negative")
+    protected = {_normalised(source) for source in protected_sources}
+    pinned = pinned_cache_entries()
+    cutoff = time.time() - max_age_days * 86_400
+    measured: list[tuple[CacheEntry, int, float]] = []
+    for entry in list_entries(root):
+        try:
+            age = entry.directory.stat().st_mtime
+            size = _tree_size(entry.directory)
+        except OSError:
+            continue
+        measured.append((entry, size, age))
+    total = sum(size for _, size, _ in measured)
+    selected: list[CacheEntry] = []
+    for entry, size, age in sorted(measured, key=lambda row: row[2]):
+        if _normalised(entry.source) in protected or entry.directory.absolute() in pinned:
+            continue
+        if age < cutoff or total > max_bytes:
+            selected.append(entry)
+            total -= size
+    return remove_entries(selected, root)
 
 
 def _rename_aside(directory: Path, trash: Path) -> OSError | None:

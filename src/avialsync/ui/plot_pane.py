@@ -6,6 +6,7 @@ import time
 from collections.abc import Mapping
 from pathlib import Path
 
+import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, Qt, QTimer, Signal
 from PySide6.QtGui import QAccessible, QAction, QResizeEvent
@@ -279,8 +280,9 @@ class PlotPane(QWidget):
             return
 
         time_map = self._source_time_maps.setdefault(cache_dir, TimeMap())
-        time_map.offset = float(offset)
-        time_map.drift_ms_per_hour = float(drift_ms_per_hour)
+        if not time_map.has_exact_mapping:
+            time_map.offset = float(offset)
+            time_map.drift_ms_per_hour = float(drift_ms_per_hour)
 
         self._pending_rows.extend((cache_dir, name, time_map, source_id) for name in channel_names)
         # Each slice yields to the event loop, and every yield used to repaint
@@ -458,6 +460,18 @@ class PlotPane(QWidget):
                 channel.coverage_bounds = channel.reader.coverage()
         self.update_plots()
         self._interactions.redraw_annotations()
+
+    def set_source_exact_mapping(
+        self, cache_dir: Path, master_times: np.ndarray, source_times: np.ndarray
+    ) -> None:
+        """Apply measured frame timing to existing and future rows of a source."""
+        time_map = self._source_time_maps.setdefault(cache_dir, TimeMap())
+        time_map.set_exact_mapping(master_times, source_times)
+        for channel in self.channels:
+            if channel.reader.cache_dir == cache_dir:
+                channel.coverage_bounds = channel.reader.coverage()
+        if self.channels:
+            self.update_plots()
 
     def source_mapping(self, cache_dir: Path) -> tuple[float, float]:
         """Return the ``(offset, drift_ms_per_hour)`` currently applied to a source."""

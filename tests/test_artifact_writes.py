@@ -14,6 +14,7 @@ _CACHE_MODULES = {
     "core/edit_cache.py",
     "core/pyramid.py",
     "engine/importer.py",
+    "engine/pyav_reader.py",  # disposable PTS/keyframe index through CacheManager.commit_cache
     "engine/imaging_proxy.py",
     "engine/nwb_cache.py",
     "loaders/video_standard.py",

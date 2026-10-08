@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import csv
 import json
+from itertools import chain
 from pathlib import Path
 from typing import Any
 
@@ -15,13 +16,8 @@ import numpy as np
 
 from avialsync.core.artifact_io import publish
 from avialsync.core.artifact_provenance import record
+from avialsync.core.errors import ExportError
 from avialsync.engine.transcode import remux_clip
-
-
-def _raw_slice(reader: Any, t0: float, t1: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return exact cached values in a time range without a recording-sized mask."""
-    sliced: tuple[np.ndarray, np.ndarray, np.ndarray] = reader.raw_slice(t0, t1)
-    return sliced
 
 
 def _source_label(reader: Any) -> str:
@@ -50,16 +46,17 @@ def export_data_slice_csv(
             writer = csv.writer(f)
 
             for reader in readers:
-                t_slice, v_slice, _ = _raw_slice(reader, t0, t1)
-                if len(t_slice) == 0:
-                    continue
-
-                writer.writerow([f"# Source: {_source_label(reader)}"])
-                writer.writerow([f"# Channel: {reader.channel_id}"])
-                writer.writerow(["time", reader.channel_id])
-                for t_val, v_val in zip(t_slice, v_slice, strict=False):
-                    writer.writerow([f"{t_val:.9g}", f"{v_val:.9g}"])
-                writer.writerow([])
+                wrote_header = False
+                for times, values, _ in reader.iter_raw_chunks_with_gaps(t0=t0, t1=t1):
+                    if not wrote_header:
+                        writer.writerow([f"# Source: {_source_label(reader)}"])
+                        writer.writerow([f"# Channel: {reader.channel_id}"])
+                        writer.writerow(["time", reader.channel_id])
+                        wrote_header = True
+                    for t_val, v_val in zip(times, values, strict=True):
+                        writer.writerow([repr(float(t_val)), repr(float(v_val))])
+                if wrote_header:
+                    writer.writerow([])
             provenance = record(
                 "data-slice-csv",
                 _source_paths(readers),
@@ -78,7 +75,7 @@ def export_data_slice_parquet(
     path: Path,
     *,
     session: Path | None = None,
-) -> None:
+) -> Path:
     """Export the raw data for all channels in [t0, t1] to Parquet.
 
     Falls back to CSV if pyarrow is not installed.
@@ -89,38 +86,27 @@ def export_data_slice_parquet(
     except ImportError:
         csv_path = path.with_suffix(".csv")
         export_data_slice_csv(readers, t0, t1, csv_path, session=session)
-        return
+        return csv_path
 
-    source_columns: list[np.ndarray] = []
-    channel_columns: list[np.ndarray] = []
-    time_columns: list[np.ndarray] = []
-    value_columns: list[np.ndarray] = []
-    gap_columns: list[np.ndarray] = []
-
-    for reader in readers:
-        t_slice, v_slice, gap_slice = _raw_slice(reader, t0, t1)
-        if len(t_slice) == 0:
-            continue
-
-        source_columns.append(np.full(len(t_slice), _source_label(reader), dtype=str))
-        channel_columns.append(np.full(len(t_slice), reader.channel_id, dtype=str))
-        time_columns.append(t_slice)
-        value_columns.append(v_slice)
-        gap_columns.append(gap_slice)
-
-    if not time_columns:
-        return
-
-    table = pa.table(
-        {
-            "source": np.concatenate(source_columns),
-            "channel": np.concatenate(channel_columns),
-            "time": np.concatenate(time_columns),
-            "value": np.concatenate(value_columns),
-            "gap_before": np.concatenate(gap_columns),
-        }
+    chunks = (
+        (reader, times, values, gaps)
+        for reader in readers
+        for times, values, gaps in reader.iter_raw_chunks_with_gaps(t0=t0, t1=t1)
     )
-    metadata = dict(table.schema.metadata or {})
+    first = next(chunks, None)
+    if first is None:
+        raise ExportError("The selected time range contains no samples to export.")
+
+    schema = pa.schema(
+        [
+            ("source", pa.string()),
+            ("channel", pa.string()),
+            ("time", pa.float64()),
+            ("value", pa.float64()),
+            ("gap_after", pa.bool_()),
+        ]
+    )
+    metadata = dict(schema.metadata or {})
     metadata[b"avialsync"] = json.dumps(
         record(
             "data-slice-parquet",
@@ -129,13 +115,30 @@ def export_data_slice_parquet(
             time_maps=_time_maps(readers),
         )
     ).encode("utf-8")
-    table = table.replace_schema_metadata(metadata)
+    schema = schema.with_metadata(metadata)
+
+    def write(temporary: Path) -> None:
+        with pq.ParquetWriter(str(temporary), schema) as writer:
+            for reader, times, values, gaps in chain((first,), chunks):
+                table = pa.table(
+                    {
+                        "source": pa.array([_source_label(reader)] * len(times), type=pa.string()),
+                        "channel": pa.array([reader.channel_id] * len(times), type=pa.string()),
+                        "time": times,
+                        "value": values,
+                        "gap_after": gaps,
+                    },
+                    schema=schema,
+                )
+                writer.write_table(table)
+
     publish(
         path,
-        lambda temporary: pq.write_table(table, str(temporary)),
+        write,
         kind="data-slice-parquet",
         sources=_source_paths(readers),
     )
+    return path
 
 
 def _source_paths(readers: list) -> tuple[Path, ...]:
@@ -168,24 +171,31 @@ def compute_region_stats(
     results = []
     for reader in readers:
         identity = {"channel": reader.channel_id, "source": _source_label(reader)}
-        _, v_slice, _ = _raw_slice(reader, t0, t1)
-        if len(v_slice) == 0:
+        count = 0
+        total = 0.0
+        total_sq = 0.0
+        minimum = float("inf")
+        maximum = float("-inf")
+        for _times, values, _gaps in reader.iter_raw_chunks_with_gaps(t0=t0, t1=t1):
+            valid = values[~np.isnan(values)]
+            if not len(valid):
+                continue
+            count += len(valid)
+            total += float(np.sum(valid, dtype=np.float64))
+            total_sq += float(np.sum(valid**2, dtype=np.float64))
+            minimum = min(minimum, float(np.min(valid)))
+            maximum = max(maximum, float(np.max(valid)))
+        if not count:
             results.append(dict(identity))
             continue
-        valid = v_slice[~np.isnan(v_slice)] if len(v_slice) > 0 else v_slice
-
-        if len(valid) == 0:
-            results.append(dict(identity))
-            continue
-
         results.append(
             {
                 **identity,
-                "n": len(valid),
-                "min": float(np.min(valid)),
-                "max": float(np.max(valid)),
-                "mean": float(np.mean(valid)),
-                "rms": float(np.sqrt(np.mean(valid**2))),
+                "n": count,
+                "min": minimum,
+                "max": maximum,
+                "mean": total / count,
+                "rms": float(np.sqrt(total_sq / count)),
             }
         )
 

@@ -106,6 +106,20 @@ def test_available_sample_rejects_clamped_time_and_observed_gap(tmp_path: Path) 
     assert reader.available_sample_at(17.0) is None
 
 
+def test_exact_mapping_does_not_extend_endpoint_values_into_uncovered_time(tmp_path: Path) -> None:
+    times = np.array([0.0, 1.0, 2.0])
+    PyramidBuilder(tmp_path, "position").build_and_save(times, times)
+    mapping = TimeMap()
+    mapping.set_exact_mapping(np.array([100.0, 100.5, 102.0]), times)
+    reader = MappedChannelReader(PyramidReader(tmp_path, "position"), mapping)
+
+    assert reader.available_sample_at(99.0) is None
+    assert reader.available_sample_at(103.0) is None
+    assert len(reader.raw_slice(103.0, 104.0)[0]) == 0
+    assert list(reader.iter_raw_chunks_with_gaps(t0=103.0, t1=104.0)) == []
+    assert len(reader.query(103.0, 104.0, 100)[0]) == 0
+
+
 def test_value_at_maps_the_query_into_source_time(shifted: MappedChannelReader) -> None:
     assert shifted.value_at(5.0) == pytest.approx((5.0 + OFFSET) * 2.0)
 

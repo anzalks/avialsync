@@ -143,6 +143,8 @@ class MappedChannelReader:
         ``sample_at`` deliberately clamps for cursor readouts. Motion evidence
         cannot claim a value before acquisition, after it, or inside a gap.
         """
+        if not self._time_map.contains_master_time(t_master):
+            return None
         source_time = self._time_map.to_source(t_master)
         found = self._reader.sample_at(source_time)
         if found is None:
@@ -162,6 +164,8 @@ class MappedChannelReader:
         self, t0_master: float, t1_master: float
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Return ``(t_master, v, gap)`` for a bounded master-time range."""
+        if self._range_outside(t0_master, t1_master):
+            return np.empty(0), np.empty(0), np.empty(0, dtype=bool)
         t, v, gap = self._reader.raw_slice(
             self._time_map.to_source(t0_master), self._time_map.to_source(t1_master)
         )
@@ -174,19 +178,48 @@ class MappedChannelReader:
         t1: float | None = None,
     ) -> Iterator[tuple[np.ndarray, np.ndarray]]:
         """Yield bounded ``(t_master, v)`` chunks."""
+        if self._range_outside(t0, t1):
+            return
         source_t0 = None if t0 is None else self._time_map.to_source(t0)
         source_t1 = None if t1 is None else self._time_map.to_source(t1)
         for times, values in self._reader.iter_raw_chunks(chunk_size, source_t0, source_t1):
             yield self._time_map.to_master_array(times), values
 
+    def iter_raw_chunks_with_gaps(
+        self,
+        chunk_size: int = RAW_CHUNK_SAMPLES,
+        t0: float | None = None,
+        t1: float | None = None,
+    ) -> Iterator[tuple[np.ndarray, np.ndarray, np.ndarray]]:
+        """Yield bounded master-time, value, and gap arrays for export."""
+        if self._range_outside(t0, t1):
+            return
+        source_t0 = None if t0 is None else self._time_map.to_source(t0)
+        source_t1 = None if t1 is None else self._time_map.to_source(t1)
+        for times, values, gaps in self._reader.iter_raw_chunks_with_gaps(
+            chunk_size, source_t0, source_t1
+        ):
+            yield self._time_map.to_master_array(times), values, gaps
+
     def query(
         self, t0: float, t1: float, max_points: int
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Decimated master-time query; the result is bounded by *max_points*."""
+        if self._range_outside(t0, t1):
+            return np.empty(0), np.empty(0), np.empty(0), np.empty(0, dtype=bool)
         t, vmin, vmax, gap = self._reader.query(
             self._time_map.to_source(t0), self._time_map.to_source(t1), max_points
         )
         return self._time_map.to_master_array(t), vmin, vmax, gap
+
+    def _range_outside(self, start: float | None, end: float | None) -> bool:
+        """Reject a range wholly beyond exact mapping or channel coverage."""
+        if start is None and end is None:
+            return False
+        bounds = self.coverage()
+        if bounds is None:
+            return True
+        return (start is not None and start > bounds[1]) or (end is not None and end < bounds[0])
 
     def mapped_columns(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Return level-1 mmap views in **source** time.

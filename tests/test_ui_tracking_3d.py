@@ -61,6 +61,24 @@ def test_incomplete_xy_points_are_not_presented_as_3d(qtbot, tmp_path: Path) -> 
     assert not pane.fit_button.isEnabled()
 
 
+def test_equal_length_axes_on_different_clocks_are_not_combined(qtbot, tmp_path: Path) -> None:
+    cache = tmp_path / "multi_clock"
+    cache.mkdir()
+    values = np.array([1.0, 2.0, 3.0])
+    for axis, times in (
+        ("x", np.array([0.0, 0.5, 1.0])),
+        ("y", np.array([0.0, 0.6, 1.2])),
+        ("z", np.array([0.0, 0.5, 1.0])),
+    ):
+        PyramidBuilder(cache, f"point_{axis}").build_and_save(times, values)
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.set_readers([PyramidReader(cache, f"point_{axis}") for axis in "xyz"])
+
+    assert pane.canvas.point_count == 0
+    assert "timestamps differ" in pane.status_label.text()
+
+
 def test_props_only_scene_can_be_framed_and_fitted(qtbot) -> None:
     pane = Tracking3DPane()
     qtbot.addWidget(pane)

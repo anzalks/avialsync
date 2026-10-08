@@ -32,6 +32,7 @@ from avialsync.core.cache import (
     read_entry_record,
 )
 from avialsync.core.custom_markers import marker_file_for
+from avialsync.core.edit_cache import pin_reader_directory
 from avialsync.core.identity_sidecar import sidecar_path as swap_path
 from avialsync.core.point_edit_sidecar import sidecar_path as correction_path
 from avialsync.core.prop_file import prop_path
@@ -52,6 +53,25 @@ def _source(folder: Path, name: str = "signal.csv") -> Path:
     path = folder / name
     path.write_text("t,x\n0,1\n", encoding="utf-8")
     return path
+
+
+def test_trim_cache_respects_age_budget_and_reader_pins(tmp_path: Path) -> None:
+    root = tmp_path / "cache"
+    old = _entry(root, _source(tmp_path / "data", "old.csv"))
+    recent = _entry(root, _source(tmp_path / "data", "recent.csv"))
+    os.utime(old, (1, 1))
+    pinned = pin_reader_directory(old)
+    assert pinned is not None
+
+    kept = cache_store.trim_cache(root, max_bytes=0, max_age_days=0)
+    assert kept.removed == 1
+    assert old.is_dir()
+    assert not recent.exists()
+
+    pinned.close()
+    removed = cache_store.trim_cache(root, max_bytes=0, max_age_days=0)
+    assert removed.removed == 1
+    assert not old.exists()
 
 
 # ── where the root is ────────────────────────────────────────────────
@@ -419,14 +439,17 @@ def test_an_unwritable_cache_folder_costs_the_timestamp_cache_not_the_video(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The cache is an optimisation; a full or locked cache disk must not fail an open."""
-    from avialsync.loaders.video_standard import VideoStandardLoader
+    from avialsync.engine.pyav_reader import PyAVReader
+    from tests.util_pyav_fixtures import cfr_times, write_video
 
     def refuse(self: CacheManager, source_path: Path) -> Path:
         raise PermissionError(13, "cache folder not writable")
 
     monkeypatch.setattr(CacheManager, "get_temp_cache_dir", refuse)
-    video = _source(tmp_path / "data", "cam.mp4")
+    video = tmp_path / "cam.mp4"
+    write_video(video, frame_times=cfr_times(10), gop_size=5)
 
-    VideoStandardLoader()._save_frame_times_cache(video, np.arange(5, dtype=np.float64))
+    with PyAVReader(video) as reader:
+        assert reader.frame_count == 10
 
     assert not cache_dir_for(video).exists()

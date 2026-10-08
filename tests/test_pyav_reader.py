@@ -13,6 +13,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from avialsync.core.cache import cache_dir_for
 from avialsync.core.errors import SourceOpenError
 from avialsync.engine.pyav_reader import PyAVReader, to_rgb_array
 from tests.util_framestrip import decode_frame_strip
@@ -51,6 +52,43 @@ def test_the_timestamp_table_is_sorted_into_display_order(long_gop_video: Path) 
         assert reader.frame_count == FRAME_COUNT
         assert np.all(np.diff(reader.frame_times) > 0)
         np.testing.assert_allclose(reader.frame_times, cfr_times(FRAME_COUNT), atol=1e-6)
+
+
+def test_warm_reader_reuses_validated_pts_and_keyframe_index(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "warm.mp4"
+    write_video(path, frame_times=vfr_times(60), gop_size=15)
+    with PyAVReader(path) as first:
+        expected = first.frame_times.copy()
+    assert (cache_dir_for(path) / "video_keyframe_indices.npy").is_file()
+
+    def refuse_scan(self: PyAVReader) -> tuple[np.ndarray, np.ndarray]:
+        raise AssertionError("A valid warm index should avoid demux")
+
+    monkeypatch.setattr(PyAVReader, "_build_pts_table", refuse_scan)
+    with PyAVReader(path) as second:
+        np.testing.assert_array_equal(second.frame_times, expected)
+        assert second.frame_at_index(20).pts is not None
+
+
+def test_loader_rebuilds_a_changed_but_still_ordered_index(tmp_path: Path) -> None:
+    """The loader must get frame times from the decoder's validated PTS table."""
+    from avialsync.loaders.video_standard import VideoStandardLoader
+
+    path = tmp_path / "corrupted_index.mp4"
+    write_video(path, frame_times=vfr_times(60), gop_size=15)
+    with PyAVReader(path) as first:
+        expected = first.frame_times.copy()
+    cached_ticks = cache_dir_for(path) / "video_pts_ticks.npy"
+    changed = np.load(cached_ticks, allow_pickle=False) + 1000
+    np.save(cached_ticks, changed, allow_pickle=False)
+
+    loader = VideoStandardLoader()
+    loader.open(path, {})
+
+    np.testing.assert_array_equal(loader.frame_times(), expected)
+    assert not np.array_equal(np.load(cached_ticks, allow_pickle=False), changed)
 
 
 def test_walking_forward_inside_a_gop_does_not_re_seek(
