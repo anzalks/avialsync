@@ -54,6 +54,8 @@ The lab's controller lives at `~/Documents/Antoine_lab_work/microscope_controlle
 
 All of it is scoped to **one trial at a time**:
 
+0. **The AOL encoder's angle is no longer shown.** `encoder_angle` stops appearing as a plot
+   row. It is still loaded, hidden, because the wheel prop turns from it (§3.2).
 1. **AOL camera sessions recorded as AVI** (`.avi` beside `<Cam>-relative times.txt`) are
    recognised and play at their true rate. The cameras are aligned the way the MP4 sessions
    are, plus per-frame timing and one shared start (§4).
@@ -106,7 +108,7 @@ The stamp column is the camera PC's **local time with no zone**: the folder is n
 The MP4 reference session `09-35-24/` (repo root, git-ignored) has the same layout: 3 cameras
 whose first stamps are identical (`09:35:26.3120`), plus `trial_config.yml`
 (`hardware.camera_fps: 230.0`), `encoder_log.txt`, `camera_module_timing_report.mat` and a
-behaviour-only `params.mat`. That `trial_config.yml` is why the bug in §3 never showed on MP4
+behaviour-only `params.mat`. That `trial_config.yml` is why the bug in §3.1 never showed on MP4
 sessions.
 
 ### 2.2 Microscope-controller trial (`<date>/experiment_N/<HH-MM-SS>/`)
@@ -166,13 +168,19 @@ Readable `params.mat` fields. Cells are object-reference datasets; dereference e
 coordinates: `roi_traces[:, 0]` correlates 0.88 with the mean of `activity_data_pre` under
 mask 0.
 
-**Channel colour, unresolved.** The user's convention is "index 0 is usually green, 1 red".
-**This dataset disagrees.** The lab's analysis records `green_channel = 2` (1-based, so
-h5py/0-based index **1**). Also, raw ribbon tile 5 correlates 0.30 with the lab's
-pre-processed mosaic on index 1 and −0.06 on index 0. Rule for the implementation (§5.3):
-- per-trial evidence wins, then the user's convention;
-- a disagreement between them is a layout warning;
-- channel names stay editable through the D-195 channel UI.
+**Channel colour: settled by the lab's record (user decision, 2026-10-09).**
+- **Green is h5py/0-based index 1; red is index 0.**
+- **Source:** the lab's analysis records `green_channel = 2` (MATLAB 1-based).
+- **Supporting pixels:** raw ribbon tile 5 correlates 0.30 with the lab's pre-processed mosaic
+  on index 1 and −0.06 on index 0.
+- **Applies to:** every trial from this controller, including the 15 without `roi_activity/`.
+
+Rule for the implementation (§5.3):
+- a trial's own `correction_info/green_channel` wins;
+- otherwise use the rig default above;
+- names stay editable through the D-195 channel UI.
+
+Mind the off-by-one: MATLAB's channel `n` is 0-based index `n − 1`.
 
 ### 2.4 Synchronisation facts from the controller's documentation (paraphrased)
 
@@ -212,7 +220,9 @@ is not yet verified on a real pair.
 
 ---
 
-## 3. Bug to fix first: a forced 30 fps on sessions without `trial_config.yml`
+## 3. Existing AOL loader corrections (do these first)
+
+### 3.1 A forced 30 fps on sessions without `trial_config.yml`
 
 `AOLManifest.camera_fps` defaults to `30.0`, and `_video_items` sends `config["fps"] =
 manifest.camera_fps` whenever it is above zero. `VideoStandardLoader.open` treats `config["fps"]`
@@ -227,6 +237,49 @@ Audit every reader of `manifest.camera_fps` and `SessionLayout.camera_fps`
 
 Test: an AOL fixture folder with a non-30 fps video and no `trial_config.yml`. Its loaded
 duration must equal the container duration within one frame.
+
+### 3.2 `encoder_angle` is loaded but not shown (user decision, 2026-10-09)
+
+Today `AOLEncoderLoader` (`loaders/aol_encoder_loader.py`) imports two channels,
+`encoder_velocity` and `encoder_angle`, and both become plot rows. The user does not want the
+angle shown.
+
+**Why it cannot simply be dropped.** The angle is the wheel prop's driver:
+- it is the `RotaryHint.channel` (D-113, `aol_session_loader._rotary_hint`);
+- `ui/prop_motion.py` reads its samples to turn the wheel;
+- `core/wheel.py` / `core/wheel_check.py` / `core/wheel_file.py` store and check positions
+  against it.
+
+So keep loading it, and make it **hidden by default**.
+
+- **Use the existing visibility mechanism.** Per-channel visibility already exists
+  (`PlotPane.set_channel_visible` / `is_channel_visible`, routed through the command bus in
+  `core/commands.py` / `core/document.py`). Do not add a second hide mechanism.
+- **Let the loader say it.** The loader is the one that knows the angle is a driver, not a
+  readout, so it declares the channel hidden by default. Recommended shape: add a defaulted
+  field to `ChannelInfo` (e.g. `shown: bool = True`, appended last so every existing
+  constructor still works), and have the plot create a `shown=False` row hidden.
+  - This is a plugin-API addition in `core/`: mypy `--strict`, a HANDOUT.md API note, and a
+    D-entry.
+  - If the implementer finds an existing per-channel default-visibility hook, use that
+    instead and say so.
+- **Keep the existing state machinery.** A saved session that shows the angle keeps showing it,
+  and the user can still show it from the channel list. The default applies only to a fresh
+  load, and undo/dirty state are unchanged.
+- **The angle stays data.** Hiding the row must not drop its reader, cache or pyramid: the
+  wheel prop, the Add Wheel dialog's channel list, and wheel checks all still find
+  `encoder_angle`. Verify this in `prop_motion.py` and `ui/controllers/wheel_controller.py`.
+- **Applies everywhere.** It covers a bare `encoder_log.txt` too, since it is a property of
+  the loader, not of the session.
+
+Tests:
+- A fresh AOL load shows `encoder_velocity` and does not show `encoder_angle`.
+- `encoder_angle` is still readable and drives a wheel binding.
+- The Add Wheel dialog still offers it.
+- Showing it, then saving and reopening, keeps it shown.
+- Undo of show restores hidden.
+- Update any existing test that asserts the angle row is visible: explain the change in the
+  commit; do not weaken unrelated assertions (AGENTS.md task protocol rule 4).
 
 ---
 
@@ -362,11 +415,11 @@ This is the trial's **primary** view: every ribbon ROI tiled in one picture per 
   - Benchmark it in `tests/benchmarks/` against "Lazy imaging random plane ≤ 50 ms".
 - **Axes.** Stored `(C, T, Y, X)`; set `ImagingMetadata.shape`/`axes` honestly (D-194).
   `channel_count = 2`.
-- **Channel names** (§2.3), evidence first:
-  - if the trial's `roi_activity` holds `correction_info/green_channel`, that (1-based)
-    index is "Green" and the other "Red";
-  - otherwise use the user's convention, index 0 "Green" and index 1 "Red";
-  - if both exist and disagree, the evidence wins and a `layout.warnings` line says so.
+- **Channel names**, per the lab's record (§2.3):
+  - if the trial's `roi_activity` holds `correction_info/green_channel`, its 1-based value
+    `n` makes index `n − 1` "Green" and the other "Red";
+  - otherwise use the rig default: index 1 "Green", index 0 "Red";
+  - name the default as one module constant, with a comment citing §2.3.
 - **Frame times.** One mosaic frame carries one time: the **frame midpoint**, the same
   convention as the lab's mosaic. Worst-case tile error is ±27 ms (half a frame). Say so in
   `timing_source`, e.g. `"line clock, frame midpoint (tiles ±27 ms)"`.
@@ -391,7 +444,9 @@ Assert:
 - a corrupt ROI file is dropped with a warning;
 - the computed layout matches a `source_roi_map`;
 - empty tiles are NaN;
-- channel naming covers evidence, convention and disagreement;
+- channel naming: with no `roi_activity`, index 1 is "Green" and index 0 "Red"; with
+  `green_channel = 1`, index 0 is "Green" (proves the file value wins and the 1-based
+  conversion is right);
 - every file handle is closed after `open()`. On Windows an open handle blocks deleting
   `tmp_path`.
 
@@ -434,10 +489,12 @@ for "how an ROI grid looks" (AGENTS.md rule 15 spirit, D-193).
   position and treat them like §6.1–§6.2. All are empty in this data, so validate on fixtures
   only. Empty files contribute nothing, with no warning.
 - **Wheel.** Use **only the existing encoder path**: `encoder_log.txt` through
-  `AOLEncoderLoader` (`encoder_angle` cumulative degrees, `encoder_velocity`) and its
-  `RotaryHint` (D-113). `params.mat` `behaviour/encoder/*` and the analysis file's
-  `encoder_data` are **not** loaded (user decision). A trial opened without a camera session
-  has no wheel row; that is expected.
+  `AOLEncoderLoader` and its `RotaryHint` (D-113).
+  - Shown: `encoder_velocity`.
+  - Loaded but hidden, for the wheel prop: `encoder_angle` (§3.2).
+  - Not loaded (user decision): `params.mat` `behaviour/encoder/*` and the analysis file's
+    `encoder_data`.
+  - A trial opened without a camera session has no wheel row; that is expected.
 
 ### 6.4 Tests
 Use a synthetic `hybrid_mosaic` file with
@@ -578,7 +635,8 @@ Do one slice per session if possible, and run the suite after each (AGENTS.md ta
 
 | Slice | Content | Depends on |
 |---|---|---|
-| S1 | §3 fps fix + test | — |
+| S1 | §3.1 fps fix + test | — |
+| S1b | §3.2 `encoder_angle` hidden by default | — |
 | S2 | §4.1 AVI detection/matching | S1 |
 | S3 | §4.2–4.4 relative-times timing, shared start, report cross-check | S2 |
 | S4 | §5.1–5.2 trial reader, layout, synthetic v7.3 helper | — |
@@ -615,8 +673,8 @@ push once.
 3. **Open:** a headless script kept in the scratch folder opens `09-54-35/` and `12-33-56/`
    through the session scanners. Report and compare:
    - **cameras:** about 10.06 / 10.08 / 10.11 s, about 230 Hz, one shared start, no warnings;
-   - **tiled view:** 184 frames over about 10.0 s, mosaic 150×510, channel names, and the
-     channel-evidence warning (expected for 12-33-56; see §2.3);
+   - **tiled view:** 184 frames over about 10.0 s, mosaic 150×510, index 1 "Green" and
+     index 0 "Red";
    - **cell ROIs:** 11, with 11 traces of 184 samples;
    - **another trial** (e.g. 12-23-08) has no ROI items and uses the computed layout.
 4. **After:** repeat step 1 and `diff`. **Any difference → stop and report.**
@@ -644,19 +702,19 @@ Docs in the same change (AGENTS.md task protocol rule 1):
   - (f) cell ROIs reuse the NWB grid helper;
   - (g) pairing places the trial on the cameras, the zone is derived, and existing sessions
     are not re-anchored;
-  - (h) channel naming: evidence before convention.
+  - (h) channel naming per the lab's record: index 1 green, index 0 red, and a trial's own
+    `green_channel` wins;
+  - (i) `encoder_angle` loaded but hidden by default, and why it cannot be dropped (wheel
+    driver, D-113).
 
 ---
 
 ## 11. Remaining questions for the user (do not decide alone)
 
-1. **Channel colours.** The user's convention (index 0 green) and this dataset's own analysis
-   (index 1 green) disagree (§2.3). The plan lets the evidence win and warns. Confirm, or say
-   which is right for 2026-09-03.
-2. **Real pair.** A camera recording and its trial from the same session, to verify §8 on
+1. **Real pair.** A camera recording and its trial from the same session, to verify §8 on
    real data. Also: where does the camera PC save, relative to the controller's saved-data
    folder?
-3. **Camera start delay.** The controller documents a known camera start delay
+2. **Camera start delay.** The controller documents a known camera start delay
    (`camera_start_offset_s`, one imaging cycle, in a lab `clock_calibration.mat`). Should a
    follow-up apply it when that file exists?
 
