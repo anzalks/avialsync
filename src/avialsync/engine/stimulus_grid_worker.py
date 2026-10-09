@@ -16,11 +16,12 @@ from avialsync.core.errors import AvialSyncError, ExportError
 from avialsync.core.triggers import TriggerKind, extract_pulses
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.stimulus_grid_export import (
+    GridBand,
     GridLabels,
     GridSignal,
-    GridVideo,
     export_stimulus_grid,
 )
+from avialsync.engine.stimulus_grid_layout import GridRow
 from avialsync.engine.transcode import TranscodeCancelled
 
 logger = logging.getLogger(__name__)
@@ -116,7 +117,7 @@ class StimulusGridExportWorker(QObject):
 
     def __init__(
         self,
-        videos: tuple[GridVideo, ...],
+        videos: tuple[GridRow, ...],
         event_times: tuple[float, ...],
         before: float,
         after: float,
@@ -126,8 +127,10 @@ class StimulusGridExportWorker(QObject):
         signal: GridSignal | None = None,
         playback_speed: float = 1.0,
         high_detail: bool = False,
+        bands: tuple[GridBand, ...] = (),
     ) -> None:
         super().__init__()
+        self._bands = bands
         self._videos = videos
         self._event_times = event_times
         self._before = before
@@ -180,6 +183,7 @@ class StimulusGridExportWorker(QObject):
                 fps=self._fps,
                 playback_speed=self._playback_speed,
                 signal=self._signal,
+                bands=self._bands,
                 high_detail=self._high_detail,
                 progress=lambda value: self.progress.emit(round(value * 100)),
                 should_cancel=self._cancel.is_set,

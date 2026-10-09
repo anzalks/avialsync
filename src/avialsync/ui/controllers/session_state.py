@@ -36,6 +36,8 @@ class SessionRuntimeState:
     # Camera wall-clock metadata and the user's pending AOL trial-pair offer.
     aol_camera_start_epoch: float = 0.0
     pending_aol_pair: dict[str, Any] | None = None
+    #: ``(generation, choices)``: the stimulus grid's last rows, for this session only.
+    stimulus_grid_rows: tuple[int, Any] | None = None
 
     def take_dirty_after_restore(self) -> bool:
         """Whether the restore that just drained put back unsaved work; clears it."""

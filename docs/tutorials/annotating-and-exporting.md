@@ -52,7 +52,7 @@ The **Exports** inspector page shows every output as a visible button. The same 
 | **Export Changes…** | Annotation rows, one edited pose copy per source with corrections or accepted identity swaps, and a DeepLabCut or single-view Lightning Pose retraining set when frames were hand-corrected | Analysis and pose-model retraining |
 | **Export Snapshot…** | A composed figure of the current moment | Figures, notes, lab reports |
 | **Export Trimmed Video Clip…** | The marked range, copied out of the source | Sharing a moment without re-encoding it |
-| **Export Stimulus Grid…** | Selected sensor-triggered windows, arranged as camera rows and event columns above one shared signal trace and relative-time ruler | Comparing repeated stimuli across cameras and trials |
+| **Export Stimulus Grid…** | Selected sensor-triggered windows: camera and imaging rows by event columns, above one full-width band per chosen sensor group | Comparing repeated stimuli across cameras, imaging and sensors |
 | **Export Data Slice…** | The marked range of the loaded signals | Analysis in another tool |
 
 **Export Changes…** is also the **Export…** button in the Changes tab; it is one action, so the two
@@ -141,10 +141,32 @@ video. Each camera row follows that camera's aspect ratio, so mixed-aspect foota
 without cropping, stretching, or letterboxing. Camera names and event labels remain aligned outside
 the tiles; the static trace is rendered once, while the cursor follows the output time.
 
-All selected signal windows are overlaid in **one full-width trace below the video grid** on a
+**Choosing the rows.** The **Rows** list beside the event controls offers only what the session
+has: each camera, each imaging stack, and each sensor group (one data source -- an accelerometer's
+x/y/z, a probe's channels) with its streams beneath it. Tick what the movie should carry; the
+cameras on screen, the imaging stack shown in the viewer and the trigger channel's group are
+ticked to begin with, every stream of a ticked group included. **Move up** and **Move down**
+reorder rows (pictures always above sensor bands). Under the list, the dialog states how large
+each row's cells will come out and warns, before anything is encoded, when one will be too small
+to read -- a wide imaging mosaic across twelve events usually is; choose fewer events or High
+detail. Choices are kept for the next export in the same session.
+
+**Imaging rows** show the stack exactly as the image viewer does -- channels, colours, levels,
+frame averaging, the tree layout, and the viewer's zoom and pan -- with each frame held until the
+next, as a camera's is. A column whose window has no imaging says **No imaging data**.
+
+**Sensor bands** run the full width below the picture rows, one per ticked group, every selected
+event overlaid on a shared relative-time axis. Each stream has its own colour and is named in the
+band; each event is drawn thin and translucent, and the stream's mean across events bold on top.
+Up to four streams share one y-axis; more are stacked in lanes on one shared amplitude scale, as a
+multichannel recording viewer shows them (**Auto**; choose **Overlay** or **Stacked** per group to
+override). The red line marks the trigger in every band and the light cursor moves in step with
+the pictures above.
+
+All selected signal windows are overlaid in **each full-width band below the video grid** on a
 shared relative-time axis. The axis labels and moving light cursor show time relative to stimulus
-onset; the red line marks zero. The dashed horizontal line is the detection threshold. The trace
-uses the selected channel's actual cached samples and accepted time mapping, with gaps left open.
+onset; the red line marks zero. The dashed horizontal line is the detection threshold, drawn for the trigger channel. Bands
+use each channel's actual cached samples and accepted time mapping, with gaps left open.
 The generated example below uses synthetic footage of a three-prong marker from three camera angles
 on a muted gray background. The marker moves and an off-white point appears only around each trigger;
 those details are part of the generated source videos, not export graphics.

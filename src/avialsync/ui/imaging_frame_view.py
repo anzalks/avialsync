@@ -76,6 +76,25 @@ class ImagingFrameView(QWidget):
         """Magnification over the fitted picture; 1.0 is fitted."""
         return self._zoom
 
+    def visible_fraction(self) -> tuple[float, float, float, float] | None:
+        """The part of the picture on screen as ``(x, y, width, height)`` fractions.
+
+        ``None`` while the whole picture is shown, so an export of it takes all
+        of it; zoomed in, an export takes exactly this part (D-210).
+        """
+        geometry = self._geometry()
+        if geometry is None or self._image is None or self._zoom == 1.0:
+            return None
+        scale, left, top = geometry
+        width, height = self._image.width(), self._image.height()
+        x0 = min(max(-left / scale, 0.0), width)
+        y0 = min(max(-top / scale, 0.0), height)
+        x1 = min(max((self.width() - left) / scale, 0.0), width)
+        y1 = min(max((self.height() - top) / scale, 0.0), height)
+        if x1 <= x0 or y1 <= y0:
+            return None
+        return x0 / width, y0 / height, (x1 - x0) / width, (y1 - y0) / height
+
     # ── zoom and pan ─────────────────────────────────────────────────
 
     def zoom_by(self, factor: float, anchor: QPointF | None = None) -> None:

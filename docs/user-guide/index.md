@@ -122,8 +122,9 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
 - The **Changes** tab lists what you flagged; double-click a label to name it.
 - **File → Export Changes…** writes your annotations, and any corrected pose data, out.
 - **File → Export Snapshot / Trimmed Video Clip / Data Slice** cover images, media, and signals.
-- **File → Export Stimulus Grid…** makes a camera-row, event-column MP4 with the selected TTL or stimulus
-  trace across the bottom. Choose the output frame rate and playback speed to slow high-speed
+- **File → Export Stimulus Grid…** makes an event-column MP4 with a row per chosen camera and imaging
+  stack, and a full-width band per chosen sensor group underneath (every event overlaid, the
+  mean bold). Choose the output frame rate and playback speed to slow high-speed
   footage. See the [illustrated export walkthrough](../tutorials/annotating-and-exporting.md#export-an-event-aligned-video-grid-with-its-ttl-trace).
   Clips are copied rather than re-encoded, so they keep the original pixels.
 

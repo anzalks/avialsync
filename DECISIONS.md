@@ -6698,3 +6698,30 @@ stretched copies and rows did not match the window.
 (ceiling 847 → 850, `build_session_state` 86 → 87, `reset_session` 141 → 142,
 `restore_session` 144 → 145 in `controller_private_access_baseline.json`);
 everything else lives in `ui/video_levels.py`, and no private window access was added.
+
+---
+
+## 2026-10 · D-210 · The stimulus grid carries imaging rows and a band per sensor group
+
+**Decision.** The stimulus grid movie's rows are chosen in its dialog from what the session has:
+cameras and imaging stacks are picture rows, one cell per event column; sensor groups (one data
+source each) are full-width bands beneath them. Nothing absent is offered. Defaults are the
+cameras on screen, the imaging stack shown in the viewer, and the trigger channel's group with all
+its streams; rows reorder within their kind, and the choices are kept for the session.
+
+An imaging row is rendered by the viewer's own reader (`ImagingReadWorker.render`) with the
+viewer's view and zoom/pan crop, the frame chosen by `frame_index_at` and held for its interval;
+its frame changes drive the output schedule as a camera's do. A cell outside the stack says so.
+
+A band shows each ticked stream in its own Okabe–Ito colour (lifted for the dark surface), named in
+the band; every event thin and translucent, the stream's mean across events bold, interpolated
+only where samples lie within a step. Up to four streams overlay on one y-axis; more stack in
+lanes on one shared amplitude scale, overridable per group. Each band has the trigger line at
+t = 0 and the moving cursor; the threshold is drawn for the trigger stream. One overlaid band
+keeps the single-signal layout exactly. The dialog estimates every row's cell size and warns
+below 48 px; Continue needs events and a grid that fits.
+
+**Why.** The grid could only show cameras and one trigger trace. Events are colour-coded no
+longer -- colour means the stream -- because a band of x/y/z across twelve events cannot encode
+both; the faint-events-plus-bold-mean form is the standard peri-event display. The engine was
+split (`stimulus_grid_layout`, `_render`, `_bands`, `_imaging`) to keep each module under 500 lines.

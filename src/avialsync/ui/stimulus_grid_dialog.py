@@ -30,6 +30,7 @@ from avialsync.engine.stimulus_grid_export import MAX_GRID_EVENTS
 from avialsync.engine.stimulus_grid_worker import StimulusEventScanWorker, StimulusTimelineWorker
 from avialsync.ui.i18n import tr
 from avialsync.ui.playback_rates import PLAYBACK_RATE_STEPS, rate_label
+from avialsync.ui.stimulus_grid_rows import GridRowsPanel
 from avialsync.ui.tables import ThemedTable
 
 
@@ -40,6 +41,8 @@ class StimulusChannelOption:
     label: str
     reference: ReaderReference
     reader: MappedChannelReader
+    #: The sensor group (data source) this channel belongs to, for the rows list.
+    group: str = ""
 
 
 class StimulusGridDialog(QDialog):
@@ -49,11 +52,14 @@ class StimulusGridDialog(QDialog):
     preview_requested = Signal(object)
 
     def __init__(
-        self, channels: list[StimulusChannelOption], parent: QWidget | None = None
+        self,
+        channels: list[StimulusChannelOption],
+        parent: QWidget | None = None,
+        rows: GridRowsPanel | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(tr("Export Stimulus Grid"))
-        self.setMinimumSize(820, 640)
+        self.setMinimumSize(1100 if rows is not None else 820, 640)
         self._channels = channels
         self._events: tuple[float, ...] = ()
         self._scan_worker: StimulusEventScanWorker | None = None
@@ -62,11 +68,19 @@ class StimulusGridDialog(QDialog):
             tuple[tuple[float, float], np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None
         ) = None
 
-        layout = QVBoxLayout(self)
+        outer = QHBoxLayout(self)
+        layout = QVBoxLayout()
+        outer.addLayout(layout, 3)
+        #: Which cameras, imaging and sensor groups the movie carries (D-210).
+        self.rows_panel = rows
+        if rows is not None:
+            rows.setParent(self)
+            outer.addWidget(rows, 2)
         intro = QLabel(
             tr(
                 "Choose a sensor channel and rising threshold, review the detected events, "
-                "then export selected windows as an aligned camera grid."
+                "then export selected windows as an aligned grid of cameras, imaging and "
+                "sensor traces."
             )
         )
         intro.setWordWrap(True)
@@ -213,6 +227,12 @@ class StimulusGridDialog(QDialog):
         self.speed_combo.currentIndexChanged.connect(self._speed_changed)
         self.custom_speed_spin.valueChanged.connect(self._window_changed)
         self.event_table.itemChanged.connect(self._event_selection_changed)
+        self.output_detail_combo.currentIndexChanged.connect(lambda _index: self._refresh_rows())
+        if rows is not None:
+            rows.changed.connect(self._refresh_rows)
+            if channels:
+                rows.check_group(channels[0].group)
+        self._refresh_rows()
         self._refresh_timeline()
 
     def request_preview(self) -> None:
@@ -365,10 +385,21 @@ class StimulusGridDialog(QDialog):
         self._refresh_timeline()
 
     @Slot(int)
-    def _channel_changed(self, _index: int) -> None:
+    def _channel_changed(self, index: int) -> None:
         self._clear_events()
         self._preview = None
+        # The channel that finds the events is the one the movie should show.
+        if self.rows_panel is not None and 0 <= index < len(self._channels):
+            self.rows_panel.check_group(self._channels[index].group)
         self.request_preview()
+
+    def _refresh_rows(self) -> None:
+        """Re-estimate row sizes; Continue needs events and a grid that fits."""
+        selected = self.selected_events()
+        fits = True
+        if self.rows_panel is not None:
+            fits = self.rows_panel.update_estimate(len(selected), self.high_detail())
+        self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(bool(selected) and fits)
 
     @Slot(float)
     def _detection_settings_changed(self, _value: float) -> None:
@@ -391,7 +422,6 @@ class StimulusGridDialog(QDialog):
         if self._updating_events:
             return
         selected = self.selected_events()
-        self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(bool(selected))
         if len(selected) > MAX_GRID_EVENTS:
             self._updating_events = True
             if _item is not None and _item.checkState() == Qt.CheckState.Checked:
@@ -402,6 +432,7 @@ class StimulusGridDialog(QDialog):
                 tr("Choose no more than {count} events.").format(count=MAX_GRID_EVENTS)
             )
         self._update_event_details(selected)
+        self._refresh_rows()
         self._refresh_timeline()
 
     def _update_event_details(self, selected: tuple[float, ...]) -> None:

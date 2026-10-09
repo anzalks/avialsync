@@ -22,6 +22,7 @@ from avialsync.engine.stimulus_grid_export import (
     export_stimulus_grid,
     plan_grid,
 )
+from avialsync.engine.stimulus_grid_trace import read_signal_traces
 from avialsync.engine.transcode import encode_video
 
 _LABELS = GridLabels(
@@ -364,7 +365,7 @@ def test_grid_exports_one_shared_trace_for_aligned_event_windows(tmp_path, qapp)
     PyramidBuilder(tmp_path, "ttl").build_and_save(times, values)
     signal = GridSignal(ReaderReference(tmp_path, "ttl", offset=-0.25), "TTL", 0.5)
 
-    traces = stimulus_grid_export._read_signal_traces(signal, (0.75, 1.75), 0.2, 0.4, 640)
+    traces = read_signal_traces(signal, (0.75, 1.75), 0.2, 0.4, 640)
     assert len(traces) == 2
     assert all(np.any((trace.times >= 0.0) & (trace.high == 1.0)) for trace in traces)
     assert all(len(trace.times) <= 640 for trace in traces)

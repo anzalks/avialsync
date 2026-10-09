@@ -40,7 +40,8 @@ from PySide6.QtWidgets import QDialog
 from avialsync.core.errors import ExportError
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.snapshot import SnapshotFigure
-from avialsync.engine.stimulus_grid_export import GridLabels, GridSignal, GridVideo
+from avialsync.engine.stimulus_grid_export import GridBand, GridLabels, GridSignal
+from avialsync.engine.stimulus_grid_layout import GridRow
 from avialsync.engine.stimulus_grid_worker import (
     StimulusEventScanWorker,
     StimulusGridExportWorker,
@@ -51,7 +52,7 @@ from avialsync.ui.export_destinations import choose_file, choose_folder
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import on_ui_thread
 from avialsync.ui.snapshot_capture import capture_figure, capture_pane_figure
-from avialsync.ui.stimulus_grid_dialog import StimulusChannelOption, StimulusGridDialog
+from avialsync.ui.stimulus_grid_dialog import StimulusGridDialog
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
@@ -362,18 +363,14 @@ def on_video_clip_error(window: MainWindow, error: str) -> None:
 
 
 def export_stimulus_grid(window: MainWindow) -> None:
-    """Choose sensor events and export their aligned camera windows."""
-    reference = ReaderReference.from_reader
-    channels = [
-        StimulusChannelOption(channel.name, reference(channel.reader), channel.reader)
-        for channel in window.plot_pane.channels
-    ]
-    media = window.video_grid.media_path_for  # a proxy is what decodes (D-188)
-    videos = tuple(
-        GridVideo(Path(media(path)), Path(path).name, pane.time_map, pane.display_levels())
-        for path, pane in zip(window.video_grid._paths, window.video_grid.panes, strict=False)
-    )
-    dialog = StimulusGridDialog(channels, window)
+    """Choose sensor events and export their aligned cameras, imaging and sensor bands."""
+    from avialsync.ui import stimulus_grid_sources as sources
+    from avialsync.ui.stimulus_grid_rows import GridRowsPanel
+
+    groups, channels = sources.sensor_groups(window)
+    pictures = sources.camera_rows(window) + sources.imaging_rows(window)
+    rows = GridRowsPanel(pictures, groups, sources.remembered(window))
+    dialog = StimulusGridDialog(channels, window, rows)
 
     def _start(worker: StimulusEventScanWorker | StimulusTimelineWorker) -> None:
         if isinstance(worker, StimulusTimelineWorker):
@@ -392,8 +389,10 @@ def export_stimulus_grid(window: MainWindow) -> None:
     dialog.request_preview()
     if dialog.exec() != QDialog.DialogCode.Accepted:
         return
+    sources.remember(window, rows.choices())
     events = dialog.selected_events()
-    if not events:
+    videos = tuple(rows.picture_rows())
+    if not events or not videos:
         return
     destination = choose_file(
         window,
@@ -406,7 +405,6 @@ def export_stimulus_grid(window: MainWindow) -> None:
         return
     destination_path = _mp4_output_path(str(destination))
     channel = dialog.channel_option()
-    signal = GridSignal(channel.reference, channel.label, dialog.threshold_spin.value())
     start_stimulus_grid_export(
         window,
         videos,
@@ -415,8 +413,8 @@ def export_stimulus_grid(window: MainWindow) -> None:
         dialog.after_spin.value(),
         dialog.fps_spin.value(),
         destination_path,
-        _grid_labels(),
-        signal=signal,
+        sources.grid_labels(),
+        bands=tuple(rows.bands(channel.reference, dialog.threshold_spin.value())),
         playback_speed=dialog.playback_speed(),
         high_detail=dialog.high_detail(),
     )
@@ -424,7 +422,7 @@ def export_stimulus_grid(window: MainWindow) -> None:
 
 def start_stimulus_grid_export(
     window: MainWindow,
-    videos: tuple[GridVideo, ...],
+    videos: tuple[GridRow, ...],
     events: tuple[float, ...],
     before: float,
     after: float,
@@ -433,6 +431,7 @@ def start_stimulus_grid_export(
     labels: GridLabels,
     *,
     signal: GridSignal | None = None,
+    bands: tuple[GridBand, ...] = (),
     playback_speed: float = 1.0,
     high_detail: bool = False,
 ) -> None:
@@ -448,6 +447,7 @@ def start_stimulus_grid_export(
         signal,
         playback_speed,
         high_detail,
+        bands,
     )
 
     def _wire(_thread: QThread) -> None:
@@ -456,19 +456,6 @@ def start_stimulus_grid_export(
 
     label = tr("Exporting stimulus grid to {path}").format(path=destination)
     window._run_job(worker, label=label, configure=_wire)
-
-
-def _grid_labels() -> GridLabels:
-    """Capture translated burn-in templates before the worker starts."""
-    return GridLabels(
-        title=tr("Stimulus-aligned comparison"),
-        event=tr("Event {index}"),
-        no_footage=tr("No footage"),
-        ruler=tr("{before:.2f} s    Stimulus    +{after:.2f} s"),
-        current=tr("Relative time: {time:+.3f} s"),
-        no_signal=tr("No signal samples in the selected windows"),
-        frame=tr("Frame {index}"),
-    )
 
 
 def _mp4_output_path(value: str) -> Path:
