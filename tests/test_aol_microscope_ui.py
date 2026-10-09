@@ -216,3 +216,34 @@ def test_trials_are_drawn_on_the_timeline_and_the_plots(window: MainWindow, tmp_
     assert overview._segments[1][0] == pytest.approx(0.029, abs=1e-6)
     bounds = window.plot_pane._interactions._segment_bounds
     assert bounds == pytest.approx((0.0, 0.029, 0.051), abs=1e-6)
+
+
+def test_the_viewer_states_the_frame_rate_the_file_gives(
+    window: MainWindow, qtbot, tmp_path
+) -> None:
+    from avialsync.ui.imaging_card import frame_rate
+
+    folder = _trial(tmp_path / "12-00-00")
+    path, loader, config = _candidates(folder)[0]
+    window._route_import_candidate(path, loader, dict(config))
+    pane = window.imaging_pane
+    qtbot.waitUntil(lambda: str(folder) in pane.source_paths(), timeout=_TIMEOUT)
+    info = pane.metadata_for(str(folder))
+    _loader, _config, mapping = pane.source_config(str(folder))
+    pane.set_cursor(mapping.to_master(float(info.frame_times[0])) + 1e-6)
+    qtbot.waitUntil(lambda: "fps" in pane.status_label.text(), timeout=_TIMEOUT)
+    # Frames 12 ms apart in the fixture: 83.33 fps, from the file's own times.
+    assert frame_rate(info) == pytest.approx(1 / 0.012)
+    assert pane.status_label.text().endswith("· 83.33 fps")
+
+
+def test_a_stack_with_a_pause_still_reports_its_acquisition_rate() -> None:
+    import numpy as np
+
+    from avialsync.core.source import ImagingMetadata
+    from avialsync.ui.imaging_card import frame_rate
+
+    # 18 Hz frames, then a minute of nothing, then 18 Hz again.
+    times = np.concatenate([np.arange(10) / 18.0, 60.0 + np.arange(10) / 18.0])
+    info = ImagingMetadata(20, 4, 4, "uint16", times, "fixture")
+    assert frame_rate(info) == pytest.approx(18.0)

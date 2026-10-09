@@ -1949,6 +1949,9 @@ else samples of the first plot row shown; a click inside the Data Streams page w
 The import review offers a session-named item only Skip or its own loader and hides
 the Use as / Calibration columns unless a row can use them; AOL stacks declare no axis order, so
 the viewer's Axes row stays hidden, and the source selector and cards carry session labels (D-206).
+The imaging viewer's line ends with the stack's frame rate, the median of the file's own frame
+intervals (`imaging_card.frame_rate`), so a stack joined from trials or with a pause still reports
+the rate it was acquired at; the card and Properties use the same figure.
 Picking an imaging stack that has no data at the playhead seeks to its first frame
 (`ImagingPane.seek_requested`).
 The import review reuses the window's loader registry (`MainWindow.registry`), which the drop

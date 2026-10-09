@@ -37,9 +37,10 @@ from avialsync.engine.imaging_reader import ImagingReadWorker
 from avialsync.ui.accessible_views import register_painted
 from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
-from avialsync.ui.imaging_card import describe_picture
+from avialsync.ui.imaging_card import describe_picture, frame_rate
 from avialsync.ui.imaging_controls import ImagingControls
 from avialsync.ui.imaging_frame_view import ImagingFrameView
+from avialsync.ui.time_format import format_rate
 from avialsync.ui.video_timing import format_clock
 
 # Threads stopped without waiting are kept referenced until they finish, so
@@ -500,6 +501,10 @@ class ImagingPane(QWidget):
             f"{format_clock(float(info.frame_times[index]))} · f {index} / "
             f"{info.frame_count - 1} · {describe_picture(info)}"
         )
+        # The rate the file's own frame times give, as the video overlay shows its own.
+        rate = frame_rate(info)
+        if rate > 0:
+            status += " · " + tr("{rate} fps").format(rate=format_rate(rate))
         if average > 1:
             status += " · " + tr("mean of {count}").format(count=average)
         self.status_label.setText(status)

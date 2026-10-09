@@ -55,11 +55,16 @@ def describe_picture(info: ImagingMetadata) -> str:
 
 
 def frame_rate(info: ImagingMetadata) -> float:
-    """Mean acquisition rate over the stack, or 0 when it has one frame."""
-    times = info.frame_times
-    if len(times) < 2 or times[-1] <= times[0]:
+    """The acquisition rate the file's own frame times give, or 0 with one frame.
+
+    From the median frame interval, not frames over span: a stack joined from
+    trials, or one with a pause, would otherwise report a rate it never ran at.
+    """
+    intervals = np.diff(np.asarray(info.frame_times, dtype=np.float64))
+    intervals = intervals[intervals > 0]
+    if intervals.size == 0:
         return 0.0
-    return float((len(times) - 1) / (times[-1] - times[0]))
+    return float(1.0 / np.median(intervals))
 
 
 def properties_text(path: str, info: ImagingMetadata) -> str:
@@ -69,7 +74,10 @@ def properties_text(path: str, info: ImagingMetadata) -> str:
         (tr("File"), path),
         (tr("Picture"), describe_picture(info)),
         (tr("Frames"), str(info.frame_count)),
-        (tr("Frame rate"), format_rate(rate) if rate else tr("unknown")),
+        (
+            tr("Frame rate"),
+            tr("{rate} fps").format(rate=format_rate(rate)) if rate else tr("unknown"),
+        ),
         (tr("Timing from"), info.timing_source),
         (tr("Channels"), ", ".join(info.channel_names) or str(info.channel_count)),
     ]
@@ -168,7 +176,7 @@ class ImagingInfoWidget(QFrame):
         rate = frame_rate(info)
         parts = [describe_picture(info), tr("{count} frames").format(count=info.frame_count)]
         if rate:
-            parts.append(format_rate(rate))
+            parts.append(tr("{rate} fps").format(rate=format_rate(rate)))
         self.summary_label.setText(" · ".join(parts))
 
     def mapping(self) -> tuple[float, float]:

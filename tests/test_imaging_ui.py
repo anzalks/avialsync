@@ -70,7 +70,7 @@ def test_imaging_follows_master_time_below_the_3d_view(window, qtbot, tmp_path):
     window.player.seek(0.25)
     # The video overlay's readout (D-183, D-196): zero-based frame, then the picture.
     qtbot.waitUntil(
-        lambda: pane.status_label.text() == "00:00:00.200 · f 2 / 3 · 32×24 · 16-bit",
+        lambda: pane.status_label.text() == "00:00:00.200 · f 2 / 3 · 32×24 · 16-bit · 10.0 fps",
         timeout=_TIMEOUT,
     )
     pane._on_frame_failed(str(path), pane._last_index, "damaged page")
