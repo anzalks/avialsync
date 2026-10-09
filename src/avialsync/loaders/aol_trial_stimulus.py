@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 _FIELDS = ("EnableInFuncProtocol", "Delay", "PulseWidth", "N_Stims", "Period")
 #: The TTL trace is sampled at this rate between its edges, which are exact.
 SAMPLE_RATE_HZ = 1000.0
+#: A regular sample this close to an edge is dropped in favour of the edge.
+_EDGE_TOLERANCE = 1e-6
 
 
 @dataclass(frozen=True)
@@ -115,8 +117,21 @@ def ttl_trace(schedule: StimulusSchedule | None, length: float) -> tuple[np.ndar
     """
     times = np.arange(0.0, max(length, 0.0), 1.0 / SAMPLE_RATE_HZ)
     pulses = [] if schedule is None else schedule.pulses()
-    edges = [edge for pulse in pulses for edge in pulse if 0.0 <= edge < length]
-    times = np.unique(np.concatenate((times, np.asarray(edges, dtype=np.float64))))
+    edges = np.asarray(
+        [edge for pulse in pulses for edge in pulse if 0.0 <= edge < length], dtype=np.float64
+    )
+    if len(edges):
+        # A regular sample a rounding error from an edge (0.7 against
+        # 0.7000000000000001) becomes the same instant once a joined start is
+        # added; the edge replaces it.
+        ordered = np.sort(edges)
+        index = np.clip(np.searchsorted(ordered, times), 1, len(ordered))
+        nearest = np.minimum(
+            np.abs(times - ordered[index - 1]),
+            np.abs(times - ordered[np.minimum(index, len(ordered) - 1)]),
+        )
+        times = times[nearest >= _EDGE_TOLERANCE]
+    times = np.unique(np.concatenate((times, edges)))
     level = np.zeros(len(times), dtype=np.float64)
     for onset, offset in pulses:
         level[(times >= onset) & (times < offset)] = 1.0

@@ -158,4 +158,8 @@ class AOLTrialEncoderSource(TimeSeriesSource):
             if length is None or length <= 0:
                 continue
             times, level = ttl_trace(schedule, length)
-            yield start + times, level
+            placed = start + times
+            # Strictly increasing on the joined timeline, whatever float rounding
+            # the shift by *start* does: pulse extraction rejects a repeated time.
+            keep = np.concatenate(([True], np.diff(placed) > 0))
+            yield placed[keep], level[keep]

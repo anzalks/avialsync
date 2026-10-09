@@ -80,6 +80,14 @@ def test_the_trace_has_exact_edges_and_is_zero_without_a_stimulus() -> None:
     assert len(flat_times) == 10 and not flat.any()
 
 
+def test_an_edge_beside_a_regular_sample_stays_one_instant_after_joining() -> None:
+    """0.7 and 0.7000000000000001 are the same time once 2.636... s is added."""
+    times, level = ttl_trace(StimulusSchedule(0.5, 0.2), 2.0)
+    placed = 2.636363636363636 + times
+    assert np.all(np.diff(placed) > 0)
+    assert level[np.isclose(times, 0.7)].tolist() == [0.0]
+
+
 def test_a_trial_offers_its_stimulus_ttl_as_a_plot_channel(tmp_path: Path) -> None:
     folder = _stimulus(_trial(tmp_path / "12-00-00", duration=0.022), delay=0.004, width=0.01)
     layout = AOLMicroscopeTrialSource().scan(folder, None)
