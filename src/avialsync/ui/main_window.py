@@ -421,6 +421,9 @@ class MainWindow(QMainWindow):
         self.video_load_state = VideoLoadState()
         self._video_frame_times: dict[str, Any] = {}
         self._video_source_bounds: dict[str, tuple[float, float]] = {}
+        #: The recording's trials as declared by its session, in Unix-epoch seconds;
+        #: drawn against whatever master zero is in force (``_draw_trial_segments``).
+        self._trial_segment_epochs: list[tuple[float, float, str]] = []
         self._video_time_mappings: dict[str, tuple[float, float]] = {}
         self._sync_provenance: list[SyncProvenance] = []
         #: What placed each source against the session zero, by path. Zero for
@@ -1409,6 +1412,32 @@ class MainWindow(QMainWindow):
         self.plot_pane.set_time_mode(self._time_mode, epoch)
         self.message_panel.set_time_mode(self._time_mode, epoch)
         self.changes_panel.set_time_mode(self._time_mode, epoch)
+        self._draw_trial_segments()
+
+    def show_trial_segments(self, segments: list[tuple[float, float, str]]) -> None:
+        """Show the recording's trials (Unix-epoch spans) in Data Streams and on the plots."""
+        self._trial_segment_epochs = list(segments)
+        self._draw_trial_segments()
+
+    def _draw_trial_segments(self) -> None:
+        """Place the declared trials against master zero, or clear them without one."""
+        zero = self.session_runtime.start_time
+        if not self._trial_segment_epochs or zero <= 0.0:
+            self.transport.set_trial_segments([])
+            self.plot_pane.set_segment_boundaries([])
+            return
+        segments = [
+            (start - zero, end - zero, name) for start, end, name in self._trial_segment_epochs
+        ]
+        self.transport.set_trial_segments(segments)
+        self.plot_pane.set_segment_boundaries(
+            sorted({start for start, _end, _name in segments} | {segments[-1][1]})
+        )
+
+    def forget_session_start(self) -> None:
+        """Drop master zero and what was placed against it, the trials included."""
+        self.session_runtime.start_time = 0.0
+        self.show_trial_segments([])
 
     def _set_time_mode(self, mode: TimeDisplayMode) -> None:
         self._time_mode = mode

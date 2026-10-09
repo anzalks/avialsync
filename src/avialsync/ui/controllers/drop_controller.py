@@ -100,6 +100,18 @@ def on_drop_scan_error(window: MainWindow, error_msg: str) -> None:
     )
 
 
+def _adopt_declared_evidence(window: MainWindow, layout: SessionLayout) -> None:
+    """What the session recorded about itself: AOL camera starts, and its trials.
+
+    Trials are kept visible on the joined timeline as a Data Streams lane and a
+    boundary on every plot. Only a layout that declares them sets them; an
+    ordinary file dropped into the session leaves an experiment's trials alone.
+    """
+    _remember_aol_camera_session(window, layout)
+    if layout.segments:
+        window.show_trial_segments(layout.segments)
+
+
 def _remember_aol_camera_session(window: MainWindow, layout: SessionLayout) -> None:
     """Retain AOL wall-clock evidence while a microscope trial is opened."""
     is_aol_camera_session = any(
@@ -126,7 +138,7 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
     """
     if not isinstance(layout, SessionLayout):
         return
-    _remember_aol_camera_session(window, layout)
+    _adopt_declared_evidence(window, layout)
 
     window.session_runtime.camera_fps = layout.camera_fps
     window.session_runtime.anchor_epoch = layout.anchor_epoch

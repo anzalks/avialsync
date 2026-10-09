@@ -11,7 +11,6 @@ import pytest
 from avialsync.core.errors import ImagingChoiceRequired
 from avialsync.core.registry import LoaderRegistry
 from avialsync.engine.aol_trial_search import AOLTrialSearchWorker
-from avialsync.loaders.aol_cell_roi_grid import AOLCellRoiGridSource
 from avialsync.loaders.aol_microscope_session import AOLMicroscopeTrialSource
 from avialsync.loaders.aol_microscope_trial import (
     MicroscopeTrial,
@@ -21,7 +20,6 @@ from avialsync.loaders.aol_microscope_trial import (
 )
 from avialsync.loaders.aol_mosaic_layout import analysis_layout, branch_layout, choose_layout
 from avialsync.loaders.aol_ribbon_scan import AOLRibbonScanSource
-from avialsync.loaders.aol_roi_trace import AOLRoiTraceLoader
 from avialsync.loaders.aol_trial_matching import derive_utc_offset, match_trial
 
 
@@ -177,32 +175,10 @@ def test_trial_session_scanner_and_experiment_folder_are_trial_scoped(tmp_path: 
     assert [item.path for item in joined.items] == [experiment]
     assert joined.items[0].config["trial_folders"] == [str(first), str(second)]
     assert joined.session_epoch == 1_700_000_000.0
+    # The trials stay visible on the joined timeline as named segments.
+    assert [name for _s, _e, name in joined.segments] == ["12-00-00", "12-10-00"]
+    assert joined.segments[1][0] == pytest.approx(1_700_000_000.0 + 0.029)
     assert all(item.path.suffix.lower() != ".tif" for item in joined.items)
-
-
-def test_cell_roi_grid_and_traces_use_masks_and_source_map(tmp_path: Path) -> None:
-    folder = _trial(tmp_path / "12-00-00")
-    activity = _analysis(folder)
-    grid = AOLCellRoiGridSource()
-    metadata = grid.open(activity, {"activity_file": str(activity), "trial_folder": str(folder)})
-    assert metadata.frame_count == 2
-    image = grid.read_frame(1)
-    finite = image[np.isfinite(image)]
-    np.testing.assert_array_equal(np.sort(finite), [1501, 1501, 3501])
-    grid.close()
-
-    traces = AOLRoiTraceLoader()
-    traces.open(activity, {"activity_file": str(activity)})
-    channels = traces.channels()
-    assert [channel.name for channel in channels] == ["roi_1", "roi_2"]
-    assert "ribbon ROI 1" in channels[0].description
-    assert "ribbon ROIs 1, 3" in channels[1].description
-    time, values = next(traces.read_chunks("roi_2"))
-    np.testing.assert_allclose(time, [0.0, 0.008])
-    np.testing.assert_allclose(values, [2.0, 4.0])
-
-    layout = AOLMicroscopeTrialSource().scan(folder, None)
-    assert len(layout.items) == 3
 
 
 def _match_trial(folder: str, start: float, duration: float = 10.0) -> MicroscopeTrial:
@@ -325,17 +301,9 @@ def test_channel_names_follow_the_labs_record(tmp_path: Path) -> None:
     assert AOLRibbonScanSource().open(folder, {}).channel_names == ("Red", "Green")
 
 
-def test_a_dropped_mosaic_analysis_opens_as_its_roi_grid(tmp_path: Path) -> None:
-    folder = _trial(tmp_path / "12-00-00")
-    activity = _analysis(folder)
-    assert AOLCellRoiGridSource.can_open(activity) > 0
-    assert LoaderRegistry(plugin_dirs=[]).find_best_loader(activity) is AOLCellRoiGridSource
-    assert AOLCellRoiGridSource().open(activity, {}).frame_count == 2
-
-
-def test_both_trial_imaging_sources_are_registered_for_import_and_restore() -> None:
+def test_the_aol_sources_are_registered_for_import_and_restore() -> None:
     names = {cls.__name__ for cls in LoaderRegistry(plugin_dirs=[]).loaders()}
-    assert {"AOLRibbonScanSource", "AOLCellRoiGridSource", "AOLRoiTraceLoader"} <= names
+    assert {"AOLRibbonScanSource", "AOLJoinedCameraSource"} <= names
 
 
 def test_trial_search_finds_the_camera_trial_on_its_day(tmp_path: Path) -> None:
@@ -393,18 +361,6 @@ def test_the_tree_is_rebuilt_branch_by_branch_from_the_thin_mask(tmp_path: Path)
     frame = source.read_frame(0, channel=0)
     assert np.all(frame[:3, :2] == 1000) and np.all(frame[3:, :2] == 2000)
     assert np.all(frame[:3, 2:] == 3000) and np.isnan(frame[3:, 2:]).all()
-
-
-def test_dendrite_roi_view_keeps_only_masked_pixels(tmp_path: Path) -> None:
-    folder = _trial(tmp_path / "12-00-00")
-    _thin_mask(folder)
-    source = AOLRibbonScanSource()
-    metadata = source.open(folder, {"trial_folder": str(folder), "mask": "thin"})
-    assert "dendrite ROI masks" in metadata.timing_source
-    frame = source.read_frame(0, channel=0)
-    # Stored line 0 is display column 0 of each tile.
-    assert np.all(frame[:3, 0] == 1000) and np.isnan(frame[:3, 1]).all()
-    assert np.all(frame[0:3, 2] == 3000) and np.isnan(frame[0:3, 3]).all()
 
 
 def test_population_patches_pack_after_the_tree(tmp_path: Path) -> None:

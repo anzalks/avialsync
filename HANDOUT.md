@@ -603,11 +603,9 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `loaders/nwb_roi_grid.py` | Every ROI of an NWB plane segmentation as one tile of a grid image per frame: raw crops when an image series on that plane covers the masks, else the ROI's ΔF/F (or fluorescence) on its mask; offered by the NWB session beside the series | `NWBRoiGridSource`, `find_roi_grids` |
 | `loaders/roi_grid_layout.py` | Shared ROI mask crop geometry and guttered tile packing for NWB and AOL cell grids | `geometry()`, `pack()`, `mask_crop()` |
 | `loaders/aol_microscope_trial.py` | Read-only MATLAB v7.3 microscope trial metadata (timing fields read directly or through MATLAB cells), line timing, display-oriented tile layout, the lab's green-channel record; `verify=False` reads names only for scans | `MicroscopeTrial`, `read_trial()`, `is_microscope_trial()`, `tile_origins()`, `declared_green_channel()` |
-| `loaders/aol_ribbon_scan.py` | "Imaging Stack (MATLAB)": a trial as one gutterless mosaic, `mask="thin"` for its dendrite ROIs, `trial_folders` for an experiment joined back to back (three trials cached), or one `RibbonScan_ROI_*.mat` raw (`uint16`, its own line-clock times, `Log.txt` rate before asking); planes as MATLAB shows them (D-203, D-204) | `AOLRibbonScanSource`, `thin_masks()` |
+| `loaders/aol_ribbon_scan.py` | "Imaging Stack (MATLAB)": a trial as one gutterless mosaic, `trial_folders` for an experiment joined back to back (three trials cached), or one `RibbonScan_ROI_*.mat` raw (`uint16`, its own line-clock times, `Log.txt` rate before asking); planes as MATLAB shows them (D-203, D-204) | `AOLRibbonScanSource` |
 | `loaders/aol_mosaic_layout.py` | Where each ribbon tile sits: the controller-style branch tree from `thin_mask.mat` (branches as columns, segments stacked, population patches packed), the lab's analysis map, or a square grid (D-204) | `choose_layout()`, `branch_layout()`, `analysis_layout()`, `MosaicLayout` |
 | `loaders/aol_camera_join.py` | "Video (Joined Trials)": a camera's per-trial recordings found by the controller's trial names and stream-copied back to back into the per-user cache with a timestamp sidecar; the camera data folder search (D-205) | `AOLJoinedCameraSource`, `camera_segments()`, `configure_camera_roots()` |
-| `loaders/aol_cell_roi_grid.py` | "ROI Grid (MATLAB)": hybrid mosaic cell masks rendered from raw green-channel crops with the shared ROI-grid layout; opens from a dropped `hybrid_mosaic_*_activity.mat` too | `AOLCellRoiGridSource` |
-| `loaders/aol_roi_trace.py` | "ROI Traces (MATLAB)": per-mask ROI traces on frame-midpoint times, with ribbon coverage in channel descriptions | `AOLRoiTraceLoader` |
 | `loaders/aol_microscope_session.py` | One-trial or experiment-folder microscope session scan; drops derived outputs outside `roi_activity` | `AOLMicroscopeTrialSource`, `is_microscope_trial()` |
 | `loaders/aol_trial_matching.py` | Trial day selection, shared-zone inference, and unique containment/nearest-start matching | `derive_utc_offset()`, `match_trial()` |
 | `ui/imaging_frame_view.py` | The imaging picture with its own zoom and pan, or a message in its place; replaces the QLabel that could not shrink below its last pixmap | `ImagingFrameView` |
@@ -1931,27 +1929,28 @@ cells; fixtures that write plain datasets passed while every real trial lost its
 instead of 10 s). The mosaic analysis keeps `correction_info` as a cell of structs, not a group.
 h5py reads MATLAB's column-major arrays transposed, so planes, the tile map and masks are
 transposed back to match the lab's figures (tiles 51 rows by 15 columns, numbered across then
-down). The cell masks are the lab's own discs; the grid shows their shape, it does not draw one.
+down).
 
-**Experiments, the tree and the dendrite ROIs (D-204, D-205).** A trial opens as the
+**Experiments and the tree (D-204, D-205, D-207).** A trial opens as one source, the
 reconstructed tree: `thin_mask.mat`'s `branch_projection` gives each branch's total length,
 segments are numbered branch by branch (verified on 12-33-56: mean correlation 0.49 against
-0.12-0.15 for any shifted numbering), so branches become columns with their segments stacked.
-The dendrite ROI item is that mosaic with only `masks | soma_masks` pixels kept, and its
-dendrites run continuously down each column -- the check that the layout is right. Cell crops
-stay on the lab's analysis map, the only layout their masks fit. An experiment folder joins its
-trials back to back (`joined_starts`), imaging and cameras alike: each camera's per-trial files
-are found by the controller's trial name (in the trial folder, or under the camera data folder
+0.12-0.15 for any shifted numbering), so branches become columns with their segments stacked;
+the lab's analysis map, then a square grid, are fallbacks. An experiment folder joins its trials
+back to back (`joined_starts`), imaging and cameras alike: each camera's per-trial files are
+found by the controller's trial name (in the trial folder, or under the camera data folder
 setting) and stream-copied into one cached video, each segment from its trial's trigger and
 trimmed to the trial (verified on real 1440x1080 MJPEG: a 4.351 ms seam against a 4.347 ms frame
-period). Nothing is sized from constants; the 5 ns line tick is checked against each trial's
-duration. Frame stepping walks imaging frames when no video is loaded. Channels named Green and
-Red start in those colours (`core/imaging_display.default_colors`).
+period). The trials are `SessionLayout.segments`: a Trials lane in Data Streams and dashed
+boundaries on every plot row. Nothing is sized from constants; the 5 ns line tick is checked
+against each trial's duration. Channels named Green and Red start in those colours
+(`core/imaging_display.default_colors`). With no video loaded, Left/Right step imaging frames,
+else samples of the first plot row shown; a click inside the Data Streams page window seeks
+(a drag still moves the page).
 The import review offers a session-named item only Skip or its own loader and hides
 the Use as / Calibration columns unless a row can use them; AOL stacks declare no axis order, so
 the viewer's Axes row stays hidden, and the source selector and cards carry session labels (D-206).
-Bundled items (`_bundle` in a session item's config) collapse into one import row; picking an
-imaging stack that has no data at the playhead seeks to its first frame (`ImagingPane.seek_requested`).
+Picking an imaging stack that has no data at the playhead seeks to its first frame
+(`ImagingPane.seek_requested`).
 The import review reuses the window's loader registry (`MainWindow.registry`), which the drop
 worker has already discovered off the UI thread; building a fresh one imported every loader on
 the UI thread and stalled the first drop of a session for about 0.4 s.

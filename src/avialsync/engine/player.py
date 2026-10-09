@@ -233,11 +233,7 @@ class Player(QObject):
 
         panes = self._update_pane_footage(self.clock.state.t)
         if not panes:
-            # No video here: step the imaging stack's own frames instead.
-            imaging = getattr(self, "imaging_pane", None)
-            if imaging is None or not imaging.isVisible():
-                return
-            target = imaging.frame_step_master_target(self.clock.state.t, direction)
+            target = self._data_step_target(direction)
             if target is not None:
                 self.seek(target, exact=True)
             return
@@ -245,6 +241,24 @@ class Player(QObject):
         if target is None:
             return
         self.seek(target, exact=True)
+
+    def _data_step_target(self, direction: int) -> float | None:
+        """Where a frame step goes with no video: the next imaging frame, else sample.
+
+        Every control a video session has must work on data alone, and "one
+        frame" there means one acquired imaging frame, or one recorded sample
+        of the first plot row shown.
+        """
+        t = self.clock.state.t
+        imaging = getattr(self, "imaging_pane", None)
+        if imaging is not None and imaging.isVisible():
+            target = imaging.frame_step_master_target(t, direction)
+            if target is not None:
+                return float(target)
+        for row in self.plot_pane.channels:
+            if row.visible:
+                return row.reader.neighbour_sample_time(t, direction)
+        return None
 
     def set_ab_loop(self, t_in: float | None, t_out: float | None) -> None:
         """Set or clear the A/B loop region on the master clock."""

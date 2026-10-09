@@ -316,6 +316,12 @@ class SessionLayout:
     #: A running wheel and the encoder channel that turns it, if the rig has one.
     rotary: RotaryHint | None = None
 
+    #: Named stretches of the recording -- an experiment's trials -- as
+    #: ``(start, end, label)`` in Unix-epoch seconds. Shown as a lane in Data
+    #: Streams and as boundaries on the plots, so the structure the acquisition
+    #: imposed stays visible after its pieces are joined into one timeline.
+    segments: list[tuple[float, float, str]] = field(default_factory=list)
+
     #: What the scan could not lay out, in the user's words rather than the log's.
     #: A scanner must not fail a whole folder because one recording in it is
     #: unreadable — the other recordings are still good — but dropping the bad

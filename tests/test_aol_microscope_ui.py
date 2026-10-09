@@ -8,11 +8,9 @@ import pytest
 from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
-from avialsync.loaders.aol_cell_roi_grid import AOLCellRoiGridSource
 from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
 from avialsync.loaders.aol_microscope_session import AOLMicroscopeTrialSource
 from avialsync.loaders.aol_ribbon_scan import AOLRibbonScanSource
-from avialsync.loaders.aol_roi_trace import AOLRoiTraceLoader
 from avialsync.ui.batch_import_dialog import BatchImportDialog
 from avialsync.ui.controllers import wheel_controller
 from avialsync.ui.controllers.aol_microscope_controller import accept_trial_pair
@@ -48,17 +46,16 @@ def test_import_review_offers_every_trial_item_instead_of_skipping_it(
     dialog = BatchImportDialog(candidates, window)
     chosen = {path: loader for path, loader, _config in dialog.get_selections()}
     assert chosen == {path: loader for path, loader, _config in candidates}
-    assert set(chosen.values()) == {AOLRibbonScanSource, AOLCellRoiGridSource, AOLRoiTraceLoader}
+    assert set(chosen.values()) == {AOLRibbonScanSource}
     dialog.deleteLater()
 
 
 def test_trial_imaging_reaches_the_imaging_pane(window: MainWindow, qtbot, tmp_path) -> None:
     folder = _trial(tmp_path / "12-00-00")
-    activity = _analysis(folder)
     for path, loader, config in _candidates(folder):
         window._route_import_candidate(path, loader, dict(config))
     paths = window.imaging_pane.source_paths
-    qtbot.waitUntil(lambda: {str(folder), str(activity)} <= set(paths()), timeout=_TIMEOUT)
+    qtbot.waitUntil(lambda: str(folder) in paths(), timeout=_TIMEOUT)
 
 
 def test_accepting_a_pairing_places_the_trial_and_undo_restores_it(
@@ -181,56 +178,41 @@ def test_controller_stacks_open_with_their_session_names_and_no_axes_row(
     assert pane.layout_row.isHidden()
 
 
-def _thin_mask_file(folder: Path) -> None:
-    from tests.test_aol_microscope_trial import _thin_mask
-
-    _thin_mask(folder)
-
-
-def test_paired_views_are_one_row_in_the_import_review(window: MainWindow, tmp_path: Path) -> None:
-    folder = _trial(tmp_path / "12-00-00")
-    _analysis(folder)
-    _thin_mask_file(folder)
-    candidates = _candidates(folder)
-    assert len(candidates) == 4  # tree, dendrite ROIs, cell ROIs, traces
-    dialog = BatchImportDialog(candidates, window)
-    shown = [row for row in range(dialog._table.rowCount()) if not dialog._table.isRowHidden(row)]
-    names = {dialog._table.cellWidget(row, 0).text() for row in shown}
-    assert len(shown) == 2
-    assert any("reconstructed tree and dendrite ROIs" in name for name in names)
-    assert any("lab ROI analysis (cell ROIs and traces)" in name for name in names)
-    # Every source still loads, and none carries the bundle bookkeeping.
-    selections = dialog.get_selections()
-    assert len(selections) == 4
-    assert all("_bundle" not in (config or {}) for _p, _l, config in selections)
-    # Skipping the row skips the whole bundle.
-    for row in shown:
-        dialog._combos[row].setCurrentIndex(0)
-    assert dialog.get_selections() == []
-    dialog.deleteLater()
-
-
 def test_picking_a_stack_outside_the_playhead_brings_it_into_view(
     window: MainWindow, qtbot, tmp_path
 ) -> None:
+    first = _trial(tmp_path / "12-00-00")
+    second = _trial(tmp_path / "12-10-00", start_ms=1_700_000_600_000)
+    from avialsync.ui.controllers import drop_controller
+
+    for folder in (first, second):
+        layout = AOLMicroscopeTrialSource().scan(folder, None)
+        drop_controller.apply_session_layout(window, layout)
+        item = layout.items[0]
+        window._route_import_candidate(item.path, item.loader, dict(item.config))
+    pane = window.imaging_pane
+    qtbot.waitUntil(lambda: str(second) in pane.source_paths(), timeout=_TIMEOUT)
+    window.player.seek(300.0, exact=True)  # between the two trials: neither has data
+    pane.source_choice.setCurrentIndex(pane.source_choice.findData(str(second)))
+    pane.source_choice.activated.emit(pane.source_choice.currentIndex())
+    _loader, _config, mapping = pane.source_config(str(second))
+    first_frame = float(pane.metadata_for(str(second)).frame_times[0])
+    assert mapping.to_source(window.clock.state.t) == pytest.approx(first_frame, abs=1e-6)
+
+
+def test_trials_are_drawn_on_the_timeline_and_the_plots(window: MainWindow, tmp_path) -> None:
     experiment = tmp_path / "experiment_1"
     experiment.mkdir()
     _trial(experiment / "12-00-00")
-    second = _trial(experiment / "12-10-00", start_ms=1_700_000_600_000)
-    _analysis(second)
+    _trial(experiment / "12-10-00", start_ms=1_700_000_600_000)
     layout = AOLMicroscopeTrialSource().scan(experiment, None)
     from avialsync.ui.controllers import drop_controller
 
     drop_controller.apply_session_layout(window, layout)
-    for item in layout.items:
-        if item.loader is not AOLRoiTraceLoader:
-            window._route_import_candidate(item.path, item.loader, dict(item.config))
-    pane = window.imaging_pane
-    grid = str(next(item.path for item in layout.items if item.loader is AOLCellRoiGridSource))
-    qtbot.waitUntil(lambda: grid in pane.source_paths(), timeout=_TIMEOUT)
-    window.player.seek(0.0, exact=True)
-    pane.source_choice.setCurrentIndex(pane.source_choice.findData(grid))
-    pane.source_choice.activated.emit(pane.source_choice.currentIndex())
-    _loader, _config, mapping = pane.source_config(grid)
-    first = float(pane.metadata_for(grid).frame_times[0])
-    assert mapping.to_source(window.clock.state.t) == pytest.approx(first, abs=1e-6)
+    overview = window.transport.overview
+    assert "Trials" in overview.lane_labels()
+    assert [name for _s, _e, name in overview._segments] == ["12-00-00", "12-10-00"]
+    # Converted from Unix seconds, so about 1e-7 s of float rounding is expected.
+    assert overview._segments[1][0] == pytest.approx(0.029, abs=1e-6)
+    bounds = window.plot_pane._interactions._segment_bounds
+    assert bounds == pytest.approx((0.0, 0.029, 0.051), abs=1e-6)

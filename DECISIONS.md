@@ -6591,11 +6591,25 @@ order, so the imaging viewer hides its *Axes* row (D-194 remains for generic HDF
 Imaging sources, their cards and sensor cards are named by the session's label when it gave
 one ("experiment_2 — 16 trials — dendrite ROIs") rather than by a file name (`thin_mask.mat`).
 
-A session can bundle sources that are one thing to the user (`_bundle`, `_bundle_label` in an
-item's config): the AOL scanner bundles a scan's reconstructed tree with its dendrite ROIs, and a
-trial's cell ROIs with their traces. The import review shows a bundle as one row that loads or
-skips all of it; the sources stay separate in the viewer, whose selector chooses between them.
 Picking a stack in that selector while the playhead is outside it moves the playhead to the
 stack's first frame: the pick is a request to see it, and a ten-second analysis inside a joined
 experiment otherwise looked like the selector had done nothing.
+
+---
+
+## 2026-10 · D-207 · AOL is the tiled ribbon scan, its trials and its cameras; data alone navigates like video
+
+**Decision.** An AOL trial or experiment loads one imaging source -- the tiled ribbon scan as the
+reconstructed tree -- plus its cameras. The dendrite-ROI view, the lab's cell-ROI grid and its
+traces (D-203, D-204) are removed: the tiled scan carries the data, and the analysis views were
+read as duplicates and as unexplained circles. The trials are declared as
+`SessionLayout.segments` (Unix-epoch `(start, end, name)`), drawn as a Trials lane in Data
+Streams and as dashed boundaries on every plot row; a later file drop does not clear them, a
+session reset does.
+
+Every navigation control works with no video loaded: Left/Right step the shown imaging stack's
+frames, or else the first visible plot row's samples (`PyramidReader.neighbour_time`); a click
+inside the Data Streams page window seeks where it landed, and only a press that travels the
+platform drag distance moves the page. Clicking a plot, the slider, Shift+arrows, Space, Home
+and End were verified on imaging-only and data-only sessions.
 

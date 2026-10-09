@@ -1,23 +1,22 @@
 """Session scanner for AOL microscope trials and experiment folders.
 
-A trial folder is one session: its ribbon scan as the reconstructed tree,
-its dendrite ROIs (``thin_mask.mat``) on that tree, the lab's analysis cell
-ROIs and traces when it has them, and the trial's cameras when they were saved
-with it -- each camera's frame 0 on the trial's trigger.
+A trial folder is one session: its ribbon scan tiled as the reconstructed tree,
+and the trial's cameras when they were saved with it -- each camera's frame 0
+on the trial's trigger.
 
 An experiment folder is one long session, joined back to back the way the
 controller's own analysis joins trials
 (:func:`~avialsync.loaders.aol_microscope_trial.joined_starts`): one ribbon
-source and one dendrite-ROI source across every trial that shares the first
-trial's scan, each camera's per-trial recordings as one video
-(:mod:`~avialsync.loaders.aol_camera_join`), and each analysed trial's cell
-items at that trial's place. A trial scanned differently cannot be joined and
-is reported, not dropped silently (D-085).
+source across every trial that shares the first trial's scan, and each
+camera's per-trial recordings as one video
+(:mod:`~avialsync.loaders.aol_camera_join`). The trials themselves are declared
+as :attr:`~avialsync.core.source.SessionLayout.segments`, so where one ends and
+the next begins stays visible on the joined timeline. A trial scanned
+differently cannot be joined and is reported, not dropped silently (D-085).
 """
 
 from __future__ import annotations
 
-import re
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -29,33 +28,15 @@ from avialsync.loaders.aol_camera_join import (
     camera_segments,
     joined_source_id,
 )
-from avialsync.loaders.aol_cell_roi_grid import AOLCellRoiGridSource
 from avialsync.loaders.aol_microscope_trial import (
     MicroscopeTrial,
-    analysis_file,
     experiment_trials,
     is_microscope_trial,
     joined_starts,
     read_trial,
 )
 from avialsync.loaders.aol_ribbon_scan import AOLRibbonScanSource
-from avialsync.loaders.aol_roi_trace import AOLRoiTraceLoader
 from avialsync.loaders.video_standard import VideoStandardLoader
-
-_LOG_RECORDING = re.compile(r"Recording\s*@\s*([^\r\n]+)", re.IGNORECASE)
-
-
-def _log_note(folder: Path) -> str:
-    """This trial's line from the controller's free-text ``Log.txt``, if any."""
-    try:
-        text = (folder.parent / "Log.txt").read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return ""
-    for match in _LOG_RECORDING.finditer(text):
-        line = match.group(1).strip()
-        if line.startswith(folder.name):
-            return line[len(folder.name) :].lstrip(" :-").strip()
-    return ""
 
 
 def _at(epoch: float, offset: float = 0.0) -> float | None:
@@ -67,69 +48,40 @@ def _scan_signature(trial: MicroscopeTrial) -> tuple[Any, ...]:
     return (trial.roi_numbers, trial.channels, trial.lines, trial.width)
 
 
-def _analysis_items(trial: MicroscopeTrial, epoch: float | None) -> list[SessionItem]:
-    """The lab's cell ROIs and their traces, when this trial was analysed."""
-    activity = analysis_file(trial.folder)
-    if activity is None:
-        return []
-    config: dict[str, object] = {
-        "trial_folder": str(trial.folder),
-        "activity_file": str(activity),
-        # One analysis, two views: offered as one row in the import review.
-        "_bundle": f"analysis:{trial.folder}",
-        "_bundle_label": f"{trial.folder.name} — lab ROI analysis (cell ROIs and traces)",
-    }
+def _trial_lengths(trials: Sequence[MicroscopeTrial], starts: Sequence[float]) -> list[float]:
+    """Each trial's slot on the joined timeline: up to the next trial's start."""
     return [
-        SessionItem(
-            path=activity,
-            loader=AOLCellRoiGridSource,
-            config=config,
-            label=f"{trial.folder.name} — cell ROIs (lab ROI analysis)",
-            source_epoch=epoch,
-        ),
-        SessionItem(
-            path=activity.parent,
-            loader=AOLRoiTraceLoader,
-            config={**config, "series": "roi_traces"},
-            label=f"{trial.folder.name} — cell ROI traces",
-            source_epoch=epoch,
-        ),
+        (starts[index + 1] if index + 1 < len(starts) else starts[index] + trial.duration)
+        - starts[index]
+        for index, trial in enumerate(trials)
     ]
 
 
-def _imaging_items(
+def _segments(trials: Sequence[MicroscopeTrial]) -> list[tuple[float, float, str]]:
+    """The trials as named stretches of the joined timeline, in Unix-epoch seconds."""
+    epoch = trials[0].start_epoch
+    if epoch <= 0:
+        return []
+    starts = joined_starts(list(trials))
+    lengths = _trial_lengths(trials, starts)
+    return [
+        (epoch + start, epoch + start + length, trial.folder.name)
+        for trial, start, length in zip(trials, starts, lengths, strict=True)
+    ]
+
+
+def _ribbon_item(
     trials: list[MicroscopeTrial], path: Path, config: dict[str, object], name: str
-) -> list[SessionItem]:
-    """The ribbon mosaic and, when masks exist, its dendrite ROIs."""
+) -> SessionItem:
+    """The ribbon scan, every ROI tiled as the reconstructed tree."""
     first = trials[0]
-    if (first.folder / "thin_mask.mat").is_file():
-        # Two views of one scan: offered as one row in the import review.
-        config = {
-            **config,
-            "_bundle": f"imaging:{path}",
-            "_bundle_label": f"{name} — {len(first.roi_files)} ribbon ROIs: "
-            "reconstructed tree and dendrite ROIs",
-        }
-    items = [
-        SessionItem(
-            path=path,
-            loader=AOLRibbonScanSource,
-            config=config,
-            label=f"{name} — {len(first.roi_files)} ribbon ROIs, reconstructed tree",
-            source_epoch=_at(first.start_epoch),
-        )
-    ]
-    if (first.folder / "thin_mask.mat").is_file():
-        items.append(
-            SessionItem(
-                path=first.folder / "thin_mask.mat",
-                loader=AOLRibbonScanSource,
-                config={**config, "mask": "thin"},
-                label=f"{name} — dendrite ROIs (thin mask)",
-                source_epoch=_at(first.start_epoch),
-            )
-        )
-    return items
+    return SessionItem(
+        path=path,
+        loader=AOLRibbonScanSource,
+        config=config,
+        label=f"{name} — {len(first.roi_files)} ribbon ROIs, tiled",
+        source_epoch=_at(first.start_epoch),
+    )
 
 
 def camera_items(
@@ -146,12 +98,9 @@ def camera_items(
     if not trials:
         return []
     starts = joined_starts(list(trials))
-    lengths = [
-        (starts[index + 1] if index + 1 < len(starts) else starts[index] + trial.duration)
-        - starts[index]
-        for index, trial in enumerate(trials)
-    ]
-    found = camera_segments([t.folder for t in trials], starts, lengths, roots)
+    found = camera_segments(
+        [t.folder for t in trials], starts, _trial_lengths(trials, starts), roots
+    )
     epoch = _at(trials[0].start_epoch)
     items: list[SessionItem] = []
     for camera, segments in sorted(found.items()):
@@ -201,16 +150,14 @@ class AOLMicroscopeTrialSource(SessionSource):
         if is_microscope_trial(path):
             # Names and timing only: pixels are verified by the source that reads them.
             trial = read_trial(path, verify=False)
-            note = _log_note(path)
-            name = f"{path.name} ({note})" if note else path.name
-            items = _imaging_items([trial], path, {"trial_folder": str(path)}, name)
-            items += _analysis_items(trial, _at(trial.start_epoch))
+            items = [_ribbon_item([trial], path, {"trial_folder": str(path)}, path.name)]
             items += camera_items([trial])
             epoch = trial.start_epoch if trial.start_epoch > 0 else 0.0
             return SessionLayout(
                 items=items,
                 session_epoch=epoch,
                 anchor_epoch=epoch,
+                segments=_segments([trial]),
                 warnings=[f"{path.name}: {warning}" for warning in trial.warnings],
             )
         folders = experiment_trials(path)
@@ -228,18 +175,18 @@ class AOLMicroscopeTrialSource(SessionSource):
                     f"{trial.folder.name} was scanned differently and is not joined; "
                     "open its folder on its own."
                 )
-        starts = joined_starts(joined)
         # Stored so placing the experiment later costs no file reads on the UI thread.
         config: dict[str, object] = {
             "trial_folders": [str(t.folder) for t in joined],
-            "trial_starts": starts,
+            "trial_starts": joined_starts(joined),
         }
-        items = _imaging_items(joined, path, config, f"{path.name} — {len(joined)} trials")
-        first_epoch = joined[0].start_epoch
-        for trial, start in zip(joined, starts, strict=True):
-            items += _analysis_items(trial, _at(first_epoch, start))
+        items = [_ribbon_item(joined, path, config, f"{path.name} — {len(joined)} trials")]
         items += camera_items(joined)
-        epoch = first_epoch if first_epoch > 0 else 0.0
+        epoch = joined[0].start_epoch if joined[0].start_epoch > 0 else 0.0
         return SessionLayout(
-            items=items, session_epoch=epoch, anchor_epoch=epoch, warnings=warnings
+            items=items,
+            session_epoch=epoch,
+            anchor_epoch=epoch,
+            segments=_segments(joined),
+            warnings=warnings,
         )

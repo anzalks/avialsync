@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
     QHeaderView,
-    QLabel,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -228,7 +227,6 @@ class BatchImportDialog(QDialog):
             combo.currentIndexChanged.connect(lambda _index, at=row: self._update_calibration(at))
             self._update_calibration(row)
             combo.currentIndexChanged.connect(lambda _index: self._refresh_optional_columns())
-        self._collapse_bundles()
         self._refresh_optional_columns()
 
         buttons = QDialogButtonBox(
@@ -237,46 +235,6 @@ class BatchImportDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
-
-    def _collapse_bundles(self) -> None:
-        """Show each bundle a session declared as one row that loads all of it.
-
-        A session can name several sources that are one thing to the user -- a
-        microscope trial's reconstructed tree and its dendrite ROIs, an analysis
-        and its traces. Listed separately they read as the same item repeated.
-        The first member's row stands for the bundle; the others are hidden and
-        follow its choice, so ``get_selections`` still returns every source.
-        """
-        bundles: dict[str, list[int]] = {}
-        for row, (_path, _loader, config) in enumerate(self._candidates):
-            key = str((config or {}).get("_bundle", ""))
-            if key:
-                bundles.setdefault(key, []).append(row)
-        for rows in bundles.values():
-            if len(rows) < 2:
-                continue
-            leader, members = rows[0], rows[1:]
-            label = str((self._candidates[leader][2] or {}).get("_bundle_label", ""))
-            if label:
-                name = self._table.cellWidget(leader, 0)
-                if isinstance(name, QLabel):
-                    name.setText(label)
-                item = self._table.item(leader, 0)
-                if item is not None:
-                    item.setText(label)
-            lead = self._combos[leader]
-            kinds = " + ".join(dict.fromkeys(self._combos[row].currentText() for row in rows))
-            if lead.currentIndex() > 0:
-                lead.setItemText(lead.currentIndex(), kinds)
-            defaults = {row: self._combos[row].currentIndex() for row in members}
-            for row in members:
-                self._table.setRowHidden(row, True)
-            lead.currentIndexChanged.connect(
-                lambda index, defaults=defaults: [
-                    self._combos[row].setCurrentIndex(0 if index == 0 else chosen)
-                    for row, chosen in defaults.items()
-                ]
-            )
 
     def _refresh_optional_columns(self) -> None:
         """Show "Use as" and "Calibration" only while some row can use them.
@@ -474,8 +432,6 @@ class BatchImportDialog(QDialog):
                 role, video = role_combo.currentData()
                 chosen = dict(config or {})
                 chosen.pop("_exclusive_group", None)
-                chosen.pop("_bundle", None)
-                chosen.pop("_bundle_label", None)
                 chosen.pop("role", None)
                 chosen.pop("overlay_video", None)
                 if role:

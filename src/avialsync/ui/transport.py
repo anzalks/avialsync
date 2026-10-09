@@ -26,6 +26,7 @@ from PySide6.QtGui import (
     QResizeEvent,
 )
 from PySide6.QtWidgets import (
+    QApplication,
     QComboBox,
     QFrame,
     QHBoxLayout,
@@ -169,10 +170,17 @@ class _AnnotationLane:
     markers: tuple[tuple[float, float | None, str], ...]
 
 
+@dataclass(frozen=True)
+class _SegmentLane:
+    """Named stretches of the recording -- a joined experiment's trials."""
+
+    segments: tuple[tuple[float, float, str], ...]
+
+
 #: A lane is its display label, its kind tag, and a payload whose shape depends
 #: on that tag. Typed records let the paint and hover branches unpack safely;
 #: the payload used to be `object`, which nothing could destructure.
-_LanePayload = "_CoverageLane | _EventLane | _AnnotationLane | None"
+_LanePayload = "_CoverageLane | _EventLane | _AnnotationLane | _SegmentLane | None"
 
 
 def _normalise_events(
@@ -241,6 +249,9 @@ class TimelineOverview(QWidget):
             "identity_candidate": _EMPTY_TIMES,
         }
         self._markers: tuple[tuple[float, float | None, str], ...] = ()
+        self._segments: tuple[tuple[float, float, str], ...] = ()
+        self._press_x = 0.0
+        self._viewport_moved = False
         self._viewport_start = 0.0
         self._viewport_duration = 0.0
         self._viewport_phase = 0.0
@@ -417,6 +428,11 @@ class TimelineOverview(QWidget):
             return None
         return events[best]
 
+    def set_segments(self, segments: list[tuple[float, float, str]]) -> None:
+        """Show the recording's trials, ``(start, end, name)`` in master seconds."""
+        self._segments = tuple(segments)
+        self._on_evidence_changed()
+
     def set_markers(self, markers: list[tuple[float, float | None, str]]) -> None:
         """Display point/range annotations in their stored colors."""
         self._markers = tuple(markers)
@@ -436,6 +452,8 @@ class TimelineOverview(QWidget):
                 parts.append(tr("{lane}: {n} events").format(lane=label, n=len(payload.events)))
             elif isinstance(payload, _AnnotationLane):
                 parts.append(tr("{lane}: {n} markers").format(lane=label, n=len(payload.markers)))
+            elif isinstance(payload, _SegmentLane):
+                parts.append(tr("{lane}: {n} trials").format(lane=label, n=len(payload.segments)))
         return "; ".join(parts) or tr("No sources are loaded.")
 
     def lane_labels(self) -> list[str]:
@@ -505,8 +523,12 @@ class TimelineOverview(QWidget):
             )
         return lanes
 
-    def _lanes(self) -> list[tuple[str, str, _CoverageLane | _EventLane | _AnnotationLane | None]]:
-        lanes = self._coverage_lanes()
+    def _lanes(
+        self,
+    ) -> list[tuple[str, str, _CoverageLane | _EventLane | _AnnotationLane | _SegmentLane | None]]:
+        lanes: list[
+            tuple[str, str, _CoverageLane | _EventLane | _AnnotationLane | _SegmentLane | None]
+        ] = list(self._coverage_lanes())
         if self._ttl_events:
             lanes.append(("Sync / TTL", "ttl", _EventLane(self._ttl_events)))
         if self._gap_events:
@@ -517,7 +539,26 @@ class TimelineOverview(QWidget):
             lanes.append(("Messages", "message", _EventLane(self._message_events)))
         if self._markers:
             lanes.append(("Annotations", "annotation", _AnnotationLane(self._markers)))
+        if self._segments:
+            lanes.append(("Trials", "segment", _SegmentLane(self._segments)))
         return lanes
+
+    def _paint_segments(self, painter: QPainter, lane: _SegmentLane, top: int, height: int) -> None:
+        """Alternate two shades so neighbouring trials read apart, each named if it fits."""
+        palette = self.palette()
+        shades = (palette.color(palette.ColorRole.Mid), palette.color(palette.ColorRole.Midlight))
+        for index, (start, end, name) in enumerate(lane.segments):
+            span = self._visible_span_x(start, end)
+            if span is None:
+                continue
+            left, right = span
+            painter.fillRect(left, top, max(1, right - left), height, shades[index % 2])
+            painter.setPen(separator_color(palette))
+            painter.drawLine(left, top, left, top + height)
+            width = right - left - 4
+            if width > painter.fontMetrics().horizontalAdvance(name):
+                painter.setPen(palette.color(palette.ColorRole.Text))
+                painter.drawText(left + 2, top, width, height, Qt.AlignmentFlag.AlignVCenter, name)
 
     def _content_x(self, time: float) -> int:
         t0, t1 = self._bounds
@@ -552,6 +593,8 @@ class TimelineOverview(QWidget):
                 if viewport is not None and viewport[0] <= event.position().x() <= viewport[1]:
                     self._dragging_viewport = True
                     self._viewport_drag_offset = event.position().x() - viewport[0]
+                    self._press_x = event.position().x()
+                    self._viewport_moved = False
                     event.accept()
                     return
                 self.seek_requested.emit(self._time_at_x(event.position().x()))
@@ -561,7 +604,12 @@ class TimelineOverview(QWidget):
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         if self._dragging_viewport:
-            self._move_viewport(event.position().x(), exact=False)
+            # A press inside the page window is a click until it travels the
+            # platform's drag distance; only then does it move the page.
+            if abs(event.position().x() - self._press_x) >= QApplication.startDragDistance():
+                self._viewport_moved = True
+            if self._viewport_moved:
+                self._move_viewport(event.position().x(), exact=False)
             event.accept()
             return
         x, y = event.position().x(), event.position().y()
@@ -577,8 +625,13 @@ class TimelineOverview(QWidget):
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         if self._dragging_viewport and event.button() == Qt.MouseButton.LeftButton:
-            self._move_viewport(event.position().x(), exact=True)
             self._dragging_viewport = False
+            if self._viewport_moved:
+                self._move_viewport(event.position().x(), exact=True)
+            else:
+                # A click, not a drag: go where it landed, as anywhere else on
+                # the strip. Treated as a drag, it moved the page by nothing.
+                self.seek_requested.emit(self._time_at_x(event.position().x()))
             event.accept()
             return
         super().mouseReleaseEvent(event)
@@ -705,6 +758,8 @@ class TimelineOverview(QWidget):
                 painter.setPen(evidence_color(palette, "message"))
                 for x in self._visible_event_x("message", t0, t1):
                     painter.drawLine(x, band_top, x, band_top + band_height)
+            elif isinstance(payload, _SegmentLane):
+                self._paint_segments(painter, payload, band_top, band_height)
             elif isinstance(payload, _AnnotationLane):
                 for start, end, marker_color in payload.markers:
                     span = self._visible_span_x(start, start if end is None else end)
@@ -777,6 +832,12 @@ class TimelineOverview(QWidget):
                 }[kind]
                 extra = f"\n{nearest[1]}" if nearest[1] else ""
                 return f"{event_name}\nMaster time: {nearest[0]:.3f} s{extra}"
+        if isinstance(payload, _SegmentLane):
+            for first, last, name in payload.segments:
+                if first <= time <= last:
+                    return tr("Trial {name}\n{start:.3f}–{end:.3f} s").format(
+                        name=name, start=first, end=last
+                    )
         if isinstance(payload, _AnnotationLane):
             for start, end, _ in payload.markers:
                 if start - tolerance <= time <= (end if end is not None else start) + tolerance:
@@ -1208,6 +1269,10 @@ class Transport(QWidget):
     def set_annotation_markers(self, markers: list[tuple[float, float | None, str]]) -> None:
         """Show point and range annotations in the overview strip."""
         self.overview.set_markers(markers)
+
+    def set_trial_segments(self, segments: list[tuple[float, float, str]]) -> None:
+        """Show the recording's trials as a lane in Data Streams."""
+        self.overview.set_segments(segments)
 
     def set_plot_viewport(self, start: float, duration: float, phase: float) -> None:
         """Mirror the single PlotPane page in the global Data Streams navigator."""

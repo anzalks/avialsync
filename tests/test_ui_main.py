@@ -741,3 +741,26 @@ def test_drop_over_video_grid_forwards_to_import_review(
     assert len(review_calls) == 1
     assert [(path, loader) for path, loader, _ in review_calls[0]] == [(sensor, CSVLoader)]
     assert data_calls == []
+
+
+def test_frame_step_walks_samples_when_only_data_is_loaded(
+    main_window: MainWindow, qtbot, tmp_path: Path
+) -> None:
+    """Every control a video session has works on data alone: one step, one sample."""
+    from avialsync.core.inspection import SourceInspection
+    from avialsync.core.pyramid import PyramidBuilder
+
+    cache_dir = tmp_path / "signal_cache"
+    cache_dir.mkdir()
+    times = np.arange(0.0, 5.0, 0.01)
+    PyramidBuilder(cache_dir, "signal").build_and_save(times, np.sin(times))
+    main_window._on_import_finished(
+        "signal.csv", str(cache_dir), ["signal"], (0.0, 4.99), SourceInspection(path="signal.csv")
+    )
+    qtbot.waitUntil(lambda: bool(main_window.plot_pane.channels), timeout=5000)
+    main_window.player.seek(1.0, exact=True)
+    main_window.transport.frame_step_requested.emit(1)
+    assert main_window.clock.state.t == pytest.approx(1.01, abs=1e-6)
+    main_window.transport.frame_step_requested.emit(-1)
+    main_window.transport.frame_step_requested.emit(-1)
+    assert main_window.clock.state.t == pytest.approx(0.99, abs=1e-6)

@@ -137,6 +137,11 @@ class MappedChannelReader:
     def sample_at(self, t_master: float) -> tuple[int, float] | None:
         return self._reader.sample_at(self._time_map.to_source(t_master))
 
+    def neighbour_sample_time(self, t_master: float, direction: int) -> float | None:
+        """Master time of the neighbouring sample, for stepping through data alone."""
+        found = self._reader.neighbour_time(self._time_map.to_source(t_master), direction)
+        return None if found is None else self._time_map.to_master(found)
+
     def available_sample_at(self, t_master: float) -> tuple[int, float] | None:
         """Sample only inside coverage and outside an observed timestamp gap.
 

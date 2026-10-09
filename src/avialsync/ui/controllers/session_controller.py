@@ -417,7 +417,7 @@ def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
     window._video_source_bounds.clear()
     window._video_time_mappings.clear()
     window._sync_provenance.clear()
-    window.session_runtime.start_time = 0.0
+    window.forget_session_start()
     # Placements belong to the session zero that produced them; carrying them
     # into the next session would place its sources against an epoch it never
     # declared.

@@ -2,9 +2,7 @@
 
 A trial folder opens as one mosaic per frame with every scanned ROI in its
 tile, laid out as the microscope controller reconstructs the dendritic tree
-(:mod:`~avialsync.loaders.aol_mosaic_layout`). With ``mask="thin"`` the same
-mosaic shows only the pixels inside the lab's dendrite ROI masks
-(``thin_mask.mat``), which is the ROIs' real shape. An experiment folder opens
+(:mod:`~avialsync.loaders.aol_mosaic_layout`). An experiment folder opens
 as one source spanning all of its trials back to back, as the controller's own
 analysis joins them (:func:`~avialsync.loaders.aol_microscope_trial.joined_starts`). A single
 ``RibbonScan_ROI_*.mat`` opens on its own, exactly as the controller wrote it:
@@ -69,33 +67,6 @@ def channel_names(channels: int, green: int) -> tuple[str, ...]:
     return tuple("Green" if index == green else "" for index in range(channels))
 
 
-def thin_masks(folder: Path) -> dict[int, np.ndarray] | None:
-    """Each ROI's dendrite mask (thin mask plus soma), display-oriented, by ROI number."""
-    path = folder / "thin_mask.mat"
-    if not path.is_file():
-        return None
-    try:
-        with h5py.File(path, "r") as handle:
-            numbers = np.asarray(handle["ROIs"][()]).reshape(-1).astype(int)
-            masks: dict[int, np.ndarray] = {}
-            for name in ("masks", "soma_masks"):
-                stored = handle.get(name)
-                if not isinstance(stored, h5py.Dataset):
-                    continue
-                references = np.asarray(stored[()]).reshape(-1)
-                for roi, reference in zip(numbers, references, strict=False):
-                    target = handle[reference] if reference else None
-                    if not isinstance(target, h5py.Dataset) or target.ndim != 2:
-                        continue
-                    plane = np.asarray(target[()], dtype=bool).T
-                    key = int(roi)
-                    masks[key] = masks[key] | plane if key in masks else plane
-            return masks or None
-    except (OSError, KeyError, ValueError, TypeError):
-        logger.warning("Could not read dendrite ROI masks in %s", path, exc_info=True)
-        return None
-
-
 def _is_ribbon_file(path: Path) -> bool:
     if roi_file_parts(path) is None or not path.is_file():
         return False
@@ -115,7 +86,7 @@ class _Segment:
     first: int  # index of this trial's first frame in the combined list
 
 
-_Pixels = tuple[dict[int, np.ndarray], dict[int, np.ndarray]]
+_Pixels = dict[int, np.ndarray]
 
 
 class AOLRibbonScanSource(ImagingSource):
@@ -127,7 +98,6 @@ class AOLRibbonScanSource(ImagingSource):
         self._lines = 0
         self._width = 0
         self._channels = 0
-        self._mask_mode = ""
         self._loaded: OrderedDict[Path, _Pixels] = OrderedDict()
         self._single: np.ndarray | None = None
 
@@ -172,7 +142,6 @@ class AOLRibbonScanSource(ImagingSource):
         first = read_trial(folders[0])
         self._layout = choose_layout(first, str(config.get("layout", "branches")))
         self._lines, self._width, self._channels = first.lines, first.width, first.channels
-        self._mask_mode = str(config.get("mask", ""))
         scan = (first.roi_numbers, first.channels, first.lines, first.width)
         trials = [first] + [read_trial(folder, verify=False) for folder in folders[1:]]
         for trial in trials:
@@ -190,8 +159,6 @@ class AOLRibbonScanSource(ImagingSource):
         source = first.timing_source
         if len(folders) > 1:
             source += f"; {len(folders)} trials back to back"
-        if self._mask_mode == "thin":
-            source += "; dendrite ROI masks"
         self._load(first)
         height, width = self._layout.size
         green = green_channel(first.folder, first.channels)
@@ -211,7 +178,7 @@ class AOLRibbonScanSource(ImagingSource):
         )
 
     def _load(self, trial: MicroscopeTrial) -> _Pixels:
-        """Pixels and masks of one trial, read once and kept for a few trials."""
+        """Pixels of one trial, read once and kept for a few trials."""
         cached = self._loaded.get(trial.folder)
         if cached is not None:
             self._loaded.move_to_end(trial.folder)
@@ -223,13 +190,10 @@ class AOLRibbonScanSource(ImagingSource):
                     volumes[roi] = np.asarray(handle["volume"][()], dtype=np.uint16)
             except (OSError, KeyError, ValueError):
                 logger.warning("Could not read ribbon ROI file %s", source, exc_info=True)
-        masks: dict[int, np.ndarray] = {}
-        if self._mask_mode == "thin":
-            masks = thin_masks(trial.folder) or {}
-        self._loaded[trial.folder] = (volumes, masks)
+        self._loaded[trial.folder] = volumes
         while len(self._loaded) > _CACHED_TRIALS:
             self._loaded.popitem(last=False)
-        return volumes, masks
+        return volumes
 
     def _segment_for(self, index: int) -> tuple[_Segment, int]:
         for segment in reversed(self._segments):
@@ -316,17 +280,13 @@ class AOLRibbonScanSource(ImagingSource):
         segment, local = self._segment_for(index)
         if not 0 <= local < segment.trial.timepoints:
             raise IndexError(index)
-        volumes, masks = self._load(segment.trial)
+        volumes = self._load(segment.trial)
         tile_h, tile_w = self._width, self._lines
         for roi, (top, left) in self._layout.origins.items():
             volume = volumes.get(roi)
             if volume is None:
                 continue
-            plane = volume[channel, local].T.astype(np.float32)
-            if self._mask_mode == "thin":
-                mask = masks.get(roi)
-                plane = np.where(mask, plane, np.nan) if mask is not None else plane * np.nan
-            mosaic[top : top + tile_h, left : left + tile_w] = plane
+            mosaic[top : top + tile_h, left : left + tile_w] = volume[channel, local].T
         return mosaic
 
     def close(self) -> None:

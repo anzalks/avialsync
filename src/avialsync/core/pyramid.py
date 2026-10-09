@@ -449,6 +449,22 @@ class PyramidReader:
         index = max(0, min(index, len(v) - 1))
         return index, float(v[index])
 
+    def neighbour_time(self, t_source: float, direction: int) -> float | None:
+        """The time of the sample after (``direction > 0``) or before *t_source*.
+
+        A nanosecond either side of *t_source* is treated as *t_source* itself,
+        so a time that went through a master/source round trip still steps off
+        the sample it stands on instead of finding it again.
+        """
+        t, _, _, _ = self._load_level(1)
+        if len(t) == 0:
+            return None
+        if direction > 0:
+            index = int(np.searchsorted(t, t_source + 1e-9, side="right"))
+        else:
+            index = int(np.searchsorted(t, t_source - 1e-9, side="left")) - 1
+        return float(t[index]) if 0 <= index < len(t) else None
+
     def raw_slice(self, t0: float, t1: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Return ``(t, v, gap)`` mmap views bounded to ``[t0, t1]``.
 

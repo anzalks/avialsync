@@ -49,28 +49,25 @@ session start. This follows the rig's external-trigger setup; the camera stop is
 the cameras may end on different frames. A spread larger than one frame period is shown as a
 quality warning. The timestamp is not evidence of UTC synchronization between computers.
 
-A microscope trial folder (`HH-MM-SS`) or experiment folder (`experiment_N`) can be opened from
-the microscope saved-data root configured in **Preferences → Lab Data**. An experiment-folder
-import lets you choose one trial. The trial's `RibbonScan_ROI_*.mat` stacks are shown as a tiled
-mosaic oriented as the lab's own figures show it, with one frame time at the midpoint of its line
-scan (about ±27 ms within a frame). A trial opens as its reconstructed dendritic tree (branches as columns, their segments stacked,
-population patches packed beside them), with a second item showing only the pixels inside the
-lab's dendrite ROI masks from `thin_mask.mat`. An experiment folder opens as one long session
-with its trials back to back, as the lab's own analysis joins them. Each camera's per-trial
-recordings become one video on the same timeline: AvialSync finds them by the microscope's trial
-names, in the trial folders or under **Preferences → Lab Data → AOL camera saved-data folder**,
-starts each on its trial's trigger and trims the frames the camera recorded after the trial
-ended. The joined video is a copy kept in AvialSync's cache; the recordings are not changed. Channels named
-Green and Red start in those colours. When a trial's line clock and duration are missing, the
-controller's `Log.txt` rate for that trial is used before AvialSync asks for one.
-A single `RibbonScan_ROI_*.mat` can also be opened on its own
-like any HDF5 or TIFF stack: its stored 16-bit pixels, both channels, at that ROI's exact line-clock
-times when the trial's `params.mat` is beside it. The cell-ROI masks are shown with the shapes the
-lab's analysis gave them. When
-`roi_activity/hybrid_mosaic_*_activity.mat` exists, its masks appear in a cell-ROI image grid and
-its traces appear as plot channels. The file's green-channel correction is used when present;
-otherwise the rig's recorded channel convention selects channel index 1 as green and index 0 as
-red. The encoder angle is loaded hidden by default so the existing wheel prop can still use it.
+A microscope trial folder (`HH-MM-SS`) or experiment folder (`experiment_N`) opens as one
+imaging source: every `RibbonScan_ROI_*.mat` tile of the scan in one mosaic, laid out as the
+reconstructed dendritic tree (branches as columns, their segments stacked, population patches
+beside them) and oriented as the lab's own figures show it. Each frame carries the midpoint of
+its line scan; the timing note gives how far its tiles were scanned either side. An experiment
+folder plays its trials back to back, as the lab's own analysis joins them, and the trials are
+drawn as a **Trials** lane in Data Streams and as dashed boundaries on the plots. Each camera's
+per-trial recordings become one video on the same timeline: AvialSync finds them by the
+microscope's trial names, in the trial folders or under **Preferences → Lab Data → AOL camera
+saved-data folder**, starts each on its trial's trigger and trims the frames the camera recorded
+after the trial ended. The joined video is a copy kept in AvialSync's cache; the recordings are
+not changed. Channels named Green and Red start in those colours, taken from the lab's record
+(index 1 green, index 0 red, unless the trial's analysis says otherwise). When a trial's line
+clock and duration are missing, the controller's `Log.txt` rate for that trial is used before
+AvialSync asks for one. A single `RibbonScan_ROI_*.mat` can also be opened on its own like any
+HDF5 or TIFF stack: its stored 16-bit pixels, both channels, at that ROI's exact line-clock times
+when the trial's `params.mat` is beside it. The lab's ROI-analysis files (`roi_activity/`,
+`thin_mask.mat` masks) are not loaded. The encoder angle is loaded hidden by default so the
+existing wheel prop can still use it.
 
 With an AOL camera session loaded, **Align → Find microscope trial…** searches the dated folder,
 matches the camera wall clock against the trial's UTC `STARTTIME`, and presents the evidence for

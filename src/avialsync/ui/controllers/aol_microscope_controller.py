@@ -107,7 +107,7 @@ def _pair_targets(window: MainWindow, folder: Path) -> list[tuple[str, float]]:
     Each entry is ``(source id, seconds from the matched trial's zero to this
     source's own zero)``. A joined experiment plays its trials back to back
     (``joined_starts``), so its zero is the matched trial's joined start
-    earlier, and an analysed trial inside it sits at its own joined start.
+    earlier.
     """
     joined: dict[Path, float] = {}
     targets: list[tuple[str, float]] = []
@@ -136,11 +136,6 @@ def _pair_targets(window: MainWindow, folder: Path) -> list[tuple[str, float]]:
         zero = zero_of(Path(str(config["trial_folder"])))
         if zero is not None:
             targets.append((source_id, zero))
-    for source_id in window._sensor_cache_dirs:
-        if Path(source_id).name == "roi_activity":
-            zero = zero_of(Path(source_id).parent)
-            if zero is not None:
-                targets.append((source_id, zero))
     return targets
 
 
@@ -216,8 +211,7 @@ def accept_trial_pair(window: MainWindow, result: dict[str, Any]) -> None:
     """Place the matched trial's zero on camera frame zero, as one undoable command.
 
     A joined experiment moves as one: its own zero is its first trial's, so it
-    lands the matched trial's joined start earlier. Another trial's analysis in
-    the same experiment keeps its place on the joined timeline.
+    lands the matched trial's joined start earlier.
     """
     folder = Path(str(result["folder"]))
     targets = _pair_targets(window, folder)

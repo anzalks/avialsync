@@ -179,3 +179,18 @@ def test_mapped_columns_returns_three_aligned_mmap_views(reader: PyramidReader) 
     t, v, gap = reader.mapped_columns()
     assert len(t) == len(v) == len(gap) == 5_000
     assert gap.dtype == np.bool_
+
+
+def test_neighbour_time_steps_one_sample_either_way(reader: PyramidReader) -> None:
+    t = reader.raw_slice(-1e9, 1e9)[0]
+    middle = float(t[5])
+    assert reader.neighbour_time(middle, 1) == pytest.approx(float(t[6]))
+    assert reader.neighbour_time(middle, -1) == pytest.approx(float(t[4]))
+    # A round trip that lands a hair off the sample still steps off it.
+    assert reader.neighbour_time(middle - 1e-12, 1) == pytest.approx(float(t[6]))
+    assert reader.neighbour_time(float(t[-1]), 1) is None
+    assert reader.neighbour_time(float(t[0]), -1) is None
+
+
+def test_neighbour_time_on_empty_channel_is_none(empty_reader: PyramidReader) -> None:
+    assert empty_reader.neighbour_time(0.0, 1) is None

@@ -67,7 +67,6 @@ _ENTRY_POINT_GROUPS: tuple[str, ...] = (
 #: real report. The registry is built in ``MainWindow.__init__``, so a plain
 #: import block turned that into a traceback before any window existed.
 _BUILTIN_LOADERS: tuple[tuple[str, str], ...] = (
-    ("avialsync.loaders.aol_roi_trace", "AOLRoiTraceLoader"),
     ("avialsync.loaders.aol_encoder_loader", "AOLEncoderLoader"),
     ("avialsync.loaders.aol_eks_loader", "AOLEksLoader"),
     ("avialsync.loaders.aol_metric_loader", "AOLMetricLoader"),
@@ -84,7 +83,6 @@ _BUILTIN_LOADERS: tuple[tuple[str, str], ...] = (
     ("avialsync.loaders.nwb_roi_grid", "NWBRoiGridSource"),
     ("avialsync.loaders.imaging_loader", "HDF5ImagingLoader"),
     ("avialsync.loaders.aol_ribbon_scan", "AOLRibbonScanSource"),
-    ("avialsync.loaders.aol_cell_roi_grid", "AOLCellRoiGridSource"),
     ("avialsync.loaders.imaging_loader", "TIFFImagingLoader"),
 )
 

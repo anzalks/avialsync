@@ -283,6 +283,47 @@ def test_overview_viewport_drag_preserves_page_phase_and_releases_exactly(qtbot)
     assert transport.overview._viewport_duration == pytest.approx(10.0)
 
 
+def test_a_click_inside_the_page_window_seeks_to_where_it_landed(qtbot) -> None:
+    """A press that never travels is a click: it seeks, as anywhere else on the strip."""
+    transport = Transport()
+    qtbot.addWidget(transport)
+    transport.resize(1000, 180)
+    transport.show()
+    qtbot.waitExposed(transport)
+    transport.set_bounds(0.0, 100.0)
+    transport.set_plot_viewport(20.0, 10.0, 0.0)
+    seeks: list[tuple[float, bool]] = []
+    transport.seek_requested.connect(lambda t, exact: seeks.append((t, exact)))
+
+    overview = transport.overview
+    left, right = overview._visible_span_x(20.0, 30.0) or (0, 0)
+    point = QPoint(left + (right - left) * 3 // 4, overview.height() // 2)
+    qtbot.mousePress(overview, Qt.MouseButton.LeftButton, pos=point)
+    qtbot.mouseRelease(overview, Qt.MouseButton.LeftButton, pos=point)
+
+    assert seeks == [(pytest.approx(overview._time_at_x(point.x())), True)]
+    assert overview._viewport_start == pytest.approx(20.0)  # the page did not move
+
+
+def test_the_trials_lane_names_each_trial_on_hover(qtbot) -> None:
+    transport = Transport()
+    qtbot.addWidget(transport)
+    transport.resize(1000, 180)
+    transport.show()
+    qtbot.waitExposed(transport)
+    transport.set_bounds(0.0, 20.0)
+    transport.set_trial_segments([(0.0, 10.0, "12-23-08"), (10.0, 20.0, "12-23-36")])
+    overview = transport.overview
+    assert overview.lane_labels()[-1] == "Trials"
+    lane = overview.lane_labels().index("Trials")
+    x = overview._visible_span_x(12.0, 12.0)
+    assert x is not None
+    detail = overview._event_detail(x[0], lane * overview.lane_height() + 2)
+    assert detail is not None and "12-23-36" in detail
+    transport.set_trial_segments([])
+    assert "Trials" not in overview.lane_labels()
+
+
 def test_transport_controls_keep_tab_focus_but_space_stays_play_pause(qtbot) -> None:
     transport = Transport()
     qtbot.addWidget(transport)

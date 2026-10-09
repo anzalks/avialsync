@@ -36,6 +36,8 @@ class PlotInteractionController:
         self._annotation_items: list[tuple[pg.PlotItem, object]] = []
         self._identity_events: dict[str, tuple[tuple[float, str], ...]] = {}
         self._identity_items: list[tuple[pg.PlotItem, pg.InfiniteLine]] = []
+        self._segment_bounds: tuple[float, ...] = ()
+        self._segment_items: list[tuple[pg.PlotItem, pg.InfiniteLine]] = []
 
     def set_context_actions(self, actions: list[QAction]) -> None:
         """Register shared QActions for the plot context menu."""
@@ -100,6 +102,32 @@ class PlotInteractionController:
             self._identity_items,
         )
 
+    def set_segment_boundaries(self, times: list[float]) -> None:
+        """Mark where the recording's trials meet, on every plot row."""
+        self._segment_bounds = tuple(sorted(times))
+        self.redraw_segment_boundaries()
+
+    def redraw_segment_boundaries(self) -> None:
+        """Draw the trial boundaries that fall on the visible page."""
+        for plot_item, line in self._segment_items:
+            plot_item.removeItem(line)
+        self._segment_items = []
+        if not self._segment_bounds:
+            return
+        palette = self._pane.palette()
+        pen = pg.mkPen(palette.color(palette.ColorRole.Mid), width=1, style=Qt.PenStyle.DashLine)
+        for channel in self._pane.channels:
+            if not channel.visible:
+                continue
+            for time in self._segment_bounds:
+                x = self._pane._display_x(time)
+                if x is None:
+                    continue
+                line = pg.InfiniteLine(pos=x, angle=90, movable=False, pen=pen)
+                line.setZValue(2)
+                channel.plot_item.addItem(line)
+                self._segment_items.append((channel.plot_item, line))
+
     def set_annotation_store(self, store: AnnotationStore) -> None:
         """Subscribe to authoritative annotation changes once."""
         self._annotation_store = store
@@ -123,6 +151,7 @@ class PlotInteractionController:
         self.redraw_measure_lines()
         self.redraw_annotations()
         self.redraw_identity_markers()
+        self.redraw_segment_boundaries()
 
     def on_scene_moved(self, scene_pos: Any) -> None:
         """Reveal the row tools under the pointer (D-177); no work on the clock tick."""

@@ -1137,6 +1137,10 @@ class PlotPane(QWidget):
         """Remove both measure pins."""
         self._interactions.clear_measure()
 
+    def set_segment_boundaries(self, times: list[float]) -> None:
+        """Draw a dashed line on every row where one trial ends and the next begins."""
+        self._interactions.set_segment_boundaries(times)
+
     def set_gap_markers(self, channel_id: str, gap_times: list[float]) -> None:
         """Overlay thin red vertical lines at gap positions for one channel."""
         self._interactions.set_gap_markers(channel_id, gap_times)
