@@ -97,7 +97,7 @@ def sensor_groups(
         source = channel.reader.source_id or channel.name
         streams = grouped.setdefault(source, [])
         colour = _PALETTE[len(streams) % len(_PALETTE)]
-        streams.append(StreamOption(channel.name, reference, colour))
+        streams.append(StreamOption(channel.name, reference, colour, channel.unit))
         triggers.append(
             StimulusChannelOption(channel.name, reference, channel.reader, f"sensor:{source}")
         )

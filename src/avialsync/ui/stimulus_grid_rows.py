@@ -55,6 +55,7 @@ class StreamOption:
     label: str
     reference: ReaderReference
     color: tuple[int, int, int]
+    unit: str = ""
 
 
 @dataclass(frozen=True)
@@ -265,7 +266,7 @@ class GridRowsPanel(QWidget):
                 continue
             ticked = self._ticked_children(item)
             streams = tuple(
-                GridStream(s.reference, s.label, s.color)
+                GridStream(s.reference, s.label, s.color, s.unit)
                 for s in option.streams
                 if s.label in ticked
             )

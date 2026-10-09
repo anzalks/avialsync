@@ -6,7 +6,9 @@ selected event drawn thin and translucent, the mean across events drawn bold on
 top, a vertical line at the trigger and the moving cursor. Up to
 :data:`OVERLAY_LIMIT` streams share one y-axis; more are stacked in lanes on
 one shared amplitude scale, as a multichannel recording viewer shows them, so
-32 electrodes do not collapse into one coloured blob.
+32 electrodes do not collapse into one coloured blob. Streams of different
+units (wheel rpm and a 0/1 stimulus TTL) are always stacked, each lane on its
+own scale (D-211).
 
 Colours come from the UI (the validated categorical palette), so this module
 imports nothing from ``ui``; every stream is also named in the band, so colour
@@ -56,6 +58,7 @@ class GridStream:
     reference: ReaderReference
     label: str
     color: tuple[int, int, int] = (86, 180, 233)
+    unit: str = ""
 
 
 @dataclass(frozen=True)
@@ -74,10 +77,15 @@ class GridBand:
     layout: str = "auto"
 
     @property
+    def mixed_units(self) -> bool:
+        """Whether the streams measure different things, which no one axis can show."""
+        return len({stream.unit for stream in self.streams}) > 1
+
+    @property
     def stacked(self) -> bool:
         if self.layout == "stacked":
             return True
-        return self.layout == "auto" and len(self.streams) > OVERLAY_LIMIT
+        return self.layout == "auto" and (len(self.streams) > OVERLAY_LIMIT or self.mixed_units)
 
 
 def area_height(band: GridBand, single: bool = False) -> int:
@@ -215,13 +223,17 @@ def _scales(
             low, high = min(low, band.threshold), max(high, band.threshold)
         return [_linear(top, height, *_padded(low, high))] * len(traces)
     lane = height / len(traces)
-    # One amplitude for every lane, so channels stay comparable, as in an ephys viewer.
+    # One amplitude for every lane, so channels stay comparable, as in an ephys
+    # viewer -- unless they measure different things (rpm beside a 0/1 TTL),
+    # where a shared amplitude would flatten one; then each lane fits its own.
     span = max((value[1] - value[0] for value in known), default=1.0) or 1.0
-    scale = lane * 0.9 / span
-    return [
-        _lane(top + lane * (index + 0.5), 0.0 if value is None else sum(value) / 2.0, scale)
-        for index, value in enumerate(ranges)
-    ]
+    scales = []
+    for index, value in enumerate(ranges):
+        own = (value[1] - value[0]) if value is not None else 0.0
+        lane_span = (own or 1.0) if band.mixed_units else span
+        centre = 0.0 if value is None else sum(value) / 2.0
+        scales.append(_lane(top + lane * (index + 0.5), centre, lane * 0.9 / lane_span))
+    return scales
 
 
 def _draw_events(

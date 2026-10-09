@@ -91,7 +91,15 @@ HDF5 or TIFF stack: its stored 16-bit pixels, both channels, at that ROI's exact
 when the trial's `params.mat` is beside it. The lab's ROI-analysis files (`roi_activity/`,
 `thin_mask.mat` masks) are not loaded. When the controller logged the running wheel into the
 trial's `params.mat` (`behaviour/encoder`), its speed is plotted in rpm, on the trial's clock and
-back to back with the other trials; that is the only encoder row a trial adds. An AOL camera
+back to back with the other trials; with the stimulus TTL the trial commanded beside it. The controller saves its stimulus trigger
+settings with each trial -- whether it fires during acquisition, the delay from the trial's start,
+the pulse width, and the number and period of pulses -- and AvialSync rebuilds the 0/1 trace from
+them, on the trial's clock and back to back across an experiment: on 2026-09-03 experiment_2 one
+pulse 4 s into every trial from `12-21-28` on, 1 s long (0.1 s in the last two), exactly as
+`Log.txt` notes. No edge is recorded, so this is the commanded schedule rather than a measured
+one; the source is labelled "stimulus TTL" and its pulses are found by the Stimulus Grid's
+threshold scan at the default 0.5. Wheel speed and the TTL come from one trial file and form one
+group in the grid export, where streams of different units are stacked, each on its own scale. An AOL camera
 session's `encoder_log.txt` is plotted instead when one is open, and its angle is loaded hidden
 by default so the existing wheel prop can still use it.
 

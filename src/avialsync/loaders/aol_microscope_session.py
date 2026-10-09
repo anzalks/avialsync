@@ -63,6 +63,7 @@ from avialsync.loaders.aol_trial_matching import (
     pairing_note,
     unmatched_note,
 )
+from avialsync.loaders.aol_trial_stimulus import read_stimulus
 from avialsync.loaders.video_standard import VideoStandardLoader
 
 
@@ -287,7 +288,7 @@ def lay_out(
     layout = SessionLayout(
         items=[
             _ribbon_item(joined, path, config, label),
-            *(_wheel_item(joined, config, label) if wheel else []),
+            *_wheel_item(joined, config, label, wheel),
             *cameras,
         ],
         session_epoch=epoch or 0.0,
@@ -307,21 +308,25 @@ def _trial_folders(config: dict[str, Any]) -> list[Path]:
 
 
 def _wheel_item(
-    trials: Sequence[MicroscopeTrial], config: dict[str, object], label: str
+    trials: Sequence[MicroscopeTrial], config: dict[str, object], label: str, wheel: bool = True
 ) -> list[SessionItem]:
-    """The wheel speed the controller logged with these trials, when it logged one.
+    """The signals the controller saved with these trials: wheel speed, stimulus TTL.
 
-    Named by the first trial's ``params.mat``, which holds it; the config, the
-    same as the ribbon scan's, says which trials it spans and where each starts.
+    One source, named by the first trial's ``params.mat`` which holds both; the
+    config, the same as the ribbon scan's, says which trials it spans and where
+    each starts. Wheel speed is left out when an encoder log already gives it.
     """
-    if not any(has_wheel_speed(trial.folder) for trial in trials):
+    speed = wheel and any(has_wheel_speed(trial.folder) for trial in trials)
+    stimulus = any(read_stimulus(trial.folder) is not None for trial in trials)
+    if not (speed or stimulus):
         return []
+    parts = [name for name, has in (("wheel speed", speed), ("stimulus TTL", stimulus)) if has]
     return [
         SessionItem(
             path=trials[0].folder / "params.mat",
             loader=AOLTrialEncoderSource,
-            config=dict(config),
-            label=f"{label} — wheel speed",
+            config={**config, "wheel_speed": speed},
+            label=f"{label} — {' and '.join(parts)}",
             source_epoch=_at(trials[0].start_epoch),
         )
     ]

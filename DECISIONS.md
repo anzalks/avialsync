@@ -6725,3 +6725,27 @@ below 48 px; Continue needs events and a grid that fits.
 longer -- colour means the stream -- because a band of x/y/z across twelve events cannot encode
 both; the faint-events-plus-bold-mean form is the standard peri-event display. The engine was
 split (`stimulus_grid_layout`, `_render`, `_bands`, `_imaging`) to keep each module under 500 lines.
+
+---
+
+## 2026-10 · D-211 · AOL trials plot the stimulus TTL they commanded
+
+**Decision.** The controller's stimulus trigger settings saved in each trial's `params.mat`
+(`EnableInFuncProtocol`, `Delay`, `PulseWidth`, `N_Stims`, `Period`) are rebuilt into a 0/1
+`stimulus_ttl` channel: low across the trial's slot, high from Delay to Delay + PulseWidth (a
+train when Period is positive; `N_Stims` of 0 or 1 is one pulse), sampled at 1 kHz with each edge
+an exact sample, on the trial's clock and back to back across an experiment. A trial without an
+enabled stimulus is flat zero. The settings are read from the controller object's group directly
+under `#refs#`; the DAQ struct's nested copy stayed at its inert default on every trial of
+2026-09-03 experiment_2 while the object's copy matched `Log.txt` ("stim 1s at 4s", "0.1s"), so
+it is not used. Two enabled, disagreeing settings in one trial give no stimulus and a log line.
+
+The channel is a second channel of `AOLTrialEncoderSource` (display "Trial Signals (MATLAB)"),
+because a plot source is named by one existing file and both come from `params.mat`; the class
+keeps its name so saved sessions restore. Wheel speed and TTL therefore form one sensor group in
+the stimulus grid, where a band now stacks streams of different units, each lane on its own scale.
+
+**Why.** The data has no recorded stimulus edge; the controller's own settings are the best
+evidence of when it fired, far better than a typed note, and the grid needs real event times. It
+is labelled as commanded, not measured. Delay is assumed to count from `STARTTIME`; the
+controller code would confirm it.

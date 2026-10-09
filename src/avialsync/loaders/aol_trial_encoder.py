@@ -1,4 +1,10 @@
-"""The running wheel's speed, as the microscope controller logged it into each trial.
+"""The signals a microscope trial saved: wheel speed, and the stimulus TTL it commanded.
+
+The class keeps its first name (``AOLTrialEncoderSource``) because sessions
+record a source's loader by class name; it now reads two channels from the
+same ``params.mat``, which is also why they are one source: a source is named
+by one file. The stimulus TTL is rebuilt from the controller's settings
+(:mod:`~avialsync.loaders.aol_trial_stimulus`, D-211).
 
 Rigs whose controller reads the encoder itself keep no ``encoder_log.txt``: each
 trial's ``params.mat`` holds ``behaviour/encoder``, one-element MATLAB cells like
@@ -28,11 +34,19 @@ import numpy as np
 from avialsync.core.errors import MissingColumnError, SourceOpenError
 from avialsync.core.source import ChannelInfo, TimeSeriesSource
 from avialsync.loaders.aol_microscope_trial import _cell_value
+from avialsync.loaders.aol_trial_stimulus import (
+    StimulusSchedule,
+    read_stimulus,
+    trial_length,
+    ttl_trace,
+)
 
 logger = logging.getLogger(__name__)
 
 #: The same channel name and unit as the encoder log's velocity.
 SPEED_CHANNEL = "encoder_velocity"
+#: The commanded stimulus TTL, 0 or 1, rebuilt from the trial's settings.
+STIMULUS_CHANNEL = "stimulus_ttl"
 #: The encoder log an AOL camera session plots instead, when it has one.
 ENCODER_LOG = "encoder_log.txt"
 _SPEED = "behaviour/encoder/wheel_speed"
@@ -80,7 +94,7 @@ class AOLTrialEncoderSource(TimeSeriesSource):
 
     @classmethod
     def display_name(cls) -> str:
-        return "Rotary Encoder (MATLAB)"
+        return "Trial Signals (MATLAB)"
 
     @classmethod
     def can_open(cls, path: Path) -> float:
@@ -90,6 +104,8 @@ class AOLTrialEncoderSource(TimeSeriesSource):
     def __init__(self) -> None:
         self._folders: list[Path] = []
         self._starts: list[float] = []
+        self._has_speed = False
+        self._stimuli: list[StimulusSchedule | None] = []
 
     def open(self, path: Path, config: dict[str, Any]) -> None:
         folders = _trial_folders(config)
@@ -99,15 +115,27 @@ class AOLTrialEncoderSource(TimeSeriesSource):
         if len(starts) != len(folders):
             raise SourceOpenError("The wheel speed's trials and their starts disagree in number.")
         self._folders, self._starts = folders, starts
+        wanted = bool(config.get("wheel_speed", True))
+        self._has_speed = wanted and any(has_wheel_speed(folder) for folder in folders)
+        self._stimuli = [read_stimulus(folder) for folder in folders]
 
     def channels(self) -> list[ChannelInfo]:
-        # rate_hz stays None: the controller logs about 1 kHz, irregularly.
-        return [ChannelInfo(name=SPEED_CHANNEL, unit="rpm", dtype="Float64", rate_hz=None)]
+        # rate_hz stays None: the controller logs about 1 kHz, irregularly, and
+        # the TTL's exact edges sit between its regular samples.
+        found = []
+        if self._has_speed:
+            found.append(ChannelInfo(name=SPEED_CHANNEL, unit="rpm", dtype="Float64", rate_hz=None))
+        if any(self._stimuli):
+            found.append(ChannelInfo(name=STIMULUS_CHANNEL, unit="", dtype="Float64", rate_hz=None))
+        return found
 
     def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
-        """One chunk per trial (about 10 000 samples), each at its joined start."""
+        """One chunk per trial, each at its joined start."""
+        if ch == STIMULUS_CHANNEL:
+            yield from self._stimulus_chunks()
+            return
         if ch != SPEED_CHANNEL:
-            raise MissingColumnError(ch, [SPEED_CHANNEL])
+            raise MissingColumnError(ch, [SPEED_CHANNEL, STIMULUS_CHANNEL])
         ends: Sequence[float] = [*self._starts[1:], np.inf]
         for folder, start, end in zip(self._folders, self._starts, ends, strict=True):
             wheel = read_wheel_speed(folder)
@@ -118,3 +146,16 @@ class AOLTrialEncoderSource(TimeSeriesSource):
             inside = start + times < end
             if inside.any():
                 yield start + times[inside], speed[inside]
+
+    def _stimulus_chunks(self) -> Iterator[tuple[np.ndarray, np.ndarray]]:
+        """The commanded TTL across each trial's slot; zero for a trial without one."""
+        ends: Sequence[float | None] = [*self._starts[1:], None]
+        for folder, start, end, schedule in zip(
+            self._folders, self._starts, ends, self._stimuli, strict=True
+        ):
+            # Up to the next trial; the last runs its recorded length.
+            length = end - start if end is not None else trial_length(folder)
+            if length is None or length <= 0:
+                continue
+            times, level = ttl_trace(schedule, length)
+            yield start + times, level
