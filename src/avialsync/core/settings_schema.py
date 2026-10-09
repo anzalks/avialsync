@@ -74,8 +74,9 @@ SETTINGS: tuple[Setting, ...] = (
         default="",
         kind=str,
         help_text=(
-            "Root folder the camera PC saves trials in, named after the microscope's "
-            "trials. Leave empty when cameras are saved inside the trial folders."
+            "Root folder the camera PC saves trials in. Recordings are matched to trials "
+            "by when they started, not by folder name. Leave empty when cameras are saved "
+            "in or beside the trial folders, or in a tree beside the date folder."
         ),
     ),
     Setting(

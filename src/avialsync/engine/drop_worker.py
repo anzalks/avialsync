@@ -8,12 +8,13 @@ file.
 """
 
 import logging
+from collections.abc import Sequence
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal, Slot
 
 from avialsync.core.registry import LoaderRegistry, is_own_sidecar
-from avialsync.core.source import SessionLayout, TimeSeriesSource
+from avialsync.core.source import SessionItem, SessionLayout, SessionSource, TimeSeriesSource
 
 logger = logging.getLogger(__name__)
 
@@ -26,10 +27,17 @@ class DropScanWorker(QObject):
     session_found = Signal(str)
     error = Signal(str)
 
-    def __init__(self, paths: list[Path], registry: LoaderRegistry) -> None:
+    def __init__(
+        self,
+        paths: list[Path],
+        registry: LoaderRegistry,
+        loaded: Sequence[SessionItem] = (),
+    ) -> None:
         super().__init__()
         self._paths = paths
         self._registry = registry
+        # What is already open, so a drop can be laid out against it.
+        self._loaded = list(loaded)
         self._is_cancelled = False
         self._layout = SessionLayout()
 
@@ -39,9 +47,9 @@ class DropScanWorker(QObject):
     @Slot()
     def run(self) -> None:
         try:
-            all_candidates = []
+            all_candidates, paths = self._scan_together(self._paths)
 
-            for path in self._paths:
+            for path in paths:
                 if self._is_cancelled:
                     break
                 all_candidates.extend(self._collect_drop_candidates(path))
@@ -101,6 +109,54 @@ class DropScanWorker(QObject):
 
         return candidates
 
+    def _scan_together(
+        self, paths: list[Path]
+    ) -> tuple[list[tuple[Path, type | None, dict | None]], list[Path]]:
+        """Let session plugins lay out several dropped paths as one recording.
+
+        Returns the candidates of every layout claimed this way and the paths
+        left for scanning one at a time. A plugin that fails here is reported
+        and the paths fall through, exactly as for :meth:`_scan_session`.
+        """
+        candidates: list[tuple[Path, type | None, dict | None]] = []
+        for session_cls in self._registry.sessions():
+            if self._is_cancelled or not paths:
+                break
+            try:
+                claimed = session_cls().scan_together(paths, self._loaded, self._registry)
+            except Exception as error:  # noqa: BLE001 - plugin boundary
+                logger.exception("Session plugin %s failed on a drop", session_cls.__name__)
+                self._registry.plugin_errors.append(
+                    (session_cls.display_name(), f"scan failed: {type(error).__name__}: {error}")
+                )
+                continue
+            if claimed is None:
+                continue
+            layout, used = claimed
+            self._adopt(session_cls, layout, ", ".join(path.name for path in used))
+            candidates += [(item.path, item.loader, dict(item.config)) for item in layout.items]
+            paths = [path for path in paths if path not in used]
+        return candidates, paths
+
+    def _adopt(self, session_cls: type[SessionSource], layout: SessionLayout, name: str) -> None:
+        """Keep the first claiming session's settings; later ones only add items."""
+        # Session-wide settings — the wall-clock anchor above all — describe one
+        # recording, and the drop reports exactly one set of them. The first
+        # session to claim keeps them: dropping two folders at once used to leave
+        # whichever happened to be scanned last owning the timeline's anchor,
+        # which is arbitrary, and silent. Their *items* all still load.
+        if self._layout.items or self._layout.anchor_epoch:
+            logger.info(
+                "%s also laid out %s; its items load, but the timeline keeps the first "
+                "session's settings (anchor_epoch=%.3f). Drop one session at a time to "
+                "read wall clock from this one.",
+                session_cls.display_name(),
+                name,
+                self._layout.anchor_epoch,
+            )
+        else:
+            self._layout = layout
+
     def _scan_session(self, path: Path) -> list[tuple[Path, type | None, dict | None]] | None:
         """Lay out *path* with the session plugin that claims it, if any.
 
@@ -123,20 +179,5 @@ class DropScanWorker(QObject):
             )
             return None
 
-        # Session-wide settings — the wall-clock anchor above all — describe one
-        # recording, and the drop reports exactly one set of them. The first
-        # session to claim keeps them: dropping two folders at once used to leave
-        # whichever happened to be scanned last owning the timeline's anchor,
-        # which is arbitrary, and silent. Their *items* all still load.
-        if self._layout.items or self._layout.anchor_epoch:
-            logger.info(
-                "%s also laid out %s; its items load, but the timeline keeps the first "
-                "session's settings (anchor_epoch=%.3f). Drop one session at a time to "
-                "read wall clock from this one.",
-                session_cls.display_name(),
-                path.name,
-                self._layout.anchor_epoch,
-            )
-        else:
-            self._layout = layout
+        self._adopt(session_cls, layout, path.name)
         return [(item.path, item.loader, dict(item.config)) for item in layout.items]

@@ -247,3 +247,33 @@ def test_a_stack_with_a_pause_still_reports_its_acquisition_rate() -> None:
     times = np.concatenate([np.arange(10) / 18.0, 60.0 + np.arange(10) / 18.0])
     info = ImagingMetadata(20, 4, 4, "uint16", times, "fixture")
     assert frame_rate(info) == pytest.approx(18.0)
+
+
+def test_a_later_drop_sees_where_the_loaded_trial_is(window: MainWindow, qtbot, tmp_path) -> None:
+    """Cameras dropped after their trial are placed against it, so it must be described."""
+    from avialsync.ui.controllers import drop_controller
+
+    folder = _trial(tmp_path / "12-00-00")
+    layout = AOLMicroscopeTrialSource().scan(folder, None)
+    drop_controller.apply_session_layout(window, layout)
+    item = layout.items[0]
+    window._route_import_candidate(item.path, item.loader, dict(item.config))
+    qtbot.waitUntil(lambda: str(folder) in window.imaging_pane.source_paths(), timeout=_TIMEOUT)
+
+    loaded = drop_controller.loaded_items(window)
+    assert [entry.path for entry in loaded] == [folder]
+    assert loaded[0].config["trial_folder"] == str(folder)
+    assert loaded[0].source_epoch == pytest.approx(1_700_000_000.0, abs=1e-3)
+
+
+def test_cameras_that_came_with_their_trial_leave_no_trial_to_find(
+    window: MainWindow, tmp_path
+) -> None:
+    from avialsync.ui.controllers import drop_controller
+    from tests.test_aol_time_matching import _experiment
+
+    experiment, _videos = _experiment(tmp_path)
+    layout = AOLMicroscopeTrialSource().scan(experiment / "12-00-06", None)
+    assert any(item.config.get("frame_timestamps_format") for item in layout.items)
+    drop_controller.apply_session_layout(window, layout)
+    assert window.session_runtime.aol_camera_start_epoch == 0.0

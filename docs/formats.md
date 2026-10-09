@@ -56,25 +56,52 @@ beside them) and oriented as the lab's own figures show it. Each frame carries t
 its line scan; the timing note gives how far its tiles were scanned either side. An experiment
 folder plays its trials back to back, as the lab's own analysis joins them, and the trials are
 drawn as a **Trials** lane in Data Streams and as dashed boundaries on the plots. Each camera's
-per-trial recordings become one video on the same timeline: AvialSync finds them by the
-microscope's trial names, in the trial folders or under **Preferences → Lab Data → AOL camera
-saved-data folder**, starts each on its trial's trigger and trims the frames the camera recorded
-after the trial ended. The joined video is a copy kept in AvialSync's cache; the recordings are
-not changed. Channels named Green and Red start in those colours, taken from the lab's record
+per-trial recordings become one video on the same timeline, each started on its trial's trigger
+and trimmed to the trial. The joined video is a copy kept in AvialSync's cache; the recordings
+are not changed.
+
+The camera PC names its folders by its own clock, so they never match the trial names
+(`12-21-24` for trial `12-21-28`). AvialSync pairs them by **when they recorded**: the cameras'
+first-frame stamp against each trial's `STARTTIME`, after removing the controller's time zone
+(from its folder names) and the offset most recordings agree on between the two PCs' clocks.
+Pairs are one to one and in time order, within **Preferences → Lab Data → AOL camera-to-trial
+match tolerance**. A lone recording left between two matched trials, beside a lone unmatched
+trial, is paired with it "by order only" and reported. A camera that started more than a second
+from its trial's trigger is placed where its own clock says rather than on the trigger, and only
+its frames inside the trial are joined; one that recorded entirely outside its trial is named and
+left out, as is a recording no trial was running for. Every such case is listed in the status
+bar's warnings. Cameras are looked for inside and beside the trial folders, under **AOL camera
+saved-data folder**, and in any folder beside the date folder that mirrors
+`<date>/<experiment>` (for example `videos/2026-09-03/experiment_2` next to `2026-09-03`).
+
+What you drop decides what is joined. One trial folder opens that trial and its cameras; an
+experiment folder, or several trial folders selected together, play back to back. Trial and
+camera folders (or an experiment folder and its camera experiment folder) dropped together are
+paired with each other, wherever the camera folders are. Camera folders dropped onto trials
+already open join those trials where they now sit; trials dropped onto an open camera session
+are placed on its cameras. Several camera folders dropped on their own (or the camera PC's
+experiment folder) load as their trials when AvialSync can find them, beside the camera tree or
+under **AOL microscope saved-data folder**: the imaging is offered in the import review, where
+you can skip it. Without trials, each camera's recordings join into one video, one recording
+after another. Either way the same cameras are one video each, not one per recording. Channels named Green and Red start in those colours, taken from the lab's record
 (index 1 green, index 0 red, unless the trial's analysis says otherwise). When a trial's line
 clock and duration are missing, the controller's `Log.txt` rate for that trial is used before
 AvialSync asks for one. A single `RibbonScan_ROI_*.mat` can also be opened on its own like any
 HDF5 or TIFF stack: its stored 16-bit pixels, both channels, at that ROI's exact line-clock times
 when the trial's `params.mat` is beside it. The lab's ROI-analysis files (`roi_activity/`,
-`thin_mask.mat` masks) are not loaded. The encoder angle is loaded hidden by default so the
-existing wheel prop can still use it.
+`thin_mask.mat` masks) are not loaded. When the controller logged the running wheel into the
+trial's `params.mat` (`behaviour/encoder`), its speed is plotted in rpm, on the trial's clock and
+back to back with the other trials; that is the only encoder row a trial adds. An AOL camera
+session's `encoder_log.txt` is plotted instead when one is open, and its angle is loaded hidden
+by default so the existing wheel prop can still use it.
 
 With an AOL camera session loaded, **Align → Find microscope trial…** searches the dated folder,
 matches the camera wall clock against the trial's UTC `STARTTIME`, and presents the evidence for
 review. The derived time-zone offset assumes both PCs use the same local zone. Accepting places
 the trial on camera frame zero as one undoable change; it does not alter the already-open camera
-session. The matching and zone inference have synthetic test coverage but have not been verified
-against a real camera/trial pair. AvialSync does not apply the controller's optional clock
+session. Clock matching was checked against a real experiment (2026-09-03, experiment_2: 18 of
+19 camera recordings paired with 24 trials, the camera PC 0.71 s ahead of the controller, two
+recordings off their trigger). AvialSync does not apply the controller's optional clock
 calibration correction.
 
 ## Two-photon imaging

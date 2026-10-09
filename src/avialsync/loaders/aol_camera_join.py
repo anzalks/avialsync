@@ -1,13 +1,21 @@
 """One video per camera across an AOL experiment's trials, back to back.
 
-The camera PC saves each trial under the controller's own trial name
-(``HH-MM-SS``), so a trial's cameras are found by that name: inside the trial
-folder itself, or under a camera data folder that mirrors the controller's
-``<date>/<experiment>/<HH-MM-SS>`` tree. Each camera's per-trial recordings
-are joined the way the controller's own analysis joins trials: back to back,
-trial after trial, each segment starting at its trial's start (the
-controller's trigger starts every camera) and trimmed to that trial's length
-(the camera's stop is not triggered, so its last frames overrun the trial).
+The camera PC saves each trial in a folder of its own, named by its own clock
+when it armed -- never by the controller's trial name, and seconds apart from
+it -- so a trial's cameras are found by *when* they recorded
+(:func:`~avialsync.loaders.aol_trial_matching.match_cameras`): saved inside the
+trial folder, named after it, started on its trigger by the camera clock, or
+the only recording left between two that did. Recordings are looked for in the
+trial folders, beside them, under the configured camera data folders, and in a
+sibling tree that mirrors the controller's ``<date>/<experiment>`` (such as
+``videos/<date>/<experiment>`` next to ``<date>``).
+
+Each camera's per-trial recordings are joined the way the controller's own
+analysis joins trials: back to back, trial after trial, each segment starting
+at its trial's start (the controller's trigger starts every camera) and trimmed
+to that trial's length (the camera's stop is not triggered, so its last frames
+overrun the trial). A recording that did not start on its trial's trigger is
+placed where its own clock puts it, and keeps only the frames inside the trial.
 
 The joined video is a stream copy -- no re-encoding -- written once into the
 per-user cache with a per-frame timestamp sidecar, never beside a recording
@@ -23,7 +31,7 @@ import hashlib
 import json
 import logging
 import shutil
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
@@ -33,13 +41,14 @@ import numpy as np
 
 from avialsync.core.cache import CacheManager, cache_dir_for, source_identity
 from avialsync.core.errors import SourceOpenError
+from avialsync.loaders.aol_trial_matching import CameraPairing, CameraRecording, first_frame_stamp
 from avialsync.loaders.video_standard import VideoStandardLoader
 
 logger = logging.getLogger(__name__)
 
 #: Last path part of a joined camera's source id: ``<first segment video>/joined_trials``.
 JOINED_NAME = "joined_trials"
-_JOIN_VERSION = 1
+_JOIN_VERSION = 2
 _VIDEO_NAME = "joined.mkv"
 _STAMPS_NAME = "joined_timestamps.csv"
 _TIMING_SUFFIX = "-relative times.txt"
@@ -54,6 +63,7 @@ class CameraSegment:
     timing: Path
     start: float  # seconds on the joined timeline where the trial's trigger falls
     length: float  # the trial's length; later frames are the camera's overrun
+    offset: float = 0.0  # the camera's first frame after the trigger; 0 when on it
 
     def to_config(self) -> dict[str, Any]:
         return {
@@ -61,12 +71,17 @@ class CameraSegment:
             "timing": str(self.timing),
             "start": self.start,
             "length": self.length,
+            "offset": self.offset,
         }
 
     @classmethod
     def from_config(cls, data: dict[str, Any]) -> CameraSegment:
         return cls(
-            Path(data["video"]), Path(data["timing"]), float(data["start"]), float(data["length"])
+            Path(data["video"]),
+            Path(data["timing"]),
+            float(data["start"]),
+            float(data["length"]),
+            float(data.get("offset", 0.0)),
         )
 
 
@@ -91,16 +106,50 @@ def _cameras_in(folder: Path) -> dict[str, tuple[Path, Path]]:
     return found
 
 
-#: Camera data folders to search besides the trial folders themselves. Set by
-#: the window from the user's setting before a scan starts: the scanner runs on
-#: a worker and has no settings of its own to read.
+def camera_files(folder: Path) -> dict[str, tuple[Path, Path]]:
+    """``camera -> (video, timing file)`` for one recording folder."""
+    return _cameras_in(folder)
+
+
+def is_camera_folder(folder: Path) -> bool:
+    """Whether *folder* holds one recording's camera videos and their frame times."""
+    return folder.is_dir() and bool(_cameras_in(folder))
+
+
+def camera_folders_in(folder: Path) -> list[Path]:
+    """The camera recordings directly inside *folder* (an experiment's, on the camera PC)."""
+    try:
+        return sorted(child for child in folder.iterdir() if is_camera_folder(child))
+    except OSError:
+        return []
+
+
+#: Camera data folders to search besides the trial folders themselves, and how
+#: far apart a camera and a trial may start and still be matched. Set by the
+#: window from the user's settings before a scan starts: the scanner runs on a
+#: worker and has no settings of its own to read.
 _CAMERA_ROOTS: tuple[Path, ...] = ()
+_TRIAL_ROOTS: tuple[Path, ...] = ()
+_MATCH_TOLERANCE_S = 10.0
 
 
-def configure_camera_roots(roots: Sequence[Path]) -> None:
-    """Set the camera data folders later scans search (empty to search none)."""
-    global _CAMERA_ROOTS
+def configure_camera_roots(
+    roots: Sequence[Path],
+    tolerance_s: float | None = None,
+    trial_roots: Sequence[Path] | None = None,
+) -> None:
+    """Set the camera (and microscope) data folders later scans search (empty: none)."""
+    global _CAMERA_ROOTS, _MATCH_TOLERANCE_S, _TRIAL_ROOTS
     _CAMERA_ROOTS = tuple(Path(root) for root in roots if str(root).strip())
+    if tolerance_s is not None:
+        _MATCH_TOLERANCE_S = float(tolerance_s)
+    if trial_roots is not None:
+        _TRIAL_ROOTS = tuple(Path(root) for root in trial_roots if str(root).strip())
+
+
+def trial_roots() -> tuple[Path, ...]:
+    """The configured microscope saved-data folders."""
+    return _TRIAL_ROOTS
 
 
 def camera_roots() -> tuple[Path, ...]:
@@ -108,35 +157,108 @@ def camera_roots() -> tuple[Path, ...]:
     return _CAMERA_ROOTS
 
 
-def camera_folder_for(trial: Path, roots: Sequence[Path] = ()) -> Path | None:
-    """The folder holding *trial*'s camera recordings, found by the trial's own name.
+def match_tolerance() -> float:
+    """The configured camera-to-trial start tolerance, in seconds."""
+    return _MATCH_TOLERANCE_S
 
-    The trial folder itself first; then, under each camera data root, the
-    controller's ``<date>/<experiment>/<trial>`` tree, ``<date>/<trial>`` and
-    ``<trial>`` -- the camera PC names its folders after the controller's trials.
+
+def _mirrors(experiment: Path, roots: Sequence[Path]) -> list[Path]:
+    """Folders that may hold *experiment*'s camera recordings, on the camera PC's tree.
+
+    Under each camera data root: ``<date>/<experiment>``, ``<date>`` and the
+    root. Beside the controller's own tree: any sibling of the date folder
+    that mirrors ``<date>/<experiment>`` (a ``videos`` folder next to it).
     """
-    candidates = [trial]
-    tail = trial.parts[-3:]
+    date = experiment.parent
+    places = [experiment]
     for root in roots:
-        candidates += [root.joinpath(*tail), root / tail[0] / trial.name, root / trial.name]
-    for folder in candidates:
-        if folder.is_dir() and _cameras_in(folder):
-            return folder
-    return None
+        places += [root / date.name / experiment.name, root / date.name, root]
+    try:
+        siblings = sorted(child for child in date.parent.iterdir() if child.is_dir())
+    except OSError:
+        siblings = []
+    places += [sibling / date.name / experiment.name for sibling in siblings if sibling != date]
+    return places
+
+
+def recording(folder: Path) -> CameraRecording | None:
+    """*folder*'s cameras as one recording, started at their median first-frame stamp."""
+    cameras = _cameras_in(folder)
+    if not cameras:
+        return None
+    stamps = sorted(
+        stamp for _video, timing in cameras.values() if (stamp := first_frame_stamp(timing))
+    )
+    return CameraRecording(folder, stamps[len(stamps) // 2] if stamps else 0.0)
+
+
+def find_recordings(trial_folders: Sequence[Path], roots: Sequence[Path]) -> list[CameraRecording]:
+    """Every camera recording that could belong to these trials, each folder once."""
+    folders: dict[Path, None] = {}
+    for trial in trial_folders:
+        if is_camera_folder(trial):
+            folders[trial] = None
+    for experiment in dict.fromkeys(trial.parent for trial in trial_folders):
+        for place in _mirrors(experiment, roots):
+            if place.is_dir():
+                folders.update(dict.fromkeys(camera_folders_in(place)))
+    return [found for folder in folders if (found := recording(folder)) is not None]
+
+
+def recording_length(folder: Path) -> float:
+    """How long a recording ran: its longest camera's last frame plus one frame period."""
+    lengths = [0.0]
+    for _video, timing in _cameras_in(folder).values():
+        try:
+            times = _timing_rows(timing)[1]
+        except (OSError, SourceOpenError):
+            continue
+        lengths.append(float(times[-1] + np.median(np.diff(times))))
+    return max(lengths)
+
+
+def _recorded_span(timing: Path) -> float | None:
+    """Seconds from a recording's first frame to its last."""
+    try:
+        return float(_timing_rows(timing)[1][-1])
+    except (OSError, SourceOpenError):
+        return None
 
 
 def camera_segments(
-    trials: Sequence[Path], starts: Sequence[float], lengths: Sequence[float], roots: Sequence[Path]
-) -> dict[str, list[CameraSegment]]:
-    """Each camera's per-trial segments, for the trials whose cameras are found."""
+    pairs: Sequence[CameraPairing],
+    starts: Mapping[Path, float],
+    lengths: Mapping[Path, float],
+) -> tuple[dict[str, list[CameraSegment]], list[str]]:
+    """Each camera's per-trial segments, and the recordings that fall outside their trial.
+
+    A recording placed by its own clock may have stopped before its trial
+    began, or started after it ended; it then contributes no frames, and is
+    named rather than joined as an empty segment.
+    """
     joined: dict[str, list[CameraSegment]] = {}
-    for trial, start, length in zip(trials, starts, lengths, strict=True):
-        folder = camera_folder_for(trial, roots)
-        if folder is None:
+    notes: list[str] = []
+    for pair in pairs:
+        folder, trial = pair.camera.folder, pair.trial.folder
+        cameras = _cameras_in(folder)
+        if not cameras or trial not in starts:
             continue
-        for camera, (video, timing) in _cameras_in(folder).items():
-            joined.setdefault(camera, []).append(CameraSegment(video, timing, start, length))
-    return joined
+        length = lengths[trial]
+        outside = pair.offset >= length
+        if pair.offset < 0.0:
+            span = _recorded_span(next(iter(cameras.values()))[1])
+            outside = span is not None and pair.offset + span < 0.0
+        if outside:
+            notes.append(
+                f"{folder.name}'s cameras recorded outside trial {trial.name} "
+                f"({pair.offset:+.1f} s from its trigger); none of their frames are shown."
+            )
+            continue
+        for camera, (video, timing) in cameras.items():
+            joined.setdefault(camera, []).append(
+                CameraSegment(video, timing, starts[trial], length, pair.offset)
+            )
+    return joined, notes
 
 
 def joined_source_id(segments: Sequence[CameraSegment]) -> Path:
@@ -204,7 +326,13 @@ def _join(
         stream = None
         for number, segment in enumerate(segments):
             counters, times = _timing_rows(segment.timing)
-            keep = int(np.searchsorted(times, segment.length, side="left"))
+            # Where each frame falls in its trial; only those inside it are kept.
+            placed = segment.offset + times
+            first = int(np.searchsorted(placed, 0.0, side="left"))
+            keep = int(np.searchsorted(placed, segment.length, side="left"))
+            if first >= keep:
+                progress((number + 1) / len(segments))
+                continue
             with av.open(str(segment.video)) as source:
                 source_stream = source.streams.video[0]
                 if stream is None:
@@ -223,16 +351,26 @@ def _join(
                     last_pts = packet.pts
                     if frame >= keep:
                         break
-                    instant = segment.start + float(times[frame])
-                    packet.stream = stream
-                    packet.pts = packet.dts = round(instant * 1000)
-                    packet.time_base = stream.time_base
-                    output.mux(packet)
-                    rows.append(f"{int(counter_base + counters[frame])},{round(instant * 1e9)}")
+                    if frame >= first:
+                        instant = segment.start + float(placed[frame])
+                        packet.stream = stream
+                        packet.pts = packet.dts = round(instant * 1000)
+                        packet.time_base = stream.time_base
+                        output.mux(packet)
+                        rows.append(f"{int(counter_base + counters[frame])},{round(instant * 1e9)}")
                     frame += 1
-            counter_base += float(counters[min(keep, len(counters)) - 1]) if keep else 0.0
+            counter_base += float(counters[min(keep, len(counters)) - 1])
             progress((number + 1) / len(segments))
     stamps_out.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+
+def _first_instant(stamps: Path) -> float:
+    """The joined timeline's time of the first joined frame, from its sidecar."""
+    with stamps.open(encoding="utf-8") as handle:
+        first = handle.readline().strip()
+    if not first:
+        raise SourceOpenError("None of this camera's recordings fall inside their trials.")
+    return int(first.split(",")[1]) / 1e9
 
 
 class AOLJoinedCameraSource(VideoStandardLoader):
@@ -285,10 +423,10 @@ class AOLJoinedCameraSource(VideoStandardLoader):
         config = {
             key: value for key, value in self._config.items() if key not in ("segments", "fps")
         }
-        # The sidecar is rebased to its first frame; that frame is the first
-        # segment's trigger, which is not the timeline's zero when early trials
-        # have no camera recording.
-        start = self._segments[0].start
+        # The sidecar is rebased to its first frame, which is not the
+        # timeline's zero when early trials have no camera recording, or the
+        # first recording did not start on its trigger: its own stamp says.
+        start = _first_instant(entry / _STAMPS_NAME)
         config.update({"frame_timestamps": str(entry / _STAMPS_NAME), "start_time": start})
         super().open(joined, config)
         mapping = self.exact_time_mapping()

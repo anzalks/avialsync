@@ -6544,6 +6544,8 @@ Pairing a trial with a joined experiment loaded moves the whole experiment by th
 
 ## 2026-10 · D-205 · AOL trials join back to back, cameras included
 
+> Finding a trial's cameras by its name is superseded by D-208: they are matched by clock.
+
 **Decision.** An experiment's trials play back to back, as the controller's own analysis joins
 them, not on their wall-clock `STARTTIME`: trial *k* starts where trial *k-1* ends, taking its
 recorded length or its last frame plus one frame period if that is later
@@ -6613,3 +6615,48 @@ inside the Data Streams page window seeks where it landed, and only a press that
 platform drag distance moves the page. Clicking a plot, the slider, Shift+arrows, Space, Home
 and End were verified on imaging-only and data-only sessions.
 
+---
+
+## 2026-10 · D-208 · AOL cameras are matched to trials by when they recorded; drops pair across folders
+
+> Supersedes D-205's "a trial's cameras are found by that name".
+
+**Decision.** The camera PC names a recording's folder by its own clock when it arms, seconds
+before the controller names the trial, so names never agree. A camera recording is paired with
+a trial by, in order: being saved in the trial folder; carrying the trial's name; its first-frame
+stamp falling within the match tolerance of the trial's `STARTTIME` on the session's camera
+clock; or being the only recording left between two pairs, beside the only trial left there
+("order only", reported). The camera clock is the controller's zone (from its folder names) plus
+the skew most recordings agree on to within 1 s, so one early camera cannot move the others.
+Pairs are one to one and keep both sides in time order. A single trial is matched against its
+whole experiment, because a lone pair always agrees with itself.
+
+A recording within 1 s of its trial's trigger starts on it (stamp jitter measured on real data:
+0.28 s). Beyond that it is placed where its own clock puts it, keeps only its frames inside the
+trial when joined, and is reported; one entirely outside its trial is reported and not joined,
+as is a recording no trial was running for. Recordings are looked for in and beside the trial
+folders, under the camera data folder setting, and in any sibling of the date folder that
+mirrors `<date>/<experiment>`.
+
+`SessionSource.scan_together(paths, loaded, registry)` is an optional hook asked once per drop:
+it may claim several dropped paths as one session, and sees the sources already open at their
+current epochs. AOL uses it so that several trial folders join back to back, trials and camera
+folders dropped together pair with each other wherever the cameras are, cameras dropped onto
+open trials join them where they sit (hand corrections included), and trials dropped onto an
+open camera session are shifted onto its cameras. Several camera recordings dropped with nothing
+open are one experiment's cameras, never a session each: with their trials found (beside the
+camera tree, or under the microscope saved-data folder) they load as those trials, the imaging
+offered in the review; without, each camera's recordings join back to back. Recording folders
+holding more than cameras (pose, metrics, encoder) stay with the AOL camera session scanner.
+
+A trial whose controller logged the wheel (`params.mat` `behaviour/encoder`) adds one plot row,
+`encoder_velocity` in rpm, from `wheel_speed` against `wheel_speed_time` (seconds from
+`STARTTIME`; on real data six times its integral follows `wheel_angle` at 6.0 deg per rpm·s),
+joined back to back like the imaging. The angle is not loaded. When an AOL camera session with
+an `encoder_log.txt` is already open, that log is the speed shown and the trial's is not added.
+
+**Why.** On 2026-09-03 experiment_2 no camera folder matched a trial name; by clock 17 of 19
+recordings pair (camera PC +0.71 s), one more by order, and one belongs to no trial. Placing an
+off-trigger recording on the trigger would show footage up to 15 s away from the imaging as
+simultaneous (rule 8). Every association is a session declaration with its evidence in the
+layout warnings; the explicit Find trial / Accept alignment flow (D-202) is unchanged.

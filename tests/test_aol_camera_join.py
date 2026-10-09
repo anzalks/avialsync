@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from fractions import Fraction
 from pathlib import Path
 
@@ -12,16 +13,27 @@ import pytest
 from avialsync.core.registry import LoaderRegistry
 from avialsync.loaders.aol_camera_join import (
     AOLJoinedCameraSource,
-    camera_folder_for,
     configure_camera_roots,
+    find_recordings,
 )
 from avialsync.loaders.aol_microscope_session import AOLMicroscopeTrialSource
 from avialsync.loaders.video_standard import VideoStandardLoader
 from tests.test_aol_microscope_trial import _trial
 
 
-def _camera(folder: Path, name: str, frames: int, period_ms: float, shade: int) -> Path:
-    """An MJPEG AVI like the rig's, with its per-frame relative-times file."""
+def _camera(
+    folder: Path,
+    name: str,
+    frames: int,
+    period_ms: float,
+    shade: int,
+    first_stamp: dt.datetime | None = None,
+) -> Path:
+    """An MJPEG AVI like the rig's, with its per-frame relative-times file.
+
+    *first_stamp* is the camera PC's local clock at frame 0; without it every
+    frame carries a placeholder stamp, for tests that do not match by clock.
+    """
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / f"{name}.avi"
     with av.open(str(path), mode="w") as container:
@@ -38,7 +50,12 @@ def _camera(folder: Path, name: str, frames: int, period_ms: float, shade: int) 
                 container.mux(packet)
         for packet in stream.encode():
             container.mux(packet)
-    rows = [f"{i + 1}\t{i * period_ms:.3f}\t03-09-2026;12:00:05.{i:04d}" for i in range(frames)]
+    if first_stamp is None:
+        stamps = [f"03-09-2026;12:00:05.{i:04d}" for i in range(frames)]
+    else:
+        instants = [first_stamp + dt.timedelta(milliseconds=i * period_ms) for i in range(frames)]
+        stamps = [instant.strftime("%d-%m-%Y;%H:%M:%S.%f")[:-2] for instant in instants]
+    rows = [f"{i + 1}\t{i * period_ms:.3f}\t{stamp}" for i, stamp in enumerate(stamps)]
     (folder / f"{name}-relative times.txt").write_text("\n".join(rows) + "\n", encoding="utf-8")
     return path
 
@@ -97,11 +114,13 @@ def test_a_single_trial_places_its_cameras_on_its_trigger(tmp_path: Path) -> Non
 
 def test_cameras_are_found_under_the_camera_data_folder_by_trial_name(tmp_path: Path) -> None:
     experiment, first, second = _experiment(tmp_path)
-    camera_root = tmp_path / "camera_pc"
+    # Not beside the date folder: a sibling mirror is found without the setting.
+    camera_root = tmp_path / "elsewhere" / "camera_pc"
     _camera(camera_root / "2026-09-03" / "experiment_1" / "12-00-00", "FaceCam", 3, 10.0, 40)
     _camera(camera_root / "2026-09-03" / "experiment_1" / "12-10-00", "FaceCam", 3, 10.0, 90)
-    assert camera_folder_for(first) is None
-    assert camera_folder_for(first, [camera_root]) == camera_root / first.relative_to(tmp_path)
+    assert find_recordings([first], []) == []
+    found = {r.folder for r in find_recordings([first], [camera_root])}
+    assert camera_root / first.relative_to(tmp_path) in found
     configure_camera_roots([camera_root])
     try:
         layout = AOLMicroscopeTrialSource().scan(experiment, None)

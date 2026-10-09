@@ -439,6 +439,11 @@ class SessionSource(ABC):
         span them (anchor_epoch, camera_fps, skeleton). Session-wide settings are
         typed fields, never a synthetic item row. Runs off the UI thread."""
 
+    def scan_together(self, paths, loaded, registry) -> tuple[SessionLayout, list[Path]] | None:
+        """Optional (D-208): claim several dropped paths as one recording, or a
+        drop onto what is loaded (`loaded`: SessionItems at their current
+        epochs). Asked once per drop before per-path scanning; default None."""
+
     # Timestamp handling contract: loader must resolve timezone (naive input → user chooses
     # in import wizard, default UTC with a visible warning), handle DST-ambiguous local
     # times by refusing ambiguity silently (ask), and support time-of-day-only formats via

@@ -17,7 +17,13 @@ from PySide6.QtCore import QThread
 from PySide6.QtGui import QDragEnterEvent, QDropEvent
 
 from avialsync.core.errors import FileUnreadableError
-from avialsync.core.source import ImagingSource, SessionLayout, TimeSeriesSource, VideoSource
+from avialsync.core.source import (
+    ImagingSource,
+    SessionItem,
+    SessionLayout,
+    TimeSeriesSource,
+    VideoSource,
+)
 from avialsync.ui.time_format import TimeDisplayMode
 
 if TYPE_CHECKING:
@@ -47,14 +53,45 @@ def drop_event(window: MainWindow, event: QDropEvent) -> None:
 
 
 def _publish_camera_roots() -> None:
-    """Tell the AOL scanner where the camera PC saves trials, from the user's setting."""
+    """Tell the AOL scanner where the camera PC saves trials, from the user's settings."""
     from avialsync.core.settings_schema import setting_for
     from avialsync.loaders.aol_camera_join import configure_camera_roots
     from avialsync.ui.preferences_dialog import read_setting
 
     setting = setting_for("aol/camera_data_folder")
     folder = str(read_setting(setting)).strip() if setting is not None else ""
-    configure_camera_roots([Path(folder).expanduser()] if folder else [])
+    tolerance = setting_for("aol/match_tolerance_seconds")
+    saved = setting_for("aol/saved_data_folder")
+    trials = str(read_setting(saved)).strip() if saved is not None else ""
+    configure_camera_roots(
+        [Path(folder).expanduser()] if folder else [],
+        float(read_setting(tolerance)) if tolerance is not None else None,
+        [Path(trials).expanduser()] if trials else [],
+    )
+
+
+def loaded_items(window: MainWindow) -> list[SessionItem]:
+    """What is open now, each source's zero as a Unix time, for a drop to land against.
+
+    Read from where each source sits on the timeline rather than from where
+    its session declared it, so a hand-corrected placement is what a later
+    drop lines up with. Empty without a wall-clock session zero.
+    """
+    from avialsync.loaders.video_standard import VideoStandardLoader
+
+    zero = window.session_runtime.start_time
+    if not zero:
+        return []
+    items: list[SessionItem] = []
+    for source_id in window.imaging_pane.source_paths():
+        loader, config, mapping = window.imaging_pane.source_config(source_id)
+        # t_source = t_master + offset: the stack's zero is at master -offset.
+        items.append(
+            SessionItem(Path(source_id), loader, config, source_epoch=zero - mapping.offset)
+        )
+    for path, (start, _end) in window.video_master_spans().items():
+        items.append(SessionItem(Path(path), VideoStandardLoader, source_epoch=zero + start))
+    return items
 
 
 def start_drop_scan(window: MainWindow, paths: list[Path]) -> None:
@@ -63,7 +100,7 @@ def start_drop_scan(window: MainWindow, paths: list[Path]) -> None:
 
     window.transport.set_status("Scanning files…")
     _publish_camera_roots()
-    worker = DropScanWorker(paths, window.registry)
+    worker = DropScanWorker(paths, window.registry, loaded_items(window))
 
     # Wired through `configure`, which runs before the thread starts. Connecting
     # after `_run_job` returns is a race: the thread is already running, and a
@@ -113,8 +150,13 @@ def _adopt_declared_evidence(window: MainWindow, layout: SessionLayout) -> None:
 
 
 def _remember_aol_camera_session(window: MainWindow, layout: SessionLayout) -> None:
-    """Retain AOL wall-clock evidence while a microscope trial is opened."""
-    is_aol_camera_session = any(
+    """Retain AOL wall-clock evidence while a microscope trial is opened.
+
+    Cameras a microscope layout brought with its trials (it declares them as
+    segments) are paired already: their epoch is the controller's, not a
+    camera session's, so there is no trial left to find for them.
+    """
+    is_aol_camera_session = not layout.segments and any(
         item.config.get("frame_timestamps_format") == "aol_relative_ms" for item in layout.items
     )
     if is_aol_camera_session:

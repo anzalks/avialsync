@@ -2,7 +2,7 @@
 
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -369,6 +369,25 @@ class SessionSource(_Nameable, ABC):
         formats explicitly and defers ordinary media to whatever can read it.
         Runs off the UI thread; it may read files, and must not touch Qt.
         """
+
+    def scan_together(
+        self, paths: Sequence[Path], loaded: Sequence[SessionItem], registry: Any
+    ) -> tuple[SessionLayout, list[Path]] | None:
+        """Lay out several dropped paths as one session, or a drop onto what is loaded.
+
+        Optional; the default claims nothing. Asked once per drop, before any
+        path is scanned on its own: some recordings are split across folders
+        that only make sense together -- a microscope's trials and the camera
+        PC's recordings of them -- and a scanner that sees one folder at a time
+        cannot pair them. *loaded* describes the sources already open, each
+        ``source_epoch`` being where its own zero sits now in Unix time, so a
+        later drop can be placed against them.
+
+        Returns the layout and the dropped paths it used (those are not scanned
+        again), or ``None`` to leave every path to :meth:`scan`. Runs off the
+        UI thread under the same rules as :meth:`scan`.
+        """
+        return None
 
 
 class TimeSeriesSource(_Nameable, ABC):

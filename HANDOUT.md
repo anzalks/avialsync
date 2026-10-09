@@ -605,8 +605,12 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `loaders/aol_microscope_trial.py` | Read-only MATLAB v7.3 microscope trial metadata (timing fields read directly or through MATLAB cells), line timing, display-oriented tile layout, the lab's green-channel record; `verify=False` reads names only for scans | `MicroscopeTrial`, `read_trial()`, `is_microscope_trial()`, `tile_origins()`, `declared_green_channel()` |
 | `loaders/aol_ribbon_scan.py` | "Imaging Stack (MATLAB)": a trial as one gutterless mosaic, `trial_folders` for an experiment joined back to back (three trials cached), or one `RibbonScan_ROI_*.mat` raw (`uint16`, its own line-clock times, `Log.txt` rate before asking); planes as MATLAB shows them (D-203, D-204) | `AOLRibbonScanSource` |
 | `loaders/aol_mosaic_layout.py` | Where each ribbon tile sits: the controller-style branch tree from `thin_mask.mat` (branches as columns, segments stacked, population patches packed), the lab's analysis map, or a square grid (D-204) | `choose_layout()`, `branch_layout()`, `analysis_layout()`, `MosaicLayout` |
-| `loaders/aol_camera_join.py` | "Video (Joined Trials)": a camera's per-trial recordings found by the controller's trial names and stream-copied back to back into the per-user cache with a timestamp sidecar; the camera data folder search (D-205) | `AOLJoinedCameraSource`, `camera_segments()`, `configure_camera_roots()` |
+| `loaders/aol_camera_join.py` | "Video (Joined Trials)": a camera's per-trial recordings stream-copied back to back into the per-user cache with a timestamp sidecar, each segment at its pairing's offset and trimmed to its trial; where camera recordings are looked for (trial folders, beside them, the camera data folder, a sibling `<date>/<experiment>` mirror) (D-205, D-208) | `AOLJoinedCameraSource`, `find_recordings()`, `recording()`, `camera_segments()`, `configure_camera_roots()` |
+| `loaders/aol_camera_recordings.py` | Camera recordings dropped without trials: finds their microscope experiment (sibling `<date>/<experiment>` or the saved-data setting), or joins each camera's recordings back to back (D-208) | `trials_for()`, `back_to_back()`, `is_plain()` |
+| `loaders/aol_trial_encoder.py` | "Rotary Encoder (MATLAB)": the wheel speed (rpm) the controller logs in each trial's `params.mat`, back to back across joined trials; only `encoder_velocity`, and not added when an open camera session has `encoder_log.txt` (D-208) | `AOLTrialEncoderSource`, `read_wheel_speed()`, `has_wheel_speed()` |
+| `loaders/aol_trial_matching.py` | Camera recordings paired with microscope trials by clock: zone from trial folder names, camera-PC skew by consensus, one-to-one in time order, then a lone leftover by order; off-trigger recordings keep their clock offset (D-208). Also the single-camera trial search (D-202) | `match_cameras()`, `CameraRecording`, `CameraPairing`, `first_frame_stamp()`, `match_trial()` |
 | `loaders/aol_microscope_session.py` | One-trial or experiment-folder microscope session scan; drops derived outputs outside `roi_activity` | `AOLMicroscopeTrialSource`, `is_microscope_trial()` |
+| `loaders/aol_camera_recordings.py` | Camera recordings dropped without trials: finds their microscope experiment (sibling `<date>/<experiment>` or the saved-data setting), or joins each camera's recordings back to back (D-208) | `trials_for()`, `back_to_back()`, `is_plain()` |
 | `loaders/aol_trial_matching.py` | Trial day selection, shared-zone inference, and unique containment/nearest-start matching | `derive_utc_offset()`, `match_trial()` |
 | `ui/imaging_frame_view.py` | The imaging picture with its own zoom and pan, or a message in its place; replaces the QLabel that could not shrink below its last pixmap | `ImagingFrameView` |
 | `ui/zoom_controls.py` | Zoom in / zoom out / reset glyph strip shared by the video, imaging and 3D panes; each owner keeps its own zoom | `ZoomControls`, `ZOOM_STEP` |
@@ -766,7 +770,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/import_wizard.py` | CSV import dialog | `ImportWizard` |
 | `ui/diagnostics.py` | Startup probe (hardware-decode support, disk speed) — async daemon thread | `run_startup_diagnostics()`, `probe_hwdec()` |
 | `ui/controllers/drop_controller.py` | Drag/drop intake, drop scan, candidate routing (D-066) | `drop_event()`, `start_drop_scan()`, `route_import_candidate()` |
-| `core/source.py` | Plugin ABCs: `TimeSeriesSource`, `VideoSource`, and `SessionSource` for folder layouts (D-068); all three name themselves via `_Nameable`. `SessionLayout.warnings` carries what a scan could not lay out, so a dropped recording is never silent (D-085). `TimeSeriesSource.pose_roles()` offers direct-import 2D/3D uses (D-132) | `SessionSource`, `SessionLayout` (incl. `warnings`), `SessionItem` (incl. `label`), `display_name()`, `VideoSource.exact_time_mapping()` (D-072) |
+| `core/source.py` | Plugin ABCs: `TimeSeriesSource`, `VideoSource`, and `SessionSource` for folder layouts (D-068), with the optional `scan_together` for multi-path drops and drops onto loaded sources (D-208); all three name themselves via `_Nameable`. `SessionLayout.warnings` carries what a scan could not lay out, so a dropped recording is never silent (D-085). `TimeSeriesSource.pose_roles()` offers direct-import 2D/3D uses (D-132) | `SessionSource`, `SessionLayout` (incl. `warnings`), `SessionItem` (incl. `label`), `display_name()`, `VideoSource.exact_time_mapping()` (D-072) |
 | `ui/controllers/cache_controller.py` | File → Cache: delete this trial's cache, all cache, or trim unused entries to 10 GB / 30 days; deletion closes and restores a loaded trial, while trim protects it without reimporting (D-160, D-199) | `delete_trial_cache()`, `delete_all_cache()`, `trim_cache()`, `show_cache_folder()` |
 | `ui/controllers/session_controller.py` | `.avv` save/load/restore, geometry, autosave, recent files. Also the recovery snapshot's UI side: `note_pending_recovery()` holds what a launch found, `offer_pending_recovery()` posts the opt-in bar, `recover_unsaved_work()` is the File command, `forget_pending_recovery()` drops the held offer beside every `clear_recovery()` (D-133) | `build_session_state()`, `restore_session()`, `start_session_save()` |
 | `ui/controllers/export_controller.py` | Snapshot, data slice, video clip, annotations, region stats. A clip's A/B loop is mapped onto each camera's clock before trimming | `export_snapshot()`, `start_data_export()`, `start_region_stats()` |
@@ -1937,9 +1941,8 @@ segments are numbered branch by branch (verified on 12-33-56: mean correlation 0
 0.12-0.15 for any shifted numbering), so branches become columns with their segments stacked;
 the lab's analysis map, then a square grid, are fallbacks. An experiment folder joins its trials
 back to back (`joined_starts`), imaging and cameras alike: each camera's per-trial files are
-found by the controller's trial name (in the trial folder, or under the camera data folder
-setting) and stream-copied into one cached video, each segment from its trial's trigger and
-trimmed to the trial (verified on real 1440x1080 MJPEG: a 4.351 ms seam against a 4.347 ms frame
+matched to their trial by clock, not name (D-208, below) and stream-copied into one cached
+video, each segment from its trial's trigger and trimmed to the trial (verified on real 1440x1080 MJPEG: a 4.351 ms seam against a 4.347 ms frame
 period). The trials are `SessionLayout.segments`: a Trials lane in Data Streams and dashed
 boundaries on every plot row. Nothing is sized from constants; the 5 ns line tick is checked
 against each trial's duration. Channels named Green and Red start in those colours
@@ -1957,6 +1960,29 @@ Picking an imaging stack that has no data at the playhead seeks to its first fra
 The import review reuses the window's loader registry (`MainWindow.registry`), which the drop
 worker has already discovered off the UI thread; building a fresh one imported every loader on
 the UI thread and stalled the first drop of a session for about 0.4 s.
+
+**Cameras by clock, drops together (D-208).** The camera PC names its folders by its own clock
+when it arms (`12-21-24`), never by the controller's trial (`12-21-28`), so matching by name
+found nothing on real data. `aol_trial_matching.match_cameras` pairs folder, then name, then
+clock, then order: the zone comes from the trial folder names against `STARTTIME`
+(`derive_utc_offset`, day from the cameras' stamps), the camera-PC skew is the residual most
+recordings agree on within `TRIGGER_JITTER_S` (1 s), pairs are one to one and order-preserving
+within the match tolerance setting, and a lone leftover recording between two matches goes to
+the lone leftover trial there ("order"). Off-trigger recordings (beyond the jitter) keep their
+clock offset in `CameraSegment.offset`; `_join` keeps only frames in `[0, length)` of the trial,
+and a recording entirely outside its trial is noted and not joined. Traps: match a single trial
+against its whole experiment (`aol_microscope_session._context`) -- alone, a trial and its one
+camera always agree, which put a camera that started 6.7 s early on the trigger; the joined
+sidecar's `start_time` is its first written frame (`_first_instant`), not the first segment's
+start. Real data (2026-09-03 experiment_2): skew +0.71 s, 16 recordings 0.50-0.78 s after their
+trigger, `12-25-02` -6.7 s, `12-26-57` -15.4 s (order only, outside its trial), `12-20-50` no
+trial. `SessionSource.scan_together` lets the drop worker hand a plugin every dropped path
+plus `drop_controller.loaded_items` (open sources at their current epochs): several trial
+folders join; trials with camera folders pair; cameras onto loaded trials join them where they
+sit; trials onto an open camera session shift onto its cameras (`_onto_cameras`). A lone trial
+or experiment still goes through `scan`. Several camera folders alone load as their trials
+(`_cameras_alone`) or back to back (`aol_camera_recordings.back_to_back`), never one camera
+session per recording -- that is what a video-only drop of the camera experiment folder did.
 
 ### 27. The window must always close; jobs are owned by JobManager (V-09)
 

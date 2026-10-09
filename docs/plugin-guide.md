@@ -116,6 +116,28 @@ later. Declare `session_epoch` rather than letting it be derived — sources loa
 concurrently, so a derived zero would depend on which file happened to finish
 first.
 
+### Optional: recordings split across folders
+
+Some rigs write one recording into several folders that only mean something
+together, such as a microscope's trials and the camera PC's recordings of them.
+`scan` sees one folder at a time and cannot pair them. Override `scan_together`
+to claim several dropped paths at once:
+
+```python
+def scan_together(self, paths, loaded, registry):
+    mine = [path for path in paths if belongs_to_my_rig(path)]
+    if len(mine) < 2:
+        return None  # leave every path to scan()
+    return lay_out_together(mine), mine
+```
+
+It is asked once per drop, before any path is scanned on its own. Return the
+layout and the dropped paths it used (those are not scanned again), or `None`.
+`loaded` lists the sources already open as `SessionItem`s whose `source_epoch`
+is where each source's own zero sits now, so a later drop can be placed against
+what the user already has, including any hand corrections. The default claims
+nothing.
+
 ### Say where your timestamps start, never where the source should go
 
 `SessionItem.source_epoch` is the **UTC instant your file's `t=0` is**, and it is
