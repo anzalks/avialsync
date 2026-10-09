@@ -480,7 +480,8 @@ class SyncWorker(QObject):
                 self._reference_incomplete_count = int(
                     np.count_nonzero(~valid) + np.count_nonzero(gaps)
                 )
-            return times[valid]
+            kept: np.ndarray = times[valid]
+            return kept
 
         chunks = reader.iter_raw_chunks_with_gaps(RAW_CHUNK_SAMPLES)
         # Both edges, not one. `extract_ttl_edges` returns rising edges alone,

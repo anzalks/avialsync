@@ -322,6 +322,8 @@ def _join(
 
     rows: list[str] = []
     counter_base = 0.0
+    # Packet times are written in milliseconds.
+    time_base = Fraction(1, 1000)
     with av.open(str(video_out), mode="w", format="matroska") as output:
         stream = None
         for number, segment in enumerate(segments):
@@ -337,7 +339,7 @@ def _join(
                 source_stream = source.streams.video[0]
                 if stream is None:
                     stream = output.add_stream_from_template(source_stream)
-                    stream.time_base = Fraction(1, 1000)
+                    stream.time_base = time_base
                 frame = 0
                 last_pts: int | None = None
                 for packet in source.demux(source_stream):
@@ -355,7 +357,7 @@ def _join(
                         instant = segment.start + float(placed[frame])
                         packet.stream = stream
                         packet.pts = packet.dts = round(instant * 1000)
-                        packet.time_base = stream.time_base
+                        packet.time_base = time_base
                         output.mux(packet)
                         rows.append(f"{int(counter_base + counters[frame])},{round(instant * 1e9)}")
                     frame += 1
