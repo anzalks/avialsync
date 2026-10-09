@@ -6437,3 +6437,16 @@ acceptance or undo would stall the UI and double memory use, and `np.interp` cop
 arrays on every call (16 MB per lookup at a million frames). Opening a fresh reader per row per
 page made a warm 48-row page seven times dearer and held extra memory maps. Announcing every page
 job replaced whatever the status line said on each page flip.
+
+**Addendum (span change, sensor targets).** A 48-row span change held the UI for 70–140 ms
+before any data was read: pyqtgraph applied each linked view's transform at paint time and so
+painted twice, every row rebuilt a three-level X grid (80 % of its lines at the finest level),
+48 hidden top axes re-rendered an HTML label, and Qt bounded every row's lines although the
+stack, one tall view inside a scroll area, showed about ten. Transforms are now applied before
+the paint, rows draw two grid levels, hidden axes keep no SI prefix, and rows beyond half a
+viewport hide their data items (never their layout or the user's visibility), which a snapshot
+lifts. The same change now holds the UI 49–57 ms; what remains is pyqtgraph's link
+propagation and one paint, each under the 30 ms callback ceiling. A sensor target is thresholded
+at its own midpoint, from its coarsest pyramid level, unless a threshold is typed: a fixed 0.5
+found no pulses on a line that never reached it. A preview is discarded when its evidence
+changes, and acceptance places the target the proposal was fitted for.

@@ -43,6 +43,7 @@ def collect_sync_evidence(
     from avialsync.engine.sync_worker import EventEvidenceSpec, SignalEvidenceSpec
 
     channels = window.plot_pane.channels
+    placeable = _placeable(window)
     references: list[EvidenceSpec] = [
         SignalEvidenceSpec(
             source_id=(
@@ -60,7 +61,7 @@ def collect_sync_evidence(
     targets: list[EvidenceSpec] = [
         EventEvidenceSpec(path, frame_times, clock_id=path, is_video_time_axis=True)
         for path, frame_times in window._video_frame_times.items()
-        if len(frame_times) >= 3 and path in panes
+        if path in placeable
     ]
     targets += [
         SignalEvidenceSpec(
@@ -69,9 +70,12 @@ def collect_sync_evidence(
             channel_id=channel.reader.channel_id,
             clock_id=channel.reader.source_id,
             display_name=f"{Path(channel.reader.source_id).name} : {channel.reader.channel_id}",
+            # Its own midpoint unless the wizard is told otherwise: a target's
+            # levels need not be the reference's.
+            threshold=None,
         )
         for channel in channels
-        if channel.reader.source_id in window._sensor_cache_dirs
+        if channel.reader.source_id in placeable
     ]
     for file_path, trains in window._trigger_trains.items():
         for train in trains:
@@ -84,6 +88,35 @@ def collect_sync_evidence(
                 )
             )
     return references, targets
+
+
+def has_alignment_evidence(window: MainWindow) -> bool:
+    """Whether some reference and some placeable target sit on different clocks.
+
+    The menu's precondition and the wizard's offer read the same rule, so the
+    command is never enabled for evidence the wizard would not offer.
+    """
+    references = {channel.reader.source_id for channel in window.plot_pane.channels}
+    references.update(window._trigger_trains)
+    targets = _placeable(window)
+    return any(reference != target for reference in references for target in targets)
+
+
+def _placeable(window: MainWindow) -> set[str]:
+    """Sources acceptance can place: videos with a pane, sensors, trigger files."""
+    panes = set(window.video_grid.pane_paths())
+    placeable = {
+        path
+        for path, frame_times in window._video_frame_times.items()
+        if len(frame_times) >= 3 and path in panes
+    }
+    placeable.update(
+        channel.reader.source_id
+        for channel in window.plot_pane.channels
+        if channel.reader.source_id in window._sensor_cache_dirs
+    )
+    placeable.update(window._trigger_trains)
+    return placeable
 
 
 def _trigger_spec(

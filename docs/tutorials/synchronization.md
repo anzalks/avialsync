@@ -78,6 +78,12 @@ physical starts. Record a shared event or camera exposure strobe to align them.
 3. **Recorded exposure strobe** — check only if this channel contains pulses emitted by the
    selected camera for exposures that actually happened. Missing samples and incomplete pulses
    prevent an exact claim.
+4. **Target TTL high threshold** — used only when the target is a sensor channel, whose levels
+   need not match the reference's. Left at *Midpoint of the signal*, it sits halfway between that
+   channel's lowest and highest samples; type a value if a spike or a fault skews that.
+
+Changing any of these, or the reference or target, after a preview discards it: preview again
+before accepting, so the mapping you accept is the one fitted to what is selected.
 
 Getting this wrong is the most common cause of a poor fit: a threshold outside the signal's range
 finds either no edges or every sample.

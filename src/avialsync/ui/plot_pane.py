@@ -3,7 +3,8 @@
 import logging
 import math
 import time
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from pathlib import Path
 
 import numpy as np
@@ -30,6 +31,7 @@ from avialsync.ui.plot_row import (
     apply_channel_palette,
     apply_channel_visibility,
     create_channel_plot,
+    cull_offscreen_rows,
     detach_row,
     enforce_channel_visibility,
     fit_channel_y,
@@ -119,6 +121,7 @@ class PlotPane(QWidget):
         self._page_worker: PlotPageWorker | None = None
         self._page_manager: JobManager | None = None
         self._closed = False
+        self._draw_every_row = False
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         _layout = QVBoxLayout()
         _layout.setContentsMargins(0, 0, 0, 0)
@@ -167,6 +170,13 @@ class PlotPane(QWidget):
         self._plot_scroll.setAccessibleName(tr("Channel plot stack"))
         self._plot_scroll.setWidget(self.graphics_layout)
         _layout.addWidget(self._plot_scroll)
+        self._cull_timer = QTimer(self)
+        self._cull_timer.setSingleShot(True)
+        self._cull_timer.setInterval(0)
+        self._cull_timer.timeout.connect(self._cull_offscreen_rows)
+        self._plot_scroll.verticalScrollBar().valueChanged.connect(self._cull_offscreen_rows)
+        # A taller or shorter pane moves the fold without moving any row.
+        self._plot_scroll.verticalScrollBar().rangeChanged.connect(self._cull_timer.start)
 
         self._sweep_control = SweepWindowControl(self)
         self._sweep_control.set_focus_target(self)
@@ -360,6 +370,9 @@ class PlotPane(QWidget):
                     channel.plot_item.setXRange(0.0, self.window_duration, padding=0)
                 channel.plot_item.setXLink(self._master_plot)
             self.channels.append(channel)
+            # Laid out after it is built and moved whenever a row above it
+            # changes; either way its on-screen test must be re-read.
+            channel.plot_item.geometryChanged.connect(self._cull_timer.start)
             unit = self._units.get(channel.reader.key) or self._units.get(name)
             if unit:
                 set_channel_unit(channel, unit)
@@ -882,6 +895,13 @@ class PlotPane(QWidget):
         if self._master_plot is None or self.window_duration <= 0:
             return
         self._master_plot.setXRange(0.0, self.window_duration, padding=0)
+        # pyqtgraph applies each linked view's new transform lazily, at the
+        # start of the next paint, and that change itself requests a second
+        # full repaint. Applying them now makes a span change one paint: 31-47
+        # ms of UI time at 48 rows became 21-24 ms.
+        scene = self.graphics_layout.scene()
+        if scene is not None:
+            scene.prepareForPaint()
 
     def _link_x_axes(self) -> None:
         if self._master_plot is None:
@@ -901,6 +921,32 @@ class PlotPane(QWidget):
         """
         self._apply_stack_height()
         self._update_axis_visibility()
+        self._cull_timer.start()
+
+    @Slot()
+    def _cull_offscreen_rows(self) -> None:
+        """Hide the data items of rows more than a viewport out of view."""
+        if self._draw_every_row:
+            top, bottom = -math.inf, math.inf
+        else:
+            # A scroll re-culls before it repaints, so the margin only covers a
+            # relayout, whose re-cull waits one event-loop turn: half a viewport
+            # each side keeps a moved row from showing empty for that frame.
+            height = self._plot_scroll.viewport().height()
+            top = self._plot_scroll.verticalScrollBar().value() - height / 2
+            bottom = top + 2 * height
+        cull_offscreen_rows(self.channels, top, bottom)
+
+    @contextmanager
+    def every_row_drawn(self) -> Iterator[None]:
+        """Draw every row for the duration, for a capture of the whole stack."""
+        self._draw_every_row = True
+        self._cull_offscreen_rows()
+        try:
+            yield
+        finally:
+            self._draw_every_row = False
+            self._cull_offscreen_rows()
 
     def _apply_stack_height(self) -> None:
         """Give the channel stack the height its visible rows actually need.

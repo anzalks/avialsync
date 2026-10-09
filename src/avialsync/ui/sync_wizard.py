@@ -88,6 +88,23 @@ class SyncWizard(QDialog):
         self._threshold.setValue(0.5)
         self._threshold.setToolTip(tr("Logical high threshold for a signal-channel TTL reference"))
         form.addRow(tr("TTL high threshold:"), self._threshold)
+        # A sensor chosen as the target is thresholded too, and its levels need
+        # not be the reference's: a fixed 0.5 found no pulses on a line that
+        # never crossed it. Left at its lowest value it is the line's midpoint.
+        self._target_threshold = QDoubleSpinBox(self)
+        self._target_threshold.setRange(-1e12, 1e12)
+        self._target_threshold.setDecimals(3)
+        self._target_threshold.setSpecialValueText(tr("Midpoint of the signal"))
+        self._target_threshold.setValue(self._target_threshold.minimum())
+        self._target_threshold.setAccessibleName(tr("Target TTL high threshold"))
+        self._target_threshold.setToolTip(
+            tr(
+                "Logical high threshold for a sensor-channel target. At its lowest "
+                "value it is halfway between the channel's lowest and highest samples."
+            )
+        )
+        self._target_threshold.setAccessibleDescription(self._target_threshold.toolTip())
+        form.addRow(tr("Target TTL high threshold:"), self._target_threshold)
 
         self._use_all_times_chk = QCheckBox(tr("Use all samples as events (ignore threshold)"))
         self._use_all_times_chk.setToolTip(
@@ -110,6 +127,19 @@ class SyncWizard(QDialog):
             )
         )
         form.addRow("", self._recorded_strobe)
+        for changed in (
+            self._reference_combo.currentIndexChanged,
+            self._target_combo.currentIndexChanged,
+            self._threshold.valueChanged,
+            self._target_threshold.valueChanged,
+            self._use_all_times_chk.toggled,
+            self._recorded_strobe.toggled,
+        ):
+            changed.connect(self._on_evidence_changed)
+        self._target_threshold.setEnabled(
+            bool(self._targets)
+            and isinstance(self._targets[self._target_combo.currentIndex()], SignalEvidenceSpec)
+        )
         # Fitting choices most alignments never touch: behind More… (D-176).
         advanced = QFormLayout()
 
@@ -237,7 +267,14 @@ class SyncWizard(QDialog):
 
     @property
     def target_id(self) -> str:
-        """Return the target identifier associated with the accepted proposal."""
+        """The source the proposal was fitted for, or the selected one before a fit.
+
+        Read from the proposal, never from the selector: changing the selector
+        after a preview used to apply that preview's mapping to the newly
+        selected source.
+        """
+        if self._proposal is not None:
+            return self._proposal.target_id
         return self._targets[self._target_combo.currentIndex()].source_id
 
     def _preview(self) -> None:
@@ -257,6 +294,8 @@ class SyncWizard(QDialog):
                 ),
                 strobe_for=(target.clock_id if self._recorded_strobe.isChecked() else ""),
             )
+        if isinstance(target, SignalEvidenceSpec):
+            target = dataclasses.replace(target, threshold=self._chosen_target_threshold())
         self._proposal = None
         self._preview_button.setEnabled(False)
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
@@ -415,13 +454,28 @@ class SyncWizard(QDialog):
 
     def _on_tolerance_changed(self, _value: float) -> None:
         """Discard a proposal judged with a different tolerance."""
+        self._discard_preview(tr("Match tolerance changed. Preview again before accepting."))
+
+    def _on_evidence_changed(self, *_args: object) -> None:
+        """Discard a proposal fitted to evidence that is no longer selected."""
+        self._target_threshold.setEnabled(
+            isinstance(self._targets[self._target_combo.currentIndex()], SignalEvidenceSpec)
+        )
+        self._discard_preview(tr("The evidence changed. Preview again before accepting."))
+
+    def _discard_preview(self, reason: str) -> None:
         if self._proposal is None:
             return
         self._proposal = None
         self._evidence.show_proposal(None)
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
-        self._summary.setText(tr("Match tolerance changed. Preview again before accepting."))
+        self._summary.setText(reason)
         self._effective_tolerance.setText(tr("Preview is out of date; preview again."))
+
+    def _chosen_target_threshold(self) -> float | None:
+        """The typed target threshold, or None for the signal's own midpoint."""
+        value = self._target_threshold.value()
+        return None if value == self._target_threshold.minimum() else value
 
     @Slot(str)
     def _on_error(self, message: str) -> None:

@@ -195,6 +195,24 @@ def apply_channel_visibility(channel: ChannelPlot) -> None:
         channel.close_proxy.setMaximumHeight(maximum_height)
 
 
+def cull_offscreen_rows(channels: list[ChannelPlot], top: float, bottom: float) -> None:
+    """Draw only the rows whose geometry meets ``[top, bottom]``.
+
+    The stack is one tall view inside a scroll area, so Qt treats every row as
+    on screen: each span change made every row's cursor and coverage lines
+    recompute their bounds in Python, though most were scrolled away. Only a
+    row's data items are hidden -- its ViewBox child group -- so layout, axes,
+    and the user's own row visibility are untouched. A row not yet laid out is
+    drawn, never assumed off screen.
+    """
+    for channel in channels:
+        geometry = channel.plot_item.geometry()
+        near = geometry.height() <= 0 or (geometry.bottom() >= top and geometry.top() <= bottom)
+        group = channel.plot_item.getViewBox().childGroup
+        if group.isVisible() != near:
+            group.setVisible(near)
+
+
 def enforce_channel_visibility(channels: list[ChannelPlot]) -> None:
     """Reapply visibility after a graphics-layout geometry change."""
     for channel in channels:
@@ -297,6 +315,16 @@ def create_channel_plot(
     # re-rendering its HTML on a hot path.
     left_axis.enableAutoSIPrefix(False)
     plot_item.showGrid(x=True, y=False, alpha=plot_colors(graphics_layout.palette()).grid_alpha)
+    # Every row draws its own X grid through its bottom axis, so a span change
+    # regenerates the same tick geometry once per row. pyqtgraph's third tick
+    # level (every 0.2 s on a 20 s span, 14 px apart) was 80 % of those lines
+    # and most of a 48-row span change's UI time; major and minor remain.
+    plot_item.getAxis("bottom").setStyle(maxTickLevel=1)
+    # The hidden top and right axes are linked like the visible ones, and
+    # pyqtgraph's automatic SI prefix rewrote their (never shown) HTML label
+    # on every range change: 48 of the 49 label renders a span change made.
+    for hidden in ("top", "right"):
+        plot_item.getAxis(hidden).enableAutoSIPrefix(False)
     plot_item.setMouseEnabled(x=False, y=False)
     plot_item.enableAutoRange(axis="y", enable=False)
     plot_item.enableAutoRange(axis="x", enable=False)

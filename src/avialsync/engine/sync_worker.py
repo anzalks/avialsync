@@ -31,7 +31,9 @@ class SignalEvidenceSpec:
     source_id: str
     cache_dir: Path
     channel_id: str
-    threshold: float = 0.5
+    #: Logical-high level. None means halfway between the channel's lowest and
+    #: highest samples, which is what a sensor target with levels of its own needs.
+    threshold: float | None = 0.5
     use_all_times: bool = False
     #: What this train is evidence *of*, which is what lets the ladder choose a
     #: model. Defaults to the weakest kind: an unlabelled channel is a handful
@@ -64,6 +66,26 @@ class EventEvidenceSpec:
 
 
 EvidenceSpec: TypeAlias = SignalEvidenceSpec | EventEvidenceSpec
+
+
+def _midpoint(reader: PyramidReader, spec: SignalEvidenceSpec) -> float:
+    """Halfway between a line's lowest and highest samples.
+
+    Read from the coarsest pyramid level that still holds the extremes, so it
+    costs a bounded read whatever the recording's length.
+    """
+    coverage = reader.coverage()
+    if coverage is None:
+        raise SyncEvidenceError(f"{spec.source_id} has no samples to find pulses in.")
+    _, lows, highs, _ = reader.query(coverage[0], coverage[1], max_points=256)
+    lows = lows[np.isfinite(lows)]
+    highs = highs[np.isfinite(highs)]
+    if not len(lows) or not len(highs) or float(highs.max()) <= float(lows.min()):
+        raise SyncEvidenceError(
+            f"{spec.source_id} never changes level, so it carries no pulses to align. "
+            "Type a threshold, or choose the channel that carries the sync line."
+        )
+    return (float(lows.min()) + float(highs.max())) / 2.0
 
 
 class SyncWorker(QObject):
@@ -474,7 +496,7 @@ class SyncWorker(QObject):
             chunks,
             source_id=spec.source_id,
             kind=spec.kind,
-            threshold=spec.threshold,
+            threshold=spec.threshold if spec.threshold is not None else _midpoint(reader, spec),
         )
         if spec is self._reference:
             self._reference_incomplete_count = train.incomplete_count

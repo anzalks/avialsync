@@ -183,6 +183,10 @@ def test_alignment_needs_evidence_on_both_sides(window: MainWindow) -> None:
 
     window._video_frame_times["cam1.mp4"] = [0.0, 0.1, 0.2]
     window._refresh_action_availability()
+    assert action.isEnabled() is False, "a camera still opening has no pane to place"
+
+    window.video_grid._paths.append("cam1.mp4")
+    window._refresh_action_availability()
     assert action.isEnabled() is True
 
 
@@ -200,6 +204,7 @@ def test_becoming_available_restores_the_original_tooltip(window: MainWindow) ->
 
     window.plot_pane.channels.append(SimpleNamespace(reader=SimpleNamespace(source_id="sensor")))
     window._video_frame_times["cam1.mp4"] = [0.0, 0.1, 0.2]
+    window.video_grid._paths.append("cam1.mp4")
     window._refresh_action_availability()
 
     assert action.isEnabled() is True

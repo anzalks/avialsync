@@ -15,6 +15,7 @@ a different scale, not a second drawing of the same thing.
 from __future__ import annotations
 
 import datetime
+from contextlib import nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -255,7 +256,11 @@ def capture_plot_image(plot_pane: Any, content_width: int) -> QImage | None:
     if stack is None:
         return None
     scale = min(max(content_width / stack.width(), _MIN_PLOT_SCALE), _MAX_PLOT_SCALE)
-    image = _render_layers([stack], scale, None)
+    # Rows scrolled out of view are not drawn on screen (D-201); the figure
+    # carries every row, so every row is drawn for it.
+    drawn = getattr(plot_pane, "every_row_drawn", nullcontext)
+    with drawn():
+        image = _render_layers([stack], scale, None)
     if image.width() != content_width and image.width() > 0:
         image = image.scaledToWidth(content_width, Qt.TransformationMode.SmoothTransformation)
     return image

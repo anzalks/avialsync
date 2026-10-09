@@ -194,6 +194,7 @@ class TestItReachesTheWizard:
         assert not window._has_alignment_evidence(), "one clock is nothing to align"
 
         window._video_frame_times["cam1.mp4"] = [0.0, 0.1, 0.2]
+        window.video_grid._paths.append("cam1.mp4")
         assert window._has_alignment_evidence()
 
     def test_a_train_with_gaps_says_so_on_arrival(

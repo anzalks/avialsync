@@ -895,14 +895,13 @@ class MainWindow(QMainWindow):
     def _has_alignment_evidence(self) -> bool:
         """Whether both halves of a TTL/event fit are present.
 
-        The same two conditions the wizard opener checks before it builds its
-        specs, so the menu item and the command agree about availability rather
-        than the command discovering it a click later.
+        The same rule the wizard uses to build its offer, so the menu item and
+        the command agree about availability rather than the command
+        discovering it a click later.
         """
-        clocks = {channel.reader.source_id for channel in self.plot_pane.channels}
-        clocks.update(self._trigger_trains)
-        clocks.update(path for path, times in self._video_frame_times.items() if len(times) >= 3)
-        return len(clocks) >= 2 and bool(self.plot_pane.channels or self._trigger_trains)
+        from avialsync.ui.sync_acceptance import has_alignment_evidence
+
+        return has_alignment_evidence(self)
 
     def _require(self, action: QAction, precondition: Callable[[], bool], reason: str) -> QAction:
         """Register *action* as available only while *precondition* holds.

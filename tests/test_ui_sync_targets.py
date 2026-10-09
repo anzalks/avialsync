@@ -30,7 +30,7 @@ from avialsync.core.sync import (
 from avialsync.core.timeline import TimeMap
 from avialsync.core.triggers import TriggerKind
 from avialsync.core.video_timing import frame_index_at
-from avialsync.engine.sync_worker import SyncWorker
+from avialsync.engine.sync_worker import EventEvidenceSpec, SignalEvidenceSpec, SyncWorker
 from avialsync.loaders.trigger_csv import LEVEL, TriggerCSVSource
 from avialsync.loaders.video_standard import VideoStandardLoader
 from avialsync.ui.controllers import export_controller
@@ -333,3 +333,82 @@ def test_accepting_a_hundred_thousand_events_is_a_short_ui_operation(
     assert len(window.transport.overview._ttl_events) <= 800
     assert len(window._overview_gaps) <= 800
     assert len(window._sync_provenance[-1].matches) <= 500
+
+
+def test_a_sensor_target_is_thresholded_at_its_own_midpoint(tmp_path: Path) -> None:
+    """A target line that tops out at 0.2 V never crossed the reference's 0.5."""
+    master = _master_events()
+    times, values = _pulse_train(master * (1.0 + 60e-6) + 3.0)
+    PyramidBuilder(tmp_path, "ttl").build_and_save(times, 0.2 * values)
+    reference = EventEvidenceSpec("daq", master, clock_id="daq")
+
+    def fit(threshold: float | None) -> tuple[list[SyncProposal], list[str]]:
+        found: list[SyncProposal] = []
+        errors: list[str] = []
+        target = SignalEvidenceSpec("box.csv", tmp_path, "ttl", threshold=threshold)
+        worker = SyncWorker(reference, target, mode="affine")
+        worker.finished.connect(found.append)
+        worker.error.connect(errors.append)
+        worker.run()
+        return found, errors
+
+    found, errors = fit(None)
+    assert errors == []
+    assert found[0].fit.offset == pytest.approx(3.0, abs=2e-3)
+    assert found[0].fit.drift_ms_per_hour == pytest.approx(216.0, abs=50.0)
+
+    found, errors = fit(0.15)
+    assert errors == [] and found[0].fit.offset == pytest.approx(3.0, abs=2e-3)
+
+    found, errors = fit(0.5)
+    assert not found, "the old fixed threshold finds no pulses on this line"
+
+
+def test_a_flat_target_line_says_why_it_cannot_be_used(tmp_path: Path) -> None:
+    times = np.arange(0.0, 10.0, 0.001)
+    PyramidBuilder(tmp_path, "ttl").build_and_save(times, np.full_like(times, 3.3))
+    errors: list[str] = []
+    worker = SyncWorker(
+        EventEvidenceSpec("daq", _master_events(), clock_id="daq"),
+        SignalEvidenceSpec("box.csv", tmp_path, "ttl", threshold=None),
+        mode="affine",
+    )
+    worker.error.connect(errors.append)
+    worker.run()
+    assert "never changes level" in errors[0]
+
+
+def test_the_wizard_thresholds_a_sensor_target_and_keeps_its_preview_honest(
+    qtbot, window: MainWindow, tmp_path: Path
+) -> None:
+    master = _master_events()
+    _open_video(window)
+    daq = tmp_path / "daq.csv"
+    box = tmp_path / "box.csv"
+    _add_sensor(window, daq, *_pulse_train(master))
+    times, values = _pulse_train(master * (1.0 + 60e-6) + 3.0)
+    _add_sensor(window, box, times, 0.2 * values)
+
+    window._open_sync_wizard()
+    wizard = window.findChildren(SyncWizard)[0]
+    video_index = next(i for i, s in enumerate(wizard._targets) if s.source_id == str(VIDEO))
+    box_index = next(i for i, s in enumerate(wizard._targets) if s.source_id == str(box))
+    wizard._target_combo.setCurrentIndex(video_index)
+    assert not wizard._target_threshold.isEnabled(), "a video has no level to threshold"
+    wizard._target_combo.setCurrentIndex(box_index)
+    assert wizard._target_threshold.isEnabled()
+    assert wizard._chosen_target_threshold() is None
+    wizard._reference_combo.setCurrentIndex(
+        next(i for i, s in enumerate(wizard._references) if s.clock_id == str(daq))
+    )
+    wizard._preview_button.click()
+    qtbot.waitUntil(lambda: wizard._thread is None, timeout=10_000)
+    assert wizard.proposal is not None
+    assert wizard.target_id == str(box)
+
+    # Choosing other evidence after a preview must not leave the old fit
+    # acceptable -- it would be applied to the newly selected source.
+    wizard._target_combo.setCurrentIndex(video_index)
+    assert wizard.proposal is None
+    assert not wizard._buttons.button(wizard._buttons.StandardButton.Ok).isEnabled()
+    assert wizard.target_id == str(VIDEO)
