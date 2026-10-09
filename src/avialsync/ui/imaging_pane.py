@@ -48,6 +48,23 @@ from avialsync.ui.video_timing import format_clock
 _ABANDONED: set[tuple[QThread, QObject]] = set()
 
 
+def _release_finished_threads() -> None:
+    """Drop the abandoned threads that have since finished.
+
+    Polled rather than connected to ``finished``: connecting to a thread that
+    has been asked to quit deadlocks under PySide6 6.12. The UI thread holds the
+    GIL in ``connect`` and waits for the signal-slot lock, while the stopping
+    thread, deleting its worker, holds that lock and waits for the GIL.
+    """
+    for entry in list(_ABANDONED):
+        try:
+            finished = entry[0].isFinished()
+        except RuntimeError:
+            finished = True
+        if finished:
+            _ABANDONED.discard(entry)
+
+
 @dataclasses.dataclass
 class _Stack:
     """One registered stack: how to reopen it, when it is, and how it looks."""
@@ -442,13 +459,11 @@ class ImagingPane(QWidget):
         self._thread = None
         self._worker = None
         thread.quit()
+        _release_finished_threads()
         if not wait or not thread.wait(3000):
             thread.setParent(None)
-            entry = (thread, worker)
-            _ABANDONED.add(entry)
-            thread.finished.connect(lambda: _ABANDONED.discard(entry))
-            if thread.isFinished():
-                _ABANDONED.discard(entry)
+            _ABANDONED.add((thread, worker))
+            _release_finished_threads()
         self._last_index = None
 
     @Slot(str)

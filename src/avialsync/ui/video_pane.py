@@ -132,7 +132,16 @@ def _abandon_decoder(thread: QThread, worker: object) -> None:
     # UI thread — not from the thread of execution, which is what makes it safe
     # here even though run() is still going.
     thread.setParent(None)
-    thread.finished.connect(lambda: _ABANDONED_DECODERS.discard(entry))
+    # Released by polling, never by connecting to ``finished`` now: under
+    # PySide6 6.12, connecting to a stopping thread can deadlock against its
+    # teardown (see ``imaging_pane._release_finished_threads``).
+    for held in list(_ABANDONED_DECODERS):
+        try:
+            finished = held[0].isFinished()
+        except RuntimeError:
+            finished = True
+        if finished:
+            _ABANDONED_DECODERS.discard(held)
 
 
 def drain_abandoned_decoders(timeout_ms: int = 2000) -> None:

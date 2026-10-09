@@ -293,3 +293,38 @@ def test_one_channel_still_shows_its_switch(window, qtbot, tmp_path):
     assert len(rows) == 1
     assert not rows[0].shown.isHidden()
     assert rows[0].shown.text() == "Ch 1"
+
+
+def test_stopped_reader_threads_are_released_without_connecting_to_them(qtbot):
+    """Connecting to a quitting thread deadlocks under PySide6 6.12, so release is polled."""
+    import inspect
+    import threading
+
+    from PySide6.QtCore import QObject, QThread
+
+    from avialsync.ui import imaging_pane
+
+    assert ".connect(" not in inspect.getsource(imaging_pane.ImagingPane._stop_worker)
+
+    gate = threading.Event()
+
+    class _Held(QThread):
+        def run(self) -> None:
+            gate.wait(5)
+
+    running, done = _Held(), QThread()
+    done.start()
+    done.quit()
+    assert done.wait(5000)
+    running.start()
+    entries = {(running, QObject()), (done, QObject())}
+    imaging_pane._ABANDONED.update(entries)
+    try:
+        imaging_pane._release_finished_threads()
+        held = {entry[0] for entry in imaging_pane._ABANDONED & entries}
+        assert held == {running}
+    finally:
+        gate.set()
+        assert running.wait(5000)
+        imaging_pane._release_finished_threads()
+    assert not imaging_pane._ABANDONED & entries

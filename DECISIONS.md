@@ -6749,3 +6749,20 @@ the stimulus grid, where a band now stacks streams of different units, each lane
 evidence of when it fired, far better than a typed note, and the grid needs real event times. It
 is labelled as commanded, not measured. Delay is assumed to count from `STARTTIME`; the
 controller code would confirm it.
+
+---
+
+## 2026-10 · D-212 · Never connect to a thread that has been asked to quit
+
+**Decision.** A stopped reader or decode thread that is kept alive in an abandonment set
+(`imaging_pane._ABANDONED`, `video_pane._ABANDONED_DECODERS`) is released by polling
+`isFinished()` the next time a thread is stopped or drained, not by connecting a slot to its
+`finished` signal after `quit()`.
+
+**Why.** Under PySide6 6.12 the full suite hung in the imaging tests. The stopping thread was
+deleting its worker (`thread.finished → worker.deleteLater`); `~QObject` holds the sender's
+signal-slot lock while PySide's `QThreadWrapper::disconnectNotify` waits for the GIL. At the same
+moment the UI thread, holding the GIL, called `thread.finished.connect(...)` on that same thread
+and waited for that lock. pytest-timeout could not report it, because its thread also needs the
+GIL, so on CI it would have spent the whole job timeout. PySide6 6.11 did not take the GIL there.
+Connections are made before `start()`; after `quit()`, only poll.
