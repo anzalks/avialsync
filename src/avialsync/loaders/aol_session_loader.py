@@ -518,6 +518,10 @@ def build_manifest(session_dir: Path) -> AOLManifest:
         for video in manifest.videos:
             if str(video) in manifest.video_start_epochs:
                 manifest.video_start_epochs[str(video)] = shared_start
+        # Pose and metric files are read from those same frames, so they share
+        # the one trigger start as well (one camera start per session).
+        for camera in manifest.camera_start_epochs:
+            manifest.camera_start_epochs[camera] = shared_start
     return manifest
 
 

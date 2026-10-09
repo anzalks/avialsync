@@ -6464,7 +6464,7 @@ existing session wall-clock convention.
 
 One `HH-MM-SS` microscope folder is one session. The reader opens only ribbon scan volumes,
 the readable timing fields in `params.mat`, and optional hybrid-mosaic ROI analysis. Raw ribbon
-volumes form an in-memory, gutterless, column-major mosaic; mosaic frame time is the mean line
+volumes form an in-memory, gutterless mosaic (oriented per D-203); mosaic frame time is the mean line
 time. Cell masks and trace channels use the hybrid analysis, and mask crop geometry and grid
 packing share the NWB ROI helper. Green defaults to h5py channel index 1 and red to index 0;
 trial correction metadata takes precedence. `encoder_angle` stays loaded but hidden by default
@@ -6484,3 +6484,27 @@ triggered. The reported exposure interval within a tiled frame may be about ±27
 displayed timestamp is its line-scan midpoint. The derived time-zone offset and trigger-start
 placement must be shown to and accepted by the user; they are never applied silently. The
 controller's optional clock-calibration correction remains out of scope.
+
+---
+
+## 2026-10 · D-203 · AOL microscope files open like any imaging stack, as the lab sees them
+
+**Decision.** The AOL ribbon-scan and cell-ROI grid sources are registered built-in loaders
+("Imaging Stack (MATLAB)", "ROI Grid (MATLAB)", "ROI Traces (MATLAB)"), named for the kind and
+format like their HDF5, TIFF and NWB counterparts. A single `RibbonScan_ROI_*.mat` opens on its
+own as stored: `uint16`, both channels, no NaN conversion, timed by that ROI's own line-clock
+times when its trial's `params.mat` is beside it (a mosaic can carry only the frame midpoint),
+else by a frame rate the user enters, as for any stack without timing. A dropped
+`hybrid_mosaic_*_activity.mat` opens as its cell ROI grid.
+
+Every plane, the lab's `source_roi_map` and the cell masks are transposed from h5py order back to
+MATLAB order, so a ribbon tile is 51 rows by 15 columns and the mosaic matches the lab's own
+figures (tiles across, then down; empty tiles bottom right). The trial's timing fields are read
+directly or through a one-element MATLAB cell; the lab's green channel is read from a
+`correction_info` group or from a cell of per-ROI structs, and used only when all agree.
+
+**Why.** Real trials had no clock (cells were read as numbers), the imaging rows defaulted to
+Skip in the import review because the sources were unregistered, and the view was the lab's
+image transposed. ROI masks keep the shapes the lab's analysis drew (discs in this data); the
+viewer neither redraws nor reshapes them.
+

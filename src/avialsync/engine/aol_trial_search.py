@@ -45,7 +45,7 @@ class AOLTrialSearchWorker(QObject):
                 continue
             for folder in sorted(experiment.iterdir()):
                 if is_microscope_trial(folder):
-                    trials.append(read_trial(folder))
+                    trials.append(read_trial(folder, verify=False))
         if not trials:
             return {"status": "no_trials", "day": str(day)}
         date = dt.datetime.fromtimestamp(self.camera_local_epoch, tz=dt.UTC).date()

@@ -52,7 +52,11 @@ quality warning. The timestamp is not evidence of UTC synchronization between co
 A microscope trial folder (`HH-MM-SS`) or experiment folder (`experiment_N`) can be opened from
 the microscope saved-data root configured in **Preferences → Lab Data**. An experiment-folder
 import lets you choose one trial. The trial's `RibbonScan_ROI_*.mat` stacks are shown as a tiled
-mosaic, with one frame time at the midpoint of its line scan (about ±27 ms within a frame). When
+mosaic oriented as the lab's own figures show it, with one frame time at the midpoint of its line
+scan (about ±27 ms within a frame). A single `RibbonScan_ROI_*.mat` can also be opened on its own
+like any HDF5 or TIFF stack: its stored 16-bit pixels, both channels, at that ROI's exact line-clock
+times when the trial's `params.mat` is beside it. The cell-ROI masks are shown with the shapes the
+lab's analysis gave them. When
 `roi_activity/hybrid_mosaic_*_activity.mat` exists, its masks appear in a cell-ROI image grid and
 its traces appear as plot channels. The file's green-channel correction is used when present;
 otherwise the rig's recorded channel convention selects channel index 1 as green and index 0 as

@@ -13,7 +13,7 @@ _FRAME_BUDGET_S = 0.030
 
 @pytest.mark.benchmark(group="aol-ribbon-mosaic")
 def test_bench_full_ribbon_mosaic_frame(benchmark, tmp_path):
-    """Assemble one 150×510 frame from all 96 ROI files inside a display tick."""
+    """Assemble one 510×150 frame (the lab's orientation) from all 96 ROI files in a tick."""
     trial = tmp_path / "12-33-56"
     trial.mkdir()
     with h5py.File(trial / "params.mat", "w") as handle:
@@ -26,8 +26,8 @@ def test_bench_full_ribbon_mosaic_frame(benchmark, tmp_path):
 
     source = AOLRibbonScanSource()
     metadata = source.open(trial, {})
-    assert (metadata.height, metadata.width) == (150, 510)
+    assert (metadata.height, metadata.width) == (510, 150)
     frame = benchmark(source.read_frame, 1)
-    assert frame.shape == (150, 510)
+    assert frame.shape == (510, 150)
     assert benchmark.stats.stats.median < _FRAME_BUDGET_S
     source.close()

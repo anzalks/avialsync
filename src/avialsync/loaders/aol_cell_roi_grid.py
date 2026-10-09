@@ -10,14 +10,9 @@ import numpy as np
 
 from avialsync.core.errors import SourceOpenError
 from avialsync.core.source import ImagingMetadata, ImagingSource
-from avialsync.loaders.aol_microscope_trial import read_trial
-from avialsync.loaders.aol_ribbon_scan import AOLRibbonScanSource
+from avialsync.loaders.aol_microscope_trial import analysis_file, is_microscope_trial
+from avialsync.loaders.aol_ribbon_scan import AOLRibbonScanSource, green_channel
 from avialsync.loaders.roi_grid_layout import geometry, mask_crop, pack
-
-
-def _activity_file(path: Path) -> Path | None:
-    files = sorted((path / "roi_activity").glob("hybrid_mosaic_*_activity.mat"))
-    return files[0] if files else None
 
 
 def _masks(handle: h5py.File) -> list[np.ndarray]:
@@ -56,31 +51,30 @@ class AOLCellRoiGridSource(ImagingSource):
 
     @classmethod
     def display_name(cls) -> str:
-        return "ROI Grid (AOL Cell Analysis)"
+        return "ROI Grid (MATLAB)"
 
     @classmethod
     def can_open(cls, path: Path) -> float:
-        return 0.0
+        """Claim a trial's lab mosaic analysis, whose raw pixels sit two folders up."""
+        if not path.name.lower().startswith("hybrid_mosaic_") or path.suffix.lower() != ".mat":
+            return 0.0
+        return 0.9 if is_microscope_trial(path.parent.parent) else 0.0
 
     def open(self, path: Path, config: dict[str, Any]) -> ImagingMetadata:
         """Read masks once and open the raw ribbon source on the import worker."""
         self.close()
         trial_path = Path(config.get("trial_folder", path.parent.parent))
-        activity = _activity_file(trial_path)
+        activity = analysis_file(trial_path)
         if activity is None:
             raise SourceOpenError("This trial has no hybrid mosaic ROI analysis.")
         with h5py.File(activity, "r") as handle:
-            self._masks = _masks(handle)
+            # Transposed like every plane: h5py reads MATLAB's column-major masks flipped.
+            self._masks = [mask.T for mask in _masks(handle)]
             if not self._masks:
                 raise SourceOpenError("The hybrid mosaic ROI analysis has no cell masks.")
             if "frame_time_s" not in handle:
                 raise SourceOpenError("The hybrid mosaic ROI analysis has no frame_time_s.")
             self._frame_times = np.asarray(handle["frame_time_s"][()], dtype=np.float64).reshape(-1)
-            correction = handle.get("correction_info/green_channel")
-            if correction is not None:
-                value = np.asarray(correction[()]).reshape(-1)
-                if value.size:
-                    self._green_channel = max(0, int(value[0]) - 1)
         if not np.all(np.isfinite(self._frame_times)) or np.any(np.diff(self._frame_times) <= 0):
             raise SourceOpenError("The hybrid mosaic frame times are not finite and increasing.")
         self._crops, self._corners = [], []
@@ -89,8 +83,16 @@ class AOLCellRoiGridSource(ImagingSource):
             self._crops.append(cropped)
             self._corners.append(corner)
         self._grid, self._tile, self._shape = geometry(self._crops)
-        trial = read_trial(trial_path)
-        self._ribbon.open(trial_path, {})
+        self._ribbon.open(trial_path, {"trial_folder": str(trial_path)})
+        trial = self._ribbon.trial
+        assert trial is not None
+        self._green_channel = green_channel(trial_path, trial.channels)
+        mosaic_size = self._ribbon.mosaic_size
+        if any(mask.shape != mosaic_size for mask in self._masks):
+            self.close()
+            raise SourceOpenError(
+                "Cell masks do not match the ribbon-scan mosaic they are drawn on."
+            )
         if len(self._frame_times) != trial.timepoints:
             self.close()
             raise SourceOpenError("Cell ROI frame times do not match the ribbon-scan trial.")

@@ -8,7 +8,7 @@ from typing import Any
 
 from avialsync.core.source import SessionItem, SessionLayout, SessionSource
 from avialsync.loaders.aol_cell_roi_grid import AOLCellRoiGridSource
-from avialsync.loaders.aol_microscope_trial import is_microscope_trial, read_trial
+from avialsync.loaders.aol_microscope_trial import analysis_file, is_microscope_trial, read_trial
 from avialsync.loaders.aol_ribbon_scan import AOLRibbonScanSource
 from avialsync.loaders.aol_roi_trace import AOLRoiTraceLoader
 
@@ -56,7 +56,8 @@ class AOLMicroscopeTrialSource(SessionSource):
         warnings: list[str] = []
         starts: list[float] = []
         for folder in trials:
-            trial = read_trial(folder)
+            # Names and timing only: pixels are verified by the source that reads them.
+            trial = read_trial(folder, verify=False)
             starts.append(trial.start_epoch)
             notes = _log_note(folder)
             suffix = f" — {notes}" if notes else ""
@@ -73,9 +74,8 @@ class AOLMicroscopeTrialSource(SessionSource):
                     source_epoch=trial.start_epoch if trial.start_epoch > 0 else None,
                 )
             )
-            activity_files = sorted((folder / "roi_activity").glob("hybrid_mosaic_*_activity.mat"))
-            if activity_files:
-                activity_file = activity_files[0]
+            activity_file = analysis_file(folder)
+            if activity_file is not None:
                 shared_config: dict[str, object] = {
                     "trial_folder": str(folder),
                     "activity_file": str(activity_file),

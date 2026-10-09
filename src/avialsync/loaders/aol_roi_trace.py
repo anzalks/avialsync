@@ -11,6 +11,7 @@ import numpy as np
 
 from avialsync.core.errors import SourceOpenError
 from avialsync.core.source import ChannelInfo, TimeSeriesSource
+from avialsync.loaders.aol_microscope_trial import analysis_file
 
 
 class AOLRoiTraceLoader(TimeSeriesSource):
@@ -24,14 +25,18 @@ class AOLRoiTraceLoader(TimeSeriesSource):
 
     @classmethod
     def display_name(cls) -> str:
-        return "AOL Cell ROI Traces"
+        return "ROI Traces (MATLAB)"
 
     @classmethod
     def can_open(cls, path: Path) -> float:
         return 0.0
 
     def open(self, path: Path, config: dict[str, Any]) -> None:
-        activity = Path(config.get("activity_file", path.parent))
+        if config.get("activity_file"):
+            activity = Path(config["activity_file"])
+        else:
+            found = analysis_file(path.parent) if path.is_dir() else None
+            activity = found if found is not None else path
         series = str(config.get("series", "roi_traces"))
         try:
             with h5py.File(activity, "r") as handle:

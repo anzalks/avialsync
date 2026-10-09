@@ -601,11 +601,11 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/imaging_card.py` | An imaging stack's Sources card: picture summary, Timing disclosure, overflow (Properties, Copy details, Remove) | `ImagingInfoWidget`, `describe_picture()` |
 | `ui/imaging_controls.py` | Headed Channel / Colour / Brightness / Contrast grid: a named tick box per acquired channel (always shown), its display colour apart; Average (Off, ±1 … ±15 frames) and Auto levels below | `ImagingControls` |
 | `loaders/nwb_roi_grid.py` | Every ROI of an NWB plane segmentation as one tile of a grid image per frame: raw crops when an image series on that plane covers the masks, else the ROI's ΔF/F (or fluorescence) on its mask; offered by the NWB session beside the series | `NWBRoiGridSource`, `find_roi_grids` |
-| `loaders/roi_grid_layout.py` | Shared ROI mask crop geometry and guttered tile packing for NWB and AOL cell grids | `geometry()`, `pack_grid()`, `mask_crop()` |
-| `loaders/aol_microscope_trial.py` | Read-only MATLAB v7.3 microscope trial metadata, line timing, and sorted ribbon scans; skips corrupt scans with a warning | `MicroscopeTrial`, `read_trial()`, `is_microscope_trial()` |
-| `loaders/aol_ribbon_scan.py` | One tiled, gutterless ribbon mosaic frame at a time; channel names follow correction metadata or the AOL green/red convention | `AOLRibbonScanSource` |
-| `loaders/aol_cell_roi_grid.py` | Hybrid mosaic cell masks rendered from raw green-channel crops with the shared ROI-grid layout | `AOLCellROIGridSource` |
-| `loaders/aol_roi_trace.py` | Per-mask ROI traces on frame-midpoint times, with ribbon coverage in channel descriptions | `AOLRoiTraceSource` |
+| `loaders/roi_grid_layout.py` | Shared ROI mask crop geometry and guttered tile packing for NWB and AOL cell grids | `geometry()`, `pack()`, `mask_crop()` |
+| `loaders/aol_microscope_trial.py` | Read-only MATLAB v7.3 microscope trial metadata (timing fields read directly or through MATLAB cells), line timing, display-oriented tile layout, the lab's green-channel record; `verify=False` reads names only for scans | `MicroscopeTrial`, `read_trial()`, `is_microscope_trial()`, `tile_origins()`, `declared_green_channel()` |
+| `loaders/aol_ribbon_scan.py` | "Imaging Stack (MATLAB)": a trial as one tiled, gutterless mosaic, or one `RibbonScan_ROI_*.mat` raw (`uint16`, both channels, its own line-clock times); planes shown as MATLAB shows them (D-203) | `AOLRibbonScanSource` |
+| `loaders/aol_cell_roi_grid.py` | "ROI Grid (MATLAB)": hybrid mosaic cell masks rendered from raw green-channel crops with the shared ROI-grid layout; opens from a dropped `hybrid_mosaic_*_activity.mat` too | `AOLCellRoiGridSource` |
+| `loaders/aol_roi_trace.py` | "ROI Traces (MATLAB)": per-mask ROI traces on frame-midpoint times, with ribbon coverage in channel descriptions | `AOLRoiTraceLoader` |
 | `loaders/aol_microscope_session.py` | One-trial or experiment-folder microscope session scan; drops derived outputs outside `roi_activity` | `AOLMicroscopeTrialSource`, `is_microscope_trial()` |
 | `loaders/aol_trial_matching.py` | Trial day selection, shared-zone inference, and unique containment/nearest-start matching | `derive_utc_offset()`, `match_trial()` |
 | `ui/imaging_frame_view.py` | The imaging picture with its own zoom and pan, or a message in its place; replaces the QLabel that could not shrink below its last pixmap | `ImagingFrameView` |
@@ -1901,8 +1901,8 @@ session.
 
 Each microscope trial is one session. Read only `RibbonScan_ROI_*.mat`, the readable timing
 fields in `params.mat`, and optional hybrid-mosaic ROI analysis; do not load the other derived
-products. Ribbon volumes are assembled in memory into a gutterless, column-major mosaic, and each
-displayed frame uses its line-scan midpoint. The analysis cell grid reuses the NWB mask geometry
+products. Ribbon volumes are assembled in memory into a gutterless mosaic oriented as the lab shows it, and
+each displayed frame uses its line-scan midpoint. The analysis cell grid reuses the NWB mask geometry
 helper. If no analysis correction exists, index 1 is Green and index 0 Red; a trial's
 `green_channel` value wins. `encoder_angle` remains in the source but is hidden by default because
 wheel props consume it.
@@ -1920,6 +1920,16 @@ loaded-sensor map plus video source bounds supply the loaded-state and duration 
 import-finish bound also grows to preserve loader-declared channel visibility while restoring a
 user override. Session construction now saves only user changes from the loader's default
 visibility, and reset clears the pending pair offer and camera evidence.
+
+**Traps found on the real recordings (D-203).** Every new loader must be in
+`core/registry._BUILTIN_LOADERS`: the import review offers only registered loaders, so an
+unregistered imaging source was silently defaulted to *Skip* and a restored session could not
+find it. The controller stores `STARTTIME`, `line_time` and `summary` as one-element MATLAB
+cells; fixtures that write plain datasets passed while every real trial lost its clock (184 s
+instead of 10 s). The mosaic analysis keeps `correction_info` as a cell of structs, not a group.
+h5py reads MATLAB's column-major arrays transposed, so planes, the tile map and masks are
+transposed back to match the lab's figures (tiles 51 rows by 15 columns, numbered across then
+down). The cell masks are the lab's own discs; the grid shows their shape, it does not draw one.
 
 ### 27. The window must always close; jobs are owned by JobManager (V-09)
 
