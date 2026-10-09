@@ -131,3 +131,18 @@ def test_a_hand_edited_view_is_clamped_rather_than_refused():
     assert view.average == 3
     assert view.channels[0].color == "grey"
     assert view.channels[0].brightness == 1.0
+
+
+def test_channels_named_by_a_colour_start_in_that_colour():
+    from avialsync.core.imaging_display import ImagingView, default_colors
+
+    assert default_colors(2, ("Red", "Green")) == ("red", "green")
+    assert default_colors(2, ("GCaMP", "tdTomato")) == ("green", "magenta")
+    assert default_colors(2) == ("green", "magenta")
+    view = ImagingView().fitted(2, ("Red", "Green"))
+    assert [channel.color for channel in view.channels] == ["red", "green"]
+    # A stored choice is kept: the name only seeds channels the view lacks.
+    kept = ImagingView(channels=(view.channels[0].__class__(color="cyan"),)).fitted(
+        2, ("Red", "Green")
+    )
+    assert [channel.color for channel in kept.channels] == ["cyan", "green"]

@@ -53,7 +53,13 @@ A microscope trial folder (`HH-MM-SS`) or experiment folder (`experiment_N`) can
 the microscope saved-data root configured in **Preferences → Lab Data**. An experiment-folder
 import lets you choose one trial. The trial's `RibbonScan_ROI_*.mat` stacks are shown as a tiled
 mosaic oriented as the lab's own figures show it, with one frame time at the midpoint of its line
-scan (about ±27 ms within a frame). A single `RibbonScan_ROI_*.mat` can also be opened on its own
+scan (about ±27 ms within a frame). A trial opens as its reconstructed dendritic tree (branches as columns, their segments stacked,
+population patches packed beside them), with a second item showing only the pixels inside the
+lab's dendrite ROI masks from `thin_mask.mat`. An experiment folder opens as one long session:
+every trial at its own start time, with blank frames for the gaps between trials. Channels named
+Green and Red start in those colours. When a trial's line clock and duration are missing, the
+controller's `Log.txt` rate for that trial is used before AvialSync asks for one.
+A single `RibbonScan_ROI_*.mat` can also be opened on its own
 like any HDF5 or TIFF stack: its stored 16-bit pixels, both channels, at that ROI's exact line-clock
 times when the trial's `params.mat` is beside it. The cell-ROI masks are shown with the shapes the
 lab's analysis gave them. When

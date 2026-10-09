@@ -83,7 +83,8 @@ class AOLCellRoiGridSource(ImagingSource):
             self._crops.append(cropped)
             self._corners.append(corner)
         self._grid, self._tile, self._shape = geometry(self._crops)
-        self._ribbon.open(trial_path, {"trial_folder": str(trial_path)})
+        # Cell masks are drawn on the lab's analysis mosaic, so crops use that layout.
+        self._ribbon.open(trial_path, {"trial_folder": str(trial_path), "layout": "analysis"})
         trial = self._ribbon.trial
         assert trial is not None
         self._green_channel = green_channel(trial_path, trial.channels)
@@ -107,7 +108,7 @@ class AOLCellRoiGridSource(ImagingSource):
             channel_count=1,
             shape=(len(self._frame_times), self._shape[0], self._shape[1]),
             axes="TYX",
-            channel_names=("Green raw ROI crops",),
+            channel_names=("Green",),
         )
 
     def read_frame(self, index: int, channel: int = 0) -> np.ndarray:

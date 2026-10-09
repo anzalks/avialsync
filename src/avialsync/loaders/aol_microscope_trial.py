@@ -183,11 +183,21 @@ def read_trial(path: Path, *, verify: bool = True) -> MicroscopeTrial:
     except (OSError, KeyError, ValueError, TypeError) as exc:
         warnings.append(f"Could not read complete trial timing metadata: {exc}")
     start_epoch = start_ms / 1000.0 if start_ms is not None and start_ms > 0 else 0.0
+    # The rate, best evidence first: the trial's recorded duration, the line
+    # clock's own span, the controller log's nominal rate. Never a guess.
+    rate_origin = "uniform over the recorded trial duration"
     if duration is None or duration <= 0:
+        log_rate = logged_rate(folder)
         if line_time is not None and len(line_time) > 1:
             duration = float((line_time[-1] - line_time[0]) * _LINE_TICK_S)
+            rate_origin = "uniform over the line clock's span"
+        elif log_rate is not None:
+            duration = timepoints / log_rate
+            rate_origin = f"Log.txt nominal rate ({log_rate:g} Hz)"
         else:
             duration = float(timepoints)
+            rate_origin = "one frame per second (no rate recorded)"
+            warnings.append("No trial rate is recorded; frames are placed one second apart.")
         warnings.append("Trial duration is provisional because timings/summary is missing.")
 
     roi_count = len({entry[0] for entry in files})
@@ -202,7 +212,7 @@ def read_trial(path: Path, *, verify: bool = True) -> MicroscopeTrial:
     else:
         frame_times = np.arange(timepoints, dtype=np.float64) * duration / timepoints
         roi_frame_times = None
-        timing_source = "uniform over trial duration (line clock unreadable)"
+        timing_source = rate_origin
         warnings.append(
             "Line-clock timing is unavailable or inconsistent; using uniform trial timing."
         )
@@ -237,54 +247,6 @@ def analysis_file(folder: Path) -> Path | None:
     return files[0] if files else None
 
 
-def tile_origins(trial: MicroscopeTrial) -> tuple[dict[int, tuple[int, int]], tuple[int, int]]:
-    """Top-left display pixel of each ROI's tile and the mosaic size, as the lab shows them.
-
-    MATLAB stores arrays column-major, so h5py reads every plane transposed.
-    Displayed the MATLAB way, a ribbon tile is ``width`` rows by ``lines``
-    columns and the tiles run left to right, then down -- the lab's own
-    figures. The lab's ``mosaic_info/source_roi_map`` is the authority when the
-    trial carries its analysis, so cell masks drawn on that mosaic land on the
-    same pixels here; without it the same rule is computed on a
-    ``ceil(sqrt(N))`` square grid.
-    """
-    tile_h, tile_w = trial.width, trial.lines
-    side = math.ceil(math.sqrt(max(trial.scanned_roi_count, max(trial.roi_numbers, default=1))))
-    computed = {
-        roi: (((roi - 1) // side) * tile_h, ((roi - 1) % side) * tile_w)
-        for roi in trial.roi_numbers
-    }
-    size = (side * tile_h, side * tile_w)
-    roi_map = mosaic_roi_map(trial.folder)
-    if roi_map is None:
-        return computed, size
-    origins: dict[int, tuple[int, int]] = {}
-    for roi in trial.roi_numbers:
-        rows, columns = np.nonzero(roi_map == roi)
-        if not len(rows):
-            return computed, size
-        top, left = int(rows.min()), int(columns.min())
-        if (int(rows.max()) - top + 1, int(columns.max()) - left + 1) != (tile_h, tile_w):
-            return computed, size
-        origins[roi] = (top, left)
-    return origins, (int(roi_map.shape[0]), int(roi_map.shape[1]))
-
-
-def mosaic_roi_map(folder: Path) -> np.ndarray | None:
-    """The lab's per-pixel ribbon ROI map in display orientation, if the trial has one."""
-    source = analysis_file(folder)
-    if source is None:
-        return None
-    try:
-        with h5py.File(source, "r") as handle:
-            if "mosaic_info/source_roi_map" not in handle:
-                return None
-            return np.asarray(handle["mosaic_info/source_roi_map"][()]).T
-    except (OSError, KeyError, ValueError):
-        logger.warning("Could not read the tile map in %s", source, exc_info=True)
-        return None
-
-
 def declared_green_channel(folder: Path) -> int | None:
     """The 1-based green channel the lab's analysis recorded for this trial.
 
@@ -315,3 +277,37 @@ def declared_green_channel(folder: Path) -> int | None:
         logger.warning("Could not read correction_info in %s", source, exc_info=True)
         return None
     return found.pop() if len(found) == 1 else None
+
+
+_LOG_RECORDING = re.compile(
+    r"Recording\s*@\s*(\d{2}-\d{2}-\d{2})\s*:(?P<rest>[^\r\n]*)", re.IGNORECASE
+)
+_LOG_RATE = re.compile(r"@\s*([0-9]+(?:\.[0-9]+)?)\s*Hz", re.IGNORECASE)
+
+
+def logged_rate(folder: Path) -> float | None:
+    """The nominal imaging rate the controller's ``Log.txt`` gives for this trial.
+
+    The experiment folder's log has one ``Recording @ HH-MM-SS : ... @18 Hz``
+    line per trial. It is rounded, so it is used only where the trial's own
+    line clock and duration are missing -- never in their place.
+    """
+    try:
+        text = (folder.parent / "Log.txt").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    for match in _LOG_RECORDING.finditer(text):
+        if match.group(1) != folder.name:
+            continue
+        rate = _LOG_RATE.search(match.group("rest"))
+        if rate is not None and float(rate.group(1)) > 0:
+            return float(rate.group(1))
+    return None
+
+
+def experiment_trials(folder: Path) -> list[Path]:
+    """The trial folders directly inside an experiment folder, in name order."""
+    try:
+        return sorted(child for child in folder.iterdir() if is_microscope_trial(child))
+    except OSError:
+        return []

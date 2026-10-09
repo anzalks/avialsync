@@ -39,6 +39,7 @@ class BatchImportDialog(QDialog):
         labels: Mapping[str, str] | None = None,
         kinds: Mapping[str, str] | None = None,
         video_paths: Sequence[str] = (),
+        registry: LoaderRegistry | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(tr("Review Import Candidates"))
@@ -77,7 +78,7 @@ class BatchImportDialog(QDialog):
             },
             key=lambda path: str(path).lower(),
         )
-        self._registry = LoaderRegistry()
+        self._registry = registry if registry is not None else LoaderRegistry()
         self._build_category_map()
         self._video_paths = list(
             dict.fromkeys(

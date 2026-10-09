@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from avialsync.core.commands import SetSourceMappingsCommand, SourceMappingChange
 from avialsync.core.settings_schema import setting_for
 from avialsync.engine.aol_trial_search import AOLTrialSearchWorker
+from avialsync.loaders.aol_microscope_trial import read_trial
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import on_ui_thread
 
@@ -100,18 +101,41 @@ def _search_finished(window: MainWindow, result: object) -> None:
     _offer_acceptance(window, result)
 
 
-def _expected_paths(folder: Path) -> list[str]:
-    expected = [str(folder)]
-    activity = sorted((folder / "roi_activity").glob("hybrid_mosaic_*_activity.mat"))
-    if activity:
-        expected.extend((str(activity[0]), str(activity[0].parent)))
-    return expected
+def _pair_targets(window: MainWindow, folder: Path) -> list[tuple[str, float]]:
+    """Loaded sources of the matched trial or of its experiment, with each one's zero.
+
+    Each entry is ``(source id, seconds from the matched trial's zero to this
+    source's own zero)``: 0 for the trial itself, the gap between their
+    ``STARTTIME`` values for a joined experiment or another trial's analysis.
+    """
+    starts: dict[Path, float] = {}
+
+    def start_of(trial: Path) -> float:
+        if trial not in starts:
+            starts[trial] = read_trial(trial, verify=False).start_epoch
+        return starts[trial]
+
+    matched = start_of(folder)
+    covered: set[Path] = {folder}
+    targets: list[tuple[str, float]] = []
+    for source_id in window.imaging_pane.source_paths():
+        _loader, config, _mapping = window.imaging_pane.source_config(source_id)
+        members = [Path(item) for item in config.get("trial_folders") or ()]
+        if not members and config.get("trial_folder"):
+            members = [Path(str(config["trial_folder"]))]
+        if folder not in members:
+            continue
+        covered.update(members)
+        targets.append((source_id, start_of(members[0]) - matched))
+    for source_id in window._sensor_cache_dirs:
+        trial = Path(source_id).parent
+        if Path(source_id).name == "roi_activity" and trial in covered:
+            targets.append((source_id, start_of(trial) - matched))
+    return targets
 
 
 def _trial_sources_loaded(window: MainWindow, folder: Path) -> bool:
-    expected = _expected_paths(folder)
-    active = set(window.imaging_pane.source_paths()) | set(window._sensor_cache_dirs)
-    return all(path in active for path in expected)
+    return bool(_pair_targets(window, folder))
 
 
 def trial_source_loaded(window: MainWindow) -> None:
@@ -125,7 +149,7 @@ def trial_source_loaded(window: MainWindow) -> None:
 
 
 def _duration_summary(window: MainWindow, trial_duration: float) -> str:
-    durations = [end - start for start, end in window._video_source_bounds.values() if end > start]
+    durations = [end - start for start, end in window.video_master_spans().values() if end > start]
     if not durations:
         return tr("Camera duration: unavailable; trial duration: {seconds:.2f} s.").format(
             seconds=trial_duration
@@ -172,25 +196,34 @@ def _offer_acceptance(window: MainWindow, result: dict[str, Any]) -> None:
     )
 
 
+def _camera_zero(window: MainWindow) -> float:
+    """Master time of the cameras' shared first frame (the controller's trigger)."""
+    starts = [start for start, _end in window.video_master_spans().values()]
+    return min(starts) if starts else 0.0
+
+
 def accept_trial_pair(window: MainWindow, result: dict[str, Any]) -> None:
-    """Place the loaded trial's sources at camera frame zero as one command."""
+    """Place the matched trial's zero on camera frame zero, as one undoable command.
+
+    A joined experiment moves as one: its own zero is its first trial's, so it
+    lands that trial's ``STARTTIME`` gap earlier. Another trial's analysis in
+    the same experiment moves by its own gap the same way.
+    """
     folder = Path(str(result["folder"]))
-    if not _trial_sources_loaded(window, folder):
+    targets = _pair_targets(window, folder)
+    if not targets:
         window.notifications.show_warning(
             tr("Load the selected trial sources before accepting its alignment.")
         )
         return
+    camera_zero = _camera_zero(window)
     changes = []
-    active = set(window.imaging_pane.source_paths()) | set(window._sensor_cache_dirs)
-    for source_id in _expected_paths(folder):
-        if source_id not in active:
-            continue
+    for source_id, zero_after_match in targets:
+        # t_source = t_master + offset, so a source's zero sits at master -offset.
+        wanted = -(camera_zero + zero_after_match)
         before = window._mutations.source_mapping(source_id)
-        residual = -window.base_offset(source_id)
+        residual = wanted - window.base_offset(source_id)
         changes.append(SourceMappingChange(source_id, before, (residual, 0.0)))
-    if not changes:
-        window.notifications.show_warning(tr("No loaded trial source can be aligned."))
-        return
     window.document.execute(
         SetSourceMappingsCommand(tuple(changes), display_name=folder.name), window._mutations
     )

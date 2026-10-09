@@ -51,7 +51,7 @@ def start_drop_scan(window: MainWindow, paths: list[Path]) -> None:
     from avialsync.engine.drop_worker import DropScanWorker
 
     window.transport.set_status("Scanning files…")
-    worker = DropScanWorker(paths, window._registry)
+    worker = DropScanWorker(paths, window.registry)
 
     # Wired through `configure`, which runs before the thread starts. Connecting
     # after `_run_job` returns is a race: the thread is already running, and a
@@ -227,6 +227,9 @@ def process_drop_candidates(
         labels=window.session_runtime.item_labels,
         kinds=window.session_runtime.item_kinds,
         video_paths=window.video_grid.pane_paths(),
+        # Already discovered by the drop worker: a fresh registry here imported
+        # every loader on the UI thread, about 0.4 s on the first drop.
+        registry=window.registry,
     )
     if dialog.exec() == QDialog.DialogCode.Accepted:
         selections = dialog.get_selections()

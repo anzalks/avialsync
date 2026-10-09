@@ -6508,3 +6508,33 @@ Skip in the import review because the sources were unregistered, and the view wa
 image transposed. ROI masks keep the shapes the lab's analysis drew (discs in this data); the
 viewer neither redraws nor reshapes them.
 
+---
+
+## 2026-10 · D-204 · AOL experiments play end to end; the tree and its dendrite ROIs are rebuilt
+
+**Decision.** Dropping an experiment folder joins its trials into one session: one ribbon source
+and one dendrite-ROI source span every trial that shares the first trial's scan, each trial at
+its own `STARTTIME`, with one blank frame marking each gap. Trials are read lazily (three kept,
+about 54 MB each). A trial scanned differently is reported and not joined. Analysed trials add
+their cell ROIs and traces at their own start. A single trial folder still opens on its own.
+
+The default mosaic is the dendritic tree as the controller reconstructs it, implemented from
+the data rather than from its code: branch lengths come from `thin_mask.mat`'s
+`branch_projection`, segments are numbered branch by branch, each branch is a column of its
+stacked segments, and population patches (from the analysis's `first_population_roi`) pack into
+a near-square block after the tree. Without branch data the lab's analysis map is used, then a
+square grid. The dendrite ROI view keeps only the pixels inside `thin_mask.mat`'s masks and soma
+masks: these are the lab's real ROI shapes. Cell-ROI crops always use the analysis map.
+
+Frame rate, best evidence first: line clock, recorded duration, line-clock span, the controller
+log's `@N Hz` for that trial, and only then a rate the user types; nothing plays at a guessed
+speed. Channels whose acquired name is a colour start in that colour (Green green, Red red);
+other channels keep the positional default, and the colour remains the user's to change.
+
+**Why not join gap-free, or join camera files?** The camera record gate stays high across an
+experiment, so the camera records through the gaps; removing them from the imaging would drift
+it against the video. Per-trial camera files would need a multi-file video reader through
+decode, proxies and export; none of the recordings here needs it, so it is not built.
+Pairing a trial with a joined experiment loaded moves the whole experiment by that trial's
+`STARTTIME` gap.
+

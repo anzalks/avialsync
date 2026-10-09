@@ -17,8 +17,8 @@ from avialsync.loaders.aol_microscope_trial import (
     MicroscopeTrial,
     is_microscope_trial,
     read_trial,
-    tile_origins,
 )
+from avialsync.loaders.aol_mosaic_layout import analysis_layout, branch_layout, choose_layout
 from avialsync.loaders.aol_ribbon_scan import AOLRibbonScanSource
 from avialsync.loaders.aol_roi_trace import AOLRoiTraceLoader
 from avialsync.loaders.aol_trial_matching import derive_utc_offset, match_trial
@@ -157,7 +157,7 @@ def test_trial_session_scanner_and_experiment_folder_are_trial_scoped(tmp_path: 
     experiment = tmp_path / "experiment_1"
     experiment.mkdir()
     first = _trial(experiment / "12-00-00")
-    second = _trial(experiment / "12-10-00")
+    second = _trial(experiment / "12-10-00", start_ms=1_700_000_600_000)
     (experiment / "Reference_Stack.tif").write_bytes(b"not a test image")
     scanner = AOLMicroscopeTrialSource()
 
@@ -165,10 +165,12 @@ def test_trial_session_scanner_and_experiment_folder_are_trial_scoped(tmp_path: 
     assert len(direct.items) == 1
     assert direct.items[0].source_epoch == 1_700_000_000.0
 
-    grouped = scanner.scan(experiment, None)
-    assert {item.path for item in grouped.items} == {first, second}
-    assert len({item.config["_exclusive_group"] for item in grouped.items}) == 1
-    assert all(item.path.suffix.lower() != ".tif" for item in grouped.items)
+    # An experiment is one long session: its trials joined into one source.
+    joined = scanner.scan(experiment, None)
+    assert [item.path for item in joined.items] == [experiment]
+    assert joined.items[0].config["trial_folders"] == [str(first), str(second)]
+    assert joined.session_epoch == 1_700_000_000.0
+    assert all(item.path.suffix.lower() != ".tif" for item in joined.items)
 
 
 def test_cell_roi_grid_and_traces_use_masks_and_source_map(tmp_path: Path) -> None:
@@ -292,9 +294,10 @@ def test_the_labs_tile_map_places_tiles_when_present(tmp_path: Path) -> None:
         swapped[swapped == 1], swapped[swapped == 3] = 9, 1
         swapped[swapped == 9] = 3
         roi_map[...] = swapped
-    origins, size = tile_origins(read_trial(folder))
-    assert origins == {1: (3, 0), 2: (0, 2), 3: (0, 0)}
-    assert size == (6, 4)
+    layout = analysis_layout(read_trial(folder))
+    assert layout is not None
+    assert layout.origins == {1: (3, 0), 2: (0, 2), 3: (0, 0)}
+    assert layout.size == (6, 4)
     source = AOLRibbonScanSource()
     source.open(folder, {})
     frame = source.read_frame(0, channel=0)
@@ -346,3 +349,108 @@ def test_trial_search_finds_the_camera_trial_on_its_day(tmp_path: Path) -> None:
     assert AOLTrialSearchWorker(tmp_path / "none", 1_700_000_002.0, 10.0).search()["status"] == (
         "missing_day"
     )
+
+
+def _thin_mask(folder: Path) -> None:
+    """Branches A = ROIs 1, 2 and B = ROI 3; each ROI's dendrite is one stored line."""
+    with h5py.File(folder / "thin_mask.mat", "w") as handle:
+        refs = handle.create_group("#refs#")
+        handle.create_dataset("ROIs", data=[[1.0, 2.0, 3.0]])
+        for name in ("masks", "soma_masks", "branch_projection"):
+            handle.create_dataset(
+                name, (3 if name != "branch_projection" else 2, 1), h5py.ref_dtype
+            )
+        for roi in (1, 2, 3):
+            mask = np.zeros((2, 3), dtype=np.uint8)
+            mask[0, :] = 1  # stored line 0, every pixel along the ribbon
+            handle["masks"][roi - 1, 0] = refs.create_dataset(f"m{roi}", data=mask).ref
+            soma = np.zeros((2, 3), dtype=np.uint8)
+            handle["soma_masks"][roi - 1, 0] = refs.create_dataset(f"s{roi}", data=soma).ref
+        handle["branch_projection"][0, 0] = refs.create_dataset("a", data=np.zeros((2, 6))).ref
+        handle["branch_projection"][1, 0] = refs.create_dataset("b", data=np.zeros((2, 3))).ref
+
+
+def test_the_tree_is_rebuilt_branch_by_branch_from_the_thin_mask(tmp_path: Path) -> None:
+    folder = _trial(tmp_path / "12-00-00")
+    _thin_mask(folder)
+    layout = branch_layout(read_trial(folder))
+    assert layout is not None
+    # Branch A stacks ROIs 1 and 2 down column 0; branch B is column 1.
+    assert layout.origins == {1: (0, 0), 2: (3, 0), 3: (0, 2)}
+    assert layout.size == (6, 4)
+    assert layout.branches == ((1, 2), (3,))
+    assert choose_layout(read_trial(folder)).kind == "branches"
+
+    source = AOLRibbonScanSource()
+    source.open(folder, {})
+    frame = source.read_frame(0, channel=0)
+    assert np.all(frame[:3, :2] == 1000) and np.all(frame[3:, :2] == 2000)
+    assert np.all(frame[:3, 2:] == 3000) and np.isnan(frame[3:, 2:]).all()
+
+
+def test_dendrite_roi_view_keeps_only_masked_pixels(tmp_path: Path) -> None:
+    folder = _trial(tmp_path / "12-00-00")
+    _thin_mask(folder)
+    source = AOLRibbonScanSource()
+    metadata = source.open(folder, {"trial_folder": str(folder), "mask": "thin"})
+    assert "dendrite ROI masks" in metadata.timing_source
+    frame = source.read_frame(0, channel=0)
+    # Stored line 0 is display column 0 of each tile.
+    assert np.all(frame[:3, 0] == 1000) and np.isnan(frame[:3, 1]).all()
+    assert np.all(frame[0:3, 2] == 3000) and np.isnan(frame[0:3, 3]).all()
+
+
+def test_population_patches_pack_after_the_tree(tmp_path: Path) -> None:
+    folder = _trial(tmp_path / "12-00-00")
+    _thin_mask(folder)
+    activity = _analysis(folder)
+    with h5py.File(activity, "r+") as handle:
+        handle.create_group("hybrid_layout").create_dataset("first_population_roi", data=[[3.0]])
+    layout = branch_layout(read_trial(folder))
+    assert layout is not None
+    assert layout.branches == ((1, 2), (3,))
+    assert layout.origins[3] == (0, 2)
+
+
+def test_an_experiment_plays_end_to_end_with_blank_gaps(tmp_path: Path) -> None:
+    experiment = tmp_path / "experiment_1"
+    experiment.mkdir()
+    first = _trial(experiment / "12-00-00")
+    second = _trial(experiment / "12-10-00", start_ms=1_700_000_600_000)
+    source = AOLRibbonScanSource()
+    metadata = source.open(experiment, {"trial_folders": [str(first), str(second)]})
+    # Two frames per trial plus one blank frame between them.
+    assert metadata.frame_count == 5
+    assert metadata.frame_times[3] == pytest.approx(600.0 + metadata.frame_times[0])
+    assert np.isnan(source.read_frame(2, 0)).all()
+    assert np.nanmax(source.read_frame(3, 0)) > 0
+    assert "2 trials" in metadata.timing_source
+
+    overlapping = _trial(experiment / "12-20-00", start_ms=1_700_000_600_000)
+    with pytest.raises(Exception, match="before the previous one ends"):
+        AOLRibbonScanSource().open(experiment, {"trial_folders": [str(second), str(overlapping)]})
+
+
+def test_the_controller_log_supplies_a_missing_rate(tmp_path: Path) -> None:
+    experiment = tmp_path / "experiment_1"
+    experiment.mkdir()
+    (experiment / "Log.txt").write_text(
+        "Recording @ 12-00-00 :  - 3 ROIs - 1x0.5s @4 Hz - MC on\n", encoding="utf-8"
+    )
+    folder = _trial(experiment / "12-00-00")
+    with h5py.File(folder / "params.mat", "r+") as handle:
+        del handle["timings/summary"]
+        del handle["timings/timing_FIFO/line_time"]
+    trial = read_trial(folder)
+    assert trial.timing_source == "Log.txt nominal rate (4 Hz)"
+    np.testing.assert_allclose(trial.frame_times, [0.0, 0.25])
+
+    lone_dir = experiment / "12-30-00"
+    lone_dir.mkdir()
+    (experiment / "Log.txt").write_text(
+        "Recording @ 12-00-00 : x @4 Hz\nRecording @ 12-30-00 : y @8 Hz\n", encoding="utf-8"
+    )
+    lone = lone_dir / "RibbonScan_ROI_0001_repeat_0001_timepoints_2.mat"
+    shutil.copy(folder / lone.name, lone)
+    metadata = AOLRibbonScanSource().open(lone, {})
+    np.testing.assert_allclose(metadata.frame_times, [0.0, 0.125])

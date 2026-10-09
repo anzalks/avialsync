@@ -102,3 +102,23 @@ def test_encoder_angle_is_hidden_but_still_drives_the_wheel(
     assert not rows["encoder_angle"].visible
     offered = {channel for _source, channel, _label in wheel_controller._channels(window)}
     assert "encoder_angle" in offered
+
+
+def test_pairing_a_trial_moves_its_joined_experiment_by_the_trial_gap(
+    window: MainWindow, qtbot, tmp_path
+) -> None:
+    experiment = tmp_path / "experiment_1"
+    experiment.mkdir()
+    _trial(experiment / "12-00-00")
+    second = _trial(experiment / "12-10-00", start_ms=1_700_000_600_000)
+    layout = AOLMicroscopeTrialSource().scan(experiment, None)
+    item = layout.items[0]
+    window._route_import_candidate(item.path, item.loader, dict(item.config))
+    source_id = str(experiment)
+    qtbot.waitUntil(lambda: source_id in window.imaging_pane.source_paths(), timeout=_TIMEOUT)
+
+    accept_trial_pair(window, {"status": "matched", "folder": str(second)})
+    residual, _drift = window._mutations.source_mapping(source_id)
+    # The second trial's zero is on camera frame zero (master 0 with no camera
+    # loaded), so the experiment's own zero -- its first trial -- sits 600 s earlier.
+    assert window.effective_offset(source_id, residual) == pytest.approx(600.0)

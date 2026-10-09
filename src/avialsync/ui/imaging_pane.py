@@ -202,7 +202,7 @@ class ImagingPane(QWidget):
         view: ImagingView | None = None,
     ) -> None:
         """Register a stack and show it."""
-        shown = (view or ImagingView()).fitted(metadata.channel_count)
+        shown = (view or ImagingView()).fitted(metadata.channel_count, metadata.channel_names)
         mapping = TimeMap(offset, drift_ms_per_hour)
         self._sources[path] = _Stack(loader_cls, dict(config), metadata, mapping, shown)
         if self.source_choice.findData(path) < 0:
@@ -284,7 +284,7 @@ class ImagingPane(QWidget):
         stack = self._sources.get(path)
         if stack is None:
             return
-        stack.view = view.fitted(stack.info.channel_count)
+        stack.view = view.fitted(stack.info.channel_count, stack.info.channel_names)
         if self.source_choice.currentData() == path:
             self.controls.set_view(stack.view)
             self._rerender()

@@ -1,10 +1,15 @@
-"""AOL ribbon-scan imaging: a trial's ROIs tiled, or one ROI file as stored.
+"""AOL ribbon-scan imaging: trials tiled, an experiment end to end, or one ROI file.
 
 A trial folder opens as one mosaic per frame with every scanned ROI in its
-tile, placed where the lab's own analysis places it. A single
+tile, laid out as the microscope controller reconstructs the dendritic tree
+(:mod:`~avialsync.loaders.aol_mosaic_layout`). With ``mask="thin"`` the same
+mosaic shows only the pixels inside the lab's dendrite ROI masks
+(``thin_mask.mat``), which is the ROIs' real shape. An experiment folder opens
+as one source spanning all of its trials on their true clock: each trial at
+its own ``STARTTIME``, with a blank frame marking every gap between them so a
+stale picture never stands in for time nobody imaged. A single
 ``RibbonScan_ROI_*.mat`` opens on its own, exactly as the controller wrote it:
-both channels, ``uint16``, and timed by that ROI's own line-clock times rather
-than the frame midpoint a mosaic has to share.
+both channels, ``uint16``, at that ROI's own line-clock times.
 
 Planes are shown the way MATLAB, and so the lab's own figures, show them. h5py
 reads MATLAB's column-major arrays transposed, so every stored plane is
@@ -15,6 +20,8 @@ from __future__ import annotations
 
 import logging
 import math
+from collections import OrderedDict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -27,15 +34,18 @@ from avialsync.loaders.aol_microscope_trial import (
     MicroscopeTrial,
     declared_green_channel,
     is_microscope_trial,
+    logged_rate,
     read_trial,
     roi_file_parts,
-    tile_origins,
 )
+from avialsync.loaders.aol_mosaic_layout import MosaicLayout, choose_layout
 
 logger = logging.getLogger(__name__)
 
 #: The lab analysis records green as MATLAB channel 2, hence h5py index 1.
 _RIG_GREEN_CHANNEL = 1
+#: Trials kept in memory at once for an experiment (about 54 MB each).
+_CACHED_TRIALS = 3
 
 
 def green_channel(folder: Path, channels: int) -> int:
@@ -53,6 +63,33 @@ def channel_names(channels: int, green: int) -> tuple[str, ...]:
     return tuple("Green" if index == green else "Red" for index in range(channels))
 
 
+def thin_masks(folder: Path) -> dict[int, np.ndarray] | None:
+    """Each ROI's dendrite mask (thin mask plus soma), display-oriented, by ROI number."""
+    path = folder / "thin_mask.mat"
+    if not path.is_file():
+        return None
+    try:
+        with h5py.File(path, "r") as handle:
+            numbers = np.asarray(handle["ROIs"][()]).reshape(-1).astype(int)
+            masks: dict[int, np.ndarray] = {}
+            for name in ("masks", "soma_masks"):
+                stored = handle.get(name)
+                if not isinstance(stored, h5py.Dataset):
+                    continue
+                references = np.asarray(stored[()]).reshape(-1)
+                for roi, reference in zip(numbers, references, strict=False):
+                    target = handle[reference] if reference else None
+                    if not isinstance(target, h5py.Dataset) or target.ndim != 2:
+                        continue
+                    plane = np.asarray(target[()], dtype=bool).T
+                    key = int(roi)
+                    masks[key] = masks[key] | plane if key in masks else plane
+            return masks or None
+    except (OSError, KeyError, ValueError, TypeError):
+        logger.warning("Could not read dendrite ROI masks in %s", path, exc_info=True)
+        return None
+
+
 def _is_ribbon_file(path: Path) -> bool:
     if roi_file_parts(path) is None or not path.is_file():
         return False
@@ -64,14 +101,29 @@ def _is_ribbon_file(path: Path) -> bool:
         return False
 
 
+@dataclass(frozen=True)
+class _Segment:
+    """One trial's frames inside an experiment's frame list."""
+
+    trial: MicroscopeTrial
+    first: int  # index of this trial's first frame in the combined list
+
+
+_Pixels = tuple[dict[int, np.ndarray], dict[int, np.ndarray]]
+
+
 class AOLRibbonScanSource(ImagingSource):
-    """Tile every ribbon ROI into a gutterless mosaic, or show one ROI raw."""
+    """Tile ribbon ROIs into a mosaic, end to end across trials, or show one ROI raw."""
 
     def __init__(self) -> None:
-        self._trial: MicroscopeTrial | None = None
-        self._volumes: list[np.ndarray] = []
-        self._origins: list[tuple[int, int]] = []
-        self._size = (0, 0)
+        self._segments: list[_Segment] = []
+        self._gaps: set[int] = set()
+        self._layout: MosaicLayout | None = None
+        self._lines = 0
+        self._width = 0
+        self._channels = 0
+        self._mask_mode = ""
+        self._loaded: OrderedDict[Path, _Pixels] = OrderedDict()
         self._single: np.ndarray | None = None
 
     @classmethod
@@ -85,43 +137,110 @@ class AOLRibbonScanSource(ImagingSource):
 
     @property
     def trial(self) -> MicroscopeTrial | None:
-        """The trial read at open, for sources that build on this one."""
-        return self._trial
+        """The (first) trial read at open, for sources that build on this one."""
+        return self._segments[0].trial if self._segments else None
 
     @property
     def mosaic_size(self) -> tuple[int, int]:
         """``(height, width)`` of the assembled mosaic, as displayed."""
-        return self._size
+        return self._layout.size if self._layout is not None else (0, 0)
+
+    @property
+    def layout(self) -> MosaicLayout | None:
+        """Where each ROI's tile sits."""
+        return self._layout
 
     def open(self, path: Path, config: dict[str, Any]) -> ImagingMetadata:
-        """Read the pixels once and close every file; frames are cut from memory."""
+        """Read metadata; pixels are read once per trial and kept for a few trials."""
         self.close()
+        folders = config.get("trial_folders")
         folder = config.get("trial_folder")
+        if folders:
+            return self._open_mosaic([Path(item) for item in folders], config)
         if folder is None and path.is_file():
             return self._open_single(path, config)
-        return self._open_mosaic(Path(folder) if folder else path)
+        return self._open_mosaic([Path(folder) if folder else path], config)
 
-    def _open_mosaic(self, folder: Path) -> ImagingMetadata:
-        trial = read_trial(folder)
-        self._trial = trial
-        origins, self._size = tile_origins(trial)
-        self._origins = [origins[roi] for roi in trial.roi_numbers]
-        for source in trial.roi_files:
-            with h5py.File(source, "r") as handle:
-                self._volumes.append(np.asarray(handle["volume"][()], dtype=np.uint16))
+    # -- mosaics ----------------------------------------------------------
+
+    def _open_mosaic(self, folders: list[Path], config: dict[str, Any]) -> ImagingMetadata:
+        first = read_trial(folders[0])
+        self._layout = choose_layout(first, str(config.get("layout", "branches")))
+        self._lines, self._width, self._channels = first.lines, first.width, first.channels
+        self._mask_mode = str(config.get("mask", ""))
+        scan = (first.roi_numbers, first.channels, first.lines, first.width)
+        times: list[np.ndarray] = []
+        next_index = 0
+        for position, folder in enumerate(folders):
+            trial = first if position == 0 else read_trial(folder, verify=False)
+            if (trial.roi_numbers, trial.channels, trial.lines, trial.width) != scan:
+                raise SourceOpenError(f"Trial {folder.name} does not share the first trial's scan.")
+            offset = trial.start_epoch - first.start_epoch if position else 0.0
+            frames = trial.frame_times + offset
+            if times and frames[0] <= float(times[-1][-1]):
+                raise SourceOpenError(f"Trial {folder.name} starts before the previous one ends.")
+            if position:
+                # One blank frame a frame period after the previous trial ends marks the gap.
+                previous = times[-1]
+                period = float(np.median(np.diff(previous))) if len(previous) > 1 else 1e-3
+                gap_time = min(float(previous[-1]) + period, (float(previous[-1]) + frames[0]) / 2)
+                times.append(np.array([gap_time]))
+                self._gaps.add(next_index)
+                next_index += 1
+            self._segments.append(_Segment(trial, next_index))
+            times.append(frames)
+            next_index += len(frames)
+        frame_times = np.concatenate(times)
+        source = first.timing_source
+        if len(folders) > 1:
+            source += f"; {len(folders)} trials at their STARTTIME"
+        if self._mask_mode == "thin":
+            source += "; dendrite ROI masks"
+        self._load(first)
+        height, width = self._layout.size
+        green = green_channel(first.folder, first.channels)
         return ImagingMetadata(
-            frame_count=trial.timepoints,
-            height=self._size[0],
-            width=self._size[1],
+            frame_count=len(frame_times),
+            height=height,
+            width=width,
             dtype="float32",
-            frame_times=trial.frame_times.copy(),
-            timing_source=trial.timing_source,
-            dataset="ribbon_scan_mosaic",
-            channel_count=trial.channels,
-            shape=(trial.channels, trial.timepoints, self._size[0], self._size[1]),
+            frame_times=frame_times,
+            timing_source=source,
+            dataset=f"ribbon_scan_mosaic_{self._layout.kind}",
+            channel_count=first.channels,
+            shape=(first.channels, len(frame_times), height, width),
             axes="CTYX",
-            channel_names=channel_names(trial.channels, green_channel(folder, trial.channels)),
+            channel_names=channel_names(first.channels, green),
         )
+
+    def _load(self, trial: MicroscopeTrial) -> _Pixels:
+        """Pixels and masks of one trial, read once and kept for a few trials."""
+        cached = self._loaded.get(trial.folder)
+        if cached is not None:
+            self._loaded.move_to_end(trial.folder)
+            return cached
+        volumes: dict[int, np.ndarray] = {}
+        for roi, source in zip(trial.roi_numbers, trial.roi_files, strict=True):
+            try:
+                with h5py.File(source, "r") as handle:
+                    volumes[roi] = np.asarray(handle["volume"][()], dtype=np.uint16)
+            except (OSError, KeyError, ValueError):
+                logger.warning("Could not read ribbon ROI file %s", source, exc_info=True)
+        masks: dict[int, np.ndarray] = {}
+        if self._mask_mode == "thin":
+            masks = thin_masks(trial.folder) or {}
+        self._loaded[trial.folder] = (volumes, masks)
+        while len(self._loaded) > _CACHED_TRIALS:
+            self._loaded.popitem(last=False)
+        return volumes, masks
+
+    def _segment_for(self, index: int) -> tuple[_Segment, int]:
+        for segment in reversed(self._segments):
+            if index >= segment.first:
+                return segment, index - segment.first
+        raise IndexError(index)
+
+    # -- single ROI files ---------------------------------------------------
 
     def _open_single(self, path: Path, config: dict[str, Any]) -> ImagingMetadata:
         parts = roi_file_parts(path)
@@ -157,19 +276,31 @@ class AOLRibbonScanSource(ImagingSource):
     def _single_times(
         folder: Path, roi: int, count: int, config: dict[str, Any]
     ) -> tuple[np.ndarray, str]:
-        """This ROI's own line-clock times when its trial is beside it."""
+        """This ROI's own line-clock times when its trial is beside it.
+
+        Then, in order: the trial's own frame times, a rate the user entered,
+        the controller log's nominal rate for this trial. Only with none of
+        those is the user asked, so a stack never plays at a guessed speed.
+        """
         if is_microscope_trial(folder):
             trial = read_trial(folder, verify=False)
             if trial.roi_frame_times is not None and trial.timepoints == count:
                 if 0 < roi <= trial.roi_frame_times.shape[1]:
                     return trial.roi_frame_times[:, roi - 1].copy(), "line clock, this ROI"
+            if trial.timepoints == count:
+                return trial.frame_times.copy(), trial.timing_source
         fps = config.get("fps")
-        if fps is None or not math.isfinite(float(fps)) or float(fps) <= 0:
-            raise ImagingChoiceRequired(
-                "fps",
-                "This ROI file has no trial timing beside it. Enter the acquisition frame rate.",
-            )
-        return np.arange(count, dtype=np.float64) / float(fps), "import frame rate"
+        if fps is not None and math.isfinite(float(fps)) and float(fps) > 0:
+            return np.arange(count, dtype=np.float64) / float(fps), "import frame rate"
+        rate = logged_rate(folder)
+        if rate is not None:
+            return np.arange(count, dtype=np.float64) / rate, f"Log.txt nominal rate ({rate:g} Hz)"
+        raise ImagingChoiceRequired(
+            "fps",
+            "This ROI file has no trial timing beside it. Enter the acquisition frame rate.",
+        )
+
+    # -- frames -------------------------------------------------------------
 
     def read_frame(self, index: int, channel: int = 0) -> np.ndarray:
         """One channel of one frame: the stored plane, or the assembled mosaic."""
@@ -179,21 +310,33 @@ class AOLRibbonScanSource(ImagingSource):
             if not 0 <= channel < self._single.shape[0]:
                 raise IndexError(channel)
             return np.ascontiguousarray(self._single[channel, index].T)
-        trial = self._trial
-        if trial is None:
+        if self._layout is None or not self._segments:
             raise SourceOpenError("AOL ribbon source used before open().")
-        if not 0 <= index < trial.timepoints:
-            raise IndexError(index)
-        if not 0 <= channel < trial.channels:
+        if not 0 <= channel < self._channels:
             raise IndexError(channel)
-        mosaic = np.full(self._size, np.nan, dtype=np.float32)
-        for (top, left), volume in zip(self._origins, self._volumes, strict=True):
-            mosaic[top : top + trial.width, left : left + trial.lines] = volume[channel, index].T
+        mosaic = np.full(self._layout.size, np.nan, dtype=np.float32)
+        if index in self._gaps:
+            return mosaic
+        segment, local = self._segment_for(index)
+        if not 0 <= local < segment.trial.timepoints:
+            raise IndexError(index)
+        volumes, masks = self._load(segment.trial)
+        tile_h, tile_w = self._width, self._lines
+        for roi, (top, left) in self._layout.origins.items():
+            volume = volumes.get(roi)
+            if volume is None:
+                continue
+            plane = volume[channel, local].T.astype(np.float32)
+            if self._mask_mode == "thin":
+                mask = masks.get(roi)
+                plane = np.where(mask, plane, np.nan) if mask is not None else plane * np.nan
+            mosaic[top : top + tile_h, left : left + tile_w] = plane
         return mosaic
 
     def close(self) -> None:
-        """Release the in-memory pixels; HDF5 handles are closed by ``open``."""
-        self._volumes.clear()
-        self._origins.clear()
+        """Release the in-memory pixels; HDF5 handles are closed as they are read."""
+        self._segments.clear()
+        self._gaps.clear()
+        self._loaded.clear()
+        self._layout = None
         self._single = None
-        self._trial = None

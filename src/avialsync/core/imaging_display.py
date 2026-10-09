@@ -74,11 +74,24 @@ _CONTRAST_OCTAVES = 4.0
 _AUTO_PERCENTILES = (0.5, 99.5)
 
 
-def default_colors(count: int) -> tuple[str, ...]:
-    """Return the default colour name for each of *count* channels."""
+def default_colors(count: int, names: Sequence[str] = ()) -> tuple[str, ...]:
+    """Return the default colour name for each of *count* channels.
+
+    A channel the acquisition itself names by a colour -- a rig's "Green" and
+    "Red" PMTs -- starts in that colour, so the overlay opens the way the lab
+    reads it. Any other channel takes the positional default. Still only a
+    default: the name stays apart from the display colour, which the user can
+    change (D-195).
+    """
     if count <= 1:
-        return ("grey",) * max(count, 0)
-    return tuple(_DEFAULTS[index % len(_DEFAULTS)] for index in range(count))
+        positional: tuple[str, ...] = ("grey",) * max(count, 0)
+    else:
+        positional = tuple(_DEFAULTS[index % len(_DEFAULTS)] for index in range(count))
+    named = [str(name).strip().lower() for name in names[:count]]
+    return tuple(
+        named[index] if index < len(named) and named[index] in CHANNEL_COLORS else colour
+        for index, colour in enumerate(positional)
+    )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -138,18 +151,18 @@ class ImagingView:
     average: int = 1
 
     @classmethod
-    def for_channels(cls, count: int) -> ImagingView:
+    def for_channels(cls, count: int, names: Sequence[str] = ()) -> ImagingView:
         """Return the default view of a stack with *count* channels."""
-        return cls(channels=tuple(ChannelView(color=c) for c in default_colors(count)))
+        return cls(channels=tuple(ChannelView(color=c) for c in default_colors(count, names)))
 
-    def fitted(self, count: int) -> ImagingView:
+    def fitted(self, count: int, names: Sequence[str] = ()) -> ImagingView:
         """Return this view with exactly *count* channels and a valid average.
 
         A stored view can disagree with the file it describes -- the file was
         re-exported with another channel, or the session was edited by hand --
         and that must not stop the stack from opening.
         """
-        defaults = default_colors(count)
+        defaults = default_colors(count, names)
         channels = list(self.channels[:count])
         channels += [ChannelView(color=defaults[i]) for i in range(len(channels), count)]
         return ImagingView(channels=tuple(channels), average=odd_average(self.average))

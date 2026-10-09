@@ -4,7 +4,7 @@ import dataclasses
 import logging
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Literal, Protocol, cast
+from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
 
 import numpy as np
 from PySide6.QtCore import QEvent, QObject, Qt, QThread, QTimer, Signal, Slot
@@ -138,6 +138,9 @@ from avialsync.ui.view_toolbar import ViewToolbar
 from avialsync.ui.wheel_panel import WheelPanel
 from avialsync.ui.wheel_tab import WheelTab
 from avialsync.ui.workspace_scroll import scroll_when_short
+
+if TYPE_CHECKING:
+    from avialsync.core.registry import LoaderRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -1354,9 +1357,26 @@ class MainWindow(QMainWindow):
         self._source_base_offsets[source_id] = base
         return base
 
+    @property
+    def registry(self) -> "LoaderRegistry":
+        """The window's loader registry; the drop worker discovers it off the UI thread."""
+        return self._registry
+
     def base_offset(self, source_id: str) -> float:
         """The session placement for *source_id*, or 0.0 for a relative source."""
         return self._source_base_offsets.get(source_id, 0.0)
+
+    def video_master_spans(self) -> dict[str, tuple[float, float]]:
+        """Each loaded video's first and last frame on the master clock.
+
+        Bounds are kept in source time; ``t_source = t_master + offset`` puts
+        them on the master clock through the video's effective offset.
+        """
+        spans: dict[str, tuple[float, float]] = {}
+        for path, (start, end) in self._video_source_bounds.items():
+            offset, _drift = self._video_time_mappings.get(path, (self.base_offset(path), 0.0))
+            spans[path] = (start - offset, end - offset)
+        return spans
 
     def effective_offset(self, source_id: str, user_offset: float) -> float:
         """The TimeMap offset for *source_id* given what the sidebar shows.

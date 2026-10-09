@@ -603,7 +603,8 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `loaders/nwb_roi_grid.py` | Every ROI of an NWB plane segmentation as one tile of a grid image per frame: raw crops when an image series on that plane covers the masks, else the ROI's ΔF/F (or fluorescence) on its mask; offered by the NWB session beside the series | `NWBRoiGridSource`, `find_roi_grids` |
 | `loaders/roi_grid_layout.py` | Shared ROI mask crop geometry and guttered tile packing for NWB and AOL cell grids | `geometry()`, `pack()`, `mask_crop()` |
 | `loaders/aol_microscope_trial.py` | Read-only MATLAB v7.3 microscope trial metadata (timing fields read directly or through MATLAB cells), line timing, display-oriented tile layout, the lab's green-channel record; `verify=False` reads names only for scans | `MicroscopeTrial`, `read_trial()`, `is_microscope_trial()`, `tile_origins()`, `declared_green_channel()` |
-| `loaders/aol_ribbon_scan.py` | "Imaging Stack (MATLAB)": a trial as one tiled, gutterless mosaic, or one `RibbonScan_ROI_*.mat` raw (`uint16`, both channels, its own line-clock times); planes shown as MATLAB shows them (D-203) | `AOLRibbonScanSource` |
+| `loaders/aol_ribbon_scan.py` | "Imaging Stack (MATLAB)": a trial as one gutterless mosaic, `mask="thin"` for its dendrite ROIs, `trial_folders` for an experiment joined on its `STARTTIME` clock (blank gap frames, three trials cached), or one `RibbonScan_ROI_*.mat` raw (`uint16`, its own line-clock times, `Log.txt` rate before asking); planes as MATLAB shows them (D-203, D-204) | `AOLRibbonScanSource`, `thin_masks()` |
+| `loaders/aol_mosaic_layout.py` | Where each ribbon tile sits: the controller-style branch tree from `thin_mask.mat` (branches as columns, segments stacked, population patches packed), the lab's analysis map, or a square grid (D-204) | `choose_layout()`, `branch_layout()`, `analysis_layout()`, `MosaicLayout` |
 | `loaders/aol_cell_roi_grid.py` | "ROI Grid (MATLAB)": hybrid mosaic cell masks rendered from raw green-channel crops with the shared ROI-grid layout; opens from a dropped `hybrid_mosaic_*_activity.mat` too | `AOLCellRoiGridSource` |
 | `loaders/aol_roi_trace.py` | "ROI Traces (MATLAB)": per-mask ROI traces on frame-midpoint times, with ribbon coverage in channel descriptions | `AOLRoiTraceLoader` |
 | `loaders/aol_microscope_session.py` | One-trial or experiment-folder microscope session scan; drops derived outputs outside `roi_activity` | `AOLMicroscopeTrialSource`, `is_microscope_trial()` |
@@ -1930,6 +1931,21 @@ instead of 10 s). The mosaic analysis keeps `correction_info` as a cell of struc
 h5py reads MATLAB's column-major arrays transposed, so planes, the tile map and masks are
 transposed back to match the lab's figures (tiles 51 rows by 15 columns, numbered across then
 down). The cell masks are the lab's own discs; the grid shows their shape, it does not draw one.
+
+**Experiments, the tree and the dendrite ROIs (D-204).** A trial opens as the reconstructed
+tree: `thin_mask.mat`'s `branch_projection` gives each branch's total length, segments are
+numbered branch by branch (verified on 12-33-56: mean correlation 0.49 against 0.12-0.15 for any
+shifted numbering), so branches become columns with their segments stacked. The dendrite ROI
+item is that mosaic with only `masks | soma_masks` pixels kept, and its dendrites run
+continuously down each column -- the check that the layout is right. Cell crops stay on the lab's
+analysis map, the only layout their masks fit. An experiment folder joins every trial that
+shares the first one's scan, on the true clock (16 trials: 2 959 frames over 784 s); the lab's
+own figures join trials gap-free instead, which would drift against a camera that records
+through the gaps. Pairing moves a joined experiment by the matched trial's `STARTTIME` gap.
+Channels named Green and Red start in those colours (`core/imaging_display.default_colors`).
+The import review reuses the window's loader registry (`MainWindow.registry`), which the drop
+worker has already discovered off the UI thread; building a fresh one imported every loader on
+the UI thread and stalled the first drop of a session for about 0.4 s.
 
 ### 27. The window must always close; jobs are owned by JobManager (V-09)
 
