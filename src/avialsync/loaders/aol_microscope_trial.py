@@ -183,6 +183,7 @@ def read_trial(path: Path, *, verify: bool = True) -> MicroscopeTrial:
     except (OSError, KeyError, ValueError, TypeError) as exc:
         warnings.append(f"Could not read complete trial timing metadata: {exc}")
     start_epoch = start_ms / 1000.0 if start_ms is not None and start_ms > 0 else 0.0
+    duration_recorded = duration is not None and duration > 0
     # The rate, best evidence first: the trial's recorded duration, the line
     # clock's own span, the controller log's nominal rate. Never a guess.
     rate_origin = "uniform over the recorded trial duration"
@@ -205,10 +206,13 @@ def read_trial(path: Path, *, verify: bool = True) -> MicroscopeTrial:
     timing_ok = line_time is not None and len(line_time) == expected and len(repeats) <= 1
     if timing_ok:
         assert line_time is not None
-        rows = line_time.reshape(timepoints, roi_count, lines) * _LINE_TICK_S
+        tick, tick_origin = _line_tick(line_time, duration if duration_recorded else None)
+        rows = line_time.reshape(timepoints, roi_count, lines) * tick
         roi_frame_times = rows.mean(axis=2)
         frame_times = rows.mean(axis=(1, 2))
-        timing_source = "line clock, frame midpoint (tiles ±27 ms)"
+        # One mosaic frame carries one time; its tiles were scanned this far either side.
+        skew_ms = 1000.0 * float(np.max(np.ptp(roi_frame_times, axis=1))) / 2.0
+        timing_source = f"line clock{tick_origin}, frame midpoint (tiles ±{skew_ms:.0f} ms)"
     else:
         frame_times = np.arange(timepoints, dtype=np.float64) * duration / timepoints
         roi_frame_times = None
@@ -311,3 +315,42 @@ def experiment_trials(folder: Path) -> list[Path]:
         return sorted(child for child in folder.iterdir() if is_microscope_trial(child))
     except OSError:
         return []
+
+
+def joined_starts(trials: list[MicroscopeTrial]) -> list[float]:
+    """Where each trial starts when an experiment's trials play back to back.
+
+    The controller's own analysis joins trials end to end with the gaps between
+    them removed; each trial takes its recorded length, or longer if its last
+    frame (plus one frame period) runs past that, so trials never overlap.
+    """
+    starts: list[float] = []
+    position = 0.0
+    for trial in trials:
+        starts.append(position)
+        frames = trial.frame_times
+        period = float(np.median(np.diff(frames))) if len(frames) > 1 else 0.0
+        position += max(trial.duration, float(frames[-1]) + period if len(frames) else 0.0)
+    return starts
+
+
+def _line_tick(ticks: np.ndarray, duration: float | None) -> tuple[float, str]:
+    """Seconds per line-clock tick, checked against the trial's recorded duration.
+
+    The controller documents a 200 MHz clock (5 ns). Its trials record their
+    duration too, and the line clock spans almost all of it; should the two
+    ever disagree by more than 1 % the clock is not 200 MHz on that rig, and
+    the tick is taken from the recording rather than from the documentation.
+    """
+    span = float(ticks[-1] - ticks[0]) if len(ticks) > 1 else 0.0
+    if duration is None or span <= 0:
+        return _LINE_TICK_S, ""
+    if abs(span * _LINE_TICK_S - duration) <= 0.01 * duration:
+        return _LINE_TICK_S, ""
+    logger.warning(
+        "Line clock spans %.3f s at 5 ns per tick but the trial lasted %.3f s; "
+        "using the recorded duration to set the tick.",
+        span * _LINE_TICK_S,
+        duration,
+    )
+    return duration / span, " (tick from the recorded duration)"

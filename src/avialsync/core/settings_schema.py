@@ -68,6 +68,17 @@ SETTINGS: tuple[Setting, ...] = (
         help_text="Root folder containing dated microscope experiment folders.",
     ),
     Setting(
+        key="aol/camera_data_folder",
+        label="AOL camera saved-data folder",
+        group="Lab Data",
+        default="",
+        kind=str,
+        help_text=(
+            "Root folder the camera PC saves trials in, named after the microscope's "
+            "trials. Leave empty when cameras are saved inside the trial folders."
+        ),
+    ),
+    Setting(
         key="aol/match_tolerance_seconds",
         label="AOL camera-to-trial match tolerance",
         group="Lab Data",

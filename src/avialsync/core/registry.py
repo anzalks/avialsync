@@ -74,6 +74,7 @@ _BUILTIN_LOADERS: tuple[tuple[str, str], ...] = (
     ("avialsync.loaders.aol_video_extraction_loader", "AOLVideoExtractionLoader"),
     ("avialsync.loaders.csv_loader", "CSVLoader"),
     ("avialsync.loaders.video_standard", "VideoStandardLoader"),
+    ("avialsync.loaders.aol_camera_join", "AOLJoinedCameraSource"),
     ("avialsync.loaders.tracking_loader", "TrackingLoader"),
     ("avialsync.loaders.vicon_c3d_loader", "ViconC3DLoader"),
     ("avialsync.loaders.neo_loader", "NeoLoader"),

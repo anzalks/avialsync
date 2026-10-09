@@ -16,6 +16,7 @@ from avialsync.loaders.aol_microscope_session import AOLMicroscopeTrialSource
 from avialsync.loaders.aol_microscope_trial import (
     MicroscopeTrial,
     is_microscope_trial,
+    joined_starts,
     read_trial,
 )
 from avialsync.loaders.aol_mosaic_layout import analysis_layout, branch_layout, choose_layout
@@ -37,12 +38,14 @@ def _trial(
     bad_line_count: bool = False,
     cells: bool = True,
     start_ms: float = 1_700_000_000_000,
+    duration: float = 0.022,
 ) -> Path:
     """A three-ROI trial; timing fields are MATLAB cells, as in real params.mat."""
     path.mkdir()
     with h5py.File(path / "params.mat", "w") as handle:
         handle.create_group("controller").create_dataset("aol_params", data=[1])
-        line = np.arange(12, dtype=np.uint64) * 2
+        # 2 ms per line at the 5 ns tick (400 000 ticks); 12 lines span 22 ms.
+        line = np.arange(12, dtype=np.uint64) * 400_000
         line = line[:-1] if bad_line_count else line
         if cells:
             _cell(handle, "timings/timing_FIFO/STARTTIME", [[start_ms]])
@@ -51,7 +54,7 @@ def _trial(
             fifo = handle.create_group("timings/timing_FIFO")
             fifo.create_dataset("STARTTIME", data=[start_ms])
             fifo.create_dataset("line_time", data=line)
-        _cell(handle, "timings/summary", [[0.016]])
+        _cell(handle, "timings/summary", [[duration]])
     for roi in (1, 2, 3):
         with h5py.File(
             path / f"RibbonScan_ROI_{roi:04d}_repeat_0001_timepoints_2.mat", "w"
@@ -101,8 +104,11 @@ def test_trial_detector_and_line_clock_times(tmp_path: Path) -> None:
 
     trial = read_trial(folder)
     assert trial.start_epoch == 1_700_000_000.0
-    assert trial.duration == pytest.approx(0.016)
-    np.testing.assert_allclose(trial.frame_times, [2.5e-8, 8.5e-8])
+    assert trial.duration == pytest.approx(0.022)
+    # Frame midpoints: lines 0-5 and 6-11 at 2 ms per line.
+    np.testing.assert_allclose(trial.frame_times, [0.005, 0.017])
+    # ROI times within a frame are 1, 5 and 9 ms: the mosaic time is ±4 ms off.
+    assert trial.timing_source == "line clock, frame midpoint (tiles ±4 ms)"
     assert trial.roi_frame_times is not None
     assert trial.roi_frame_times.shape == (2, 3)
     assert trial.timing_source.startswith("line clock")
@@ -149,7 +155,7 @@ def test_ribbon_source_tiles_and_leaves_unoccupied_pixels_nan(tmp_path: Path) ->
 def test_trial_falls_back_when_line_clock_length_is_wrong(tmp_path: Path) -> None:
     trial = read_trial(_trial(tmp_path / "12-00-00", bad_line_count=True))
     assert trial.roi_frame_times is None
-    assert trial.frame_times.tolist() == [0.0, 0.008]
+    np.testing.assert_allclose(trial.frame_times, [0.0, 0.011])
     assert any("uniform" in message for message in trial.warnings)
 
 
@@ -412,23 +418,31 @@ def test_population_patches_pack_after_the_tree(tmp_path: Path) -> None:
     assert layout.origins[3] == (0, 2)
 
 
-def test_an_experiment_plays_end_to_end_with_blank_gaps(tmp_path: Path) -> None:
+def test_an_experiment_plays_its_trials_back_to_back(tmp_path: Path) -> None:
     experiment = tmp_path / "experiment_1"
     experiment.mkdir()
     first = _trial(experiment / "12-00-00")
     second = _trial(experiment / "12-10-00", start_ms=1_700_000_600_000)
+    trials = [read_trial(first), read_trial(second)]
+    # Each trial takes its length, or its last frame plus one period if later:
+    # frames at 5 and 17 ms, 12 ms apart, so the second trial starts at 29 ms.
+    assert joined_starts(trials) == pytest.approx([0.0, 0.029])
+
     source = AOLRibbonScanSource()
     metadata = source.open(experiment, {"trial_folders": [str(first), str(second)]})
-    # Two frames per trial plus one blank frame between them.
-    assert metadata.frame_count == 5
-    assert metadata.frame_times[3] == pytest.approx(600.0 + metadata.frame_times[0])
-    assert np.isnan(source.read_frame(2, 0)).all()
-    assert np.nanmax(source.read_frame(3, 0)) > 0
-    assert "2 trials" in metadata.timing_source
+    assert metadata.frame_count == 4
+    np.testing.assert_allclose(metadata.frame_times, [0.005, 0.017, 0.034, 0.046])
+    assert "2 trials back to back" in metadata.timing_source
+    assert np.nanmax(source.read_frame(2, 0)) > 0
 
-    overlapping = _trial(experiment / "12-20-00", start_ms=1_700_000_600_000)
-    with pytest.raises(Exception, match="before the previous one ends"):
-        AOLRibbonScanSource().open(experiment, {"trial_folders": [str(second), str(overlapping)]})
+
+def test_a_clock_that_disagrees_with_the_trial_length_is_taken_from_the_recording(
+    tmp_path: Path,
+) -> None:
+    trial = read_trial(_trial(tmp_path / "12-00-00", duration=0.044))
+    # The 5 ns tick spans 22 ms but the trial lasted 44 ms: the tick doubles.
+    np.testing.assert_allclose(trial.frame_times, [0.010, 0.034])
+    assert "tick from the recorded duration" in trial.timing_source
 
 
 def test_the_controller_log_supplies_a_missing_rate(tmp_path: Path) -> None:

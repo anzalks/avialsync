@@ -104,7 +104,7 @@ def test_encoder_angle_is_hidden_but_still_drives_the_wheel(
     assert "encoder_angle" in offered
 
 
-def test_pairing_a_trial_moves_its_joined_experiment_by_the_trial_gap(
+def test_pairing_a_trial_moves_its_joined_experiment_by_its_joined_start(
     window: MainWindow, qtbot, tmp_path
 ) -> None:
     experiment = tmp_path / "experiment_1"
@@ -113,6 +113,7 @@ def test_pairing_a_trial_moves_its_joined_experiment_by_the_trial_gap(
     second = _trial(experiment / "12-10-00", start_ms=1_700_000_600_000)
     layout = AOLMicroscopeTrialSource().scan(experiment, None)
     item = layout.items[0]
+    assert item.config["trial_starts"] == pytest.approx([0.0, 0.029])
     window._route_import_candidate(item.path, item.loader, dict(item.config))
     source_id = str(experiment)
     qtbot.waitUntil(lambda: source_id in window.imaging_pane.source_paths(), timeout=_TIMEOUT)
@@ -120,5 +121,21 @@ def test_pairing_a_trial_moves_its_joined_experiment_by_the_trial_gap(
     accept_trial_pair(window, {"status": "matched", "folder": str(second)})
     residual, _drift = window._mutations.source_mapping(source_id)
     # The second trial's zero is on camera frame zero (master 0 with no camera
-    # loaded), so the experiment's own zero -- its first trial -- sits 600 s earlier.
-    assert window.effective_offset(source_id, residual) == pytest.approx(600.0)
+    # loaded); back to back, the experiment's own zero is 29 ms before it.
+    assert window.effective_offset(source_id, residual) == pytest.approx(0.029)
+
+
+def test_frame_step_walks_imaging_frames_when_no_video_is_loaded(
+    window: MainWindow, qtbot, tmp_path
+) -> None:
+    folder = _trial(tmp_path / "12-00-00")
+    path, loader, config = _candidates(folder)[0]
+    window._route_import_candidate(path, loader, dict(config))
+    qtbot.waitUntil(lambda: str(folder) in window.imaging_pane.source_paths(), timeout=_TIMEOUT)
+    times = window.imaging_pane.metadata_for(str(folder)).frame_times
+    window.player.seek(float(times[0]) - window.base_offset(str(folder)), exact=True)
+    start = window.clock.state.t
+    window.transport.frame_step_requested.emit(1)
+    assert window.clock.state.t > start
+    window.transport.frame_step_requested.emit(-1)
+    assert window.clock.state.t == pytest.approx(start, abs=1e-6)

@@ -319,6 +319,28 @@ class ImagingPane(QWidget):
 
     # ── following the clock ──────────────────────────────────────────
 
+    def frame_step_master_target(self, t_master: float, direction: int) -> float | None:
+        """Master time of the shown stack's neighbouring frame, or ``None`` at an end.
+
+        The same authority that picks the frame shown names the next one
+        (``frame_index_at``), so stepping with only imaging loaded lands on
+        each acquired frame in turn, as stepping a video does.
+        """
+        stack = self._sources.get(self.source_choice.currentData())
+        if stack is None or stack.info.frame_count == 0:
+            return None
+        times = stack.info.frame_times
+        source_time = stack.mapping.to_source(t_master)
+        if source_time < times[0]:
+            target = 0 if direction > 0 else None
+        else:
+            target = frame_index_at(times, source_time) + (1 if direction > 0 else -1)
+        if target is None or not 0 <= target < len(times):
+            return None
+        # A hair past the frame's own time, so float round trips cannot land
+        # on the instant before it and show the previous frame.
+        return float(stack.mapping.to_master(float(times[target]))) + 1e-7
+
     def set_cursor(self, t_master: float) -> None:
         """Request the presentation plane containing this master instant."""
         self._last_time = t_master

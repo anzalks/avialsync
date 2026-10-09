@@ -6512,6 +6512,8 @@ viewer neither redraws nor reshapes them.
 
 ## 2026-10 · D-204 · AOL experiments play end to end; the tree and its dendrite ROIs are rebuilt
 
+> The joining clock is superseded by D-205: trials now play back to back, and cameras join too.
+
 **Decision.** Dropping an experiment folder joins its trials into one session: one ribbon source
 and one dendrite-ROI source span every trial that shares the first trial's scan, each trial at
 its own `STARTTIME`, with one blank frame marking each gap. Trials are read lazily (three kept,
@@ -6537,4 +6539,38 @@ it against the video. Per-trial camera files would need a multi-file video reade
 decode, proxies and export; none of the recordings here needs it, so it is not built.
 Pairing a trial with a joined experiment loaded moves the whole experiment by that trial's
 `STARTTIME` gap.
+
+---
+
+## 2026-10 · D-205 · AOL trials join back to back, cameras included
+
+**Decision.** An experiment's trials play back to back, as the controller's own analysis joins
+them, not on their wall-clock `STARTTIME`: trial *k* starts where trial *k-1* ends, taking its
+recorded length or its last frame plus one frame period if that is later
+(`aol_microscope_trial.joined_starts`). Imaging, analysed trials' cell items and cameras all sit
+on that one timeline, and pairing a camera session with a joined experiment moves it by the
+matched trial's joined start (stored in the item's config, so placing it reads no file on the
+UI thread).
+
+Each camera's per-trial recordings join into one video. The camera PC names its folders after
+the controller's trials, so a trial's cameras are found by that name: in the trial folder, or
+under the **AOL camera saved-data folder** setting, mirroring `<date>/<experiment>/<trial>`.
+Every segment starts on its trial's trigger and is trimmed to the trial's length (the camera's
+stop is untriggered). The join is a stream copy into the per-user cache with a nanosecond
+timestamp sidecar, keyed on every segment's size and mtime, and only intra-frame or
+reorder-free video is joined; anything else is refused with a reason. The joined video's rate
+is the camera's recorded one, not the container's millisecond time base. One trial's cameras
+load directly, frame 0 on that trial's `STARTTIME`.
+
+Nothing about the scan is fixed in code: tile sizes, ROI counts, branch lengths, channel
+counts, trial lengths and camera rates come from the files. The 5 ns line tick is the
+controller's documented clock and is checked against every trial's recorded duration; beyond
+1 % the tick is taken from the recording and the timing note says so. The tile skew in the
+timing note is measured per trial. Frame stepping (Left/Right, comma/period) steps imaging
+frames when no video is loaded.
+
+**Why back to back.** The cameras are segmented by the controller's trials, so there is no
+footage in the gaps for joined imaging to drift against, and back to back is how the lab's own
+figures and analysis present an experiment. The wall-clock gaps remain in each trial's
+`STARTTIME`, which pairing still uses as evidence.
 

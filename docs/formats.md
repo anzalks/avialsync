@@ -55,8 +55,12 @@ import lets you choose one trial. The trial's `RibbonScan_ROI_*.mat` stacks are 
 mosaic oriented as the lab's own figures show it, with one frame time at the midpoint of its line
 scan (about ±27 ms within a frame). A trial opens as its reconstructed dendritic tree (branches as columns, their segments stacked,
 population patches packed beside them), with a second item showing only the pixels inside the
-lab's dendrite ROI masks from `thin_mask.mat`. An experiment folder opens as one long session:
-every trial at its own start time, with blank frames for the gaps between trials. Channels named
+lab's dendrite ROI masks from `thin_mask.mat`. An experiment folder opens as one long session
+with its trials back to back, as the lab's own analysis joins them. Each camera's per-trial
+recordings become one video on the same timeline: AvialSync finds them by the microscope's trial
+names, in the trial folders or under **Preferences → Lab Data → AOL camera saved-data folder**,
+starts each on its trial's trigger and trims the frames the camera recorded after the trial
+ended. The joined video is a copy kept in AvialSync's cache; the recordings are not changed. Channels named
 Green and Red start in those colours. When a trial's line clock and duration are missing, the
 controller's `Log.txt` rate for that trial is used before AvialSync asks for one.
 A single `RibbonScan_ROI_*.mat` can also be opened on its own

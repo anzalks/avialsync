@@ -5,9 +5,8 @@ tile, laid out as the microscope controller reconstructs the dendritic tree
 (:mod:`~avialsync.loaders.aol_mosaic_layout`). With ``mask="thin"`` the same
 mosaic shows only the pixels inside the lab's dendrite ROI masks
 (``thin_mask.mat``), which is the ROIs' real shape. An experiment folder opens
-as one source spanning all of its trials on their true clock: each trial at
-its own ``STARTTIME``, with a blank frame marking every gap between them so a
-stale picture never stands in for time nobody imaged. A single
+as one source spanning all of its trials back to back, as the controller's own
+analysis joins them (:func:`~avialsync.loaders.aol_microscope_trial.joined_starts`). A single
 ``RibbonScan_ROI_*.mat`` opens on its own, exactly as the controller wrote it:
 both channels, ``uint16``, at that ROI's own line-clock times.
 
@@ -34,6 +33,7 @@ from avialsync.loaders.aol_microscope_trial import (
     MicroscopeTrial,
     declared_green_channel,
     is_microscope_trial,
+    joined_starts,
     logged_rate,
     read_trial,
     roi_file_parts,
@@ -57,10 +57,16 @@ def green_channel(folder: Path, channels: int) -> int:
 
 
 def channel_names(channels: int, green: int) -> tuple[str, ...]:
-    """Name each acquired channel by its colour, as the lab's record defines it."""
+    """Name each acquired channel by its colour, as the lab's record defines it.
+
+    The rig records two PMTs, green and red; with any other channel count only
+    the recorded green one is named, and the rest stay unnamed (D-195).
+    """
     if channels == 1:
         return ("Green",)
-    return tuple("Green" if index == green else "Red" for index in range(channels))
+    if channels == 2:
+        return tuple("Green" if index == green else "Red" for index in range(channels))
+    return tuple("Green" if index == green else "" for index in range(channels))
 
 
 def thin_masks(folder: Path) -> dict[int, np.ndarray] | None:
@@ -117,7 +123,6 @@ class AOLRibbonScanSource(ImagingSource):
 
     def __init__(self) -> None:
         self._segments: list[_Segment] = []
-        self._gaps: set[int] = set()
         self._layout: MosaicLayout | None = None
         self._lines = 0
         self._width = 0
@@ -169,31 +174,22 @@ class AOLRibbonScanSource(ImagingSource):
         self._lines, self._width, self._channels = first.lines, first.width, first.channels
         self._mask_mode = str(config.get("mask", ""))
         scan = (first.roi_numbers, first.channels, first.lines, first.width)
+        trials = [first] + [read_trial(folder, verify=False) for folder in folders[1:]]
+        for trial in trials:
+            if (trial.roi_numbers, trial.channels, trial.lines, trial.width) != scan:
+                raise SourceOpenError(
+                    f"Trial {trial.folder.name} does not share the first trial's scan."
+                )
         times: list[np.ndarray] = []
         next_index = 0
-        for position, folder in enumerate(folders):
-            trial = first if position == 0 else read_trial(folder, verify=False)
-            if (trial.roi_numbers, trial.channels, trial.lines, trial.width) != scan:
-                raise SourceOpenError(f"Trial {folder.name} does not share the first trial's scan.")
-            offset = trial.start_epoch - first.start_epoch if position else 0.0
-            frames = trial.frame_times + offset
-            if times and frames[0] <= float(times[-1][-1]):
-                raise SourceOpenError(f"Trial {folder.name} starts before the previous one ends.")
-            if position:
-                # One blank frame a frame period after the previous trial ends marks the gap.
-                previous = times[-1]
-                period = float(np.median(np.diff(previous))) if len(previous) > 1 else 1e-3
-                gap_time = min(float(previous[-1]) + period, (float(previous[-1]) + frames[0]) / 2)
-                times.append(np.array([gap_time]))
-                self._gaps.add(next_index)
-                next_index += 1
+        for trial, start in zip(trials, joined_starts(trials), strict=True):
             self._segments.append(_Segment(trial, next_index))
-            times.append(frames)
-            next_index += len(frames)
+            times.append(trial.frame_times + start)
+            next_index += trial.timepoints
         frame_times = np.concatenate(times)
         source = first.timing_source
         if len(folders) > 1:
-            source += f"; {len(folders)} trials at their STARTTIME"
+            source += f"; {len(folders)} trials back to back"
         if self._mask_mode == "thin":
             source += "; dendrite ROI masks"
         self._load(first)
@@ -315,8 +311,6 @@ class AOLRibbonScanSource(ImagingSource):
         if not 0 <= channel < self._channels:
             raise IndexError(channel)
         mosaic = np.full(self._layout.size, np.nan, dtype=np.float32)
-        if index in self._gaps:
-            return mosaic
         segment, local = self._segment_for(index)
         if not 0 <= local < segment.trial.timepoints:
             raise IndexError(index)
@@ -336,7 +330,6 @@ class AOLRibbonScanSource(ImagingSource):
     def close(self) -> None:
         """Release the in-memory pixels; HDF5 handles are closed as they are read."""
         self._segments.clear()
-        self._gaps.clear()
         self._loaded.clear()
         self._layout = None
         self._single = None

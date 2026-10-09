@@ -18,6 +18,7 @@ _CACHE_MODULES = {
     "engine/imaging_proxy.py",
     "engine/nwb_cache.py",
     "loaders/video_standard.py",
+    "loaders/aol_camera_join.py",  # joined camera staged and committed via CacheManager
 }
 
 # A producer may write *only to the temporary path publish supplied*. The

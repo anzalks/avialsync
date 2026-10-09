@@ -233,6 +233,13 @@ class Player(QObject):
 
         panes = self._update_pane_footage(self.clock.state.t)
         if not panes:
+            # No video here: step the imaging stack's own frames instead.
+            imaging = getattr(self, "imaging_pane", None)
+            if imaging is None or not imaging.isVisible():
+                return
+            target = imaging.frame_step_master_target(self.clock.state.t, direction)
+            if target is not None:
+                self.seek(target, exact=True)
             return
         target = panes[0].frame_step_master_target(self.clock.state.t, direction)
         if target is None:

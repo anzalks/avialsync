@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from avialsync.core.commands import SetSourceMappingsCommand, SourceMappingChange
 from avialsync.core.settings_schema import setting_for
 from avialsync.engine.aol_trial_search import AOLTrialSearchWorker
-from avialsync.loaders.aol_microscope_trial import read_trial
+from avialsync.loaders.aol_microscope_trial import joined_starts, read_trial
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import on_ui_thread
 
@@ -102,35 +102,45 @@ def _search_finished(window: MainWindow, result: object) -> None:
 
 
 def _pair_targets(window: MainWindow, folder: Path) -> list[tuple[str, float]]:
-    """Loaded sources of the matched trial or of its experiment, with each one's zero.
+    """Loaded sources of the matched trial or of its joined experiment, with each one's zero.
 
     Each entry is ``(source id, seconds from the matched trial's zero to this
-    source's own zero)``: 0 for the trial itself, the gap between their
-    ``STARTTIME`` values for a joined experiment or another trial's analysis.
+    source's own zero)``. A joined experiment plays its trials back to back
+    (``joined_starts``), so its zero is the matched trial's joined start
+    earlier, and an analysed trial inside it sits at its own joined start.
     """
-    starts: dict[Path, float] = {}
-
-    def start_of(trial: Path) -> float:
-        if trial not in starts:
-            starts[trial] = read_trial(trial, verify=False).start_epoch
-        return starts[trial]
-
-    matched = start_of(folder)
-    covered: set[Path] = {folder}
+    joined: dict[Path, float] = {}
     targets: list[tuple[str, float]] = []
     for source_id in window.imaging_pane.source_paths():
         _loader, config, _mapping = window.imaging_pane.source_config(source_id)
         members = [Path(item) for item in config.get("trial_folders") or ()]
-        if not members and config.get("trial_folder"):
-            members = [Path(str(config["trial_folder"]))]
         if folder not in members:
             continue
-        covered.update(members)
-        targets.append((source_id, start_of(members[0]) - matched))
+        if not joined:
+            starts = config.get("trial_starts")
+            if not starts or len(starts) != len(members):
+                # A session saved before starts were stored: derive them once.
+                starts = joined_starts([read_trial(member, verify=False) for member in members])
+            joined = dict(zip(members, (float(start) for start in starts), strict=True))
+        targets.append((source_id, -joined[folder]))
+
+    def zero_of(trial: Path) -> float | None:
+        if joined:
+            return joined[trial] - joined[folder] if trial in joined else None
+        return 0.0 if trial == folder else None
+
+    for source_id in window.imaging_pane.source_paths():
+        _loader, config, _mapping = window.imaging_pane.source_config(source_id)
+        if config.get("trial_folders") or not config.get("trial_folder"):
+            continue
+        zero = zero_of(Path(str(config["trial_folder"])))
+        if zero is not None:
+            targets.append((source_id, zero))
     for source_id in window._sensor_cache_dirs:
-        trial = Path(source_id).parent
-        if Path(source_id).name == "roi_activity" and trial in covered:
-            targets.append((source_id, start_of(trial) - matched))
+        if Path(source_id).name == "roi_activity":
+            zero = zero_of(Path(source_id).parent)
+            if zero is not None:
+                targets.append((source_id, zero))
     return targets
 
 
@@ -206,8 +216,8 @@ def accept_trial_pair(window: MainWindow, result: dict[str, Any]) -> None:
     """Place the matched trial's zero on camera frame zero, as one undoable command.
 
     A joined experiment moves as one: its own zero is its first trial's, so it
-    lands that trial's ``STARTTIME`` gap earlier. Another trial's analysis in
-    the same experiment moves by its own gap the same way.
+    lands the matched trial's joined start earlier. Another trial's analysis in
+    the same experiment keeps its place on the joined timeline.
     """
     folder = Path(str(result["folder"]))
     targets = _pair_targets(window, folder)

@@ -46,11 +46,23 @@ def drop_event(window: MainWindow, event: QDropEvent) -> None:
     window._start_drop_scan(paths)
 
 
+def _publish_camera_roots() -> None:
+    """Tell the AOL scanner where the camera PC saves trials, from the user's setting."""
+    from avialsync.core.settings_schema import setting_for
+    from avialsync.loaders.aol_camera_join import configure_camera_roots
+    from avialsync.ui.preferences_dialog import read_setting
+
+    setting = setting_for("aol/camera_data_folder")
+    folder = str(read_setting(setting)).strip() if setting is not None else ""
+    configure_camera_roots([Path(folder).expanduser()] if folder else [])
+
+
 def start_drop_scan(window: MainWindow, paths: list[Path]) -> None:
     """Launch background scanning for dropped paths."""
     from avialsync.engine.drop_worker import DropScanWorker
 
     window.transport.set_status("Scanning files…")
+    _publish_camera_roots()
     worker = DropScanWorker(paths, window.registry)
 
     # Wired through `configure`, which runs before the thread starts. Connecting
