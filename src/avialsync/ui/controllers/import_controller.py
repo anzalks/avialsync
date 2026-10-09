@@ -356,14 +356,13 @@ def on_import_finished(
         path, mapped[0], mapped[1], "data", window.coverage_group_for(path)
     )
     window._recompute_bounds()
-    channel_descriptions = (
-        inspection.channel_descriptions or {} if isinstance(inspection, SourceInspection) else {}
-    )
+    channel_descriptions = getattr(inspection, "channel_descriptions", None) or {}
     window.sidebar.add_sensor(
         path,
         channels,
         channel_visibility=channel_visibility,
         channel_descriptions=channel_descriptions,
+        label=window.session_runtime.item_labels.get(path, ""),
     )
     if tracking_state is not None:
         window.sidebar.set_tracking_controls(

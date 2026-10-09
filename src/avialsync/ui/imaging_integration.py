@@ -60,6 +60,7 @@ def install(
         lambda path, before, after, aspect: record_view(window, path, before, after, aspect)
     )
     pane.layout_requested.connect(lambda path, layout: request_layout(window, path, layout))
+    pane.seek_requested.connect(lambda t: window.player.seek(t, exact=True))
     pane.error.connect(
         lambda message: window.report_failure(
             SourceOpenError(message), doing=tr("Reading imaging frame")
@@ -365,10 +366,18 @@ def load_imaging(
             )
             effective_offset = window.effective_offset(source_id, offset)
         residual = window.user_offset(source_id, effective_offset) if restoring else offset
+        label = window.session_runtime.item_labels.get(source_id, "")
         window.imaging_pane.add_source(
-            source_id, loader_cls, chosen, metadata, effective_offset, drift_ms_per_hour, view
+            source_id,
+            loader_cls,
+            chosen,
+            metadata,
+            effective_offset,
+            drift_ms_per_hour,
+            view,
+            label=label,
         )
-        window.sidebar.add_imaging(source_id, metadata, residual, drift_ms_per_hour)
+        window.sidebar.add_imaging(source_id, metadata, residual, drift_ms_per_hour, label=label)
         window._recorded_mappings[source_id] = (residual, drift_ms_per_hour)
         _reveal(window)
         _show_coverage(window, source_id, metadata, TimeMap(effective_offset, drift_ms_per_hour))

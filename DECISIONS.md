@@ -6574,3 +6574,28 @@ footage in the gaps for joined imaging to drift against, and back to back is how
 figures and analysis present an experiment. The wall-clock gaps remain in each trial's
 `STARTTIME`, which pairing still uses as evidence.
 
+---
+
+## 2026-10 · D-206 · Offer only the choices a source can use
+
+**Decision.** The import review offers, for an item a session named, only *Skip* and that
+item's own loader (with its kind aliases): the session already knows what the file is, and a
+list of every installed format only invites misreading it. Loose files still list every
+loader. The *Use as* and *Calibration (XCP)* columns appear only while some row has a pose role
+or a Vicon calibration to choose, and are re-checked when a type changes. Each name in the list
+is drawn once (the table item keeps it for readers, transparent; it used to be painted under
+its label and read as smeared bold).
+
+A stack whose loader fixes its axis order -- every AOL source -- declares no reinterpretable
+order, so the imaging viewer hides its *Axes* row (D-194 remains for generic HDF5/TIFF stacks).
+Imaging sources, their cards and sensor cards are named by the session's label when it gave
+one ("experiment_2 — 16 trials — dendrite ROIs") rather than by a file name (`thin_mask.mat`).
+
+A session can bundle sources that are one thing to the user (`_bundle`, `_bundle_label` in an
+item's config): the AOL scanner bundles a scan's reconstructed tree with its dendrite ROIs, and a
+trial's cell ROIs with their traces. The import review shows a bundle as one row that loads or
+skips all of it; the sources stay separate in the viewer, whose selector chooses between them.
+Picking a stack in that selector while the playhead is outside it moves the playhead to the
+stack's first frame: the pick is a request to see it, and a ten-second analysis inside a joined
+experiment otherwise looked like the selector had done nothing.
+

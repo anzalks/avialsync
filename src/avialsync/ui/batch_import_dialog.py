@@ -5,12 +5,14 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QBrush
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
     QHeaderView,
+    QLabel,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -127,6 +129,10 @@ class BatchImportDialog(QDialog):
             name_item = QTableWidgetItem(self._row_name(path))
             name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             name_item.setToolTip(str(path))
+            # The label below draws the name; the item keeps it only for readers
+            # and assistive technology. Painted too, the same text landed twice a
+            # pixel or two apart and read as smeared bold.
+            name_item.setForeground(QBrush(Qt.GlobalColor.transparent))
             self._table.setItem(row, 0, name_item)
             # Drawn by the widget the application already uses for data text,
             # rather than left to the view's own eliding. A view elides to the
@@ -153,9 +159,17 @@ class BatchImportDialog(QDialog):
                 # A declared kind selects among the loader's own labels; without one
                 # the loader's primary name is the default, as before.
                 wanted_kind = self._kinds.get(str(path), "")
+                # A session that named this item already knows what it is: offer
+                # its loader's own kinds and Skip, not every format installed.
+                declared = default_loader is not None and str(path) in self._labels
+                offered = [
+                    (label, loader_cls)
+                    for label, loader_cls in self._categories
+                    if not declared or loader_cls is default_loader
+                ]
                 default_index = 0
                 fallback_index = 0
-                for i, (label, loader_cls) in enumerate(self._categories, start=1):
+                for i, (label, loader_cls) in enumerate(offered, start=1):
                     combo.addItem(label, loader_cls)
                     if loader_cls != default_loader:
                         continue
@@ -213,6 +227,9 @@ class BatchImportDialog(QDialog):
             self._calibration_previous_indices.append(0)
             combo.currentIndexChanged.connect(lambda _index, at=row: self._update_calibration(at))
             self._update_calibration(row)
+            combo.currentIndexChanged.connect(lambda _index: self._refresh_optional_columns())
+        self._collapse_bundles()
+        self._refresh_optional_columns()
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -220,6 +237,58 @@ class BatchImportDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+    def _collapse_bundles(self) -> None:
+        """Show each bundle a session declared as one row that loads all of it.
+
+        A session can name several sources that are one thing to the user -- a
+        microscope trial's reconstructed tree and its dendrite ROIs, an analysis
+        and its traces. Listed separately they read as the same item repeated.
+        The first member's row stands for the bundle; the others are hidden and
+        follow its choice, so ``get_selections`` still returns every source.
+        """
+        bundles: dict[str, list[int]] = {}
+        for row, (_path, _loader, config) in enumerate(self._candidates):
+            key = str((config or {}).get("_bundle", ""))
+            if key:
+                bundles.setdefault(key, []).append(row)
+        for rows in bundles.values():
+            if len(rows) < 2:
+                continue
+            leader, members = rows[0], rows[1:]
+            label = str((self._candidates[leader][2] or {}).get("_bundle_label", ""))
+            if label:
+                name = self._table.cellWidget(leader, 0)
+                if isinstance(name, QLabel):
+                    name.setText(label)
+                item = self._table.item(leader, 0)
+                if item is not None:
+                    item.setText(label)
+            lead = self._combos[leader]
+            kinds = " + ".join(dict.fromkeys(self._combos[row].currentText() for row in rows))
+            if lead.currentIndex() > 0:
+                lead.setItemText(lead.currentIndex(), kinds)
+            defaults = {row: self._combos[row].currentIndex() for row in members}
+            for row in members:
+                self._table.setRowHidden(row, True)
+            lead.currentIndexChanged.connect(
+                lambda index, defaults=defaults: [
+                    self._combos[row].setCurrentIndex(0 if index == 0 else chosen)
+                    for row, chosen in defaults.items()
+                ]
+            )
+
+    def _refresh_optional_columns(self) -> None:
+        """Show "Use as" and "Calibration" only while some row can use them.
+
+        Most imports -- imaging, ephys, a microscope trial -- have no pose role
+        and no Vicon calibration; two columns of greyed-out choices there only
+        ask the user to wonder what they are for.
+        """
+        roles = any(combo.isEnabled() for combo in self._role_combos)
+        calibration = any(combo.isEnabled() for combo in self._calibration_combos)
+        self._table.setColumnHidden(2, not roles)
+        self._table.setColumnHidden(3, not calibration)
 
     def _update_calibration(self, row: int) -> None:
         combo = self._calibration_combos[row]
@@ -405,6 +474,8 @@ class BatchImportDialog(QDialog):
                 role, video = role_combo.currentData()
                 chosen = dict(config or {})
                 chosen.pop("_exclusive_group", None)
+                chosen.pop("_bundle", None)
+                chosen.pop("_bundle_label", None)
                 chosen.pop("role", None)
                 chosen.pop("overlay_video", None)
                 if role:

@@ -1947,6 +1947,11 @@ trimmed to the trial (verified on real 1440x1080 MJPEG: a 4.351 ms seam against 
 period). Nothing is sized from constants; the 5 ns line tick is checked against each trial's
 duration. Frame stepping walks imaging frames when no video is loaded. Channels named Green and
 Red start in those colours (`core/imaging_display.default_colors`).
+The import review offers a session-named item only Skip or its own loader and hides
+the Use as / Calibration columns unless a row can use them; AOL stacks declare no axis order, so
+the viewer's Axes row stays hidden, and the source selector and cards carry session labels (D-206).
+Bundled items (`_bundle` in a session item's config) collapse into one import row; picking an
+imaging stack that has no data at the playhead seeks to its first frame (`ImagingPane.seek_requested`).
 The import review reuses the window's loader registry (`MainWindow.registry`), which the drop
 worker has already discovered off the UI thread; building a fresh one imported every loader on
 the UI thread and stalled the first drop of a session for about 0.4 s.

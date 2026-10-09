@@ -72,7 +72,13 @@ def _analysis_items(trial: MicroscopeTrial, epoch: float | None) -> list[Session
     activity = analysis_file(trial.folder)
     if activity is None:
         return []
-    config: dict[str, object] = {"trial_folder": str(trial.folder), "activity_file": str(activity)}
+    config: dict[str, object] = {
+        "trial_folder": str(trial.folder),
+        "activity_file": str(activity),
+        # One analysis, two views: offered as one row in the import review.
+        "_bundle": f"analysis:{trial.folder}",
+        "_bundle_label": f"{trial.folder.name} — lab ROI analysis (cell ROIs and traces)",
+    }
     return [
         SessionItem(
             path=activity,
@@ -96,6 +102,14 @@ def _imaging_items(
 ) -> list[SessionItem]:
     """The ribbon mosaic and, when masks exist, its dendrite ROIs."""
     first = trials[0]
+    if (first.folder / "thin_mask.mat").is_file():
+        # Two views of one scan: offered as one row in the import review.
+        config = {
+            **config,
+            "_bundle": f"imaging:{path}",
+            "_bundle_label": f"{name} — {len(first.roi_files)} ribbon ROIs: "
+            "reconstructed tree and dendrite ROIs",
+        }
     items = [
         SessionItem(
             path=path,

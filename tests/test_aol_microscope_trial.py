@@ -143,7 +143,8 @@ def test_ribbon_source_tiles_and_leaves_unoccupied_pixels_nan(tmp_path: Path) ->
     # Shown as MATLAB shows it: each 2-line x 3-pixel plane is a 3 x 2 tile,
     # numbered left to right, then down.
     assert (metadata.frame_count, metadata.height, metadata.width) == (2, 6, 4)
-    assert metadata.axes == "CTYX"
+    # The order is the loader's own, so the viewer offers no axis reinterpretation.
+    assert metadata.axes == ""
     frame = source.read_frame(1, channel=1)
     assert np.all(frame[:3, :2] == 1501)
     assert np.all(frame[:3, 2:] == 2501)
@@ -266,7 +267,7 @@ def test_a_single_ribbon_file_opens_raw_at_its_own_line_clock_times(tmp_path: Pa
 
     source = AOLRibbonScanSource()
     metadata = source.open(path, {})
-    assert (metadata.dtype, metadata.axes, metadata.shape) == ("uint16", "CTYX", (2, 2, 3, 2))
+    assert (metadata.dtype, metadata.axes, metadata.shape) == ("uint16", "", (2, 2, 3, 2))
     assert metadata.channel_names == ("Red", "Green")
     trial = read_trial(folder)
     assert trial.roi_frame_times is not None

@@ -70,6 +70,8 @@ class ImagingPane(QWidget):
     view_changed = Signal(str, object, object, str)
     #: ``(path, {"axes": ..., "z": ...})`` when the user picks another reading.
     layout_requested = Signal(str, object)
+    #: A master time to show: emitted when the user picks a stack with no data at the playhead.
+    seek_requested = Signal(float)
     decode_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -94,6 +96,7 @@ class ImagingPane(QWidget):
         self.source_choice.setAccessibleName(tr("Imaging source"))
         self.source_choice.setAccessibleDescription(tr("Choose the imaging stack to display"))
         self.source_choice.currentIndexChanged.connect(self._activate_selected)
+        self.source_choice.activated.connect(self._source_picked)
         layout.addWidget(self.source_choice)
 
         self.frame_label = ImagingFrameView(self)
@@ -200,13 +203,14 @@ class ImagingPane(QWidget):
         offset: float = 0.0,
         drift_ms_per_hour: float = 0.0,
         view: ImagingView | None = None,
+        label: str = "",
     ) -> None:
-        """Register a stack and show it."""
+        """Register a stack and show it, named by *label* when the session gave one."""
         shown = (view or ImagingView()).fitted(metadata.channel_count, metadata.channel_names)
         mapping = TimeMap(offset, drift_ms_per_hour)
         self._sources[path] = _Stack(loader_cls, dict(config), metadata, mapping, shown)
         if self.source_choice.findData(path) < 0:
-            self.source_choice.addItem(Path(path).name, path)
+            self.source_choice.addItem(label or Path(path).name, path)
         self.source_choice.setCurrentIndex(self.source_choice.findData(path))
 
     def session_entries(self) -> list[ImagingEntry]:
@@ -374,6 +378,23 @@ class ImagingPane(QWidget):
     # ── reader thread ────────────────────────────────────────────────
 
     @Slot()
+    @Slot(int)
+    def _source_picked(self, _index: int) -> None:
+        """Bring a stack the user picked into view when the playhead is outside it.
+
+        Choosing a stack is a request to see it. A trial's analysis covers ten
+        seconds of an experiment of minutes; with the playhead elsewhere the
+        choice looked like it did nothing but print "No imaging data".
+        """
+        stack = self._sources.get(self.source_choice.currentData())
+        if stack is None or stack.info.frame_count == 0:
+            return
+        times = stack.info.frame_times
+        source_time = stack.mapping.to_source(self._last_time)
+        if times[0] <= source_time <= times[-1] + stack.info.tail_duration:
+            return
+        self.seek_requested.emit(float(stack.mapping.to_master(float(times[0]))) + 1e-7)
+
     def _activate_selected(self) -> None:
         self._stop_worker()
         self._out_of_range = False

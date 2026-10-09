@@ -107,7 +107,8 @@ class AOLCellRoiGridSource(ImagingSource):
             dataset=str(activity),
             channel_count=1,
             shape=(len(self._frame_times), self._shape[0], self._shape[1]),
-            axes="TYX",
+            # The order is the loader's own, not a guess to correct (D-194 row hidden).
+            axes="",
             channel_names=("Green",),
         )
 

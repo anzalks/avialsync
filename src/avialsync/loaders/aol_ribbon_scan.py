@@ -205,7 +205,8 @@ class AOLRibbonScanSource(ImagingSource):
             dataset=f"ribbon_scan_mosaic_{self._layout.kind}",
             channel_count=first.channels,
             shape=(first.channels, len(frame_times), height, width),
-            axes="CTYX",
+            # The order is the loader's own, not a guess to correct (D-194 row hidden).
+            axes="",
             channel_names=channel_names(first.channels, green),
         )
 
@@ -264,7 +265,8 @@ class AOLRibbonScanSource(ImagingSource):
             dataset="volume",
             channel_count=channels,
             shape=(channels, count, height, width),
-            axes="CTYX",
+            # The order is the loader's own, not a guess to correct (D-194 row hidden).
+            axes="",
             channel_names=channel_names(channels, green_channel(path.parent, channels)),
         )
 

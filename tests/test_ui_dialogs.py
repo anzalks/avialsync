@@ -573,7 +573,12 @@ def test_the_candidate_list_keeps_both_ends_of_a_name(
 
     from avialsync.loaders.tracking_loader import TrackingLoader
 
-    stem = "Trial     2DLC_Resnet50_SocialInteractionsJAWSJan18shuffle1_snapshot_140"
+    # Long enough to overflow the name column even when the import needs no
+    # pose or calibration columns and the name column takes their width too.
+    stem = (
+        "Trial     2DLC_Resnet50_SocialInteractionsJAWSJan18shuffle1_snapshot_140"
+        "_videoSocialInteractionsJAWSJan18_cropped_filtered_by_likelihood"
+    )
     dialog = BatchImportDialog(
         [
             (tmp_path / f"{stem}_el.csv", TrackingLoader, None),

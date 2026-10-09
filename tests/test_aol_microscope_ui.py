@@ -139,3 +139,98 @@ def test_frame_step_walks_imaging_frames_when_no_video_is_loaded(
     assert window.clock.state.t > start
     window.transport.frame_step_requested.emit(-1)
     assert window.clock.state.t == pytest.approx(start, abs=1e-6)
+
+
+def test_import_review_draws_each_name_once(window: MainWindow, tmp_path: Path) -> None:
+    """The name label sits over its table item; painting both smeared the text."""
+    folder = _trial(tmp_path / "12-00-00")
+    dialog = BatchImportDialog(_candidates(folder), window)
+    item = dialog._table.item(0, 0)
+    assert item.text()  # still there for readers and assistive technology
+    assert item.foreground().color().alpha() == 0
+    assert dialog._table.cellWidget(0, 0).text() == item.text()
+    dialog.deleteLater()
+
+
+def test_import_review_shows_only_what_a_trial_needs(window: MainWindow, tmp_path: Path) -> None:
+    folder = _trial(tmp_path / "12-00-00")
+    _analysis(folder)
+    candidates = _candidates(folder)
+    labels = {str(path): f"label {index}" for index, (path, _l, _c) in enumerate(candidates)}
+    dialog = BatchImportDialog(candidates, window, labels=labels)
+    for row, combo in enumerate(dialog._combos):
+        loader = dialog._candidates[row][1]
+        offered = {combo.itemData(index) for index in range(combo.count())}
+        # Skip, or what the session found -- not every installed format.
+        assert offered == {None, loader}
+    # No row has a pose role or a Vicon calibration, so those columns are gone.
+    assert dialog._table.isColumnHidden(2) and dialog._table.isColumnHidden(3)
+    dialog.deleteLater()
+
+
+def test_controller_stacks_open_with_their_session_names_and_no_axes_row(
+    window: MainWindow, qtbot, tmp_path
+) -> None:
+    folder = _trial(tmp_path / "12-00-00")
+    path, loader, config = _candidates(folder)[0]
+    window.session_runtime.item_labels[str(path)] = "12-00-00 — reconstructed tree"
+    window._route_import_candidate(path, loader, dict(config))
+    qtbot.waitUntil(lambda: str(folder) in window.imaging_pane.source_paths(), timeout=_TIMEOUT)
+    pane = window.imaging_pane
+    assert pane.source_choice.currentText() == "12-00-00 — reconstructed tree"
+    assert pane.layout_row.isHidden()
+
+
+def _thin_mask_file(folder: Path) -> None:
+    from tests.test_aol_microscope_trial import _thin_mask
+
+    _thin_mask(folder)
+
+
+def test_paired_views_are_one_row_in_the_import_review(window: MainWindow, tmp_path: Path) -> None:
+    folder = _trial(tmp_path / "12-00-00")
+    _analysis(folder)
+    _thin_mask_file(folder)
+    candidates = _candidates(folder)
+    assert len(candidates) == 4  # tree, dendrite ROIs, cell ROIs, traces
+    dialog = BatchImportDialog(candidates, window)
+    shown = [row for row in range(dialog._table.rowCount()) if not dialog._table.isRowHidden(row)]
+    names = {dialog._table.cellWidget(row, 0).text() for row in shown}
+    assert len(shown) == 2
+    assert any("reconstructed tree and dendrite ROIs" in name for name in names)
+    assert any("lab ROI analysis (cell ROIs and traces)" in name for name in names)
+    # Every source still loads, and none carries the bundle bookkeeping.
+    selections = dialog.get_selections()
+    assert len(selections) == 4
+    assert all("_bundle" not in (config or {}) for _p, _l, config in selections)
+    # Skipping the row skips the whole bundle.
+    for row in shown:
+        dialog._combos[row].setCurrentIndex(0)
+    assert dialog.get_selections() == []
+    dialog.deleteLater()
+
+
+def test_picking_a_stack_outside_the_playhead_brings_it_into_view(
+    window: MainWindow, qtbot, tmp_path
+) -> None:
+    experiment = tmp_path / "experiment_1"
+    experiment.mkdir()
+    _trial(experiment / "12-00-00")
+    second = _trial(experiment / "12-10-00", start_ms=1_700_000_600_000)
+    _analysis(second)
+    layout = AOLMicroscopeTrialSource().scan(experiment, None)
+    from avialsync.ui.controllers import drop_controller
+
+    drop_controller.apply_session_layout(window, layout)
+    for item in layout.items:
+        if item.loader is not AOLRoiTraceLoader:
+            window._route_import_candidate(item.path, item.loader, dict(item.config))
+    pane = window.imaging_pane
+    grid = str(next(item.path for item in layout.items if item.loader is AOLCellRoiGridSource))
+    qtbot.waitUntil(lambda: grid in pane.source_paths(), timeout=_TIMEOUT)
+    window.player.seek(0.0, exact=True)
+    pane.source_choice.setCurrentIndex(pane.source_choice.findData(grid))
+    pane.source_choice.activated.emit(pane.source_choice.currentIndex())
+    _loader, _config, mapping = pane.source_config(grid)
+    first = float(pane.metadata_for(grid).frame_times[0])
+    assert mapping.to_source(window.clock.state.t) == pytest.approx(first, abs=1e-6)

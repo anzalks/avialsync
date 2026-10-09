@@ -143,6 +143,7 @@ class SensorInfoWidget(QFrame):
         parent: QWidget | None = None,
         channel_visibility: Mapping[str, bool] | None = None,
         channel_descriptions: Mapping[str, str] | None = None,
+        label: str = "",
     ) -> None:
         super().__init__(parent)
         self.path = path
@@ -155,7 +156,9 @@ class SensorInfoWidget(QFrame):
 
         # ── Header: filename + badge + remove whole source ──────────
         header = QHBoxLayout()
-        name_lbl = ElidedLabel(Path(path).name)
+        # The session's name for the source when it gave one ("12-33-56 — cell
+        # ROI traces"), not the folder the traces happen to live in.
+        name_lbl = ElidedLabel(label or Path(path).name)
         name_lbl.setToolTip(path)
         set_bold(name_lbl)
 
@@ -1121,6 +1124,7 @@ class SidebarPane(QWidget):
         channels: list[str],
         channel_visibility: Mapping[str, bool] | None = None,
         channel_descriptions: Mapping[str, str] | None = None,
+        label: str = "",
     ) -> None:
         """Add a sensor info widget to the sidebar."""
         # Remove placeholder if present
@@ -1134,6 +1138,7 @@ class SidebarPane(QWidget):
             channels,
             channel_visibility=channel_visibility,
             channel_descriptions=channel_descriptions,
+            label=label,
         )
         widget.remove_requested.connect(self.sensor_remove_requested)
         widget.channel_remove_requested.connect(self.channel_remove_requested)
@@ -1251,11 +1256,13 @@ class SidebarPane(QWidget):
         if w:
             w.set_loader(loader)
 
-    def add_imaging(self, path: str, info: ImagingMetadata, offset: float, drift: float) -> None:
+    def add_imaging(
+        self, path: str, info: ImagingMetadata, offset: float, drift: float, label: str = ""
+    ) -> None:
         """Show an imaging stack's card, or update it when the stack was reopened."""
         widget = self._imaging_widgets.get(path)
         if widget is None:
-            widget = ImagingInfoWidget(path, info)
+            widget = ImagingInfoWidget(path, info, label=label)
             widget.mapping_changed.connect(self.imaging_mapping_changed)
             widget.remove_requested.connect(self.imaging_remove_requested)
             widget.properties_requested.connect(self.imaging_properties_requested)

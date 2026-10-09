@@ -89,12 +89,16 @@ class ImagingInfoWidget(QFrame):
     mapping_changed = Signal(str, float, float)  # path, offset_s, drift_ms_per_hour
     properties_requested = Signal(str)
 
-    def __init__(self, path: str, info: ImagingMetadata, parent: QWidget | None = None) -> None:
+    def __init__(
+        self, path: str, info: ImagingMetadata, parent: QWidget | None = None, label: str = ""
+    ) -> None:
         super().__init__(parent)
         self.path = path
         self.info = info
         self.setFrameStyle(QFrame.Shape.StyledPanel | QFrame.Shadow.Raised)
-        name = Path(path).name
+        # The session's name for the stack when it gave one: a joined experiment
+        # and its dendrite ROIs are otherwise "experiment_2" and "thin_mask.mat".
+        name = label or Path(path).name
         layout = QVBoxLayout(self)
         margin = spacing("s", self)
         layout.setContentsMargins(margin, margin, margin, margin)
