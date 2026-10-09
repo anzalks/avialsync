@@ -16,6 +16,22 @@ if TYPE_CHECKING:
 Register = Callable[[QAction, str], QAction]
 
 
+def _add_microscope_trial_action(window: MainWindow, menu: QMenu, register: Register) -> QAction:
+    """Add the configured AOL trial search to the Align menu."""
+    from avialsync.ui.controllers import aol_microscope_controller
+
+    action = menu.addAction(tr("Find microscope trial…"))
+    action.setToolTip(tr("Find the matching AOL microscope trial by its recorded start time"))
+    action.triggered.connect(lambda: aol_microscope_controller.find_trial(window))
+    register(action, "Align")
+    window._require(
+        action,
+        lambda: aol_microscope_controller.can_find_trial(window),
+        tr("Load an AOL camera session and set its microscope folder in Preferences."),
+    )
+    return action
+
+
 def build_align_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMenu:
     """Create this menu and connect its actions to the window."""
     # ── Align ─────────────────────────────────────────────────────
@@ -37,6 +53,10 @@ def build_align_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMen
             "Load a video with frame timestamps, and either a TTL-bearing sensor "
             "channel or declared trigger train, to have shared evidence to fit."
         ),
+    )
+
+    window._act_find_microscope_trial = _add_microscope_trial_action(
+        window, window._align_menu, _reg
     )
 
     act = window._align_menu.addAction(tr("Open Trigger Evidence…"))

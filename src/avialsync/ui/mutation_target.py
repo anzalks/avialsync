@@ -115,7 +115,7 @@ class WindowMutationTarget:
             return window.sidebar.video_mapping(source_id)
         if source_id in window.imaging_pane.source_paths():
             _loader, _config, mapping = window.imaging_pane.source_config(source_id)
-            return mapping.offset, mapping.drift_ms_per_hour
+            return window.user_offset(source_id, mapping.offset), mapping.drift_ms_per_hour
         return window.sidebar.sensor_mapping(source_id)
 
     # ── annotations ──────────────────────────────────────────────────

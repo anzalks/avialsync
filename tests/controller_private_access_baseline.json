@@ -7,7 +7,7 @@
       "apply_session_layout": 73
     },
     "import_controller.py": {
-      "on_import_finished": 149,
+      "on_import_finished": 174,
       "register_tracking_source": 131
     },
     "main_window.py": {
@@ -18,9 +18,9 @@
       "_setup_shortcuts": 160
     },
     "session_controller.py": {
-      "build_session_state": 81,
-      "reset_session": 139,
-      "restore_session": 143,
+      "build_session_state": 86,
+      "reset_session": 141,
+      "restore_session": 144,
       "start_session_save": 64
     },
     "video_controller.py": {
@@ -29,10 +29,16 @@
   },
   "main_window_lines": 3917,
   "oversized_controller_lines": {
-    "import_controller.py": 698,
-    "session_controller.py": 839
+    "import_controller.py": 722,
+    "session_controller.py": 847
   },
   "private_accesses": {
+    "aol_microscope_controller.py": {
+      "_mutations": 2,
+      "_run_job": 1,
+      "_sensor_cache_dirs": 2,
+      "_video_source_bounds": 1
+    },
     "cache_controller.py": {
       "_run_job": 1
     },
@@ -138,6 +144,7 @@
       "_overview_gaps": 2,
       "_pane_proportions": 1,
       "_pending_bounds_sources": 1,
+      "_pending_channel_visibility": 1,
       "_pending_sensor_mappings": 1,
       "_pending_tracking_visibility": 1,
       "_plotted_readers": 1,
@@ -201,6 +208,7 @@
       "_pending_bounds_sources": 1,
       "_pending_exact_mappings": 3,
       "_pending_sensor_mappings": 2,
+      "_pending_channel_visibility": 2,
       "_pending_tracking_visibility": 2,
       "_plotted_readers": 1,
       "_point_edit_storage": 1,

@@ -86,6 +86,20 @@ def _declared_units(channels: Any) -> dict[str, str]:
     return {name: unit for name, unit in units.items() if unit}
 
 
+def _declared_visibility(channels: Any) -> dict[str, bool]:
+    """Each channel's initial visibility, defaulting older plugins to shown."""
+    return {str(ch.name): bool(getattr(ch, "shown", True)) for ch in channels}
+
+
+def _declared_descriptions(channels: Any) -> dict[str, str]:
+    """Each channel's optional context, omitting empty descriptions."""
+    return {
+        str(ch.name): str(getattr(ch, "description", ""))
+        for ch in channels
+        if getattr(ch, "description", "")
+    }
+
+
 class ImportWorker(QObject):
     """Background worker for parsing and building pyramids from time-series sources."""
 
@@ -116,7 +130,11 @@ class ImportWorker(QObject):
             if cached is not None:
                 cache_dir, channels, bounds, inspection = cached
                 cache_mgr.record_access(self.path)
-                if inspection.channel_units is None:
+                if (
+                    inspection.channel_units is None
+                    or inspection.default_channel_visibility is None
+                    or inspection.channel_descriptions is None
+                ):
                     inspection = self._backfill_units(cache_dir, channels, bounds, inspection)
                 self.progress.emit(100)
                 self.finished.emit(str(self.path), str(cache_dir), channels, bounds, inspection)
@@ -187,6 +205,8 @@ class ImportWorker(QObject):
                 fps_binding=fps_binding,
                 messages=self._collect_messages(loader),
                 channel_units=_declared_units(channels),
+                default_channel_visibility=_declared_visibility(channels),
+                channel_descriptions=_declared_descriptions(channels),
             )
 
             self._write_manifest(temp_dir, channel_names, (t0, t1), inspection)
@@ -216,11 +236,16 @@ class ImportWorker(QObject):
         that cannot say is not an error: the plots show the bare channel name.
         """
         units: dict[str, str] = {}
+        visibility: dict[str, bool] = {}
+        descriptions: dict[str, str] = {}
         loader = None
         try:
             loader = self.loader_class()
             loader.open(self.path, self.config)
-            units = _declared_units(loader.channels())
+            channels_info = loader.channels()
+            units = _declared_units(channels_info)
+            visibility = _declared_visibility(channels_info)
+            descriptions = _declared_descriptions(channels_info)
         except Exception:  # noqa: BLE001 - optional metadata from a plugin boundary
             logger.info("Could not read channel units for %s", self.path, exc_info=True)
         finally:
@@ -230,7 +255,12 @@ class ImportWorker(QObject):
                     close()
                 except Exception:  # noqa: BLE001 - closing a reader we only asked for names
                     logger.debug("Closing %s after reading units failed", self.path)
-        updated: SourceInspection = dataclasses.replace(inspection, channel_units=units)
+        updated: SourceInspection = dataclasses.replace(
+            inspection,
+            channel_units=units,
+            default_channel_visibility=visibility,
+            channel_descriptions=descriptions,
+        )
         try:
             self._write_manifest(cache_dir, channels, bounds, updated)
         except OSError:

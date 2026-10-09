@@ -1,5 +1,6 @@
 """Left Sidebar / Inspector Pane."""
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TypeVar
 
@@ -135,7 +136,14 @@ class SensorInfoWidget(QFrame):
     # Source-to-master mapping, mirroring VideoInfoWidget.offset_changed (P3.5).
     mapping_changed = Signal(str, float, float)  # path, offset_s, drift_ms_per_hour
 
-    def __init__(self, path: str, channels: list[str], parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        path: str,
+        channels: list[str],
+        parent: QWidget | None = None,
+        channel_visibility: Mapping[str, bool] | None = None,
+        channel_descriptions: Mapping[str, str] | None = None,
+    ) -> None:
         super().__init__(parent)
         self.path = path
         self._channels = list(channels)
@@ -370,9 +378,14 @@ class SensorInfoWidget(QFrame):
             leaf_part = parts[-1]
             item = QTreeWidgetItem(nodes[parent_path])
             item.setText(0, leaf_part)
-            item.setToolTip(0, ch)
+            item.setToolTip(0, (channel_descriptions or {}).get(ch, ch))
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(0, Qt.CheckState.Checked)
+            item.setCheckState(
+                0,
+                Qt.CheckState.Checked
+                if (channel_visibility or {}).get(ch, True)
+                else Qt.CheckState.Unchecked,
+            )
 
             self._channel_items[ch] = item
 
@@ -482,6 +495,13 @@ class SensorInfoWidget(QFrame):
             for channel, item in self._channel_items.items()
             if item.checkState(0) == Qt.CheckState.Checked
         ]
+
+    def channel_visibility(self) -> dict[str, bool]:
+        """Current per-channel presentation choices for session persistence."""
+        return {
+            channel: item.checkState(0) == Qt.CheckState.Checked
+            for channel, item in self._channel_items.items()
+        }
 
     def _apply_filter(self, needle: str) -> None:
         """Show only channels matching *needle*, keeping their groups visible.
@@ -1095,7 +1115,13 @@ class SidebarPane(QWidget):
         for widget in _widgets_of(self.sensors_layout, SensorInfoWidget):
             self.remove_sensor(widget.path)
 
-    def add_sensor(self, path: str, channels: list[str]) -> None:
+    def add_sensor(
+        self,
+        path: str,
+        channels: list[str],
+        channel_visibility: Mapping[str, bool] | None = None,
+        channel_descriptions: Mapping[str, str] | None = None,
+    ) -> None:
         """Add a sensor info widget to the sidebar."""
         # Remove placeholder if present
         if self.sensors_layout.count() == 1:
@@ -1103,7 +1129,12 @@ class SidebarPane(QWidget):
                 self.sensors_layout.removeWidget(placeholder)
                 placeholder.deleteLater()
 
-        widget = SensorInfoWidget(path, channels)
+        widget = SensorInfoWidget(
+            path,
+            channels,
+            channel_visibility=channel_visibility,
+            channel_descriptions=channel_descriptions,
+        )
         widget.remove_requested.connect(self.sensor_remove_requested)
         widget.channel_remove_requested.connect(self.channel_remove_requested)
         widget.channel_visibility_changed.connect(self.channel_visibility_changed)

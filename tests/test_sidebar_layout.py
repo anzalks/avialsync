@@ -54,6 +54,21 @@ def _panel(kind: str, qtbot) -> QWidget:
     return widget
 
 
+def test_channel_visibility_and_description_are_loader_defaults(qapp: QApplication, qtbot) -> None:
+    widget = SensorInfoWidget(
+        "/data/encoder_log.txt",
+        ["encoder_velocity", "encoder_angle"],
+        channel_visibility={"encoder_angle": False},
+        channel_descriptions={"encoder_angle": "Loaded for the wheel prop."},
+    )
+    qtbot.addWidget(widget)
+    assert widget.channel_visibility() == {
+        "encoder_velocity": True,
+        "encoder_angle": False,
+    }
+    assert widget._channel_items["encoder_angle"].toolTip(0) == "Loaded for the wheel prop."
+
+
 @pytest.mark.parametrize("kind", ["sensor", "video"])
 def test_a_panel_fits_the_narrowest_sidebar(
     kind: str, sidebar_minimum: int, qapp: QApplication, qtbot

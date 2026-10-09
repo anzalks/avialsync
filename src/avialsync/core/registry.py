@@ -67,6 +67,7 @@ _ENTRY_POINT_GROUPS: tuple[str, ...] = (
 #: real report. The registry is built in ``MainWindow.__init__``, so a plain
 #: import block turned that into a traceback before any window existed.
 _BUILTIN_LOADERS: tuple[tuple[str, str], ...] = (
+    ("avialsync.loaders.aol_roi_trace", "AOLRoiTraceLoader"),
     ("avialsync.loaders.aol_encoder_loader", "AOLEncoderLoader"),
     ("avialsync.loaders.aol_eks_loader", "AOLEksLoader"),
     ("avialsync.loaders.aol_metric_loader", "AOLMetricLoader"),
@@ -94,6 +95,7 @@ _BUILTIN_TRIGGERS: tuple[tuple[str, str], ...] = (
 #: The built-in session scanners, in the same form and for the same reason.
 _BUILTIN_SESSIONS: tuple[tuple[str, str], ...] = (
     ("avialsync.loaders.aol_session_loader", "AOLSessionSource"),
+    ("avialsync.loaders.aol_microscope_session", "AOLMicroscopeTrialSource"),
     ("avialsync.loaders.open_ephys_session", "OpenEphysSessionSource"),
     ("avialsync.loaders.vicon_session_loader", "ViconSessionSource"),
     ("avialsync.loaders.nwb_session", "NWBSessionSource"),

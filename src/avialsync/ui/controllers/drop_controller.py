@@ -88,13 +88,24 @@ def on_drop_scan_error(window: MainWindow, error_msg: str) -> None:
     )
 
 
+def _remember_aol_camera_session(window: MainWindow, layout: SessionLayout) -> None:
+    """Retain AOL wall-clock evidence while a microscope trial is opened."""
+    is_aol_camera_session = any(
+        item.config.get("frame_timestamps_format") == "aol_relative_ms" for item in layout.items
+    )
+    if is_aol_camera_session:
+        window.session_runtime.aol_camera_start_epoch = float(layout.session_epoch)
+        window.session_runtime.pending_aol_pair = None
+    elif any(item.kind == "video" for item in layout.items):
+        window.session_runtime.aol_camera_start_epoch = 0.0
+        window.session_runtime.pending_aol_pair = None
+
+
 def apply_session_layout(window: MainWindow, layout: object) -> None:
     """Adopt the settings a session plugin reported for the folder it laid out.
 
-    Format-neutral: these are properties any session may declare, not one lab's
-    fields. A drop that no session plugin claimed carries an empty layout and
-    changes nothing, so an ordinary file drop never disturbs the current time
-    mode.
+    Format-neutral properties may be declared by any session. An ordinary file
+    drop carries an empty layout and leaves the current time mode unchanged.
 
     Typed ``object`` and checked, because it arrives over a Qt signal declared
     ``Signal(list, object)`` — Qt cannot enforce the payload type, so anything
@@ -103,6 +114,7 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
     """
     if not isinstance(layout, SessionLayout):
         return
+    _remember_aol_camera_session(window, layout)
 
     window.session_runtime.camera_fps = layout.camera_fps
     window.session_runtime.anchor_epoch = layout.anchor_epoch

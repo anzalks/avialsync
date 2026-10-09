@@ -6450,3 +6450,37 @@ propagation and one paint, each under the 30 ms callback ceiling. A sensor targe
 at its own midpoint, from its coarsest pyramid level, unless a threshold is typed: a fixed 0.5
 found no pulses on a line that never reached it. A preview is discarded when its evidence
 changes, and acceptance places the target the proposal was fitted for.
+
+## 2026-10 · D-202 · AOL camera timing and microscope trial presentation
+
+**Decision.** AOL camera rates are unknown unless the session declares one. A usable
+`*-relative times.txt` file supplies frame times for MP4 and AVI alike, matched by the exact
+camera stem; MP4 wins when both extensions share a stem. No undeclared 30 fps fallback is
+allowed. The camera timing report is read for counts and rates, compared with timing rows and
+video headers, and disagreements are source warnings. The median camera first-frame stamp is
+the shared session start under the external-trigger assumption, while each camera retains its
+own relative frame intervals. Wall-clock stamps remain local fields interpreted through the
+existing session wall-clock convention.
+
+One `HH-MM-SS` microscope folder is one session. The reader opens only ribbon scan volumes,
+the readable timing fields in `params.mat`, and optional hybrid-mosaic ROI analysis. Raw ribbon
+volumes form an in-memory, gutterless, column-major mosaic; mosaic frame time is the mean line
+time. Cell masks and trace channels use the hybrid analysis, and mask crop geometry and grid
+packing share the NWB ROI helper. Green defaults to h5py channel index 1 and red to index 0;
+trial correction metadata takes precedence. `encoder_angle` stays loaded but hidden by default
+because wheel props consume it. Session schema v14 stores channel visibility overrides.
+
+The trial finder searches the camera-stamped day, derives a shared controller time-zone offset
+from folder time and UTC `STARTTIME`, and offers only a unique containing or nearby trial. A
+user-visible evidence notification precedes acceptance. Acceptance places loaded trial sources
+at camera frame zero in one undoable grouped mapping and leaves the camera session's origin
+unchanged. This assumes the camera and controller PCs use the same local zone and that camera
+stamps represent the shared trigger start. Pairing has synthetic coverage but remains unverified
+against a real same-session pair; the implementation does not use or modify the microscope
+controller repository.
+
+**Consequences.** A camera stop need not align across cameras because it is not externally
+triggered. The reported exposure interval within a tiled frame may be about ±27 ms because the
+displayed timestamp is its line-scan midpoint. The derived time-zone offset and trigger-start
+placement must be shown to and accepted by the user; they are never applied silently. The
+controller's optional clock-calibration correction remains out of scope.

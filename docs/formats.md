@@ -33,6 +33,39 @@ Those timestamps decide whether a recording is treated as CFR or VFR, where a fr
 which frame is named at any moment. They are cached in the per-user cache folder after the first read, so
 opening it again does not walk the file a second time.
 
+### AOL camera sessions and microscope trials
+
+An AOL camera session can contain `.mp4` or `.avi` cameras beside matching
+`<camera>-relative times.txt` files. Matching uses the exact camera stem, including underscores;
+when both extensions share a stem, the MP4 is selected and the AVI is reported as a duplicate.
+The relative-times file supplies every AOL camera frame time in milliseconds, for both MP4 and AVI.
+The camera timing report is read when present to compare its frame counts and rate with the timing
+rows and video headers. Unreadable files and disagreements are reported while the rest of the
+session continues loading.
+
+The wall-clock stamps in the per-camera files have no time-zone marker. AvialSync treats the first
+stamp as the camera PC's local wall-clock fields and uses the median camera start as the shared
+session start. This follows the rig's external-trigger setup; the camera stop is not triggered, so
+the cameras may end on different frames. A spread larger than one frame period is shown as a
+quality warning. The timestamp is not evidence of UTC synchronization between computers.
+
+A microscope trial folder (`HH-MM-SS`) or experiment folder (`experiment_N`) can be opened from
+the microscope saved-data root configured in **Preferences → Lab Data**. An experiment-folder
+import lets you choose one trial. The trial's `RibbonScan_ROI_*.mat` stacks are shown as a tiled
+mosaic, with one frame time at the midpoint of its line scan (about ±27 ms within a frame). When
+`roi_activity/hybrid_mosaic_*_activity.mat` exists, its masks appear in a cell-ROI image grid and
+its traces appear as plot channels. The file's green-channel correction is used when present;
+otherwise the rig's recorded channel convention selects channel index 1 as green and index 0 as
+red. The encoder angle is loaded hidden by default so the existing wheel prop can still use it.
+
+With an AOL camera session loaded, **Align → Find microscope trial…** searches the dated folder,
+matches the camera wall clock against the trial's UTC `STARTTIME`, and presents the evidence for
+review. The derived time-zone offset assumes both PCs use the same local zone. Accepting places
+the trial on camera frame zero as one undoable change; it does not alter the already-open camera
+session. The matching and zone inference have synthetic test coverage but have not been verified
+against a real camera/trial pair. AvialSync does not apply the controller's optional clock
+calibration correction.
+
 ## Two-photon imaging
 
 Open `.h5`, `.hdf5`, `.tif`, `.tiff` or `.nwb` through **File → Open Imaging** or drag the stack into

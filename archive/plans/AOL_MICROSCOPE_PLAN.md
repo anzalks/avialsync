@@ -1,10 +1,10 @@
 # AOL microscope trials and AVI camera sessions — implementation plan
 
-Status: **open**, not started.
+Status: **implemented and smoke-checked on 2026-10-09; real camera/trial pairing remains unverified.**
 
-- **Branch:** `feat/aol-microscope-trials`. Implement on this branch, in its worktree
-  `~/Documents/kinochronix-aol-microscope`. Never work in the shared `~/Documents/kinochronix`
-  folder.
+- **Branch:** `feat/aol-microscope-trials` in `/Users/anzalks/Documents/kinochronix`.
+  The original linked-worktree path was superseded at the user's direction; all changes were
+  transferred and verified in the requested checkout before implementation continued.
 - **Base:** cut from `review/file-handling-performance` at `a7b3b1c`, because this plan is
   written against that branch's `video_standard.py`. Rebase onto `main` once that branch has
   merged.
@@ -361,15 +361,15 @@ line. A read failure is a warning, never an error.
 @dataclass(frozen=True)
 class MicroscopeTrial:
     folder: Path
-    start_epoch: float            # STARTTIME / 1e3 (UTC s), for matching only
-    duration: float               # timings/summary{1}
-    roi_files: tuple[Path, ...]   # sorted by ROI number parsed from the name
+    start_epoch: float  # STARTTIME / 1e3 (UTC s), for matching only
+    duration: float  # timings/summary{1}
+    roi_files: tuple[Path, ...]  # sorted by ROI number parsed from the name
     repeat: int
-    timepoints: int               # T (filename, checked against the dataset)
-    lines: int                    # Y
-    width: int                    # X
-    channels: int                 # C
-    frame_times: np.ndarray       # (T,) frame midpoints, s from the trigger
+    timepoints: int  # T (filename, checked against the dataset)
+    lines: int  # Y
+    width: int  # X
+    channels: int  # C
+    frame_times: np.ndarray  # (T,) frame midpoints, s from the trigger
     roi_frame_times: np.ndarray | None  # (T, R), s from the trigger
     timing_source: str
     warnings: tuple[str, ...]
@@ -680,6 +680,24 @@ push once.
 4. **After:** repeat step 1 and `diff`. **Any difference → stop and report.**
 
 The controller repository is not part of the check and must not be opened by it.
+
+### Completed verification record
+
+- `QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest -x -q --ignore=tests/benchmarks`:
+  **3,603 passed, 2 skipped**.
+- `tests/benchmarks/test_bench_aol_ribbon.py`: **94.4 μs median** to assemble one full-size
+  150×510 frame from 96 ROI files (30 ms budget).
+- `ruff check .`, `ruff format .`, `mypy src/avialsync/core`, and `mypy src/avialsync` passed.
+- A full unfiltered `pytest -x -q` run stopped in the existing NWB benchmark cache guard: its
+  cache root was under `avialsync-screenshots-*`, while that benchmark asserts the test cache
+  path contains `avialsync-cache-*`. The benchmark passes alone; the non-benchmark suite passes.
+- Read-only smoke check used the requested repo's `data/09-54-35` and
+  `data/2026-09-03/experiment_2` with an isolated temporary cache. It loaded three AVI cameras
+  (2,313 / 2,318 / 2,325 frames; 10.052 / 10.074 / 10.104 s) without layout warnings, the
+  184-frame 150×510 ribbon mosaic and 11 ROI traces from `12-33-56`, and one ribbon source from
+  `12-23-08`. Before/after file-size and modification-time snapshots matched exactly.
+- The plan's camera-to-controller pairing is still not verified on a real same-session pair.
+  The camera and microscope-controller repositories were not used as code sources or modified.
 
 Docs in the same change (AGENTS.md task protocol rule 1):
 - **HANDOUT.md:**

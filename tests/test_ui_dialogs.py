@@ -338,6 +338,27 @@ def test_batch_dialog_returns_the_selected_loader_for_each_file(
     assert config == {"time_col": "t"}
 
 
+def test_experiment_trial_picker_starts_empty_and_allows_exactly_one(
+    qapp: QApplication, qtbot, tmp_path: Path
+) -> None:
+    from avialsync.loaders.csv_loader import CSVLoader
+
+    group = str(tmp_path / "experiment_1")
+    candidates = [
+        (tmp_path / "12-00-00", CSVLoader, {"_exclusive_group": group, "trial_folder": "a"}),
+        (tmp_path / "12-10-00", CSVLoader, {"_exclusive_group": group, "trial_folder": "b"}),
+    ]
+    dialog = BatchImportDialog(candidates)
+    qtbot.addWidget(dialog)
+    assert not dialog.get_selections()
+
+    dialog._combos[1].setCurrentIndex(dialog._combos[1].findData(CSVLoader))
+    selected = dialog.get_selections()
+    assert len(selected) == 1
+    assert selected[0][0] == candidates[1][0]
+    assert selected[0][2] == {"trial_folder": "b"}
+
+
 def test_unclaimed_file_can_use_a_manually_selected_loader(
     qapp: QApplication, qtbot, tmp_path: Path
 ) -> None:

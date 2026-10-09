@@ -195,7 +195,7 @@ class PlotPane(QWidget):
         self._resize_refresh_timer.timeout.connect(self._refresh_after_resize)
         self._last_point_budget = 0
         self._last_cursor_repaint = 0.0
-        self._pending_rows: list[tuple[Path, str, TimeMap, str]] = []
+        self._pending_rows: list[tuple[Path, str, TimeMap, str, bool]] = []
         # The rows the page in flight was requested for, by request index.
         self._requested_rows: tuple[ChannelPlot, ...] = ()
         # Worst observed cost of one row, used to stop a slice before the next
@@ -309,6 +309,7 @@ class PlotPane(QWidget):
         offset: float = 0.0,
         drift_ms_per_hour: float = 0.0,
         source_id: str = "",
+        visibility: Mapping[str, bool] | None = None,
     ) -> None:
         """Load multiple data sources from cache and build plot rows.
 
@@ -323,7 +324,11 @@ class PlotPane(QWidget):
             time_map.offset = float(offset)
             time_map.drift_ms_per_hour = float(drift_ms_per_hour)
 
-        self._pending_rows.extend((cache_dir, name, time_map, source_id) for name in channel_names)
+        defaults = visibility or {}
+        self._pending_rows.extend(
+            (cache_dir, name, time_map, source_id, bool(defaults.get(name, True)))
+            for name in channel_names
+        )
         # Each slice yields to the event loop, and every yield used to repaint
         # and re-lay-out every row built so far: a 234-ROI NWB file froze the
         # window for ~11 s, quadratic in the row count. The view stays frozen
@@ -344,7 +349,7 @@ class PlotPane(QWidget):
         started = _elapsed()
         while self._pending_rows:
             row_started = _elapsed()
-            cache_dir, name, time_map, source_id = self._pending_rows.pop(0)
+            cache_dir, name, time_map, source_id, visible = self._pending_rows.pop(0)
             row = len(self.channels)
             channel = create_channel_plot(
                 self.graphics_layout,
@@ -357,7 +362,10 @@ class PlotPane(QWidget):
                 source_id,
                 # The density chosen now, not the dataclass default (D-177).
                 row_height=int(self.row_height_combo.currentData()),
+                visible=visible,
             )
+            if not visible:
+                apply_channel_visibility(channel)
             if self._master_plot is None:
                 self._master_plot = channel.plot_item
             else:

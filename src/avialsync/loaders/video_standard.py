@@ -210,7 +210,46 @@ def read_frame_timestamps(sidecar: Path) -> RecordedFrames | None:
         logger.warning("Frame timestamp sidecar %s has no timestamp column.", sidecar)
         return None
 
-    times: np.ndarray = np.asarray(raw[:, 1], dtype=np.float64) / _SIDECAR_NANOSECONDS
+    return _recorded_frames(raw[:, 0], raw[:, 1] / _SIDECAR_NANOSECONDS, sidecar)
+
+
+def read_aol_relative_times(sidecar: Path) -> RecordedFrames | None:
+    """Read AOL's whitespace-separated frame, milliseconds and wall-clock rows.
+
+    The wall-clock column is intentionally ignored here. AOL's session scanner
+    uses its first stamp to declare the shared source epoch; this table supplies
+    the per-frame relative timing only.
+    """
+    counters: list[float] = []
+    times: list[float] = []
+    try:
+        with sidecar.open(encoding="utf-8") as handle:
+            for line in handle:
+                fields = line.split()
+                if not fields:
+                    continue
+                if len(fields) < 3:
+                    logger.warning(
+                        "Cannot parse AOL relative-times row in %s: expected frame, "
+                        "relative milliseconds and wall-clock stamp",
+                        sidecar,
+                    )
+                    return None
+                counters.append(float(fields[0]))
+                times.append(float(fields[1]) / 1_000.0)
+    except (OSError, UnicodeError, ValueError):
+        logger.warning("Cannot parse AOL relative-times file %s", sidecar, exc_info=True)
+        return None
+    if not counters:
+        logger.warning("AOL relative-times file %s is empty.", sidecar)
+        return None
+    return _recorded_frames(np.asarray(counters), np.asarray(times), sidecar)
+
+
+def _recorded_frames(
+    counter: np.ndarray, times: np.ndarray, sidecar: Path
+) -> RecordedFrames | None:
+    """Apply the shared timestamp and frame-counter validation."""
     if len(times) < 2 or not np.all(np.isfinite(times)):
         logger.warning("Frame timestamp sidecar %s holds no usable timestamps.", sidecar)
         return None
@@ -219,7 +258,7 @@ def read_frame_timestamps(sidecar: Path) -> RecordedFrames | None:
         return None
     rebased: np.ndarray = times - times[0]
 
-    counter = np.asarray(raw[:, 0], dtype=np.float64)
+    counter = np.asarray(counter, dtype=np.float64)
     steps = np.diff(counter)
     # A step of one is consecutive; anything larger is that many lost exposures.
     # Guarded against a counter that wraps or restarts, which would otherwise
@@ -373,7 +412,10 @@ class VideoStandardLoader(VideoSource):
         if not sidecar_value:
             return
         sidecar = Path(sidecar_value)
-        evidence = read_frame_timestamps(sidecar)
+        if config.get("frame_timestamps_format") == "aol_relative_ms":
+            evidence = read_aol_relative_times(sidecar)
+        else:
+            evidence = read_frame_timestamps(sidecar)
         if evidence is None:
             return
         recorded = evidence.times

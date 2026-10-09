@@ -100,6 +100,8 @@ class TestSourceInspection:
             import_report=ImportReport(rows_parsed=500, gap_count=2),
             integrity_flags=IntegrityFlags(has_gaps=True),
             fps_binding="bound:/data/cam.mp4",
+            default_channel_visibility={"encoder_velocity": True, "encoder_angle": False},
+            channel_descriptions={"roi_1": "Covers ribbon ROI 3."},
         )
         d = ins.as_dict()
         restored = SourceInspection.from_dict(d)
@@ -109,6 +111,8 @@ class TestSourceInspection:
         assert restored.import_report == ins.import_report
         assert restored.integrity_flags == ins.integrity_flags
         assert restored.fps_binding == ins.fps_binding
+        assert restored.default_channel_visibility == ins.default_channel_visibility
+        assert restored.channel_descriptions == ins.channel_descriptions
 
     def test_as_dict_contains_version(self):
         ins = SourceInspection(path="/x.csv")

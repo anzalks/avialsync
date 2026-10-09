@@ -12,9 +12,14 @@ standard video loader.
 
 import datetime
 import logging
+import math
+import statistics
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+import h5py
+import numpy as np
 
 from avialsync.core.custom_markers import is_custom_marker_path
 from avialsync.core.pose import split_channel
@@ -139,12 +144,16 @@ class AOLManifest:
     camera_start_epochs: dict[str, float] = field(default_factory=dict)
     # Parsed anchor date for encoder (YYYY-MM-DD)
     anchor_date: str | None = None
-    # Camera fps from trial_config.yml
-    camera_fps: float = 30.0
+    # Camera fps from trial_config.yml, or 0.0 when the session does not declare it.
+    camera_fps: float = 0.0
     # Trial config metadata
     trial_config: dict[str, object] = field(default_factory=dict)
     # Skeleton mapping from trial config
     skeleton: list[tuple[str, str]] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+
+_CAMERA_SUFFIXES = frozenset({".mp4", ".avi"})
 
 
 def _eks_bodyparts(path: Path) -> list[str]:
@@ -202,9 +211,144 @@ def is_aol_session(path: Path) -> bool:
         return False
 
     has_timing = any(path.glob("*-relative times.txt"))
-    has_video = any(path.glob("*.mp4")) or (path / "labeled_videos").is_dir()
+    has_video = (
+        any(
+            child.is_file() and child.suffix.lower() in _CAMERA_SUFFIXES for child in path.iterdir()
+        )
+        or (path / "labeled_videos").is_dir()
+    )
 
     return has_timing and has_video
+
+
+def _hdf5_strings(handle: h5py.File, dataset: h5py.Dataset) -> list[str]:
+    """Decode MATLAB char arrays and reference cells without touching MCOS fields."""
+    names: list[str] = []
+    for value in np.asarray(dataset[()]).reshape(-1):
+        if isinstance(value, h5py.Reference):
+            if not value:
+                names.append("")
+                continue
+            value = np.asarray(handle[value][()]).reshape(-1)
+            if value.dtype.kind in "ui":
+                names.append("".join(chr(int(char)) for char in value if int(char)))
+            else:
+                names.append(b"".join(bytes(part) for part in value).decode("utf-8", "replace"))
+        elif isinstance(value, bytes):
+            names.append(value.decode("utf-8", "replace").rstrip("\x00"))
+        else:
+            names.append(str(value))
+    return names
+
+
+def _read_camera_report(path: Path) -> tuple[list[str], list[int], list[float]] | None:
+    """Read only the plain camera summary arrays from MATLAB v7.3."""
+    try:
+        with h5py.File(path, "r") as handle:
+            report = handle["timing_report"]
+            names = _hdf5_strings(handle, report["camera_names"])
+            counts = np.asarray(report["camera_frame_count"][()]).reshape(-1)
+            rates = np.asarray(report["camera_frame_rates_hz"][()]).reshape(-1)
+            return names, [int(value) for value in counts], [float(value) for value in rates]
+    except (OSError, KeyError, TypeError, ValueError):
+        logger.warning("Could not read camera timing report %s", path, exc_info=True)
+        return None
+
+
+def _timing_row_count(path: Path) -> int | None:
+    try:
+        with path.open(encoding="utf-8") as handle:
+            return sum(bool(line.split()) for line in handle)
+    except (OSError, UnicodeError):
+        return None
+
+
+def _timing_rate_hz(path: Path | None) -> float | None:
+    """Estimate the row cadence from an AOL relative-times file."""
+    if path is None:
+        return None
+    try:
+        stamps = [
+            float(fields[1])
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if len(fields := line.split()) >= 2
+        ]
+    except (OSError, UnicodeError, ValueError):
+        return None
+    intervals = [right - left for left, right in zip(stamps, stamps[1:], strict=False)]
+    positive = [interval for interval in intervals if interval > 0.0]
+    if not positive:
+        return None
+    return 1_000.0 / statistics.median(positive)
+
+
+def _camera_frame_period(manifest: AOLManifest) -> float:
+    """Estimate one exposure period from declared fps or the AOL timing rows."""
+    if manifest.camera_fps > 0:
+        return 1.0 / manifest.camera_fps
+    for path in manifest.timing_files.values():
+        try:
+            rows = [line.split() for line in path.read_text(encoding="utf-8").splitlines()]
+            rows = [row for row in rows if len(row) >= 2]
+            if len(rows) >= 2:
+                period = (float(rows[1][1]) - float(rows[0][1])) / 1_000.0
+                if period > 0:
+                    return period
+        except (OSError, UnicodeError, ValueError):
+            continue
+    return 0.0
+
+
+def _container_frame_count(path: Path) -> int | None:
+    """Probe the video header for a declared frame count, without decoding."""
+    try:
+        import av
+
+        with av.open(str(path)) as container:
+            stream = next(iter(container.streams.video), None)
+            count = int(stream.frames) if stream is not None else 0
+            return count or None
+    except Exception:  # noqa: BLE001 - a failed cross-check must not lose the session
+        return None
+
+
+def _check_camera_timing_report(manifest: AOLManifest) -> None:
+    """Report disagreements among the report, timing rows and video headers."""
+    report_path = manifest.session_dir / "camera_module_timing_report.mat"
+    if not report_path.is_file():
+        return
+    report = _read_camera_report(report_path)
+    if report is None:
+        manifest.warnings.append("Could not read camera_module_timing_report.mat.")
+        return
+    names, counts, rates = report
+    summary = {name: (count, rate) for name, count, rate in zip(names, counts, rates, strict=False)}
+    for video in manifest.videos:
+        label = video.stem
+        timing_path = manifest.timing_files.get(label)
+        expected = summary.get(label)
+        if expected is None:
+            manifest.warnings.append(f"Camera timing report has no entry for {label}.")
+            continue
+        count, report_rate = expected
+        row_count = _timing_row_count(timing_path) if timing_path else None
+        video_count = _container_frame_count(video)
+        observed = [("relative-times rows", row_count), ("video frames", video_count)]
+        for description, actual in observed:
+            if actual is not None and actual != count:
+                manifest.warnings.append(
+                    f"{label}: timing report lists {count} frames, but {description} has {actual}."
+                )
+        timing_rate = _timing_rate_hz(timing_path)
+        if (
+            timing_rate is not None
+            and report_rate > 0.0
+            and not math.isclose(timing_rate, report_rate, rel_tol=0.01)
+        ):
+            manifest.warnings.append(
+                f"{label}: timing report rate is {report_rate:g} Hz, but relative-times rows "
+                f"measure {timing_rate:g} Hz."
+            )
 
 
 def build_manifest(session_dir: Path) -> AOLManifest:
@@ -230,7 +374,9 @@ def build_manifest(session_dir: Path) -> AOLManifest:
         hw = manifest.trial_config.get("hardware", {})
         if isinstance(hw, dict) and "camera_fps" in hw:
             try:
-                manifest.camera_fps = float(hw["camera_fps"])  # type: ignore[arg-type]
+                rate = float(hw["camera_fps"])  # type: ignore[arg-type]
+                if rate > 0.0:
+                    manifest.camera_fps = rate
             except (ValueError, TypeError):
                 pass
 
@@ -257,7 +403,11 @@ def build_manifest(session_dir: Path) -> AOLManifest:
     if not manifest.videos:
         labeled_dir = session_dir / "labeled_videos"
         if labeled_dir.is_dir():
-            labeled_videos = sorted(labeled_dir.glob("*.mp4"))
+            labeled_videos = sorted(
+                child
+                for child in labeled_dir.iterdir()
+                if child.is_file() and child.suffix.lower() in _CAMERA_SUFFIXES
+            )
             if labeled_videos:
                 logger.info(
                     "No raw camera MP4s in %s; falling back to %d labeled video(s).",
@@ -331,7 +481,12 @@ def build_manifest(session_dir: Path) -> AOLManifest:
 
                         # Match video file to this camera
                         for video in manifest.videos:
-                            if _camera_label_from_labeled(video) == cam_name:
+                            label = (
+                                _camera_label_from_labeled(video)
+                                if video.parent.name == "labeled_videos"
+                                else video.stem
+                            )
+                            if label == cam_name:
                                 manifest.video_start_epochs[str(video)] = epoch
 
                         # Use the first parsed date as the global encoder anchor date
@@ -349,6 +504,20 @@ def build_manifest(session_dir: Path) -> AOLManifest:
         manifest.camera_fps,
     )
 
+    _check_camera_timing_report(manifest)
+    starts = list(manifest.camera_start_epochs.values())
+    if starts:
+        shared_start = statistics.median(starts)
+        spread = max(starts) - min(starts)
+        period = _camera_frame_period(manifest)
+        if period > 0.0 and spread > period:
+            manifest.warnings.append(
+                f"Camera first-frame stamps span {spread * 1000:.1f} ms; "
+                "all camera items use their median shared start."
+            )
+        for video in manifest.videos:
+            if str(video) in manifest.video_start_epochs:
+                manifest.video_start_epochs[str(video)] = shared_start
     return manifest
 
 
@@ -496,7 +665,31 @@ def _match_camera(stem: str, camera_labels: list[str]) -> str | None:
 
 def _add_root_videos(session_dir: Path, manifest: AOLManifest) -> None:
     """Add root-level camera MP4s to the manifest."""
-    root_videos = sorted(v for v in session_dir.glob("*.mp4") if not v.name.startswith("."))
+    candidates = sorted(
+        (
+            child
+            for child in session_dir.iterdir()
+            if child.is_file()
+            and not child.name.startswith(".")
+            and child.suffix.lower() in _CAMERA_SUFFIXES
+        ),
+        key=lambda value: (value.stem.casefold(), value.suffix.lower() != ".mp4"),
+    )
+    root_videos: list[Path] = []
+    seen: dict[str, Path] = {}
+    for video in candidates:
+        key = video.stem.casefold()
+        previous = seen.get(key)
+        if previous is not None:
+            if previous.suffix.lower() == ".mp4" and video.suffix.lower() == ".avi":
+                manifest.warnings.append(
+                    f"Both {previous.name} and {video.name} share a camera stem; "
+                    f"ignored {video.name}."
+                )
+                continue
+        seen[key] = video
+        root_videos.append(video)
+    root_videos.sort()
     manifest.videos = root_videos
     manifest.camera_labels = [v.stem for v in root_videos]
 
@@ -649,6 +842,7 @@ class AOLSessionSource(SessionSource):
             camera_fps=manifest.camera_fps,
             skeleton=manifest.skeleton,
             rotary=_rotary_hint(manifest),
+            warnings=manifest.warnings,
         )
 
 
@@ -721,7 +915,15 @@ def _video_items(manifest: AOLManifest, anchor_epoch: float, registry: Any) -> l
             continue
         start_epoch = _rebased(_start_epoch_for(manifest, video), anchor_epoch)
         config: dict[str, Any] = {}
-        if manifest.camera_fps > 0:
+        camera_label = video.stem
+        if video.parent.name == "labeled_videos":
+            camera_label = _camera_label_from_labeled(video)
+        timing_file = manifest.timing_files.get(camera_label)
+        if timing_file is not None:
+            config["frame_timestamps"] = str(timing_file)
+            config["frame_timestamps_format"] = "aol_relative_ms"
+            config["start_time"] = 0.0
+        elif manifest.camera_fps > 0:
             config["fps"] = manifest.camera_fps
         items.append(
             SessionItem(
@@ -753,7 +955,7 @@ def _eks_items(manifest: AOLManifest, anchor_epoch: float) -> list[SessionItem]:
                 eks_file,
                 AOLEksLoader,
                 {
-                    "fps": manifest.camera_fps,
+                    **({"fps": manifest.camera_fps} if manifest.camera_fps > 0.0 else {}),
                     "start_epoch": start_epoch,
                     "skeleton": manifest.skeleton,
                     "auto_resolved": True,
@@ -798,7 +1000,7 @@ def _pose_2d_items(manifest: AOLManifest, anchor_epoch: float, registry: Any) ->
                 track.path,
                 loader_cls,
                 {
-                    "fps": manifest.camera_fps,
+                    **({"fps": manifest.camera_fps} if manifest.camera_fps > 0.0 else {}),
                     "auto_resolved": True,
                     "_is_frame_indexed": True,
                     # The overlay draws points only. Pose exports carry ~9
@@ -897,7 +1099,7 @@ def _metric_items(manifest: AOLManifest, anchor_epoch: float) -> list[SessionIte
                 metric_file.path,
                 AOLMetricLoader,
                 {
-                    "fps": manifest.camera_fps,
+                    **({"fps": manifest.camera_fps} if manifest.camera_fps > 0.0 else {}),
                     "start_epoch": start_epoch,
                     "metric": metric_file.metric,
                     "auto_resolved": True,

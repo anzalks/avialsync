@@ -65,7 +65,7 @@ class ImagingEntry:
 
 @dataclasses.dataclass
 class SensorEntry:
-    """Persisted state for one loaded sensor CSV."""
+    """Persisted state for one loaded time-series source."""
 
     path: str
     channels: list[str] = dataclasses.field(default_factory=list)
@@ -82,6 +82,8 @@ class SensorEntry:
     #: hiding another camera's tracker, and a dense pose need not occupy plots.
     tracking_overlay_visible: bool = True
     tracking_plot_visible: bool = False
+    #: User overrides from loader-declared channel visibility defaults (schema v14).
+    channel_visibility: dict[str, bool] = dataclasses.field(default_factory=dict)
 
 
 @dataclasses.dataclass
@@ -226,7 +228,7 @@ class SessionState:
     show_original_tracker: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict (always writes version 13)."""
+        """Serialise to a JSON-compatible dict (always writes version 14)."""
         provenance = []
         for item in self.sync_provenance:
             encoded = dataclasses.asdict(item)
@@ -242,7 +244,7 @@ class SessionState:
             )
             provenance.append(encoded)
         return {
-            "version": 13,
+            "version": 14,
             "videos": [dataclasses.asdict(v) for v in self.videos],
             "imaging": [dataclasses.asdict(v) for v in self.imaging],
             "sensors": [dataclasses.asdict(s) for s in self.sensors],
@@ -263,19 +265,20 @@ class SessionState:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SessionState:
-        """Deserialise from a parsed JSON dict (accepts v1 through v13).
+        """Deserialise from a parsed JSON dict (accepts v1 through v14).
 
         Schema 12 (D-184) stores clock drift as ``drift_ms_per_hour``; earlier
         versions stored a rate per million, converted on read by
         :func:`avialsync.core.drift.drift_from_legacy_entry`. Schema 13 (D-190)
-        adds two-photon imaging stacks; an older file has none.
+        adds two-photon imaging stacks; schema 14 adds channel visibility
+        overrides. Older files use the loader's current defaults.
 
         Every added field is optional with a default, so an older file loads and
         renders exactly as it did before the bump -- that equivalence is the
         migration test, not an aspiration.
         """
         version = data.get("version", 1)
-        if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13):
+        if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14):
             raise ValueError(f"Unsupported session file version: {version}")
 
         videos = [
@@ -292,6 +295,10 @@ class SessionState:
             SensorEntry(
                 path=s["path"],
                 channels=s.get("channels", []),
+                channel_visibility={
+                    str(name): bool(visible)
+                    for name, visible in s.get("channel_visibility", {}).items()
+                },
                 loader_id=s.get("loader_id", ""),
                 import_config=s.get("import_config", {}),
                 import_report=s.get("import_report"),

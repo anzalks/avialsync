@@ -151,6 +151,14 @@ def build_session_state(window: MainWindow) -> SessionState:
                     SensorEntry(
                         path=w.path,
                         channels=[],
+                        channel_visibility={
+                            channel: visible
+                            for channel, visible in w.channel_visibility().items()
+                            if visible
+                            != (
+                                ins.default_channel_visibility or {} if ins is not None else {}
+                            ).get(channel, True)
+                        },
                         loader_id=ins.loader_id if ins else "",
                         import_config=dict(ins.import_config) if ins else {},
                         import_report=(
@@ -335,6 +343,8 @@ def start_session_load(window: MainWindow, path: Path) -> None:
 
 def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
     """Return the workspace to its empty, ready-to-open state."""
+    window.session_runtime.aol_camera_start_epoch = 0.0
+    window.session_runtime.pending_aol_pair = None
     window.session_runtime.generation += 1
     window.session_runtime.path = None
     # Any snapshot on disk describes work this reset discards on purpose: keeping
@@ -455,6 +465,7 @@ def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
     window._sensor_cache_dirs.clear()
     window._pending_bounds_sources.clear()
     window._pending_sensor_mappings.clear()
+    window._pending_channel_visibility.clear()
     window.session_runtime.camera_fps = 0.0
     window.session_runtime.anchor_epoch = 0.0
     window.session_runtime.item_labels.clear()
@@ -577,6 +588,7 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
             # Import is asynchronous, so the accepted mapping is held until
             # the worker reports the cache back (see _on_import_finished).
             window._pending_sensor_mappings[str(p)] = (se.offset, se.drift_ms_per_hour)
+            window._pending_channel_visibility[str(p)] = dict(se.channel_visibility)
             window._pending_tracking_visibility[str(p)] = {
                 "overlay": se.tracking_overlay_visible,
                 "plot": se.tracking_plot_visible,

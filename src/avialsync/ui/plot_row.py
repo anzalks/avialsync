@@ -275,6 +275,7 @@ def create_channel_plot(
     time_map: TimeMap | None = None,
     source_id: str = "",
     row_height: int = 110,
+    visible: bool = True,
 ) -> ChannelPlot:
     """Create one row without deciding shared X-axis ownership.
 
@@ -367,6 +368,7 @@ def create_channel_plot(
         coverage_bounds=coverage_bounds,
         color_index=color_index,
         row_height=row_height,
+        visible=visible,
     )
 
 

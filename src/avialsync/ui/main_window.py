@@ -271,6 +271,7 @@ class MainWindow(QMainWindow):
     _act_add_marker: QAction
     _act_add_prop: QAction
     _act_synchronize: QAction
+    _act_find_microscope_trial: QAction
     _act_show_original_tracker: QAction
     _act_detach_plots: QAction
     _act_panels_back: QAction
@@ -481,6 +482,7 @@ class MainWindow(QMainWindow):
         # Accepted mappings restored from a session, applied once their
         # asynchronous import reports back.
         self._pending_sensor_mappings: dict[str, tuple[float, float]] = {}
+        self._pending_channel_visibility: dict[str, dict[str, bool]] = {}
         self._time_mode = TimeDisplayMode.RELATIVE
         self._save_in_progress = False
         # One owner for background work: names it for the status bar, watches it

@@ -19,7 +19,11 @@ from avialsync.core.source import SessionLayout
 from avialsync.loaders import open_ephys_format as fmt
 from avialsync.loaders.neo_loader import NeoLoader, safe_channel_name
 from avialsync.loaders.open_ephys_session import OpenEphysSessionSource, parse_filename_time
-from avialsync.loaders.video_standard import VideoStandardLoader, read_frame_timestamps
+from avialsync.loaders.video_standard import (
+    VideoStandardLoader,
+    read_aol_relative_times,
+    read_frame_timestamps,
+)
 from tests.open_ephys_fixture import (
     FIRST_SAMPLE_TIME,
     SOFTWARE_EPOCH_MS,
@@ -982,6 +986,32 @@ def test_a_restarting_counter_reports_no_drops_rather_than_nonsense(tmp_path: Pa
     evidence = read_frame_timestamps(sidecar)
     assert evidence is not None
     assert evidence.dropped == 0
+
+
+def test_aol_relative_times_uses_milliseconds_and_counter_drops(tmp_path: Path) -> None:
+    sidecar = tmp_path / "Face_Cam-relative times.txt"
+    sidecar.write_text(
+        "1\t0.000\t24-06-2026;09:54:40.5520\n"
+        "2 4.346 24-06-2026;09:54:40.5563\n"
+        "4 8.696 24-06-2026;09:54:40.5607\n",
+        encoding="utf-8",
+    )
+    evidence = read_aol_relative_times(sidecar)
+    assert evidence is not None
+    np.testing.assert_allclose(evidence.times, [0.0, 0.004346, 0.008696])
+    assert evidence.dropped == 1
+
+
+@pytest.mark.parametrize(
+    "content",
+    ["", "1 0.0 stamp\n", "1 1 stamp\n2 0 stamp\n"],
+)
+def test_aol_relative_times_declines_empty_short_or_nonincreasing(
+    tmp_path: Path, content: str
+) -> None:
+    sidecar = tmp_path / "bad-relative times.txt"
+    sidecar.write_text(content, encoding="utf-8")
+    assert read_aol_relative_times(sidecar) is None
 
 
 def test_single_frame_drops_are_far_below_the_gap_threshold() -> None:

@@ -27,8 +27,10 @@ from avialsync.core.commands import (
     SetOriginalTrackerVisibleCommand,
     SetOverlayVisibleCommand,
     SetSourceMappingCommand,
+    SetSourceMappingsCommand,
     SetSourceVisibleCommand,
     SetTrackingVisibleCommand,
+    SourceMappingChange,
 )
 from avialsync.core.document import (
     MAX_LOG_ENTRIES,
@@ -215,6 +217,12 @@ def _all_commands() -> list[Any]:
     """One instance of every command type, for the round-trip sweep."""
     return [
         SetSourceMappingCommand("cam1", before=(0.0, 0.0), after=(1.25, 3.0)),
+        SetSourceMappingsCommand(
+            (
+                SourceMappingChange("cam1", (0.0, 0.0), (1.0, 0.0)),
+                SourceMappingChange("trial", (0.0, 0.0), (0.0, 0.0)),
+            )
+        ),
         AddMarkerCommand(_marker(t=5.0, label="new")),
         RemoveMarkerCommand(_marker()),
         RelabelMarkerCommand(index=0, before="spike", after="burst"),
@@ -271,6 +279,7 @@ def test_apply_then_revert_restores_state(command: Any, target: FakeTarget) -> N
     target.add_marker(_marker())
     target.add_source(_source())
     target.set_source_mapping("cam1", 0.0, 0.0)
+    target.set_source_mapping("trial", 0.0, 0.0)
     target.set_tracking_visible("pose.csv", "overlay", False)
     before = target.capture_workspace()
 

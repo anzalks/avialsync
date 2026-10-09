@@ -21,7 +21,6 @@ black and ignored by the automatic levels, so a window is measured on cells.
 
 from __future__ import annotations
 
-import math
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -34,6 +33,7 @@ from avialsync.core.source import ImagingMetadata, ImagingSource
 from avialsync.loaders import nwb_format, nwb_read
 from avialsync.loaders.nwb_format import SeriesInfo
 from avialsync.loaders.nwb_storage import children, is_dataset, is_group
+from avialsync.loaders.roi_grid_layout import geometry, pack
 
 __all__ = ["NWBRoiGridSource", "RoiGrid", "find_roi_grids"]
 
@@ -295,14 +295,7 @@ class NWBRoiGridSource(ImagingSource):
 
     def _layout(self) -> None:
         """Choose tile size and a grid near-square on screen, with 1 px gutters."""
-        tile_h = max(crop.shape[0] for crop in self._crops) + 1
-        tile_w = max(crop.shape[1] for crop in self._crops) + 1
-        count = len(self._crops)
-        columns = max(1, math.ceil(math.sqrt(count * tile_h / tile_w)))
-        rows = math.ceil(count / columns)
-        self._grid = (rows, columns)
-        self._tile = (tile_h, tile_w)
-        self._shape = (rows * tile_h - 1, columns * tile_w - 1)
+        self._grid, self._tile, self._shape = geometry(self._crops)
 
     def read_frame(self, index: int, channel: int = 0) -> np.ndarray:
         """Compose frame *index*: every ROI's tile in reading order."""
@@ -311,9 +304,6 @@ class NWBRoiGridSource(ImagingSource):
         if not 0 <= index < len(self._frames) or channel != 0:
             raise IndexError(index if channel == 0 else channel)
         stored = int(self._frames[index])
-        mosaic = np.full(
-            (self._grid[0] * self._tile[0], self._grid[1] * self._tile[1]), np.nan, np.float32
-        )
         if self._mode == "raw":
             frame = nwb_read.read_frames(self._handle, self._info, stored, stored + 1)[0]
             # The whole box around each cell, not only its mask: the neuropil
@@ -328,12 +318,7 @@ class NWBRoiGridSource(ImagingSource):
                 crop * np.float32(values[column])
                 for crop, column in zip(self._crops, self._columns, strict=True)
             ]
-        tile_h, tile_w = self._tile
-        for position, tile in enumerate(tiles):
-            row, column = divmod(position, self._grid[1])
-            top, left = row * tile_h, column * tile_w
-            mosaic[top : top + tile.shape[0], left : left + tile.shape[1]] = tile
-        return mosaic[: self._shape[0], : self._shape[1]]
+        return pack(tiles, self._grid, self._tile, self._shape)
 
     def close(self) -> None:
         if self._context is not None:

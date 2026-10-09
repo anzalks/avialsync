@@ -53,11 +53,30 @@ GROUP_ORDER = (
     "Overlays",
     "Video Display",
     "Wheel Setup",
+    "Lab Data",
     "Storage",
 )
 
 
 SETTINGS: tuple[Setting, ...] = (
+    Setting(
+        key="aol/saved_data_folder",
+        label="AOL microscope saved-data folder",
+        group="Lab Data",
+        default="",
+        kind=str,
+        help_text="Root folder containing dated microscope experiment folders.",
+    ),
+    Setting(
+        key="aol/match_tolerance_seconds",
+        label="AOL camera-to-trial match tolerance",
+        group="Lab Data",
+        default=10.0,
+        kind=float,
+        minimum=0.0,
+        maximum=60.0,
+        help_text="Maximum camera-PC clock difference when matching a trial start.",
+    ),
     *(
         Setting(
             key=f"export/last_folder/{kind}",

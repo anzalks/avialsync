@@ -257,6 +257,13 @@ def on_import_finished(
         if drift == 0.0:  # an older import config may carry it per million (D-184)
             drift = drift_from_legacy_entry(inspection.import_config)
 
+    channel_visibility = (
+        dict(inspection.default_channel_visibility or {})
+        if isinstance(inspection, SourceInspection)
+        else {}
+    )
+    channel_visibility.update(window._pending_channel_visibility.pop(path, {}))
+
     combined_role = "pose3d_overlay2d"
     if role in ("pose3d", "overlay2d", combined_role):
         is_3d = role in ("pose3d", combined_role)
@@ -324,7 +331,14 @@ def on_import_finished(
         else:
             mapped = bounds
     else:
-        window.plot_pane.load_channels(Path(cache_dir), channels, offset, drift, source_id=path)
+        window.plot_pane.load_channels(
+            Path(cache_dir),
+            channels,
+            offset,
+            drift,
+            source_id=path,
+            visibility=channel_visibility,
+        )
         window._sensor_cache_dirs[path] = Path(cache_dir)
         exact = window.take_pending_exact_mapping(path)
         if exact is not None:
@@ -342,7 +356,15 @@ def on_import_finished(
         path, mapped[0], mapped[1], "data", window.coverage_group_for(path)
     )
     window._recompute_bounds()
-    window.sidebar.add_sensor(path, channels)
+    channel_descriptions = (
+        inspection.channel_descriptions or {} if isinstance(inspection, SourceInspection) else {}
+    )
+    window.sidebar.add_sensor(
+        path,
+        channels,
+        channel_visibility=channel_visibility,
+        channel_descriptions=channel_descriptions,
+    )
     if tracking_state is not None:
         window.sidebar.set_tracking_controls(
             path,
@@ -384,6 +406,9 @@ def on_import_finished(
                 for ch in channels:
                     window.plot_pane.set_gap_markers(ch, gap_times)
     window.transport.set_status(f"Ready · imported {Path(path).name}")
+    from avialsync.ui.controllers.aol_microscope_controller import trial_source_loaded
+
+    trial_source_loaded(window)
 
 
 # ── Pose sources (overlay + 3D view, never plotted) ──────────────────

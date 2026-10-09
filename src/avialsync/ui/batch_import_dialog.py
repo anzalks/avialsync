@@ -117,6 +117,7 @@ class BatchImportDialog(QDialog):
         layout.addWidget(self._table)
 
         self._combos: list[QComboBox] = []
+        self._exclusive_groups: dict[str, list[QComboBox]] = {}
         self._role_combos: list[QComboBox] = []
         self._calibration_combos: list[QComboBox] = []
         self._calibration_previous_indices: list[int] = []
@@ -175,6 +176,10 @@ class BatchImportDialog(QDialog):
                     default_index = fallback_index
 
                 combo.setCurrentIndex(default_index)
+            exclusive_group = str((_config or {}).get("_exclusive_group", ""))
+            if exclusive_group:
+                combo.setCurrentIndex(0)
+                self._exclusive_groups.setdefault(exclusive_group, []).append(combo)
             self._table.setCellWidget(row, 1, combo)
             self._combos.append(combo)
             role_combo = QComboBox(self._table)
@@ -185,6 +190,9 @@ class BatchImportDialog(QDialog):
             self._table.setCellWidget(row, 2, role_combo)
             self._role_combos.append(role_combo)
             combo.currentIndexChanged.connect(lambda _index, at=row: self._update_roles(at))
+            combo.currentIndexChanged.connect(
+                lambda index, current=combo: self._exclusive_selection_changed(current, index)
+            )
             self._update_roles(row)
 
             calibration_combo = QComboBox(self._table)
@@ -339,6 +347,18 @@ class BatchImportDialog(QDialog):
         combo.setCurrentIndex(index if index >= 0 else 0)
         combo.setEnabled(combo.count() > 1)
 
+    def _exclusive_selection_changed(self, current: QComboBox, index: int) -> None:
+        """Keep an experiment-folder picker to one selected trial at a time."""
+        if index == 0:
+            return
+        for group in self._exclusive_groups.values():
+            if current not in group:
+                continue
+            for sibling in group:
+                if sibling is not current:
+                    sibling.setCurrentIndex(0)
+            return
+
     def _declared_by_the_file(self, row: int, loader: object) -> list[str] | None:
         """The pose use this file names for itself, when it names one.
 
@@ -383,6 +403,7 @@ class BatchImportDialog(QDialog):
             if loader_cls is not None:
                 role, video = role_combo.currentData()
                 chosen = dict(config or {})
+                chosen.pop("_exclusive_group", None)
                 chosen.pop("role", None)
                 chosen.pop("overlay_video", None)
                 if role:

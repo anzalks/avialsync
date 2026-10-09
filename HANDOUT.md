@@ -591,7 +591,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/trigger_dialog.py` | Where the user says what each trigger column **is**. Leads with the kind, because the difference between a strobe and a trigger is the difference between an exact mapping and a fitted one | `TriggerEvidenceDialog`, `TrainChoice` |
 | `engine/trigger_worker.py` | Reads every declared train in one job, off the UI thread. All or nothing — a partial set leaves the user to notice which train went missing | `TriggerReadWorker`, `TriggerTrainResult` |
 | `loaders/trigger_csv.py` | Trigger evidence from a delimited file, either a sampled line or a column of event times. The config declares each train's `TriggerKind` — `suggest_trains` never guesses `frame_strobe` | `TriggerCSVSource`, `LEVEL`, `TIMESTAMPS` |
-| `core/session.py` | `.avv` session JSON, schema v13: imaging stacks with their import choices, time map and display view (D-190); v12 holds drift as ms/h (D-184); earlier versions retain their defaults | `SessionState`, `VideoEntry`, `ImagingEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
+| `core/session.py` | `.avv` session JSON, schema v14: per-channel visibility overrides (D-202); v13 adds imaging stacks with their import choices, time map and display view (D-190); v12 holds drift as ms/h (D-184); earlier versions retain their defaults | `SessionState`, `VideoEntry`, `ImagingEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
 | `loaders/imaging_loader.py` | Lazy HDF5 hyperslab and TIFF page readers (plain, OME, ScanImage-interleaved); per-channel reads; a missing dataset/axes/depth/frame rate raises `ImagingChoiceRequired` rather than being guessed | `HDF5ImagingLoader`, `TIFFImagingLoader` |
 | `core/imaging_axes.py` | Default reading of a stack's dimensions (valid tag, else sizes) and every valid alternative, named by meaning and size for the pane's Axes list | `default_axes()`, `axis_choices()`, `describe_axes()` |
 | `core/imaging_display.py` | Headless display maths: per-channel reference window + brightness/contrast, centred odd-length moving average, additive colour overlay | `ImagingView`, `ChannelView`, `compose()`, `average_range()`, `auto_window()` |
@@ -601,6 +601,13 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/imaging_card.py` | An imaging stack's Sources card: picture summary, Timing disclosure, overflow (Properties, Copy details, Remove) | `ImagingInfoWidget`, `describe_picture()` |
 | `ui/imaging_controls.py` | Headed Channel / Colour / Brightness / Contrast grid: a named tick box per acquired channel (always shown), its display colour apart; Average (Off, ±1 … ±15 frames) and Auto levels below | `ImagingControls` |
 | `loaders/nwb_roi_grid.py` | Every ROI of an NWB plane segmentation as one tile of a grid image per frame: raw crops when an image series on that plane covers the masks, else the ROI's ΔF/F (or fluorescence) on its mask; offered by the NWB session beside the series | `NWBRoiGridSource`, `find_roi_grids` |
+| `loaders/roi_grid_layout.py` | Shared ROI mask crop geometry and guttered tile packing for NWB and AOL cell grids | `geometry()`, `pack_grid()`, `mask_crop()` |
+| `loaders/aol_microscope_trial.py` | Read-only MATLAB v7.3 microscope trial metadata, line timing, and sorted ribbon scans; skips corrupt scans with a warning | `MicroscopeTrial`, `read_trial()`, `is_microscope_trial()` |
+| `loaders/aol_ribbon_scan.py` | One tiled, gutterless ribbon mosaic frame at a time; channel names follow correction metadata or the AOL green/red convention | `AOLRibbonScanSource` |
+| `loaders/aol_cell_roi_grid.py` | Hybrid mosaic cell masks rendered from raw green-channel crops with the shared ROI-grid layout | `AOLCellROIGridSource` |
+| `loaders/aol_roi_trace.py` | Per-mask ROI traces on frame-midpoint times, with ribbon coverage in channel descriptions | `AOLRoiTraceSource` |
+| `loaders/aol_microscope_session.py` | One-trial or experiment-folder microscope session scan; drops derived outputs outside `roi_activity` | `AOLMicroscopeTrialSource`, `is_microscope_trial()` |
+| `loaders/aol_trial_matching.py` | Trial day selection, shared-zone inference, and unique containment/nearest-start matching | `derive_utc_offset()`, `match_trial()` |
 | `ui/imaging_frame_view.py` | The imaging picture with its own zoom and pan, or a message in its place; replaces the QLabel that could not shrink below its last pixmap | `ImagingFrameView` |
 | `ui/zoom_controls.py` | Zoom in / zoom out / reset glyph strip shared by the video, imaging and 3D panes; each owner keeps its own zoom | `ZoomControls`, `ZOOM_STEP` |
 | `ui/imaging_integration.py` | Import, choice prompts, mapping, coverage, undo and session placement for imaging sources | `load_imaging()`, `restore_entries()`, `record_view()` |
@@ -671,13 +678,15 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `engine/player.py` | precise 60 Hz tick; MasterClock ↔ panes ↔ UI. Owns the clock, so no drift correction (D-075) | `Player.seek()`, `.set_playing()`, `.step_frame()`, `.stop()` |
 | `engine/seeker.py` | Parallel seek across all video panes | `SeekGroup` |
 | `engine/drop_worker.py` | Off-thread drop classification; AOL session fan-out, pose `role` tagging (D-046) | `DropScanWorker` — signals: `finished(candidates, is_aol)`, `session_found`, `error` |
+| `engine/aol_trial_search.py` | Registered worker that searches one camera-stamped day and returns only a unique trial match | `AOLTrialSearchWorker` |
+| `ui/controllers/aol_microscope_controller.py` | Align-menu search, evidence review, and explicit grouped undoable placement of a loaded AOL trial | `find_trial()`, `accept_trial_pair()` |
 | `engine/session_worker.py` | Off-thread `.avv` save/load | `SessionSaveWorker`, `SessionLoadWorker` |
 | `engine/cache_worker.py` | Off-thread cache removal for File → Cache (D-160) | `CacheRemovalWorker` |
 | `engine/export_worker.py` | Off-thread region stats / data slice / clip / snapshot | `RegionStatsWorker`, `DataExportWorker`, `SnapshotWorker` (takes a `SnapshotFigure`), `ReaderReference` |
 | `engine/video_worker.py` | Off-thread video probe before native pane creation | `VideoOpenWorker` |
-| `loaders/aol_session_loader.py` | AOL folder detection + manifest (videos, 2D/3D pose, encoder, timing). Declares `SessionLayout.rotary`: the encoder angle turns the running wheel, with `hardware: wheel_bar_count / wheel_radius / wheel_radius_units` from `trial_config.yml` when present (D-113) | `is_aol_session()`, `build_manifest()`, `AOLManifest`, `AOL2DTrack` |
+| `loaders/aol_session_loader.py` | AOL MP4/AVI folder detection + manifest (pose, encoder, per-frame times). Uses exact stems and shared median camera start; cross-checks the timing report without blocking partial loads (D-202) | `is_aol_session()`, `build_manifest()`, `AOLManifest`, `AOL2DTrack` |
 | `loaders/aol_eks_loader.py` | AOL 3D EKS CSV; frame-indexed x/y/z triplets | `AOLEksLoader` (`read_all_chunks` is the bulk API) |
-| `loaders/aol_encoder_loader.py` | AOL encoder log; seconds-since-midnight, midnight-unwrapped (D-045). Two channels: `encoder_velocity` (rpm — measured: six times its integral tracks the unwrapped position to 0.25 %, D-114) and `encoder_angle` (the position unwrapped into cumulative degrees, D-112) | `AOLEncoderLoader`, `ANGLE_CHANNEL` |
+| `loaders/aol_encoder_loader.py` | AOL encoder log; seconds-since-midnight, midnight-unwrapped (D-045). `encoder_velocity` is shown; `encoder_angle` stays loaded but hidden by default for the wheel prop (D-112, D-202) | `AOLEncoderLoader`, `ANGLE_CHANNEL` |
 | `loaders/aol_metric_loader.py` | Extracted per-frame optical-flow/MI MAT files (`avialsync_data_schema.md`); frame-indexed, no `role` — plots like any sensor | `AOLMetricLoader`, `ROI_METRIC_FILENAME_RE` |
 | `loaders/aol_video_extraction_loader.py` | Video-extraction-toolbox per-camera export: v7.3/HDF5 + JSON sidecar, one channel per (ROI, column). Carries its own time axis, so NOT frame-indexed (D-081). In a session it is timed from the camera start, not from `absolute_times`, which is an hour out against the session's wall-clock axis (D-083) | `AOLVideoExtractionLoader`, `TIME_BASE_CAMERA_START`, `read_sidecar()`, `sidecar_path()` |
 | `engine/importer.py` | Background import worker (QThread); emits SourceInspection | `ImportWorker` — signals: `finished(path, cache_dir, channels, bounds, inspection)`, `progress`, `error` |
@@ -1880,6 +1889,37 @@ Two more that are easy to get wrong:
   `PyramidBuilder` writes `cache_dir / f"{channel_id}_t.npy"` with no sanitisation, so a
   slash is a path separator on POSIX and illegal on Windows. `_safe_label` strips the
   reserved set and names join with `_`.
+
+### 26d. AOL camera timing and microscope trial imports (D-202)
+
+The camera PC writes AVI as well as MP4, and a timing file is paired by exact stem (raw names
+may contain underscores). The AOL relative-times rows are the per-frame timing authority. A
+declared nominal camera rate is only a fallback when no usable timing file exists; never inject
+30 fps for an undeclared session. All camera items use the median first-frame stamp under the
+external-trigger assumption. Report mismatches become source warnings and do not reject the
+session.
+
+Each microscope trial is one session. Read only `RibbonScan_ROI_*.mat`, the readable timing
+fields in `params.mat`, and optional hybrid-mosaic ROI analysis; do not load the other derived
+products. Ribbon volumes are assembled in memory into a gutterless, column-major mosaic, and each
+displayed frame uses its line-scan midpoint. The analysis cell grid reuses the NWB mask geometry
+helper. If no analysis correction exists, index 1 is Green and index 0 Red; a trial's
+`green_channel` value wins. `encoder_angle` remains in the source but is hidden by default because
+wheel props consume it.
+
+**Trial pairing remains an inference.** The search derives a shared time-zone offset from the
+trial folder clock and UTC `STARTTIME`, then accepts only a unique containing/nearby trial. The
+user reviews the wall-clock evidence and accepts one grouped mapping command; the camera session
+is not re-anchored. The assumption is that both PCs use the same local zone and camera stamps
+represent the shared trigger start. No controller code is used, and the pair has not yet been
+verified against a real same-session camera/trial recording.
+
+The controller-boundary baseline records the trial controller's narrow dependencies: `_run_job`
+registers the search worker, `_mutations` applies the accepted mapping through undo, and the
+loaded-sensor map plus video source bounds supply the loaded-state and duration evidence. The
+import-finish bound also grows to preserve loader-declared channel visibility while restoring a
+user override. Session construction now saves only user changes from the loader's default
+visibility, and reset clears the pending pair offer and camera evidence.
 
 ### 27. The window must always close; jobs are owned by JobManager (V-09)
 

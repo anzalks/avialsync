@@ -133,7 +133,13 @@ class AOLEncoderLoader(TimeSeriesSource):
             # RPM: six times its integral tracks the angle to within ~1 deg per
             # minute of recording, where deg/s would be off sixfold.
             ChannelInfo(name=_VELOCITY_CHANNEL, unit="rpm", dtype="Float64", rate_hz=None),
-            ChannelInfo(name=ANGLE_CHANNEL, unit="deg", dtype="Float64", rate_hz=None),
+            ChannelInfo(
+                name=ANGLE_CHANNEL,
+                unit="deg",
+                dtype="Float64",
+                rate_hz=None,
+                shown=False,
+            ),
         ]
 
     @staticmethod

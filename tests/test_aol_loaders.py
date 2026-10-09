@@ -118,6 +118,8 @@ class TestAOLEncoderLoader:
         loader.open(tmp_encoder_log, {})
         channels = loader.channels()
         assert [channel.name for channel in channels] == ["encoder_velocity", "encoder_angle"]
+        assert channels[0].shown is True
+        assert channels[1].shown is False
 
     def test_read_chunks(self, tmp_encoder_log: Path) -> None:
         from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
@@ -568,6 +570,26 @@ class TestAOLSessionDetection:
         assert len(manifest.videos) == 1
         assert manifest.videos[0].name == "FaceCam.mp4"
 
+    def test_missing_trial_rate_does_not_override_video_container(self, tmp_path: Path) -> None:
+        """An undeclared 30 Hz default must not stretch a 230 Hz camera clip."""
+        from avialsync.core.registry import LoaderRegistry
+        from avialsync.loaders.aol_session_loader import AOLSessionSource, build_manifest
+
+        session = tmp_path / "09-54-35"
+        session.mkdir()
+        (session / "FaceCam.mp4").write_bytes(b"not decoded during session scan")
+        (session / "FaceCam-relative times.txt").write_text(
+            "1\t0.000\t24-06-2026;09:54:40.5520\n", encoding="utf-8"
+        )
+
+        manifest = build_manifest(session)
+        layout = AOLSessionSource().scan(session, LoaderRegistry())
+
+        assert manifest.camera_fps == 0.0
+        assert layout.camera_fps == 0.0
+        video = next(item for item in layout.items if item.path.suffix == ".mp4")
+        assert "fps" not in video.config
+
     def test_build_manifest_falls_back_to_labeled_when_no_raw_footage(self, tmp_path: Path) -> None:
         """A session with only rendered videos must still open."""
         from avialsync.loaders.aol_session_loader import build_manifest
@@ -582,6 +604,66 @@ class TestAOLSessionDetection:
         assert len(manifest.videos) == 1
         assert "labeled" in str(manifest.videos[0])
         assert manifest.camera_labels == ["FaceCam"]
+
+    def test_avi_camera_is_claimed_and_matched_by_exact_stem(self, tmp_path: Path) -> None:
+        from avialsync.loaders.aol_session_loader import AOLSessionSource, build_manifest
+        from avialsync.loaders.video_standard import VideoStandardLoader
+
+        session = tmp_path / "09-54-35"
+        session.mkdir()
+        video = session / "Face_Cam.avi"
+        video.write_bytes(b"video fixture placeholder")
+        timing = session / "Face_Cam-relative times.txt"
+        timing.write_text(
+            "1\t0.000\t24-06-2026;09:54:40.5520\n2\t4.346\t24-06-2026;09:54:40.5563\n",
+            encoding="utf-8",
+        )
+        assert AOLSessionSource.can_open(session) > 0
+        manifest = build_manifest(session)
+        assert manifest.videos == [video]
+        assert manifest.camera_labels == ["Face_Cam"]
+
+        class Registry:
+            @staticmethod
+            def find_best_loader(_path: Path):
+                return VideoStandardLoader
+
+        layout = AOLSessionSource().scan(session, Registry())
+        item = next(item for item in layout.items if item.path == video)
+        assert item.config["frame_timestamps"] == str(timing)
+        assert item.config["frame_timestamps_format"] == "aol_relative_ms"
+        assert item.config["start_time"] == 0.0
+        assert "fps" not in item.config
+
+    def test_mp4_wins_over_avi_with_same_stem(self, tmp_path: Path) -> None:
+        from avialsync.loaders.aol_session_loader import AOLManifest, _add_root_videos
+
+        session = tmp_path / "session"
+        session.mkdir()
+        mp4 = session / "FaceCam.mp4"
+        avi = session / "FaceCam.avi"
+        mp4.touch()
+        avi.touch()
+        manifest = AOLManifest(session_dir=session)
+        _add_root_videos(session, manifest)
+        assert manifest.videos == [mp4]
+        assert any("ignored FaceCam.avi" in warning for warning in manifest.warnings)
+
+    def test_timing_report_rate_disagreement_is_a_warning(self, tmp_aol_session: Path) -> None:
+        import h5py
+
+        from avialsync.loaders.aol_session_loader import build_manifest
+
+        report = tmp_aol_session / "camera_module_timing_report.mat"
+        with h5py.File(report, "w") as handle:
+            timing = handle.create_group("timing_report")
+            timing.create_dataset("camera_names", data=np.asarray([b"FaceCam", b"FrontCam"]))
+            timing.create_dataset("camera_frame_count", data=np.asarray([2, 2]))
+            timing.create_dataset("camera_frame_rates_hz", data=np.asarray([30.0, 230.0]))
+
+        manifest = build_manifest(tmp_aol_session)
+
+        assert any("FaceCam: timing report rate is 30 Hz" in line for line in manifest.warnings)
 
     def test_trial_config_parsing(self, tmp_aol_session: Path) -> None:
         from avialsync.loaders.aol_session_loader import build_manifest

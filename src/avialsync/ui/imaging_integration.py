@@ -256,10 +256,11 @@ def change_mapping(window: MainWindow, path: str, offset: float, drift_ms_per_ho
     if path not in window.imaging_pane.source_paths():
         return
     window._record_mapping_change(path, offset, drift_ms_per_hour)
-    window.imaging_pane.set_mapping(path, offset, drift_ms_per_hour)
+    effective = window.effective_offset(path, offset)
+    window.imaging_pane.set_mapping(path, effective, drift_ms_per_hour)
     window.sidebar.set_imaging_mapping(path, offset, drift_ms_per_hour)
     info = window.imaging_pane.metadata_for(path)
-    _show_coverage(window, path, info, TimeMap(offset, drift_ms_per_hour))
+    _show_coverage(window, path, info, TimeMap(effective, drift_ms_per_hour))
 
 
 def restore_entry(window: MainWindow, entry: ImagingEntry, path: Path) -> None:
@@ -356,17 +357,28 @@ def load_imaging(
     def done(metadata: object) -> None:
         if not current() or not isinstance(metadata, ImagingMetadata):
             return
+        effective_offset = offset
+        if not restoring and not reloading:
+            window.declare_base_offset(
+                source_id,
+                float(metadata.frame_times[0]) if metadata.frame_count else 0.0,
+            )
+            effective_offset = window.effective_offset(source_id, offset)
+        residual = window.user_offset(source_id, effective_offset) if restoring else offset
         window.imaging_pane.add_source(
-            source_id, loader_cls, chosen, metadata, offset, drift_ms_per_hour, view
+            source_id, loader_cls, chosen, metadata, effective_offset, drift_ms_per_hour, view
         )
-        window.sidebar.add_imaging(source_id, metadata, offset, drift_ms_per_hour)
-        window._recorded_mappings[source_id] = (offset, drift_ms_per_hour)
+        window.sidebar.add_imaging(source_id, metadata, residual, drift_ms_per_hour)
+        window._recorded_mappings[source_id] = (residual, drift_ms_per_hour)
         _reveal(window)
-        _show_coverage(window, source_id, metadata, TimeMap(offset, drift_ms_per_hour))
+        _show_coverage(window, source_id, metadata, TimeMap(effective_offset, drift_ms_per_hour))
         if not reloading:
             window._note_source_loaded(source_id, "imaging")
         window._refresh_empty_state()
         window.imaging_pane.set_cursor(window.clock.state.t)
+        from avialsync.ui.controllers.aol_microscope_controller import trial_source_loaded
+
+        trial_source_loaded(window)
 
     def needs_choice(choice: str, message: str, options: object) -> None:
         if not current():

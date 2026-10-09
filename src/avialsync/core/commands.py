@@ -25,6 +25,7 @@ from avialsync.core.wheel import Wheel
 
 __all__ = [
     "SetSourceMappingCommand",
+    "SetSourceMappingsCommand",
     "AddMarkerCommand",
     "RemoveMarkerCommand",
     "RelabelMarkerCommand",
@@ -91,6 +92,36 @@ class SetSourceMappingCommand:
         if other.source_id != self.source_id:
             return None
         return dataclasses.replace(self, after=other.after)
+
+
+@dataclasses.dataclass(frozen=True)
+class SourceMappingChange:
+    """One source's reversible mapping within a grouped accepted placement."""
+
+    source_id: str
+    before: tuple[float, float]
+    after: tuple[float, float]
+
+
+@dataclasses.dataclass
+class SetSourceMappingsCommand:
+    """Change several related sources as one undoable mapping operation."""
+
+    changes: tuple[SourceMappingChange, ...]
+    display_name: str = "microscope trial"
+    command_id: str = "source.mappings"
+
+    @property
+    def label(self) -> str:
+        return f"Align {self.display_name} to camera start"
+
+    def apply(self, target: MutationTarget) -> None:
+        for change in self.changes:
+            target.set_source_mapping(change.source_id, *change.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        for change in reversed(self.changes):
+            target.set_source_mapping(change.source_id, *change.before)
 
 
 @dataclasses.dataclass

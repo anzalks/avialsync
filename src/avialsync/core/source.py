@@ -21,6 +21,8 @@ class ChannelInfo:
     unit: str
     dtype: str
     rate_hz: float | None  # None indicates irregular sampling
+    shown: bool = True  # Initial plot visibility; the reader and cache remain available.
+    description: str = ""  # Additional channel-specific context for the inspector.
 
 
 #: Unit spellings formats use for "no unit", shown as nothing at all.

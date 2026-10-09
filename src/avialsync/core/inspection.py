@@ -150,6 +150,11 @@ class SourceInspection:
     #: rides here because this reaches the UI on a cache hit. ``None`` when the
     #: manifest predates the field (not "no units"); empty units are omitted.
     channel_units: dict[str, str] | None = None
+    #: Initial plot visibility declared by a loader; saved channel visibility
+    #: overrides live in the session, so a changed default reaches untouched files.
+    default_channel_visibility: dict[str, bool] | None = None
+    #: Optional channel descriptions declared by the source plugin.
+    channel_descriptions: dict[str, str] | None = None
 
     def units(self) -> dict[str, str]:
         """Each channel's unit: the loader's, overridden by any the import set."""
@@ -170,6 +175,14 @@ class SourceInspection:
             "messages": [message.as_dict() for message in self.messages],
             "pose": self.pose.as_dict() if self.pose else None,
             "channel_units": dict(self.channel_units) if self.channel_units is not None else None,
+            "default_channel_visibility": (
+                dict(self.default_channel_visibility)
+                if self.default_channel_visibility is not None
+                else None
+            ),
+            "channel_descriptions": (
+                dict(self.channel_descriptions) if self.channel_descriptions is not None else None
+            ),
         }
 
     @classmethod
@@ -187,6 +200,16 @@ class SourceInspection:
             channel_units=(
                 {str(k): str(v) for k, v in d["channel_units"].items()}
                 if isinstance(d.get("channel_units"), dict)
+                else None
+            ),
+            default_channel_visibility=(
+                {str(k): bool(v) for k, v in d["default_channel_visibility"].items()}
+                if isinstance(d.get("default_channel_visibility"), dict)
+                else None
+            ),
+            channel_descriptions=(
+                {str(k): str(v) for k, v in d["channel_descriptions"].items()}
+                if isinstance(d.get("channel_descriptions"), dict)
                 else None
             ),
         )

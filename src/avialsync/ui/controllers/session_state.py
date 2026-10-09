@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from avialsync.ui.recovery import RecoverySnapshot
 
@@ -32,6 +33,9 @@ class SessionRuntimeState:
     coverage_groups: dict[str, str] = field(default_factory=dict)
     # Unix epoch of master-clock zero, until a source declares wall time.
     start_time: float = 0.0
+    # Camera wall-clock metadata and the user's pending AOL trial-pair offer.
+    aol_camera_start_epoch: float = 0.0
+    pending_aol_pair: dict[str, Any] | None = None
 
     def take_dirty_after_restore(self) -> bool:
         """Whether the restore that just drained put back unsaved work; clears it."""
