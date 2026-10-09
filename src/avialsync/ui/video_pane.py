@@ -17,13 +17,14 @@ import time
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from PySide6.QtCore import (
-    Q_ARG,
     QEvent,
     QMetaObject,
     QObject,
+    QPoint,
     QPointF,
     QRect,
     QRectF,
@@ -48,6 +49,7 @@ from PySide6.QtGui import (
     QWheelEvent,
 )
 from PySide6.QtWidgets import (
+    QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -61,7 +63,7 @@ from avialsync.core.source import VideoMetadata
 from avialsync.engine.display_pipeline import (
     DisplayLevels,
     SourceFormat,
-    auto_levels,
+    auto_levels_for_frame,
     probe_format,
     to_display_array,
 )
@@ -70,6 +72,7 @@ from avialsync.ui.accessible_views import register_painted
 from avialsync.ui.design_tokens import spacing
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
+from avialsync.ui.levels_panel import LevelsPanel
 from avialsync.ui.theme import set_font_family
 from avialsync.ui.video_overlay import PaintCanvas
 from avialsync.ui.video_timing import VideoTimingMixin, displayed_frame_rate, format_video_osd
@@ -190,6 +193,8 @@ class DecodeWorker(QObject):
     #: The pixel format of the first decoded frame, so the UI can offer
     #: controls sized to what the recording actually is (D-093).
     format_detected = Signal(object)
+    #: Levels chosen from the last decoded frame, before any levels (D-209).
+    levels_measured = Signal(object)
 
     def __init__(self, path: str) -> None:
         super().__init__()
@@ -201,6 +206,9 @@ class DecodeWorker(QObject):
         #: one, so it has its own lock rather than sharing the request lock.
         self._levels_lock = threading.Lock()
         self._levels = DisplayLevels()
+        #: The last frame decoded, kept on this thread so Auto can measure the
+        #: recording itself rather than a picture its levels already clipped.
+        self._last_frame: Any = None
         #: Format of the last decoded frame, published so the UI can offer
         #: controls sized to what the recording actually is.
         self.source_format: SourceFormat | None = None
@@ -254,6 +262,7 @@ class DecodeWorker(QObject):
                 # 10-, 12-, 14- or 8-bit recording all describe themselves.
                 self.source_format = probe_format(frame)
                 self.format_detected.emit(self.source_format)
+            self._last_frame = frame
             rgb, _is_grey = to_display_array(frame, levels)
         except Exception as error:
             # A decode failure is one lost frame, not a lost session: the next
@@ -269,6 +278,13 @@ class DecodeWorker(QObject):
         if isinstance(levels, DisplayLevels):
             with self._levels_lock:
                 self._levels = levels
+
+    @Slot()
+    def measure_levels(self) -> None:
+        """Choose levels from the last decoded frame, here on the decode thread."""
+        frame = self._last_frame
+        if frame is not None:
+            self.levels_measured.emit(auto_levels_for_frame(frame))
 
     @Slot()
     def shutdown(self) -> None:
@@ -300,6 +316,9 @@ class VideoSurface(QWidget):
         self._zoom = 1.0
         self._pan = QPointF()
         self._pan_origin: QPointF | None = None
+        #: Off while a snapshot renders the picture: the readout is screen
+        #: chrome, and a figure states the zoom in its caption instead.
+        self.readout_shown = True
 
     @property
     def video_size(self) -> tuple[int, int] | None:
@@ -510,7 +529,7 @@ class VideoSurface(QWidget):
         the 3D pane's orbit readout -- a view you arrived at by dragging is
         otherwise recorded only as a picture.
         """
-        if self._zoom == 1.0 and self._pan.isNull():
+        if not self.readout_shown or self.is_default_view:
             return
         readout = self.view_readout()
         painter.setPen(QPen(self.palette().color(QPalette.ColorRole.WindowText), 1))
@@ -520,6 +539,11 @@ class VideoSurface(QWidget):
             self.height() - 8,
             readout,
         )
+
+    @property
+    def is_default_view(self) -> bool:
+        """Whether the whole frame is shown, fitted and centred."""
+        return self._zoom == 1.0 and self._pan.isNull()
 
     def view_readout(self) -> str:
         """Zoom and pan offset as text. Separate from painting so it can be
@@ -620,6 +644,10 @@ class VideoPane(VideoTimingMixin, QWidget):
     #: The recording's own pixel format, once a frame has been decoded. The
     #: UI sizes its display controls from this rather than assuming a depth.
     source_format_detected = Signal(object)
+    #: The user changed this camera's levels in its popover: (DisplayLevels).
+    levels_requested = Signal(object)
+    #: Auto measured levels from this camera's frame: (DisplayLevels).
+    levels_measured = Signal(object)
     file_loaded = Signal()
     open_failed = Signal(str)
     #: A finished "Fix Tracker" drag, as a
@@ -709,6 +737,8 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.media_path = path
 
         worker = DecodeWorker(path)
+        # A reopened file keeps the levels the camera is shown through.
+        worker.set_levels(self._display_levels)
         thread = QThread(self)
         # Named so that any Qt warning about it identifies the camera. The
         # unnamed default is why "QThread: Destroyed while thread '' is still
@@ -725,6 +755,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         worker.failed.connect(self._on_open_failed)
         worker.frame_ready.connect(self._on_frame_ready)
         worker.format_detected.connect(self._on_format_detected)
+        worker.levels_measured.connect(self.levels_measured)
         thread.started.connect(worker.open)
         thread.start()
 
@@ -740,19 +771,19 @@ class VideoPane(VideoTimingMixin, QWidget):
     def set_display_levels(self, levels: DisplayLevels) -> None:
         """Apply a display window to this camera.
 
-        Queued to the decode thread rather than applied here: the conversion
-        runs there, and a lookup table built on the UI thread would be work in
-        the wrong place even if the table itself is cheap.
+        Handed to the decode worker, which converts with it: the table is built
+        and applied on the decode thread, never here. The hand-over is a
+        lock-guarded assignment rather than a queued call -- PySide6 cannot
+        queue a plain Python object through ``invokeMethod`` (``Q_ARG(object,
+        ...)`` raises "Unable to find a QMetaType for object"), which is how
+        levels set in the inspector used to never reach the decoder at all.
         """
         self._display_levels = levels
+        if hasattr(self, "levels_button"):
+            self._show_levels_state()
         worker = self._worker
         if worker is not None:
-            QMetaObject.invokeMethod(
-                worker,
-                "set_levels",
-                Qt.ConnectionType.QueuedConnection,
-                Q_ARG(object, levels),
-            )
+            worker.set_levels(levels)
             # Re-request the frame on screen so the change is visible while
             # paused, which is when someone sets levels. The reader caches the
             # decoded frame, so this is a re-conversion, not a re-decode.
@@ -762,25 +793,18 @@ class VideoPane(VideoTimingMixin, QWidget):
     def display_levels(self) -> DisplayLevels:
         return self._display_levels
 
-    def auto_display_levels(self) -> DisplayLevels | None:
-        """Levels chosen from the frame currently on screen.
+    def request_auto_levels(self) -> None:
+        """Measure levels from the recording on the decode thread; they arrive as a change.
 
-        Uses the displayed 8-bit buffer rather than re-decoding: it is what the
-        user is looking at when they press Auto, and re-reading the source frame
-        from the UI thread would be file work in the wrong place.
-
-        Returns ``None`` when this camera has no window to choose -- ordinary
-        8-bit colour already fills the screen's range.
+        Measured from the decoded frame, not the picture on screen: once levels
+        clip the picture, what was clipped cannot be measured back from it.
+        The answer comes back through :attr:`levels_measured` and is recorded
+        and undoable like a slider's change, as a step of its own.
         """
-        if self.source_format is None or not self.source_format.needs_windowing:
-            return None
-        buffer = getattr(getattr(self, "surface", None), "_buffer", None)
-        if buffer is None:
-            return None
-        # The buffer is already mapped to 8 bits, so measure it on that scale
-        # and express the result against the source's own.
-        eight_bit = SourceFormat(pix_fmt="gray", bits=8, component_count=1)
-        return auto_levels(np.asarray(buffer), eight_bit)
+        if self._worker is not None:
+            QMetaObject.invokeMethod(
+                self._worker, "measure_levels", Qt.ConnectionType.QueuedConnection
+            )
 
     @Slot(object, int, int, str)
     def _on_opened(self, frame_times: np.ndarray, width: int, height: int, codec: str) -> None:
@@ -1140,6 +1164,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.zoom_controls.zoom_in_requested.connect(lambda: self.surface.zoom_by(ZOOM_STEP))
         self.zoom_controls.zoom_out_requested.connect(lambda: self.surface.zoom_by(1.0 / ZOOM_STEP))
         self.zoom_controls.reset_requested.connect(self.surface.reset_view)
+        self._build_levels_popover()
 
         self._grid.addWidget(
             self.zoom_controls,
@@ -1147,6 +1172,64 @@ class VideoPane(VideoTimingMixin, QWidget):
             0,
             Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignLeft,
         )
+
+    def _build_levels_popover(self) -> None:
+        """A levels button beside zoom, opening this camera's own levels (D-209).
+
+        Per camera, beside the zoom it belongs with: a toolbar acts on every
+        pane at once and would need a hidden "which camera" rule. The button
+        stays pressed while the camera is shown through anything but its full
+        range, so an adjusted picture is never mistaken for the raw one.
+        """
+        name = tr("Display levels")
+        self.levels_button = self.zoom_controls.add_glyph_button("levels", name)
+        self.levels_button.setCheckable(True)
+        self.levels_button.setAccessibleDescription(
+            tr("Black point, white point and gamma for this camera's picture")
+        )
+        # A popup frame, not a QMenu: a widget embedded in a menu through a
+        # QWidgetAction comes out disabled, and the menu sized itself to the
+        # panel while it was still hidden -- a 0x0 popover with dead sliders.
+        self.levels_popover = QFrame(self, Qt.WindowType.Popup)
+        self.levels_popover.setFrameShape(QFrame.Shape.StyledPanel)
+        self.levels_popover.setAccessibleName(name)
+        box = QVBoxLayout(self.levels_popover)
+        box.setContentsMargins(0, 0, 0, 0)
+        self.levels_popover_panel = LevelsPanel(self.levels_popover)
+        box.addWidget(self.levels_popover_panel)
+        self.levels_popover_panel.levels_changed.connect(self.levels_requested)
+        self.levels_popover_panel.auto_requested.connect(self.request_auto_levels)
+        self.levels_button.clicked.connect(self._open_levels_popover)
+
+    def _open_levels_popover(self) -> None:
+        """Open this camera's levels above its button, inside the screen."""
+        # A click toggles a checkable button; its state says "adjusted", not "open".
+        self.levels_button.setChecked(not self._display_levels.is_identity)
+        panel = self.levels_popover_panel
+        panel.set_source_format(self.source_format)
+        panel.setVisible(True)
+        panel.set_levels(self._display_levels)
+        popover = self.levels_popover
+        popover.adjustSize()
+        anchor = self.levels_button.mapToGlobal(QPoint(0, 0))
+        position = QPoint(anchor.x(), anchor.y() - popover.height() - 4)
+        screen = self.levels_button.screen()
+        if screen is not None:
+            bounds = screen.availableGeometry()
+            if position.y() < bounds.top():
+                position.setY(anchor.y() + self.levels_button.height() + 4)
+            position.setX(min(max(position.x(), bounds.left()), bounds.right() - popover.width()))
+        popover.move(position)
+        popover.show()
+        panel.setFocus()
+
+    def _show_levels_state(self) -> None:
+        adjusted = not self._display_levels.is_identity
+        self.levels_button.setChecked(adjusted)
+        self.levels_button.setToolTip(
+            tr("Display levels (adjusted)") if adjusted else tr("Display levels")
+        )
+        self.levels_popover_panel.set_levels(self._display_levels)
 
     def accessible_value(self) -> str:
         """Time and frame on screen, read on query (D-179)."""

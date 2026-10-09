@@ -1,9 +1,10 @@
 """Choosing which part of a recording's range to show (WP-9, D-093).
 
-Only offered for sources that need it.  The panel asks the decoder what the
-footage actually is — a :class:`~avialsync.engine.display_pipeline.SourceFormat`
-read from the frame — and stays out of the way for ordinary 8-bit colour, which
-already fills the screen's range.
+The panel asks the decoder what the footage actually is — a
+:class:`~avialsync.engine.display_pipeline.SourceFormat` read from the frame —
+and labels itself in that depth. One instance lives in the inspector for the
+focused camera, and one in each camera's levels popover (D-209); both go through
+:mod:`avialsync.ui.video_levels`, so they never disagree.
 
 The controls are in normalised units and labelled in the recording's own, so a
 12-bit camera shows 0–4095 and a 10-bit one 0–1023 without either number
@@ -86,13 +87,15 @@ class LevelsPanel(QGroupBox):
     # ── source ───────────────────────────────────────────────────────
 
     def set_source_format(self, source: SourceFormat | None) -> None:
-        """Show the panel only when the recording has range worth choosing from.
+        """Show the panel once the camera has decoded a frame, labelled in its depth.
 
-        Eight-bit colour is already the screen's range; offering a window over
-        it would be a control that cannot improve anything.
+        Every camera, 8-bit colour included (D-209): there is no hidden range
+        to recover there, but a dark or washed-out camera still reads better
+        stretched, and a control that appears only for some cameras was a
+        control nobody found.
         """
         self._source = source
-        self.setVisible(bool(source and source.needs_windowing))
+        self.setVisible(source is not None)
         if source is not None:
             self.setTitle(tr("Display Levels — {bits}-bit").format(bits=source.bits))
         self._refresh_readouts()

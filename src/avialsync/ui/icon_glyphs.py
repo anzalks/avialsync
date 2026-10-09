@@ -45,6 +45,8 @@ GLYPHS: dict[str, str] = {
     "fit": '<path d="M4 9V4h5"/><path d="M15 4h5v5"/><path d="M20 15v5h-5"/><path d="M9 20H4v-5"/>',
     "fullscreen": '<path d="M4 9V4h5"/><path d="M4 4l6 6"/><path d="M20 15v5h-5"/>'
     '<path d="M20 20l-6-6"/>',
+    # Half-filled disc: the display's black-to-white range, as photo editors draw it.
+    "levels": '<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="#000"/>',
     "snapshot": '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
     "eye": '<path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/>'
     '<circle cx="12" cy="12" r="3"/>',

@@ -18,9 +18,9 @@
       "_setup_shortcuts": 160
     },
     "session_controller.py": {
-      "build_session_state": 86,
-      "reset_session": 141,
-      "restore_session": 144,
+      "build_session_state": 87,
+      "reset_session": 142,
+      "restore_session": 145,
       "start_session_save": 64
     },
     "video_controller.py": {
@@ -30,7 +30,7 @@
   "main_window_lines": 3917,
   "oversized_controller_lines": {
     "import_controller.py": 722,
-    "session_controller.py": 847
+    "session_controller.py": 850
   },
   "private_accesses": {
     "aol_microscope_controller.py": {

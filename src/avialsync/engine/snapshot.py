@@ -91,10 +91,31 @@ class SnapshotTile:
 
 @dataclass(frozen=True)
 class TilePlacement:
-    """Where one tile's image lands, in coordinates local to the media band."""
+    """Where one tile's image lands, in coordinates local to the media band.
+
+    *cell* is the area the tile owns when it came from the video grid: the
+    pane's whole rectangle, of which the picture (*rect*) may fill only part,
+    exactly as on screen. Its caption runs under the cell, so captions of one
+    grid row line up whatever each camera's letterbox.
+    """
 
     tile: SnapshotTile
     rect: QRect
+    cell: QRect | None = None
+
+
+@dataclass(frozen=True)
+class GridCell:
+    """A camera as the video grid shows it, in capture pixels from the grid's corner.
+
+    *cell* is the pane; *picture* is the part of it the frame covers, zoom and
+    pan included. Both are measured at one shared scale for every camera, so
+    the figure keeps the grid's proportions and alignment (D-209).
+    """
+
+    tile: SnapshotTile
+    cell: QRect
+    picture: QRect
 
 
 @dataclass(frozen=True)
@@ -163,13 +184,28 @@ def plan_media_layout(
     if not tiles:
         return MediaLayout(content_width_for(_MIN_CONTENT_WIDTH, plot_aspect), 0, ())
 
-    widths = [
+    widths = _nominal_widths(tiles)
+    natural = sum(widths) + _GUTTER * (len(tiles) - 1)
+    content_width = content_width_for(natural, plot_aspect)
+    placements, height = _justified_rows(tiles, content_width, 0)
+    return MediaLayout(content_width, height, tuple(placements))
+
+
+def _nominal_widths(tiles: tuple[SnapshotTile, ...]) -> list[int]:
+    """Each tile's width at the nominal row height, keeping its aspect."""
+    return [
         max(1, round(tile.image.width() * _TILE_HEIGHT / max(1, tile.image.height())))
         for tile in tiles
     ]
-    natural = sum(widths) + _GUTTER * (len(tiles) - 1)
-    content_width = content_width_for(natural, plot_aspect)
 
+
+def _justified_rows(
+    tiles: tuple[SnapshotTile, ...], content_width: int, top: int
+) -> tuple[list[TilePlacement], int]:
+    """Wrap tiles into rows stretched to *content_width*, from *top*; return their height."""
+    if not tiles:
+        return [], 0
+    widths = _nominal_widths(tiles)
     rows: list[list[tuple[SnapshotTile, int]]] = []
     row: list[tuple[SnapshotTile, int]] = []
     used = 0
@@ -184,7 +220,7 @@ def plan_media_layout(
         rows.append(row)
 
     placements: list[TilePlacement] = []
-    y = 0
+    y = top
     for entries in rows:
         span = sum(width for _, width in entries)
         gutters = _GUTTER * (len(entries) - 1)
@@ -201,7 +237,53 @@ def plan_media_layout(
             x += width + _GUTTER
         y += height + _CAPTION_HEIGHT + _GUTTER
 
-    return MediaLayout(content_width, max(0, y - _GUTTER), tuple(placements))
+    return placements, max(0, y - _GUTTER - top)
+
+
+def plan_grid_layout(
+    cells: tuple[GridCell, ...] | list[GridCell],
+    extras: tuple[SnapshotTile, ...] | list[SnapshotTile] = (),
+    plot_aspect: float | None = None,
+) -> MediaLayout:
+    """Lay the cameras out as the video grid shows them, then any other tiles.
+
+    One scale for the whole grid, so cameras keep the sizes and alignment they
+    have on screen; a zoomed camera fills its cell exactly as its pane does. Each
+    grid row gets a caption band beneath it. Tiles from outside the grid (the
+    3D pose, the imaging picture, a detached camera) follow in justified rows.
+    """
+    cells, extras = tuple(cells), tuple(extras)
+    if not cells:
+        return plan_media_layout(extras, plot_aspect)
+    left = min(cell.cell.left() for cell in cells)
+    top = min(cell.cell.top() for cell in cells)
+    width = max(cell.cell.right() + 1 for cell in cells) - left
+    natural = max(width, sum(_nominal_widths(extras)) + _GUTTER * max(0, len(extras) - 1))
+    content_width = content_width_for(natural, plot_aspect)
+    factor = content_width / max(1, width)
+    # A caption band under every grid row: rows are the distinct cell tops.
+    row_tops = sorted({cell.cell.top() for cell in cells})
+
+    def mapped(rect: QRect, row: int) -> QRect:
+        return QRect(
+            round((rect.left() - left) * factor),
+            round((rect.top() - top) * factor) + row * _CAPTION_HEIGHT,
+            max(1, round(rect.width() * factor)),
+            max(1, round(rect.height() * factor)),
+        )
+
+    placements: list[TilePlacement] = []
+    bottom = 0
+    for cell in cells:
+        row = row_tops.index(cell.cell.top())
+        box = mapped(cell.cell, row)
+        placements.append(TilePlacement(cell.tile, mapped(cell.picture, row), box))
+        bottom = max(bottom, box.bottom() + 1 + _CAPTION_HEIGHT)
+    below, height = _justified_rows(extras, content_width, bottom + _GUTTER)
+    placements += below
+    return MediaLayout(
+        content_width, bottom + (_GUTTER + height if below else 0), tuple(placements)
+    )
 
 
 def figure_size(figure: SnapshotFigure) -> tuple[int, int]:
@@ -320,6 +402,7 @@ def _draw_media_band(
 
     for placement in figure.layout.placements:
         rect = placement.rect.translated(origin_x, origin_y)
+        under = (placement.cell or placement.rect).translated(origin_x, origin_y)
         # A frame letterboxed against the theme background would read as part of
         # the recording, so tiles sit on their own panel colour.
         painter.fillRect(rect, theme.panel)
@@ -334,14 +417,14 @@ def _draw_media_band(
             painter,
             caption_font,
             theme.foreground,
-            QRect(rect.x(), rect.bottom() + 6, rect.width(), _CAPTION_PIXEL_SIZE + 6),
+            QRect(under.x(), under.bottom() + 6, under.width(), _CAPTION_PIXEL_SIZE + 6),
             placement.tile.title,
         )
         _draw_text(
             painter,
             detail_font,
             theme.muted,
-            QRect(rect.x(), rect.bottom() + 26, rect.width(), _CAPTION_DETAIL_PIXEL_SIZE + 6),
+            QRect(under.x(), under.bottom() + 26, under.width(), _CAPTION_DETAIL_PIXEL_SIZE + 6),
             placement.tile.detail,
         )
 

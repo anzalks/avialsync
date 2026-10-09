@@ -77,7 +77,13 @@ from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
 from avialsync.engine.snapshot import SnapshotFigure
-from avialsync.ui import dandi_open, imaging_integration, recovery_worker, workspaces
+from avialsync.ui import (
+    dandi_open,
+    imaging_integration,
+    recovery_worker,
+    video_levels,
+    workspaces,
+)
 from avialsync.ui.accessibility import apply_accessibility, install_show_time_sweep
 from avialsync.ui.annotations import AnnotationStore, Marker
 from avialsync.ui.changes_panel import ChangeRow, ChangesPanel
@@ -3666,9 +3672,8 @@ class MainWindow(QMainWindow):
         """
         if path in self.video_grid.pane_paths():
             self._selected_video_path = path
-            self._on_source_format_detected(
-                path, getattr(self._pane_for(path), "source_format", None)
-            )
+            # The panel shows this camera's levels, not the last camera's.
+            video_levels.show_focused(self)
 
     def _pane_for(self, path: str) -> object | None:
         try:
@@ -3677,30 +3682,19 @@ class MainWindow(QMainWindow):
             return None
 
     def _on_source_format_detected(self, path: str, source_format: object) -> None:
-        """Show or hide the levels panel according to what this file turned out to be."""
+        """Label the levels panel in the depth this file turned out to have."""
         if not isinstance(source_format, SourceFormat):
             return
         if path == self._focused_video_path():
-            self.levels_panel.set_source_format(source_format)
+            video_levels.show_focused(self)
 
     def _on_display_levels_changed(self, levels: object) -> None:
-        if not isinstance(levels, DisplayLevels):
-            return
-        path = self._focused_video_path()
-        if path is None:
-            return
-        self._display_levels[path] = levels
-        self.video_grid.set_display_levels(path, levels)
+        """The inspector panel moved: a change to the focused camera's levels."""
+        video_levels.request(self, self._focused_video_path(), levels)
 
     def _on_auto_levels_requested(self) -> None:
-        """Choose black and white from the frame currently on screen."""
-        path = self._focused_video_path()
-        if path is None:
-            return
-        levels = self.video_grid.auto_display_levels(path)
-        if levels is not None:
-            self.levels_panel.set_levels(levels)
-            self._on_display_levels_changed(levels)
+        """Choose black and white from the focused camera's frame on screen."""
+        video_levels.request_auto(self, self._focused_video_path())
 
     def _on_channel_group_visibility_changed(
         self, path: str, group_label: str, channels: list, visible: bool

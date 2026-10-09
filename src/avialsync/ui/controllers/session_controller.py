@@ -27,7 +27,7 @@ from avialsync.core.session import (
 )
 from avialsync.core.settings_schema import setting_for
 from avialsync.core.source import source_exists
-from avialsync.ui import imaging_integration, recovery
+from avialsync.ui import imaging_integration, recovery, video_levels
 from avialsync.ui.app_settings import app_settings
 from avialsync.ui.controllers import (
     corrections_controller,
@@ -198,6 +198,7 @@ def build_session_state(window: MainWindow) -> SessionState:
         plot_x0=plot_x0,
         plot_x1=plot_x1,
         overlays=window.overlay_state.to_dict(),
+        display_levels=video_levels.saved(window),
         point_edits=corrections_controller.build_manifest(window),
         identity_swaps=identity_controller.build_manifest(window),
         show_original_tracker=window._show_original_tracker,
@@ -416,6 +417,7 @@ def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
     window._video_frame_times.clear()
     window._video_source_bounds.clear()
     window._video_time_mappings.clear()
+    video_levels.reset(window)
     window._sync_provenance.clear()
     window.forget_session_start()
     # Placements belong to the session zero that produced them; carrying them
@@ -499,6 +501,7 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     # right layers rather than flashing the defaults first (D-090).
     window.overlay_state.load(state.overlays)
     window._apply_overlay_state()
+    video_levels.restore(window, state.display_levels)
     window._show_original_tracker = state.show_original_tracker
     original_action = window._act_show_original_tracker
     blocked = original_action.blockSignals(True)

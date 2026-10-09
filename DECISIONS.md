@@ -6660,3 +6660,41 @@ recordings pair (camera PC +0.71 s), one more by order, and one belongs to no tr
 off-trigger recording on the trigger would show footage up to 15 s away from the imaging as
 simultaneous (rule 8). Every association is a session declaration with its evidence in the
 layout warnings; the explicit Find trial / Accept alignment flow (D-202) is unchanged.
+
+---
+
+## 2026-10 · D-209 · Display levels for every camera, beside its zoom; snapshots export the grid as shown
+
+**Decision.** Every camera has display levels (black point, white point, gamma), 8-bit colour
+included: a 256-entry table on each channel after `rgb24` conversion, on the decode thread,
+paired two bytes per lookup (3.6 ms for a 1440x1080 frame, against 5.7 ms one byte at a time) and
+skipped for the identity. The control is a glyph button in each pane's zoom strip opening a
+popover; the inspector's Display Levels panel edits the focused camera. Both go through
+`ui/video_levels.py`, which records a `SetVideoLevelsCommand` (merging one slider's drag into one
+undo step), shows the result in the decoder, the pane's pressed "adjusted" button and the panel,
+and saves it in the session's existing `display_levels` field, applied as each camera opens.
+**Auto** measures the last decoded frame on the decode thread, before any levels, so it works
+however the camera is already adjusted; Auto and Full range are undo steps of their own. The
+popover is a `Qt.Popup` frame: hosted in a `QMenu` through a `QWidgetAction` the panel came out
+disabled and the menu sized itself 0x0, so the button appeared to do nothing -- tests that set
+slider values directly could not see that, so the popover is tested with real mouse clicks.
+
+A snapshot lays the cameras out as the video grid does: each pane's rectangle mapped into the
+figure at one shared scale (the largest any camera needs for its own pixels, capped at 3200 px
+wide), its picture -- zoom, pan, levels and overlays as drawn -- placed where it sits in the pane,
+the letterbox left empty, one caption band under each grid row. The zoom readout is left out of
+the picture and stated in the caption. Detached cameras, the 3D pose and the imaging picture
+follow in justified rows.
+
+**Why.** Levels were offered only for high-bit-depth greyscale, so the rig's MJPEG cameras had
+none, and the hand-over to the decoder used `invokeMethod` with `Q_ARG(object, ...)`, which
+PySide6 rejects ("Unable to find a QMetaType for object"): levels set in the inspector never
+reached any decoder, and nothing saved them. The decode worker already guards its levels with a
+lock, so the pane now assigns them directly. Snapshots scaled each camera to a common row height
+from very different captures -- 1440x1080 unzoomed, 480x360 at 3x zoom -- so zoomed cameras were
+stretched copies and rows did not match the window.
+
+`session_controller.py` grows by the three lines that save, restore and reset the new field
+(ceiling 847 → 850, `build_session_state` 86 → 87, `reset_session` 141 → 142,
+`restore_session` 144 → 145 in `controller_private_access_baseline.json`);
+everything else lives in `ui/video_levels.py`, and no private window access was added.

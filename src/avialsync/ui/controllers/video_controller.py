@@ -25,6 +25,7 @@ from avialsync.core.errors import SourceOpenError
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.source import VideoSource
 from avialsync.core.timeline import TimeMap
+from avialsync.ui import video_levels
 from avialsync.ui.controllers import (
     calibration_controller,
     custom_marker_controller,
@@ -281,11 +282,7 @@ def create_video_pane(
         wheel_display.refresh(window)
         custom_marker_controller.refresh(window)
         window.props_app.refresh()
-    # The pane reports what the recording turned out to be once it has decoded
-    # a frame; the levels panel sizes itself from that rather than guessing.
-    pane.source_format_detected.connect(
-        lambda fmt, path=original_path: window._on_source_format_detected(path, fmt)
-    )
+    video_levels.connect_pane(window, pane, original_path)
     # From the one place that knows the whole mapping. `set_video_coverage` has
     # just placed this file against the session zero, and a wall-clock camera
     # whose pane never heard that placement decodes at master time zero against

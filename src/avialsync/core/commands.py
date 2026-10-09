@@ -31,6 +31,7 @@ __all__ = [
     "RelabelMarkerCommand",
     "SetSourceVisibleCommand",
     "SetImagingViewCommand",
+    "SetVideoLevelsCommand",
     "SetChannelVisibleCommand",
     "SetChannelGroupVisibleCommand",
     "SetOverlayVisibleCommand",
@@ -152,6 +153,41 @@ class SetImagingViewCommand:
 
     def merge_with(self, other: object) -> SetImagingViewCommand | None:
         if not isinstance(other, SetImagingViewCommand):
+            return None
+        if (other.source_id, other.aspect) != (self.source_id, self.aspect):
+            return None
+        return dataclasses.replace(self, after=other.after)
+
+
+@dataclasses.dataclass
+class SetVideoLevelsCommand:
+    """Change one camera's display levels: black, white and gamma (D-209).
+
+    *before* and *after* are ``DisplayLevels`` as plain dicts, so ``core`` does
+    not import the decode pipeline. Merges with the next change of the same
+    *aspect* of the same camera, so one drag is one undo step while a black
+    drag followed by a gamma drag stays two.
+    """
+
+    source_id: str
+    before: dict[str, float]
+    after: dict[str, float]
+    aspect: str
+    display_name: str = ""
+    command_id: str = "video.levels"
+
+    @property
+    def label(self) -> str:
+        return f"Change {self.aspect} for {self.display_name or self.source_id}"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_video_levels(self.source_id, self.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_video_levels(self.source_id, self.before)
+
+    def merge_with(self, other: object) -> SetVideoLevelsCommand | None:
+        if not isinstance(other, SetVideoLevelsCommand):
             return None
         if (other.source_id, other.aspect) != (self.source_id, self.aspect):
             return None

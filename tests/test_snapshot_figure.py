@@ -613,3 +613,118 @@ def test_snapshot_worker_reports_a_write_failure_instead_of_raising(qapp, tmp_pa
 
     assert finished == []
     assert len(errors) == 1
+
+
+# ── the camera grid exported as the window shows it (D-209) ──────────
+
+
+def _grid(qtbot, frames: list[np.ndarray]):
+    """A real widget grid of panes, with the parts of `VideoGrid` the capture reads."""
+    from PySide6.QtWidgets import QGridLayout, QWidget
+
+    from avialsync.ui.video_pane import VideoPane
+
+    class Grid(QWidget):
+        def pane_paths(self) -> list[str]:
+            return [f"camera_{index + 1}.avi" for index in range(len(self.panes))]
+
+        def visible_panes(self) -> list:
+            return list(self.panes)
+
+    grid = Grid()
+    qtbot.addWidget(grid)
+    layout = QGridLayout(grid)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(4)
+    grid.panes = []
+    for column, frame in enumerate(frames):
+        pane = VideoPane()
+        layout.addWidget(pane, 0, column)
+        pane.surface.set_frame(frame)
+        grid.panes.append(pane)
+    grid.resize(3 * 320 + 8, 240)
+    grid.show()
+    qtbot.waitExposed(grid)
+    return grid
+
+
+def _frame(width: int, height: int, colour: tuple[int, int, int]) -> np.ndarray:
+    frame = np.zeros((height, width, 3), dtype=np.uint8)
+    frame[:, :] = colour
+    return frame
+
+
+def test_the_grid_exports_as_the_window_arranges_it(qtbot) -> None:
+    """Cameras keep their grid row, their relative size, and what each pane shows.
+
+    One camera zoomed and one with a wider frame used to come out at three
+    different resolutions and shapes, each scaled to a common row height on
+    its own; a zoomed camera was a low-resolution copy stretched up.
+    """
+    from avialsync.engine.snapshot import plan_grid_layout
+    from avialsync.ui.snapshot_capture import _displayed_cameras, _grid_cells
+
+    grid = _grid(
+        qtbot,
+        [
+            _frame(1440, 1080, (200, 30, 30)),
+            _frame(1440, 1080, (30, 200, 30)),
+            _frame(1920, 1080, (30, 30, 200)),
+        ],
+    )
+    grid.panes[1].surface.zoom_by(3.0, QPointF(100, 100))
+    qtbot.wait(50)
+    window = SimpleNamespace(video_grid=grid)
+
+    cells, outside = _grid_cells(window, _displayed_cameras(window))
+    assert not outside and len(cells) == 3
+    # One scale for the grid: cells keep the panes' equal sizes and shared row.
+    assert len({cell.cell.size().toTuple() for cell in cells}) == 1
+    assert len({cell.cell.top() for cell in cells}) == 1
+    assert cells[0].cell.right() < cells[1].cell.left() < cells[2].cell.left()
+    # Each picture is drawn at that scale: its pixels are its place in the cell.
+    for cell in cells:
+        assert cell.tile.image.size() == cell.picture.size()
+        assert cell.cell.contains(cell.picture)
+    # The zoomed camera fills its pane, as on screen; the wide one is letterboxed.
+    assert cells[1].picture == cells[1].cell
+    # Its zoom is stated in the caption, not drawn over the picture.
+    assert "view 3.00×" in cells[1].tile.detail and "view" not in cells[0].tile.detail
+    assert grid.panes[1].surface.readout_shown, "the pane's own readout is back on screen"
+    wide = cells[2].picture
+    assert wide.width() == cells[2].cell.width() and wide.height() < cells[2].cell.height()
+    assert wide.center().y() == pytest.approx(cells[2].cell.center().y(), abs=2)
+
+    layout = plan_grid_layout(cells)
+    rows = {placement.cell.top() for placement in layout.placements}
+    assert len(rows) == 1, "one grid row stays one row in the figure"
+    assert len({placement.cell.size().toTuple() for placement in layout.placements}) == 1
+    figure = SnapshotFigure(
+        layout=layout,
+        plot=None,
+        title="t",
+        subtitle="s",
+        footer="f",
+        theme=SnapshotTheme.light(),
+    )
+    assert render_figure(figure).size().toTuple() == figure_size(figure)
+
+
+def test_grid_rows_each_get_a_caption_band(qapp) -> None:
+    from PySide6.QtCore import QRect
+
+    from avialsync.engine.snapshot import GridCell, plan_grid_layout
+
+    tiles = [_tile(400, 300, title=f"cam{i}") for i in range(3)]
+    cells = [
+        GridCell(tiles[0], QRect(0, 0, 400, 300), QRect(0, 0, 400, 300)),
+        GridCell(tiles[1], QRect(404, 0, 400, 300), QRect(404, 0, 400, 300)),
+        GridCell(tiles[2], QRect(0, 304, 804, 300), QRect(202, 304, 400, 300)),
+    ]
+    layout = plan_grid_layout(cells, [_tile(200, 100, title="3D")])
+    first, second, below, extra = layout.placements
+    assert first.cell.top() == second.cell.top()
+    # The second grid row starts below the first row's captions, not on them.
+    assert below.cell.top() >= first.cell.bottom() + 40
+    assert extra.rect.top() > below.cell.bottom()
+    assert layout.height >= extra.rect.bottom()

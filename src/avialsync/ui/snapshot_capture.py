@@ -15,7 +15,8 @@ a different scale, not a second drawing of the same thing.
 from __future__ import annotations
 
 import datetime
-from contextlib import nullcontext
+from collections.abc import Iterator
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -24,11 +25,14 @@ from PySide6.QtGui import QColor, QImage, QPainter, QPalette, QRegion
 from PySide6.QtWidgets import QApplication, QWidget
 
 from avialsync.engine.snapshot import (
+    GridCell,
     SnapshotFigure,
     SnapshotTheme,
     SnapshotTile,
+    plan_grid_layout,
     plan_media_layout,
 )
+from avialsync.ui.i18n import tr
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
@@ -42,6 +46,8 @@ _MAX_TILE_EDGE = 1600
 #: because no decoded frame is that much larger than the pane displaying it.
 _MIN_RENDER_SCALE = 1.0
 _MAX_RENDER_SCALE = 4.0
+#: Widest the camera grid is captured at before the figure scales it to fit.
+_MAX_GRID_WIDTH = 3200
 #: Size the 3D pose is re-projected at, 4:3 so it sits evenly beside cameras.
 _TRACKING_TILE_SIZE = (760, 570)
 #: Bounds on the plot stack's render scale.  A plot is vector-drawn, so beyond
@@ -83,6 +89,18 @@ def _blend(color: QColor, towards: QColor, weight: float) -> QColor:
         round(color.green() * weight + towards.green() * other),
         round(color.blue() * weight + towards.blue() * other),
     )
+
+
+@contextmanager
+def _without_readout(pane: VideoPane) -> Iterator[None]:
+    """Render the picture without the zoom readout drawn over it."""
+    surface = pane.surface
+    shown = surface.readout_shown
+    surface.readout_shown = False
+    try:
+        yield
+    finally:
+        surface.readout_shown = shown
 
 
 def _render_layers(widgets: list[QWidget], scale: float, background: QColor | None) -> QImage:
@@ -159,7 +177,13 @@ def _osd_detail(pane: VideoPane) -> str:
     figure for a report keeps the rate and codec beside the frame.
     """
     text = pane.osd_text("full") if hasattr(pane, "osd_text") else pane.lbl_osd.text()
-    return " · ".join(line.strip() for line in text.splitlines() if line.strip())
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    surface = getattr(pane, "surface", None)
+    if surface is not None and not getattr(surface, "is_default_view", True):
+        # On screen the zoom is written over the picture; in a figure it is
+        # stated here, so the picture carries only the recording (D-209).
+        lines.append(tr("view {readout}").format(readout=surface.view_readout()))
+    return " · ".join(lines)
 
 
 def capture_video_tile(pane: VideoPane, title: str) -> SnapshotTile | None:
@@ -179,7 +203,8 @@ def capture_video_tile(pane: VideoPane, title: str) -> SnapshotTile | None:
     # Surface then overlay: the overlay is translucent and co-located with the
     # surface, so this composites the marks over the frame exactly as the pane
     # stacks them.
-    image = _render_layers([surface, pane.paint_canvas], scale, QColor(0, 0, 0))
+    with _without_readout(pane):
+        image = _render_layers([surface, pane.paint_canvas], scale, QColor(0, 0, 0))
     frame = image.copy(_frame_rect(pane, scale, image.rect()))
     return SnapshotTile(frame, title, _osd_detail(pane))
 
@@ -266,22 +291,87 @@ def capture_plot_image(plot_pane: Any, content_width: int) -> QImage | None:
     return image
 
 
-def _video_tiles(window: MainWindow) -> list[SnapshotTile]:
-    """Capture every displayed camera, named by its file."""
+def _displayed_cameras(window: MainWindow) -> list[tuple[VideoPane, str]]:
+    """Every displayed camera, named by its file, in grid order."""
     grid = window.video_grid
     paths = grid.pane_paths()
     displayed = set(map(id, grid.visible_panes()))
-    tiles: list[SnapshotTile] = []
+    cameras: list[tuple[VideoPane, str]] = []
     for index, pane in enumerate(grid.panes):
         if id(pane) not in displayed:
             continue
         # The grid blanks a lone camera's on-video label, but a figure read
         # later still has to say which recording it is looking at.
         title = Path(paths[index]).name if index < len(paths) else f"Camera {index + 1}"
-        tile = capture_video_tile(pane, title)
-        if tile is not None:
-            tiles.append(tile)
-    return tiles
+        cameras.append((pane, title))
+    return cameras
+
+
+def _grid_scale(panes: list[VideoPane], width: int) -> float:
+    """One render scale for every camera in the grid.
+
+    The largest any camera needs to keep its own frame's pixels, so no camera
+    is a stretched low-resolution copy beside the others, bounded so the grid
+    stays within a figure's width. A zoomed camera shows fewer recorded pixels
+    and is drawn at the same scale as its neighbours, which is what keeps the
+    figure's proportions the grid's (D-209).
+    """
+    wanted = max((_frame_render_scale(pane) for pane in panes), default=_MIN_RENDER_SCALE)
+    widest = _MAX_GRID_WIDTH / max(1, width)
+    return max(_MIN_RENDER_SCALE, min(wanted, widest))
+
+
+def _grid_cells(
+    window: MainWindow, cameras: list[tuple[VideoPane, str]]
+) -> tuple[list[GridCell], list[SnapshotTile]]:
+    """Capture the cameras as the grid arranges them; any outside it as plain tiles.
+
+    Each camera is rendered as its pane draws it -- zoom, pan, levels and
+    overlays -- at one shared scale, and placed where its pane sits in the
+    grid. Only the picture is kept; the letterbox around it stays empty, so
+    cells line up exactly as on screen without black bars in the figure.
+    """
+    grid = window.video_grid
+    inside = [
+        (pane, title)
+        for pane, title in cameras
+        if grid.isAncestorOf(pane) and pane.surface.width() > 0 and pane.surface.height() > 0
+    ]
+    outside = [
+        tile
+        for pane, title in cameras
+        if (pane, title) not in inside and (tile := capture_video_tile(pane, title)) is not None
+    ]
+    if not inside:
+        return [], outside
+    places = {
+        id(pane): QRect(pane.surface.mapTo(grid, QPoint(0, 0)), pane.surface.size())
+        for pane, _title in inside
+    }
+    bounds = QRect()
+    for place in places.values():
+        bounds = bounds.united(place)
+    scale = _grid_scale([pane for pane, _title in inside], bounds.width())
+    cells: list[GridCell] = []
+    for pane, title in inside:
+        place = places[id(pane)].translated(-bounds.topLeft())
+        cell = QRect(
+            round(place.x() * scale),
+            round(place.y() * scale),
+            max(1, round(place.width() * scale)),
+            max(1, round(place.height() * scale)),
+        )
+        if not pane.shows_footage or pane.video_size is None:
+            image = _placeholder_image(cell.width(), cell.height(), pane.lbl_no_footage.text())
+            picture = cell
+        else:
+            with _without_readout(pane):
+                render = _render_layers([pane.surface, pane.paint_canvas], scale, QColor(0, 0, 0))
+            crop = _frame_rect(pane, scale, render.rect())
+            image = render.copy(crop)
+            picture = QRect(cell.x() + crop.x(), cell.y() + crop.y(), crop.width(), crop.height())
+        cells.append(GridCell(SnapshotTile(image, title, _osd_detail(pane)), cell, picture))
+    return cells, outside
 
 
 def _subtitle(window: MainWindow, tiles: int) -> str:
@@ -318,17 +408,21 @@ def _title(window: MainWindow) -> str:
 
 
 def capture_figure(window: MainWindow) -> SnapshotFigure:
-    """Capture every displayed surface into one layout-planned figure."""
-    tiles = _video_tiles(window)
-    cameras = len(tiles)
+    """Capture every displayed surface into one figure laid out like the window.
+
+    Cameras keep the video grid's arrangement and relative sizes (D-209); the
+    3D pose and the imaging picture follow below them.
+    """
+    cells, extras = _grid_cells(window, _displayed_cameras(window))
+    cameras = len(cells) + len(extras)
     for extra in (
         capture_tracking_tile(window.tracking_3d_pane),
         capture_imaging_tile(window.imaging_pane),
     ):
         if extra is not None:
-            tiles.append(extra)
+            extras.append(extra)
 
-    layout = plan_media_layout(tiles, plot_aspect(window.plot_pane))
+    layout = plan_grid_layout(cells, extras, plot_aspect(window.plot_pane))
     return SnapshotFigure(
         layout=layout,
         plot=capture_plot_image(window.plot_pane, layout.content_width),

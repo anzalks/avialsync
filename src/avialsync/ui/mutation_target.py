@@ -31,7 +31,7 @@ import numpy as np
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.document import MarkerRecord, SourceRecord
 from avialsync.core.point_edits import PointKey
-from avialsync.ui import imaging_integration
+from avialsync.ui import imaging_integration, video_levels
 from avialsync.ui.annotations import Marker
 from avialsync.ui.sync_acceptance import install_sync_mapping
 
@@ -321,6 +321,10 @@ class WindowMutationTarget:
                 self._window.props_app.persist(name)
 
     # ── imaging display ──────────────────────────────────────────────
+
+    def set_video_levels(self, source_id: str, levels: dict[str, float]) -> None:
+        with self.replaying():
+            video_levels.apply(self._window, source_id, video_levels.from_dict(levels))
 
     def set_imaging_view(self, source_id: str, view: dict[str, Any]) -> None:
         with self.replaying():

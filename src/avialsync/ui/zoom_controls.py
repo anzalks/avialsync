@@ -30,7 +30,7 @@ class ZoomControls(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        layout = QHBoxLayout(self)
+        layout = self._layout = QHBoxLayout(self)
         layout.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
         layout.setSpacing(0)
 
@@ -45,6 +45,17 @@ class ZoomControls(QWidget):
         self.reset_zoom_button.clicked.connect(self.reset_requested)
         for button in (self.zoom_in_button, self.zoom_out_button, self.reset_zoom_button):
             layout.addWidget(button)
+
+    def add_glyph_button(self, glyph: str, name: str) -> QPushButton:
+        """Add an owner-specific button to the strip, drawn like the zoom ones.
+
+        For a control that belongs to the picture as much as zoom does -- a
+        camera's display levels -- so it sits with them rather than in a
+        toolbar that acts on every pane at once.
+        """
+        button = self._button(glyph, name)
+        self._layout.addWidget(button)
+        return button
 
     def _button(self, glyph: str, name: str) -> QPushButton:
         button = QPushButton(self)

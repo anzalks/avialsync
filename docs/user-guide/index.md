@@ -150,10 +150,19 @@ Streams areas stay small. The layout you had comes back when the first recording
 
 - **Flag Frame** creates an annotation at the current time. It appears in the **Changes** tab
   alongside any tracking corrections you have made.
-- **Snapshot** writes a figure of the current moment for notes or reports: every displayed camera
-  at the resolution it decoded at, the 3D pose, and the whole channel stack including rows you
-  would have to scroll to see. It is composed rather than captured, so nothing is cut off at the
-  edge of a pane and each camera is captioned with its own frame number, timecode, and format.
+- **Snapshot** writes a figure of the current moment for notes or reports: the cameras laid out
+  as the video grid shows them, the 3D pose, the imaging picture, and the whole channel stack
+  including rows you would have to scroll to see. Each camera keeps its place and size in the
+  grid and shows exactly what its pane shows -- its zoom, pan and display levels -- at one shared
+  resolution, so a zoomed camera is never a stretched low-resolution copy beside the others. The
+  letterbox around a picture is left empty, and the zoom readout drawn on screen goes into that
+  camera's caption beside its frame number, timecode and format.
+- **Display levels** sit beside each camera's zoom buttons (the half-filled circle): black point,
+  white point and gamma for that camera alone, with **Auto** to fit them to the frame on screen
+  and **Full range** to undo them. The button stays pressed while a camera is adjusted, so an
+  adjusted picture is never mistaken for the raw one. The same controls appear in the inspector
+  for the selected camera. Changes can be undone, are saved with the session, and show in
+  snapshots and exported clips; the recording itself is never changed.
 - **Fullscreen** expands the selected video view.
 - Each camera shows its name at the top left of the picture and, at the top right, its time and
   frame number with its resolution and bit depth beneath. A long name shortens first, and on a

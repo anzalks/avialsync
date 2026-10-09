@@ -30,6 +30,7 @@ from avialsync.core.commands import (
     SetSourceMappingsCommand,
     SetSourceVisibleCommand,
     SetTrackingVisibleCommand,
+    SetVideoLevelsCommand,
     SourceMappingChange,
 )
 from avialsync.core.document import (
@@ -62,6 +63,7 @@ class FakeTarget:
         self.props = PropStore()
         self.sources: dict[str, SourceRecord] = {}
         self.imaging_views: dict[str, dict[str, Any]] = {}
+        self.video_levels: dict[str, dict[str, float]] = {}
         self.imaging_layouts: dict[str, dict[str, Any]] = {}
         self.sync_evidence: dict[str, Any] = {}
         self.cleared = 0
@@ -158,6 +160,9 @@ class FakeTarget:
 
     def set_imaging_view(self, source_id: str, view: dict[str, Any]) -> None:
         self.imaging_views[source_id] = view
+
+    def set_video_levels(self, source_id: str, levels: dict[str, float]) -> None:
+        self.video_levels[source_id] = levels
 
     def set_imaging_layout(self, source_id: str, layout: dict[str, Any]) -> None:
         self.imaging_layouts[source_id] = layout
@@ -411,6 +416,21 @@ def test_an_imaging_brightness_drag_is_one_step_and_contrast_another(
     assert target.imaging_views["gcamp.tif"] == views[-1]
     doc.undo(target)
     assert target.imaging_views["gcamp.tif"] == views[0], "undo returns to the drag's start"
+
+
+def test_a_camera_levels_drag_is_one_step_and_gamma_another(target: FakeTarget) -> None:
+    """D-209: a black-point drag merges; a gamma drag on the same camera starts its own."""
+    doc = Document()
+    levels = [{"black": step / 20, "white": 1.0, "gamma": 1.0} for step in range(5)]
+    for before, after in zip(levels, levels[1:], strict=False):
+        doc.execute(SetVideoLevelsCommand("cam.avi", before, after, "black point"), target)
+    lifted = {**levels[-1], "gamma": 1.5}
+    doc.execute(SetVideoLevelsCommand("cam.avi", levels[-1], lifted, "gamma"), target)
+    assert len(doc) == 2
+    doc.undo(target)
+    assert target.video_levels["cam.avi"] == levels[-1]
+    doc.undo(target)
+    assert target.video_levels["cam.avi"] == levels[0], "undo returns to the drag's start"
 
 
 def test_typing_a_label_is_one_undo_step(target: FakeTarget) -> None:
