@@ -426,6 +426,8 @@ class PlotPane(QWidget):
         for channel in self.channels:
             detach_row(self.graphics_layout, channel)
         self.channels.clear()
+        # The rows of a page still in flight hold their readers' memory maps.
+        self._requested_rows = ()
         self._source_time_maps.clear()
         self._units.clear()
         self._master_plot = None
@@ -686,6 +688,8 @@ class PlotPane(QWidget):
         # page was prepared must not hand its curve to the row after it.
         alive = {id(channel) for channel in self.channels}
         for index, x, y in page.rows:
+            if index >= len(self._requested_rows):
+                continue
             channel = self._requested_rows[index]
             if id(channel) not in alive:
                 continue
@@ -710,6 +714,9 @@ class PlotPane(QWidget):
         finished = self._page_worker
         self._page_worker = None
         self._page_thread = None
+        # Its page has landed or been discarded; holding the rows would keep a
+        # removed row's memory maps open, which Windows will not delete under.
+        self._requested_rows = ()
         if finished is not None and finished.generation != self._page_generation:
             self._start_page_job()
 

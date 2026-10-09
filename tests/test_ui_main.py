@@ -290,7 +290,7 @@ def test_loader_wizard_keeps_pose_role_chosen_in_import_review(
     main_window: MainWindow, qtbot, tmp_path: Path
 ) -> None:
     path = tmp_path / "points.csv"
-    path.write_text("time,x\n0,1\n", encoding="utf-8")
+    path.write_bytes(b"time,x\n0,1\n")
     config = {"role": "overlay2d", "overlay_video": str(tmp_path / "camera.mp4")}
 
     with (

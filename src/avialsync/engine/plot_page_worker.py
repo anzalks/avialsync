@@ -93,3 +93,7 @@ class PlotPageWorker(QObject):
                 self.finished.emit(PlotPage(self.generation, self.t0, tuple(prepared)))
         except Exception as error:
             self.error.emit(str(error))
+        finally:
+            # The readers are the rows' own memory maps; a finished worker that
+            # still held them would keep a closed trial's cache busy on Windows.
+            self.rows = ()
