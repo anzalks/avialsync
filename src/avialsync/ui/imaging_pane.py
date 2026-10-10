@@ -51,10 +51,9 @@ _ABANDONED: set[tuple[QThread, QObject]] = set()
 def _release_finished_threads() -> None:
     """Drop the abandoned threads that have since finished.
 
-    Polled rather than connected to ``finished``: connecting to a thread that
-    has been asked to quit deadlocks under PySide6 6.12. The UI thread holds the
-    GIL in ``connect`` and waits for the signal-slot lock, while the stopping
-    thread, deleting its worker, holds that lock and waits for the GIL.
+    Polled rather than connected to ``finished`` (D-212), and released here on
+    the UI thread, where dropping the last reference destroys the worker with
+    the GIL already held (D-062).
     """
     for entry in list(_ABANDONED):
         try:
@@ -285,8 +284,19 @@ class ImagingPane(QWidget):
         self.layout_row.setVisible(False)
 
     def shutdown(self) -> None:
-        """Stop the reader before Qt destroys the pane."""
+        """Stop the reader before Qt destroys the pane, and free stopped readers.
+
+        A worker still referenced at interpreter exit has its slot connections
+        torn down by PySide in an order that can crash the process, so readers
+        abandoned by earlier source switches are waited for and released too.
+        """
         self._stop_worker(wait=True)
+        for thread, _worker in list(_ABANDONED):
+            try:
+                thread.wait(3000)
+            except RuntimeError:
+                pass
+        _release_finished_threads()
 
     # ── mapping and display ──────────────────────────────────────────
 
@@ -445,10 +455,11 @@ class ImagingPane(QWidget):
         worker.window_measured.connect(self._on_window_measured)
         thread.started.connect(worker.open)
         thread.finished.connect(worker.close)
-        # Free the worker with its thread. Left to Python, it outlives every pane
-        # until interpreter shutdown, where PySide tears down its slot
-        # connections in an order that can crash the process on exit.
-        thread.finished.connect(worker.deleteLater)
+        # Never `thread.finished.connect(worker.deleteLater)` (D-062): that runs
+        # ~QObject on the reader thread, which holds a pooled signal-slot mutex
+        # while PySide waits for the GIL, and deadlocks a UI thread holding the
+        # GIL in any connect. Python drops the worker on the UI thread instead,
+        # in `_stop_worker`, `_release_finished_threads` or `shutdown`.
         thread.start()
 
     def _stop_worker(self, *, wait: bool = False) -> None:

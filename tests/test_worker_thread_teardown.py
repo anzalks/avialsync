@@ -5,12 +5,14 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-# Every module that moves a worker onto a QThread.
-WORKER_OWNING_MODULES = (
-    Path("src/avialsync/demo.py"),
-    Path("src/avialsync/ui/job_manager.py"),
-    Path("src/avialsync/ui/main_window.py"),
-    Path("src/avialsync/ui/sync_wizard.py"),
+# Every module that moves a worker onto a QThread. Found, not listed: a fixed
+# list missed the imaging pane, which reintroduced the deadlock (D-212).
+WORKER_OWNING_MODULES = tuple(
+    sorted(
+        path
+        for path in Path("src/avialsync").rglob("*.py")
+        if "moveToThread(" in path.read_text(encoding="utf-8")
+    )
 )
 WORKER_DELETE_LATER = re.compile(r"\.connect\(\s*(?:self\.)?_*worker\.deleteLater\s*\)")
 
@@ -40,3 +42,9 @@ def test_no_worker_is_destroyed_inside_its_own_thread() -> None:
                 offenders.append(f"{path}:{number}: {line.strip()}")
 
     assert not offenders, "Workers must be released on the UI thread:\n" + "\n".join(offenders)
+
+
+def test_the_scan_covers_every_worker_owner() -> None:
+    """The guard is only as good as the modules it reads."""
+    names = {path.name for path in WORKER_OWNING_MODULES}
+    assert {"demo.py", "job_manager.py", "imaging_pane.py", "video_pane.py"} <= names

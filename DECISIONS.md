@@ -6752,20 +6752,24 @@ controller code would confirm it.
 
 ---
 
-## 2026-10 · D-212 · Never connect to a thread that has been asked to quit
+## 2026-10 · D-212 · The imaging reader follows D-062; nothing connects to a stopping thread
 
-**Decision.** A stopped reader or decode thread that is kept alive in an abandonment set
-(`imaging_pane._ABANDONED`, `video_pane._ABANDONED_DECODERS`) is released by polling
-`isFinished()` the next time a thread is stopped or drained, not by connecting a slot to its
-`finished` signal after `quit()`.
+**Decision.** The imaging pane no longer connects `thread.finished` to `worker.deleteLater`; the
+reader worker is dropped by Python on the UI thread (`_stop_worker`, `shutdown`), as D-062
+requires of every worker. Stopped reader and decode threads kept alive in an abandonment set
+(`imaging_pane._ABANDONED`, `video_pane._ABANDONED_DECODERS`) are released by polling
+`isFinished()` on the UI thread, not by connecting a slot to `finished` after `quit()`.
+`tests/test_worker_thread_teardown.py` now finds every module that calls `moveToThread` instead of
+reading a fixed list, which is how the imaging pane (D-192) escaped it.
 
-**Why.** Under PySide6 6.12 the full suite hung in the imaging tests. The stopping thread was
-deleting its worker (`thread.finished → worker.deleteLater`); `~QObject` holds the sender's
-signal-slot lock while PySide's `QThreadWrapper::disconnectNotify` waits for the GIL. At the same
-moment the UI thread, holding the GIL, called `thread.finished.connect(...)` on that same thread
-and waited for that lock. pytest-timeout could not report it, because its thread also needs the
-GIL, so on CI it would have spent the whole job timeout. PySide6 6.11 did not take the GIL there.
-Connections are made before `start()`; after `quit()`, only poll.
+**Why.** The full suite hung in the imaging tests, under PySide6 6.11.2 and 6.12.0 alike. `sample`
+showed D-062's cycle exactly: the reader thread, running its worker's deferred delete, held a
+pooled signal-slot mutex inside `~QObject` and waited for the GIL in
+`QThreadWrapper::disconnectNotify`; the UI thread held the GIL inside a `connect` and waited for
+that mutex. Once it was `QMenu::addSeparator` colliding by address; once it was
+`thread.finished.connect(...)` on the very thread being stopped, which makes the collision certain.
+pytest-timeout cannot report either, because its thread needs the GIL, so a CI job would hang for
+its whole timeout.
 
 ---
 
@@ -6775,9 +6779,9 @@ Connections are made before `start()`; after `quit()`, only poll.
 CI, the release bundles and `pip install` therefore resolve 6.11.2, the version every green CI
 run so far used.
 
-**Why.** PySide6 6.12.0 (2026-10-08) hung the full suite twice on this machine, in different
-places. Besides the connect-after-quit case in D-212, Python's garbage collector running on a
-reader thread freed a QObject; 6.12 released the GIL inside the C++ destructor, which then held
+**Why.** PySide6 6.12.0 (2026-10-08) hung the full suite in a way 6.11.2 does not, beyond the
+D-212 case both share. Python's garbage collector, running on a worker thread, freed a widget's
+wrapper; 6.12 released the GIL inside the C++ destructor, which then held
 Qt's signal-slot lock and waited for the GIL in `disconnectNotify`, while the UI thread, holding
 the GIL in 6.12's new deferred main-thread deletion, waited for that lock. Any thread that
 collects a QObject can trigger it, so it cannot be fixed in our own code. pytest-timeout cannot
