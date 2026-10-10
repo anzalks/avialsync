@@ -305,14 +305,38 @@ def test_bulk_loader_missing_a_declared_channel_is_rejected(source_file: Path) -
     assert errors and "every declared channel" in errors[0]
 
 
+class _IrregularBulkLoader(_BulkLoader):
+    """The same stream with a recording gap, so its times are no grid and are stored."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._t = self._t.copy()
+        self._t[TOTAL // 2 :] += 5.0
+
+
+def test_a_regular_clock_is_stored_as_a_grid_not_per_sample(source_file: Path) -> None:
+    """Verified regular times are ``t0 + i / rate``; storing each one is 8 bytes for nothing."""
+    finished, errors = _run(ImportWorker(source_file, {}, _BulkLoader))
+    assert not errors
+    cache_dir = Path(finished[0][1])
+    for channel in ("a", "b"):
+        assert (cache_dir / f"{channel}_tgrid.npy").is_file()
+        assert not (cache_dir / f"{channel}_t.npy").exists()
+        assert not (cache_dir / f"{channel}_gap.npy").exists(), "no gap, no gap file"
+        times, _, gaps = PyramidReader(cache_dir, channel).mapped_columns()
+        assert np.array_equal(times[:], _signal()[0]), "bit for bit the loader's times"
+        assert not np.any(gaps)
+
+
 def test_bulk_channels_share_one_stored_timestamp_array(source_file: Path) -> None:
     """Every channel of a stream carries the same clock; storing it once is the point.
 
     A 32-channel 30 kHz headstage names a copy of its 191 MB timestamp array after
     every channel — six gigabytes of identical numbers, and six gigabytes of write
     time before anything can be plotted.  Hard links make the copies one file.
+    A regular clock is a grid instead; this one has a gap, so it is stored.
     """
-    finished, errors = _run(ImportWorker(source_file, {}, _BulkLoader))
+    finished, errors = _run(ImportWorker(source_file, {}, _IrregularBulkLoader))
     assert not errors
     cache_dir = Path(finished[0][1])
 
@@ -327,7 +351,7 @@ def test_bulk_channels_share_one_stored_timestamp_array(source_file: Path) -> No
 
     # Sharing an inode must not change what a reader sees.
     assert np.array_equal(np.load(times_a), np.load(times_b))
-    assert np.array_equal(np.load(times_a), _signal()[0])
+    assert np.array_equal(np.load(times_a), _IrregularBulkLoader()._t)
 
 
 def test_bulk_import_survives_a_filesystem_that_cannot_link(
@@ -339,7 +363,7 @@ def test_bulk_import_survives_a_filesystem_that_cannot_link(
         raise OSError("hard links unsupported")
 
     monkeypatch.setattr("avialsync.engine.importer.os.link", _no_links)
-    finished, errors = _run(ImportWorker(source_file, {}, _BulkLoader))
+    finished, errors = _run(ImportWorker(source_file, {}, _IrregularBulkLoader))
     assert not errors
 
     cache_dir = Path(finished[0][1])

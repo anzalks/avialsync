@@ -123,7 +123,7 @@ class DetectionWorker(QObject):
         directory = self._job.directories.get(channel)
         if directory is None:
             return _empty()
-        return PyramidReader(directory, channel).mapped_columns()[1]
+        return np.asarray(PyramidReader(directory, channel).mapped_columns()[1])
 
 
 @dataclasses.dataclass(frozen=True)

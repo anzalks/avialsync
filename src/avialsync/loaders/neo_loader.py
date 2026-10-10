@@ -673,6 +673,20 @@ class NeoLoader(TimeSeriesSource):
                     chunk[name] = (times, _fit_length(values[:, col], stop - start))
             yield chunk
 
+    def in_place_channels(self, names: list[str]) -> dict[str, Any] | None:
+        """Offer *names* to stay in the recording's own file (``loaders.neo_in_place``)."""
+        if self._shared_clock is None or self._io is None:
+            return None
+        if any(name not in self._channel_map for name in names):
+            return None
+        from avialsync.loaders.neo_in_place import in_place_channels
+
+        signals = {}
+        for name in names:
+            seg_idx, asig_idx, col = self._channel_map[name]
+            signals[name] = (self._signal(seg_idx, asig_idx), col)
+        return in_place_channels(self._io, signals, self._shared_clock)
+
     def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
         if self._block is None:
             raise SourceOpenError(f"Neo source has not been opened; cannot read channel {ch}.")

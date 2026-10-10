@@ -32,7 +32,9 @@ around it. A session with one moved file is not a broken session, so it does not
 Imported data is cached in one folder of AvialSync's own, never beside your recordings: on macOS
 `~/Library/Caches/avialsync`, on Windows `%LOCALAPPDATA%\avialsync\Cache`, on Linux
 `~/.cache/avialsync`. Everything in it is rebuilt from your files when needed, so deleting it costs
-only the time a re-import takes. **File → Cache** offers three commands:
+only the time a re-import takes. Open Ephys and uncompressed NWB samples are read straight from your
+recording rather than copied, and AOL camera trials play from their own files, so the cache holds
+little more than the zoomed-out views of those. **File → Cache** offers three commands:
 
 - **Delete Cache for This Trial** deletes the cached imports of every file in the loaded trial's
   folder, then reloads the trial from the original files. What you had open, your offsets, markers

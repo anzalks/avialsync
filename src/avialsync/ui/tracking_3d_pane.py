@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.channel_reader import MappedChannelReader
+from avialsync.core.columns import RegularTimes
 from avialsync.core.pose import split_channel
 from avialsync.core.skeleton import SkeletonEstimate, frame_budget, infer_skeleton
 from avialsync.core.timeline import TimeMap
@@ -216,6 +217,9 @@ def _same_time_axis(
     """Accept only identical sample grids without scanning a long mmap on the UI thread."""
     if len(reference_times) != len(candidate_times):
         return False
+    if isinstance(reference_times, RegularTimes) and isinstance(candidate_times, RegularTimes):
+        # Verified grids (core.columns): the same record is the same axis.
+        return bool(np.array_equal(reference_times.as_record(), candidate_times.as_record()))
     left_reader = getattr(reference, "source_reader", reference)
     right_reader = getattr(candidate, "source_reader", candidate)
     left = left_reader.cache_dir / f"{reference.channel_id}_t.npy"

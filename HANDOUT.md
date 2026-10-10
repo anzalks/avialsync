@@ -693,6 +693,12 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/controllers/aol_microscope_controller.py` | Align-menu search, evidence review, and explicit grouped undoable placement of a loaded AOL trial | `find_trial()`, `accept_trial_pair()` |
 | `engine/session_worker.py` | Off-thread `.avv` save/load | `SessionSaveWorker`, `SessionLoadWorker` |
 | `engine/cache_worker.py` | Off-thread cache removal for File → Cache (D-160) | `CacheRemovalWorker` |
+| `core/columns.py` | Columns computed rather than stored: verified regular times (`RegularTimes`, `fit_regular` — exact match only), scaled/int16 values (`ScaledColumn`), zero-memory gap masks (D-216) | `RegularTimes`, `ScaledColumn`, `fit_regular()`, `no_gaps()` |
+| `core/channel_store.py` | A cache entry's per-channel layout: grids, optional gaps, values in place (`_layout.json`), header-only validation (D-216) | `read_level()`, `write_times()`, `columns_intact()`, `ExternalArray`, `InPlaceChannel` |
+| `engine/in_place_import.py` | Import a binary source without copying its samples: one pass over the file's rows builds every channel's levels (D-216) | `build_in_place()` |
+| `engine/media_input.py` | The one place media is opened for reading; permits the AOL join's concat list (D-216) | `open_input()` |
+| `loaders/neo_in_place.py` | Open Ephys (neo raw buffers) offered in place; clock checked against every sample number (D-216) | `in_place_channels()` |
+| `loaders/nwb_in_place.py` | Contiguous, uncompressed, local NWB series offered in place (D-216) | `in_place_series()` |
 | `engine/cache_size_worker.py` | Off-thread measurement of the cache folder for the status-bar readout (D-215) | `CacheSizeWorker` |
 | `ui/feedback/cache_indicator.py` | Status-bar `Cache: 1.2 GB` beside the Delete All Cache action; re-measured when every other job has finished, never polled (D-215) | `CacheIndicator`, `format_size()`, `is_measuring()` |
 | `engine/export_worker.py` | Off-thread region stats / data slice / clip / snapshot | `RegionStatsWorker`, `DataExportWorker`, `SnapshotWorker` (takes a `SnapshotFigure`), `ReaderReference` |
@@ -927,6 +933,16 @@ and a writable copy when it has some. Code that writes into the result in place
 fails on clean data. That shipped: with the import wizard's default sentinel, every
 gap-free CSV failed to import (D-214). Build a new array (`np.where`) or `.copy()`
 first, and test with a null-free column.
+
+### 0-columns. A cached column may be computed, not mapped
+
+`PyramidReader.mapped_columns()` and `_load_level` can return `RegularTimes` or
+`ScaledColumn` (D-216). They index, slice and `np.searchsorted` like arrays, and
+`np.asarray` materialises them. Never `isinstance(x, np.ndarray)`-check a column,
+and never compare stored files by name (`_t.npy` may be `_tgrid.npy`): compare
+`RegularTimes.as_record()`s, as `tracking_3d_pane._same_time_axis` does. A grid is
+only ever accepted when it reproduces every stored timestamp exactly, so values
+read through it equal the file's.
 
 ### 0-menu. A pyqtgraph plot has its own right-click menu unless told not to
 

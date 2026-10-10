@@ -166,6 +166,18 @@ class NWBLoader(TimeSeriesSource):
         with nwb_format.open_file(self._path) as handle:
             yield from group.read(handle)
 
+    def in_place_channels(self, names: list[str]) -> dict[str, Any] | None:
+        """Offer one signal series to stay in the file (``loaders.nwb_in_place``)."""
+        if self._path is None or self._contents is None:
+            return None
+        for info in self._contents.of_kind("signal"):
+            if info.channel_names() == list(names):
+                from avialsync.loaders.nwb_in_place import in_place_series
+
+                with nwb_format.open_file(self._path) as handle:
+                    return in_place_series(self._path, handle, info, list(names))
+        return None
+
     def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
         group = self._by_channel.get(ch)
         if group is None:

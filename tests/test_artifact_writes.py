@@ -11,9 +11,11 @@ SRC = Path(__file__).resolve().parents[1] / "src" / "avialsync"
 _CACHE_MODULES = {
     "core/cache.py",
     "core/cache_store.py",
+    "core/channel_store.py",  # a cache entry's column layout, written inside the entry
     "core/edit_cache.py",
     "core/pyramid.py",
     "engine/importer.py",
+    "engine/in_place_import.py",  # decimated levels and layouts, inside a cache entry
     "engine/pyav_reader.py",  # disposable PTS/keyframe index through CacheManager.commit_cache
     "engine/imaging_proxy.py",
     "engine/nwb_cache.py",

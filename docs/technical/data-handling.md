@@ -21,6 +21,34 @@ source's absolute path, so a file has the same entry however it was opened. Each
 `source.json` record naming the file it was built from. Deleting the whole folder is safe: everything
 in it is rebuilt from the source files on the next open.
 
+### What an entry stores (D-216)
+
+Each channel stores only the columns that carry information (`core/channel_store.py`):
+
+- **Times** are a grid record (`t0`, rate or interval, length) when every stored timestamp equals the
+  grid *exactly*; anything else (a dropped sample, jitter, times rounded off the grid) keeps the
+  timestamps as an array. The check reads the samples, never a declared rate.
+- **Gaps** are stored only for a channel that has one.
+- **Values** that are whole numbers in 16-bit range (ADC counts, digital lines) are stored as
+  16-bit integers and read back as float32; others as before.
+- **Binary sources are read in place.** An Open Ephys `continuous.dat`, and an NWB series stored
+  uncompressed and contiguous in a local file, keep their samples where they are: the entry holds a
+  `<channel>_layout.json` naming the file, offset, dtype, column and the format's own scaling, plus the
+  decimated levels. Values read this way are bit-for-bit what the copying import stored. The file's
+  size and modification time are recorded, and an entry whose file changed is imported again.
+  Open Ephys timing is checked against every `sample_numbers.npy` entry: consecutive numbers confirm
+  the header's grid, a drop dates the samples by their numbers. Compressed or chunked NWB data,
+  streamed (DANDI) files and Zarr stores are still copied, since reading them sample by sample is not
+  fast enough.
+- **AOL cameras joined across trials** are a concat list naming each trial's own file and the frames
+  it contributes, checked against those frames before use; a recording the list cannot reproduce
+  exactly is copied as before.
+
+Measured on this layout, against the previous one: a 4-channel, 60 s Open Ephys recording
+(28.8 MB) went from 101.8 MB of cache to 1.9 MB; a 1 M-row CSV of integer ADC counts from 56.6 MB to
+9.1 MB; a 600-ROI NWB trace file (120 MB) from 426.6 MB to 18.1 MB, imported in 1.4 s instead of
+11.8 s and reopened in 0.6 s instead of 2.1 s.
+
 ### Cache, sidecars, and what belongs where
 
 To decide where something belongs, ask: *if it were deleted, could AvialSync rebuild it exactly from

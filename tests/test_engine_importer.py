@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from avialsync.core.cache import cache_dir_for
 from avialsync.core.inspection import SourceInspection
@@ -149,10 +150,15 @@ def test_import_rebuilds_when_pyramid_content_changes_without_size_change(tmp_pa
     assert _BulkLoader.open_calls == 2
 
 
+@pytest.mark.parametrize("regular", [False, True])
 def test_separate_channels_with_identical_long_clocks_share_one_time_file(
-    tmp_path: Path, qtbot
+    tmp_path: Path, qtbot, regular: bool
 ) -> None:
-    """The 3D pane can prove equal long grids by inode without UI-thread scanning."""
+    """The 3D pane can prove equal long grids without UI-thread scanning.
+
+    Stored clocks share one file, proved by inode; a verified regular clock is
+    a grid record, proved by comparing the records.
+    """
 
     class PerChannelLoader:
         def open(self, _path: Path, _config: dict[str, object]) -> None:
@@ -163,6 +169,8 @@ def test_separate_channels_with_identical_long_clocks_share_one_time_file(
 
         def read_chunks(self, channel: str):
             times = np.arange(100_001, dtype=np.float64) / 100.0
+            if not regular:
+                times[50_000:] += 3.0
             width = {"point_x": 7001, "point_y": 11003, "point_z": 16001}[channel]
             for start in range(0, len(times), width):
                 yield times[start : start + width], times[start : start + width]
@@ -179,8 +187,11 @@ def test_separate_channels_with_identical_long_clocks_share_one_time_file(
 
     assert errors == []
     cache = cache_dir_for(source)
-    assert (cache / "point_x_t.npy").samefile(cache / "point_y_t.npy")
-    assert (cache / "point_x_t.npy").samefile(cache / "point_z_t.npy")
+    if regular:
+        assert all((cache / f"point_{axis}_tgrid.npy").is_file() for axis in "xyz")
+    else:
+        assert (cache / "point_x_t.npy").samefile(cache / "point_y_t.npy")
+        assert (cache / "point_x_t.npy").samefile(cache / "point_z_t.npy")
     from avialsync.core.pyramid import PyramidReader
     from avialsync.ui.tracking_3d_pane import Tracking3DPane
 

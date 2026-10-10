@@ -173,7 +173,9 @@ def test_pyramid_save_retries_interrupted_write_with_memmap(
     PyramidBuilder(tmp_path, "ch0").build_and_save(np.arange(16.0), np.arange(16.0))
 
     assert interrupted
-    assert np.load(tmp_path / "ch0_t.npy").tolist() == list(np.arange(16.0))
+    times, values, _ = PyramidReader(tmp_path, "ch0").mapped_columns()
+    assert list(times[:]) == list(np.arange(16.0))
+    assert list(values[:]) == list(np.arange(16.0))
 
 
 def test_pathological_gap_mask():

@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from avialsync.core.columns import RegularTimes
 from avialsync.core.pyramid import RAW_CHUNK_SAMPLES, PyramidBuilder, PyramidReader
 
 SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "avialsync"
@@ -127,9 +128,15 @@ def test_raw_slice_outside_coverage_is_empty(reader: PyramidReader) -> None:
 
 
 def test_raw_slice_returns_views_not_copies(reader: PyramidReader) -> None:
-    """A slice must not allocate a recording-sized array."""
-    t, _, _ = reader.raw_slice(20.0, 21.0)
-    assert t.base is not None
+    """A slice must not allocate a recording-sized array.
+
+    Values stay mmap views. This clock is regular, so its times are computed,
+    and only for the samples in the slice.
+    """
+    t, v, _ = reader.raw_slice(20.0, 21.0)
+    assert v.base is not None
+    assert isinstance(reader.mapped_columns()[0], RegularTimes)
+    assert len(t) == len(v) == 101
 
 
 # ── iter_raw_chunks ───────────────────────────────────────────────────

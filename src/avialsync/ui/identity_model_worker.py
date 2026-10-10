@@ -114,7 +114,7 @@ def _values(job: BraidBuildJob, channel: str) -> np.ndarray:
     if directory is None:
         return _empty()
     try:
-        return PyramidReader(directory, channel).mapped_columns()[1]
+        return np.asarray(PyramidReader(directory, channel).mapped_columns()[1])
     except (FileNotFoundError, ValueError):
         logger.warning("Identity braid: %s is no longer in %s", channel, directory)
         return _empty()

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from avialsync.core.channel_store import read_level
 from avialsync.core.pyramid import PyramidBuilder, build_pyramid_level
 
 
@@ -18,9 +19,11 @@ def test_hierarchical_levels_match_direct_reduction(tmp_path) -> None:
 
     for level in (16, 256, 4096):
         expected_t, expected_min, expected_max = build_pyramid_level(times, values, level)
-        actual_t = np.load(tmp_path / f"signal_pyr_{level}_t.npy")
-        actual_min = np.load(tmp_path / f"signal_pyr_{level}_vmin.npy")
-        actual_max = np.load(tmp_path / f"signal_pyr_{level}_vmax.npy")
+        # Read through the layout: a regular clock's level times are a grid.
+        level_t, level_min, level_max, _gap = read_level(tmp_path, "signal", level)
+        actual_t, actual_min, actual_max = (
+            np.asarray(column[:]) for column in (level_t, level_min, level_max)
+        )
 
         np.testing.assert_array_equal(actual_t, expected_t)
         np.testing.assert_allclose(actual_min, expected_min, equal_nan=True)

@@ -15,6 +15,8 @@ import numpy as np
 from PySide6.QtCore import QObject, Signal
 
 from avialsync.core.cache import CacheManager
+from avialsync.core.channel_store import columns_intact, write_times
+from avialsync.core.columns import fit_regular
 from avialsync.core.errors import LoaderContractError, SourceOpenError
 from avialsync.core.inspection import ImportReport, IntegrityFlags, SourceInspection
 from avialsync.core.messages import Message, bounded
@@ -25,7 +27,9 @@ from avialsync.loaders.csv_loader import CSVLoader
 logger = logging.getLogger(__name__)
 
 # Increment when imported array layout or validation metadata changes.
-_IMPORT_CACHE_VERSION = 9
+# 10: verified-regular times as a grid, gap masks only where there is a gap,
+# 16-bit values where lossless, and binary sources read in place (D-216).
+_IMPORT_CACHE_VERSION = 10
 _IMPORT_MANIFEST = "import.json"
 _STAGING_DIR = "_stage"
 _ARRAY_SAMPLE_BYTES = 4096
@@ -152,8 +156,11 @@ class ImportWorker(QObject):
             channel_names = [ch.name for ch in channels]
             group_reader = getattr(loader, "iter_channel_groups", None)
             bulk_reader = getattr(loader, "read_all_chunks", None)
-            if callable(group_reader):
-                result = self._build_channel_groups(group_reader(), channel_names, temp_dir)
+            in_place = None if callable(group_reader) else self._in_place(loader, channel_names)
+            if in_place is not None:
+                result = self._build_in_place(in_place, temp_dir)
+            elif callable(group_reader):
+                result = self._build_channel_groups(group_reader(), channel_names, temp_dir, loader)
             elif callable(bulk_reader):
                 result = self._build_bulk_channels(
                     bulk_reader(),
@@ -340,7 +347,12 @@ class ImportWorker(QObject):
 
     @staticmethod
     def _arrays_intact(cache_dir: Path, channels: list[str], sizes: Any, fingerprints: Any) -> bool:
-        """Reject missing, truncated, or structurally invalid cached arrays."""
+        """Reject missing, truncated, or structurally invalid cached columns.
+
+        Columns may be arrays, grid records, or read in place from the source
+        (``core.channel_store``); a source file read in place must be unchanged
+        since import.
+        """
         if not isinstance(sizes, dict) or not sizes or not isinstance(fingerprints, dict):
             return False
         if sizes.keys() != fingerprints.keys():
@@ -356,44 +368,11 @@ class ImportWorker(QObject):
                     or _array_fingerprint(cache_dir / name) != fingerprints[name]
                 ):
                     return False
+            present = {entry.name for entry in os.scandir(cache_dir)}
             for channel in channels:
-                base = [f"{channel}_{suffix}.npy" for suffix in ("t", "v", "gap")]
-                if any(name not in sizes for name in base):
+                if not columns_intact(cache_dir, channel, LEVELS, present):
                     return False
-                columns = [
-                    np.load(cache_dir / name, mmap_mode="r", allow_pickle=False) for name in base
-                ]
-                count = len(columns[0])
-                if (
-                    count == 0
-                    or any(column.ndim != 1 or len(column) != count for column in columns)
-                    or columns[0].dtype != np.float64
-                    or not np.issubdtype(columns[1].dtype, np.number)
-                    or columns[2].dtype != np.bool_
-                ):
-                    return False
-                for level in LEVELS[1:]:
-                    names = [
-                        f"{channel}_pyr_{level}_{suffix}.npy"
-                        for suffix in ("t", "vmin", "vmax", "gap")
-                    ]
-                    if any(name not in sizes for name in names):
-                        return False
-                    pyramid = [
-                        np.load(cache_dir / name, mmap_mode="r", allow_pickle=False)
-                        for name in names
-                    ]
-                    expected_count = (count + level - 1) // level
-                    if (
-                        any(array.ndim != 1 or len(array) != expected_count for array in pyramid)
-                        or pyramid[0].dtype != np.float64
-                        or pyramid[3].dtype != np.bool_
-                        or not all(
-                            np.issubdtype(array.dtype, np.floating) for array in pyramid[1:3]
-                        )
-                    ):
-                        return False
-        except (OSError, TypeError, ValueError):
+        except (OSError, TypeError, ValueError, KeyError):
             return False
         return True
 
@@ -465,17 +444,26 @@ class ImportWorker(QObject):
         """Materialise staged samples into the cache entry; scopes every mmap locally."""
         shared_t_path = staging_dir / "shared_t.npy"
         shared_t = time_stage.materialize(shared_t_path)
-        gap_mask = build_gap_mask(shared_t)
+        # Checked against every stored timestamp, not a declared rate: a stream
+        # that dropped a sample keeps its own times (core.columns.fit_regular).
+        grid = fit_regular(shared_t)
+        gap_mask = build_gap_mask(shared_t) if grid is None else None
+        has_gaps = gap_mask is not None and bool(np.any(gap_mask))
         gap_path = staging_dir / "shared_gap.npy"
-        np.save(gap_path, gap_mask)
+        if has_gaps and gap_mask is not None:
+            np.save(gap_path, gap_mask)
 
         total_nan = 0
         for index, channel in enumerate(channel_names):
             values = value_stages[channel].materialize(temp_dir / f"{channel}_v.npy")
-            _share_file(shared_t_path, temp_dir / f"{channel}_t.npy")
-            _share_file(gap_path, temp_dir / f"{channel}_gap.npy")
+            if grid is not None:
+                write_times(temp_dir, channel, grid)
+            else:
+                _share_file(shared_t_path, temp_dir / f"{channel}_t.npy")
+            if has_gaps:
+                _share_file(gap_path, temp_dir / f"{channel}_gap.npy")
             PyramidBuilder(temp_dir, channel).save_levels(
-                shared_t, values, gap_mask, include_base=False
+                grid if grid is not None else shared_t, values, gap_mask, include_base=False
             )
             total_nan += count_nan(values)
             del values
@@ -484,17 +472,57 @@ class ImportWorker(QObject):
         return (
             int(len(shared_t)),
             total_nan,
-            int(np.count_nonzero(gap_mask)),
-            _gap_locations(shared_t, gap_mask),
+            int(np.count_nonzero(gap_mask)) if has_gaps and gap_mask is not None else 0,
+            _gap_locations(shared_t, gap_mask) if has_gaps and gap_mask is not None else [],
             float(shared_t[0]),
             float(shared_t[-1]),
         )
+
+    @staticmethod
+    def _in_place(loader: Any, names: list[str]) -> dict[str, Any] | None:
+        """The loader's offer to leave *names* in its file, when it makes one for all of them.
+
+        Optional and never fatal: a loader that cannot describe its samples
+        in place, or fails trying, is imported the usual way.
+        """
+        offer = getattr(loader, "in_place_channels", None)
+        if not callable(offer):
+            return None
+        try:
+            channels = offer(list(names))
+        except Exception:  # noqa: BLE001 - plugin boundary; the copy path still works
+            logger.warning(
+                "%s could not describe its samples in place; copying them.",
+                type(loader).__name__,
+                exc_info=True,
+            )
+            return None
+        if not channels or set(channels) != set(names):
+            return None
+        return dict(channels)
+
+    def _build_in_place(
+        self, channels: dict[str, Any], temp_dir: Path
+    ) -> tuple[int, int, int, list[float], float, float]:
+        """Leave level 1 in the source file and write only the decimated levels (D-216)."""
+        from avialsync.engine.in_place_import import build_in_place
+
+        result = build_in_place(
+            channels,
+            temp_dir,
+            progress=self._emit_progress,
+            cancelled=lambda: self._cancel_flag,
+            gap_locations=_gap_locations,
+            share_file=_share_file,
+        )
+        return result if result is not None else (0, 0, 0, [], 0.0, 0.0)
 
     def _build_channel_groups(
         self,
         groups: Any,
         channel_names: list[str],
         temp_dir: Path,
+        loader: Any = None,
     ) -> tuple[int, int, int, list[float], float, float]:
         """Build channels group by group, each group on its own shared clock.
 
@@ -527,9 +555,15 @@ class ImportWorker(QObject):
                     )
                 total = max(1, len(channel_names))
                 self._progress_span = (done / total, (done + len(names)) / total)
-                rows, nan_count, gaps, locations, start, end = self._build_bulk_channels(
-                    chunks, list(names), temp_dir
-                )
+                in_place = self._in_place(loader, list(names)) if loader is not None else None
+                if in_place is not None:
+                    rows, nan_count, gaps, locations, start, end = self._build_in_place(
+                        in_place, temp_dir
+                    )
+                else:
+                    rows, nan_count, gaps, locations, start, end = self._build_bulk_channels(
+                        chunks, list(names), temp_dir
+                    )
                 done += len(names)
                 if rows == 0:
                     continue
@@ -594,16 +628,26 @@ class ImportWorker(QObject):
                     time_stage.discard()
                     value_stage.discard()
 
-                gap_mask = build_gap_mask(times)
-                np.save(temp_dir / f"{channel}_gap.npy", gap_mask)
+                grid = fit_regular(times)
+                gap_mask = build_gap_mask(times) if grid is None else np.zeros(0, dtype=bool)
+                axis: Any = times
+                if grid is not None:
+                    # The grid replaces the array; a channel sharing it gets its own record.
+                    del times
+                    time_path.unlink(missing_ok=True)
+                    time_axes.pop(identity, None)
+                    write_times(temp_dir, channel, grid)
+                    axis = grid
+                elif np.any(gap_mask):
+                    np.save(temp_dir / f"{channel}_gap.npy", gap_mask)
                 PyramidBuilder(temp_dir, channel).save_levels(
-                    times, values, gap_mask, include_base=False
+                    axis, values, gap_mask if grid is None else None, include_base=False
                 )
                 if index == 0:
-                    total_rows = int(len(times))
-                    t0, t1 = float(times[0]), float(times[-1])
+                    total_rows = int(len(axis))
+                    t0, t1 = float(axis[0]), float(axis[-1])
                     gap_count = int(np.count_nonzero(gap_mask))
-                    all_gap_locations = _gap_locations(times, gap_mask)
+                    all_gap_locations = _gap_locations(axis, gap_mask)
                 total_nan += count_nan(values)
                 self.progress.emit(int(((index + 1) / len(channel_names)) * 100))
         finally:

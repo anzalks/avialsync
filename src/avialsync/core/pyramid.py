@@ -9,10 +9,21 @@ from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from hashlib import blake2b
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
+from avialsync.core.channel_store import level_stem, read_level, safe_save, write_times
+from avialsync.core.columns import RegularTimes, fit_regular, no_gaps
+
 LEVELS = [1, 16, 256, 4096]
+
+#: Samples reduced per pass when building the first decimated level, so a level-1
+#: column read in place -- a strided mmap of an interleaved file -- is never
+#: copied whole into memory.
+_LEVEL_CHUNK = 16 * 65_536
+
+_INT16 = np.iinfo(np.int16)
 
 #: Default bound for :meth:`PyramidReader.iter_raw_chunks`.  Workers that scan a
 #: whole recording must stay inside a fixed working set regardless of length.
@@ -38,19 +49,7 @@ def _nan_envelope(
         return np.nanmin(values_min, axis=axis), np.nanmax(values_max, axis=axis)
 
 
-def _safe_save(path: Path, arr: np.ndarray) -> None:
-    """Save quickly, retrying macOS interrupted writes through a memmap."""
-    try:
-        np.save(path, arr)
-        return
-    except InterruptedError:
-        # A signal can interrupt NumPy's C-level fwrite on macOS. Recreate the
-        # partial file through mmap; all other storage failures remain visible.
-        pass
-
-    mapped = np.lib.format.open_memmap(path, mode="w+", dtype=arr.dtype, shape=arr.shape)
-    mapped[:] = arr
-    mapped.flush()
+_safe_save = safe_save
 
 
 def _save_arrays(arrays: list[tuple[Path, np.ndarray]]) -> None:
@@ -208,6 +207,9 @@ class ChannelStage:
         self._handle.write(self._header(0))
         self._count = 0
         self._compact = allow_float32
+        #: Whole numbers in 16-bit range, no NaN: ADC counts and digital lines,
+        #: stored in a quarter of float64's space with nothing lost.
+        self._int16 = allow_float32
         self._digest = blake2b(digest_size=16) if hash_content else None
 
     @staticmethod
@@ -237,6 +239,8 @@ class ChannelStage:
             block, block.astype(np.float32).astype(np.float64), equal_nan=True
         ):
             self._compact = False
+        if self._int16 and block.size and not _fits_int16(block):
+            self._int16 = False
         if self._digest is not None:
             self._digest.update(memoryview(block).cast("B"))
         block.tofile(self._handle)
@@ -257,10 +261,13 @@ class ChannelStage:
         self.close()
         with self.path.open("r+b") as handle:
             handle.write(self._header(self._count))
-        if self._compact and self._count:
+        if (self._compact or self._int16) and self._count:
             staged = np.load(self.path, mmap_mode="r", allow_pickle=False)
             mapped = np.lib.format.open_memmap(
-                target, mode="w+", dtype=np.float32, shape=(self._count,)
+                target,
+                mode="w+",
+                dtype=np.int16 if self._int16 else np.float32,
+                shape=(self._count,),
             )
             for start in range(0, self._count, chunk_size):
                 stop = min(start + chunk_size, self._count)
@@ -277,8 +284,19 @@ class ChannelStage:
         return mapped_result
 
 
-def count_nan(values: np.ndarray, chunk_size: int = RAW_CHUNK_SAMPLES) -> int:
+def _fits_int16(block: np.ndarray) -> bool:
+    """Whether every sample of *block* is a whole number a 16-bit integer holds exactly."""
+    if not np.all(np.isfinite(block)):
+        return False
+    if float(block.min()) < _INT16.min or float(block.max()) > _INT16.max:
+        return False
+    return bool(np.array_equal(block, np.trunc(block)))
+
+
+def count_nan(values: Any, chunk_size: int = RAW_CHUNK_SAMPLES) -> int:
     """Count NaNs in a possibly mmap-backed array without a full-size temporary."""
+    if np.issubdtype(np.dtype(values.dtype), np.integer):
+        return 0
     total = 0
     for start in range(0, len(values), chunk_size):
         total += int(np.count_nonzero(np.isnan(values[start : start + chunk_size])))
@@ -286,7 +304,7 @@ def count_nan(values: np.ndarray, chunk_size: int = RAW_CHUNK_SAMPLES) -> int:
 
 
 class PyramidBuilder:
-    """Builds and serializes a multi-level pyramid to disk."""
+    """Builds and serializes a multi-level pyramid to disk (layout: ``channel_store``)."""
 
     def __init__(self, cache_dir: Path, channel_id: str):
         self.cache_dir = cache_dir
@@ -294,67 +312,131 @@ class PyramidBuilder:
 
     def build_and_save(self, t: np.ndarray, v: np.ndarray) -> None:
         """Build every level from in-memory arrays and write the full sidecar."""
-        self.save_levels(t, v, build_gap_mask(t), include_base=True)
+        grid = fit_regular(t)
+        times: Any = grid if grid is not None else t
+        gap_mask = no_gap_mask(len(t)) if grid is not None else build_gap_mask(t)
+        self.save_levels(times, v, gap_mask, include_base=True)
 
     def save_levels(
         self,
-        t: np.ndarray,
-        v: np.ndarray,
-        gap_mask: np.ndarray,
+        t: Any,
+        v: Any,
+        gap_mask: np.ndarray | None,
         *,
         include_base: bool = True,
+        first_level: tuple[np.ndarray, np.ndarray] | None = None,
     ) -> None:
-        """Write decimated levels for *t*/*v*, which may be mmap-backed.
+        """Write decimated levels for *t*/*v*, which may be mmap-backed or computed.
 
-        ``include_base=False`` skips the level-1 ``_t``/``_v``/``_gap`` arrays for
-        callers that already staged them into the cache directory, so streamed
-        imports write each raw sample exactly once.
+        ``include_base=False`` skips the level-1 columns for callers that already
+        put them in the cache directory (or describe them in place), so streamed
+        imports write each raw sample at most once.
+
+        *t* may be a :class:`RegularTimes`, whose levels are grids too. A gap
+        column is written only where it holds a gap; ``gap_mask`` may be
+        ``None`` for a channel known to have none. *first_level* is the
+        level-16 envelope when the caller already reduced it (an in-place import
+        reduces every channel in one pass over the source); it must be in
+        ``v``'s dtype.
         """
+        has_gaps = gap_mask is not None and bool(np.any(gap_mask))
         arrays_to_save: list[tuple[Path, np.ndarray]] = []
         if include_base:
-            # Save exact level 1 (full resolution, float64 time; float64 values)
-            arrays_to_save = [
-                (self.cache_dir / f"{self.channel_id}_t.npy", t),
-                (self.cache_dir / f"{self.channel_id}_v.npy", v),
-                (self.cache_dir / f"{self.channel_id}_gap.npy", gap_mask),
-            ]
+            write_times(self.cache_dir, self.channel_id, t)
+            arrays_to_save.append((self.cache_dir / f"{self.channel_id}_v.npy", np.asarray(v)))
+            if has_gaps:
+                assert gap_mask is not None
+                arrays_to_save.append((self.cache_dir / f"{self.channel_id}_gap.npy", gap_mask))
 
-        # Build and save decimated levels.
-        # vmin/vmax stored as float32 conditionally: if source is float64
-        # (e.g. processed outputs with large magnitude offsets), we keep float64 to
-        # avoid lossy downcasts. For raw sensor data (≤16-bit or float32), float32
-        # is lossless and halves IO for the largest levels.
-        save_dtype = v.dtype if v.dtype == np.float64 else np.float32
+        # vmin/vmax keep the values' own precision: float64 stays float64 (large
+        # offsets in processed outputs), integers stay integers (16-bit counts,
+        # or raw samples read in place and scaled on read), and anything else is
+        # float32, which is lossless for raw sensor data and halves the IO.
+        dtype = np.dtype(v.dtype)
+        save_dtype = (
+            dtype if dtype == np.float64 or np.issubdtype(dtype, np.integer) else np.float32
+        )
 
-        previous_t = t
-        previous_min = v
-        previous_max = v
-        previous_gap = gap_mask
-        for level in LEVELS[1:]:
-            t_lvl, vmin_lvl, vmax_lvl = _aggregate_pyramid_level(
-                previous_t, previous_min, previous_max, factor=16
-            )
-            gap_lvl = _aggregate_gap_mask(previous_gap, factor=16)
+        previous_min, previous_max = (
+            first_level if first_level is not None else _first_level(v, factor=16)
+        )
+        previous_t: Any = t
+        previous_gap = gap_mask if has_gaps else None
+        for position, level in enumerate(LEVELS[1:]):
+            if position:
+                _t, previous_min, previous_max = _aggregate_pyramid_level(
+                    np.empty(len(previous_min)), previous_min, previous_max, factor=16
+                )
+            stem = level_stem(self.channel_id, level)
+            if isinstance(t, RegularTimes):
+                level_t: Any = t.level(level)
+            else:
+                level_t = _level_times(previous_t, 16)
+                previous_t = level_t
+            write_times(self.cache_dir, stem, level_t)
             arrays_to_save.extend(
                 (
-                    (self.cache_dir / f"{self.channel_id}_pyr_{level}_t.npy", t_lvl),
                     (
-                        self.cache_dir / f"{self.channel_id}_pyr_{level}_vmin.npy",
-                        vmin_lvl.astype(save_dtype, copy=False),
+                        self.cache_dir / f"{stem}_vmin.npy",
+                        previous_min.astype(save_dtype, copy=False),
                     ),
                     (
-                        self.cache_dir / f"{self.channel_id}_pyr_{level}_vmax.npy",
-                        vmax_lvl.astype(save_dtype, copy=False),
+                        self.cache_dir / f"{stem}_vmax.npy",
+                        previous_max.astype(save_dtype, copy=False),
                     ),
-                    (self.cache_dir / f"{self.channel_id}_pyr_{level}_gap.npy", gap_lvl),
                 )
             )
-            previous_t = t_lvl
-            previous_min = vmin_lvl
-            previous_max = vmax_lvl
-            previous_gap = gap_lvl
+            if previous_gap is not None:
+                previous_gap = _aggregate_gap_mask(previous_gap, factor=16)
+                arrays_to_save.append((self.cache_dir / f"{stem}_gap.npy", previous_gap))
 
         _save_arrays(arrays_to_save)
+
+
+def no_gap_mask(length: int) -> np.ndarray:
+    """An all-false mask without memory, for a channel known to have no gap."""
+    return no_gaps(length)
+
+
+def _level_times(times: np.ndarray, factor: int) -> np.ndarray:
+    """Every *factor*-th time plus the last partial block's first, as a level stores."""
+    length = len(times)
+    truncated = length - length % factor
+    picked = np.asarray(times[:truncated:factor], dtype=np.float64)
+    if length % factor:
+        picked = np.concatenate((picked, np.asarray(times[truncated : truncated + 1])))
+    return picked
+
+
+def _first_level(values: Any, factor: int) -> tuple[np.ndarray, np.ndarray]:
+    """The min/max envelope of *values* per *factor* samples, a bounded chunk at a time.
+
+    The chunk is a multiple of *factor*, so each bucket is reduced from exactly
+    the samples a whole-array reduction would see; a strided in-place column is
+    copied one chunk at a time instead of whole.
+    """
+    length = len(values)
+    buckets = -(-length // factor)
+    dtype = np.dtype(values.dtype)
+    minimum = np.empty(buckets, dtype=dtype)
+    maximum = np.empty(buckets, dtype=dtype)
+    chunk = _LEVEL_CHUNK - _LEVEL_CHUNK % factor
+    for start in range(0, length, chunk):
+        stop = min(start + chunk, length)
+        block = np.ascontiguousarray(values[start:stop])
+        whole = len(block) - len(block) % factor
+        first = start // factor
+        if whole:
+            low, high = _nan_envelope(
+                block[:whole].reshape(-1, factor), block[:whole].reshape(-1, factor), axis=1
+            )
+            minimum[first : first + len(low)] = low
+            maximum[first : first + len(high)] = high
+        if whole < len(block):
+            low_tail, high_tail = _nan_envelope(block[whole:], block[whole:])
+            minimum[-1] = low_tail
+            maximum[-1] = high_tail
+    return minimum, maximum
 
 
 class PyramidReader:
@@ -363,7 +445,7 @@ class PyramidReader:
     def __init__(self, cache_dir: Path, channel_id: str):
         self.cache_dir = cache_dir
         self.channel_id = channel_id
-        self._arrays: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = {}
+        self._arrays: dict[str, tuple[Any, Any, Any, np.ndarray]] = {}
         # A plot row's reader is also read by the page worker. The lock keeps a
         # level loaded from a directory `reopen` has just replaced out of the
         # cache, where it would serve the old generation from then on.
@@ -388,7 +470,7 @@ class PyramidReader:
             self.cache_dir = cache_dir
             self._arrays.clear()
 
-    def _load_level(self, level: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def _load_level(self, level: int) -> tuple[Any, Any, Any, np.ndarray]:
         key = f"{self.channel_id}_{level}"
         with self._lock:
             cached = self._arrays.get(key)
@@ -397,19 +479,7 @@ class PyramidReader:
             return cached
         # Opened outside the lock: a cold mmap open must not hold up a reader
         # on another thread that only wants a level already loaded.
-        if level == 1:
-            t = np.load(cache_dir / f"{self.channel_id}_t.npy", mmap_mode="r")
-            v = np.load(cache_dir / f"{self.channel_id}_v.npy", mmap_mode="r")
-            gap = np.load(cache_dir / f"{self.channel_id}_gap.npy", mmap_mode="r")
-            loaded = (t, v, v, gap)
-        else:
-            stem = f"{self.channel_id}_pyr_{level}"
-            loaded = (
-                np.load(cache_dir / f"{stem}_t.npy", mmap_mode="r"),
-                np.load(cache_dir / f"{stem}_vmin.npy", mmap_mode="r"),
-                np.load(cache_dir / f"{stem}_vmax.npy", mmap_mode="r"),
-                np.load(cache_dir / f"{stem}_gap.npy", mmap_mode="r"),
-            )
+        loaded = read_level(cache_dir, self.channel_id, level)
         with self._lock:
             if self.cache_dir == cache_dir:
                 return self._arrays.setdefault(key, loaded)
@@ -514,8 +584,12 @@ class PyramidReader:
             stop = min(start + chunk_size, last)
             yield times[start:stop], values[start:stop], gaps[start:stop]
 
-    def mapped_columns(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def mapped_columns(self) -> tuple[Any, Any, np.ndarray]:
         """Return the level-1 ``(t, v, gap)`` mmap views without copying.
+
+        A column may be computed rather than mapped (:mod:`avialsync.core.columns`):
+        it indexes, slices and ``np.searchsorted``s like an array, and a whole
+        column NumPy operation materialises it, as reading a whole mmap did.
 
         Reserved for consumers that index single samples out of the whole
         recording on a clock tick (pose sampling).  The arrays are mmap-backed

@@ -10,6 +10,7 @@ import pytest
 pytest.importorskip("h5py")
 av = pytest.importorskip("av")
 
+from avialsync.core.pyramid import PyramidReader  # noqa: E402
 from avialsync.core.registry import LoaderRegistry  # noqa: E402
 from avialsync.core.source import TimeSeriesSource, VideoSource  # noqa: E402
 from avialsync.loaders import nwb_format  # noqa: E402
@@ -100,7 +101,8 @@ def test_proxy_and_time_series_import_do_not_share_a_cache_entry(tmp_path: Path,
 
     cache_dir = Path(results[0][1])
     assert proxy.parent != cache_dir
-    assert (cache_dir / "ElectricalSeries.ch10_v.npy").is_file()
+    # Read in place (D-216): the entry holds the layout naming the file's samples.
+    assert (cache_dir / "ElectricalSeries.ch10_layout.json").is_file()
     again: list[tuple] = []
     worker = ImportWorker(path, {}, NWBLoader)
     worker.finished.connect(lambda *args: again.append(args))
@@ -408,13 +410,11 @@ def test_importing_a_file_spans_every_series_and_keeps_its_units(tmp_path: Path,
     assert any(message.channel == "trials" for message in inspection.messages)
     assert progress == sorted(progress) and progress[-1] == 100
     cache = Path(cache_dir)
-    # One stored clock per series, shared by its columns.
-    assert (cache / "ElectricalSeries.ch10_t.npy").stat().st_ino == (
-        cache / "ElectricalSeries.ch13_t.npy"
-    ).stat().st_ino or np.array_equal(
-        np.load(cache / "ElectricalSeries.ch10_t.npy"),
-        np.load(cache / "ElectricalSeries.ch13_t.npy"),
+    # One clock per series, shared by its columns: a grid when it is regular.
+    first, second = (
+        PyramidReader(cache, f"ElectricalSeries.ch{n}").mapped_columns()[0] for n in (10, 13)
     )
+    assert np.array_equal(first[:], second[:])
 
 
 def test_grouped_import_rejects_undeclared_channels(tmp_path: Path, qapp) -> None:

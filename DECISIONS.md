@@ -6860,3 +6860,48 @@ The button carries the action's own name, not "Clear": a menu item and the butto
 same command are never named independently (rule 15). The cache commands' idle precondition ignores
 the measuring job, which writes nothing, and `_on_jobs_changed` now re-answers preconditions, so
 the button greys while an import runs and returns when it ends without a menu being opened.
+
+---
+
+## 2026-10 · D-216 · The cache stores what carries information; binary sources and joined cameras stay in place
+
+**Decision.** A cache entry stores each channel's columns only as far as they carry information
+(`core/channel_store.py`, `core/columns.py`), and binary sources are not copied:
+
+- **Regular times are a grid, verified exactly.** `columns.fit_regular` accepts a grid
+  (`t0 + i / rate`, `t0 + i * step`, or `(ticks + i) / rate`, the three ways loaders and decimal text
+  write a clock) only when it reproduces *every* stored timestamp bit for bit, checked chunk by
+  chunk. Anything else keeps the stored array, so exports write the file's own numbers and equality
+  against stored times still holds. `RegularTimes` computes on access; `np.searchsorted` dispatches
+  to its arithmetic.
+- **Gap masks only where there is a gap**; otherwise a zero-stride view with no storage.
+- **Whole numbers in 16-bit range are stored as int16** (`ChannelStage`), read back as float32.
+- **Open Ephys and uncompressed NWB samples are read in place.** A loader may offer
+  `in_place_channels(names) -> {name: InPlaceChannel}` (`loaders/neo_in_place.py` through neo's buffer
+  description, `loaders/nwb_in_place.py` for contiguous, uncompressed, local datasets). The entry keeps
+  `<channel>_layout.json` (file, offset, dtype, column, the format's own conversion steps in its own
+  order and precision) and the decimated levels, built in one pass over the file's rows
+  (`engine/in_place_import.py`). Values read in place are bit-for-bit what the copying import stored.
+  The referenced file's size and mtime are checked before an entry is trusted.
+- **Open Ephys timing comes from the data.** Every entry of `sample_numbers.npy` (or the integer
+  `timestamps.npy` before GUI v0.6) is checked: consecutive numbers confirm the header grid, a drop
+  dates samples by their numbers and shows as a gap. A stream without per-sample numbers is not
+  read in place. (The copying path, via neo, uses the header grid only, as before.)
+- **AOL cameras joined across trials are a concat list, not a copy.** `aol_camera_join` writes an
+  FFmpeg concat list (in point at the first kept frame's own timestamp rounded up to the microsecond,
+  out point halfway to the first frame left out) and the same per-frame sidecar as before. The list is
+  demuxed and must yield exactly the expected packets; otherwise the join falls back to the stream
+  copy. Every reader opens media through `engine/media_input.open_input`, which permits the list's
+  absolute paths.
+- `_IMPORT_CACHE_VERSION` 9 → 10 and `_JOIN_VERSION` 2 → 3: existing entries are rebuilt once, on
+  first open.
+
+**Why.** The cache was routinely larger than the recordings it was built from: a 28.8 MB Open Ephys
+recording took 101.8 MB (int16 samples became floats, every channel carried an 8-byte timestamp and a
+gap byte per sample), a 120 MB NWB trace file 426.6 MB, and an AOL experiment a second copy of all its
+camera footage. Now 1.9 MB, 18.1 MB, and a few kilobytes respectively. Benchmarks: NWB trace import
+11.8 s → 1.4 s, cached reopen 2.1 s → 0.6 s (its 0.25 s budget, missed before too, is now spent fingerprinting each cached array); pyramid query and video seek unchanged within noise.
+
+**Costs, accepted.** A session holds the source `.dat`/`.nwb` mapped while it shows it, so on Windows
+that file cannot be renamed or deleted until it is closed. A full-length scan of one channel of an
+interleaved file reads every channel's bytes; plotting reads the cached levels and is unaffected.
