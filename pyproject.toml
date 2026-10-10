@@ -150,6 +150,17 @@ nwb = "avialsync.loaders.nwb_session:NWBSessionSource"
 packages = ["src/avialsync"]
 include = ["src/avialsync/resources/avialsync.png"]
 
+# Help > About shows the citation, so an installed copy has to carry it. The root
+# file stays the one GitHub reads and tools/prepare_release.py versions.
+[tool.hatch.build.targets.wheel.force-include]
+"CITATION.cff" = "avialsync/resources/CITATION.cff"
+
+# The source distribution is the package and what it needs to build, nothing
+# else: no tests, agent notes, CI, packaging scripts or example data. hatch adds
+# pyproject.toml itself.
+[tool.hatch.build.targets.sdist]
+include = ["/src/avialsync", "/CITATION.cff", "/README.md", "/LICENSE"]
+
 [tool.coverage.run]
 source = ["avialsync"]
 branch = true

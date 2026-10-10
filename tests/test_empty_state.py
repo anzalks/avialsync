@@ -159,9 +159,10 @@ def test_the_help_menu_has_destinations(window: MainWindow) -> None:
 
 
 def test_citation_text_is_available() -> None:
+    # The real file, not the not-found note: that note says "repository" too,
+    # which let every installed copy ship without a citation.
     text = citation_text()
-    assert text
-    assert "cff" in text.lower() or "title" in text.lower() or "repository" in text.lower()
+    assert "cff-version:" in text
 
 
 # ── no modal progress survived (D-091) ───────────────────────────────

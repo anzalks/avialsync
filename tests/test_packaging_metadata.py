@@ -88,3 +88,25 @@ def test_readthedocs_builds_the_same_supported_docs_environment() -> None:
     assert "- docs" in configuration
     assert '_installed_version("avialsync")' in docs_config
     assert 'html_title = f"AvialSync {release}"' in docs_config
+
+
+def test_distributions_ship_the_package_and_its_citation_only() -> None:
+    """The sdist carries no repository tooling, and installs carry the citation.
+
+    Without an sdist allowlist hatch packed every tracked file: agent notes, CI,
+    tests and example data, 17 MB of it. And Help > About read CITATION.cff from
+    the repository root, which no wheel, installer or bundle contains.
+    """
+    root = Path(__file__).parents[1]
+    hatch = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["tool"]["hatch"]
+    targets = hatch["build"]["targets"]
+
+    assert sorted(targets["sdist"]["include"]) == [
+        "/CITATION.cff",
+        "/LICENSE",
+        "/README.md",
+        "/src/avialsync",
+    ]
+    assert targets["wheel"]["force-include"] == {"CITATION.cff": "avialsync/resources/CITATION.cff"}
+    spec = (root / "packaging" / "avialsync.spec").read_text(encoding="utf-8")
+    assert '(str(project_root / "CITATION.cff"), "avialsync/resources")' in spec

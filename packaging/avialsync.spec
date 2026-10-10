@@ -38,7 +38,10 @@ a = Analysis(
     [str(project_root / 'src' / 'avialsync' / '__main__.py')],
     pathex=[str(project_root / 'src')],
     binaries=[],
-    datas=[(str(project_root / "src" / "avialsync" / "resources" / "avialsync.png"), "avialsync/resources")]
+    datas=[
+        (str(project_root / "src" / "avialsync" / "resources" / "avialsync.png"), "avialsync/resources"),
+        (str(project_root / "CITATION.cff"), "avialsync/resources"),
+    ]
     + license_datas("h5py")
     + license_datas("tifffile")
     + license_datas("zarr")

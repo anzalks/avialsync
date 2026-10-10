@@ -1,4 +1,4 @@
-"""Help destinations and a bug-reportable About box (WP-8).
+"""Help destinations and a bug-reportable About box.
 
 The Help menu was Shortcuts, Diagnostics, About — a dead end. There was no way
 to reach the documentation, the tutorial, the issue tracker, or a release, from
@@ -50,7 +50,7 @@ def docs_url(page: str) -> str:
     """The published user guide's *page* (``"tutorials/first-session.html"``).
 
     Built on the declared ``Documentation`` URL, so the only address written
-    down is the one in ``[project.urls]`` (DS-13).
+    down is the one in ``[project.urls]``.
     """
     base = project_urls().get("Documentation") or _FALLBACK_URLS["Documentation"]
     return f"{base.rstrip('/')}/en/latest/{page.lstrip('/')}"
@@ -94,15 +94,18 @@ def citation_text() -> str:
     """The citation the release process maintains, or a note that it is absent.
 
     Read from the shipped ``CITATION.cff`` rather than retyped, so it cannot
-    drift from the file ``tools/prepare_release.py`` keeps in step with the
-    version. For a tool used to produce published figures this is not
+    drift from the file the release keeps in step with the version. For a tool
+    used to produce published figures this is not
     decoration.
     """
     from pathlib import Path
 
+    # The wheel and the frozen bundle ship it in resources/; a source checkout
+    # (including an editable install) has only the repository-root copy.
     for candidate in (
+        Path(__file__).resolve().parents[1] / "resources" / "CITATION.cff",
         Path(__file__).resolve().parents[3] / "CITATION.cff",
-        Path(getattr(sys, "_MEIPASS", "")) / "CITATION.cff",
+        Path(getattr(sys, "_MEIPASS", "")) / "avialsync" / "resources" / "CITATION.cff",
     ):
         try:
             if candidate.is_file():
