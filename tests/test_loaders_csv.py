@@ -86,6 +86,25 @@ def test_csv_loader_sentinel():
     assert has_nan
 
 
+@pytest.mark.parametrize("cell", ["-9999", "3.5"])
+def test_a_sentinel_on_a_column_without_nulls_imports(tmp_path: Path, cell: str) -> None:
+    """The import wizard's default sentinel failed every gap-free file.
+
+    Polars returns a read-only view of a column with no nulls, and the sentinel
+    was written into it in place. The fixture above has NaN gaps, so polars
+    copied and the test never saw it.
+    """
+    path = tmp_path / "gap_free.csv"
+    path.write_text(f"time,ch0\n0.0,1.0\n0.1,{cell}\n0.2,2.0\n", encoding="utf-8")
+    loader = CSVLoader()
+    loader.open(path, {"time_col": "time", "time_unit": "s", "sentinel": "-9999"})
+
+    values = np.concatenate([chunk["ch0"][1] for chunk in loader.read_all_chunks()])
+
+    expected = [1.0, np.nan, 2.0] if cell == "-9999" else [1.0, 3.5, 2.0]
+    np.testing.assert_array_equal(values, expected)
+
+
 def test_csv_loader_iso8601():
     path = FIXTURE_DIR / "signal_iso8601.csv"
     if not path.exists():

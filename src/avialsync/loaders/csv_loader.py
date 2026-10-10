@@ -343,8 +343,14 @@ class CSVLoader(TimeSeriesSource):
             t = self._normalize_time(batch[time_col])
             values = {name: batch[name].cast(pl.Float64).to_numpy() for name in channel_names}
             if sentinel is not None:
-                for value_array in values.values():
-                    value_array[value_array == sentinel] = np.nan
+                # A new array, not an assignment: polars hands back a read-only
+                # view of any column without nulls, and writing into it failed
+                # the whole import -- with the wizard's default sentinel, every
+                # import of a gap-free file.
+                values = {
+                    name: np.where(value_array == sentinel, np.nan, value_array)
+                    for name, value_array in values.items()
+                }
 
             if pending_time is not None and pending_values is not None:
                 t = np.concatenate((np.asarray([pending_time], dtype=np.float64), t))
