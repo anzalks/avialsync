@@ -340,6 +340,13 @@ class VideoStandardLoader(VideoSource):
             if self._frame_times is not None:
                 self._frame_times = self._frame_times * scale
 
+        from avialsync.engine.segmented_media import is_segmented
+
+        if is_segmented(path) and self._frame_times is not None and len(self._frame_times):
+            # The first file's header describes one trial, not the joined video.
+            self._frame_count = len(self._frame_times)
+            self._duration = float(self._frame_times[-1] - self._frame_times[0])
+            self._start_time = 0.0
         if self._frame_count is None and self._frame_times is not None:
             self._frame_count = len(self._frame_times)
         self._frame_rate_statistics()
@@ -357,8 +364,13 @@ class VideoStandardLoader(VideoSource):
         """
         import av
 
+        from avialsync.engine.segmented_media import is_segmented, read_manifest
+
+        # A joined video's files share codec and frame size: its first file
+        # describes them. Its length comes from the joined frame table.
+        probed = Path(read_manifest(path)[0].path) if is_segmented(path) else path
         try:
-            container = av.open(str(path))
+            container = av.open(str(probed))
         except (av.FFmpegError, OSError) as error:
             raise SourceOpenError(f"Failed to probe video: {path} ({error})") from error
 

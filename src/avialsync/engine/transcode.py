@@ -25,6 +25,7 @@ import numpy as np
 from avialsync.core.artifact_io import publish
 from avialsync.core.artifact_provenance import record
 from avialsync.core.errors import ExportError
+from avialsync.engine.segmented_media import is_segmented
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,10 @@ def remux_clip(source: Path | str, destination: Path | str, start: float, end: f
         """No packet can be committed to this clip."""
 
     def write(temporary: Path) -> None:
+        if is_segmented(source):
+            if not _clip_segments(source, temporary, start, end):
+                raise EmptyClip
+            return
         written = 0
         with av.open(str(source)) as input_container:
             stream = input_container.streams.video[0]
@@ -139,6 +144,9 @@ def encode_proxy(
         av.FFmpegError: The source could not be read or the output written.
     """
     source, destination = Path(source), Path(destination)
+    if is_segmented(source):
+        _proxy_segments(source, destination, height, progress, should_cancel)
+        return
     with av.open(str(source)) as input_container:
         stream = input_container.streams.video[0]
         # Decode with every core; a proxy build should not take longer than it
@@ -179,6 +187,89 @@ def encode_proxy(
                     progress(min(1.0, max(0.0, elapsed / total)))
             for packet in output_stream.encode():
                 output_container.mux(packet)
+    if progress is not None:
+        progress(1.0)
+
+
+def _clip_segments(source: Path, destination: Path, start: float, end: float) -> bool:
+    """Stream-copy ``[start, end]`` of a joined video, file by file, onto one timeline."""
+    from avialsync.engine.segmented_media import SegmentedReader
+
+    written = 0
+    with SegmentedReader(source) as reader, av.open(str(destination), mode="w") as output:
+        template = reader.stream
+        time_base = template.time_base
+        output_stream = output.add_stream_from_template(template)
+        provenance = record("clip", (source,))
+        output.metadata["creation_time"] = str(provenance["written"])
+        origin: float | None = None
+        for path, first, last, shift in reader.spans():
+            low, high = max(start, first + shift), min(end, last + shift)
+            if low > high:
+                continue
+            with av.open(path) as input_container:
+                stream = input_container.streams.video[0]
+                input_container.seek(
+                    int((low - shift) / time_base), stream=stream, backward=True, any_frame=False
+                )
+                for packet in input_container.demux(stream):
+                    if packet.pts is None or not packet.size:
+                        continue
+                    instant = float(packet.pts * time_base) + shift
+                    if instant > high:
+                        break
+                    if origin is None:
+                        origin = instant
+                        provenance["actual_start_seconds"] = instant
+                        output.metadata["comment"] = json.dumps(provenance)
+                    packet.pts = packet.dts = round((instant - origin) / time_base)
+                    packet.stream = output_stream
+                    output.mux(packet)
+                    written += 1
+    return written > 0
+
+
+def _proxy_segments(
+    source: Path,
+    destination: Path,
+    height: int,
+    progress: ProgressCallback | None,
+    should_cancel: CancelCheck | None,
+) -> None:
+    """:func:`encode_proxy` for a joined video: its frames in order, on its own timeline."""
+    from avialsync.engine.segmented_media import SegmentedReader
+
+    with SegmentedReader(source) as reader, av.open(str(destination), mode="w") as output:
+        stream = reader.stream
+        codec_context = stream.codec_context
+        width = _even(codec_context.width * height / max(1, codec_context.height))
+        out_height = _even(height)
+        time_base = stream.time_base or Fraction(1, 90_000)
+        output_stream = output.add_stream(
+            "libx264", rate=stream.average_rate or stream.base_rate or Fraction(30, 1)
+        )
+        output_stream.width = width
+        output_stream.height = out_height
+        output_stream.pix_fmt = "yuv420p"
+        output_stream.codec_context.gop_size = 1
+        output_stream.time_base = time_base
+        output_stream.codec_context.time_base = time_base
+        output_stream.options = {"preset": PROXY_PRESET, "crf": PROXY_CRF}
+        times = reader.frame_times
+        for index in range(reader.frame_count):
+            if should_cancel is not None and should_cancel():
+                raise TranscodeCancelled
+            scaled = reader.frame_at_index(index).reformat(
+                width=width, height=out_height, format="yuv420p"
+            )
+            scaled.pts = round(float(times[index]) / time_base)
+            scaled.time_base = time_base
+            for packet in output_stream.encode(scaled):
+                output.mux(packet)
+            if progress is not None:
+                progress((index + 1) / reader.frame_count)
+        for packet in output_stream.encode():
+            output.mux(packet)
     if progress is not None:
         progress(1.0)
 

@@ -129,3 +129,95 @@ def test_cameras_are_found_under_the_camera_data_folder_by_trial_name(tmp_path: 
     cameras = [item for item in layout.items if item.loader is AOLJoinedCameraSource]
     assert len(cameras) == 1 and len(cameras[0].config["segments"]) == 2
     assert second.name in cameras[0].config["segments"][1]["video"]
+
+
+def _joined_item(tmp_path: Path):
+    experiment, first, second = _experiment(tmp_path)
+    _camera(first, "FaceCam", 5, 10.0, 40)
+    _camera(second, "FaceCam", 5, 10.0, 140)
+    layout = AOLMicroscopeTrialSource().scan(experiment, LoaderRegistry(plugin_dirs=[]))
+    return next(item for item in layout.items if item.loader is AOLJoinedCameraSource)
+
+
+def _frames(path: Path, indices: list[int]) -> list[np.ndarray]:
+    from avialsync.engine.pyav_reader import PyAVReader
+
+    with PyAVReader(path) as reader:
+        return [reader.frame_at_index(index).to_ndarray(format="rgb24") for index in indices]
+
+
+def test_trials_are_read_in_place_not_copied(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A video is the same whether one file or several back to back (D-216).
+
+    The cache holds a manifest of the trial files, not their footage, and it
+    plays exactly the frames and times the copying join produced.
+    """
+    from avialsync.loaders import aol_camera_join
+
+    item = _joined_item(tmp_path)
+    listed = AOLJoinedCameraSource()
+    listed.open(item.path, dict(item.config))
+    manifest = listed.prepare(lambda _fraction: None)
+    assert manifest.name == "joined.segments.json"
+    assert sum(p.stat().st_size for p in manifest.parent.iterdir()) < 4096
+    order = [5, 0, 4, 1, 3, 2]  # forward and back across both trials
+    from_manifest = _frames(manifest, order)
+    manifest_times = listed.exact_time_mapping()[0].copy()
+
+    monkeypatch.setattr(aol_camera_join, "_JOIN_VERSION", 999)
+    monkeypatch.setattr(aol_camera_join, "_manifest", lambda *_args: False)
+    copied = AOLJoinedCameraSource()
+    copied.open(item.path, dict(item.config))
+    assert copied.prepare(lambda _fraction: None).suffix == ".mkv"
+    for ours, theirs in zip(from_manifest, _frames(copied.media_path(), order), strict=True):
+        np.testing.assert_array_equal(ours, theirs)
+    np.testing.assert_array_equal(manifest_times, copied.exact_time_mapping()[0])
+
+
+def test_a_trial_its_index_cannot_vouch_for_is_copied(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from avialsync.loaders import aol_camera_join
+
+    item = _joined_item(tmp_path)
+    monkeypatch.setattr(aol_camera_join, "_indexed_frames", lambda _video: None)
+    source = AOLJoinedCameraSource()
+    source.open(item.path, dict(item.config))
+    assert source.prepare(lambda _fraction: None).suffix == ".mkv"
+
+
+def test_a_joined_video_exports_a_clip_and_a_proxy(tmp_path: Path) -> None:
+    from avialsync.engine.pyav_reader import PyAVReader
+    from avialsync.engine.transcode import encode_proxy, remux_clip
+
+    item = _joined_item(tmp_path)
+    source = AOLJoinedCameraSource()
+    source.open(item.path, dict(item.config))
+    manifest = source.prepare(lambda _fraction: None)
+    with PyAVReader(manifest) as reader:
+        times = reader.frame_times.copy()
+
+    clip = tmp_path / "out" / "clip.mkv"
+    clip.parent.mkdir()
+    assert remux_clip(manifest, clip, float(times[1]), float(times[4]))
+    with av.open(str(clip)) as container:
+        assert sum(1 for p in container.demux(container.streams.video[0]) if p.size) == 4
+
+    proxy = tmp_path / "out" / "proxy.mp4"
+    encode_proxy(manifest, proxy, height=48)
+    with av.open(str(proxy)) as container:
+        assert sum(1 for _ in container.decode(container.streams.video[0])) == len(times)
+
+
+def test_an_avi_index_gives_the_same_frame_table_as_reading_every_frame(tmp_path: Path) -> None:
+    """The fast path must be the table a full read builds, or a frame is misnamed."""
+    from avialsync.engine.pyav_reader import PyAVReader
+
+    video = _camera(tmp_path, "FaceCam", 9, 10.0, 40)
+    with PyAVReader(video) as reader:
+        assert reader._index_table() is not None
+        indexed = reader.frame_times.copy()
+        read_in_full = reader._build_pts_table()[0] * float(reader.stream.time_base)
+    np.testing.assert_array_equal(indexed, read_in_full)

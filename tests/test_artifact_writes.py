@@ -16,6 +16,7 @@ _CACHE_MODULES = {
     "core/pyramid.py",
     "engine/importer.py",
     "engine/in_place_import.py",  # decimated levels and layouts, inside a cache entry
+    "engine/segmented_media.py",  # a joined camera's manifest, inside its cache entry
     "engine/pyav_reader.py",  # disposable PTS/keyframe index through CacheManager.commit_cache
     "engine/imaging_proxy.py",
     "engine/nwb_cache.py",
@@ -44,6 +45,8 @@ _KNOWN_WRITERS: dict[str, str] = {
     "engine/transcode.py:remux_clip": "Writes publish's temporary clip container.",
     "engine/transcode.py:encode_video": "Generic encoder; callers own staging.",
     "engine/transcode.py:encode_proxy": "Disposable proxy encoder has cache ownership.",
+    "engine/transcode.py:_clip_segments": "Joined-video clip into publish's temporary.",
+    "engine/transcode.py:_proxy_segments": "encode_proxy's encoder for a joined video.",
     "ui/recovery.py:write_recovery": "Crash recovery has its own startup lifecycle.",
     "ui/recovery.py:dismiss_recovery": "Crash recovery dismissal marker.",
     "loaders/nwb_storage.py:create_remote_link": "App-data link to a remote NWB source.",

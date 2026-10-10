@@ -17,8 +17,15 @@ to that trial's length (the camera's stop is not triggered, so its last frames
 overrun the trial). A recording that did not start on its trial's trigger is
 placed where its own clock puts it, and keeps only the frames inside the trial.
 
-The joined video is a stream copy -- no re-encoding -- written once into the
-per-user cache with a per-frame timestamp sidecar, never beside a recording.
+The joined video is not copied. The cache holds a manifest naming each trial's
+own file and the run of frames it contributes, with a per-frame timestamp
+sidecar, and :class:`~avialsync.engine.segmented_media.SegmentedReader` plays
+the files as one video. Each file's frames are counted from its own AVI index,
+so preparing a camera reads no footage: a 17-trial camera takes under a second
+instead of minutes. A recording whose index cannot vouch for every frame (a
+container without one, an empty dropped-frame entry) is joined the old way, a
+stream copy -- no re-encoding -- into the cache. Neither is ever written beside
+a recording.
 Each frame keeps the time its camera recorded for it, moved onto the
 joined timeline. Joining needs intra-frame or reorder-free video (MJPEG, as
 this rig writes): frames of a stream that reorders packets cannot be retimed
@@ -48,8 +55,11 @@ logger = logging.getLogger(__name__)
 
 #: Last path part of a joined camera's source id: ``<first segment video>/joined_trials``.
 JOINED_NAME = "joined_trials"
-_JOIN_VERSION = 2
+# 5: a manifest of the trial files instead of a copy (D-216; 3 and 4 were the
+# concat lists that could not seek).
+_JOIN_VERSION = 5
 _VIDEO_NAME = "joined.mkv"
+_MANIFEST_NAME = "joined.segments.json"
 _STAMPS_NAME = "joined_timestamps.csv"
 _TIMING_SUFFIX = "-relative times.txt"
 _VIDEO_SUFFIXES = (".mp4", ".avi")
@@ -366,6 +376,80 @@ def _join(
     stamps_out.write_text("\n".join(rows) + "\n", encoding="utf-8")
 
 
+def _indexed_frames(video: Path) -> int | None:
+    """How many frames *video*'s own index vouches for, or ``None`` if it cannot.
+
+    The same conditions the reader's index fast path uses
+    (:meth:`PyAVReader._index_table`): an MJPEG AVI whose index has one
+    non-empty entry per declared frame. Its frames are then numbered exactly as
+    :func:`_join` numbers them, by their order among non-empty packets.
+    """
+    import av
+
+    try:
+        with av.open(str(video)) as container:
+            if (container.format.name or "").split(",")[0] != "avi":
+                return None
+            stream = container.streams.video[0]
+            if (stream.codec_context.name or "") != "mjpeg":
+                return None
+            entries = stream.index_entries
+            sizes = [entry.size for entry in entries]
+            ticks = [entry.timestamp for entry in entries]
+            declared = int(stream.frames or 0)
+    except (av.FFmpegError, OSError, IndexError, AttributeError):
+        return None
+    if not sizes or len(sizes) != declared or min(sizes) <= 0:
+        return None
+    if any(later <= earlier for earlier, later in zip(ticks, ticks[1:], strict=False)):
+        return None
+    return len(sizes)
+
+
+def _manifest(
+    segments: Sequence[CameraSegment],
+    manifest_out: Path,
+    stamps_out: Path,
+    progress: Callable[[float], None],
+) -> bool:
+    """Write the manifest and sidecar for *segments*; ``False`` if any needs the copy.
+
+    Keeps exactly the frames and rows :func:`_join` keeps, without reading a
+    frame: the counts come from each file's index.
+    """
+    from avialsync.engine.segmented_media import Segment, write_manifest
+
+    rows: list[str] = []
+    kept: list[Segment] = []
+    counter_base = 0.0
+    for number, segment in enumerate(segments):
+        counters, times = _timing_rows(segment.timing)
+        placed = segment.offset + times
+        first = int(np.searchsorted(placed, 0.0, side="left"))
+        keep = int(np.searchsorted(placed, segment.length, side="left"))
+        if first >= keep:
+            progress((number + 1) / len(segments))
+            continue
+        frames = _indexed_frames(segment.video)
+        if frames is None:
+            return False
+        keep = min(keep, frames)
+        if first >= keep:
+            progress((number + 1) / len(segments))
+            continue
+        kept.append(Segment(str(segment.video.resolve()), first, keep))
+        for frame in range(first, keep):
+            instant = segment.start + float(placed[frame])
+            rows.append(f"{int(counter_base + counters[frame])},{round(instant * 1e9)}")
+        counter_base += float(counters[min(keep, len(counters)) - 1])
+        progress((number + 1) / len(segments))
+    if not kept:
+        return False
+    write_manifest(manifest_out, kept)
+    stamps_out.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    return True
+
+
 def _first_instant(stamps: Path) -> float:
     """The joined timeline's time of the first joined frame, from its sidecar."""
     with stamps.open(encoding="utf-8") as handle:
@@ -412,16 +496,40 @@ class AOLJoinedCameraSource(VideoStandardLoader):
         first = self._segments[0].video
         cache = _JoinCache(self._segments)
         entry = cache.get_cache_dir(first)
-        if not (cache.is_cache_valid(first) and (entry / _VIDEO_NAME).is_file()):
-            staging = cache.get_temp_cache_dir(first)
-            try:
+        built = (entry / _MANIFEST_NAME).is_file() or (entry / _VIDEO_NAME).is_file()
+        if not (cache.is_cache_valid(first) and built):
+            self._build(cache, progress_cb, copy=False)
+        joined = self._open_joined(entry)
+        if joined.name == _MANIFEST_NAME and not self._frames_match(entry):
+            # Never show a frame under another frame's time: copy instead.
+            logger.warning("%s: joined frames disagree with their timestamps; copying.", first)
+            self._build(cache, progress_cb, copy=True)
+            joined = self._open_joined(entry)
+        self._joined = joined
+        progress_cb(1.0)
+        return joined
+
+    def _build(
+        self, cache: _JoinCache, progress_cb: Callable[[float], None], *, copy: bool
+    ) -> None:
+        first = self._segments[0].video
+        staging = cache.get_temp_cache_dir(first)
+        try:
+            listed = not copy and _manifest(
+                self._segments, staging / _MANIFEST_NAME, staging / _STAMPS_NAME, progress_cb
+            )
+            if not listed:
+                (staging / _MANIFEST_NAME).unlink(missing_ok=True)
                 _join(self._segments, staging / _VIDEO_NAME, staging / _STAMPS_NAME, progress_cb)
-                cache.commit_cache(first, staging)
-            except BaseException:
-                # Our own staging directory under the cache root, never the recording.
-                shutil.rmtree(staging, ignore_errors=True)
-                raise
-        joined = entry / _VIDEO_NAME
+            cache.commit_cache(first, staging)
+        except BaseException:
+            # Our own staging directory under the cache root, never the recording.
+            shutil.rmtree(staging, ignore_errors=True)
+            raise
+
+    def _open_joined(self, entry: Path) -> Path:
+        manifest = entry / _MANIFEST_NAME
+        joined = manifest if manifest.is_file() else entry / _VIDEO_NAME
         config = {
             key: value for key, value in self._config.items() if key not in ("segments", "fps")
         }
@@ -433,12 +541,17 @@ class AOLJoinedCameraSource(VideoStandardLoader):
         super().open(joined, config)
         mapping = self.exact_time_mapping()
         if mapping is not None and len(mapping[0]) > 1:
-            # The container counts in milliseconds and so "declares" 1000 fps;
-            # the camera's own recorded frame times say what it really ran at.
+            # The container's declared rate is not the camera's: the camera's
+            # own recorded frame times say what it really ran at.
             self._fps = 1.0 / float(np.median(np.diff(mapping[0])))
-        self._joined = joined
-        progress_cb(1.0)
         return joined
+
+    def _frames_match(self, entry: Path) -> bool:
+        """Whether the opened media has exactly one frame per sidecar row."""
+        frames = self._frame_times
+        with (entry / _STAMPS_NAME).open(encoding="utf-8") as handle:
+            rows = sum(1 for line in handle if line.strip())
+        return frames is not None and len(frames) == rows
 
     def media_path(self) -> Path:
         if self._joined is None:

@@ -6887,19 +6887,31 @@ the button greys while an import runs and returns when it ends without a menu be
   `timestamps.npy` before GUI v0.6) is checked: consecutive numbers confirm the header grid, a drop
   dates samples by their numbers and shows as a gap. A stream without per-sample numbers is not
   read in place. (The copying path, via neo, uses the header grid only, as before.)
-- **AOL cameras joined across trials are still copied.** Playing the per-trial files from an FFmpeg
-  concat list was tried and reverted: FFmpeg's concat reader cannot seek those AVI trial files
-  reliably. An entry with no stated duration makes the whole list unseekable, and with durations a
-  seek into any trial after the first fails with `EPERM`, because the reader converts the target into
-  the file's 1/230 s ticks rounding to nearest but the bound rounding down. Every frame request of a
-  joined camera failed, so no video showed. Playing trials in place needs a reader that switches
-  between the files itself; until then the join is the stream copy it was.
-- `_IMPORT_CACHE_VERSION` 9 → 10: existing imports are rebuilt once, on first open.
+- **AOL cameras joined across trials are read in place.** The join writes a manifest
+  (`joined.segments.json`) naming each trial file and its kept frames, counted from the file's own
+  AVI index, plus the per-frame sidecar as before; no footage is read or copied.
+  `engine/segmented_media.SegmentedReader` (which `PyAVReader(path)` returns for a manifest) plays
+  the files as one video, each through its own `PyAVReader` and ordinary seeks, at most two files
+  open. Clip export and proxy encoding read a manifest file by file. A trial whose index cannot vouch
+  for every frame (not an MJPEG AVI, an empty dropped-frame entry, a count disagreeing with the
+  header), or a joined frame count disagreeing with the sidecar, falls back to the stream copy.
+  *Not* FFmpeg's concat demuxer: tried first and reverted, because it cannot seek these files — an
+  entry without a stated duration makes the list unseekable, and with durations a seek into any
+  trial after the first fails with `EPERM` (it rounds the target and its bound differently at
+  1/230 s ticks), so no frame of a joined camera could be shown.
+- **MJPEG-in-AVI frame tables come from the file's index** (`PyAVReader._index_table`) when it has
+  one non-empty, increasing entry per declared frame — 25 ms instead of reading every frame (0.9 s
+  per 370 MB trial even from memory); otherwise the full read as before.
+- `_IMPORT_CACHE_VERSION` 9 → 10 and `_JOIN_VERSION` 2 → 5: existing entries are rebuilt once, on
+  first open (a joined camera's rebuild now reads no footage).
 
 **Why.** The cache was routinely larger than the recordings it was built from: a 28.8 MB Open Ephys
 recording took 101.8 MB (int16 samples became floats, every channel carried an 8-byte timestamp and a
-gap byte per sample) and a 120 MB NWB trace file 426.6 MB; now 1.9 MB and 18.1 MB. An AOL
-experiment's joined cameras remain a second copy of their footage (above). Benchmarks: NWB trace import
+gap byte per sample) and a 120 MB NWB trace file 426.6 MB; now 1.9 MB and 18.1 MB. A 17-trial,
+three-camera AOL experiment (13 GB of MJPEG on a USB drive) was copied into the cache on first open,
+taking minutes and 13 GB of disk; each camera now prepares in 0.4–0.6 s, its reader opens in about
+110 ms, a random frame takes about 10 ms, and its cache entry is a few kilobytes. Frames and frame
+times are identical to the copy's (checked on that recording and in tests). Benchmarks: NWB trace import
 11.8 s → 1.4 s, cached reopen 2.1 s → 0.6 s (its 0.25 s budget, missed before too, is now spent fingerprinting each cached array); pyramid query and video seek unchanged within noise.
 
 **Costs, accepted.** A session holds the source `.dat`/`.nwb` mapped while it shows it, so on Windows

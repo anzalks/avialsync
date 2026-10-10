@@ -18,7 +18,7 @@ import shutil
 from collections import OrderedDict
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, Self, cast
 
 import av
 import numpy as np
@@ -76,6 +76,15 @@ class PyAVReader:
         path: The media file being read.
     """
 
+    def __new__(cls, path: Path | str, max_cached_frames: int = DEFAULT_CACHE_FRAMES) -> Self:
+        """Open a joined-video manifest as one video (``engine.segmented_media``)."""
+        del max_cached_frames
+        if cls is PyAVReader and str(path).endswith(".segments.json"):
+            from avialsync.engine.segmented_media import SegmentedReader
+
+            return cast(Self, super().__new__(SegmentedReader))
+        return super().__new__(cls)
+
     def __init__(self, path: Path | str, max_cached_frames: int = DEFAULT_CACHE_FRAMES) -> None:
         """Open ``path`` and build its presentation-timestamp table.
 
@@ -119,7 +128,10 @@ class PyAVReader:
 
         cached = self._load_cached_index(time_base)
         if cached is None:
-            self._pts_ticks, self._keyframe_indices = self._build_pts_table()
+            indexed = self._index_table()
+            self._pts_ticks, self._keyframe_indices = (
+                indexed if indexed is not None else self._build_pts_table()
+            )
             if len(self._pts_ticks):
                 self._save_cached_index(time_base)
         else:
@@ -191,6 +203,37 @@ class PyAVReader:
                 shutil.rmtree(staging, ignore_errors=True)
 
     # -- table -----------------------------------------------------------
+
+    def _index_table(self) -> tuple[np.ndarray, np.ndarray] | None:
+        """The frame table from the container's own index, when it is provably complete.
+
+        An AVI of MJPEG -- every camera on the AOL rig -- carries an index of
+        every frame's timestamp, and its codec never reorders frames, so the
+        index *is* the table a full demux would build: 25 ms to read instead
+        of reading every frame's bytes (0.9 s per 370 MB trial from memory,
+        far longer from a USB drive). Used only when the index has one entry
+        per frame the header declares, none empty, in strictly increasing
+        order; anything else is read in full as before.
+        """
+        if (self._container.format.name or "").split(",")[0] != "avi":
+            return None
+        if (self._stream.codec_context.name or "") != "mjpeg":
+            return None
+        try:
+            entries = self._stream.index_entries
+            ticks = np.fromiter((entry.timestamp for entry in entries), dtype=np.int64)
+            sizes = np.fromiter((entry.size for entry in entries), dtype=np.int64)
+        except (AttributeError, TypeError, ValueError):
+            return None
+        declared = int(self._stream.frames or 0)
+        if (
+            not len(ticks)
+            or len(ticks) != declared
+            or bool(np.any(sizes <= 0))
+            or bool(np.any(np.diff(ticks) <= 0))
+        ):
+            return None
+        return ticks, np.arange(len(ticks), dtype=np.int64)
 
     def _build_pts_table(self) -> tuple[np.ndarray, np.ndarray]:
         """Demux one pass to collect presentation timestamps and keyframes.
@@ -364,7 +407,7 @@ class PyAVReader:
         self._frames = None
         self._container.close()
 
-    def __enter__(self) -> PyAVReader:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc_info: object) -> None:

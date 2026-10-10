@@ -40,7 +40,9 @@ Each channel stores only the columns that carry information (`core/channel_store
   the header's grid, a drop dates the samples by their numbers. Compressed or chunked NWB data,
   streamed (DANDI) files and Zarr stores are still copied, since reading them sample by sample is not
   fast enough.
-- **AOL cameras joined across trials** are still copied into the cache as one video per camera.
+- **AOL cameras joined across trials** are read from the trial files themselves: the entry holds a
+  manifest naming each file and its kept frames, counted from the file's own AVI index, so preparing a
+  camera reads no footage. A trial whose index cannot vouch for every frame is copied as before.
 
 Measured on this layout, against the previous one: a 4-channel, 60 s Open Ephys recording
 (28.8 MB) went from 101.8 MB of cache to 1.9 MB; a 1 M-row CSV of integer ADC counts from 56.6 MB to

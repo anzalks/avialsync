@@ -695,6 +695,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `engine/cache_worker.py` | Off-thread cache removal for File → Cache (D-160) | `CacheRemovalWorker` |
 | `core/columns.py` | Columns computed rather than stored: verified regular times (`RegularTimes`, `fit_regular` — exact match only), scaled/int16 values (`ScaledColumn`), zero-memory gap masks (D-216) | `RegularTimes`, `ScaledColumn`, `fit_regular()`, `no_gaps()` |
 | `core/channel_store.py` | A cache entry's per-channel layout: grids, optional gaps, values in place (`_layout.json`), header-only validation (D-216) | `read_level()`, `write_times()`, `columns_intact()`, `ExternalArray`, `InPlaceChannel` |
+| `engine/segmented_media.py` | A joined camera's trial files read as one video from a manifest; `PyAVReader(path)` returns a `SegmentedReader` for `*.segments.json` (D-216) | `SegmentedReader`, `read_manifest()`, `write_manifest()` |
 | `engine/in_place_import.py` | Import a binary source without copying its samples: one pass over the file's rows builds every channel's levels (D-216) | `build_in_place()` |
 | `loaders/neo_in_place.py` | Open Ephys (neo raw buffers) offered in place; clock checked against every sample number (D-216) | `in_place_channels()` |
 | `loaders/nwb_in_place.py` | Contiguous, uncompressed, local NWB series offered in place (D-216) | `in_place_series()` |
@@ -942,6 +943,15 @@ and never compare stored files by name (`_t.npy` may be `_tgrid.npy`): compare
 `RegularTimes.as_record()`s, as `tracking_3d_pane._same_time_axis` does. A grid is
 only ever accepted when it reproduces every stored timestamp exactly, so values
 read through it equal the file's.
+
+### 0-concat. FFmpeg's concat demuxer cannot seek AOL camera AVIs
+
+Tried for joining trials without copying, and reverted (D-216). Without a
+`duration` on every entry the list is unseekable (`ESPIPE`); with durations, a
+seek into any file after the first returns `EPERM`, because concat rounds the
+target to the inner file's 1/230 s ticks to nearest and the bound down. The
+symptom is a joined camera that opens and never shows a frame. Join by manifest
+and `SegmentedReader` instead, which seek each file on its own.
 
 ### 0-menu. A pyqtgraph plot has its own right-click menu unless told not to
 
