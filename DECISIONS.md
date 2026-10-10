@@ -6887,19 +6887,19 @@ the button greys while an import runs and returns when it ends without a menu be
   `timestamps.npy` before GUI v0.6) is checked: consecutive numbers confirm the header grid, a drop
   dates samples by their numbers and shows as a gap. A stream without per-sample numbers is not
   read in place. (The copying path, via neo, uses the header grid only, as before.)
-- **AOL cameras joined across trials are a concat list, not a copy.** `aol_camera_join` writes an
-  FFmpeg concat list (in point at the first kept frame's own timestamp rounded up to the microsecond,
-  out point halfway to the first frame left out) and the same per-frame sidecar as before. The list is
-  demuxed and must yield exactly the expected packets; otherwise the join falls back to the stream
-  copy. Every reader opens media through `engine/media_input.open_input`, which permits the list's
-  absolute paths.
-- `_IMPORT_CACHE_VERSION` 9 → 10 and `_JOIN_VERSION` 2 → 3: existing entries are rebuilt once, on
-  first open.
+- **AOL cameras joined across trials are still copied.** Playing the per-trial files from an FFmpeg
+  concat list was tried and reverted: FFmpeg's concat reader cannot seek those AVI trial files
+  reliably. An entry with no stated duration makes the whole list unseekable, and with durations a
+  seek into any trial after the first fails with `EPERM`, because the reader converts the target into
+  the file's 1/230 s ticks rounding to nearest but the bound rounding down. Every frame request of a
+  joined camera failed, so no video showed. Playing trials in place needs a reader that switches
+  between the files itself; until then the join is the stream copy it was.
+- `_IMPORT_CACHE_VERSION` 9 → 10: existing imports are rebuilt once, on first open.
 
 **Why.** The cache was routinely larger than the recordings it was built from: a 28.8 MB Open Ephys
 recording took 101.8 MB (int16 samples became floats, every channel carried an 8-byte timestamp and a
-gap byte per sample), a 120 MB NWB trace file 426.6 MB, and an AOL experiment a second copy of all its
-camera footage. Now 1.9 MB, 18.1 MB, and a few kilobytes respectively. Benchmarks: NWB trace import
+gap byte per sample) and a 120 MB NWB trace file 426.6 MB; now 1.9 MB and 18.1 MB. An AOL
+experiment's joined cameras remain a second copy of their footage (above). Benchmarks: NWB trace import
 11.8 s → 1.4 s, cached reopen 2.1 s → 0.6 s (its 0.25 s budget, missed before too, is now spent fingerprinting each cached array); pyramid query and video seek unchanged within noise.
 
 **Costs, accepted.** A session holds the source `.dat`/`.nwb` mapped while it shows it, so on Windows

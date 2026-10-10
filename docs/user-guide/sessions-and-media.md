@@ -33,8 +33,9 @@ Imported data is cached in one folder of AvialSync's own, never beside your reco
 `~/Library/Caches/avialsync`, on Windows `%LOCALAPPDATA%\avialsync\Cache`, on Linux
 `~/.cache/avialsync`. Everything in it is rebuilt from your files when needed, so deleting it costs
 only the time a re-import takes. Open Ephys and uncompressed NWB samples are read straight from your
-recording rather than copied, and AOL camera trials play from their own files, so the cache holds
-little more than the zoomed-out views of those. **File → Cache** offers three commands:
+recording rather than copied, so for those the cache holds little more than their zoomed-out views.
+An AOL experiment's cameras are joined into one video per camera, which is a copy of their footage.
+**File → Cache** offers three commands:
 
 - **Delete Cache for This Trial** deletes the cached imports of every file in the loaded trial's
   folder, then reloads the trial from the original files. What you had open, your offsets, markers

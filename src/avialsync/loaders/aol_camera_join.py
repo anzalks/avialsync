@@ -17,14 +17,8 @@ to that trial's length (the camera's stop is not triggered, so its last frames
 overrun the trial). A recording that did not start on its trial's trigger is
 placed where its own clock puts it, and keeps only the frames inside the trial.
 
-The joined video is not copied. The cache holds an FFmpeg concat list naming
-each trial's own file and the frames it contributes, with a per-frame timestamp
-sidecar, and FFmpeg plays the list as one stream (D-216): any video is the same
-whether it is one file or several back to back, so it costs no second copy of
-the footage. The list is checked against the frames it should yield before it
-is used; a recording the list cannot reproduce exactly is joined the old way,
-by a stream copy -- no re-encoding -- into the cache. Neither is ever written
-beside a recording.
+The joined video is a stream copy -- no re-encoding -- written once into the
+per-user cache with a per-frame timestamp sidecar, never beside a recording.
 Each frame keeps the time its camera recorded for it, moved onto the
 joined timeline. Joining needs intra-frame or reorder-free video (MJPEG, as
 this rig writes): frames of a stream that reorders packets cannot be retimed
@@ -36,7 +30,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import math
 import shutil
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -55,9 +48,8 @@ logger = logging.getLogger(__name__)
 
 #: Last path part of a joined camera's source id: ``<first segment video>/joined_trials``.
 JOINED_NAME = "joined_trials"
-_JOIN_VERSION = 3
+_JOIN_VERSION = 2
 _VIDEO_NAME = "joined.mkv"
-_LIST_NAME = "joined.ffconcat"
 _STAMPS_NAME = "joined_timestamps.csv"
 _TIMING_SUFFIX = "-relative times.txt"
 _VIDEO_SUFFIXES = (".mp4", ".avi")
@@ -374,95 +366,6 @@ def _join(
     stamps_out.write_text("\n".join(rows) + "\n", encoding="utf-8")
 
 
-def _segment_list(
-    segments: Sequence[CameraSegment],
-    list_out: Path,
-    stamps_out: Path,
-    progress: Callable[[float], None],
-) -> bool:
-    """Write a concat list playing each segment's kept frames in place; ``False`` if it can't.
-
-    The frames kept and the sidecar rows are exactly :func:`_join`'s. A
-    segment's first kept frame is named by its own timestamp, rounded up to the
-    microsecond FFmpeg reads: the concat reader starts at the last keyframe at
-    or before that point, which for intra-frame camera video is that frame. The
-    out point sits halfway to the first frame left out. The list is then read
-    back and must yield exactly the expected packets, or it is not used.
-    """
-    import av
-
-    lines = ["ffconcat version 1.0"]
-    rows: list[str] = []
-    expected: list[int] = []
-    counter_base = 0.0
-    for number, segment in enumerate(segments):
-        counters, times = _timing_rows(segment.timing)
-        placed = segment.offset + times
-        first = int(np.searchsorted(placed, 0.0, side="left"))
-        keep = int(np.searchsorted(placed, segment.length, side="left"))
-        if first >= keep:
-            progress((number + 1) / len(segments))
-            continue
-        packets = _packets(segment.video)
-        if packets is None:
-            return False
-        stamps, sizes = packets
-        keep = min(keep, len(stamps))
-        if first >= keep:
-            progress((number + 1) / len(segments))
-            continue
-        path = str(segment.video.resolve()).replace("'", "'\\''")
-        lines.append(f"file '{path}'")
-        if first > 0:
-            lines.append(f"inpoint {math.ceil(stamps[first] * 1e6) / 1e6!r}")
-        if keep < len(stamps):
-            lines.append(f"outpoint {(stamps[keep - 1] + stamps[keep]) / 2!r}")
-        for frame in range(first, keep):
-            instant = segment.start + float(placed[frame])
-            rows.append(f"{int(counter_base + counters[frame])},{round(instant * 1e9)}")
-        expected.extend(sizes[first:keep])
-        counter_base += float(counters[min(keep, len(counters)) - 1])
-        progress((number + 1) / len(segments))
-    if not expected:
-        return False
-    list_out.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    try:
-        from avialsync.engine.media_input import open_input
-
-        with open_input(list_out) as container:
-            stream = container.streams.video[0]
-            played = [p.size for p in container.demux(stream) if p.size and p.pts is not None]
-    except (av.FFmpegError, OSError):
-        return False
-    if played != expected:
-        logger.info("Concat list for %s did not reproduce its frames; copying.", segments[0].video)
-        return False
-    stamps_out.write_text("\n".join(rows) + "\n", encoding="utf-8")
-    return True
-
-
-def _packets(video: Path) -> tuple[list[float], list[int]] | None:
-    """Each frame's presentation time in seconds and packet size, or ``None`` if reordered."""
-    import av
-
-    stamps: list[float] = []
-    sizes: list[int] = []
-    with av.open(str(video)) as source:
-        stream = source.streams.video[0]
-        if stream.time_base is None:
-            return None
-        last: int | None = None
-        for packet in source.demux(stream):
-            if packet.size == 0 or packet.pts is None:
-                continue
-            if last is not None and packet.pts <= last:
-                return None  # reordered frames cannot be cut frame-exactly in place
-            last = packet.pts
-            stamps.append(float(packet.pts * stream.time_base))
-            sizes.append(packet.size)
-    return stamps, sizes
-
-
 def _first_instant(stamps: Path) -> float:
     """The joined timeline's time of the first joined frame, from its sidecar."""
     with stamps.open(encoding="utf-8") as handle:
@@ -509,24 +412,16 @@ class AOLJoinedCameraSource(VideoStandardLoader):
         first = self._segments[0].video
         cache = _JoinCache(self._segments)
         entry = cache.get_cache_dir(first)
-        built = (entry / _LIST_NAME).is_file() or (entry / _VIDEO_NAME).is_file()
-        if not (cache.is_cache_valid(first) and built):
+        if not (cache.is_cache_valid(first) and (entry / _VIDEO_NAME).is_file()):
             staging = cache.get_temp_cache_dir(first)
             try:
-                if not _segment_list(
-                    self._segments, staging / _LIST_NAME, staging / _STAMPS_NAME, progress_cb
-                ):
-                    (staging / _LIST_NAME).unlink(missing_ok=True)
-                    _join(
-                        self._segments, staging / _VIDEO_NAME, staging / _STAMPS_NAME, progress_cb
-                    )
+                _join(self._segments, staging / _VIDEO_NAME, staging / _STAMPS_NAME, progress_cb)
                 cache.commit_cache(first, staging)
             except BaseException:
                 # Our own staging directory under the cache root, never the recording.
                 shutil.rmtree(staging, ignore_errors=True)
                 raise
-        listed = entry / _LIST_NAME
-        joined = listed if listed.is_file() else entry / _VIDEO_NAME
+        joined = entry / _VIDEO_NAME
         config = {
             key: value for key, value in self._config.items() if key not in ("segments", "fps")
         }

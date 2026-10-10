@@ -696,7 +696,6 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `core/columns.py` | Columns computed rather than stored: verified regular times (`RegularTimes`, `fit_regular` — exact match only), scaled/int16 values (`ScaledColumn`), zero-memory gap masks (D-216) | `RegularTimes`, `ScaledColumn`, `fit_regular()`, `no_gaps()` |
 | `core/channel_store.py` | A cache entry's per-channel layout: grids, optional gaps, values in place (`_layout.json`), header-only validation (D-216) | `read_level()`, `write_times()`, `columns_intact()`, `ExternalArray`, `InPlaceChannel` |
 | `engine/in_place_import.py` | Import a binary source without copying its samples: one pass over the file's rows builds every channel's levels (D-216) | `build_in_place()` |
-| `engine/media_input.py` | The one place media is opened for reading; permits the AOL join's concat list (D-216) | `open_input()` |
 | `loaders/neo_in_place.py` | Open Ephys (neo raw buffers) offered in place; clock checked against every sample number (D-216) | `in_place_channels()` |
 | `loaders/nwb_in_place.py` | Contiguous, uncompressed, local NWB series offered in place (D-216) | `in_place_series()` |
 | `engine/cache_size_worker.py` | Off-thread measurement of the cache folder for the status-bar readout (D-215) | `CacheSizeWorker` |
