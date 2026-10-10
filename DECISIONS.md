@@ -6766,3 +6766,21 @@ moment the UI thread, holding the GIL, called `thread.finished.connect(...)` on 
 and waited for that lock. pytest-timeout could not report it, because its thread also needs the
 GIL, so on CI it would have spent the whole job timeout. PySide6 6.11 did not take the GIL there.
 Connections are made before `start()`; after `quit()`, only poll.
+
+---
+
+## 2026-10 · D-213 · PySide6 is held below 6.12
+
+**Decision.** `pyproject.toml` requires `PySide6<6.12` and the conda recipe `pyside6 <6.12`.
+CI, the release bundles and `pip install` therefore resolve 6.11.2, the version every green CI
+run so far used.
+
+**Why.** PySide6 6.12.0 (2026-10-08) hung the full suite twice on this machine, in different
+places. Besides the connect-after-quit case in D-212, Python's garbage collector running on a
+reader thread freed a QObject; 6.12 released the GIL inside the C++ destructor, which then held
+Qt's signal-slot lock and waited for the GIL in `disconnectNotify`, while the UI thread, holding
+the GIL in 6.12's new deferred main-thread deletion, waited for that lock. Any thread that
+collects a QObject can trigger it, so it cannot be fixed in our own code. pytest-timeout cannot
+report it, because its thread needs the GIL, so a CI job would hang for its whole timeout.
+Lift the cap only after a 6.12.x passes the full suite under the Windows and Linux emulation
+used before a push.

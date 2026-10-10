@@ -32,7 +32,7 @@ requirements:
     - pip
   run:
     - python >=3.11,<3.13
-    - pyside6
+    - pyside6 <6.12
     - pyqtgraph
     - av >=12
     - c3d >=0.6.0

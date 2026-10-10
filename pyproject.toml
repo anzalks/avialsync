@@ -45,7 +45,11 @@ classifiers = [
 ]
 
 dependencies = [
-    "PySide6",
+    # Below 6.12 (D-213): 6.12.0 deadlocks when a QObject is destroyed off the
+    # UI thread -- its destructor waits for the GIL while holding a Qt lock the
+    # UI thread, holding the GIL, is waiting for. Lift once a fixed 6.12.x is
+    # verified with the full suite.
+    "PySide6<6.12",
     "pyqtgraph",
     # Video decoding and probing. PyAV wheels bundle their own FFmpeg, which is
     # what makes `pip install avialsync` need no OS-level install step (D-075).
