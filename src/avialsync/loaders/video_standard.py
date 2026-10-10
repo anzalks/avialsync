@@ -158,10 +158,10 @@ def _holds_video_stream(path: Path) -> bool:
 
 
 def _probe_video_stream(path: Path) -> bool:
-    import av
+    from avialsync.engine.media_input import open_input
 
     try:
-        with av.open(str(path)) as container:
+        with open_input(path) as container:
             for stream in container.streams.video:
                 codec_context = stream.codec_context
                 if codec_context and codec_context.width and codec_context.height:
@@ -357,8 +357,10 @@ class VideoStandardLoader(VideoSource):
         """
         import av
 
+        from avialsync.engine.media_input import open_input
+
         try:
-            container = av.open(str(path))
+            container = open_input(path)
         except (av.FFmpegError, OSError) as error:
             raise SourceOpenError(f"Failed to probe video: {path} ({error})") from error
 

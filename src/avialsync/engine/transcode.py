@@ -25,6 +25,7 @@ import numpy as np
 from avialsync.core.artifact_io import publish
 from avialsync.core.artifact_provenance import record
 from avialsync.core.errors import ExportError
+from avialsync.engine.media_input import open_input
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,7 @@ def remux_clip(source: Path | str, destination: Path | str, start: float, end: f
 
     def write(temporary: Path) -> None:
         written = 0
-        with av.open(str(source)) as input_container:
+        with open_input(source) as input_container:
             stream = input_container.streams.video[0]
             time_base = stream.time_base
             if time_base is None:
@@ -139,7 +140,7 @@ def encode_proxy(
         av.FFmpegError: The source could not be read or the output written.
     """
     source, destination = Path(source), Path(destination)
-    with av.open(str(source)) as input_container:
+    with open_input(source) as input_container:
         stream = input_container.streams.video[0]
         # Decode with every core; a proxy build should not take longer than it
         # has to just because it is in the background.

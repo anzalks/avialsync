@@ -27,6 +27,7 @@ import xxhash
 from avialsync.core.cache import CacheManager
 from avialsync.core.errors import CacheError, SourceOpenError
 from avialsync.core.video_timing import frame_index_at
+from avialsync.engine.media_input import open_input
 
 # Imported at module scope deliberately. The rule forbidding a top-level decoder
 # import existed because a missing libmpv crashed with a ctypes traceback
@@ -94,11 +95,11 @@ class PyAVReader:
         self._frames: Iterator[av.VideoFrame] | None = None
 
         try:
-            self._container = av.open(str(self.path))
+            self._container = open_input(self.path)
         except (av.FFmpegError, OSError) as error:
             raise SourceOpenError(f"Cannot open video: {self.path} ({error})") from error
         try:
-            self._stream = self._container.streams.video[0]
+            self._stream: av.VideoStream = self._container.streams.video[0]
         except IndexError:
             self._container.close()
             raise SourceOpenError(f"No video stream in: {self.path}") from None

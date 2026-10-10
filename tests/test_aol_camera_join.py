@@ -129,3 +129,78 @@ def test_cameras_are_found_under_the_camera_data_folder_by_trial_name(tmp_path: 
     cameras = [item for item in layout.items if item.loader is AOLJoinedCameraSource]
     assert len(cameras) == 1 and len(cameras[0].config["segments"]) == 2
     assert second.name in cameras[0].config["segments"][1]["video"]
+
+
+def _joined_frames(joined: Path) -> list[np.ndarray]:
+    from avialsync.engine.media_input import open_input
+
+    with open_input(joined) as container:
+        stream = container.streams.video[0]
+        return [frame.to_ndarray(format="rgb24") for frame in container.decode(stream)]
+
+
+def test_trials_play_from_their_own_files_not_a_copy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A video is the same whether it is one file or several back to back (D-216).
+
+    The cache holds a list naming each trial's file, not a second copy of the
+    footage, and it plays exactly the frames the copying join kept.
+    """
+    from avialsync.loaders import aol_camera_join
+
+    experiment, first, second = _experiment(tmp_path)
+    _camera(first, "FaceCam", 5, 10.0, 40)
+    _camera(second, "FaceCam", 5, 10.0, 140)
+    layout = AOLMicroscopeTrialSource().scan(experiment, LoaderRegistry(plugin_dirs=[]))
+    item = next(item for item in layout.items if item.loader is AOLJoinedCameraSource)
+
+    listed_source = AOLJoinedCameraSource()
+    listed_source.open(item.path, dict(item.config))
+    listed = listed_source.prepare(lambda _fraction: None)
+    assert listed.suffix == ".ffconcat"
+    entry_bytes = sum(path.stat().st_size for path in listed.parent.iterdir())
+    assert entry_bytes < 4096, "a list and a timestamp table, not footage"
+    from_list = _joined_frames(listed)
+    listed_times = listed_source.exact_time_mapping()[0]
+
+    monkeypatch.setattr(aol_camera_join, "_JOIN_VERSION", 99)  # rebuilt, as a copy
+    monkeypatch.setattr(aol_camera_join, "_segment_list", lambda *_args: False)
+    copied_source = AOLJoinedCameraSource()
+    copied_source.open(item.path, dict(item.config))
+    copied = copied_source.prepare(lambda _fraction: None)
+    assert copied.suffix == ".mkv"
+
+    from_copy = _joined_frames(copied)
+    assert len(from_list) == len(from_copy) == 6
+    for listed_frame, copied_frame in zip(from_list, from_copy, strict=True):
+        np.testing.assert_array_equal(listed_frame, copied_frame)
+    np.testing.assert_array_equal(listed_times, copied_source.exact_time_mapping()[0])
+
+
+def test_a_list_that_cannot_reproduce_its_frames_falls_back_to_a_copy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Checked before use: a list yielding other packets than expected is not trusted."""
+    from avialsync.loaders import aol_camera_join
+
+    experiment, first, second = _experiment(tmp_path)
+    _camera(first, "FaceCam", 5, 10.0, 40)
+    _camera(second, "FaceCam", 5, 10.0, 140)
+    item = next(
+        item
+        for item in AOLMicroscopeTrialSource()
+        .scan(experiment, LoaderRegistry(plugin_dirs=[]))
+        .items
+        if item.loader is AOLJoinedCameraSource
+    )
+    real_packets = aol_camera_join._packets
+
+    def one_size_off(video: Path):
+        stamps, sizes = real_packets(video)
+        return stamps, [size + 1 for size in sizes]
+
+    monkeypatch.setattr(aol_camera_join, "_packets", one_size_off)
+    source = AOLJoinedCameraSource()
+    source.open(item.path, dict(item.config))
+    assert source.prepare(lambda _fraction: None).suffix == ".mkv"
