@@ -194,9 +194,9 @@ class PropsApp:
         self.wheels = WheelView(self.store)
         self.panel: PropsPanel | None = None
         self.tab: PropsTab | None = None
-        self.draft: StepDraft | None = None
-        self.checking: str | None = None
-        self.visual_tracking: tuple[str, str] | None = None
+        self._draft: StepDraft | None = None
+        self._checking: str | None = None
+        self._visual_tracking: tuple[str, str] | None = None
         self._adopted: set[Path] = set()
         self._known_kinds: dict[str, PropKind] = {}
         self._edited: set[str] = set()
@@ -206,6 +206,43 @@ class PropsApp:
         self._display_key: tuple[tuple[str, int], ...] | None = None
         self._display_ladders: tuple[Ladder, ...] = ()
         self._pending_placement: belt_placement.Placement | None = None
+
+    # What is collecting clicks. Properties so that the panel's Save, Next and
+    # Cancel follow every one of the many places that start or end a gesture.
+
+    @property
+    def draft(self) -> StepDraft | None:
+        return self._draft
+
+    @draft.setter
+    def draft(self, value: StepDraft | None) -> None:
+        self._draft = value
+        self._show_activity()
+
+    @property
+    def checking(self) -> str | None:
+        return self._checking
+
+    @checking.setter
+    def checking(self, value: str | None) -> None:
+        self._checking = value
+        self._show_activity()
+
+    @property
+    def visual_tracking(self) -> tuple[str, str] | None:
+        return self._visual_tracking
+
+    @visual_tracking.setter
+    def visual_tracking(self, value: tuple[str, str] | None) -> None:
+        self._visual_tracking = value
+        self._show_activity()
+
+    def _show_activity(self) -> None:
+        if self.panel is not None:
+            self.panel.set_activity(
+                self._draft is not None,
+                self._checking is not None or self._visual_tracking is not None,
+            )
 
     def make_panel(self, wheel_tab: QWidget | None = None) -> PropsTab:
         """Create the one inspector and connect its controls."""
@@ -236,6 +273,7 @@ class PropsApp:
         panel.remove_prop_requested.connect(self.remove_prop)
         panel.prop_selected.connect(self._show_selected_prop)
         self.panel = panel
+        self._show_activity()
         panel.kind.currentIndexChanged.connect(self._update_create_availability)
         self.window.video_grid.pane_attached.connect(self._update_create_availability)
         self.window.video_grid.pane_detached.connect(self._update_create_availability)

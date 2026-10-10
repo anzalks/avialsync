@@ -49,3 +49,48 @@ def test_clicking_a_plot_seeks_the_shared_master_clock(qtbot, tmp_path: Path) ->
 
     assert click.accepted
     assert window.clock.state.t == 101.5
+
+
+def test_right_clicking_a_row_opens_only_the_rows_own_menu(qtbot, tmp_path: Path) -> None:
+    """pyqtgraph's ViewBox menu used to open too, behind ours, offering Downsample."""
+    from PySide6.QtCore import QTimer
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication, QMenu
+
+    times = np.linspace(100.0, 140.0, 4001)
+    PyramidBuilder(tmp_path, "signal").build_and_save(times, np.sin(times))
+    window = MainWindow()
+    qtbot.addWidget(window)
+    window.resize(1200, 800)
+    window.show()
+    window.clock.set_bounds(100.0, 140.0)
+    window.plot_pane.set_timeline_bounds(100.0, 140.0)
+    window.plot_pane.load_channels(tmp_path, ["signal"])
+    window.plot_pane.wait_for_pending_rows()
+    window.plot_pane.set_cursor(101.0)
+
+    opened: list[list[str]] = []
+
+    def close_menus() -> None:
+        menu = QApplication.activePopupWidget()
+        while isinstance(menu, QMenu):
+            opened.append([action.text() for action in menu.actions()])
+            menu.close()
+            menu = QApplication.activePopupWidget()
+
+    watcher = QTimer()
+    watcher.timeout.connect(close_menus)
+    watcher.start(20)
+    view = window.plot_pane.graphics_layout
+    row = window.plot_pane.channels[0].plot_item.vb
+    point = view.mapFromScene(row.sceneBoundingRect().center())
+    QTest.mouseClick(
+        view.viewport(), Qt.MouseButton.RightButton, Qt.KeyboardModifier.NoModifier, point
+    )
+    qtbot.waitUntil(lambda: bool(opened))
+    qtbot.wait(100)
+    watcher.stop()
+
+    assert len(opened) == 1, opened
+    assert any(text.startswith("Add marker here") for text in opened[0])
+    assert "Plot Options" not in opened[0]

@@ -48,7 +48,8 @@ physical props are saved beside the data they describe, and sessions where you s
 
 ## Proxies
 
-**File → Generate Proxy…** re-encodes a video so every frame is a keyframe.
+**File → Generate Proxy…** re-encodes the selected video so every frame is a keyframe. With
+several cameras loaded, click the one you want first; with one, it is that one.
 
 Scrubbing normally costs one seek plus however many frames sit between the nearest keyframe and the
 one you want. On long-GOP footage — a transcode with 250 frames between keyframes — that is the

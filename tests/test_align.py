@@ -420,6 +420,32 @@ def test_touching_a_cameras_offset_selects_it(window: MainWindow) -> None:
     assert window.sidebar.video_offset(second) < 0
 
 
+def test_fullscreen_enlarges_the_selected_camera(window: MainWindow, monkeypatch) -> None:
+    """The tooltip promises the selected camera; it used to be the first one."""
+    _fake_video(window, "/tmp/cam1.mp4")
+    second = _fake_video(window, "/tmp/cam2.mp4")
+    asked: list[str | None] = []
+    monkeypatch.setattr(window.video_grid, "toggle_fullscreen", asked.append)
+
+    window._select_video(second)
+    window._toggle_fullscreen()
+
+    assert asked == [second]
+
+
+def test_fullscreen_with_no_camera_selected_leaves_the_choice_to_the_grid(
+    window: MainWindow, monkeypatch
+) -> None:
+    _fake_video(window, "/tmp/cam1.mp4")
+    _fake_video(window, "/tmp/cam2.mp4")
+    asked: list[str | None] = []
+    monkeypatch.setattr(window.video_grid, "toggle_fullscreen", asked.append)
+
+    window._toggle_fullscreen()
+
+    assert asked == [None], "None is the grid's first pane"
+
+
 def test_selecting_an_unloaded_camera_is_ignored(window: MainWindow) -> None:
     _fake_video(window, "/tmp/cam1.mp4")
     _fake_video(window, "/tmp/cam2.mp4")
@@ -467,3 +493,33 @@ def test_a_restricted_fit_says_so_wherever_it_is_read(window: MainWindow) -> Non
 
     assert "30.000" in text and "300.000" in text
     assert "claiming nothing outside that window" in text
+
+
+def test_a_proxy_is_made_of_the_selected_camera(window: MainWindow, monkeypatch) -> None:
+    """It was always the first camera: "Proxy the first video for now"."""
+    from avialsync.engine import proxy
+
+    _fake_video(window, "/tmp/cam1.mp4")
+    second = _fake_video(window, "/tmp/cam2.mp4")
+    made: list[str] = []
+    monkeypatch.setattr(proxy.ProxyWorker, "__init__", lambda self, path: made.append(str(path)))
+    monkeypatch.setattr(window, "_run_job", lambda *_args, **_kwargs: None)
+
+    window._select_video(second)
+    window._generate_proxy()
+
+    assert made == [second]
+
+
+def test_a_proxy_of_several_unselected_cameras_asks_which(window: MainWindow, monkeypatch) -> None:
+    from avialsync.engine import proxy
+
+    _fake_video(window, "/tmp/cam1.mp4")
+    _fake_video(window, "/tmp/cam2.mp4")
+    made: list[str] = []
+    monkeypatch.setattr(proxy.ProxyWorker, "__init__", lambda self, path: made.append(str(path)))
+
+    window._generate_proxy()
+
+    assert made == []
+    assert "click the camera" in window.notifications.message.lower()

@@ -275,9 +275,10 @@ class SensorInfoWidget(QFrame):
         self.offset_spin.setAccessibleName(
             tr("Time offset for {name}").format(name=Path(path).name)
         )
-        self.offset_spin.setToolTip(
-            tr("Shift this source against the master clock. Cached samples are never rewritten.")
+        self._offset_tip = tr(
+            "Shift this source against the master clock. Cached samples are never rewritten."
         )
+        self.offset_spin.setToolTip(self._offset_tip)
         commit_on_edit(self.offset_spin)
         self.offset_spin.valueChanged.connect(self._on_mapping_changed)
         sync_form.addRow(tr("Offset:"), self.offset_spin)
@@ -287,9 +288,10 @@ class SensorInfoWidget(QFrame):
         self.drift_spin.setMinimumWidth(90)
         self.drift_spin.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.drift_spin.setAccessibleName(tr("Clock drift for {name}").format(name=Path(path).name))
-        self.drift_spin.set_base_tooltip(
-            tr("How much this source's clock gains on master time per hour of recording.")
+        self._drift_tip = tr(
+            "How much this source's clock gains on master time per hour of recording."
         )
+        self.drift_spin.set_base_tooltip(self._drift_tip)
         commit_on_edit(self.drift_spin)
         self.drift_spin.valueChanged.connect(self._on_mapping_changed)
         sync_form.addRow(tr("Drift:"), self.drift_spin)
@@ -640,6 +642,16 @@ class SensorInfoWidget(QFrame):
     def mapping(self) -> tuple[float, float]:
         """Return the displayed ``(offset_s, drift_ms_per_hour)``."""
         return self.offset_spin.value(), self.drift_spin.value()
+
+    def set_timing_locked(self, reason: str) -> None:
+        """Grey out Offset and Drift with *reason* while something else times this source.
+
+        An empty *reason* frees them again.
+        """
+        for spin in (self.offset_spin, self.drift_spin):
+            spin.setEnabled(not reason)
+        self.offset_spin.setToolTip(reason or self._offset_tip)
+        self.drift_spin.set_base_tooltip(reason or self._drift_tip)
 
     def set_inspection(self, inspection: SourceInspection) -> None:
         """Update badge and properties panel from a SourceInspection."""
@@ -1341,6 +1353,12 @@ class SidebarPane(QWidget):
         widget = self.sensor_widget(path)
         if widget is not None:
             widget.set_identity_count(count)
+
+    def set_sensor_timing_locked(self, path: str, reason: str) -> None:
+        """Lock *path*'s Offset and Drift with *reason*, or free them when it is empty."""
+        widget = self.sensor_widget(path)
+        if widget is not None:
+            widget.set_timing_locked(reason)
 
     def set_sensor_mapping(self, path: str, offset: float, drift_ms_per_hour: float) -> None:
         """Show a restored sensor mapping without re-emitting it."""

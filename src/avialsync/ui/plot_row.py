@@ -327,6 +327,12 @@ def create_channel_plot(
     for hidden in ("top", "right"):
         plot_item.getAxis(hidden).enableAutoSIPrefix(False)
     plot_item.setMouseEnabled(x=False, y=False)
+    # The row's own menu (markers, measure, Y scale, hide) is the only one. With
+    # pyqtgraph's left on, a right-click opened both: its ViewBox menu popped up
+    # first and stayed open behind ours, offering Plot Options -- Downsample,
+    # Average, Transforms -- which change the evidence with no record (see
+    # ``axis_nav.install_menu`` for the same reasoning on the evidence views).
+    plot_item.setMenuEnabled(False)
     plot_item.enableAutoRange(axis="y", enable=False)
     plot_item.enableAutoRange(axis="x", enable=False)
 

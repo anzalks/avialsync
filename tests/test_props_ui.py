@@ -546,6 +546,56 @@ def test_incomplete_rung_cannot_be_saved_and_cancelling_keeps_no_partial_step(
     assert window.props_app.store.get("incomplete").steps == ()
 
 
+def test_ladder_commands_are_offered_only_when_they_can_act(
+    window: MainWindow, monkeypatch
+) -> None:
+    """The ladder editor shows before any ladder exists; its commands did nothing there."""
+    window._act_add_prop.trigger()
+    panel = window.props_app.panel
+    assert panel is not None
+    needs_ladder = (panel.add_point, panel.add_rung, panel.remove_ladder)
+    needs_step = (panel.reclick_step, panel.tag_step, panel.remove_step)
+    needs_clicks = (panel.next_point, panel.save_step, panel.save_next_step, panel.cancel_step)
+    for button in (*needs_ladder, *needs_step, *needs_clicks, panel.relabel_step):
+        assert not button.isEnabled(), f"{button.text()} is offered with no ladder"
+        assert button.toolTip(), f"{button.text()} greys out without saying why"
+
+    panel.name.setText("offered")
+    panel.create_button.click()
+    assert all(button.isEnabled() for button in needs_ladder)
+    assert not any(button.isEnabled() for button in (*needs_step, *needs_clicks))
+
+    front, side = list(CAMERAS)[:2]
+    with monkeypatch.context() as patches:
+        _fake_panes(window, patches)
+        panel.add_rung.click()
+        assert all(button.isEnabled() for button in needs_clicks)
+        window._on_marker_clicked(VIDEOS[front], 10.0, 20.0)
+        panel.next_point.click()
+        window._on_marker_clicked(VIDEOS[side], 30.0, 40.0)
+        panel.save_step.click()
+    assert window.props_app.draft is None
+    assert not any(button.isEnabled() for button in needs_clicks)
+
+    panel.steps.setCurrentRow(0)
+    assert all(button.isEnabled() for button in needs_step)
+    assert not panel.up.isEnabled() and not panel.down.isEnabled(), "one step cannot move"
+    assert not panel.relabel_step.isEnabled(), "renaming needs a new label"
+    panel.step_label.setText("Raised rung")
+    assert panel.relabel_step.isEnabled()
+
+
+def test_visual_track_commands_wait_for_a_tracked_prop(window: MainWindow) -> None:
+    window._act_add_prop.trigger()
+    panel = window.props_app.panel
+    assert panel is not None
+    for kind in ("belt", "ball"):
+        panel.kind.setCurrentIndex(panel.kind.findData(kind))
+        assert not panel.clear_belt_visual.isEnabled()
+        assert not panel.clear_ball_visual.isEnabled()
+        assert not panel.set_belt_lap.isEnabled()
+
+
 def test_closed_outline_requires_three_explicit_points_and_keeps_their_shape(
     window: MainWindow, monkeypatch
 ) -> None:

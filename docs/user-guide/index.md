@@ -78,6 +78,9 @@ Three routes, in the order to try them — all covered field by field, with anno
   per hour of recording, in ms/h: a camera whose clock gains 54 ms every hour has a drift of
   +54 ms/h. Hover the field to see the same drift in frames per hour. Reach for it when recordings
   agree at the start and separate by the end — a fixed offset cannot express that.
+- **Tracking sources** take an offset and drift like any other source, and the overlay and 3D view
+  move with them as you type. A 2D overlay whose frame numbers fit its camera is timed by that
+  camera's own frames instead: its fields are greyed out, and the tooltip names the camera to move.
 - **Align → Synchronize TTL / events…** fits the mapping from TTL pulses or frame triggers. Choose reference and target
   evidence, set the **TTL high threshold** (or tick **Use all samples as events** when the reference
   is already a list of event times), then leave **Alignment strategy** (under **More…**) on **Automatic** unless you

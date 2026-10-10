@@ -6788,3 +6788,52 @@ collects a QObject can trigger it, so it cannot be fixed in our own code. pytest
 report it, because its thread needs the GIL, so a CI job would hang for its whole timeout.
 Lift the cap only after a 6.12.x passes the full suite under the Windows and Linux emulation
 used before a push.
+
+---
+
+## 2026-10 · D-214 · Every control acts or says why not: an audit of the interactive surface
+
+**Decision.** A probe loaded the sample session into a real `MainWindow`, listed every action,
+button, combo, spin box, line edit and slider (608 in the window, 716 in dialogs), triggered each
+one, swept every inspector page, prop kind, dialog and context menu, and compared the window's
+state before and after. These were found and fixed:
+
+- **A pose source's Offset and Drift did nothing until the session was reopened.**
+  `_on_sensor_mapping_changed` looked for plot rows, and pose sources have none.
+  `ui/tracking_timing.apply_mapping` now moves its overlay and 3D readers, coverage and messages
+  live, as a reopen would, recorded as one undoable change. A 2D overlay whose frame indices fit
+  its camera is timed by that camera's frames (an exact mapping wins over offset and drift), so its
+  fields are greyed with a tooltip naming the camera (`Sidebar.set_sensor_timing_locked`), rather
+  than accepting a value that cannot move it. Overlay calibration moved from `import_controller`
+  into the same module; `import_controller.calibrate_overlay_timing` still resolves.
+- **Opening a video with its tracking CSV made two source cards.** A camera opening while the
+  CSV was still importing at an assumed rate made `rebind_frame_indexed_sources` remove a card that
+  did not exist yet and queue a second import, so both landed. A source whose import has not
+  landed now stays pending and is rebound from `_on_import_finished`.
+- **CSV import failed for any column without nulls when a sentinel was set**, which the import
+  wizard's default (`-9999`) always is. Polars hands back a read-only view of a null-free column,
+  and the sentinel was written into it in place. It is now `np.where`.
+- **Right-clicking a plot row opened two menus**: pyqtgraph's ViewBox menu popped up first and
+  stayed open behind the row's own, offering Plot Options (Downsample, Average, Transforms). Rows
+  call `setMenuEnabled(False)`, as `axis_nav.install_menu` already does for the evidence views.
+- **Fullscreen and Generate Proxy acted on the first camera, whatever was selected.** Both now use
+  `_focused_video_path`; a proxy with several cameras and none selected asks which, as a nudge
+  does. Fullscreen still falls back to the first camera: enlarging the wrong one changes nothing
+  and the same key undoes it.
+- **The Props ladder editor's commands were enabled with nothing to act on.** It shows before any
+  ladder exists, and Click foothold, Save step, Remove step, Move up and the rest accepted the click
+  and did nothing. They are greyed with a reason until a ladder, a selected step or clicks in
+  progress exist (`PropsPanel.set_activity`, fed by properties on `PropsApp.draft`, `checking` and
+  `visual_tracking`). Clear visual track and Set lap count follow the selected prop.
+- **Auto levels on a camera already at full range** changed nothing and said nothing. It now says
+  so on the status line.
+
+**Why.** The tests exercised each command's own path, never the whole window as a user meets it,
+so a control could be wired, enabled and inert. None of the above failed a test.
+
+**Not changed, and why.** Props geometry fields, import-wizard fields and the Open NWB address
+have no handler of their own: they are read when their Save, Import or Open runs. The source
+card's kind glyph is a `QPushButton` made transparent to the mouse, an icon, not a control. The
+sweep-window unit selector changes the unit without changing the duration, by design. pyqtgraph's
+scene **Export…** action raises if triggered outside a right-click, but no user path reaches it
+now that the row's ViewBox menu is off.

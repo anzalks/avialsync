@@ -250,7 +250,7 @@ Two product laws govern that phase and outrank convention:
   `VideoGrid.shutdown()` before Qt destroys child widgets. This removes the precise 60 Hz timer and
   closes every `VideoPane`, which stops its decode thread and closes its reader on the thread that
   opened it. Never rely on QWidget destruction or Python garbage collection to stop a decode thread.
-- **Frame-indexed sources (D-019, D-137)**: `TimeSeriesSource.is_frame_indexed()` added (default False). `TrackingLoader` overrides to True. Frame rate is never asked for — `import_controller.frame_rate_for_tracking` derives it from the declared overlay camera, else the single/agreeing loaded cameras; anything else imports provisionally at 30 fps with the "Frame rate assumed" badge and rebinds per-source when its camera loads. `_video_fps` holds the *measured* rate, not the container's claim.
+- **Frame-indexed sources (D-019, D-137)**: `TimeSeriesSource.is_frame_indexed()` added (default False). `TrackingLoader` overrides to True. Frame rate is never asked for — `import_controller.frame_rate_for_tracking` derives it from the declared overlay camera, else the single/agreeing loaded cameras; anything else imports provisionally at 30 fps with the "Frame rate assumed" badge and rebinds per-source when its camera loads — or, if its first import has not landed yet, when it does (D-214; rebinding earlier imported it twice). `_video_fps` holds the *measured* rate, not the container's claim.
 - **NeoLoader.can_open tightening**: `SUPPORTED_EXTENSIONS` whitelist added; `can_open` returns 0.0 immediately for any file not in the whitelist. Never claims `.csv` or acts as a fallback for unknown files.
 
 ### Done — Inspection Layer (A–K, D-020)
@@ -606,7 +606,8 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `loaders/aol_ribbon_scan.py` | "Imaging Stack (MATLAB)": a trial as one gutterless mosaic, `trial_folders` for an experiment joined back to back (three trials cached), or one `RibbonScan_ROI_*.mat` raw (`uint16`, its own line-clock times, `Log.txt` rate before asking); planes as MATLAB shows them (D-203, D-204) | `AOLRibbonScanSource` |
 | `loaders/aol_mosaic_layout.py` | Where each ribbon tile sits: the controller-style branch tree from `thin_mask.mat` (branches as columns, segments stacked, population patches packed), the lab's analysis map, or a square grid (D-204) | `choose_layout()`, `branch_layout()`, `analysis_layout()`, `MosaicLayout` |
 | `loaders/aol_camera_join.py` | "Video (Joined Trials)": a camera's per-trial recordings stream-copied back to back into the per-user cache with a timestamp sidecar, each segment at its pairing's offset and trimmed to its trial; where camera recordings are looked for (trial folders, beside them, the camera data folder, a sibling `<date>/<experiment>` mirror) (D-205, D-208) | `AOLJoinedCameraSource`, `find_recordings()`, `recording()`, `camera_segments()`, `configure_camera_roots()` |
-| `ui/video_levels.py` | Each camera's display levels: the one authority the pane popover, the inspector panel, undo (`SetVideoLevelsCommand`) and the session go through; applies to the decoder and the pane's pressed levels button (D-209) | `request()`, `request_auto()`, `apply()`, `restore()`, `saved()` |
+| `ui/video_levels.py` | Each camera's display levels: the one authority the pane popover, the inspector panel, undo (`SetVideoLevelsCommand`) and the session go through; applies to the decoder and the pane's pressed levels button (D-209) | `request()`, `request_auto()`, `measured()`, `apply()`, `restore()`, `saved()` |
+| `ui/tracking_timing.py` | A pose source's timing after load: overlay calibration to its camera's frames, live Offset/Drift for its overlay and 3D readers, and the source card's lock while a camera times it (D-214) | `calibrate_overlay_timing()`, `apply_mapping()`, `timing_owner()`, `show_timing_owner()` |
 | `engine/stimulus_grid_export.py` | Stimulus grid movie: picture rows (cameras, imaging) by event columns, sensor bands beneath; output schedule merges every row's frame changes (D-210) | `export_stimulus_grid()`, `GridVideo`, `GridImaging`, `GridBand`, `plan_grid()` |
 | `engine/stimulus_grid_bands.py` | One band per sensor group: streams in colour, events faint, mean bold, overlay ≤4 else stacked lanes on one amplitude, trigger line and cursor (D-210) | `GridBand`, `GridStream`, `event_mean()`, `stack_height()` |
 | `engine/stimulus_grid_imaging.py` | An imaging row rendered by the viewer's reader with its view and zoom crop, frames held by `frame_index_at` (D-210) | `GridImaging`, `ImagingRow` |
@@ -915,6 +916,25 @@ in each: assigning without one makes them locals and invalidates nothing.
 
 If you add anything that probes the platform, cache the miss as well as the hit,
 and keep `subprocess` out of anything a paint or a range change can reach.
+
+### 0-readonly. Polars hands back read-only arrays; never write into `to_numpy()`
+
+`Series.to_numpy()` is a zero-copy, **read-only** view when the column has no nulls,
+and a writable copy when it has some. Code that writes into the result in place
+(`values[values == sentinel] = np.nan`) therefore passes on any fixture with gaps and
+fails on clean data. That shipped: with the import wizard's default sentinel, every
+gap-free CSV failed to import (D-214). Build a new array (`np.where`) or `.copy()`
+first, and test with a null-free column.
+
+### 0-menu. A pyqtgraph plot has its own right-click menu unless told not to
+
+`ViewBox.mouseClickEvent` pops up pyqtgraph's menu (View All, Mouse Mode, Plot
+Options with Downsample/Average/Transforms, Export…) *before* the scene emits
+`sigMouseClicked`, so a handler that shows our menu there opens a second one on top
+of it. Every plot we build calls `setMenuEnabled(False)` (plot rows, the evidence
+views via `axis_nav.install_menu`) and supplies its own. A synthetic mouse click in a
+test does reach this path; check it with a timer reading
+`QApplication.activePopupWidget()`, not by patching `QMenu.exec`.
 
 ### 0-epoch. A loader declares where its zero is; it never declares a placement
 

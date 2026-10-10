@@ -146,6 +146,7 @@ def test_rebind_clears_provisional_list(tmp_path, monkeypatch):
 
     win._frame_indexed_sources.append((csv, TrackingLoader, {"fps": 10.0}))
     win._video_fps["cam.mp4"] = 25.0
+    win.sidebar.add_sensor(str(csv), ["nose_x"])  # its provisional import has landed
 
     # Patch _enqueue_import and plot/sidebar so no actual work runs
     enqueued = []
@@ -179,6 +180,7 @@ def test_rebind_uses_new_fps(tmp_path, monkeypatch):
 
     win._frame_indexed_sources.append((csv, TrackingLoader, {"fps": provisional_fps}))
     win._video_fps["cam.mp4"] = video_fps
+    win.sidebar.add_sensor(str(csv), ["nose_x"])  # its provisional import has landed
 
     enqueued = []
     monkeypatch.setattr(win, "_enqueue_import", lambda p, lc, cfg: enqueued.append((p, lc, cfg)))
@@ -301,5 +303,57 @@ def test_a_source_waiting_on_its_own_camera_is_not_rebound_by_another(tmp_path, 
 
     assert enqueued == [], "The wrong camera must not date these frames"
     assert len(win._frame_indexed_sources) == 1, "It keeps waiting for its own"
+
+    win.close()
+
+
+@pytest.mark.usefixtures("qapp")
+def test_a_source_still_importing_is_not_imported_a_second_time(tmp_path, monkeypatch):
+    """A camera opening mid-import queued a second import beside the first.
+
+    The rebind removed a source card that did not exist yet, so both imports
+    landed and the source appeared twice -- what opening a folder of a video and
+    its tracking did.
+    """
+    from avialsync.loaders.tracking_loader import TrackingLoader
+    from avialsync.ui.main_window import MainWindow
+
+    win = MainWindow()
+    csv = _write_dlc_csv(tmp_path / "pose.csv", n_frames=10)
+    win._frame_indexed_sources.append((csv, TrackingLoader, {"fps": 30.0}))
+    win._video_fps["cam.mp4"] = 25.0
+    enqueued = []
+    monkeypatch.setattr(win, "_enqueue_import", lambda p, lc, cfg: enqueued.append((p, lc, cfg)))
+
+    win._rebind_frame_indexed_sources()
+
+    assert enqueued == []
+    assert len(win._frame_indexed_sources) == 1, "rebound once its import lands"
+
+    win.close()
+
+
+@pytest.mark.usefixtures("qapp")
+def test_the_import_landing_rebinds_it_to_the_camera_that_opened_meanwhile(tmp_path, monkeypatch):
+    from avialsync.loaders.tracking_loader import TrackingLoader
+    from avialsync.ui.controllers import import_controller
+    from avialsync.ui.main_window import MainWindow
+
+    win = MainWindow()
+    csv = _write_dlc_csv(tmp_path / "pose.csv", n_frames=10)
+    win._frame_indexed_sources.append((csv, TrackingLoader, {"fps": 30.0}))
+    win._video_fps["cam.mp4"] = 25.0
+    monkeypatch.setattr(
+        import_controller,
+        "on_import_finished",
+        lambda window, path, *_args: window.sidebar.add_sensor(path, ["nose_x"]),
+    )
+    enqueued = []
+    monkeypatch.setattr(win, "_enqueue_import", lambda p, lc, cfg: enqueued.append((p, lc, cfg)))
+
+    win._on_import_finished(str(csv), str(tmp_path), ["nose_x"], (0.0, 1.0))
+
+    assert [(path, config["fps"]) for path, _loader, config in enqueued] == [(csv, 25.0)]
+    assert win._frame_indexed_sources == []
 
     win.close()

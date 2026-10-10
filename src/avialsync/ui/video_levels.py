@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 from avialsync.core.commands import SetVideoLevelsCommand
 from avialsync.engine.display_pipeline import DisplayLevels
+from avialsync.ui.i18n import tr
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
@@ -86,6 +87,22 @@ def request(
     )
 
 
+def measured(window: MainWindow, path: str, levels: object) -> None:
+    """Auto's answer: a change like a slider's, or a word that none was needed.
+
+    A camera already spanning its range measures what it is shown through,
+    and Auto then changed nothing and said nothing -- a button that looked dead.
+    """
+    if isinstance(levels, DisplayLevels) and levels.normalised() == current(window, path):
+        window.transport.set_status(
+            tr("{camera} already uses its full range; Auto changed nothing.").format(
+                camera=Path(path).name
+            )
+        )
+        return
+    request(window, path, levels, "display levels (Auto)")
+
+
 def request_auto(window: MainWindow, path: str | None) -> None:
     """Ask camera *path* to measure levels from its frame; the answer arrives as a change."""
     pane = window._pane_for(path) if path is not None else None
@@ -138,9 +155,7 @@ def connect_pane(window: MainWindow, pane: Any, path: str) -> None:
     """
     pane.source_format_detected.connect(lambda fmt: window._on_source_format_detected(path, fmt))
     pane.levels_requested.connect(lambda levels: request(window, path, levels))
-    pane.levels_measured.connect(
-        lambda levels: request(window, path, levels, "display levels (Auto)")
-    )
+    pane.levels_measured.connect(lambda levels: measured(window, path, levels))
     levels = window._display_levels.get(path)
     if levels is not None:
         window.video_grid.set_display_levels(path, levels)

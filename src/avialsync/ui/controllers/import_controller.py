@@ -12,7 +12,6 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-import numpy as np
 from PySide6.QtCore import QThread, QTimer
 
 from avialsync.core.channel_reader import ChannelKey
@@ -23,6 +22,7 @@ from avialsync.core.pose import PoseSchema
 from avialsync.core.source import TimeSeriesSource
 from avialsync.ui.controllers import identity_controller
 from avialsync.ui.i18n import tr
+from avialsync.ui.tracking_timing import calibrate_overlay_timing
 
 if TYPE_CHECKING:
     from avialsync.engine.importer import ImportWorker
@@ -224,7 +224,10 @@ def rebind_frame_indexed_sources(window: MainWindow) -> None:
     window._frame_indexed_sources.clear()
     for dlc_path, loader_cls, config in pending:
         fps, provisional = frame_rate_for_tracking(window, config)
-        if provisional:
+        if provisional or window.sidebar.sensor_widget(str(dlc_path)) is None:
+            # Still undated, or its first import has not landed: replacing it
+            # now removed nothing and both imports arrived, as two sources.
+            # It is rebound when that import finishes.
             window._frame_indexed_sources.append((dlc_path, loader_cls, config))
             continue
         cache_dir = CacheManager(loader_version=5).get_cache_dir(dlc_path)
@@ -542,78 +545,6 @@ def register_tracking_source(
 
     custom_marker_controller.adopt(window)
     window.props_app.adopt()
-
-
-def calibrate_overlay_timing(window: MainWindow, video: str) -> None:
-    """Map an AOL 2D track's frame indices to its video's presentation times.
-
-    Tracking CSVs name frames while a video may have VFR intervals or dropped
-    frames.  Matching the track's stored frame-index times to the target pane's
-    measured timestamps keeps the overlay tied to the pixels actually shown.
-    """
-    try:
-        pane_index = window.video_grid.pane_paths().index(video)
-    except ValueError:
-        return
-    frame_times = window._video_frame_times.get(video)
-    if frame_times is None or len(frame_times) < 2:
-        return
-
-    pane = window.video_grid.panes[pane_index]
-    for entry in window._overlay_sources.get(video, {}).values():
-        frame_rate = float(entry.get("frame_rate", 0.0))
-        points = entry.get("points", {})
-        if frame_rate <= 0.0 or not points:
-            continue
-        first_reader = next(iter(points.values()))[0]
-        source_times = first_reader.source_reader.mapped_columns()[0]
-        if len(source_times) < 2:
-            continue
-        frame_indices = np.rint(source_times * frame_rate).astype(np.intp)
-        if (
-            not np.allclose(source_times * frame_rate, frame_indices)
-            or frame_indices[0] < 0
-            or frame_indices[-1] >= len(frame_times)
-        ):
-            _report_uncalibrated_overlay(window, video, first_reader.source_id)
-            continue
-        master_times = pane.time_map.to_master_array(frame_times[frame_indices])
-        time_maps = {
-            id(reader.time_map): reader.time_map for axes in points.values() for reader in axes
-        }
-        for time_map in time_maps.values():
-            time_map.set_exact_mapping(master_times, source_times)
-        cache_dir = getattr(window, "_pose_cache_dirs", {}).get(first_reader.source_id)
-        if cache_dir is not None and hasattr(window, "plot_pane"):
-            window.plot_pane.set_source_exact_mapping(cache_dir, master_times, source_times)
-
-
-def _report_uncalibrated_overlay(window: MainWindow, video: str, source_id: str) -> None:
-    """Say that an overlay is drawn on assumed timing rather than the video's own.
-
-    Not a log line. Uniform ``index / fps`` timing drifts from a real
-    recording's presentation times by up to 0.16 s -- five frames at 30 fps, on
-    top of the animal -- and a person who is not told simply sees tracking that
-    does not fit and mistrusts the tracking (never block, always inform).
-
-    Once per source: a retry on every video load would train them to dismiss it.
-    """
-    name = Path(source_id).name
-    logger.warning(
-        "Cannot align overlay %s to %s: tracking frame indices do not fit the video.",
-        video,
-        name,
-    )
-    announced = getattr(window, "_announced_uncalibrated_overlays", None)
-    if announced is None or source_id in announced:
-        return
-    announced.add(source_id)
-    window.notifications.show_warning(
-        tr(
-            "{source} could not be aligned to {video}'s own frame times, so it is drawn "
-            "at its assumed frame rate and may drift from the video by a few frames."
-        ).format(source=name, video=Path(video).name)
-    )
 
 
 def refresh_pose_3d(window: MainWindow) -> None:

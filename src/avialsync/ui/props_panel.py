@@ -143,6 +143,10 @@ class PropsPanel(QWidget):
     def __init__(self, store: PropStore, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._store = store
+        # Whether clicks are being collected (a step, a placement), and whether
+        # anything at all is in progress that Cancel could discard.
+        self._drafting = False
+        self._busy = False
         self.setAccessibleName(tr("Physical props inspector"))
         root_layout = QVBoxLayout(self)
         self.kind = QComboBox(self)
@@ -305,6 +309,8 @@ class PropsPanel(QWidget):
         self.save_next_step.clicked.connect(self.save_next_step_requested)
         self.tag_step.clicked.connect(self._tag_selected_step)
         self.steps.currentRowChanged.connect(self._show_step_tag)
+        self.steps.currentRowChanged.connect(lambda _row: self._update_step_enablement())
+        self.step_label.textChanged.connect(lambda _text: self._update_step_enablement())
         self.cancel_step.clicked.connect(self.cancel_step_requested)
         self.remove_step.clicked.connect(self._remove_selected_step)
         self.reclick_step.clicked.connect(self._reclick_selected_step)
@@ -830,8 +836,6 @@ class PropsPanel(QWidget):
                 tr("Surface motion is unknown until displacement evidence is bound.")
             )
         self.check_belt.setEnabled(binding is not None)
-        self.clear_belt_visual.setEnabled(bool(belt.visual_frames))
-        self.set_belt_lap.setEnabled(belt.track.closed and bool(belt.visual_frames))
         self._update_motion_enablement()
 
     def ball_values(self) -> tuple[tuple[float, float, float], float, str]:
@@ -877,7 +881,6 @@ class PropsPanel(QWidget):
                 tr("Orientation is unknown until four orientation channels are bound.")
             )
         self.check_ball.setEnabled(binding is not None)
-        self.clear_ball_visual.setEnabled(bool(ball.visual_frames))
         self._update_motion_enablement()
 
     def set_motion_channels(self, channels: list[tuple[str, str, str]]) -> None:
@@ -934,6 +937,16 @@ class PropsPanel(QWidget):
         self.check_ball.setEnabled(ball_checked)
         self.check_ball.setToolTip(
             "" if ball_checked else tr("Bind ball orientation before checking a later frame.")
+        )
+        # Decided here, from the selection, rather than only when a prop's
+        # fields are loaded: with none selected they stayed enabled and did nothing.
+        belt_tracked = isinstance(selected, BeltProp) and bool(selected.visual_frames)
+        self.clear_belt_visual.setEnabled(belt_tracked)
+        self.set_belt_lap.setEnabled(
+            belt_tracked and isinstance(selected, BeltProp) and selected.track.closed
+        )
+        self.clear_ball_visual.setEnabled(
+            isinstance(selected, BallProp) and bool(selected.visual_frames)
         )
 
     @staticmethod
@@ -1098,6 +1111,7 @@ class PropsPanel(QWidget):
         self.remove_belt.setEnabled(kind == "belt" and has_selection)
         self.remove_ball.setEnabled(kind == "ball" and has_selection)
         self._refresh_steps()
+        self._update_step_enablement()
         self._selection_changed()
         self._update_motion_enablement()
 
@@ -1118,6 +1132,54 @@ class PropsPanel(QWidget):
         kind = str(self.kind.currentData() or "")
         name = str(self.ladders.currentData() or "")
         self.prop_selected.emit(kind, name)
+
+    def set_activity(self, drafting: bool, busy: bool) -> None:
+        """Say whether clicks are being collected, and whether anything is in progress.
+
+        *drafting* is a step or a belt placement taking clicks; *busy* also
+        covers a motion check or a visual track, which Cancel discards too.
+        """
+        self._drafting = drafting
+        self._busy = busy or drafting
+        self._update_step_enablement()
+
+    def _update_step_enablement(self) -> None:
+        """Offer each step command only when it has something to act on (D-107).
+
+        The ladder editor is on show before any ladder exists, and each of these
+        used to accept the click and then do nothing, without saying why.
+        """
+        has_ladder = isinstance(self._store.get(self.current_ladder()), Ladder)
+        has_step = has_ladder and bool(self._selected_step())
+        row = self.steps.currentRow()
+        no_ladder = tr("Add a ladder first.")
+        no_step = tr("Select a saved step first.")
+        no_clicks = tr("Start clicking a step first.")
+        offers = (
+            (self.add_point, has_ladder, no_ladder),
+            (self.add_rung, has_ladder, no_ladder),
+            (self.remove_ladder, has_ladder, no_ladder),
+            (self.reclick_step, has_step, no_step),
+            (self.tag_step, has_step, no_step),
+            (self.remove_step, has_step, no_step),
+            (
+                self.relabel_step,
+                has_step and bool(self.step_label.text().strip()),
+                tr("Select a saved step and type its new label first."),
+            ),
+            (self.up, has_step and row > 0, no_step),
+            (self.down, has_step and 0 <= row < self.steps.count() - 1, no_step),
+            (self.next_point, self._drafting, no_clicks),
+            (self.save_step, self._drafting, no_clicks),
+            (self.save_next_step, self._drafting, no_clicks),
+            (self.cancel_step, self._busy, tr("Nothing is being clicked.")),
+            (self.belt_placement.next_point, self._drafting, tr("Start placement clicks first.")),
+            (self.belt_placement.place, self._drafting, tr("Start placement clicks first.")),
+            (self.belt_placement.cancel, self._busy, tr("Nothing is being clicked.")),
+        )
+        for button, ready, reason in offers:
+            button.setEnabled(ready)
+            button.setToolTip(button.accessibleDescription() if ready else reason)
 
     def _refresh_steps(self) -> None:
         selected = self._selected_step()

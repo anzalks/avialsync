@@ -81,6 +81,7 @@ from avialsync.ui import (
     dandi_open,
     imaging_integration,
     recovery_worker,
+    tracking_timing,
     video_levels,
     workspaces,
 )
@@ -2879,8 +2880,16 @@ class MainWindow(QMainWindow):
     # ── Fullscreen / jump / pane context menu ───────────────────────
 
     def _toggle_fullscreen(self) -> None:
-        """Toggle fullscreen for the first (or only) pane."""
-        self.video_grid.toggle_fullscreen()
+        """Show the selected camera alone, or every camera again.
+
+        The camera is the one ``_focused_video_path`` names: the one already
+        fullscreen, so the same gesture returns to the grid, then the one last
+        touched. It used to be the first pane whatever was selected, so with
+        three cameras F11 always enlarged the first one. With several cameras
+        and none touched it still falls back to the first: unlike a nudge,
+        enlarging the wrong camera changes nothing and is undone by the same key.
+        """
+        self.video_grid.toggle_fullscreen(self._focused_video_path())
 
     def _on_jump_requested(self, delta: float) -> None:
         """Clamp and seek relative to the current playhead."""
@@ -3078,8 +3087,15 @@ class MainWindow(QMainWindow):
 
         from avialsync.engine.proxy import ProxyWorker
 
-        # Proxy the first video for now
-        video_path = Path(self.video_grid._paths[0])
+        # The selected camera, as a nudge moves it. This was the first camera
+        # whatever was selected, so with three loaded only one could be proxied.
+        path = self._focused_video_path()
+        if path is None:
+            self.notifications.show_warning(
+                tr("Click the camera you want a proxy of first, or open one fullscreen.")
+            )
+            return
+        video_path = Path(path)
 
         self._proxy_worker = ProxyWorker(video_path)
 
@@ -3531,6 +3547,11 @@ class MainWindow(QMainWindow):
         This only changes the source's ``TimeMap`` — cached samples are never
         rewritten and no channel is re-imported (P3.5, mirrors video offsets).
         """
+        if path in self._tracking_plot_sources:
+            # A pose source has no plot rows to carry the mapping; its readers do.
+            self._record_mapping_change(path, offset, drift)
+            tracking_timing.apply_mapping(self, path, self.effective_offset(path, offset), drift)
+            return
         cache_dir = self._sensor_cache_dirs.get(path)
         if cache_dir is None:
             return
@@ -3778,6 +3799,11 @@ class MainWindow(QMainWindow):
         inspection: object = None,
     ) -> None:
         import_controller.on_import_finished(self, path, cache_dir, channels, bounds, inspection)
+        # Overlay calibration ran before the source card existed; lock it now if it must be.
+        tracking_timing.show_timing_owner(self, path)
+        if any(str(pending) == path for pending, _loader, _config in self._frame_indexed_sources):
+            # A camera may have opened while this was importing at an assumed rate.
+            self._rebind_frame_indexed_sources()
         # As with video, on success rather than on request.
         self._note_source_loaded(path, "sensor")
         self._refresh_empty_state()

@@ -201,3 +201,23 @@ def test_dragging_a_popover_slider_changes_the_camera(window: MainWindow, qtbot)
     qtbot.mouseClick(slider, Qt.MouseButton.LeftButton, pos=middle)
     qtbot.waitUntil(lambda: not pane.display_levels().is_identity, timeout=5_000)
     assert pane.display_levels().white < 1.0
+
+
+def test_auto_with_nothing_to_change_says_so(window: MainWindow) -> None:
+    """A camera already at full range: Auto changed nothing and looked dead."""
+    pane = window.video_grid.panes[0]
+    undo_label = window.document.undo_label()
+
+    pane.levels_measured.emit(DisplayLevels())
+
+    assert "full range" in window.transport.status_line.status_text()
+    assert window.document.undo_label() == undo_label, "nothing changed, so nothing to undo"
+
+
+def test_auto_with_something_to_change_records_it(window: MainWindow) -> None:
+    pane = window.video_grid.panes[0]
+
+    pane.levels_measured.emit(DisplayLevels(black=0.1, white=0.8))
+
+    assert pane.display_levels() == DisplayLevels(black=0.1, white=0.8)
+    assert "Auto" in window.document.undo_label()
