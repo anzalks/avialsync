@@ -299,3 +299,25 @@ class TestTheManagedContextMenu:
         nav.install_menu(plot, exporter=lambda: None)
 
         assert nav._menus
+
+
+def test_the_evidence_export_opens_and_stays_open(qtbot) -> None:
+    """Built as a local, the exporter was collected on return and nothing opened."""
+    import gc
+
+    import pyqtgraph as pg
+
+    from avialsync.ui.sync_evidence_view import _export
+
+    plot = pg.PlotWidget()
+    qtbot.addWidget(plot)
+    plot.plot([0.0, 1.0, 2.0], [0.0, 1.0, 0.0])
+    plot.show()
+
+    _export(plot)
+    gc.collect()
+    qtbot.wait(50)
+
+    dialog = plot.scene().exportDialog
+    assert dialog is not None and dialog.isVisible()
+    dialog.close()

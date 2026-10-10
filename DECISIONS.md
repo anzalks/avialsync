@@ -6827,6 +6827,13 @@ state before and after. These were found and fixed:
   `visual_tracking`). Clear visual track and Set lap count follow the selected prop.
 - **Auto levels on a camera already at full range** changed nothing and said nothing. It now says
   so on the status line.
+- **Every Export… on a plot opened nothing.** The evidence views built pyqtgraph's
+  `ExportDialog` as a local with no Qt parent, so it was collected as the function returned.
+  `axis_nav.show_plot_exporter` keeps it on the scene's `exportDialog` slot, as pyqtgraph does.
+  Plot rows gain **Export ⟨row⟩…** in their own menu through it, and the scene's stock
+  **Export...** action, which raised when triggered outside its menu, is removed.
+- **Changes → Delete was enabled with nothing selected** and did nothing; it is now offered only
+  with a row selected.
 
 **Why.** The tests exercised each command's own path, never the whole window as a user meets it,
 so a control could be wired, enabled and inert. None of the above failed a test.
@@ -6834,6 +6841,6 @@ so a control could be wired, enabled and inert. None of the above failed a test.
 **Not changed, and why.** Props geometry fields, import-wizard fields and the Open NWB address
 have no handler of their own: they are read when their Save, Import or Open runs. The source
 card's kind glyph is a `QPushButton` made transparent to the mouse, an icon, not a control. The
-sweep-window unit selector changes the unit without changing the duration, by design. pyqtgraph's
-scene **Export…** action raises if triggered outside a right-click, but no user path reaches it
-now that the row's ViewBox menu is off.
+sweep-window unit selector changes the unit without changing the duration, by design. Quit,
+Delete All Cache, Show Cache Folder and the Help links were run against the test sandboxes and
+work; Quit and the Documentation and Check for Updates links now have tests.

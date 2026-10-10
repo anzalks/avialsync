@@ -47,7 +47,23 @@ from avialsync.ui.i18n import tr
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-__all__ = ["AxisNav", "NavigableViewBox", "ZOOM_STEP"]
+__all__ = ["AxisNav", "NavigableViewBox", "ZOOM_STEP", "show_plot_exporter"]
+
+
+def show_plot_exporter(plot_item: pg.PlotItem) -> None:
+    """Open pyqtgraph's exporter (image, SVG, points as text) for *plot_item*.
+
+    The dialog has no Qt parent, so it is kept on the scene in the slot
+    pyqtgraph's own menu uses. Built as a local and shown, it was collected as
+    the function returned and Export opened nothing.
+    """
+    from pyqtgraph.GraphicsScene.exportDialog import ExportDialog
+
+    scene = plot_item.scene()
+    if scene.exportDialog is None:
+        scene.exportDialog = ExportDialog(scene)
+    scene.exportDialog.show(plot_item)
+
 
 #: One button press or wheel notch. Chosen to need ~3 presses to halve a range,
 #: which reads as deliberate rather than as a jump.

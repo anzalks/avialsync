@@ -20,7 +20,15 @@ from avialsync.ui.plot_theme import gap_marker_pen, identity_marker_pen, measure
 logger = logging.getLogger(__name__)
 
 ContextAction = Literal[
-    "annotate", "measure_a", "measure_b", "clear_measure", "fit_y", "auto_y", "hold_y", "hide"
+    "annotate",
+    "measure_a",
+    "measure_b",
+    "clear_measure",
+    "fit_y",
+    "auto_y",
+    "hold_y",
+    "export",
+    "hide",
 ]
 
 
@@ -58,6 +66,10 @@ def show_context_menu(
         menu.addSeparator()
         for extra in extras:
             menu.addAction(extra)
+    # pyqtgraph's own exporter, for this row: a picture of the trace, or the
+    # points as drawn. The samples themselves are File -> Export Data Slice.
+    menu.addSeparator()
+    export = menu.addAction(tr("Export {name}…").format(name=channel.name))
     # The row's own close, also here so it never depends on hovering.
     menu.addSeparator()
     hide = menu.addAction(tr("Hide {name}").format(name=channel.name))
@@ -70,6 +82,7 @@ def show_context_menu(
         fit_y: "fit_y",
         auto_y: "auto_y",
         hold_y: "hold_y",
+        export: "export",
         hide: "hide",
     }
     action = actions.get(chosen)

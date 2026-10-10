@@ -936,6 +936,10 @@ views via `axis_nav.install_menu`) and supplies its own. A synthetic mouse click
 test does reach this path; check it with a timer reading
 `QApplication.activePopupWidget()`, not by patching `QMenu.exec`.
 
+pyqtgraph's `ExportDialog` has no Qt parent: shown from a local it is collected
+on return and nothing opens. Use `axis_nav.show_plot_exporter`, which keeps it in
+the scene's `exportDialog` slot.
+
 ### 0-epoch. A loader declares where its zero is; it never declares a placement
 
 `SessionItem.source_epoch` is the Unix epoch a file's timestamps count from,

@@ -9,6 +9,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 
 from avialsync.ui.annotations import AnnotationStore
+from avialsync.ui.axis_nav import show_plot_exporter
 from avialsync.ui.plot_overlays import (
     redraw_annotations,
     redraw_gap_markers,
@@ -199,6 +200,8 @@ class PlotInteractionController:
             self._pane.set_channel_y_mode(choice.channel_id, Y_AUTO)
         elif choice.action == "hold_y":
             self._pane.set_channel_y_mode(choice.channel_id, Y_MANUAL)
+        elif choice.action == "export":
+            show_plot_exporter(channel.plot_item)
         elif choice.action == "hide":
             self._pane.hide_channel_row(choice.channel_id)
         event.accept()

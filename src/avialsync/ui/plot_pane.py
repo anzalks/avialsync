@@ -230,7 +230,12 @@ class PlotPane(QWidget):
         # The first plot is the single X-range authority for every linked row.
         self._master_plot: pg.PlotItem | None = None
         self._interactions = PlotInteractionController(self)
-        self.graphics_layout.scene().sigMouseClicked.connect(self._interactions.on_scene_clicked)
+        scene = self.graphics_layout.scene()
+        # pyqtgraph's scene carries its own "Export..." for its stock menu, which
+        # rows no longer show; triggered any other way it raised. Rows offer
+        # Export in their own menu instead (axis_nav.show_plot_exporter).
+        scene.contextMenu = []
+        scene.sigMouseClicked.connect(self._interactions.on_scene_clicked)
         self.graphics_layout.scene().sigMouseMoved.connect(self._interactions.on_scene_moved)
 
     def changeEvent(self, event: QEvent) -> None:

@@ -94,3 +94,36 @@ def test_right_clicking_a_row_opens_only_the_rows_own_menu(qtbot, tmp_path: Path
     assert len(opened) == 1, opened
     assert any(text.startswith("Add marker here") for text in opened[0])
     assert "Plot Options" not in opened[0]
+
+
+def test_a_rows_export_opens_and_stays_open(qtbot, tmp_path: Path) -> None:
+    """Export is in the row's own menu, and the dialog survives being shown.
+
+    Built as a local and shown, the exporter was collected on return and
+    opened nothing; the scene's stock Export action raised when triggered.
+    """
+    from avialsync.ui import plot_overlays
+    from avialsync.ui.axis_nav import show_plot_exporter
+
+    times = np.linspace(0.0, 10.0, 1001)
+    PyramidBuilder(tmp_path, "signal").build_and_save(times, np.sin(times))
+    window = MainWindow()
+    qtbot.addWidget(window)
+    window.show()
+    window.clock.set_bounds(0.0, 10.0)
+    window.plot_pane.set_timeline_bounds(0.0, 10.0)
+    window.plot_pane.load_channels(tmp_path, ["signal"])
+    window.plot_pane.wait_for_pending_rows()
+    row = window.plot_pane.channels[0].plot_item
+    assert row.scene().contextMenu == [], "no dead stock action is left on the scene"
+    assert "export" in plot_overlays.ContextAction.__args__
+
+    show_plot_exporter(row)
+    import gc
+
+    gc.collect()
+    qtbot.wait(50)
+
+    dialog = row.scene().exportDialog
+    assert dialog is not None and dialog.isVisible()
+    dialog.close()

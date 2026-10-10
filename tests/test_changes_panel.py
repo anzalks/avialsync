@@ -263,3 +263,21 @@ def test_removing_a_correction_that_is_not_there_does_nothing(window: MainWindow
     window._restore_predicted_point(PointKey("/nowhere.csv", "nose", 1))
 
     assert window.document.can_undo() is False
+
+
+def test_delete_is_offered_only_for_a_selected_change(window: MainWindow) -> None:
+    """With nothing selected it was enabled and did nothing (D-214)."""
+    panel = window.changes_panel
+    button = panel._delete_button
+    assert not button.isEnabled()
+    assert button.toolTip()
+
+    window.annotation_store.add_point(1.5, label="stance")
+    assert not button.isEnabled(), "a new row is not a selection"
+
+    panel._table.selectRow(0)
+    assert button.isEnabled()
+    button.click()
+
+    assert window.annotation_store.markers == []
+    assert not button.isEnabled()

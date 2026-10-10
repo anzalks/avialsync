@@ -216,6 +216,17 @@ class ChangesPanel(QGroupBox):
             self._table.blockSignals(False)
         self._empty.setVisible(not self._rows)
         self._table.setVisible(bool(self._rows))
+        self._update_delete()
+
+    def _update_delete(self) -> None:
+        """Offer Delete only with a row selected; it did nothing otherwise (D-214)."""
+        selected = bool(self._table.selectedIndexes())
+        self._delete_button.setEnabled(selected)
+        self._delete_button.setToolTip(
+            tr("Remove the selected annotation, correction, or identity swap")
+            if selected
+            else tr("Select a change in the list first.")
+        )
 
     def _when(self, row: ChangeRow) -> str:
         if row.t_master is None:
@@ -306,6 +317,7 @@ class ChangesPanel(QGroupBox):
         return None
 
     def _on_selection_changed(self) -> None:
+        self._update_delete()
         row = self._selected_row()
         if row is not None:
             self.revisit_requested.emit(row)

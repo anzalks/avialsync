@@ -33,7 +33,7 @@ from PySide6.QtWidgets import QLabel, QSplitter, QVBoxLayout, QWidget
 
 from avialsync.core.drift import describe_drift
 from avialsync.core.sync import SyncProposal
-from avialsync.ui.axis_nav import AxisNav, NavigableViewBox
+from avialsync.ui.axis_nav import AxisNav, NavigableViewBox, show_plot_exporter
 from avialsync.ui.coverage_lanes import CoverageLanes, SourceCoverage
 from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
@@ -65,10 +65,7 @@ def _export(plot: pg.PlotWidget) -> None:
     its points as text, does not change what was judged -- which is the whole
     reason the rest of that menu is gone.
     """
-    from pyqtgraph.GraphicsScene.exportDialog import ExportDialog
-
-    dialog = ExportDialog(plot.scene())
-    dialog.show(plot.getPlotItem())
+    show_plot_exporter(plot.getPlotItem())
 
 
 def _evidence_origin(times: np.ndarray, unmatched: tuple[float, ...]) -> float:

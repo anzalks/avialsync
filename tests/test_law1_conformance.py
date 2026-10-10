@@ -218,3 +218,23 @@ def test_a_missing_recent_session_is_reported_not_refused(
     assert gates == []
     assert loaded == [], "there is nothing to load"
     assert len(reported) == 1
+
+
+def test_the_quit_command_closes_and_preserves_the_work(
+    main_window: MainWindow, gates: list[str], isolated_recovery_dir: Path
+) -> None:
+    """The menu's Quit, not just a window close, reaches the same path."""
+    from PySide6.QtGui import QAction
+
+    quit_action = next(
+        action
+        for action in main_window.findChildren(QAction)
+        if action.text() == "Quit" and action.menuRole() == QAction.MenuRole.QuitRole
+    )
+    main_window.annotation_store.add_point(1.0, "spike")
+
+    quit_action.trigger()
+
+    assert gates == []
+    assert main_window.isVisible() is False
+    assert recovery.read_recovery() is not None

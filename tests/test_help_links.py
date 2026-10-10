@@ -59,3 +59,22 @@ def test_every_learn_more_link_names_a_shipped_page() -> None:
                 re.sub(r"[^a-z0-9 -]", "", h.lower()).strip().replace(" ", "-") for h in headings
             }
             assert anchor in slugs, f"{page}: no heading makes #{anchor}"
+
+
+@pytest.mark.parametrize(
+    ("text", "declared"), [("Documentation", "Documentation"), ("Check for Updates", "Changelog")]
+)
+def test_help_links_open_the_declared_project_pages(
+    window: MainWindow, monkeypatch, text: str, declared: str
+) -> None:
+    from PySide6.QtGui import QAction
+
+    opened: list[str] = []
+    monkeypatch.setattr(
+        help_controller.QDesktopServices, "openUrl", lambda url: opened.append(url.toString())
+    )
+    action = next(a for a in window.findChildren(QAction) if a.text() == text)
+
+    action.trigger()
+
+    assert opened == [project_urls()[declared]]
