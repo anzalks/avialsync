@@ -231,6 +231,10 @@ class JobManager(QObject):
 
     #: Emitted whenever the set of jobs or any job's state changes.
     jobs_changed = Signal()
+    #: Emitted whenever any job starts or ends, shown or not. ``jobs_changed``
+    #: stays quiet about a job too brief to be shown, so a command that waits for
+    #: idle listens here: a job ending unseen would otherwise leave it disabled.
+    membership_changed = Signal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -293,6 +297,7 @@ class JobManager(QObject):
         if not self._watchdog.isActive():
             self._watchdog.start()
         thread.start()
+        self.membership_changed.emit()
         if announce_after_s > 0:
             QTimer.singleShot(int(announce_after_s * 1000), self, lambda: self._announce(thread))
         else:
@@ -443,3 +448,5 @@ class JobManager(QObject):
             self._watchdog.stop()
         if seen:
             self.jobs_changed.emit()
+        if finished:
+            self.membership_changed.emit()

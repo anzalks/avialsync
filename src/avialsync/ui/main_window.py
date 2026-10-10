@@ -503,6 +503,9 @@ class MainWindow(QMainWindow):
         # for stalls, and abandons it at shutdown so the window always closes.
         self._job_manager = JobManager(self)
         self._job_manager.jobs_changed.connect(self._on_jobs_changed)
+        # A job too brief to be shown ends without `jobs_changed`; what waits for
+        # idle (the cache commands) is re-answered on every start and end.
+        self._job_manager.membership_changed.connect(self._refresh_action_availability)
         self.artifact_writes = artifact_write_controller.ArtifactWriteQueue(self)
         # Off-thread work is only half the guarantee; this notices when the UI
         # thread blocks anyway and says so instead of just feeling laggy.

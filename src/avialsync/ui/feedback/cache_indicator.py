@@ -87,6 +87,7 @@ class CacheIndicator(QWidget):
         self._settle.setInterval(_SETTLE_MS)
         self._settle.timeout.connect(self.refresh)
         jobs.jobs_changed.connect(self._on_jobs_changed)
+        jobs.membership_changed.connect(self._on_membership_changed)
 
     def set_clear_action(self, action: QAction) -> None:
         """Offer *action* (File → Cache → Delete All Cache) beside the size."""
@@ -137,6 +138,13 @@ class CacheIndicator(QWidget):
             # Something that may write to the cache is running; measure after it.
             self._stale = True
             self._settle.stop()
+            return
+        if self._stale and self._shown_once and not self._measuring:
+            self._settle.start()
+
+    def _on_membership_changed(self) -> None:
+        """Measure once the last job ends, even one too brief to be shown."""
+        if any(not is_measuring(job) for job in self._jobs.jobs()):
             return
         if self._stale and self._shown_once and not self._measuring:
             self._settle.start()

@@ -10,10 +10,12 @@ from __future__ import annotations
 
 import gc
 import os
+import threading
 import time
 from pathlib import Path
 
 import pytest
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QMenu
 from shiboken6 import isValid
@@ -289,3 +291,35 @@ def test_the_measurement_stays_out_of_the_tasks_panel(window: MainWindow) -> Non
     window.cache_indicator.refresh()
 
     assert started and started[0]["announce_after_s"] >= 1.0
+
+
+class _BriefWorker(QObject):
+    """A job that ends before it would be shown, once *release* is set."""
+
+    finished = Signal()
+
+    def __init__(self, release: threading.Event) -> None:
+        super().__init__()
+        self._release = release
+
+    def run(self) -> None:
+        self._release.wait(10)
+        self.finished.emit()
+
+
+def test_delete_all_comes_back_after_a_job_too_brief_to_be_shown(window: MainWindow, qtbot) -> None:
+    """A job that ends unseen still re-answers what waits for idle.
+
+    An import finishing while such a job ran left Delete All Cache greyed out
+    for good: the unseen job's end emitted nothing, so no one asked again.
+    """
+    action = _action(window, "Delete All Cache")
+    release = threading.Event()
+    window._job_manager.start("brief", _BriefWorker(release), announce_after_s=60.0)
+    window._refresh_action_availability()  # as an import's end would
+    assert not action.isEnabled()
+    assert not window.cache_indicator.clear_button.isEnabled()
+
+    release.set()
+    qtbot.waitUntil(action.isEnabled, timeout=5000)
+    assert window.cache_indicator.clear_button.isEnabled()

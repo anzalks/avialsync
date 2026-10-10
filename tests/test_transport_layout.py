@@ -580,3 +580,26 @@ def test_coverage_span_keeps_solid_two_pixel_caps(qtbot) -> None:
     assert picture.pixelColor(23, 8) == QColor("#123456")
     assert picture.pixelColor(24, 8) == QColor("#123456")
     assert picture.pixelColor(14, 8) != QColor("#123456")
+
+
+def test_the_status_line_is_one_inset_line_that_shortens_to_fit(qtbot) -> None:
+    """Clear of the window's corner, never wider than the bar, never two lines."""
+    window = MainWindow()
+    qtbot.addWidget(window)
+    window.resize(900, 600)
+    window.show()
+    qtbot.waitUntil(lambda: not window._job_manager.jobs(), timeout=5000)
+    qtbot.wait(100)  # the startup jobs' own "Ready" has been said
+    line = window.transport.status_line
+    assert line.contentsMargins().left() >= 8, "text clear of the window's rounded corner"
+
+    line.set_status("Import failed:\ncannot read  params.mat", "error")
+    assert line.status_text() == "Import failed: cannot read params.mat"
+
+    long = "Importing " + "very_long_folder_name/" * 60 + "params.mat"
+    line.set_status(long, "busy")
+    window.statusBar().layout().activate()
+    bar = window.statusBar()
+    assert line.toolTip().endswith("params.mat"), "the whole message stays readable"
+    assert window.tasks_button.geometry().right() <= bar.width(), "Tasks stays on the bar"
+    assert window.cache_indicator.isVisible() and window.cache_indicator.geometry().left() > 0
