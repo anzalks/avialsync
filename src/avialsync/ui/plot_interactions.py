@@ -154,7 +154,7 @@ class PlotInteractionController:
         self.redraw_segment_boundaries()
 
     def on_scene_moved(self, scene_pos: Any) -> None:
-        """Reveal the row tools under the pointer (D-177); no work on the clock tick."""
+        """Reveal the row tools under the pointer; no work on the clock tick."""
         reveal_row_tools(self._pane.channels, float(scene_pos.y()))
 
     def on_scene_clicked(self, event: Any) -> None:

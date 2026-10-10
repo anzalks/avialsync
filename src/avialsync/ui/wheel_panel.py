@@ -1,6 +1,6 @@
-"""The Wheel page in Props: review a wheel being placed or edit one placed (D-113).
+"""The Wheel page in Props: review a wheel being placed or edit one placed.
 
-**The one place a wheel's numbers are edited** (AGENTS rule 15). The setup
+**The one place a wheel's numbers are edited**. The setup
 dialog asks for the first answers; after that the bar count, units, radius,
 direction and ratio live here, beside the fit they produced. The 3D view shows a wheel but
 never edits one.
@@ -8,8 +8,8 @@ never edits one.
 **Non-modal review.** While a wheel is being clicked the page shows what is
 wanted next, the fit so far (click error, spacing, parallelism, the radius the
 clicks imply), and Done Labelling / Flip / Undo Click / Discard Clicks. Done
-Labelling is available from the moment bars 1 and 2 are labelled (D-122);
-nothing is committed until it is pressed, and the videos stay usable (rule 11).
+Labelling is available from the moment bars 1 and 2 are labelled;
+nothing is committed until it is pressed, and the videos stay usable.
 
 **Fields commit, keystrokes do not.** Every spin box has keyboard tracking off,
 so typing ``120`` re-fits once rather than for 1, 12 and 120 -- each re-fit is
@@ -200,7 +200,7 @@ class _WheelRow(QFrame):
         )
         # The encoder source's own offset, the one in its Sources row: a
         # constant encoder-to-camera latency is corrected there, so its plots
-        # move with the wheel rather than disagreeing with it (rule 1).
+        # move with the wheel rather than disagreeing with it.
         self.offset = QDoubleSpinBox(self)
         self.offset.setDecimals(3)
         self.offset.setRange(-3600.0, 3600.0)
@@ -294,7 +294,7 @@ class WheelPanel(QGroupBox):
         self.hide()
 
     def _build_review(self) -> StepPanel:
-        """The review shown while a wheel is being clicked, on the shared step panel (D-176).
+        """The review shown while a wheel is being clicked, on the shared step panel.
 
         One sentence and one primary (Next Point); Undo, Go to Frame and Done
         Labelling beside it; Flip Side and Discard Clicks in the overflow; the

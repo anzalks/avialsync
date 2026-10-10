@@ -1,13 +1,13 @@
 """The status-bar activity area: what is running, how far, and how to stop it.
 
-This replaces the modal ``QProgressDialog`` the import path used to raise
-(D-091).  The work is unchanged — it was always on a worker — but the window
+This replaces the modal ``QProgressDialog`` the import path used to raise.
+The work is unchanged — it was always on a worker — but the window
 stays usable while it runs, which matters most for exactly the operation that
 justified the modal: a 1 GB CSV import is allowed sixty seconds by the
 performance budget, and sixty seconds of frozen application reads as a hang.
 
 Update rate is capped at :data:`_MAX_UPDATE_HZ`, matching the presentation
-limit the timeline observers already use (D-047).  Nothing here is ever driven
+limit the timeline observers already use.  Nothing here is ever driven
 from the 60 Hz clock tick.
 """
 
@@ -158,7 +158,7 @@ class ActivityBar(QWidget):
         remaining = elapsed * (1.0 - self._fraction) / self._fraction
         self._eta.setText(tr("{duration} left").format(duration=_format_duration(remaining)))
 
-    # ── for tests and diagnostics ────────────────────────────────────
+    # ── for diagnostics ──────────────────────────────────────────────
 
     @property
     def description(self) -> str:

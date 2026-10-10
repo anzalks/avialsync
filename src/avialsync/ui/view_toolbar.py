@@ -7,7 +7,7 @@ Data Streams header, where they used to share one row with the lanes'
 own controls.
 
 Placement and toggles are :class:`~avialsync.ui.action_button.ActionButton`\\ s
-on the Edit and View menus' own actions (rule 15); the window installs those
+on the Edit and View menus' own actions; the window installs those
 once it has built its menus.
 """
 
@@ -41,7 +41,7 @@ class ViewToolbar(QWidget):
         # Flag Frame marks the frame on screen: a video gesture, like the rest.
         self.flag_button = QPushButton(tr("Flag Frame"), self)
         self.flag_button.setToolTip(tr("Flag the current frame (M)"))
-        # One look for the whole row: every video tool is a glyph (D-181).
+        # One look for the whole row: every video tool is a glyph.
         apply_role(self.flag_button, ControlRole.TOOL, "flag")
         self.flag_button.clicked.connect(self.flag_requested.emit)
         row.addWidget(self.flag_button)
@@ -51,7 +51,7 @@ class ViewToolbar(QWidget):
         self.add_marker_button = ActionButton(self)
         # Ticked, the panes draw what the model predicted instead of what the
         # accepted swaps make of it -- beside the other video controls, because
-        # it changes what the video shows (D-141).
+        # it changes what the video shows.
         self.original_tracker_box = ActionCheckBox(self)
         for button in (
             self.fix_tracker_button,
@@ -60,8 +60,8 @@ class ViewToolbar(QWidget):
         ):
             row.addWidget(button)
         row.addStretch(1)
-        # Glyph buttons on the menu's own actions (D-174), which retires the
-        # D-126 exception that kept these two as text buttons of their own.
+        # Glyph buttons on the menu's own actions, which retires the
+        # exception that kept these two as text buttons of their own.
         self.snapshot_button = ActionButton(self)
         self.fit_videos_button = ActionButton(self)
         self.fullscreen_button = ActionButton(self)
@@ -93,7 +93,7 @@ class ViewToolbar(QWidget):
     def install_original_tracker_action(self, action: QAction) -> None:
         """Show the Play original toggle, driven by the View menu's own QAction."""
         # No text of its own: the QAction's label is the one authority for what
-        # this command is called, here and in the View menu (rule 15, D-092).
+        # this command is called, here and in the View menu.
         self.original_tracker_box.set_action(action)
         self.original_tracker_box.setAccessibleDescription(
             tr("Draw the tracking the model predicted, ignoring accepted identity swaps")

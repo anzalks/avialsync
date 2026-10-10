@@ -65,7 +65,7 @@ def main() -> None:
 
     # Before any widget is built: a translator installed afterwards does not
     # retranslate text already set. Silent when no catalogue matches the
-    # locale, which is the common case and not an error (WP-12).
+    # locale, which is the common case and not an error.
     install_translator(app)
     # After the translator, which reads the system locale to pick a catalogue,
     # and before any widget, which reads the default to format its numbers.

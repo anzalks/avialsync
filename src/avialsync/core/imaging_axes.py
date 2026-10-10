@@ -1,9 +1,9 @@
-"""Which dimension of an image stack is time, channel or depth (D-194).
+"""Which dimension of an image stack is time, channel or depth.
 
 A stack opens with an axis order straight away -- the file's own tags when they
 make sense, otherwise one inferred from the shape -- and the imaging pane offers
 every other valid order by name and size for the user to switch to. Asking
-first, as D-190 did, stopped people who could not say what "TCZYX" meant from
+first, as the first version did, stopped people who could not say what "TCZYX" meant from
 seeing their data at all.
 
 The last two dimensions are always the image (Y, X); the leading ones are some

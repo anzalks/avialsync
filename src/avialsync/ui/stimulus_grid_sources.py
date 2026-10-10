@@ -1,4 +1,4 @@
-"""What a stimulus grid can carry, read from the open session on the UI thread (D-210).
+"""What a stimulus grid can carry, read from the open session on the UI thread.
 
 Snapshots, not live objects: each camera's mapping and levels, each imaging
 stack's loader, timing and exactly how the viewer shows it, and each sensor
@@ -40,7 +40,7 @@ def camera_rows(window: MainWindow) -> list[PictureRowOption]:
     """Every camera; the ones on screen ticked."""
     grid = window.video_grid
     shown = set(map(id, grid.visible_panes()))
-    media = grid.media_path_for  # a proxy is what decodes (D-188)
+    media = grid.media_path_for  # a proxy is what decodes
     rows = []
     for path, pane in zip(grid.pane_paths(), grid.panes, strict=False):
         size = pane.video_size

@@ -59,7 +59,7 @@ _NO_ACCENT = _NoAccent()
 #: "No explicit accent" is a real answer and by far the common one -- the key is
 #: unset until someone picks a colour in System Settings -- so it is cached as
 #: firmly as a colour. Storing only successes meant re-deriving it by forking
-#: `defaults` on every call, from inside paint paths (D-111).
+#: `defaults` on every call, from inside paint paths.
 _macos_accent: QColor | _NoAccent | None = None
 _system_fonts: dict[int, QFont] = {}
 _font_scales: dict[int, float] = {}
@@ -88,7 +88,7 @@ def _color_scheme_hint(app: QApplication) -> Qt.ColorScheme:
     the System preference silently follows nothing.
 
     It answers ``Unknown`` wherever no platform theme is reachable — the
-    offscreen plugin CI runs under, notably — and there the palette is the only
+    offscreen plugin, notably — and there the palette is the only
     evidence available, which is why the lightness test below is a fallback
     rather than dead code.
     """
@@ -222,7 +222,7 @@ def _collection_paused() -> Iterator[None]:
 def _live_widgets(app: QApplication) -> list[QWidget]:
     """Return the widgets of *app* whose C++ objects still exist.
 
-    Two hazards, and ``isValid`` only answers the second one (D-064).
+    Two hazards, and ``isValid`` only answers the second one.
 
     Building the list is itself a dereference. ``allWidgets`` copies a pointer
     list in C++, then wraps each pointer in a Python object one at a time, and
@@ -354,7 +354,7 @@ def system_accent(palette: QPalette, *, platform: bool = False) -> QColor:
             # default configuration, so this is the usual branch -- and before
             # it existed every caller paid a `fork`+`exec` for the same answer.
             # `evidence_color` sits in the plot repaint path, which made a
-            # 128-row zoom spawn processes (D-111).
+            # 128-row zoom spawn processes.
             return _accent(palette, platform=platform)
         # Set before the call, not after: every exit from here has asked.
         _macos_accent = _NO_ACCENT
@@ -535,8 +535,8 @@ def evidence_color(palette: QPalette, kind: str) -> QColor:
         return on_surface(palette, _separated(accent_hue(palette) + 0.5, _DEFECT_HUE))
     if kind == "identity":
         # Stated, not derived: see `_IDENTITY_DARK`. The lane draws a crossing
-        # rather than a tick, so it never depends on this colour to be read
-        # (rule 17). The surface is read the same way `marker_color` reads it,
+        # rather than a tick, so it never depends on this colour to be read.
+        # The surface is read the same way `marker_color` reads it,
         # so a mark and a categorical marker cannot disagree about which
         # surface they are on.
         dark = _surface(palette).lightnessF() < 0.5
@@ -593,8 +593,7 @@ def marker_color(palette: QPalette, index: int) -> QColor:
         # Used as designed, not re-solved through `on_surface`. Most of this
         # palette's separation lives in the differences between its
         # lightnesses; normalising them collapses the worst pair from 0.094 to
-        # 0.040, and normalising saturation too takes it to 0.004 -- measured
-        # (D-094).
+        # 0.040, and normalising saturation too takes it to 0.004 -- measured.
         colours = palette_for_surface(_surface(palette).lightnessF() < 0.5)
         red, green, blue = colours[index % len(colours)]
         return QColor(red, green, blue)
@@ -639,7 +638,7 @@ def loop_pin_color(palette: QPalette, which: str) -> QColor:
 # The colours themselves are defined here, with every other colour in the
 # application, and applied to live pyqtgraph objects by `ui/plot_theme.py`.
 # Splitting it that way keeps pyqtgraph out of this module and keeps one
-# authority for what a colour *means* (D-092).
+# authority for what a colour *means*.
 
 #: How far the playhead is pushed from its canvas, as a fraction of the distance
 #: to the opposite pole.  Further than any evidence mark: this is the one line
@@ -654,11 +653,11 @@ _COVERAGE_ALPHA = 28
 
 #: Grid opacity.  pyqtgraph strokes the grid in the axis colour, so this is the
 #: whole of what keeps it a background rule instead of a second set of traces.
-#: Background rules recede behind the traces (D-177, F-28): 0.18 outweighed a
+#: Background rules recede behind the traces: 0.18 outweighed a
 #: trace in Light.
 _GRID_ALPHA = 0.10
 #: How far the axis line and tick marks move from text colour toward the canvas.
-#: Tick numbers keep full text contrast; only the strokes lighten (D-177).
+#: Tick numbers keep full text contrast; only the strokes lighten.
 _RULE_TOWARD_CANVAS = 0.55
 
 
@@ -682,7 +681,7 @@ class PlotColors:
     """Opacity for the background rules, as pyqtgraph's ``showGrid`` takes it."""
 
     rule: QColor
-    """Axis lines and tick marks: text colour moved toward the canvas (D-177)."""
+    """Axis lines and tick marks: text colour moved toward the canvas."""
 
 
 def _canvas_is_dark(palette: QPalette) -> bool:
@@ -1140,7 +1139,7 @@ def apply_font_size(app: QApplication, pref: str = FONT_SYSTEM) -> None:
     # rapid preference changes, which a menu action does not need, and bought
     # that with a window in which the callback could run after the widgets it
     # walks — or the application itself — had been torn down, which is a
-    # segfault rather than an exception (D-064). `setFont` has already
+    # segfault rather than an exception. `setFont` has already
     # propagated synchronously by this point, so there is nothing to wait for.
     _apply_font_to_existing_widgets(app, factors[pref])
     app_settings().setValue("font/preference", pref)

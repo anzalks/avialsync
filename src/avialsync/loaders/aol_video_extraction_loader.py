@@ -110,7 +110,7 @@ class AOLVideoExtractionLoader(TimeSeriesSource):
     70 channels.
 
     Unlike the pose exports in the same recording folder, these are ordinary
-    recorded signals: they are plotted, not drawn over video (D-046).
+    recorded signals: they are plotted, not drawn over video.
     """
 
     @classmethod
@@ -229,7 +229,7 @@ class AOLVideoExtractionLoader(TimeSeriesSource):
         zone. ``absolute_times`` is true POSIX UTC: the exporter converted the
         camera's *local* wall clock when it wrote the file. An AOL session's
         master axis is the wall clock itself, read as seconds since midnight
-        (D-045) -- the encoder log, the camera timing files, and every folder
+        -- the encoder log, the camera timing files, and every folder
         name in the tree are on it. Measured on the reference session, the two
         differ by exactly the recording site's UTC offset: 3600 s, which put
         every ROI metric a full hour before the video it was extracted from.
@@ -288,7 +288,7 @@ class AOLVideoExtractionLoader(TimeSeriesSource):
             "%s: absolute_times puts frame 1 %.3f s from the camera start this session "
             "resolved; timing from the camera start. A whole-hour difference is the "
             "recording site's UTC offset, which the exporter applied and the session's "
-            "wall-clock axis does not (D-045).",
+            "wall-clock axis does not.",
             path.name,
             residual,
         )

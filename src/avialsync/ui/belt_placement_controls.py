@@ -1,4 +1,4 @@
-"""Buttons that place a measured belt from four camera clicks (D-165).
+"""Buttons that place a measured belt from four camera clicks.
 
 In 3D, the four clicks are the top run's corners, each in two calibrated
 cameras. In one camera, they are the two roller hubs and the belt's top above

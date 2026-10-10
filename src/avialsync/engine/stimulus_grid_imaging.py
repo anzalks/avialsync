@@ -1,4 +1,4 @@
-"""An imaging row in a stimulus grid: the stack as the image viewer shows it (D-210).
+"""An imaging row in a stimulus grid: the stack as the image viewer shows it.
 
 Each event column shows the frame whose presentation interval contains the
 column's instant -- the same choice the viewer makes (``frame_index_at``, the

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    # ARCHITECTURE §1: engine must not depend on ui/ at module scope.
+    # The engine must not depend on ui/ at module scope.
     from avialsync.ui.video_pane import VideoPane
 
 

@@ -8,7 +8,7 @@ much of it fitted in the scroll viewport — and handed on as immutable
 worker thread.
 
 Re-rendering rather than grabbing is also what keeps one painting authority per
-surface (AGENTS rule 15): these are the widgets' own ``paintEvent`` paths run at
+surface: these are the widgets' own ``paintEvent`` paths run at
 a different scale, not a second drawing of the same thing.
 """
 
@@ -169,11 +169,11 @@ def _osd_detail(pane: VideoPane) -> str:
 
     Taken from the live OSD label rather than re-derived: the caption then says
     exactly what the pane said, and ``format_video_osd`` stays the only place
-    that decides how a frame number or rate is written (AGENTS rule 15).  On
+    that decides how a frame number or rate is written.  On
     screen it is a stacked block clipped to the pane's width; here it has a full
     caption line, which is where the truncated "Time: 00:0" came from.
 
-    Always the full detail (D-174): the pane may show one compact line, but a
+    Always the full detail: the pane may show one compact line, but a
     figure for a report keeps the rate and codec beside the frame.
     """
     text = pane.osd_text("full") if hasattr(pane, "osd_text") else pane.lbl_osd.text()
@@ -181,7 +181,7 @@ def _osd_detail(pane: VideoPane) -> str:
     surface = getattr(pane, "surface", None)
     if surface is not None and not getattr(surface, "is_default_view", True):
         # On screen the zoom is written over the picture; in a figure it is
-        # stated here, so the picture carries only the recording (D-209).
+        # stated here, so the picture carries only the recording.
         lines.append(tr("view {readout}").format(readout=surface.view_readout()))
     return " · ".join(lines)
 
@@ -210,7 +210,7 @@ def capture_video_tile(pane: VideoPane, title: str) -> SnapshotTile | None:
 
 
 def _placeholder_image(width: int, height: int, message: str) -> QImage:
-    """Draw the pane's own no-footage placeholder at tile size (D-010)."""
+    """Draw the pane's own no-footage placeholder at tile size."""
     image = QImage(max(1, width), max(1, height), QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(QColor(0, 0, 0))
     painter = QPainter(image)
@@ -281,7 +281,7 @@ def capture_plot_image(plot_pane: Any, content_width: int) -> QImage | None:
     if stack is None:
         return None
     scale = min(max(content_width / stack.width(), _MIN_PLOT_SCALE), _MAX_PLOT_SCALE)
-    # Rows scrolled out of view are not drawn on screen (D-201); the figure
+    # Rows scrolled out of view are not drawn on screen; the figure
     # carries every row, so every row is drawn for it.
     drawn = getattr(plot_pane, "every_row_drawn", nullcontext)
     with drawn():
@@ -314,7 +314,7 @@ def _grid_scale(panes: list[VideoPane], width: int) -> float:
     is a stretched low-resolution copy beside the others, bounded so the grid
     stays within a figure's width. A zoomed camera shows fewer recorded pixels
     and is drawn at the same scale as its neighbours, which is what keeps the
-    figure's proportions the grid's (D-209).
+    figure's proportions the grid's.
     """
     wanted = max((_frame_render_scale(pane) for pane in panes), default=_MIN_RENDER_SCALE)
     widest = _MAX_GRID_WIDTH / max(1, width)
@@ -380,7 +380,7 @@ def _subtitle(window: MainWindow, tiles: int) -> str:
     The time is written by the transport, so a figure exported while the window
     is showing UTC says UTC too.  Re-deriving it here would need a second copy
     of the display mode and the epoch, and a second copy is how a caption comes
-    to disagree with the clock above it (AGENTS rule 15).
+    to disagree with the clock above it.
     """
     parts = [f"t = {window.transport.format_master_time(window.clock.state.t)}"]
     if tiles:
@@ -410,7 +410,7 @@ def _title(window: MainWindow) -> str:
 def capture_figure(window: MainWindow) -> SnapshotFigure:
     """Capture every displayed surface into one figure laid out like the window.
 
-    Cameras keep the video grid's arrangement and relative sizes (D-209); the
+    Cameras keep the video grid's arrangement and relative sizes; the
     3D pose and the imaging picture follow below them.
     """
     cells, extras = _grid_cells(window, _displayed_cameras(window))

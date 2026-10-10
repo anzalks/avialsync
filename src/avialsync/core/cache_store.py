@@ -1,4 +1,4 @@
-"""Find and remove cache entries -- and nothing else (D-160).
+"""Find and remove cache entries -- and nothing else.
 
 The cache root is the one folder a user is told they can delete, so removing
 from it must never reach anything that is not derived.  Every removal here goes
@@ -246,8 +246,8 @@ def _sweep_trash(sources: Path) -> None:
 def _tree_size(directory: Path) -> int:
     """Bytes held by *directory*, counting a hard-linked file once.
 
-    The importer hard-links one timestamp array into every channel of a stream
-    (D-071), so summing ``st_size`` per name would report freeing many times
+    The importer hard-links one timestamp array into every channel of a stream,
+    so summing ``st_size`` per name would report freeing many times
     what the disk actually gets back.
     """
     seen: set[tuple[int, int]] = set()

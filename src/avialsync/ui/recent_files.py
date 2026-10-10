@@ -1,9 +1,8 @@
 """Recent-session list backed by QSettings.
 
 This lives in ``ui/`` rather than ``core/`` because it is presentation state, not
-session data: it depends on Qt and it must not pollute the ``.avv`` data file.
-Architecture rule 2 — ``core/`` never imports PySide6 — is enforced by
-``tests/test_headless_core.py``.
+session data: it depends on Qt and it must not pollute the ``.avv`` data file,
+and ``core/`` never imports PySide6.
 """
 
 from __future__ import annotations

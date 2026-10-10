@@ -1,4 +1,4 @@
-"""An imaging stack's card on the Sources page, shaped like a camera's (D-175, D-196).
+"""An imaging stack's card on the Sources page, shaped like a camera's.
 
 The card is the one place a stack's offset and drift are edited, and the one
 place it is removed from; the imaging pane shows the picture and how it is
@@ -50,7 +50,7 @@ def bit_depth(dtype: str) -> str:
 
 
 def describe_picture(info: ImagingMetadata) -> str:
-    """``512×512 · 16-bit``: what the picture is, as the video overlay says it (D-183)."""
+    """``512×512 · 16-bit``: what the picture is, as the video overlay says it."""
     return f"{info.width}×{info.height} · {bit_depth(info.dtype)}"
 
 

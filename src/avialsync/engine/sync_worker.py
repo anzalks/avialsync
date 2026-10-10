@@ -53,7 +53,7 @@ class EventEvidenceSpec:
     times: np.ndarray
     #: As above. Carried on the spec rather than asked for separately, because
     #: it travels with the evidence and every other route loses it -- which is
-    #: what left `EXACT` and `PIECEWISE` unreachable while both were tested.
+    #: what left `EXACT` and `PIECEWISE` unreachable even though both worked.
     kind: TriggerKind = TriggerKind.SPARSE_EVENTS
     clock_id: str = ""
     accepted_mapping: TimeMap | None = None
@@ -141,7 +141,7 @@ class SyncWorker(QObject):
 
         Read off the spec rather than accepted as a second argument: a caller
         that had to pass it separately could pass a different one, and that is
-        exactly the duplication rule 15 exists to prevent. It travels with the
+        exactly the duplication one authority per concept prevents. It travels with the
         evidence, and every route that lost it lost two rungs of the ladder.
         """
         return self._reference.kind
@@ -391,7 +391,7 @@ class SyncWorker(QObject):
                 reference_clock_id=self._reference.clock_id or self._reference.source_id,
             )
         # One vectorised inverse rather than a dataclass copy per match: a
-        # ten-thousand-event preview is benchmarked against 250 ms.
+        # ten-thousand-event preview has a 250 ms budget.
         master = np.fromiter(
             (match.reference_time for match in proposal.matches),
             dtype=np.float64,
@@ -448,8 +448,8 @@ class SyncWorker(QObject):
         and comparing its count to a container's would invent a disagreement.
 
         This being unreachable -- the caller passed ``None`` unconditionally --
-        is what kept `AlignmentMethod.EXACT` out of every automatic fit while
-        the code selecting it was fully tested.
+        is what kept `AlignmentMethod.EXACT` out of every automatic fit even
+        though the code selecting it worked.
         """
         if not self._kind.identifies_frames or not isinstance(self._target, EventEvidenceSpec):
             return None

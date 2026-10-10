@@ -26,7 +26,7 @@ the data cannot tell distortion from a focal-length change, and a fitted term
 only made the solution wander. ``metadata`` records that it was fitted.
 
 No OpenCV here: the model is a dozen lines of numpy, and ``pip install
-avialsync`` must not grow a native dependency for them (AGENTS.md tech stack).
+avialsync`` must not grow a native dependency for them.
 """
 
 from __future__ import annotations

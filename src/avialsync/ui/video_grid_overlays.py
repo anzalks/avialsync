@@ -2,8 +2,8 @@
 
 Split from :mod:`avialsync.ui.video_grid`, which lays panes out; this decides
 what each pane draws over its frame -- tracking readers and tracks, hand
-corrections and the Fix Tracker mode (D-099), hand-placed markers and their
-placement mode (D-112), reprojection, and the wheel (D-113).
+corrections and the Fix Tracker mode, hand-placed markers and their
+placement mode, reprojection, and the wheel.
 
 **Everything is held, not just forwarded.** Panes are built one at a time and
 each demuxes its whole file first, so overlay state routinely resolves while a
@@ -43,7 +43,7 @@ class GridOverlayMixin:
         #: overlay tracks are: a pane built later must open already in the
         #: state the rest of the grid is in, not in the default one.
         self._point_edits: object | None = None
-        #: How a pane finds the column behind a displayed point (D-143).
+        #: How a pane finds the column behind a displayed point.
         self._identity_resolver: object | None = None
         self._point_edit_mode = False
         #: Hand-placed 3D markers per camera path, and whether a new one is
@@ -52,7 +52,7 @@ class GridOverlayMixin:
         self._marker_place_mode = False
         #: ``(path, t_master) -> [(name, x, y)]``: 3D points projected into a camera.
         self._reprojection: Callable[[str, float], list] | None = None
-        #: ``(path, t_master) -> WheelDrawing``: the wheel model in a camera (D-113).
+        #: ``(path, t_master) -> WheelDrawing``: the wheel model in a camera.
         self._wheel: Callable[[str, float], object] | None = None
         self._props: Callable[[str, float], list] | None = None
 
@@ -103,7 +103,7 @@ class GridOverlayMixin:
         The tracks are kept against the path because they routinely arrive
         before their pane exists, and the arrival is a one-shot event nobody
         repeats. Opening a pane demuxes the whole file to build its timestamp
-        table, and panes are built strictly one at a time (D-040), while the
+        table, and panes are built strictly one at a time, while the
         pose CSVs import concurrently beside them. On a multi-camera session
         that means every camera after the first had its overlay resolved while
         it still had no pane to land on — dropped here, and never asked for

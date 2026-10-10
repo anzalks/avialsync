@@ -38,7 +38,7 @@ _ASSUMED_FPS = 30.0
 def _has_pose_coordinates(pose: PoseSchema | None, axes: tuple[str, ...]) -> bool:
     """Whether one point carries every coordinate a declared pose role needs.
 
-    The loader's own schema is the only answer (D-140). A source that declares
+    The loader's own schema is the only answer. A source that declares
     none is not a pose source, and the role falls back to plain channels with
     the notification the caller already raises.
     """
@@ -59,8 +59,8 @@ def start_data_import(
     if loader_cls is None:
         discovered_loader = window._registry.find_best_loader(path, kind=TimeSeriesSource)
         if discovered_loader is None:
-            # Reported, not refused with a modal in the way (AGENTS rules 10 and
-            # 12): `SourceOpenError`'s presentation already names "a format
+            # Reported, not refused with a modal in the way: `SourceOpenError`'s
+            # presentation already names "a format
             # AvialSync has no loader for" as one of its causes, and offers
             # Locate and Copy diagnostics with it.
             window.report_failure(
@@ -96,7 +96,7 @@ def start_data_import(
             config["fps_provisional"] = provisional
         if config.get("fps_provisional"):
             # Imported anyway, at an assumed rate, and re-imported the moment a
-            # camera can date these frames (rule 10: never block, always
+            # camera can date these frames (never block, always
             # inform). The quality badge carries the "assumed" until then.
             window._frame_indexed_sources.append((path, loader_cls, config))
 
@@ -110,7 +110,7 @@ def frame_rate_for_tracking(window: MainWindow, config: dict[str, Any]) -> tuple
     fast they came. Asking the user is asking them to read a number off the
     video and type it back in, and the dialog this replaced also *discarded*
     what they typed in its one-video case -- it returned the pre-filled rate
-    whatever the field said (D-137).
+    whatever the field said.
 
     ``provisional`` means nothing loaded can answer yet and the rate returned is
     an assumption. The caller flags the import, which is what raises the "Frame
@@ -166,7 +166,7 @@ def start_import(window: MainWindow, path: Path, loader_cls: type, config: dict[
 
     worker = ImportWorker(path, config, loader_cls)
 
-    # No modal dialog (D-091). The work was always on a worker; the modality
+    # No modal dialog. The work was always on a worker; the modality
     # was gratuitous, and the budget allows a 1 GB CSV sixty seconds -- a full
     # minute during which the window could not be touched.
     window.activity_bar.begin(f"Importing {path.name}")
@@ -191,10 +191,10 @@ def start_import(window: MainWindow, path: Path, loader_cls: type, config: dict[
         # PySide's `disconnectNotify` override takes the GIL to look for a
         # Python override. Meanwhile the GUI thread holds the GIL and closes
         # the progress dialog, which waits on a mutex from that same pool.
-        # Colliding addresses deadlock both threads permanently (D-062).
+        # Colliding addresses deadlock both threads permanently.
         thread.finished.connect(window._on_import_thread_finished)
 
-    # Registered rather than hand-wired (D-107), so the import appears in the
+    # Registered rather than hand-wired, so the import appears in the
     # Tasks panel beside every other job, is watched for stalls, and is
     # abandoned in the ordinary way at shutdown. `JobManager` already connects
     # `started -> run` and quits the thread on `finished`/`error`, so those
@@ -254,7 +254,7 @@ def on_import_finished(
         # If the config explicitly provides an offset (e.g. from drop_worker or wizard), use it.
         if "offset" in inspection.import_config and offset == 0.0:
             offset = float(inspection.import_config["offset"])
-        if drift == 0.0:  # an older import config may carry it per million (D-184)
+        if drift == 0.0:  # an older import config may carry it per million
             drift = drift_from_legacy_entry(inspection.import_config)
 
     channel_visibility = (
@@ -298,7 +298,7 @@ def on_import_finished(
     # for, and only the latter reaches the sidebar. Adding them into one number
     # is what made `set_sensor_mapping` hand an `epoch_ms` file's 1.77e9 to a
     # spin box ranged at a day: it clamped to 86400 s, silently, and that clamp
-    # was then what the session saved (D-026).
+    # was then what the session saved.
     base = window.declare_base_offset(path, bounds[0])
     if offset == 0.0:
         # Nothing more specific was asked for, so the placement is the mapping.
@@ -346,7 +346,7 @@ def on_import_finished(
             # and drift alone would reopen it on a straight line instead.
             window.plot_pane.set_source_exact_mapping(Path(cache_dir), *exact)
         # Rows are built across several event-loop turns so the window stays
-        # usable during a large selection (D-060), so reader-derived bounds
+        # usable during a large selection, so reader-derived bounds
         # may not exist yet. The worker's bounds are the correct stand-in
         # until they do; `_refine_source_bounds` re-applies the exact span
         # once every row exists.
@@ -387,7 +387,7 @@ def on_import_finished(
         if inspection.messages:
             window.message_store.set_source_mapping(path, offset, drift)
             window.message_store.set_source_messages(path, inspection.messages)
-        # Declared by the loader, overridden by the import wizard (D-186); source-
+        # Declared by the loader, overridden by the import wizard; source-
         # scoped, so two files' "force_z" never relabel each other's row.
         scoped: dict[ChannelKey | str, str] = {
             ChannelKey(path, channel): unit for channel, unit in inspection.units().items()
@@ -470,7 +470,7 @@ def register_tracking_source(
 
     # The loader said which points exist and what they are called; this no
     # longer re-derives them by splitting ``_x`` off a channel name, which is
-    # what let two animals sharing ``snout`` collapse into one point (D-140).
+    # what let two animals sharing ``snout`` collapse into one point.
     points: dict[str, tuple[MappedChannelReader, MappedChannelReader]] = {}
     point_channels: dict[str, tuple[str, str]] = {}
     available = set(channels)
@@ -522,12 +522,12 @@ def register_tracking_source(
     }
     # What this source is and where it was imported to, kept because an
     # identity swap has to rebuild its channels and re-point its readers
-    # without re-reading the file (D-142).
+    # without re-reading the file.
     window._pose_schemas[path] = pose
     window._pose_cache_dirs[path] = cache_dir
     calibrate_overlay_timing(window, video)
     # Whatever the user already corrected on this recording, wherever the
-    # session it was corrected in has got to (D-099). After registration
+    # session it was corrected in has got to. After registration
     # because the sidecar speaks video frame numbers and the conversion back to
     # sample indices needs this source's own time column; before the tracks are
     # published, so the pane's first paint is already the corrected one.
@@ -594,7 +594,7 @@ def _report_uncalibrated_overlay(window: MainWindow, video: str, source_id: str)
     Not a log line. Uniform ``index / fps`` timing drifts from a real
     recording's presentation times by up to 0.16 s -- five frames at 30 fps, on
     top of the animal -- and a person who is not told simply sees tracking that
-    does not fit and mistrusts the tracking (Law 1: never block, always inform).
+    does not fit and mistrusts the tracking (never block, always inform).
 
     Once per source: a retry on every video load would train them to dismiss it.
     """

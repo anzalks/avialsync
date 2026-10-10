@@ -6,7 +6,7 @@ before the binary format — keeps whatever the experimenter typed in a plain
 and deliberately not this: ``openephysrawio.py`` filters the file out by name
 and leaves the event channel that would carry it commented out, marked "not
 implemented yet".  So the prose is simply absent, with nothing reporting that it
-is (D-085).
+is.
 
 The file is ASCII, and unlike every other file in the folder it has **no**
 1024-byte header — it is lines of ``<sample number> <text>``.  The first lines
@@ -83,7 +83,7 @@ def read_messages(recording: Path) -> list[Message]:
     start.
 
     A note whose rate cannot be established stays untimed rather than being
-    pinned to zero (D-078).  Open Ephys' own stamp is also known to keep running
+    pinned to zero.  Open Ephys' own stamp is also known to keep running
     while recording is paused, so a message in a paused recording names a moment
     slightly past the sample it was typed at — that is the file's claim, and it
     is reported as the file makes it rather than silently corrected.

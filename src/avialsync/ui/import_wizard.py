@@ -287,7 +287,7 @@ class ImportWizard(QDialog):
         main_layout.addWidget(config_group)
 
         # What is missing, said in place rather than in a modal on top of a
-        # modal (D-107). The three "Import Error" message boxes this replaces
+        # modal. The three "Import Error" message boxes this replaces
         # made the user click OK to get back to the field they had to fix, and
         # said nothing at all until they had already pressed Import.
         self._validation_label = QLabel("")
@@ -376,7 +376,7 @@ class ImportWizard(QDialog):
 
         One function, read by both the button's enabled state and the message
         beside it, so the two can never disagree about whether the form is
-        ready (AGENTS rule 15).
+        ready.
         """
         if not self._headers:
             return tr("No columns were detected in this file. Check the separator and encoding.")

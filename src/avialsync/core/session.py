@@ -25,7 +25,7 @@ EXACT_MAPPING_DIR_SUFFIX = "_avv_sync"
 def exact_mapping_dir(session_path: Path) -> Path:
     """Return the folder beside *session_path* holding its exact-sync arrays.
 
-    Part of the session, not the cache (D-160): a mapping the user accepted is
+    Part of the session, not the cache: a mapping the user accepted is
     a decision, and the session will not open without the arrays it names.
     Keeping them out of the cache root is what makes that root safe to delete.
     """
@@ -146,7 +146,7 @@ class SyncProvenance:
     #: raw times and the master times the fit used after that clock's own
     #: accepted mapping was applied.
     reference_clock_id: str = ""
-    #: 0.0 for a record saved before precision was assessed (D-201): "not
+    #: 0.0 for a record saved before precision was assessed: "not
     #: assessed" is reported, never "unverified".
     precision_requirement: float = 0.0
     precision_verified: bool = False
@@ -195,14 +195,14 @@ class SessionState:
     t_end: float = 0.0
     plot_x0: float | None = None
     plot_x1: float | None = None
-    #: Overlay visibility, schema v7 (D-090). Only differences from each
+    #: Overlay visibility, schema v7. Only differences from each
     #: layer's default are written, so a later change of default still reaches
     #: sessions that never expressed a preference.
     overlays: dict[str, Any] = dataclasses.field(default_factory=dict)
-    #: Per-source display window, schema v7 (D-093). Normalised 0-1 so it keeps
+    #: Per-source display window, schema v7. Normalised 0-1 so it keeps
     #: its meaning if the same rig is later recorded at a different bit depth.
     display_levels: dict[str, Any] = dataclasses.field(default_factory=dict)
-    #: Hand corrections to tracked points, schema v8 (D-099). Sparse: one entry
+    #: Hand corrections to tracked points, schema v8. Sparse: one entry
     #: per coordinate the user moved, in the pose source's own video pixels. The
     #: imported CSV and its cache are never rewritten, so removing this list
     #: restores exactly the model's own predictions.
@@ -217,14 +217,14 @@ class SessionState:
     #: Trigger evidence the user loaded and typed (schema v9). Evidence, not
     #: data: nothing here is ever plotted.
     triggers: list[TriggerEntry] = dataclasses.field(default_factory=list)
-    #: Accepted identity swaps per pose source, schema v10 (D-141). Normally a
+    #: Accepted identity swaps per pose source, schema v10. Normally a
     #: count and where the swaps live, exactly as `point_edits` records a count:
     #: the authority is the `_avialswap.csv` beside the pose file, and the count
     #: is what lets a missing one be reported rather than silently obeyed. The
     #: events themselves appear here only when that file could not be written.
     identity_swaps: list[dict[str, Any]] = dataclasses.field(default_factory=list)
     #: Session view choice: compare the estimator's imported tracker against
-    #: the edited generation without changing either one (D-145).
+    #: the edited generation without changing either one.
     show_original_tracker: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -267,15 +267,15 @@ class SessionState:
     def from_dict(cls, data: dict[str, Any]) -> SessionState:
         """Deserialise from a parsed JSON dict (accepts v1 through v14).
 
-        Schema 12 (D-184) stores clock drift as ``drift_ms_per_hour``; earlier
+        Schema 12 stores clock drift as ``drift_ms_per_hour``; earlier
         versions stored a rate per million, converted on read by
-        :func:`avialsync.core.drift.drift_from_legacy_entry`. Schema 13 (D-190)
+        :func:`avialsync.core.drift.drift_from_legacy_entry`. Schema 13
         adds two-photon imaging stacks; schema 14 adds channel visibility
         overrides. Older files use the loader's current defaults.
 
         Every added field is optional with a default, so an older file loads and
         renders exactly as it did before the bump -- that equivalence is the
-        migration test, not an aspiration.
+        migration requirement, not an aspiration.
         """
         version = data.get("version", 1)
         if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14):

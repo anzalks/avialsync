@@ -5,8 +5,7 @@ An edit produces a **generation** -- ``<cache entry>/edited/<fingerprint>/``
 -- holding the pyramid of exactly the channels the edits changed, and every
 consumer then reads those channels from there and the rest from the original
 cache.  Plot rows, the video overlay, the 3D view, the readout and every export
-therefore show the edited tracker without any of them knowing what a flip is
-(D-142).
+therefore show the edited tracker without any of them knowing what a flip is.
 
 **Per channel, not per source.**  A generation holds only what changed: a flip
 of one body part between two animals is four channels out of sixty, and a

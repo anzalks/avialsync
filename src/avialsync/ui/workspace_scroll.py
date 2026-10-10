@@ -1,4 +1,4 @@
-"""The workspace column scrolls when the window is shorter than it (D-182).
+"""The workspace column scrolls when the window is shorter than it.
 
 Every pane in the column -- videos, 3D, plots, Data Streams, transport -- has
 a floor, and their sum is the window's minimum height. At the default font it

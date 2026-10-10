@@ -1,7 +1,7 @@
 """The imaging pane's reader: one lazy source, coalesced requests, bounded memory.
 
 One worker per selected stack lives on its own thread for as long as the stack
-is shown (D-190). The pane hands it the newest wanted frame index and display
+is shown. The pane hands it the newest wanted frame index and display
 view; anything older that has not started yet is dropped, so a reader slower
 than the 60 Hz tick skips frames instead of building a backlog nobody will see.
 

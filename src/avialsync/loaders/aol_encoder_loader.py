@@ -8,7 +8,7 @@ cumulative angle (``encoder_angle``, degrees). The angle is what hand-placed
 3D markers rotate by with the wheel: it counts whole turns exactly, where
 integrating the velocity drifts.
 
-Master-time axis (do not "fix" this without reading DECISIONS.md):
+Master-time axis (deliberate; do not "fix" it):
     Within an auto-detected AOL session, encoder timestamps are emitted as
     **seconds since midnight UTC**, which is deliberately the same axis AOL
     videos and EKS tracking land on.  The AOL manifest reads each camera's
@@ -21,7 +21,7 @@ Master-time axis (do not "fix" this without reading DECISIONS.md):
     ``drop_worker`` marks every candidate it produces with
     ``config["auto_resolved"] = True`` -- that flag, not the presence of
     ``anchor_date`` (which the auto path also sets whenever a session has one),
-    is what identifies an AOL-session import (D-052).  A manual import (a bare
+    is what identifies an AOL-session import.  A manual import (a bare
     ``encoder_log.txt`` opened outside a detected session, so ``auto_resolved``
     is absent) has no video/EKS epoch to share, and a manually-opened video or
     CSV instead starts near its own relative zero -- so the encoder is shifted
@@ -54,7 +54,7 @@ _TIME_RE = re.compile(r"^(\d{2}):(\d{2}):(\d{2}):(\d{3})$")
 _CHUNK_SIZE = 50_000
 _VELOCITY_CHANNEL = "encoder_velocity"
 #: The unwrapped, cumulative wheel angle in degrees. Public: the AOL session
-#: declares it as the channel that turns the running wheel (D-113).
+#: declares it as the channel that turns the running wheel.
 ANGLE_CHANNEL = "encoder_angle"
 #: Column holding each channel's value in a log line.
 _COLUMN = {_VELOCITY_CHANNEL: 3, ANGLE_CHANNEL: 2}
@@ -196,13 +196,13 @@ class AOLEncoderLoader(TimeSeriesSource):
         """Every readable ``(seconds, value)`` of *ch*, in file order, unwrapped.
 
         Time is unwrapped past midnight; the angle past each full turn. A line
-        that cannot be read is logged and skipped, never fatal (rule 10).
+        that cannot be read is logged and skipped, never fatal.
         """
         column = _COLUMN[ch]
         # `auto_resolved` -- not `anchor_date` -- is the reliable signal that this
         # is an AOL-session auto-import: drop_worker sets it on every candidate it
         # produces, whereas it also sets `anchor_date` whenever the session has
-        # one, so `anchor_date` presence cannot distinguish the two paths (D-052).
+        # one, so `anchor_date` presence cannot distinguish the two paths.
         is_manual = not bool(self._config.get("auto_resolved", False))
         first_t: float | None = None
         # Carried across chunk boundaries.
@@ -292,7 +292,7 @@ class AOLEncoderLoader(TimeSeriesSource):
 class _TurnUnwrapper:
     """Carry a position that wraps at 360 degrees on into a cumulative angle.
 
-    A wheel that has turned three times reads 1080, not 0 (D-112). A step of
+    A wheel that has turned three times reads 1080, not 0. A step of
     more than half a turn between two samples a millisecond apart is a wrap,
     never motion: the wheel would have to spin at over 80 000 rpm.
     """
@@ -322,7 +322,7 @@ class _MidnightUnwrapper:
     AOL video and EKS master time is epoch-derived, so it keeps increasing past
     86400 when a recording crosses midnight.  The encoder's wall clock wraps back
     to 0 instead, which would read as a full-day backward jump.  Unwrapping keeps
-    both streams on one axis (D-045).
+    both streams on one axis.
     """
 
     def __init__(self) -> None:

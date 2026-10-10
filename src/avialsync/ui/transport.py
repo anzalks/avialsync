@@ -364,7 +364,7 @@ class TimelineOverview(QWidget):
 
         Beside the gap lane deliberately: both answer "where is this recording
         not what it appears to be", and a reviewer looking for one is looking in
-        the same place for the other (D-141).
+        the same place for the other.
         """
         self._identity_events = _normalise_events(events)
         self._event_times["identity"] = _time_index(self._identity_events)
@@ -439,7 +439,7 @@ class TimelineOverview(QWidget):
         self._on_evidence_changed()
 
     def accessible_value(self) -> str:
-        """The playhead, read when assistive technology asks (D-179)."""
+        """The playhead, read when assistive technology asks."""
         return tr("Playhead at {time} s").format(time=f"{self._cursor:.3f}")
 
     def accessible_detail(self) -> str:
@@ -727,7 +727,7 @@ class TimelineOverview(QWidget):
                 )
                 # Two crossing strokes, not a tick: this lane says two labels
                 # exchanged, and the glyph says it without relying on its
-                # colour (rule 17).
+                # colour.
                 painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
                 painter.setPen(QPen(evidence_color(palette, "identity"), _GLYPH_WIDTH))
                 for x in self._visible_event_x("identity", t0, t1):
@@ -736,7 +736,7 @@ class TimelineOverview(QWidget):
                 # The same hue at the same strength. Fading a proposal was the
                 # obvious way to say "not yet" and it said "not there" instead;
                 # hollow against the accepted crossing's stroke carries it
-                # without spending contrast (rule 17).
+                # without spending contrast.
                 painter.setPen(QPen(evidence_color(palette, "identity"), _GLYPH_WIDTH))
                 middle = (top + bottom) // 2
                 for x in self._visible_event_x("identity_candidate", t0, t1):
@@ -961,12 +961,11 @@ class Transport(QWidget):
     """Transport bar: play/pause, frame step, scrub slider,
     A/B loop, rate control, and inline time display / jump.
 
-    New signals (D-022):
+    New signals:
       jump_requested(float)— jump ±Ns (negative = back)
 
     Snapshot and Fullscreen moved to the ViewToolbar under the videos, and the
-    Data Streams "Reset Zoom" -- a twin of the plots' own Reset -- was removed
-    (D-126).
+    Data Streams "Reset Zoom" -- a twin of the plots' own Reset -- was removed.
     """
 
     play_toggled = Signal(bool)
@@ -976,7 +975,7 @@ class Transport(QWidget):
     ab_loop_changed = Signal(object, object)  # t_in|None, t_out|None
     jump_requested = Signal(float)  # delta in seconds
 
-    # Ordered playback-rate steps (J/K/L model, D-022.4)
+    # Ordered playback-rate steps (J/K/L model)
     _RATE_STEPS = PLAYBACK_RATE_STEPS
 
     def __init__(self, parent: QWidget | None = None):
@@ -1005,7 +1004,7 @@ class Transport(QWidget):
         # Declare which characters a timecode can hold. The grammar is still
         # checked by `_parse_time_input` on Enter; this only says what may be
         # typed at all, which is what lets the window take back a letter
-        # shortcut the field would have discarded anyway (D-059). "UTC" is in
+        # shortcut the field would have discarded anyway. "UTC" is in
         # the class because `format_time` writes that suffix into this field.
         self._time_edit.setValidator(
             QRegularExpressionValidator(QRegularExpression(r"[0-9:.+\- UTC]*"), self._time_edit)
@@ -1081,7 +1080,7 @@ class Transport(QWidget):
         apply_role(self._jump_fwd_btn, ControlRole.TOOL, "jump-forward")
         self._jump_fwd_btn.clicked.connect(lambda: self.jump_requested.emit(1.0))
 
-        # ── A/B loop buttons (checkable — D-022.5) ────────────────────
+        # ── A/B loop buttons (checkable) ────────────────────
         self._ab_in_btn = QPushButton(tr("Set In"))
         self._ab_in_btn.setCheckable(True)
         self._ab_in_btn.setAccessibleName(tr("Set loop in-point"))
@@ -1145,7 +1144,7 @@ class Transport(QWidget):
     # ── Public API ────────────────────────────────────────────────────
 
     def ab_in(self) -> None:
-        """Set the A/B loop in-point at the current slider position (public, D-022.1)."""
+        """Set the A/B loop in-point at the current slider position (public)."""
         self._on_ab_in()
 
     def detach_data_streams(self) -> TimelineEvidence:
@@ -1158,7 +1157,7 @@ class Transport(QWidget):
         return self.evidence
 
     def ab_out(self) -> None:
-        """Set the A/B loop out-point at the current slider position (public, D-022.1)."""
+        """Set the A/B loop out-point at the current slider position (public)."""
         self._on_ab_out()
 
     def set_ab_region(self, start: float, end: float) -> None:
@@ -1211,7 +1210,7 @@ class Transport(QWidget):
 
         The transport owns the displayed time mode and epoch, so anything that
         has to write a master time in the same words asks here rather than
-        keeping a second copy of either (D-020, AGENTS rule 15).  It formats a
+        keeping a second copy of either.  It formats a
         given time rather than returning the field's text, which is the user's
         own keystrokes while they are typing a jump.
         """
@@ -1302,7 +1301,7 @@ class Transport(QWidget):
         self.play_btn.blockSignals(False)
 
     def step_rate_up(self) -> None:
-        """Advance the rate combo to the next higher step (L key, D-022.4)."""
+        """Advance the rate combo to the next higher step (L key)."""
         idx = min(self.rate_combo.currentIndex() + 1, self.rate_combo.count() - 1)
         self.rate_combo.setCurrentIndex(idx)
 

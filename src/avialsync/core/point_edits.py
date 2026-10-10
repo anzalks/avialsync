@@ -6,7 +6,7 @@ now the only answer was to leave the session, fix the CSV, and re-import it.
 "Fix Tracker" lets the point be dragged where it belongs in the pane that
 showed the error.
 
-**A correction names two things, and needs both (D-143).**  ``PointKey.point``
+**A correction names two things, and needs both.**  ``PointKey.point``
 is the column in the *file* the coordinate lands in, because a hand-placed
 position is a fact about that trajectory and has to stay with it when an
 identity flip later relabels it (:mod:`avialsync.core.identity_swaps`).  Beside
@@ -75,7 +75,7 @@ class PointMove:
 
     ``key.point`` is the column in the file the drag landed on, which is not
     the label on screen once an identity flip is in force; ``shown_as`` is that
-    label (D-143).  Both travel together from the gesture, because the gesture
+    label.  Both travel together from the gesture, because the gesture
     is the only place that still knows both.
     """
 
@@ -89,7 +89,7 @@ class PointEditStore:
     """Every hand correction in the session, keyed by :class:`PointKey`.
 
     Observers are plain callables so that ``core/`` stays importable without
-    PySide6 (architecture rule 2).  They fire once per change, after it lands,
+    PySide6.  They fire once per change, after it lands,
     and are told **which source changed** — ``None`` for a bulk replacement.
     That distinction is load-bearing: the writer persists a user's edit and must
     not write back what it has just finished reading.
@@ -99,7 +99,7 @@ class PointEditStore:
         self._edits: dict[PointKey, tuple[float, float]] = {}
         #: What each corrected point was called on screen when it was moved.
         #: Absent for a correction made before identities could be remapped,
-        #: where the two names were necessarily the same (D-143).
+        #: where the two names were necessarily the same.
         self._shown: dict[PointKey, str] = {}
         self._observers: list[Callable[[str | None], None]] = []
 
@@ -261,8 +261,8 @@ class PointEditStore:
         """Replace the contents from a serialised list.
 
         Malformed entries are skipped rather than raising: a session that has
-        lost one correction still opens showing everything else (Law 1 —
-        never block, always inform).  The caller reports the count it asked for
+        lost one correction still opens showing everything else (never block,
+        always inform).  The caller reports the count it asked for
         against :func:`len`.
         """
         self._edits.clear()

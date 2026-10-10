@@ -1,4 +1,4 @@
-"""Registered background probe for imaging metadata (D-190)."""
+"""Registered background probe for imaging metadata."""
 
 from pathlib import Path
 from typing import Any

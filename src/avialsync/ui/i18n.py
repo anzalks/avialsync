@@ -1,4 +1,4 @@
-"""Loading translations, and measuring how much is translatable (WP-12).
+"""Loading translations, and measuring how much is translatable.
 
 There was not one ``self.tr()`` or ``QTranslator`` anywhere: every string was
 hardcoded English and untranslatable without a rewrite. For an open-source
@@ -130,7 +130,7 @@ def _is_translated(node: ast.AST) -> bool:
 #: Widgets whose first positional argument is text a person reads. A literal
 #: passed here slipped past a scan of setter calls alone: 52 of them, the plot
 #: header's "Signals" and "Rows" and the video pane's "No Footage" among them,
-#: sat untranslated while the ratio read 100 % (INTERFACE_DESIGN_PLAN F-21).
+#: sat untranslated while the ratio read 100 %.
 USER_FACING_CONSTRUCTORS = frozenset(
     {
         "QLabel",

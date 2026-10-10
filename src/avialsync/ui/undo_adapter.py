@@ -1,6 +1,6 @@
-"""The Edit menu, driven by the document's own history (WP-2, D-097).
+"""The Edit menu, driven by the document's own history.
 
-WP-2 was planned as a ``QUndoStack`` fed by wrapping each
+This was planned as a ``QUndoStack`` fed by wrapping each
 :class:`~avialsync.core.document.Command` in a ``QUndoCommand``.  That is not
 what this does, and the reason is worth stating where the code is.
 
@@ -9,7 +9,7 @@ holds the ordered history, coalesces continuous edits so a two-hundred-step
 spin-box drag stays one entry, bounds itself at
 :data:`~avialsync.core.document.MAX_LOG_ENTRIES`, releases the bulk state a
 reset retains, and derives dirty state from where the save point sits in that
-same history (D-087).  Adding a ``QUndoStack`` beside it would mean two
+same history.  Adding a ``QUndoStack`` beside it would mean two
 histories that must agree about depth, coalescing, and eviction — and the first
 time they disagreed, the title would claim saved while the stack still had
 edits, or undo would step somewhere the document had already discarded.

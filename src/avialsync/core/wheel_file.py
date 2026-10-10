@@ -1,7 +1,7 @@
-"""Wheel-specific encoding inside the generalized physical-prop sidecar (D-155).
+"""Wheel-specific encoding inside the generalized physical-prop sidecar.
 
 Beside the 3D pose, like the calibration it was triangulated with, and never
-inside a pose file (the D-099 rule). The **clicks are the authority**: they are
+inside a pose file. The **clicks are the authority**: they are
 what the user did, and everything else in the file -- the geometry, the fit
 report, the encoder binding -- was computed from them or declared beside them.
 The fit report is stored rather than recomputed because reading a wheel back
@@ -11,7 +11,7 @@ readable on its own, the way anipose's ``calibration.toml`` carries its error.
 A removed wheel keeps its file, marked ``removed = true``: nothing here deletes a
 file from a data folder, and undoing the removal writes it back in full.
 
-Headless (architecture rule 2).
+Headless.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Lazy HDF5 and TIFF readers for time-indexed two-photon image stacks (D-190).
+"""Lazy HDF5 and TIFF readers for time-indexed two-photon image stacks.
 
 Both read one plane per request -- an HDF5 hyperslab or a TIFF page -- and never
 the whole stack. Channels are read per request and overlaid by the viewer; a
@@ -49,8 +49,8 @@ def _times(count: int, config: dict[str, Any], attrs: dict[str, Any]) -> tuple[n
     """Resolve frame times: a timestamp table first, then a frame rate.
 
     Within each, what the user or a session plugin supplied in *config* wins
-    over what the file says -- file timing is a default, never truth (AGENTS
-    known traps). A per-frame table beats any constant rate because it carries
+    over what the file says -- file timing is a default, never truth. A per-frame
+    table beats any constant rate because it carries
     the acquisition's real jitter and pauses.
     """
     supplied = config.get("frame_times")
@@ -85,7 +85,7 @@ def _validate_axes(shape: tuple[int, ...], axes: str) -> None:
 
 
 def _axes_for(shape: tuple[int, ...], config: dict[str, Any], tagged: str) -> str:
-    """The configured axis order, else the file's valid tag, else an inferred one (D-194)."""
+    """The configured axis order, else the file's valid tag, else an inferred one."""
     chosen = _text(config.get("axes") or "").upper()
     if chosen:
         if not valid_axes(shape, chosen):
@@ -98,7 +98,7 @@ def _axes_for(shape: tuple[int, ...], config: dict[str, Any], tagged: str) -> st
 
 
 def _depth(shape: tuple[int, ...], axes: str, config: dict[str, Any]) -> int:
-    """Return the chosen Z plane; the first until the user picks another (D-194)."""
+    """Return the chosen Z plane; the first until the user picks another."""
     if "Z" not in axes:
         return 0
     planes = shape[axes.index("Z")]
@@ -130,7 +130,7 @@ def _seconds(value: str, unit: str) -> float:
 
 
 def _ome_channel_names(ome: str, channels: int) -> tuple[str, ...]:
-    """The OME ``Channel`` names, when the file gives one per channel (D-195)."""
+    """The OME ``Channel`` names, when the file gives one per channel."""
     try:
         root = ET.fromstring(ome)
     except ET.ParseError:
@@ -383,7 +383,7 @@ class TIFFImagingLoader(ImagingSource):
             else:
                 # ImageJ tags plain slices Z and unknown axes Q or I whether they
                 # were time or depth; a valid tag is kept, anything else gets the
-                # inferred default and the pane offers the alternatives (D-194).
+                # inferred default and the pane offers the alternatives.
                 axes = _axes_for(shape, config, axes)
             if not axes.endswith("YX"):
                 raise SourceOpenError(f"TIFF axes {axes!r} do not expose 2D grayscale pages.")

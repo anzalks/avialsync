@@ -1,4 +1,4 @@
-"""Testing the encoder that turns a wheel against the video (D-113).
+"""Testing the encoder that turns a wheel against the video.
 
 A wheel fitted on one frame is carried to every other frame by the encoder:
 ``turn = sign * ratio * (angle - reference_angle)``. The ratio is 1 for an
@@ -15,7 +15,7 @@ least a whole gap since the reference -- before that, both signs predict nearly
 the same picture. Two informative checks that agree settle the sign; one is
 reported, not trusted.
 
-Headless (architecture rule 2).
+Headless.
 """
 
 from __future__ import annotations
@@ -61,7 +61,7 @@ def _distances(
     """Distance from *pixel* to the nearest visible bar end, per turn.
 
     Every turn's wheel is projected in one call: a loop over turns cost ~90 ms
-    for three checks, over the UI thread's 30 ms ceiling (rule 3).
+    for three checks, over the UI thread's 30 ms ceiling.
     """
     x, y, z = geometry.basis()
     count = geometry.bar_count

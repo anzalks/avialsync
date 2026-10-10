@@ -1,4 +1,4 @@
-"""Derived data, kept in one per-user cache folder (D-160).
+"""Derived data, kept in one per-user cache folder.
 
 Everything under the cache root is rebuilt from a source file: the imported
 pyramids, a video's frame-timestamp table, and the edited-tracker generations
@@ -12,7 +12,7 @@ kept beside the data or the session instead.
 keeps derived media does: ``~/Library/Caches/avialsync`` on macOS,
 ``%LOCALAPPDATA%\\avialsync\\Cache`` on Windows and ``$XDG_CACHE_HOME/avialsync``
 (``~/.cache/avialsync``) on Linux.  ``AVIALSYNC_CACHE_DIR`` overrides it, for a
-lab that wants the cache on a scratch disk and for the test suite.
+lab that wants the cache on a scratch disk.
 
 **One entry per source.**  ``<root>/sources/<name>-<digest>/``, where the
 digest is of the source's absolute path, so a file gets the same entry however
@@ -196,7 +196,7 @@ class CacheManager:
         return h.hexdigest()
 
     def generate_key(self, path: Path) -> str:
-        """Generate cache invalidation key per D-008."""
+        """Generate the cache invalidation key: size, mtime, and a content-hash tail."""
         if not path.exists():
             raise FileNotFoundError(f"Source file not found: {path}")
 

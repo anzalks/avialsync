@@ -25,7 +25,7 @@ class SourceOpenError(AvialSyncError):
 
 
 class ImagingChoiceRequired(SourceOpenError):
-    """An imaging stack needs a scientific choice its file does not settle (D-190).
+    """An imaging stack needs a scientific choice its file does not settle.
 
     ``choice`` names the import-config key that answers it -- ``fps``,
     ``dataset``, ``series``, ``axes`` or ``z`` -- and ``options`` lists the valid

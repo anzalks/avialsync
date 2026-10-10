@@ -1,4 +1,4 @@
-"""Cached master-timeline evidence under the transport slider (D-170)."""
+"""Cached master-timeline evidence under the transport slider."""
 
 from __future__ import annotations
 

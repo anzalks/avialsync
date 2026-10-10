@@ -44,7 +44,7 @@ class VideoGrid(GridOverlayMixin, QWidget):
     #: A pane has left the grid's model but its decoder is still being stopped.
     #:
     #: Tearing a libmpv client down could take the whole process with it on
-    #: Windows (HANDOUT.md "Pending"). Stopping a decode thread is a far tamer
+    #: Windows. Stopping a decode thread is a far tamer
     #: operation, but this still happens mid-session, where losing the process
     #: would cost everything since the last autosave. Persisting here costs one
     #: small write and keeps that cheap insurance.
@@ -92,7 +92,7 @@ class VideoGrid(GridOverlayMixin, QWidget):
     # ── Public API ────────────────────────────────────────────────────
 
     def set_display_levels(self, path: str, levels) -> None:
-        """Apply a display window to one camera (D-093)."""
+        """Apply a display window to one camera."""
         try:
             index = self._paths.index(path)
         except ValueError:
@@ -100,7 +100,7 @@ class VideoGrid(GridOverlayMixin, QWidget):
         self.panes[index].set_display_levels(levels)
 
     def set_overlay_visibility(self, resolver) -> None:
-        """Apply overlay visibility to every pane (D-090).
+        """Apply overlay visibility to every pane.
 
         Takes a callable rather than a dict so a per-camera override is
         resolved against the path each pane actually holds; the grid does not
@@ -161,15 +161,15 @@ class VideoGrid(GridOverlayMixin, QWidget):
         return [pane for index, pane in enumerate(self.panes) if self._is_pane_enabled(index)]
 
     def _is_pane_enabled(self, index: int) -> bool:
-        """Treat legacy directly-injected test panes as visible."""
+        """Treat panes added without an enabled flag as visible."""
         return index >= len(self._pane_enabled) or self._pane_enabled[index]
 
     def frame_records_at(self, t_master: float) -> list[dict[str, Any]]:
         """Return per-video frame records at *t_master* for annotation storage.
 
         Each record: {"path": str, "frame_index": int, "media_timestamp": float}.
-        This is the single authority for frame computation — main_window and
-        tests must call this rather than replicating the fps/time_map logic.
+        This is the single authority for frame computation — every caller
+        must use this rather than replicating the fps/time_map logic.
         """
         records: list[dict[str, Any]] = []
         for path, pane in zip(self._paths, self.panes, strict=False):
@@ -210,11 +210,11 @@ class VideoGrid(GridOverlayMixin, QWidget):
             pane.file_loaded.connect(on_file_loaded)
         pane.right_clicked.connect(lambda pos, _p=path: self.pane_right_clicked.emit(_p, pos))
         # Width by column stretch alone, so two cameras split the strip in
-        # proportion to their pictures rather than to their name labels (D-174).
+        # proportion to their pictures rather than to their name labels.
         policy = pane.sizePolicy()
         policy.setHorizontalPolicy(QSizePolicy.Policy.Ignored)
         pane.setSizePolicy(policy)
-        surface = getattr(pane, "surface", None)  # test doubles have none
+        surface = getattr(pane, "surface", None)  # stand-in panes have none
         if surface is not None:
             surface.view_changed.connect(self._fit_panes_to_picture)
         self.panes.append(pane)
@@ -265,7 +265,7 @@ class VideoGrid(GridOverlayMixin, QWidget):
         Each pane is torn down independently. A pane owns a decode thread
         that outlives its widget, so letting one failure abort the loop leaves
         every later pane's thread running and the process never exits — the
-        window appears to refuse to close (D-059).
+        window appears to refuse to close.
         """
         for pane in self.panes:
             try:
@@ -398,7 +398,7 @@ class VideoGrid(GridOverlayMixin, QWidget):
                     self._layout.setRowStretch(r, 1)
             else:
                 # Horizontal strip: all in row 0. One or two cameras are
-                # sized to their pictures by _fit_panes_to_picture (D-174).
+                # sized to their pictures by _fit_panes_to_picture.
                 for i, pane in enumerate(visible_panes):
                     self._layout.addWidget(pane, 0, i)
                     self._layout.setColumnStretch(i, 1)
@@ -412,7 +412,7 @@ class VideoGrid(GridOverlayMixin, QWidget):
         self._fit_panes_to_picture()
 
     def _fit_panes_to_picture(self) -> None:
-        """Size one or two strip panes to their pictures' aspect (D-174, F-11).
+        """Size one or two strip panes to their pictures' aspect.
 
         A lone camera otherwise fills the whole cell and draws small inside a
         black letterbox, with its name and timecode in the letterbox corners.
@@ -424,7 +424,7 @@ class VideoGrid(GridOverlayMixin, QWidget):
         if not hasattr(self, "_base_margins"):
             self._base_margins = self._layout.contentsMargins()
         base = self._base_margins
-        # Widgets only: a test double standing in for a pane is not laid out.
+        # Widgets only: anything standing in for a pane that is not one is not laid out.
         visible = [pane for pane in self.panes if isinstance(pane, QWidget) and pane.isVisible()]
         sizes = [getattr(pane, "video_size", None) for pane in visible]
         fit = 0 < len(visible) <= 2 and not self._grid_mode and self._fullscreen_pane is None

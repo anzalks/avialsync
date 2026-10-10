@@ -1,7 +1,7 @@
-"""The shared guided-step panel (D-176, INTERFACE_DESIGN_PLAN §4.4, DS-8).
+"""The shared guided-step panel.
 
 Wheel, prop, identity and alignment flows each explained themselves in
-paragraphs beside a dozen equally weighted buttons (F-15). A step panel shows
+paragraphs beside a dozen equally weighted buttons. A step panel shows
 one thing at a time: where the user is, one sentence, one primary next action,
 a short row of secondary ones, destructive choices in an overflow, and the
 detail behind "More…". The flows keep their own widgets and signals; this only
@@ -68,7 +68,7 @@ class StepPanel(QFrame):
 
         self._primary_row = QHBoxLayout()
         layout.addLayout(self._primary_row)
-        # A column, so the panel never asks for more than a 280 px page (R3).
+        # A column, so the panel never asks for more than a 280 px page.
         self._secondary_row = QGridLayout()
         # The platform's own button spacing, as every other stack of buttons in
         # the window uses; a 4 px gap packed them tighter than anywhere else.
@@ -111,7 +111,7 @@ class StepPanel(QFrame):
         self.more_toggle.hide()
 
     def sizeHint(self) -> QSize:  # noqa: N802
-        """Prefer a narrow page: the instruction wraps rather than widening it (R3)."""
+        """Prefer a narrow page: the instruction wraps rather than widening it."""
         hint = super().sizeHint()
         hint.setWidth(min(hint.width(), max(self.minimumSizeHint().width(), WRAP_WIDTH_PX)))
         return hint
@@ -139,7 +139,7 @@ class StepPanel(QFrame):
         self.instruction.setText(text)
 
     def set_primary(self, button: QAbstractButton) -> None:
-        """The one action that moves the flow on; at most one per panel (R2)."""
+        """The one action that moves the flow on; at most one per panel."""
         while self._primary_row.count():
             item = self._primary_row.takeAt(0)
             widget = item.widget() if item is not None else None
@@ -215,12 +215,12 @@ class StepPanel(QFrame):
         return super().eventFilter(watched, event)
 
     def add_more(self, widget: QWidget) -> None:
-        """Explanation, legends, evidence: behind "More…" (R4)."""
+        """Explanation, legends, evidence: behind "More…"."""
         self._more_layout.addWidget(widget)
         self.more_toggle.show()
 
     def set_learn_more(self, url: str) -> None:
-        """Link the step to its page in the user guide (DS-13)."""
+        """Link the step to its page in the user guide."""
         self.learn_more.setText("".join(('<a href="', url, '">', tr("Learn more"), "</a>")))
         self.learn_more.setToolTip(url)
         self.learn_more.show()

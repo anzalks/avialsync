@@ -1,4 +1,4 @@
-"""Making the interface reachable without sight (WP-12).
+"""Making the interface reachable without sight.
 
 The state before this: 40 ``setAccessibleName`` calls against roughly 90
 interactive widgets, one ``setAccessibleDescription``, and no status tips. A
@@ -7,8 +7,8 @@ screen reader met a window full of unnamed buttons.
 The obvious fix is to add the missing calls by hand. That fixes today and not
 tomorrow — the ninety-first widget is added without one, and nothing says so.
 So this is a sweep instead: it walks the constructed window, derives a name for
-anything that lacks one from what the widget already displays, and a test
-asserts that nothing interactive is left unnamed.
+anything that lacks one from what the widget already displays, and
+:func:`unnamed_widgets` reports anything interactive left unnamed.
 
 Derivation, not invention. A button's own label is what a sighted user reads,
 so it is the right name for someone who cannot see it; a tooltip already
@@ -17,14 +17,13 @@ icon or a bare glyph — the transport's ``[``, ``]``, ``◀``, ``▶`` — ther
 nothing to derive from, and those are named explicitly in :data:`GLYPH_NAMES`
 because a symbol is not a word.
 
-**The sweep has to run more than once (D-107).**  It was called exactly once,
+**The sweep has to run more than once.**  It was called exactly once,
 from ``MainWindow.__init__``, against a window that by definition holds no
 video panes, no plot rows, no per-source sidebar entries and no quality badges
 — the application starts empty, and every one of those widgets is built later.
 Eleven dialog classes were never swept at all, because none of them exists at
-construction time either.  The test that should have caught it asserted
-``apply_accessibility(window) == 0`` on a freshly built empty window, which is
-true whether the sweep works or not.
+construction time either.  ``apply_accessibility(window) == 0`` on a freshly
+built empty window is true whether the sweep works or not.
 
 So the sweep also runs on ``Show``, through :class:`ShowTimeSweeper` installed
 on the application.  One event filter reaches every dialog, including ones
@@ -116,7 +115,7 @@ def derive_name(widget: QWidget) -> str:
     # stayed unnamed wherever one had not been written by hand -- which was two
     # places out of every scroll area in the application. Its orientation is the
     # only thing it can honestly be named for, and a screen reader announces the
-    # role alongside it, so "Scroll vertically" is what a user hears (D-107).
+    # role alongside it, so "Scroll vertically" is what a user hears.
     if isinstance(widget, QScrollBar):
         if widget.orientation() == Qt.Orientation.Vertical:
             return "Scroll vertically"
@@ -165,7 +164,7 @@ def apply_accessibility(root: QWidget) -> int:
 def unnamed_widgets(root: QWidget) -> list[QWidget]:
     """Interactive widgets under *root* that a screen reader could not announce.
 
-    The check the test uses. A widget here is one someone would have to
+    A widget here is one someone would have to
     operate blind, with nothing said about what it does.
     """
     return [
@@ -209,8 +208,7 @@ def install_show_time_sweep(app: QObject) -> ShowTimeSweeper:
     process, and one parented to the application is never removed -- so
     installing from ``MainWindow.__init__`` without this guard added a filter
     per window and left them all running. Two windows doubled the per-event
-    cost; a test suite that constructs a hundred multiplied it by a hundred and
-    took the run from two minutes to no longer finishing.
+    cost; a process that constructs a hundred multiplied it by a hundred.
 
     The sweeper is parented to *app* and also recorded on it as a property. The
     parent is what keeps it alive -- an event filter with no live reference is

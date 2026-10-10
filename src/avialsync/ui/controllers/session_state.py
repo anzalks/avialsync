@@ -22,7 +22,7 @@ class SessionRuntimeState:
     # Async source arrivals during restore must not register as user edits.
     restoring: bool = False
     # The generation whose restore puts back work no file holds, so it ends
-    # dirty rather than saved: deleting the cache reloads the trial (D-160).
+    # dirty rather than saved: deleting the cache reloads the trial.
     # A generation, not a flag, so a reset in between makes it stale.
     dirty_after_restore: int | None = None
     # Format-neutral declarations supplied by the session loader.

@@ -4,7 +4,7 @@ The class keeps its first name (``AOLTrialEncoderSource``) because sessions
 record a source's loader by class name; it now reads two channels from the
 same ``params.mat``, which is also why they are one source: a source is named
 by one file. The stimulus TTL is rebuilt from the controller's settings
-(:mod:`~avialsync.loaders.aol_trial_stimulus`, D-211).
+(:mod:`~avialsync.loaders.aol_trial_stimulus`).
 
 Rigs whose controller reads the encoder itself keep no ``encoder_log.txt``: each
 trial's ``params.mat`` holds ``behaviour/encoder``, one-element MATLAB cells like
@@ -15,7 +15,7 @@ follows the logged angle (6.03 and 5.96 degrees per rpm-second on two trials of
 ``wheel_speed_time`` counts seconds from the trial's start (it spans the trial's
 recorded length), so a trial's samples sit on its ``STARTTIME`` like its imaging,
 and a joined experiment's trials sit back to back at the joined starts the
-ribbon scan uses (D-205). Samples past a trial's slot on the joined timeline are
+ribbon scan uses. Samples past a trial's slot on the joined timeline are
 dropped, so trials never overlap. Where an ``encoder_log.txt`` is open already
 (trials dropped onto an AOL camera session that has one), that log's speed is
 the one shown and this one is not offered.

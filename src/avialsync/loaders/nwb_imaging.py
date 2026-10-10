@@ -1,10 +1,10 @@
-"""An NWB file's imaging, played as video through the application's own decoder (D-188).
+"""An NWB file's imaging, played as video through the application's own decoder.
 
 Imaging inside an NWB file is an array -- frames × rows × columns, usually 16-bit
--- and the video pane plays media files through PyAV (D-075). So the frames are
+-- and the video pane plays media files through PyAV. So the frames are
 written once into a **lossless proxy** in the per-user cache: FFV1 in MP4, the
 pixels exactly as recorded (``gray16le`` for 16-bit data, so display levels
-window the real range, D-093), each frame stamped with the series' own
+window the real range), each frame stamped with the series' own
 timestamp as its presentation time.
 
 That last point is what makes the timing exact without any mapping. The pane
@@ -251,7 +251,7 @@ class NWBImagingSource(VideoSource):
     def _read_back(self, proxy: Path) -> None:
         """Take frame times from the proxy itself, through the pane's own reader.
 
-        The pane selects frames from this table (D-075), so it is the one this
+        The pane selects frames from this table, so it is the one this
         source reports -- not the NWB timestamps it was written from, which the
         container stores to the microsecond and no finer.
         """
@@ -280,7 +280,7 @@ class NWBImagingSource(VideoSource):
         return self._proxy
 
     def start_time(self) -> float | None:
-        # The proxy declares no wall clock; the session places it (D-110).
+        # The proxy declares no wall clock; the session places it.
         return None
 
     def time_bounds(self) -> tuple[float, float]:

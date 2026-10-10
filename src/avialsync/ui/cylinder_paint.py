@@ -1,4 +1,4 @@
-"""Painting a wheel's bars as solid cylinders in the 3D view (D-128).
+"""Painting a wheel's bars as solid cylinders in the 3D view.
 
 The 3D view is orthographic, which makes a cylinder simple to draw honestly:
 its outline is a band exactly one diameter wide whatever way it points, closed

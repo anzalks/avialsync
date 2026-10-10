@@ -1,6 +1,6 @@
 """Gather alignment evidence, and install and record an accepted proposal.
 
-Video, sensor, and trigger-file targets share one path (D-201): the wizard only
+Video, sensor, and trigger-file targets share one path: the wizard only
 offers a target this module can place, and acceptance, undo, and redo all place
 it through :func:`install_sync_mapping`.
 """
@@ -233,7 +233,7 @@ def accept_sync_proposal(window: MainWindow, target_path: str, proposal: object)
         item for item in window._sync_provenance if item.target_id != target_path
     ]
     window._sync_provenance.append(provenance)
-    # Acceptance stays explicit (architecture rule 8); recording it only
+    # Acceptance stays explicit; recording it only
     # makes the accepted result reversible, so a user who takes the wrong
     # fit is not left reconstructing their previous mapping by hand.
     window._record(

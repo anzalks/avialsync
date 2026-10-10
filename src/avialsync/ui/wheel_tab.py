@@ -1,9 +1,9 @@
-"""Embedded review controls for wheel placement (D-117, D-154).
+"""Embedded review controls for wheel placement.
 
 Wheel creation starts from the kind-sensitive Add button in Props. The Wheel
 model / Wheel bars out of sight check boxes follow View -> Overlays' own
 actions: each action is the one author of its label, tooltip, enablement and
-checked state (rules 13 and 15).
+checked state.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ class WheelTab(QWidget):
         content = QWidget(scroll or self)
         column = QVBoxLayout(content)
         column.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
-        # View -> Overlays' own wheel entries, repeated here (rules 13 and 15).
+        # View -> Overlays' own wheel entries, repeated here.
         self.show_wheel = ActionCheckBox(content)
         self.show_hidden_bars = ActionCheckBox(content)
         column.addWidget(self.show_wheel)

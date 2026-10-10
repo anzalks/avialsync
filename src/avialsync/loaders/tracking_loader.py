@@ -75,7 +75,7 @@ class TrackingLoader(TimeSeriesSource):
         # pyramid for every one of them multiplied import work several-fold for
         # data nothing reads. Only the AOL session loader ever remembered to
         # pass the key, so a drag-and-dropped Lightning Pose file paid it in
-        # full (D-140).
+        # full.
         wanted: list[str] = list(config.get("coords") or [])
         suffixes = tuple(f"_{coord}" for coord in wanted) if wanted else None
         derived = tuple(f"_{coord}" for coord in self._pose.derived)
@@ -103,7 +103,7 @@ class TrackingLoader(TimeSeriesSource):
         return self._schema_channels
 
     def pose_schema(self) -> PoseSchema | None:
-        """The individuals, body parts and axes this file declares (D-140)."""
+        """The individuals, body parts and axes this file declares."""
         return self._pose
 
     def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:

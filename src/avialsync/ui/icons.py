@@ -15,10 +15,10 @@ Three helpers, one per kind of icon:
 * :func:`set_status_icon` draws a severity badge from :func:`theme.status_color`,
   so a warning is amber and an error red on both surfaces instead of whatever
   the platform's message-box artwork happens to be. The badge carries a glyph as
-  well as a colour, so severity is never told by colour alone (rule 17).
+  well as a colour, so severity is never told by colour alone.
 
 * :func:`set_svg_icon` draws one of AvialSync's own glyphs
-  (:mod:`avialsync.ui.icon_glyphs`, D-169) the same way, in the button's text
+  (:mod:`avialsync.ui.icon_glyphs`) the same way, in the button's text
   colour or, for a destructive command, the error colour beside its shape.
 
 All three reuse one follower per button, so switching an icon (Play to Pause, a new

@@ -140,7 +140,7 @@ class SyncWizard(QDialog):
             bool(self._targets)
             and isinstance(self._targets[self._target_combo.currentIndex()], SignalEvidenceSpec)
         )
-        # Fitting choices most alignments never touch: behind More… (D-176).
+        # Fitting choices most alignments never touch: behind More….
         advanced = QFormLayout()
 
         self._strategy_combo = QComboBox(self)
@@ -223,12 +223,12 @@ class SyncWizard(QDialog):
         self._manual_offset.setRange(-1e9, 1e9)
         self._manual_offset.setDecimals(6)
         self._manual_offset.setSuffix(" s")
-        # Milliseconds gained per hour, the unit the mapping uses (D-184).
+        # Milliseconds gained per hour, the unit the mapping uses.
         self._manual_drift = DriftSpinBox(self)
         advanced.addRow(tr("Manual offset:"), self._manual_offset)
         advanced.addRow(tr("Manual drift:"), self._manual_drift)
         # One step panel: the summary is the instruction, Preview the primary,
-        # manual mapping beside it, the advanced choices behind More… (D-176).
+        # manual mapping beside it, the advanced choices behind More….
         steps = StepPanel(tr("Align recordings"), self)
         self._summary = QLabel(tr("Choose evidence and preview the proposed fit."), self)
         steps.use_instruction_label(self._summary)
@@ -333,7 +333,7 @@ class SyncWizard(QDialog):
                 self._worker, label=tr("Fitting synchronization evidence"), configure=configure
             )
         else:
-            # Standalone wizard previews (including pytest-qt) still use the
+            # Standalone wizard previews still use the
             # same job lifetime machinery; production uses MainWindow._run_job.
             self._local_jobs = JobManager(self)
             self._thread = self._local_jobs.start(
@@ -411,8 +411,8 @@ class SyncWizard(QDialog):
             return
         self._proposal = proposal
         fit = proposal.fit
-        # The plot, not just the sentence. BLUEPRINT principle 8 asks for the
-        # matched evidence; four numbers are a summary of it (WP-10).
+        # The plot, not just the sentence. Acceptance needs the matched
+        # evidence; four numbers are a summary of it.
         self._evidence.show_proposal(proposal)
         # Say what the tolerance was, whoever chose it: a fit judged by a
         # quarter-second band is a different claim from one judged by a
@@ -431,7 +431,7 @@ class SyncWizard(QDialog):
         refusal = proposal.refusal
         if refusal:
             # Why, beside the disabled button, rather than a greyed control the
-            # user has to guess at (rule 15). The next move is to change the
+            # user has to guess at. The next move is to change the
             # evidence, and this says which part of it.
             summary = f"{summary}\n\nCannot accept: {refusal}"
         self._summary.setText(summary)
@@ -482,7 +482,7 @@ class SyncWizard(QDialog):
         """Say why no mapping was proposed, in the summary that is already there.
 
         This used to say it twice: once in the summary line, and again in a
-        modal on top of the wizard carrying the same text (D-107). The modal
+        modal on top of the wizard carrying the same text. The modal
         added nothing but a click, and the wizard stays open either way — the
         user's next move is to pick different evidence, which is behind it.
         """

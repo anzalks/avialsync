@@ -135,7 +135,7 @@ class MessageStore(QObject):
         return untimed + timed
 
 
-#: What an empty Messages page says fills it (D-176, R5).
+#: What an empty Messages page says fills it.
 _NO_MESSAGES = tr(
     "No messages yet. Messages appear here when an opened recording carries them, "
     "such as an acquisition system's event log."
@@ -233,7 +233,7 @@ class MessagePanel(QGroupBox):
         it only changes which rows are worth looking at.  Rebuilding the table
         for a keystroke measured 51–87 ms at :data:`~avialsync.core.messages.MAX_MESSAGES`,
         two to three times the 30 ms an interaction is allowed to hold the UI
-        thread for, so filtering hides rows instead (D-085).
+        thread for, so filtering hides rows instead.
         """
         messages = self._store.messages()
         self._untimed = [message for message in messages if message.time is None]
@@ -291,7 +291,7 @@ class MessagePanel(QGroupBox):
         )
 
     def install_empty_action(self, action: QAction) -> None:
-        """Offer the command that brings messages in (D-176)."""
+        """Offer the command that brings messages in."""
         self._empty.set_action(action)
 
     def _on_row_activated(self) -> None:
@@ -330,7 +330,7 @@ def _display_names(source_ids: Iterable[str]) -> dict[str, str]:
     Two record nodes of one Open Ephys session write the same stream directory
     name under different ``Record Node N`` parents, so a file name alone labels
     both rows identically and the panel cannot say which rig wrote which note.
-    Sources that do not collide keep the bare file name they always had (D-085).
+    Sources that do not collide keep the bare file name they always had.
     """
     labels: dict[str, str] = {}
     remaining = list(dict.fromkeys(source_ids))

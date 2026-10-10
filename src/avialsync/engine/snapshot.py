@@ -110,7 +110,7 @@ class GridCell:
 
     *cell* is the pane; *picture* is the part of it the frame covers, zoom and
     pan included. Both are measured at one shared scale for every camera, so
-    the figure keeps the grid's proportions and alignment (D-209).
+    the figure keeps the grid's proportions and alignment.
     """
 
     tile: SnapshotTile

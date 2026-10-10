@@ -46,7 +46,7 @@ class MosaicLayout:
     kind: str
     origins: dict[int, tuple[int, int]]
     size: tuple[int, int]
-    #: ROI numbers per branch column, for labels and tests; empty unless ``branches``.
+    #: ROI numbers per branch column, for labels; empty unless ``branches``.
     branches: tuple[tuple[int, ...], ...] = field(default=())
 
 

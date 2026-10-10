@@ -1,4 +1,4 @@
-"""Live physical-prop editing, sidecar jobs, and camera projections (D-149)."""
+"""Live physical-prop editing, sidecar jobs, and camera projections."""
 
 from __future__ import annotations
 
@@ -257,7 +257,7 @@ class PropsApp:
                 self.panel.name.setFocus()
 
     def _update_create_availability(self) -> None:
-        """Explain missing video context before a creation gesture (D-107)."""
+        """Explain missing video context before a creation gesture."""
         panel = self.panel
         if panel is None:
             return
@@ -1551,7 +1551,7 @@ class PropsApp:
         """How this camera shows a belt's geometry, or None where it does not.
 
         A one-camera belt's coordinates are its side plane's, so only its own
-        view can show it, through the plane map its clicks fixed (D-165).
+        view can show it, through the plane map its clicks fixed.
         """
         view, rollers = belt.side_view, belt.rollers
         if view is None:

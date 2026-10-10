@@ -7,13 +7,12 @@ row -- and if each worked out the edits for itself, the picture on screen and
 the file handed to an analysis could disagree without either being obviously
 wrong.  That is the defect to design out rather than test for later, so both
 render *this*: one program, computed from the sidecars, with no opinion about
-arrays or CSV columns (D-142).
+arrays or CSV columns.
 
 A program is two things, in this order:
 
 1. **corrections**, keyed by the point they were made on in the *file's own*
-   columns, because a hand-placed coordinate is a fact about that trajectory
-   (D-143);
+   columns, because a hand-placed coordinate is a fact about that trajectory;
 2. **routes**, which say whose data each point displays over which span of
    frames -- the composed effect of every accepted identity flip.
 

@@ -105,8 +105,7 @@ def start_drop_scan(window: MainWindow, paths: list[Path]) -> None:
     # Wired through `configure`, which runs before the thread starts. Connecting
     # after `_run_job` returns is a race: the thread is already running, and a
     # scan of one small file can finish before the main thread gets here, so
-    # `finished` is emitted with no receiver and the drop is silently a no-op —
-    # the exact defect tests/test_worker_lifetime.py exists to catch.
+    # `finished` is emitted with no receiver and the drop is silently a no-op.
     def _wire(thread: QThread) -> None:
         worker.finished.connect(window._on_drop_scan_finished)
         worker.session_found.connect(window._on_drop_session_found)
@@ -119,7 +118,7 @@ def start_drop_scan(window: MainWindow, paths: list[Path]) -> None:
         # direct and ~QObject runs inside that thread — severing connections
         # while holding one of Qt's pooled signal/slot mutexes and then
         # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-        # thread holding the GIL and waiting on a colliding mutex (D-062).
+        # thread holding the GIL and waiting on a colliding mutex.
         # The owning registry drops its reference on the UI thread instead.
 
     window._run_job(worker, configure=_wire)
@@ -202,7 +201,7 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
     # What instant each file's timestamps count from. The session is the only
     # thing that knows -- a camera counts from its own first frame, a MATLAB
     # log from midnight -- and declaring it is what lets every one of them be
-    # placed on one clock without anybody typing an offset (D-110).
+    # placed on one clock without anybody typing an offset.
     window._declared_source_epochs = {
         str(item.path): float(item.source_epoch)
         for item in layout.items
@@ -215,7 +214,7 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
     # zero: this used to write `transport.set_t_epoch` directly and leave
     # `_session_start_time` at 0.0, so the clock read correct wall time while
     # the placement machinery believed the session had no wall clock at all and
-    # left every AOL source to carry its own 34526 s by hand (D-110).
+    # left every AOL source to carry its own 34526 s by hand.
     declared = layout.session_epoch or layout.anchor_epoch
     if declared > 0.0:
         window.adopt_session_start(declared)
@@ -224,15 +223,15 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
 
     # Set unconditionally, including to nothing: a session that declares no
     # skeleton must not inherit the previous one's bones, and an empty list is
-    # what hands the 3D view over to its own detection (D-082).
+    # what hands the 3D view over to its own detection.
     window.tracking_3d_pane.set_skeleton(list(layout.skeleton or []))
     # Likewise the wheel: which channel turns it is the rig's to say, and it
-    # only pre-fills wheel setup in Props -- it is never applied on its own (D-113).
+    # only pre-fills wheel setup in Props -- it is never applied on its own.
     window.wheel_state.session_rotary = layout.rotary
 
     # A scan that left something out has to say so on screen.  The log already
     # holds the detail; what belongs here is the fact that the session in front
-    # of the user is not everything the folder contained (D-085).
+    # of the user is not everything the folder contained.
     if layout.warnings:
         first = layout.warnings[0]
         more = len(layout.warnings) - 1

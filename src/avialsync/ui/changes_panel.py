@@ -17,7 +17,7 @@ one is meant.
 
 Deleting is the same gesture for both, and both go through the command bus:
 removing an annotation removes the marker, removing a correction restores the
-model's prediction, and removing a swap restores its previous routing (D-145).
+model's prediction, and removing a swap restores its previous routing.
 """
 
 from __future__ import annotations
@@ -86,7 +86,7 @@ class ChangesPanel(QGroupBox):
     revisit_requested = Signal(object)
     #: Emitted with a :class:`PointKey` whose correction should be undone.
     #: Restoring a prediction is a mutation like any other and belongs on the
-    #: undo stack, so the panel asks rather than writing the store (rule 14).
+    #: undo stack, so the panel asks rather than writing the store.
     delete_correction_requested = Signal(object)
     delete_swap_requested = Signal(str, object)
 
@@ -126,7 +126,7 @@ class ChangesPanel(QGroupBox):
         self._table.itemSelectionChanged.connect(self._on_selection_changed)
         layout.addWidget(self._table)
 
-        # Names what fills the page (D-176): wrapped, as the sidebar is
+        # Names what fills the page: wrapped, as the sidebar is
         # narrower than the sentence.
         self._empty = EmptyNote(
             tr(
@@ -137,7 +137,7 @@ class ChangesPanel(QGroupBox):
         )
         layout.addWidget(self._empty)
 
-        # Stacked, destructive last, as Open Files is (D-181): side by side the
+        # Stacked, destructive last, as Open Files is: side by side the
         # pair needed 294 px at 16 pt against the 280 px page.
         buttons = QVBoxLayout()
         self._delete_button = QPushButton(tr("Delete"))
@@ -147,8 +147,8 @@ class ChangesPanel(QGroupBox):
         apply_role(self._delete_button, ControlRole.DESTRUCTIVE)
         self._delete_button.clicked.connect(self._on_delete)
         # The same QAction the File menu carries, not a second button with its
-        # own wording: rule 15 forbids a menu item and a button that invoke one
-        # command from being named independently. Set by the window once the
+        # own wording: a menu item and a button that invoke one
+        # command are never named independently. Set by the window once the
         # menu exists.
         self._export_button = ActionButton(self)
         buttons.addWidget(self._export_button)
@@ -177,7 +177,7 @@ class ChangesPanel(QGroupBox):
         self.refresh()
 
     def set_time_mode(self, mode: TimeDisplayMode, t_epoch: float) -> None:
-        """Follow the application's time display setting (D-020)."""
+        """Follow the application's time display setting."""
         self._time_mode = mode
         self._t_epoch = t_epoch
         self.refresh()

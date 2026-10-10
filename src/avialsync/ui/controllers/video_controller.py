@@ -2,14 +2,14 @@
 
 Files are probed concurrently — metadata and presentation-timestamp extraction
 are independent per file — but panes are still built one at a time, in the order
-the user asked for them (D-040).
+the user asked for them.
 
 The original reason for serialising was libmpv: a client had to accept commands
-on one pane before the next was constructed. That constraint is gone with D-075,
-since a pane is now an ordinary widget plus its own decode thread. The order is
+on one pane before the next was constructed. That constraint is gone now a pane
+is an ordinary widget plus its own decode thread. The order is
 kept because it is also what makes panes appear in the order the user picked
-them, which is user-visible; lifting the serialisation is a separate change with
-its own DECISIONS entry, not a side effect of the decoder migration.
+them, which is user-visible; lifting the serialisation is a separate decision,
+not a side effect of the decoder migration.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 #: Concurrent metadata/timestamp probes.  Bounded because each one demuxes a
 #: whole file off the same disk; unbounded fan-out on a 32-camera session would
-#: thrash rather than parallelise.  They no longer spawn subprocesses (D-075),
+#: thrash rather than parallelise.  They no longer spawn subprocesses,
 #: but they are still IO-bound, which is what this limit is about.
 MAX_VIDEO_PROBES = 3
 
@@ -65,7 +65,7 @@ def start_next_video_load(window: MainWindow) -> None:
     overlap, so up to :data:`MAX_VIDEO_PROBES` run at once and a four-camera
     session stops paying four serial probe latencies.  Pane construction stays
     one at a time, gated by ``_video_pane_initializing``, so panes appear in the
-    order the user picked them (D-040; see the module docstring for why the
+    order the user picked them (see the module docstring for why the
     original libmpv reason no longer applies).
     """
     while (
@@ -104,10 +104,10 @@ def start_one_video_probe(window: MainWindow) -> None:
         # there, making that connection direct and running ~QObject inside the
         # dying thread — where severing connections holds one of Qt's pooled
         # signal/slot mutexes and PySide's disconnectNotify then blocks on the
-        # GIL, deadlocking the UI thread (D-062).
+        # GIL, deadlocking the UI thread.
         thread.finished.connect(window._on_video_thread_finished)
 
-    # Registered like every other job (D-107): named in the Tasks panel,
+    # Registered like every other job: named in the Tasks panel,
     # watched for stalls, and abandoned in the ordinary way at shutdown. A
     # wedged probe on a network share was the original reason `JobManager`
     # exists, and this was the last caller still outside it.
@@ -271,7 +271,7 @@ def create_video_pane(
     window.sidebar.set_video_loader(original_path, loader)
     window.sidebar.set_video_pane(original_path, pane)
     # A camera opened after a layer was switched off must not come up showing
-    # it, and a restored session must not flash the defaults first (D-090).
+    # it, and a restored session must not flash the defaults first.
     window._apply_overlays_to_new_pane(original_path)
     # Video-only recordings discover the same prop records as pose sessions.
     window.props_app.adopt()
@@ -300,7 +300,7 @@ def create_video_pane(
             exact_source,
         )
     # The spin box carries the hand correction alone. Showing the placement in
-    # it would clamp at a day and then save the clamp (D-026); showing zero
+    # it would clamp at a day and then save the clamp; showing zero
     # while a restored session carried a real correction would lose it on the
     # next save.
     residual = window.user_offset(original_path, effective)
@@ -309,7 +309,7 @@ def create_video_pane(
     window._recorded_mappings[original_path] = (residual, effective_drift)
     # The rate this recording actually ran at, not the rate its container
     # claims. They differ on exactly the files where it matters: the container
-    # declares one constant rate whatever the camera achieved (D-072), and a
+    # declares one constant rate whatever the camera achieved, and a
     # frame-indexed tracking file placed against that claim drifts by the
     # difference, accumulating to the end of the recording. `nominal_fps` stays
     # available on the metadata for readouts that mean the claim.
@@ -348,7 +348,7 @@ def create_video_pane(
     if window._frame_indexed_sources:
         # Whatever this camera answers, and only what it answers: each pending
         # source resolves its own rate, so one waiting on a different camera
-        # stays waiting (D-137).
+        # stays waiting.
         window._rebind_frame_indexed_sources()
     window.transport.set_status(f"Ready · loaded {Path(original_path).name}")
 
@@ -363,7 +363,7 @@ def on_video_open_error(window: MainWindow, path: str, error: str) -> None:
         window.video_load_state.request_order.remove(path)
     window.transport.set_status(f"Video failed: {Path(path).name}", "error")
     # Not a modal: the rest of the session loaded and stays usable, which is
-    # the point of Law 1. The raw text goes behind Show details.
+    # the point of never blocking. The raw text goes behind Show details.
     window.report_failure(
         SourceOpenError(error),
         doing=f"Could not open {Path(path).name}",
@@ -380,7 +380,7 @@ def on_video_thread_finished(window: MainWindow) -> None:
 
 
 def on_video_pane_ready(window: MainWindow) -> None:
-    """Build the next pane only after this one accepts media commands (D-040)."""
+    """Build the next pane only after this one accepts media commands."""
     window.video_load_state.pane_initializing = None
     window._build_next_video_pane()
     window._start_next_video_load()

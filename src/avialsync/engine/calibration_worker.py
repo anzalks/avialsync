@@ -1,6 +1,6 @@
 """Fitting a missing ``calibration.toml`` from the session's own tracking.
 
-Runs off the UI thread (rule 3): reading three pose CSVs and fitting three
+Runs off the UI thread: reading three pose CSVs and fitting three
 cameras takes a few seconds. It is handed paths and plain numbers only, and
 reads the pose files itself, so nothing the UI owns is touched from here.
 
@@ -49,7 +49,7 @@ def _read_3d(path: Path) -> tuple[np.ndarray, dict[str, np.ndarray]]:
     """Frame numbers and ``name -> (N, 3)`` from an anipose pose-3d CSV.
 
     The names are the one naming rule's, so they pair with `_read_2d`'s
-    without either end guessing at the other's convention (D-140).
+    without either end guessing at the other's convention.
     """
     frame = pl.read_csv(path, infer_schema_length=0)
     axes: dict[str, set[str]] = {}

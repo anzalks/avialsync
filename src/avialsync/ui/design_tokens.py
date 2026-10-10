@@ -1,13 +1,13 @@
-"""Spacing, density and control roles: the choices panels stop making alone (D-168).
+"""Spacing, density and control roles: the choices panels stop making alone.
 
 Every panel chose its own margins and every button looked like every other
 one, so nothing on a surface said which control was the next step and which
-one threw work away (INTERFACE_DESIGN_PLAN F-24). This module is where those
+one threw work away. This module is where those
 choices live.
 
 **Control roles.** A button is *secondary* unless it says otherwise; the other
 three are opt-in and built without a stylesheet, because a stylesheet pins the
-widget's palette and a theme switch never reaches it (AGENTS.md theme rules):
+widget's palette and a theme switch never reaches it:
 
 * ``primary`` — the next step on its surface. Bold text through
   ``theme.set_bold`` and, given one, a glyph. At most one per surface.
@@ -17,8 +17,8 @@ widget's palette and a theme switch never reaches it (AGENTS.md theme rules):
 * ``destructive`` — throws work away (it is still undoable). Its glyph is drawn
   in the error colour, and the glyph's shape says the same thing.
 
-The role is recorded on the widget (``av_role``), so a test can enumerate a
-populated window and hold the rules above.
+The role is recorded on the widget (``av_role``), so a populated window can be
+enumerated and checked against the rules above.
 """
 
 from __future__ import annotations

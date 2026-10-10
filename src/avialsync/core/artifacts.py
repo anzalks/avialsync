@@ -1,4 +1,4 @@
-"""Definitions for files AvialSync writes outside its disposable cache (D-197)."""
+"""Definitions for files AvialSync writes outside its disposable cache."""
 
 from __future__ import annotations
 
@@ -76,7 +76,7 @@ def _export(id: str, format: str, provenance: str) -> ArtifactKind:
     )
 
 
-# Cache entries are intentionally absent: cache_store alone removes them (D-160).
+# Cache entries are intentionally absent: cache_store alone removes them.
 KINDS: dict[str, ArtifactKind] = {
     kind.id: kind
     for kind in (

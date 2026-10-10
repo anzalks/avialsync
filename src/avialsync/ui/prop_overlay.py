@@ -1,8 +1,8 @@
-"""Draw observed ladder clicks and distinguish projected geometry (D-149).
+"""Draw observed ladder clicks and distinguish projected geometry.
 
 Geometry is drawn first; every name is then placed by :class:`LabelLayout`
 so labels sit beside their marks without covering each other, the marks, or
-the pane's own header (D-166).
+the pane's own header.
 """
 
 from __future__ import annotations

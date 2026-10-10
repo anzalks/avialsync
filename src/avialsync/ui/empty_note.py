@@ -1,8 +1,8 @@
-"""What an empty page says: what fills it, and the action that does (D-176, R5).
+"""What an empty page says: what fills it, and the action that does.
 
 A blank table reads as broken. Each inspector page that can be empty shows one
 of these instead: a sentence naming what will appear and how, and -- when a
-menu command fills it -- a button that *is* that command (rule 15).
+menu command fills it -- a button that *is* that command.
 """
 
 from __future__ import annotations
@@ -80,7 +80,7 @@ class EmptyNote(QWidget):
         self.setAccessibleName(text)
 
     def sizeHint(self) -> QSize:  # noqa: N802
-        """Prefer a narrow page: the sentence wraps rather than widening it (R3)."""
+        """Prefer a narrow page: the sentence wraps rather than widening it."""
         hint = super().sizeHint()
         hint.setWidth(min(hint.width(), max(self.minimumSizeHint().width(), WRAP_WIDTH_PX)))
         return hint

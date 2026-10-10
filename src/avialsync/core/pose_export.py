@@ -10,7 +10,7 @@ Three decisions are worth stating where the code is.
 **The original is copied, never edited.**  The source is read row by row and a
 new file is written; the input is opened read-only and is not the file that
 ``os.replace`` lands on.  A corrected copy that overwrote the prediction would
-destroy the model's output in the act of disagreeing with it (D-099).
+destroy the model's output in the act of disagreeing with it.
 
 **The scorer is renamed.**  A strict DLC-format CSV has no comment syntax and a
 fixed column layout, so there is exactly one field that can carry provenance
@@ -28,7 +28,7 @@ channels after, so a correction lands in the columns it was made on.
 
 **An identity swap is a permutation of the columns, row by row.**  The same
 file carries both kinds of edit, because they are one body of work about one
-recording and an analysis wants one file (D-141).  The order is fixed and it
+recording and an analysis wants one file.  The order is fixed and it
 matters: a correction lands in the column it was made on, and the routing then
 carries it wherever that column is displayed.  Reversed, a correction made
 before a flip would stay on screen while the animal it belongs to walked away
@@ -80,11 +80,11 @@ class CorrectedCopyReport:
     rows: int = 0
     corrected_rows: int = 0
     corrected_points: int = 0
-    #: Rows whose columns an accepted identity swap moved (D-141).
+    #: Rows whose columns an accepted identity swap moved.
     swapped_rows: int = 0
     #: Frames named by a correction that the pose file does not contain. Counted
     #: rather than raised: the rest of the export is still worth having, and the
-    #: caller reports the number (Law 1 — never block, always inform).
+    #: caller reports the number (never block, always inform).
     unmatched_frames: int = 0
 
 

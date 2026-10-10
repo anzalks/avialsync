@@ -72,7 +72,7 @@ _AXIS_ALLOWANCE = 52
 def _key_text() -> str:
     """What the bands mean, in words rather than as colour alone.
 
-    Categorical colour never carries meaning on its own here (rule 17, D-094):
+    Categorical colour never carries meaning on its own here:
     the same sentence is the key for a sighted reader and, through
     :meth:`CoverageLanes.describe`, the whole content for one using a screen
     reader.
@@ -263,7 +263,7 @@ class CoverageLanes(QWidget):
         """What the lanes show, for a reader who cannot see them.
 
         A bar chart is invisible to a screen reader and the overlap it shows is
-        the thing being judged (rule 17).
+        the thing being judged.
         """
         if not self._sources:
             return tr("No sources loaded.")

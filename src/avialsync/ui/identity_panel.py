@@ -21,7 +21,7 @@ stacking a second one on top of it.
 
 **It asks; it never writes.**  Every gesture leaves on a signal and the window
 puts it through the command bus, so a flip is undoable like every other
-user-visible mutation (architecture rule 14).
+user-visible mutation.
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ def group_label(group_id: str) -> str:
 
     The id is a persisted identifier written into the sidecar beside the pose
     file, so it stays ascii and untranslated; this is the only place it becomes
-    words (D-141).
+    words.
     """
     kind, qualifier = split_group_id(group_id)
     if kind == ANIMALS:
@@ -330,7 +330,7 @@ class IdentityPanel(QWidget):
             tr("Restore every identity in this tracking file to what the model predicted")
         )
         self._remove_all.clicked.connect(self.remove_all_requested)
-        # On the shared step panel (D-176): Apply is the one primary, the frame
+        # On the shared step panel: Apply is the one primary, the frame
         # nudges and Play beside it, and the two removals in the overflow.
         steps = StepPanel(tr("Review the crossing"), self)
         steps.set_instruction(
@@ -583,7 +583,7 @@ class IdentityPanel(QWidget):
         """What the braid shows, in words, for a reader who cannot see it.
 
         A plot is invisible to a screen reader and the crossings on it are the
-        whole content, so this is the content rather than a caption (rule 17).
+        whole content, so this is the content rather than a caption.
         """
         model = self._model
         if model is None or not model.lanes:
@@ -876,7 +876,7 @@ class IdentityPanel(QWidget):
         return max(min(3.1 * step, _SNAP_SECONDS), 1e-9)
 
     def nodes(self) -> tuple[BraidNode, ...]:
-        """What the plot is currently offering, for tests and for the window."""
+        """What the plot is currently offering, for the window."""
         return self._model.nodes if self._model is not None else ()
 
 

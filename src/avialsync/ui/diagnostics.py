@@ -5,7 +5,7 @@ Reports hardware decode capability and disk read speed.
 There is no decoder-availability probe any more, and there must not be one
 again: PyAV carries its own FFmpeg inside its wheel, so the missing-library case
 the old libmpv probe defended against cannot occur — pip either installed the
-decoder or the install itself failed (D-075 superseding D-013).
+decoder or the install itself failed.
 """
 
 import os
@@ -25,7 +25,7 @@ def probe_hwdec() -> dict:
 
     Informational only.  Software decode measured 558 fps per camera at
     1440x1080 against the ~180 fps needed to feed three panes, so **hardware
-    decode is not required to meet any budget** (D-075).  This is surfaced
+    decode is not required to meet any budget**.  This is surfaced
     because 12-bit footage is the case where it can still matter, and a user
     should be able to see what their machine offers rather than guess.
 
@@ -118,8 +118,8 @@ def run_startup_diagnostics(parent=None) -> dict:
 
         notifications = getattr(parent, "notifications", None)
         if diag["disk_speed_mbps"] < 50.0 and notifications is not None:
-            # Through the notification strip, not a modal (D-107). This is the
-            # purest case AGENTS rule 10 exists for: an observation nobody
+            # Through the notification strip, not a modal. This is the
+            # purest case of never block, always inform: an observation nobody
             # asked for, arriving seconds after launch, in front of a user who
             # is trying to open a file. It is worth saying and worth nothing at
             # all as an interruption.

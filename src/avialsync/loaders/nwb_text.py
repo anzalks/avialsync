@@ -1,4 +1,4 @@
-"""Text as h5py hands it back, made into ``str`` (D-188).
+"""Text as h5py hands it back, made into ``str``.
 
 HDF5 strings arrive as ``bytes``, ``str`` or zero-dimensional arrays of either,
 depending on how the writer declared them; MatNWB and pynwb differ.

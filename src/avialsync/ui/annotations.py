@@ -2,7 +2,7 @@
 
 The list of markers is presented by :mod:`avialsync.ui.changes_panel`, together
 with hand corrections to tracked points -- both are human judgements laid over a
-recording, and a reviewer wants them in one place (D-099).
+recording, and a reviewer wants them in one place.
 """
 
 from __future__ import annotations

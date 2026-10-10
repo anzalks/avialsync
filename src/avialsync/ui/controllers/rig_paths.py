@@ -1,9 +1,9 @@
 """Where a recording's pieces are: its cameras, its pose folder, the frame on screen.
 
-Shared by the 3D-marker, calibration and wheel controllers (D-112, D-113),
+Shared by the 3D-marker, calibration and wheel controllers,
 which need the same four answers and must not each derive them their own way:
 two opinions about "which frame is on screen" would key a marker and a wheel to
-different frames for the same click (rule 6, one authority names the frame).
+different frames for the same click (one authority names the frame).
 """
 
 from __future__ import annotations

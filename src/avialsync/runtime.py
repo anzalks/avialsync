@@ -3,7 +3,7 @@
 This module used to locate a media runtime — libmpv, then FFmpeg — that had to
 exist on the machine beside the application. Nothing does that any more: video
 decoding, probing, proxy generation, and clip export all run in-process against
-the FFmpeg that PyAV carries inside its own wheel (D-075). There is no search
+the FFmpeg that PyAV carries inside its own wheel. There is no search
 path, no ``AVIALSYNC_MEDIA_ROOT``, and no executable to require.
 
 What is left is the one thing that is genuinely about the *process* rather than
@@ -20,8 +20,8 @@ from typing import TypedDict
 class NoWindowKwargs(TypedDict, total=False):
     """Subprocess keyword arguments that suppress a console window.
 
-    A ``TypedDict`` rather than ``dict[str, int]`` so mypy can still resolve the
-    overloads of ``subprocess.run``/``Popen`` when this is splatted into them.
+    A ``TypedDict`` rather than ``dict[str, int]`` so the typed overloads of
+    ``subprocess.run``/``Popen`` still resolve when this is splatted into them.
     ``total=False`` because the mapping is empty off Windows.
     """
 

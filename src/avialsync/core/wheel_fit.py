@@ -1,4 +1,4 @@
-"""Fitting a wheel to both ends of a few clicked neighbouring bars (D-113).
+"""Fitting a wheel to both ends of a few clicked neighbouring bars.
 
 See :mod:`avialsync.core.wheel` for what the clicks can and cannot determine.
 In short: the bars' directions give the axle, their lengths the width, and the
@@ -8,7 +8,7 @@ Two bars fit two mirrored wheels; both are refined, and the closer call goes to
 the one farther from the cameras. The refinement is in pixels: it moves the
 whole wheel until every generated bar end lands on its click in every camera.
 
-Headless (architecture rule 2).
+Headless.
 """
 
 from __future__ import annotations
@@ -186,7 +186,7 @@ def _slots(
 
     The clicked bars *are* neighbours, in the order clicked: that is what the
     user was asked to click, so it is taken as given rather than re-derived
-    from angles (D-123). Rounding each bar's own angle let a wrong radius or
+    from angles. Rounding each bar's own angle let a wrong radius or
     unit scatter bars clicked side by side ten slots apart. Only the direction
     round the wheel comes from the geometry.
     """
@@ -430,7 +430,7 @@ _REQUIRED_BARS = 2
 #: A typed radius this many times larger or smaller than the one the clicks
 #: imply contradicts them. Click noise moves the implied radius by tens of
 #: percent at most; wrong 3D units move it by 10x, 100x or 1000x, and still
-#: reproject well enough to pass :func:`fit_issue` (D-123, amended).
+#: reproject well enough to pass :func:`fit_issue`.
 _CONTRADICTION_FACTOR = 2.0
 
 
@@ -445,7 +445,7 @@ def _contradicts(fit: WheelFit, spec: WheelSpec) -> bool:
 
 @dataclass(frozen=True)
 class LabelledFit:
-    """The wheel a user's clicks describe, and what had to give way for it (D-122, D-123)."""
+    """The wheel a user's clicks describe, and what had to give way for it."""
 
     fit: WheelFit
     #: Why bar 3 was left out of the fit -- the fit's own error, or "" when it

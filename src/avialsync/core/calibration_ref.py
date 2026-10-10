@@ -127,7 +127,7 @@ def write_ref(folder: Path | str, sources: Sequence[str], calibration: Path | st
     """Write ``calibration_ref.txt`` in *folder*, creating the folder if needed.
 
     The folder is the ``pose-3d`` convention rather than a path the user typed,
-    so creating it is not the typo-hiding D-100 forbids for export targets.
+    so creating it cannot hide a typo the way creating a typed export target would.
     """
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)

@@ -1,4 +1,4 @@
-"""Named window layouts (WP-11).
+"""Named window layouts.
 
 A session is looked at in more than one way. Aligning two recordings wants the
 plots tall and the video small; checking a tracking overlay wants the opposite;
@@ -19,8 +19,7 @@ their screen rather than to the recording. That boundary is already correct in
 display while its original splitter slot remains reserved and restorable.
 Converting all four nested splitters to ``QDockWidget`` is still out of scope:
 they carry ``PaneProportions`` tracking, a policy re-assertion, and a
-collapsed-pane repair, and §3 of the plan protects the plot behaviour that
-depends on them.
+collapsed-pane repair, and the plot behaviour depends on them.
 """
 
 from __future__ import annotations
@@ -48,9 +47,9 @@ __all__ = ["Workspace", "capture", "apply", "save", "load", "names", "remove"]
 _GROUP = "workspaces"
 
 #: The splitters that make up a layout, by the attribute that holds each. The
-#: inspector is a dock now (D-180); its place is in ``dock_state``.
+#: inspector is a dock now; its place is in ``dock_state``.
 _SPLITTERS = ("_v_splitter", "_media_splitter", "imaging_splitter", "_content_splitter")
-#: Where a workspace saved before D-180 kept the inspector's width.
+#: Where a workspace saved before the inspector was a dock kept its width.
 _LEGACY_INSPECTOR = "_h_splitter"
 
 
@@ -63,9 +62,9 @@ class Workspace:
     inspector_tab: int
     plots_detached: bool = False
     plots_geometry: QByteArray = dataclasses.field(default_factory=QByteArray)
-    #: ``QMainWindow.saveState``: where the inspector dock sits (D-180).
+    #: ``QMainWindow.saveState``: where the inspector dock sits.
     dock_state: QByteArray = dataclasses.field(default_factory=QByteArray)
-    #: A pre-D-180 workspace's inspector width, read from its old splitter state.
+    #: An older workspace's inspector width, read from its old splitter state.
     legacy_inspector_width: int | None = None
 
 
@@ -212,7 +211,7 @@ def remove(name: str) -> None:
     _store().remove(f"{_GROUP}/{name}")
 
 
-# ── View → Workspace commands (WP-11) ────────────────────────────────
+# ── View → Workspace commands ────────────────────────────────
 
 
 def rebuild_menu(window: MainWindow) -> None:
@@ -262,7 +261,7 @@ def delete_one(window: MainWindow) -> None:
 
     The deletion happens and the layout is offered back under Undo on the
     notification strip rather than behind an "are you sure?" gate: never
-    block, always inform (D-107).
+    block, always inform.
     """
     saved = names()
     if not saved:

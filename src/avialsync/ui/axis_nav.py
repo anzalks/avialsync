@@ -16,7 +16,7 @@ good.  :meth:`AxisNav.set_home_range` makes the owner state what "all" means --
 for evidence, the full span the fit was computed over, not the part that
 survived it.
 
-This is the single authority for that gesture set (architecture rule 15): the
+This is the single authority for that gesture set: the
 buttons, the wheel, and the keyboard drive the same view box through the same
 methods, so a plot cannot acquire a second dialect of "zoom out".
 
@@ -171,7 +171,7 @@ class AxisNav(QWidget):
 
         A bare "+" is meaningless read aloud, and there are two of each on this
         widget, so the axis has to be in the name rather than only in the
-        position (rule 17).
+        position.
         """
         return [
             (
@@ -206,8 +206,8 @@ class AxisNav(QWidget):
         The stock menu offers Transforms, Downsample, Average and Alpha beside
         Export. Downsample and Average change the evidence while it is being
         judged, with no record that anything changed -- a second, undocumented
-        control surface over a scientific decision, which is what rule 15
-        forbids. Disabling it outright was the holding position; it also took
+        control surface over a scientific decision, which the interface does
+        not allow. Disabling it outright was the holding position; it also took
         Export away, and exporting the evidence you are about to accept is a
         legitimate thing to want.
 

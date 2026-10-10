@@ -1,4 +1,4 @@
-"""The atomic publication boundary for authored files and exports (D-197)."""
+"""The atomic publication boundary for authored files and exports."""
 
 from __future__ import annotations
 

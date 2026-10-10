@@ -10,7 +10,7 @@ that we do not use its answer.  neo picks one seconds-or-sample-numbers rule for
 the whole recording and lets the last event stream read set it, and it raises
 mid-header on shapes the format permits, which loses the entire recording rather
 than one annotation.  :func:`read_messages` and :func:`event_stream_defects`
-exist for those two reasons and no others (D-085).
+exist for those two reasons and no others.
 
 ``timestamps.npy`` is a free-running acquisition clock, not a UTC epoch, and neo
 reports ``t_start`` on that same clock.  The only absolute instant an Open Ephys
@@ -268,7 +268,7 @@ class EventStreamDefect:
     some unrelated format entirely — so what reaches the user names neither this
     folder nor this problem.
 
-    Naming both is what turns that into something a user can fix (D-085).
+    Naming both is what turns that into something a user can fix.
     """
 
     folder: str
@@ -362,7 +362,7 @@ def read_messages(recording: Path) -> list[Message]:
     one wins.  A recording whose annotation folder and TTL folder disagree gets
     *both* rescaled by whichever was read last, silently moving every message —
     and every TTL edge — by a factor of the sample rate.  Deciding per stream,
-    from the file actually present in that folder, is why this exists (D-085).
+    from the file actually present in that folder, is why this exists.
 
     Times are on the recording's own acquisition clock, exactly like the samples.
     """

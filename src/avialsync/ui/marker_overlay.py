@@ -1,9 +1,9 @@
-"""What a camera's overlay draws besides the tracking (D-112, D-113).
+"""What a camera's overlay draws besides the tracking.
 
 Hand-placed 3D markers (rings), 3D points projected back into the camera
 (crosses), and the wheel model (lines, :mod:`avialsync.ui.wheel_overlay`) --
-three glyphs beside the tracked dot, told apart by shape rather than colour
-(AGENTS rule 17). Split from :mod:`avialsync.ui.video_overlay` so that module
+three glyphs beside the tracked dot, told apart by shape rather than colour.
+Split from :mod:`avialsync.ui.video_overlay` so that module
 stays about the tracking itself; :class:`PaintCanvas` is the only host.
 
 Hand-placed markers are also grabbable in Fix Tracker, so :meth:`_resolve_custom`
@@ -33,7 +33,7 @@ __all__ = ["ResolvedPoint", "MarkerOverlayMixin"]
 _CUSTOM_RADIUS = 6
 #: Half-length of a reprojected 3D point's cross: a third glyph, beside the
 #: tracked dot and the hand-placed ring, so the three are told apart by shape
-#: rather than by colour alone (AGENTS rule 17).
+#: rather than by colour alone.
 _REPROJECTION_ARM = 5
 #: Marker-label text, as the tracking's own labels are drawn.
 _LABEL_POINT_SIZE = 8
@@ -84,7 +84,7 @@ class MarkerOverlayMixin(PointEditMixin):
         self._reprojection: Callable[[float], list[tuple[str, float, float]]] | None = None
         self._reprojection_visible = False
         #: ``t_master -> WheelDrawing``: the wheel model projected into this
-        #: camera (D-113), and its two layers.
+        #: camera, and its two layers.
         self._wheel: Callable[[float], WheelDrawing | None] | None = None
         self._wheel_visible = True
         self._wheel_hidden_visible = False

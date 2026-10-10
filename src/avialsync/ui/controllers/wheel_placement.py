@@ -1,8 +1,8 @@
-"""A wheel being labelled: its clicks, what they locate, and what to say (D-116, D-119, D-122).
+"""A wheel being labelled: its clicks, what they locate, and what to say.
 
 Split from :mod:`avialsync.ui.controllers.wheel_display`, which draws, and
 :mod:`avialsync.ui.controllers.wheel_controller`, which acts. What is here is
-read off the placement alone -- no window -- so the rules are tested directly:
+read off the placement alone -- no window -- so the rules stand on their own:
 
 * **Real clicks are the only evidence.** Two camera clicks on an end locate it
   in 3D and project it into the unclicked views. A projection guides the next
@@ -10,7 +10,7 @@ read off the placement alone -- no window -- so the rules are tested directly:
 * **Done Labelling from the second bar on.** Once both ends of bars 1 and 2
   have two real views each, whatever fit the clicks give can be finished. A
   fit :func:`~avialsync.core.wheel.fit_issue` doubts is drawn and saved
-  with a warning rather than hidden or refused (D-123).
+  with a warning rather than hidden or refused.
 * **The clicks decide.** Clicked bars are neighbours in click order, and a
   typed radius that contradicts them gives way to the one they imply.
 * **A third bar can only help.** It joins the fit when both of its ends are
@@ -237,7 +237,7 @@ def placement_view(placement: WheelPlacement, cameras: Sequence[str]) -> Placeme
         can_undo=bool(placement.history),
         can_flip=placement.fit is not None and placement.fit.can_flip,
         # From bars 1 and 2 on, whatever the fit's quality: an unreliable one
-        # is saved hidden, never refused (D-122).
+        # is saved hidden, never refused.
         can_accept=placement.fit is not None and ready and not placement.fitting,
     )
 

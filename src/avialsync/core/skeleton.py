@@ -1,6 +1,6 @@
 """Skeleton topology derived from the geometry of 3D pose points.
 
-Point *names* never imply connectivity (D-041): calling a channel ``head_bar``
+Point *names* never imply connectivity: calling a channel ``head_bar``
 says nothing about what it is attached to, and guessing from the lexicon
 invents scientific semantics the recording never claimed. The trajectories do
 carry that evidence, though -- two markers on one rigid segment hold a constant
@@ -10,7 +10,7 @@ rigid each pair is, and a root chosen from the anatomical vertical so the tree
 has a direction to flow in.
 
 The result is an *estimate*, never a declaration. A session that ships explicit
-topology always wins, and the view marks a derived skeleton as derived (D-082).
+topology always wins, and the view marks a derived skeleton as derived.
 """
 
 from __future__ import annotations
@@ -65,7 +65,7 @@ class SkeletonEstimate:
     parents: dict[str, str] = field(default_factory=dict)
     #: Length coefficient of variation per edge -- 0.0 is perfectly rigid.
     variation: dict[tuple[str, str], float] = field(default_factory=dict)
-    #: Frames actually examined, for status text and tests.
+    #: Frames actually examined, for status text.
     frames_used: int = 0
 
     def __bool__(self) -> bool:

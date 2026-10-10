@@ -5,7 +5,7 @@ here are a handful of flat tables -- a calibration, a wheel -- so a formatter of
 a dozen lines serves them all, and one of them keeps the layout anipose itself
 writes, which leaves a file diffable against one anipose made.
 
-Headless (architecture rule 2).
+Headless.
 """
 
 from __future__ import annotations

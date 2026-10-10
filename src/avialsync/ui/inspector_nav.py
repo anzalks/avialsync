@@ -1,6 +1,6 @@
-"""The inspector's page rail: icon and label buttons beside a page stack (D-172).
+"""The inspector's page rail: icon and label buttons beside a page stack.
 
-Six text tabs in a 280 px pane elided to "Sour…" and "Mess…" (F-13). A rail
+Six text tabs in a 280 px pane elided to "Sour…" and "Mess…". A rail
 stacks its buttons vertically, so a label is as wide as the rail, never a
 share of it; when the window is too short for every button the rail scrolls
 vertically instead of cropping one.
@@ -157,7 +157,7 @@ class InspectorNav(QWidget):
             settings.setValue("inspector/page", INSPECTOR_PAGES[self.currentIndex()])
 
     def restore_page(self, settings: QSettings) -> None:
-        """Show the saved page, reading the pre-D-172 ``inspector/tab`` index once."""
+        """Show the saved page, reading an older ``inspector/tab`` index once."""
         page = settings.value("inspector/page", None)
         if isinstance(page, str) and page in INSPECTOR_PAGES:
             index = INSPECTOR_PAGES.index(page)

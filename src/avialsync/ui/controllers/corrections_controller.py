@@ -1,4 +1,4 @@
-"""Persisting hand corrections: sidecar first, session as the fallback (D-099).
+"""Persisting hand corrections: sidecar first, session as the fallback.
 
 A correction is a fact about the recording, so it is written beside the pose
 file the moment it is made rather than waiting for the session to be saved.  Two
@@ -225,7 +225,7 @@ def adopt(window: MainWindow, source_id: str) -> None:
         except OSError:
             actual = corrections.source_bytes
         if actual != corrections.source_bytes:
-            # Evidence, not a gate (architecture rule 8). A re-exported pose file
+            # Evidence, not a gate. A re-exported pose file
             # can renumber frames, which would land old corrections on the wrong
             # ones -- but discarding a user's work on a size comparison would be
             # worse than telling them and letting them look.
@@ -376,8 +376,8 @@ def labeled_frames(window: MainWindow, source_id: str) -> tuple[list[str], list[
             y = float(ys[index])
             # Keyed by the column, not the label: the readers above are the
             # edited ones, so under an accepted flip this body part is drawing
-            # another column's trajectory and its correction lives there
-            # (D-143). Looking it up by the label silently drops every
+            # another column's trajectory and its correction lives there.
+            # Looking it up by the label silently drops every
             # correction made after a flip.
             from avialsync.ui.controllers import identity_controller
 

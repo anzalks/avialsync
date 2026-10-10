@@ -46,7 +46,7 @@ from avialsync.loaders.open_ephys_legacy import read_messages as read_legacy_mes
 logger = logging.getLogger(__name__)
 
 #: Explicit ephys extension whitelist — ``can_open`` returns 0.0 for anything not
-#: here, so neo cannot claim a CSV, a text file, or an unknown binary (D-019).
+#: here, so neo cannot claim a CSV, a text file, or an unknown binary.
 SUPPORTED_EXTENSIONS: frozenset[str] = frozenset(
     {
         ".nix",  # NIX (G-Node)
@@ -114,7 +114,7 @@ def _is_numeric_label(text: str) -> bool:
     Open Ephys is not currently that format: it writes states as ``±1``, but neo
     pairs them into epochs and keeps only the rising label, so what arrives here
     is ``"1"``.  Every other reader neo fronts is free to differ, and the test
-    costs nothing to state correctly (D-085).
+    costs nothing to state correctly.
     """
     try:
         float(text)
@@ -129,7 +129,7 @@ def _reject_unreadable_recording(path: Path) -> None:
     Only Open Ephys is checked, because it is the one format here whose reader
     validates *every* stream while building the header: a single malformed
     annotation folder raises before any continuous stream is reached, so the
-    cost of a bad comment field is the whole recording (D-085).  Every other
+    cost of a bad comment field is the whole recording.  Every other
     format fails on the stream that is actually broken and needs no pre-flight.
     """
     if not is_recording_dir(path):
@@ -319,7 +319,7 @@ class NeoLoader(TimeSeriesSource):
         # extensions, so a path it cannot parse does not fail — it comes back
         # bound to whichever unrelated format also claims `.npy` or `.txt`, and
         # *that* reader's complaint is what would reach the user.  The probe saw
-        # the real cause; nothing downstream will see it again (D-085).
+        # the real cause; nothing downstream will see it again.
         probe_error: Exception | None = None
         if not configured_root:
             try:
@@ -410,7 +410,7 @@ class NeoLoader(TimeSeriesSource):
 
                 # The signal's own unit, as neo read it from the file -- never a
                 # guess: a default of "uV" labelled every unit-less stream as
-                # microvolts (D-186).
+                # microvolts.
                 unit = ""
                 if hasattr(asig, "units") and hasattr(asig.units, "dimensionality"):
                     unit = str(asig.units.dimensionality.string)
@@ -581,12 +581,12 @@ class NeoLoader(TimeSeriesSource):
         last.  A recording whose annotation folder and TTL folder disagree gets
         both rescaled the same wrong way, which moves a note by a factor of the
         sample rate without anything reporting it.  The format module decides per
-        stream, from the file present in that folder (D-085).
+        stream, from the file present in that folder.
 
         The original ``.continuous`` format is read here for a different reason:
         neo does not implement its ``messages.events`` at all — the file is
         filtered out by name and the channel that would carry it is commented
-        out upstream — so there is no neo answer to prefer over (D-085).
+        out upstream — so there is no neo answer to prefer over.
 
         ``None`` means "not a format handled here, use neo's labels" — it is not
         the same answer as an empty list, which means the recording was read and
@@ -749,8 +749,8 @@ class NeoLoader(TimeSeriesSource):
             widths[:-1] = np.minimum(widths[:-1], headroom)
         # ``np.asarray`` is a no-op on an array that already has this dtype; it
         # is here because NumPy 2.4's stubs type ``np.maximum`` as returning
-        # ``Any`` while 2.5's do not, so without it this file's type-checks
-        # depend on which NumPy the checker happens to find (HANDOUT.md trap 26).
+        # ``Any`` while 2.5's do not, so without it this line's type would
+        # depend on which NumPy is installed.
         clamped = np.maximum(widths, np.spacing(np.abs(rise) + 1.0))
         return np.asarray(clamped, dtype=np.float64)
 

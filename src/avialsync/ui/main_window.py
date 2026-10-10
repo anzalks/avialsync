@@ -162,13 +162,12 @@ _HIGHLIGHT_MS = 4000
 #: once per frame instead of once per pixel.
 _PANE_RESIZE_COALESCE_MS = 16
 #: An empty plot stack or Data Streams lane's share while nothing is loaded:
-#: effectively its minimum, which the proportion store enforces (D-127).
+#: effectively its minimum, which the proportion store enforces.
 _EMPTY_PLACEHOLDER_SHARE = 0.001
 
 #: Keys that drive the playhead and must reach it from anywhere in the window.
 #: Qt offers each of these to the focused widget first, and text editors accept
-#: them, which is how one click into a spin box used to disable playback control
-#: (D-059).
+#: them, which is how one click into a spin box used to disable playback control.
 _PLAYHEAD_KEYS = frozenset(
     {
         Qt.Key.Key_Space,
@@ -266,7 +265,7 @@ class MainWindow(QMainWindow):
 
     # Built by ui.menus. These are declared here so every caller sees their
     # types, while the live QAction remains the sole source of command text,
-    # shortcut, and enablement (D-092).
+    # shortcut, and enablement.
     _act_open_video: QAction
     _act_open_sensor: QAction
     _act_open_imaging: QAction
@@ -311,8 +310,8 @@ class MainWindow(QMainWindow):
         # Initialized before menu preconditions read the recovery offer.
         self.session_runtime = SessionRuntimeState()
 
-        # The one place that knows whether this session has unsaved changes
-        # (D-087). Dirty state, undo, and the autosave trigger all derive from
+        # The one place that knows whether this session has unsaved changes.
+        # Dirty state, undo, and the autosave trigger all derive from
         # its log rather than being tracked separately -- which is why the
         # title was a constant string and closing preserved nothing before it.
         self.document = Document()
@@ -328,10 +327,10 @@ class MainWindow(QMainWindow):
         #: The camera the user last touched, so an action with no explicit
         #: target acts on the one they meant rather than on the first pane.
         self._selected_video_path: str | None = None
-        #: Which overlay layers show, globally and per camera (D-090). Law 2:
-        #: nothing is drawn over a frame that the user cannot turn off.
+        #: Which overlay layers show, globally and per camera. Nothing is
+        #: drawn over a frame that the user cannot turn off.
         self.overlay_state = OverlayState()
-        #: Hand corrections to tracked points (D-099). Sparse, and written
+        #: Hand corrections to tracked points. Sparse, and written
         #: beside each pose file the moment they are made; the pose files
         #: themselves and their caches are never written.
         self.point_edits = PointEditStore()
@@ -344,7 +343,7 @@ class MainWindow(QMainWindow):
         self._calibration_state: calibration_controller.CalibrationState | None = None
         self._marker_placement: custom_marker_controller.MarkerPlacement | None = None
         self._announced_marker_files = False
-        #: Wheels placed through Props (D-113), the one being placed, the one
+        #: Wheels placed through Props, the one being placed, the one
         #: whose encoder the next click checks, and what drawing them needs:
         #: bars per frame, encoder readers, and the session's own hint.
         self.wheel_state = WheelState()
@@ -353,11 +352,11 @@ class MainWindow(QMainWindow):
         self.wheels.observe(self._on_wheels_changed)
         #: One callable, so the grid can tell "no wheel" from "same wheel source".
         self.wheel_state.pane_source = lambda path, t: wheel_display.pane_drawing(self, path, t)
-        #: Accepted identity swaps (D-141): which lanes exchanged labels and
+        #: Accepted identity swaps: which lanes exchanged labels and
         #: from which frame. Like corrections, written beside the pose file the
         #: moment they are accepted; unlike corrections, applied by rebuilding
         #: the source's cached channels, so every consumer reads the edited
-        #: tracker rather than each one applying the swap for itself (D-142).
+        #: tracker rather than each one applying the swap for itself.
         self.identity_swaps = SwapStore()
         self.identity_swaps.observe(self._on_identity_swaps_changed)
         self._show_original_tracker = False
@@ -395,7 +394,7 @@ class MainWindow(QMainWindow):
         #: volume does not raise the same strip on every drag.
         self._announced_correction_files: set[str] = set()
 
-        # The feedback surface (D-091). JobManager already knew all of this;
+        # The feedback surface. JobManager already knew all of this;
         # none of it reached the user.
         self.activity_bar = ActivityBar(self)
         self.activity_bar.cancel_requested.connect(self._cancel_active_task)
@@ -405,7 +404,7 @@ class MainWindow(QMainWindow):
 
         # Display levels, offered only for footage that has range to choose
         # from -- the panel asks the decoder what the recording actually is
-        # rather than assuming a depth (D-093).
+        # rather than assuming a depth.
         self.levels_panel = LevelsPanel(self)
         self.levels_panel.levels_changed.connect(self._on_display_levels_changed)
         self.levels_panel.auto_requested.connect(self._on_auto_levels_requested)
@@ -440,7 +439,7 @@ class MainWindow(QMainWindow):
         #: 1.77e9, which no usable spin box can express, while the hand
         #: correction a user makes on top of it is a few frames. Keeping them
         #: in one number meant the offset control either clamped the placement
-        #: (silently, to 86400 -- D-026) or was wiped by the first nudge.
+        #: (silently, to 86400) or was wiped by the first nudge.
         self._source_base_offsets: dict[str, float] = {}
         #: Unix epoch of each source's own t=0, where a session declared one.
         #: Keyed by path like the other per-item declarations a session makes.
@@ -465,10 +464,10 @@ class MainWindow(QMainWindow):
         # read it, and a window that has never imported must still answer.
         #: Cancel callback for whatever the activity bar is currently showing.
         #: Legacy workers are not registered with JobManager, so the bar needs
-        #: its own handle to stop them (D-091).
+        #: its own handle to stop them.
         self._active_cancel: Callable[[], None] | None = None
         # Pose sources are shown on the video overlay and in the 3D view rather
-        # than as plot rows (D-046). Keyed by video path -> source path -> track.
+        # than as plot rows. Keyed by video path -> source path -> track.
         self._overlay_sources: dict[str, dict[str, dict[str, Any]]] = {}
         self._pose_3d_sources: dict[str, list[Any]] = {}
         #: Per-pose-source presentation choices.  A role decides *where* a
@@ -489,7 +488,7 @@ class MainWindow(QMainWindow):
         # the plot rows it owns without walking every channel.
         self._sensor_cache_dirs: dict[str, Path] = {}
         # Sources whose plot rows are still being built; their exact reader-derived
-        # bounds are applied when PlotPane reports the load complete (D-060).
+        # bounds are applied when PlotPane reports the load complete.
         self._pending_bounds_sources: dict[str, Path] = {}
         # Accepted mappings restored from a session, applied once their
         # asynchronous import reports back.
@@ -521,7 +520,7 @@ class MainWindow(QMainWindow):
             frame_index=lambda index, t: int(self.video_grid.panes[index].frame_record_at(t)[0]),
         )
         self.video_grid.set_point_edits(self.point_edits)
-        # What a marker is *drawing* once a flip is accepted (D-143). Installed
+        # What a marker is *drawing* once a flip is accepted. Installed
         # here, beside the store it belongs with, so a pane created later gets
         # both from the same place.
         self.video_grid.set_identity_resolver(
@@ -584,7 +583,7 @@ class MainWindow(QMainWindow):
         self.annotation_store = AnnotationStore(self)
         self.annotation_store.changed.connect(self._update_timeline_annotations)
         # Export Changes is available exactly when one of these has something
-        # in it, so both drive the availability pass (D-107).
+        # in it, so both drive the availability pass.
         self.annotation_store.changed.connect(self._refresh_action_availability)
         self.annotation_store.marker_added.connect(self._record_marker_added)
         self.annotation_store.marker_removed.connect(self._record_marker_removed)
@@ -661,7 +660,7 @@ class MainWindow(QMainWindow):
         # annotations available without permanently consuming four stacked panes
         # of workspace height. Messages sit beside annotations because they
         # answer the same question — what happened here — from the rig's side.
-        # A rail rather than tabs, so no page name elides (D-172). Tasks is not
+        # A rail rather than tabs, so no page name elides. Tasks is not
         # a page: it opens from the status bar, beside the activity it lists.
         self._left_tabs = InspectorNav(self)
         self._left_tabs.setAccessibleName(tr("Inspector"))
@@ -675,7 +674,7 @@ class MainWindow(QMainWindow):
         # Display levels live under Sources, beside the camera they act on.
         # Hidden until a recording that has range to choose from is opened.
         self.sidebar.content_layout.addWidget(self.levels_panel)
-        # A dock, not a splitter pane: either side, floating, or closed (D-180).
+        # A dock, not a splitter pane: either side, floating, or closed.
         self.inspector_dock = install_inspector_dock(self, self._left_tabs)
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
@@ -683,7 +682,7 @@ class MainWindow(QMainWindow):
 
         self._media_splitter = PaneSplitter(Qt.Orientation.Horizontal)
         self._media_splitter.setAccessibleName(tr("Video and 3D tracking splitter"))
-        # The video tools sit directly under the videos they act on (D-126),
+        # The video tools sit directly under the videos they act on,
         # beside the 3D pane rather than under it: the 3D pane's own header is
         # taller, so the row costs no height on a small display.
         self._video_column = QWidget()
@@ -759,7 +758,7 @@ class MainWindow(QMainWindow):
         self._enforce_splitter_policy()
         self._apply_default_splitter_sizes()
 
-        layout.addWidget(scroll_when_short(right_widget))  # D-182
+        layout.addWidget(scroll_when_short(right_widget))
 
         # Child widgets receive drag events before QMainWindow. Forward those
         # events to the single capability-routing implementation below.
@@ -776,7 +775,7 @@ class MainWindow(QMainWindow):
         # Qt delivers ShortcutOverride to whichever widget has focus, not to the
         # window, so reserving the playhead keys needs an application-wide
         # filter. `_reserve_playhead_key` scopes every decision back to this
-        # window, so dialogs keep their own editing keys (D-059).
+        # window, so dialogs keep their own editing keys.
         app = QApplication.instance()
         if isinstance(app, QApplication):
             app.installEventFilter(self)
@@ -790,7 +789,7 @@ class MainWindow(QMainWindow):
         self._install_feedback_surface()
 
         # Empty state, over the video area until a recording is opened. Its
-        # layout (D-127) waits for the saved one to be restored first, so the
+        # layout waits for the saved one to be restored first, so the
         # layout kept for later is the user's, not the defaults.
         self._empty_layout_saved: dict[QSplitter, tuple[float, ...] | None] | None = None
         self._empty_layout_ready = False
@@ -804,21 +803,21 @@ class MainWindow(QMainWindow):
         self._empty_layout_ready = True
         self._refresh_empty_state()
 
-        # Transport signals (D-022)
+        # Transport signals
         self.transport.ab_loop_changed.connect(self._on_ab_loop_changed)
         self.view_toolbar.flag_requested.connect(self._on_annotate_requested)
         self.transport.jump_requested.connect(self._on_jump_requested)
 
-        # Video pane right-click context menu (D-022)
+        # Video pane right-click context menu
         self.video_grid.pane_right_clicked.connect(lambda path, _pos: self._select_video(path))
         self.video_grid.pane_right_clicked.connect(self._on_pane_right_clicked)
 
-        # Plot annotate-at (D-022)
+        # Plot annotate-at
         self.plot_pane.annotate_at_requested.connect(self._on_annotate_at_requested)
 
         # One window-owned timer clears the revisit ring. Owned here, not by a
         # pane: a timer that outlives the widget it repaints is a SIGSEGV with
-        # no traceback (HANDOUT.md), and the window outlives every pane.
+        # no traceback, and the window outlives every pane.
         self._highlight_timer = QTimer(self)
         self._highlight_timer.setSingleShot(True)
         self._highlight_timer.timeout.connect(self._clear_point_highlight)
@@ -834,7 +833,7 @@ class MainWindow(QMainWindow):
         # Unsaved work from a previous run is read once by a worker and held, which is
         # what enables File → Recover Unsaved Work. The notification bar on top
         # of that is opt-in and off by default, so a launch is quiet unless the
-        # user asked to be told (D-089, D-133).
+        # user asked to be told.
         recovery_worker.start_recovery_check(self)
 
         # Start player tick
@@ -845,18 +844,17 @@ class MainWindow(QMainWindow):
 
         # User rebindings, layered over the defaults just established. Applied
         # last so a stored choice wins, and after the defaults are recorded so
-        # Reset has something to restore (WP-3).
+        # Reset has something to restore.
         apply_overrides(list(self._all_actions))
 
         # Name anything interactive that has not named itself. A sweep rather
         # than ninety manual calls, because the ninety-first widget is the one
-        # that gets added without one (WP-12).
+        # that gets added without one.
         #
         # This pass covers the chrome only: the application starts empty, so
         # there are no video panes, plot rows, source entries or quality badges
         # here to name yet. `_sweep_accessibility` runs again as those appear,
-        # and `install_show_time_sweep` catches every dialog when it is shown
-        # (D-107).
+        # and `install_show_time_sweep` catches every dialog when it is shown.
         apply_accessibility(self)
         app = QApplication.instance()
         if app is not None:
@@ -886,7 +884,7 @@ class MainWindow(QMainWindow):
 
         Connect result signals in *configure*, never after this returns: the
         thread is already running by then, and a worker that finishes first
-        emits into nothing (D-062, and the no-op drops this file's tests pin).
+        emits into nothing and the work is silently a no-op.
         """
         if announce_after_s:
             return self._job_manager.start(
@@ -904,7 +902,7 @@ class MainWindow(QMainWindow):
             grid_layout.addWidget(self.empty_state)
         self._refresh_empty_state()
 
-    # ── Action availability (D-107) ──────────────────────────────────
+    # ── Action availability ──────────────────────────────────
 
     def _has_alignment_evidence(self) -> bool:
         """Whether both halves of a TTL/event fit are present.
@@ -958,7 +956,7 @@ class MainWindow(QMainWindow):
             action.setToolTip(original_tip if available else reason)
 
     def _sweep_accessibility(self) -> None:
-        """Name the widgets that were built after the window was (D-107).
+        """Name the widgets that were built after the window was.
 
         Video panes, plot rows, sidebar source entries and quality badges are
         all created as recordings load, long after the constructor's sweep.
@@ -986,7 +984,7 @@ class MainWindow(QMainWindow):
         # it survives a short video area without dictating a window minimum.
 
     def _apply_empty_layout(self, empty: bool) -> None:
-        """Give the drop target the room while nothing is loaded (D-127).
+        """Give the drop target the room while nothing is loaded.
 
         An empty plot stack and empty Data Streams lanes are placeholders, and
         a restored layout could leave them most of the window with the drop
@@ -1018,7 +1016,7 @@ class MainWindow(QMainWindow):
         The generator already exists and is what `avialsync demo` runs; it was
         simply unreachable from inside the application. It writes files and
         encodes video, so it goes through the activity bar like any other long
-        job rather than blocking the window (D-091).
+        job rather than blocking the window.
         """
         from avialsync.demo import DemoLaunch
 
@@ -1066,12 +1064,12 @@ class MainWindow(QMainWindow):
 
         A scrolling, copyable dialog rather than a message box: this text is a
         traceback or a worker's stderr, which has no length limit and is only
-        useful if it can be pasted into a report (D-107).
+        useful if it can be pasted into a report.
         """
         show_text(self, tr("Details"), details)
 
     def report_failure(self, error: BaseException, *, doing: str = "") -> None:
-        """Present a failure without taking the session away (AGENTS rule 12).
+        """Present a failure without taking the session away.
 
         The single route for anything that goes wrong on a load or save path.
         It replaces the shape this codebase used in forty places -- an exception
@@ -1079,7 +1077,7 @@ class MainWindow(QMainWindow):
         terms, a plain-language cause, and the raw text behind Show details.
 
         Non-modal by design: whatever else is open still loaded and is still
-        usable, and Law 1 says the application informs rather than blocks.
+        usable, and the application informs rather than blocks.
         """
         presented = present(error, doing=doing)
         message = f"{presented.title}. {presented.cause}"
@@ -1088,7 +1086,7 @@ class MainWindow(QMainWindow):
         else:  # pragma: no cover - no unrecoverable presenter exists yet
             # The one failure that has earned an interruption. It still shows
             # its detail in the same scrolling, copyable dialog as everything
-            # else rather than a message box (D-107).
+            # else rather than a message box.
             show_text(self, presented.title, presented.details, lead=message)
 
     def _refresh_jobs_panel(self) -> None:
@@ -1102,7 +1100,7 @@ class MainWindow(QMainWindow):
         when a job was running, because the "nothing running" branch returned
         first — so the last job to finish stayed listed in the Tasks panel until
         some later job happened to start, and an idle application showed work
-        in progress that had finished minutes ago (D-107).
+        in progress that had finished minutes ago.
         """
         text = self._job_manager.status_text()
         if not text:
@@ -1197,7 +1195,7 @@ class MainWindow(QMainWindow):
         """Apply exact reader-derived bounds once every queued row exists.
 
         Rows are built across several event-loop turns so a large selection does
-        not freeze the window (D-060). Until they exist, `_on_import_finished`
+        not freeze the window. Until they exist, `_on_import_finished`
         uses the import worker's bounds; this replaces them with the mapped span
         the readers actually cover, which differs whenever a source carries an
         offset or drift.
@@ -1411,7 +1409,7 @@ class MainWindow(QMainWindow):
         `format_time` has always taken this and falls back to elapsed time when
         it is zero. Nothing ever passed one, so the UTC and local time-of-day
         display modes silently could not work -- two of three options on a menu
-        that has been there since D-020.
+        that has been there since the start.
         """
         epoch = self.session_runtime.start_time
         self.transport.set_t_epoch(epoch)
@@ -1501,7 +1499,7 @@ class MainWindow(QMainWindow):
         Reset is one sidebar click that drops every pane, annotation, and
         recorded message. It is the one command allowed a bulk snapshot,
         because there is no compact way to describe "everything that was open"
-        (D-087) -- so it is captured here, before the clear.
+        -- so it is captured here, before the clear.
         """
         if not self._recording_suspended:
             try:
@@ -1542,7 +1540,7 @@ class MainWindow(QMainWindow):
 
     def _on_ab_loop_changed(self, t_in: float | None, t_out: float | None) -> None:
         # Export Trimmed Video Clip needs a loop, so its availability changes
-        # here and nowhere else (D-107).
+        # here and nowhere else.
         self._refresh_action_availability()
         if t_in is not None and t_out is not None:
             lo, hi = min(t_in, t_out), max(t_in, t_out)
@@ -1589,9 +1587,9 @@ class MainWindow(QMainWindow):
     # ── Keyboard shortcuts ───────────────────────────────────────────
 
     def _setup_shortcuts(self) -> None:
-        """Register window-scoped QActions for all keyboard-only shortcuts (D-022).
+        """Register window-scoped QActions for all keyboard-only shortcuts.
 
-        Rules (D-022.1):
+        Rules:
         - Menu QActions already carry their shortcuts — no duplicate QShortcut.
         - Transport-button shortcuts emit the matching Transport signal.
         - Non-transport keyboard-only shortcuts (Home/End) may call the engine directly.
@@ -1638,7 +1636,7 @@ class MainWindow(QMainWindow):
             return a
 
         # ── Playback ──────────────────────────────────────────────────
-        # Space: toggle play through transport signal (D-022.1 — duplicates Play button)
+        # Space: toggle play through transport signal (duplicates Play button)
         _act(
             "Play / Pause",
             "Playback",
@@ -1646,7 +1644,7 @@ class MainWindow(QMainWindow):
             Qt.Key.Key_Space,
         )
 
-        # Frame step: emit transport signal (D-022.1 — duplicates ◀/▶ buttons)
+        # Frame step: emit transport signal (duplicates ◀/▶ buttons)
         _act(
             "Step back 1 frame",
             "Playback",
@@ -1664,7 +1662,7 @@ class MainWindow(QMainWindow):
             repeatable=True,
         )
 
-        # Jump ±1 s: emit transport signal (D-022.1 — duplicates –1s/+1s buttons)
+        # Jump ±1 s: emit transport signal (duplicates –1s/+1s buttons)
         _act(
             "Jump back 1 second",
             "Playback",
@@ -1681,7 +1679,7 @@ class MainWindow(QMainWindow):
             repeatable=True,
         )
 
-        # J/K/L shuttle (D-022.4) — J already aliased above
+        # J/K/L shuttle — J already aliased above
         _act(
             "Pause",
             "Playback",
@@ -1711,7 +1709,7 @@ class MainWindow(QMainWindow):
 
         # ── Marking ───────────────────────────────────────────────────
         # A/B in/out: route through the same internal method as the transport buttons
-        # (public API as required by D-022.1 — no direct call to engine privates)
+        # (public API — no direct call to engine privates)
         _act(
             "Set A/B in-point",
             "Marking",
@@ -1737,7 +1735,7 @@ class MainWindow(QMainWindow):
         # Ctrl+T: cycle theme (no menu item)
         _act("Cycle theme", "View", self._cycle_theme, "Ctrl+T")
 
-        # Plot zoom in/out (D-022)
+        # Plot zoom in/out
         _act("Plot zoom in", "View", self.plot_pane.zoom_in, "+", repeatable=True)
         _act("Plot zoom out", "View", self.plot_pane.zoom_out, "-", repeatable=True)
 
@@ -1767,7 +1765,7 @@ class MainWindow(QMainWindow):
         # State is captured before anything is torn down: `_build_session_state`
         # reads `video_grid.panes`, and `video_grid.shutdown()` clears them, so
         # running the autosave afterwards wrote a session with zero videos and
-        # silently discarded the user's video list on every close (D-059).
+        # silently discarded the user's video list on every close.
         #
         # Decoder teardown goes last, and every step is isolated. Each pane owns
         # an event thread that outlives its widget, so a step that raises must
@@ -1841,7 +1839,7 @@ class MainWindow(QMainWindow):
         running a window shortcut. ``QLineEdit`` and ``QAbstractSpinBox`` accept
         that offer for Space, the arrows, Home and End, so one click into the
         transport's time field or the sweep-length spin box silently killed
-        every playhead binding until focus moved elsewhere (D-059).
+        every playhead binding until focus moved elsewhere.
 
         Those keys are given back to the playhead, with one exception: a text
         editor the user is part-way through typing into keeps its caret keys, so
@@ -1939,7 +1937,7 @@ class MainWindow(QMainWindow):
 
         build_menus(self)
 
-    # ── Alignment (WP-10) ────────────────────────────────────────────
+    # ── Alignment ────────────────────────────────────────────
 
     def _nudge_alignment(self, direction: int) -> None:
         """Shift the focused video by one frame against the master clock.
@@ -2024,7 +2022,7 @@ class MainWindow(QMainWindow):
         moving a source by hand, removing a source, and restoring a session.
         Never sampled on the clock tick -- this walks every loaded source, and
         doing that sixty times a second to display a string that changes a
-        handful of times per session is the shape architecture rule 3 forbids.
+        handful of times per session would block the UI thread for nothing.
         """
         for path in self.video_grid.pane_paths():
             summary = self.alignment_confidence(path)
@@ -2077,14 +2075,13 @@ class MainWindow(QMainWindow):
             excluded_incomplete_count=entry.excluded_incomplete_count,
         ).describe()
 
-    # ── Overlays (D-090) ─────────────────────────────────────────────
+    # ── Overlays ─────────────────────────────────────────────
 
     def _build_overlays_menu(self, register) -> None:
         """Generate View -> Overlays from the registry, grouped.
 
         Generated rather than hand-written: a hand-written menu is how the next
-        overlay ships without a switch, which is the failure Law 2 exists to
-        prevent.
+        overlay ships without a switch, and every overlay must have one.
         """
         self._overlay_actions: dict[str, QAction] = {}
         current_group = ""
@@ -2119,7 +2116,7 @@ class MainWindow(QMainWindow):
         # is what a newly built pane goes through, and it returns early while
         # there is no resolver -- so before this, the first camera of a fresh
         # session kept whatever the canvas happened to construct itself with,
-        # and only a session restore or a toggle ever corrected it (D-138).
+        # and only a session restore or a toggle ever corrected it.
         self._apply_overlay_state()
 
     def _on_overlay_toggled(
@@ -2140,7 +2137,7 @@ class MainWindow(QMainWindow):
         self._apply_overlay_state()
         if overlay_id == calibration_controller.REPROJECTION_OVERLAY:
             # Draws with the calibration in force, or offers to find one; never
-            # a dialog in front of a checkbox or Show All (rule 11).
+            # a dialog in front of a checkbox or Show All.
             calibration_controller.reprojection_toggled(self, visible)
 
     def _set_all_overlays(self, visible: bool) -> None:
@@ -2157,7 +2154,7 @@ class MainWindow(QMainWindow):
         for overlay_id, action in getattr(self, "_overlay_actions", {}).items():
             action.setChecked(self.overlay_state.is_visible(overlay_id))
 
-    # ── Fix Tracker: correcting a predicted point by hand (D-099) ────
+    # ── Fix Tracker: correcting a predicted point by hand ────
 
     def _toggle_point_edit_mode(self, enabled: bool) -> None:
         """Turn point correction on or off across every video pane.
@@ -2219,13 +2216,13 @@ class MainWindow(QMainWindow):
 
         The window observes the store, not each pane: a callback held by a
         widget outlives it, and a repaint scheduled onto a freed pane is a
-        SIGSEGV with no traceback (HANDOUT.md).  The window outlives them all.
+        SIGSEGV with no traceback.  The window outlives them all.
 
         *source_id* is unused here -- every pane repaints either way -- but it is
         what tells the persistence path a change came from the user rather than
         from reading a sidecar back in.
         """
-        # The first correction is what makes Export Changes available (D-107).
+        # The first correction is what makes Export Changes available.
         self._refresh_action_availability()
         del source_id
         grid = getattr(self, "video_grid", None)
@@ -2336,7 +2333,7 @@ class MainWindow(QMainWindow):
         """Write one pose source's corrections beside it, and rebuild what is shown."""
         corrections_controller.persist(self, source_id)
         # A correction is part of the same edit program as a swap, so the
-        # cached channels every consumer reads have to follow it too (D-142).
+        # cached channels every consumer reads have to follow it too.
         identity_controller.refresh(self, source_id)
 
     def _adopt_point_edits(self, source_id: str) -> None:
@@ -2712,7 +2709,7 @@ class MainWindow(QMainWindow):
                     return float(readers[0].time_map.to_master(float(times[index])))
         return None
 
-    # ── Command bus: recording live mutations (WP-1 step 4) ──────────
+    # ── Command bus: recording live mutations ──────────
 
     def _record(self, command: object) -> None:
         """Log an already-applied mutation, unless undo is replaying one.
@@ -2808,7 +2805,7 @@ class MainWindow(QMainWindow):
         The Document notifies only on a genuine clean/dirty transition, so this
         does not need a throttle of its own: a two-hundred-step offset drag is
         one merged command and at most one transition, which keeps the title
-        repaint clear of the 8 ms UI-callback target (WP-1 step 6).
+        repaint clear of the 8 ms UI-callback target.
         """
         self.setWindowModified(dirty)
 
@@ -2882,17 +2879,17 @@ class MainWindow(QMainWindow):
     # ── Fullscreen / jump / pane context menu ───────────────────────
 
     def _toggle_fullscreen(self) -> None:
-        """Toggle fullscreen for the first (or only) pane (D-022)."""
+        """Toggle fullscreen for the first (or only) pane."""
         self.video_grid.toggle_fullscreen()
 
     def _on_jump_requested(self, delta: float) -> None:
-        """Clamp and seek relative to the current playhead (D-022)."""
+        """Clamp and seek relative to the current playhead."""
         t = self.clock.state.t + delta
         bounds = self.clock.state.bounds
         self.player.seek(max(bounds[0], min(bounds[1], t)), exact=True)
 
     def _on_pane_right_clicked(self, path: str, pos: Any) -> None:
-        """Show a per-pane context menu on video right-click (D-022)."""
+        """Show a per-pane context menu on video right-click."""
         from PySide6.QtWidgets import QApplication, QMenu
 
         menu = QMenu(self)
@@ -2914,7 +2911,7 @@ class MainWindow(QMainWindow):
         act_snap = menu.addAction(tr("Snapshot this camera"))
 
         # Per-camera overrides, same labels as View -> Overlays. The menu sets
-        # the default for every camera; this overrides one (D-090).
+        # the default for every camera; this overrides one.
         menu.addSeparator()
         overlays_menu = menu.addMenu(tr("Overlays on this camera"))
         camera_actions: dict[QAction, str] = {}
@@ -2970,7 +2967,7 @@ class MainWindow(QMainWindow):
         export_controller.export_snapshot_for_pane(self, path)
 
     def _on_annotate_at_requested(self, t: float) -> None:
-        """Add a point marker at the clicked time on the plot (D-022)."""
+        """Add a point marker at the clicked time on the plot."""
         from avialsync.ui.annotations import VideoFrame
 
         video_frames = [
@@ -2989,7 +2986,7 @@ class MainWindow(QMainWindow):
     def _show_command_palette(self) -> None:
         """Search every registered command by name.
 
-        Built from the same live QActions the shortcuts dialog uses (D-022.6),
+        Built from the same live QActions the shortcuts dialog uses,
         so it cannot list a command that does not exist or miss one that does.
         Registered actions without a shortcut are included too -- the menus have
         grown deep enough that finding a command is the problem, not typing it.
@@ -3002,7 +2999,7 @@ class MainWindow(QMainWindow):
     def _show_shortcuts(self) -> None:
         from avialsync.ui.shortcuts_dialog import ShortcutsDialog
 
-        # Group all registered QActions by category tag (D-022.6). Unbound
+        # Group all registered QActions by category tag. Unbound
         # actions are included now that the dialog can assign a key: one with
         # no shortcut is exactly the one somebody wants to give a shortcut.
         groups: dict[str, list[QAction]] = {}
@@ -3088,7 +3085,7 @@ class MainWindow(QMainWindow):
 
         # Proxy generation is minutes of transcoding. Behind a modal that was
         # minutes of unusable application, for work the user started so they
-        # could keep looking at the session (D-091).
+        # could keep looking at the session.
         self.activity_bar.begin(f"Generating proxy for {video_path.name}")
         self._active_cancel = self._proxy_worker.cancel
 
@@ -3100,7 +3097,7 @@ class MainWindow(QMainWindow):
             worker.finished.connect(self._on_proxy_finished)
             worker.error.connect(self._on_proxy_error)
 
-        # Registered rather than hand-wired (D-107). `JobManager` connects
+        # Registered rather than hand-wired. `JobManager` connects
         # `started -> run` and quits the thread on `finished`/`error`, so this
         # no longer repeats those four lines — and a transcode that wedges is
         # now reported as not responding instead of merely looking busy.
@@ -3256,7 +3253,7 @@ class MainWindow(QMainWindow):
         self._start_trigger_read(provider_cls(), path, config)
 
     def _start_trigger_read(self, source: object, path: Path, config: dict[str, Any]) -> None:
-        """Read the declared trains off the UI thread (architecture rule 3).
+        """Read the declared trains off the UI thread.
 
         The configuration is kept beside the result, because it -- not the
         trains -- is what a session stores: the declaration of which column is
@@ -3270,9 +3267,9 @@ class MainWindow(QMainWindow):
 
         def configure(_thread: QThread) -> None:
             # Connected before the thread runs: a worker that finishes first
-            # would otherwise emit into nothing (D-062). Wrapped because a
+            # would otherwise emit into nothing. Wrapped because a
             # lambda is not a QObject, so the connection would be direct and
-            # both handlers would touch widgets from the worker thread (D-051).
+            # both handlers would touch widgets from the worker thread.
             worker.finished.connect(
                 on_ui_thread(lambda results: self._on_trigger_trains_read(str(path), results), self)
             )
@@ -3635,7 +3632,7 @@ class MainWindow(QMainWindow):
                 ChannelKey(path, channel), visible and channel in selected
             )
 
-    # ── Display levels (D-093) ───────────────────────────────────────
+    # ── Display levels ───────────────────────────────────────
 
     def _focused_video_path(self) -> str | None:
         """The camera an action without an explicit target should act on.
@@ -3737,8 +3734,8 @@ class MainWindow(QMainWindow):
         )
         self.video_grid.set_pane_visible(path, is_visible)
 
-    # No file filters: a plugin may claim any extension (rule 5). Titles are
-    # the actions' own text (rule 15).
+    # No file filters: a plugin may claim any extension. Titles are
+    # the actions' own text.
     def _open_video(self) -> None:
         paths, _ = QFileDialog.getOpenFileNames(self, self._act_open_video.text().rstrip("…"))
         for path in paths:
@@ -3826,7 +3823,7 @@ class MainWindow(QMainWindow):
 
         The overview strip already keys one span per source and drops the ones
         that go away, so it -- not an accumulator -- is what the bounds are
-        derived from (rule 15: one authority per user-visible concept).
+        derived from (one authority per user-visible concept).
         """
         # An empty registry means the last source has been removed, and the
         # timeline goes back to what it is before anything is loaded. It cannot

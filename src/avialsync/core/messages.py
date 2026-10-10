@@ -7,7 +7,7 @@ not by this application, which is what separates them from
 :mod:`avialsync.ui.annotations`: a marker there is authored, editable, and
 exported; a message here is read-only and belongs to the source file.
 
-No PySide6 imports — enforced by ``test_headless_core.py``.
+No PySide6 imports: ``core/`` is headless.
 """
 
 from __future__ import annotations

@@ -3,7 +3,7 @@
 Rows are pictures -- cameras, and imaging stacks as the image viewer shows
 them (:mod:`~avialsync.engine.stimulus_grid_imaging`) -- with one column per
 event. Under them, each chosen sensor group is a full-width band with every
-event overlaid (:mod:`~avialsync.engine.stimulus_grid_bands`), D-210.
+event overlaid (:mod:`~avialsync.engine.stimulus_grid_bands`).
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Turn four belt placement clicks into the Props belt fields (D-165).
+"""Turn four belt placement clicks into the Props belt fields.
 
 Clicks say where the belt is; the typed measurements say how big it is. In 3D
 the four top corners, each seen by two calibrated cameras, fix the top plane,

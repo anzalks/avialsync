@@ -1,4 +1,4 @@
-"""Sensor bands under a stimulus grid: one per sensor group, every event overlaid (D-210).
+"""Sensor bands under a stimulus grid: one per sensor group, every event overlaid.
 
 A band spans the whole width under the picture rows, on the shared
 ``-before .. +after`` axis: each stream of the group in its own colour, every
@@ -8,11 +8,11 @@ top, a vertical line at the trigger and the moving cursor. Up to
 one shared amplitude scale, as a multichannel recording viewer shows them, so
 32 electrodes do not collapse into one coloured blob. Streams of different
 units (wheel rpm and a 0/1 stimulus TTL) are always stacked, each lane on its
-own scale (D-211).
+own scale.
 
 Colours come from the UI (the validated categorical palette), so this module
 imports nothing from ``ui``; every stream is also named in the band, so colour
-never carries meaning on its own (AGENTS rule 17).
+never carries meaning on its own.
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
-"""Headless dataclasses for import statistics and source integrity (D-020).
+"""Headless dataclasses for import statistics and source integrity.
 
-No PySide6 imports — enforced by test_headless_core.py.
+No PySide6 imports: ``core/`` is headless.
 """
 
 from __future__ import annotations
@@ -140,7 +140,7 @@ class SourceInspection:
     #: meaning, and a recording re-imported once gains its messages.
     messages: tuple[Message, ...] = ()
 
-    #: What this source's channels *mean*, when it is a pose (D-140). It rides
+    #: What this source's channels *mean*, when it is a pose. It rides
     #: here for the same reason ``messages`` does: this is what reaches the UI
     #: intact on a cache hit, where the loader is never opened. ``None`` for
     #: every source that is not a pose, which is most of them.

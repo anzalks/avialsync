@@ -2,7 +2,7 @@
 
 NWB gives each optical channel its own series -- ``TwoPhotonSeriesGreen`` and
 ``TwoPhotonSeriesRed`` on one imaging plane. Series that share a plane, a frame
-shape and their frame times are read here as the channels of one stack (D-195),
+shape and their frame times are read here as the channels of one stack,
 so they can be shown alone or overlaid like the channels of a TIFF. The source
 is named by its first series; the others travel in the ``channels`` import
 choice.
@@ -163,7 +163,7 @@ def _depth(info: SeriesInfo, config: dict[str, Any]) -> int | None:
     if len(info.frame_shape) != 3 or info.neurodata_type not in _VOLUME_TYPES:
         return None
     planes = info.frame_shape[2]
-    # The first plane until the user picks another in the pane (D-194).
+    # The first plane until the user picks another in the pane.
     depth = int(config.get("z") or 0)
     if not 0 <= depth < planes:
         raise SourceOpenError(f"{info.name} has no depth plane {depth}.")

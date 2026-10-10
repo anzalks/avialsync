@@ -1,6 +1,6 @@
 """Background workers for session persistence.
 
-Architecture rule 3: the UI thread never blocks.  Session save, load, and
+The UI thread never blocks.  Session save, load, and
 autosave all write or parse a file whose size grows with the recording — a
 million-frame exact mapping is not a "fast enough" operation, and on a slow or
 network drive none of them are.
@@ -11,7 +11,7 @@ can keep mutating its own state while the job runs.  Annotation export lives in
 Callers must register them through ``MainWindow._run_job``: a ``QObject`` moved
 to a ``QThread`` with no Python reference is collected before ``started`` fires
 and its ``run`` slot never executes, which silently turned every session save
-and load into a no-op. ``tests/test_worker_lifetime.py`` pins it.
+and load into a no-op.
 """
 
 from __future__ import annotations

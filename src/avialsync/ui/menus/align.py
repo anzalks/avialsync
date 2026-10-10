@@ -37,7 +37,7 @@ def build_align_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMen
     # ── Align ─────────────────────────────────────────────────────
     # Promoted out of File. Alignment is not a file operation -- it is the
     # reason this application exists, and it sat between Open Sensor Data
-    # and Save Session (WP-10).
+    # and Save Session.
     window._align_menu = menu.addMenu(tr("Align"))
 
     window._act_synchronize = window._align_menu.addAction(tr("Synchronize TTL / events…"))

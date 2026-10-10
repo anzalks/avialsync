@@ -1,8 +1,8 @@
-"""Changing a placed wheel from Props: its numbers, encoder, or removal (D-113).
+"""Changing a placed wheel from Props: its numbers, encoder, or removal.
 
 Split from :mod:`avialsync.ui.controllers.wheel_controller`, which places and
 verifies wheels. Every change here is one
-:class:`~avialsync.core.commands.SetWheelCommand` (rule 14), and a changed bar
+:class:`~avialsync.core.commands.SetWheelCommand`, and a changed bar
 count, unit or radius re-fits from the wheel's own clicks -- never new ones --
 in the background, like placing one.
 """
@@ -47,7 +47,7 @@ def spec_from(name: str, bars: int, units: str, radius: float) -> WheelSpec:
 def edit_spec(window: MainWindow, name: str, bars: int, units: str, radius: float) -> None:
     """Re-fit *name* from its own clicks with a changed bar count, units or radius.
 
-    The fit runs in the background (rule 3, D-123). Edits faster than the fit
+    The fit runs in the background. Edits faster than the fit
     are not queued: the latest spec asked for is the one applied.
     """
     wheel = window.wheels.get(name)
@@ -107,7 +107,7 @@ def edit_binding(window: MainWindow, name: str, sign: float, ratio: float) -> No
 def edit_encoder_offset(window: MainWindow, name: str, offset: float) -> None:
     """Move *name*'s encoder source against the video, exactly as its Sources row does.
 
-    One authority for a source's timing (rule 1): the offset typed here is the
+    One authority for a source's timing: the offset typed here is the
     encoder's own, applied and undone through the same path, so the encoder's
     plots and the wheel it turns cannot disagree about the latency.
     """
@@ -129,7 +129,7 @@ def preview_bar_diameter(window: MainWindow, name: str, diameter: float) -> None
 
 
 def edit_bar_diameter(window: MainWindow, name: str, diameter: float) -> None:
-    """Keep *diameter* for *name*'s bars (0 clears it), as one undo step (D-128).
+    """Keep *diameter* for *name*'s bars (0 clears it), as one undo step.
 
     Held arrow keys arrive as a run of values; ``SetWheelCommand`` merges a run
     of diameter-only changes, so the run is one step.

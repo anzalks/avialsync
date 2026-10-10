@@ -1,4 +1,4 @@
-"""Colour that survives colour blindness (WP-12, D-094).
+"""Colour that survives colour blindness.
 
 ``theme.marker_color`` was carefully built: hues spread evenly around the wheel
 for maximum separation, offset clear of the defect red, lightness solved against
@@ -28,9 +28,9 @@ protanopia and 1.2× better under deuteranopia; it is 1.2× *worse* under
 tritanopia, which is the trade being made deliberately. A palette is only as
 good as its worst pair, and 0.025 is a failure in a way that 0.091 is not.
 
-The simulation lives here so the claim is *testable* rather than taken on the
-palette's reputation: ``tests/test_palette_cvd.py`` asserts a floor under all
-three deficiencies, at the palette size actually in use.
+The simulation lives here so the claim is *checkable* rather than taken on the
+palette's reputation: the palette can be checked for a floor under all three
+deficiencies, at the palette size actually in use.
 """
 
 from __future__ import annotations

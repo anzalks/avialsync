@@ -1,4 +1,4 @@
-"""Evidence-preserving geometry and material motion for physical props (D-149).
+"""Evidence-preserving geometry and material motion for physical props.
 
 The fixed apparatus and its moving material are different things. A belt's
 support stays put while a mark on its surface travels; a ball's centre stays
@@ -255,7 +255,7 @@ class LadderStep:
 
 @dataclass(frozen=True)
 class RungPattern:
-    """A regular run of rungs extrapolated from two clicked neighbours (D-165).
+    """A regular run of rungs extrapolated from two clicked neighbours.
 
     ``first`` and ``second`` are the ids of two adjacent clicked rungs; their
     four ends fix the spacing. ``count`` is the number of rungs in the run,

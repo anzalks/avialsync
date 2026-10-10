@@ -9,13 +9,13 @@ The flow, end to end:
    clicking a pane again re-places it there. Playback is paused, as for Fix
    Tracker, and the marker belongs to the frame on screen.
 4. Once every calibrated camera has a click the point is triangulated and the
-   marker goes through the command bus (rule 14), so it can be undone.
+   marker goes through the command bus, so it can be undone.
 
 Afterwards a marker is a regular point: Fix Tracker drags it (re-triangulating
 on release), and with Fix Tracker off the pane's context menu deletes it.
 
-**Where markers live.** Beside the data, never in it (D-099's rule, applied
-here): a DLC-layout CSV per camera next to that camera's 2D pose file (in
+**Where markers live.** Beside the data, never in it, as for corrections: a
+DLC-layout CSV per camera next to that camera's 2D pose file (in
 ``pose-3d/`` for a camera without one), and an anipose-layout CSV next to the
 3D pose file (see :mod:`avialsync.core.custom_markers`). They are written on every change, from
 the mutation funnel, and read back as pose sources are imported.
@@ -280,9 +280,9 @@ def refresh(window: MainWindow) -> None:
 def points_at(window: MainWindow, t_master: float) -> list[tuple[str, np.ndarray]]:
     """The 3D view's hand-placed markers at *t_master*: those on the frame shown.
 
-    A marker exists on the frame it was placed on and nowhere else (D-112). The
+    A marker exists on the frame it was placed on and nowhere else. The
     earlier behaviour -- every marker assumed bolted to a wheel and carried by
-    the encoder -- is the wheel model now (D-113), where it is declared,
+    the encoder -- is the wheel model now, where it is declared,
     fitted, and checked rather than assumed.
     """
     if not len(window.custom_markers):
@@ -324,7 +324,7 @@ def persist(window: MainWindow) -> None:
     """Queue every camera's marker file and the 3D one, now.
 
     Called only from the mutation funnel, so reading the files back in never
-    echoes them straight out again (the D-099 rule for corrections).
+    echoes them straight out again (as for corrections).
     """
     markers = list(window.custom_markers)
     for video in rig_paths.open_videos(window.rig_paths):
@@ -372,7 +372,7 @@ def adopt(window: MainWindow) -> None:
         camera = rig_paths.camera_name(video)
         source = _marker_file_2d(window, video)
         if not source.exists():
-            # The first D-112 build wrote a camera without a pose file beside
+            # The first marker build wrote a camera without a pose file beside
             # its video; read that until this camera's file is written anew.
             source = custom_markers.marker_file_for(Path(video))
         for key, (x, y) in custom_markers.read_2d(source).items():

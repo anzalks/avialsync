@@ -16,7 +16,7 @@ another event, and nothing is ever rewritten or removed to express it.
 **A lane is not an animal.**  It is whichever labels are confusable: the
 individuals of a multi-animal export, or left against right within one animal.
 :class:`SwapGroup` is what ties a lane and a part to the point they name, so
-the same model serves both and neither is a special case (D-141).
+the same model serves both and neither is a special case.
 
 **The recording is never touched.**  Events live in a sidecar beside the pose
 file (:mod:`avialsync.core.identity_sidecar`), the edited data is a derived
@@ -172,8 +172,8 @@ class SwapEvent:
 class SwapStore:
     """Every accepted flip in the session, and the groups they are stated in.
 
-    Observers are plain callables so ``core/`` stays importable without PySide6
-    (architecture rule 2).  They fire after a change, with the source that
+    Observers are plain callables so ``core/`` stays importable without PySide6.
+    They fire after a change, with the source that
     changed or ``None`` for a bulk replacement -- the same contract as
     :class:`~avialsync.core.point_edits.PointEditStore`, and load-bearing for
     the same reason: the writer must not persist what it has just read.
@@ -423,7 +423,7 @@ class SwapStore:
                 source = str(entry["source"])
                 event = SwapEvent.from_dict(entry)
             except (KeyError, TypeError, ValueError):
-                # Law 1: a session that has lost one flip still opens showing
+                # Never block, always inform: a session that has lost one flip still opens showing
                 # everything else, and the caller reports the count it expected.
                 continue
             events = self._events.setdefault(source, [])

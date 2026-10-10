@@ -1,7 +1,7 @@
-"""Time display mode enum and single formatting authority (D-020, D-173).
+"""Time display mode enum and single formatting authority.
 
 All time-displaying widgets must call format_time() — never format inline.
-Numbers follow one policy (D-173): a full stop as the decimal separator and no
+Numbers follow one policy: a full stop as the decimal separator and no
 digit grouping, everywhere the application shows or accepts a number.
 """
 
@@ -14,7 +14,7 @@ from PySide6.QtCore import QLocale
 
 
 def number_locale() -> QLocale:
-    """The locale every number is shown in: C digits, full stop, no grouping (D-173)."""
+    """The locale every number is shown in: C digits, full stop, no grouping."""
     locale = QLocale.c()
     locale.setNumberOptions(QLocale.NumberOption.OmitGroupSeparator)
     return locale
@@ -36,7 +36,7 @@ def format_rate(rate_hz: float) -> str:
 
     One decimal is enough to tell rates apart, except where the second decimal
     is the difference -- 29.97 against 30 is 3.6 s an hour -- so it is shown
-    only then (D-185).
+    only then.
     """
     value = float(rate_hz)
     return f"{value:.1f}" if abs(value - round(value, 1)) < 0.005 else f"{value:.2f}"

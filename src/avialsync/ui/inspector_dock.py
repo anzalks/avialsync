@@ -1,4 +1,4 @@
-"""The inspector as a dock, and the one-time move from splitter state (D-180).
+"""The inspector as a dock, and the one-time move from splitter state.
 
 The inspector was the left pane of a horizontal splitter. As a dock it can sit
 on either side, float onto a second display, or be closed and brought back from
@@ -7,8 +7,8 @@ View → Inspector, and the window remembers where it was with
 
 Only the inspector moved. The workspace column -- videos, 3D, plots, Data
 Streams, transport -- keeps its three splitters, because they carry the
-proportional resize and minimum-size contracts (D-049, D-061, D-098) and the
-empty-window layout (D-127) that docks do not express.
+proportional resize and minimum-size contracts and the
+empty-window layout that docks do not express.
 
 A layout saved before this change stored the inspector's width inside
 ``splitter/horizontal``. That width is read once through a throwaway splitter
@@ -39,7 +39,7 @@ __all__ = [
 DEFAULT_INSPECTOR_WIDTH = 280
 #: Where the dock arrangement lives; separate from the window geometry.
 DOCK_STATE_KEY = "window/dock_state"
-#: The pre-D-180 splitter state that held the inspector's width.
+#: The splitter state that held the inspector's width before it was a dock.
 LEGACY_SPLITTER_KEY = "splitter/horizontal"
 #: Bumped if the set of docks changes, so an old state is not misapplied.
 _STATE_VERSION = 1
@@ -74,7 +74,7 @@ def install_inspector_dock(window: QMainWindow, nav: InspectorNav) -> QDockWidge
 
 
 def inspector_width_from_splitter_state(state: QByteArray) -> int | None:
-    """The inspector width a pre-D-180 ``splitter/horizontal`` state recorded.
+    """The inspector width an older ``splitter/horizontal`` state recorded.
 
     Read from the bytes, not by restoring into a probe splitter: an unsized
     splitter redistributes what it restores, so the probe reported its own

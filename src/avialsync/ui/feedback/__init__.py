@@ -1,4 +1,4 @@
-"""What the application is doing, what finished, and what went wrong (D-091).
+"""What the application is doing, what finished, and what went wrong.
 
 ``ui/job_manager.py`` already tracked every background job's state, offered
 cooperative cancel, and watched for stalls.  None of it reached the user: a

@@ -1,4 +1,4 @@
-"""The concrete, reversible mutations (D-087).
+"""The concrete, reversible mutations.
 
 Each command is a small frozen-ish dataclass holding exactly what it needs to
 go both ways — an offset command is a source id and two float pairs, roughly 80
@@ -9,7 +9,7 @@ single sanctioned exception and documents why.
 ("Set offset for cam2.mp4 to 1.240 s"), not as a method name.
 
 Commands that back a continuous control implement ``merge_with`` so that a
-drag or a burst of typing collapses into one undo step (WP-1 step 6).  The bus
+drag or a burst of typing collapses into one undo step.  The bus
 calls it; nothing else should.
 """
 
@@ -64,8 +64,8 @@ __all__ = [
 class SetSourceMappingCommand:
     """Change a source's offset and drift.
 
-    Merges with itself so that dragging the offset spin box is one undo step
-    (WP-1 step 6).  The merged command keeps the *original* before-values, so
+    Merges with itself so that dragging the offset spin box is one undo step.
+    The merged command keeps the *original* before-values, so
     undoing a drag returns to where it started rather than to its penultimate
     step.
     """
@@ -127,7 +127,7 @@ class SetSourceMappingsCommand:
 
 @dataclasses.dataclass
 class SetImagingViewCommand:
-    """Change how an imaging stack is shown: channels, levels, averaging (D-190).
+    """Change how an imaging stack is shown: channels, levels, averaging.
 
     Merges with the next change to the same *aspect* of the same stack, so a
     brightness drag is one undo step while a brightness drag followed by a
@@ -161,7 +161,7 @@ class SetImagingViewCommand:
 
 @dataclasses.dataclass
 class SetVideoLevelsCommand:
-    """Change one camera's display levels: black, white and gamma (D-209).
+    """Change one camera's display levels: black, white and gamma.
 
     *before* and *after* are ``DisplayLevels`` as plain dicts, so ``core`` does
     not import the decode pipeline. Merges with the next change of the same
@@ -196,7 +196,7 @@ class SetVideoLevelsCommand:
 
 @dataclasses.dataclass
 class SetImagingLayoutCommand:
-    """Read an imaging stack with another axis order or depth plane (D-194).
+    """Read an imaging stack with another axis order or depth plane.
 
     *before* and *after* hold the ``axes`` and ``z`` import choices. A stack
     opens with a default order so it is visible at once; this is how the user
@@ -362,7 +362,7 @@ class SetChannelGroupVisibleCommand:
 
 @dataclasses.dataclass
 class SetOverlayVisibleCommand:
-    """Show or hide a registered overlay layer (D-090).
+    """Show or hide a registered overlay layer.
 
     ``camera`` is ``None`` for the global default and a camera path for a
     per-pane override.
@@ -458,7 +458,7 @@ class SetTrackedPointCommand:
     #: What the point was called on screen when it was dragged. Differs from
     #: ``point`` -- the file's own column -- only while an identity flip is in
     #: force, and is carried so undo and redo record the same provenance the
-    #: original drag did (D-143).
+    #: original drag did.
     shown_as: str = ""
     command_id: str = "tracking.point"
 
@@ -480,7 +480,7 @@ class SetTrackedPointCommand:
 
 @dataclasses.dataclass
 class SetIdentitySwapCommand:
-    """Accept or undo one identity flip on a pose source (D-141).
+    """Accept or undo one identity flip on a pose source.
 
     The inverse of accepting a flip is *removing* it, not accepting its
     opposite: two transpositions compose to the identity and would look the
@@ -521,7 +521,7 @@ class ClearIdentitySwapsCommand:
 
     Carries the events rather than a snapshot of anything: they *are* the
     state, a few integers each, and putting them back is the whole inverse
-    (rule 14 -- commands carry inverse operations, never snapshots).
+    (commands carry inverse operations, never snapshots).
     """
 
     source_id: str
@@ -600,7 +600,7 @@ def _diameter_only(before: Any, after: Any) -> bool:
 
 @dataclasses.dataclass
 class SetWheelCommand:
-    """Add, re-fit, or remove one wheel (D-113).
+    """Add, re-fit, or remove one wheel.
 
     ``before`` and ``after`` are whole wheels -- clicks, fit, and binding, a few
     dozen floats -- so undoing a re-fit restores the geometry it had without
@@ -736,7 +736,7 @@ class SetLadderLayoutCommand:
 class AcceptSyncCommand:
     """Apply an accepted synchronization proposal.
 
-    Acceptance stays explicit (architecture rule 8); this only makes the
+    Acceptance stays explicit; this only makes the
     accepted result reversible, so a user who accepts the wrong fit is not left
     reconstructing their previous mapping by hand.
     """
@@ -805,10 +805,10 @@ class ResetSessionCommand:
 
     It is also the single command whose inverse legitimately needs a bulk
     snapshot rather than a small inverse operation — there is no compact way to
-    describe "everything that was open".  D-087 permits that for reset alone,
+    describe "everything that was open".  That is permitted for reset alone,
     capped at one retained state held only while this command sits on the undo
-    stack.  It is not a licence to generalise snapshotting, which is the thing
-    that entry exists to forbid.
+    stack.  It is not a licence to generalise snapshotting, which the command
+    bus exists to forbid.
 
     The snapshot is captured on first :meth:`apply` and dropped by
     :meth:`release`, which the adapter calls when the command is evicted.

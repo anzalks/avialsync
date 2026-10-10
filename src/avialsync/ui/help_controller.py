@@ -39,7 +39,7 @@ class HelpController(QObject):
             )
 
     def open_docs_page(self, page: str) -> None:
-        """Open *page* of the published guide, built on ``[project.urls]`` (DS-13)."""
+        """Open *page* of the published guide, built on ``[project.urls]``."""
         QDesktopServices.openUrl(QUrl(docs_url(page)))
 
     @Slot()

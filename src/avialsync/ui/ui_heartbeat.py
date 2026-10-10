@@ -7,7 +7,7 @@ those show up as "the app felt laggy", which is unactionable.
 
 This posts a timer to the UI thread and measures how late it actually fires.
 Lateness is UI-thread blocking, by definition: the event loop could not get back
-to the timer. AGENTS sets the budget at ≤8 ms typical, 30 ms hard ceiling for any
+to the timer. The budget is ≤8 ms typical, 30 ms hard ceiling for any
 UI-thread callback.
 """
 
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 #: Tick interval. Short enough to catch a stall, long enough to cost nothing.
 _INTERVAL_MS = 100
 
-#: AGENTS' hard ceiling for a UI-thread callback. Lateness beyond this means the
+#: The hard ceiling for a UI-thread callback. Lateness beyond this means the
 #: event loop was blocked, not merely busy.
 STALL_THRESHOLD_MS = 30.0
 

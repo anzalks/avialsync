@@ -1,4 +1,4 @@
-"""Drawing one frame of a stimulus grid: picture rows, labels and sensor bands (D-210)."""
+"""Drawing one frame of a stimulus grid: picture rows, labels and sensor bands."""
 
 from __future__ import annotations
 

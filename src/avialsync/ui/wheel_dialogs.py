@@ -1,14 +1,14 @@
-"""The one question Add Wheel asks before the clicking starts (D-113).
+"""The one question Add Wheel asks before the clicking starts.
 
-A dialog the user explicitly asked for by choosing Add wheel in Props, the case AGENTS
-rule 11 allows a modal for. It collects what the clicks cannot supply:
+A dialog the user explicitly asked for by choosing Add wheel in Props, the one
+case a modal is allowed for. It collects what the clicks cannot supply:
 
 * **the bar count**, without which two or three neighbouring bars cannot give
   the radius -- their curvature is about the size of the click error;
 * **the units** the calibration's 3D coordinates are in, and optionally **the
   radius** measured on the rig in those units. anipose records no units; a
   radius typed in centimetres against a millimetre calibration contradicts the
-  clicks and gives way to their implied radius (D-161). The radius field is
+  clicks and gives way to their implied radius. The radius field is
   only live once the units are declared;
 * **the encoder channel** that turns the wheel, pre-selected when the session's
   plugin declared one (:class:`~avialsync.core.source.RotaryHint`), and

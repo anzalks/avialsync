@@ -1,7 +1,7 @@
-"""How two-photon planes become screen pixels: levels, averaging, overlay (D-190).
+"""How two-photon planes become screen pixels: levels, averaging, overlay.
 
 Everything here runs on an imaging reader thread, never on the UI thread, for
-the reason D-093 gives for video: a window applied after an 8-bit reduction
+the same reason as for video: a window applied after an 8-bit reduction
 stretches data that was already discarded. The raw plane is windowed here, in
 its own units, before anything is reduced to a byte.
 
@@ -19,9 +19,9 @@ transient by half the window, which on a synchronisation tool is a timing
 error, not a display preference. At the ends of the stack the window is
 truncated rather than shifted for the same reason.
 
-**Channel colour never carries meaning alone** (D-094): the UI labels each
+**Channel colour never carries meaning alone**: the UI labels each
 channel with its colour's name, and the default sets were measured under all
-three simulated deficiencies (``tests/test_imaging_display.py``).
+three simulated deficiencies.
 """
 
 from __future__ import annotations
@@ -81,7 +81,7 @@ def default_colors(count: int, names: Sequence[str] = ()) -> tuple[str, ...]:
     "Red" PMTs -- starts in that colour, so the overlay opens the way the lab
     reads it. Any other channel takes the positional default. Still only a
     default: the name stays apart from the display colour, which the user can
-    change (D-195).
+    change.
     """
     if count <= 1:
         positional: tuple[str, ...] = ("grey",) * max(count, 0)

@@ -1,4 +1,4 @@
-"""The one dialog for text the user asked to see (D-107).
+"""The one dialog for text the user asked to see.
 
 Five places used to raise a bare ``QMessageBox`` to show a block of text: the
 "Show details" behind a failure, Diagnostics, About, the citation metadata, and
@@ -9,14 +9,13 @@ whether the content could be copied depended on which of the five you opened —
 About and the citation had a Copy button, Diagnostics and Show details did not,
 for no reason a user could infer.
 
-This is one modal that a user explicitly asked for, which is the case AGENTS
-rule 11 permits.  What it must not do is lose or hide the text: the body
+This is one modal that a user explicitly asked for, the one case a modal is
+permitted.  What it must not do is lose or hide the text: the body
 scrolls, selects, and copies, and every caller gets the same Copy button.
 
 Keeping it inside ``ui/feedback/`` is deliberate.  That package is the only
-place allowed to construct a ``QMessageBox``-shaped thing at all, and
-``tests/test_feedback_surface.py`` enforces exactly that boundary, so a sixth
-ad-hoc dialect cannot be added somewhere else without failing CI.
+place allowed to construct a ``QMessageBox``-shaped thing at all, so a sixth
+ad-hoc dialect has nowhere else to be added.
 """
 
 from __future__ import annotations
@@ -61,7 +60,7 @@ class TextDialog(QDialog):
             lead_label.setAccessibleName(title)
             layout.addWidget(lead_label)
 
-        #: Public so tests can read what was shown without scraping widgets.
+        #: Public so callers can read what was shown without scraping widgets.
         self.body = QPlainTextEdit(body)
         self.body.setReadOnly(True)
         self.body.setAccessibleName(tr("{title} details").format(title=title))

@@ -6,7 +6,7 @@ Keeping it in the ``.avv`` bound it to a viewing arrangement: reopening the same
 pose file in a new session showed none of it, and a collaborator handed the data
 folder got none of it either. So the sidecar is the authority and the session
 records only a count, which is what lets a missing sidecar be *reported* rather
-than silently show fewer points (D-099).
+than silently show fewer points.
 
 **CSV, not JSON.** A few hundred rows that a person will want to check belong in
 something they can open in pandas or a spreadsheet without a parser. The
@@ -69,7 +69,7 @@ class Correction:
 
     ``bodypart`` is the column in the pose file the value belongs to;
     ``shown_as`` is what that point was called on screen when the correction was
-    made, which differs once an identity flip has been accepted (D-143). A
+    made, which differs once an identity flip has been accepted. A
     sidecar written before flips existed carries no ``shown_as`` column, and the
     two names were necessarily the same then, so it reads back as ``bodypart``.
     """
@@ -92,7 +92,7 @@ class Corrections:
     #: warns about that rather than discarding a user's work on a guess.
     source_bytes: int | None = None
     #: Rows that could not be read. A damaged sidecar yields what it can and
-    #: says how much it lost (Law 1 — never block, always inform).
+    #: says how much it lost (never block, always inform).
     skipped: int = 0
 
 

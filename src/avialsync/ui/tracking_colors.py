@@ -92,7 +92,7 @@ class PointColorRegistry:
         return assigned
 
     def reset(self) -> None:
-        """Forget every assignment. For tests that need a known starting point."""
+        """Forget every assignment, for a known starting point."""
         self._assigned.clear()
 
 

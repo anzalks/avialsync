@@ -34,7 +34,7 @@ def build_help_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMenu
 
     # Shortcuts dialog: F1 primary (HelpContents); "?" alias added in _setup_shortcuts
     # Commands — searchable by name. The menus are deep enough now that
-    # finding a command is the problem, not typing it (WP-3).
+    # finding a command is the problem, not typing it.
     act = help_menu.addAction(tr("Commands…"))
     act.setShortcut(QKeySequence("Ctrl+Shift+P"))
     act.setToolTip(tr("Search every command by name"))
@@ -67,7 +67,7 @@ def build_help_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMenu
     act = help_menu.addAction(tr("Diagnostics…"))
     act.triggered.connect(window._help_controller.show_diagnostics)
 
-    # About — macOS AboutRole moves this to the app menu (D-022.3)
+    # About — macOS AboutRole moves this to the app menu
     act = help_menu.addAction(tr("About AvialSync"))
     act.setMenuRole(QAction.MenuRole.AboutRole)
     act.triggered.connect(window._help_controller.show_about)
@@ -76,7 +76,7 @@ def build_help_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMenu
 
 
 def _add_first_session_tutorial(window: MainWindow, help_menu: QMenu, _reg: Register) -> None:
-    """The tutorial the docs already carry, one click from the app (DS-13, F-33)."""
+    """The tutorial the docs already carry, one click from the app."""
     window._act_first_session = help_menu.addAction(tr("First Session Tutorial"))
     window._act_first_session.setToolTip(
         tr("Open the step-by-step tutorial for a first recording session")

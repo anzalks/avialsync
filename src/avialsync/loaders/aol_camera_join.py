@@ -18,8 +18,8 @@ overrun the trial). A recording that did not start on its trial's trigger is
 placed where its own clock puts it, and keeps only the frames inside the trial.
 
 The joined video is a stream copy -- no re-encoding -- written once into the
-per-user cache with a per-frame timestamp sidecar, never beside a recording
-(D-160). Each frame keeps the time its camera recorded for it, moved onto the
+per-user cache with a per-frame timestamp sidecar, never beside a recording.
+Each frame keeps the time its camera recorded for it, moved onto the
 joined timeline. Joining needs intra-frame or reorder-free video (MJPEG, as
 this rig writes): frames of a stream that reorders packets cannot be retimed
 one by one, and that is refused rather than guessed.

@@ -1,4 +1,4 @@
-"""Reading samples, frames, intervals and spikes out of an open NWB file (D-188).
+"""Reading samples, frames, intervals and spikes out of an open NWB file.
 
 Everything here takes an open ``h5py.File`` and a description from
 :func:`avialsync.loaders.nwb_format.scan`, and reads only the slice asked for,

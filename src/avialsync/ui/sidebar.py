@@ -108,7 +108,7 @@ def _issues_button(parent: QWidget) -> QPushButton:
 #: live view stayed correct because the value is applied with signals blocked,
 #: and the wrong number only surfaced on save -- reopening the session put the
 #: source hours away from the video. A control that cannot express a legitimate
-#: value must not silently substitute one (D-026).
+#: value must not silently substitute one.
 #:
 #: A day is enough only because a source carrying wall-clock time is now placed
 #: against the session zero on load (`core/session_time.py`), so what the user
@@ -175,7 +175,7 @@ class SensorInfoWidget(QFrame):
         self._alignment_summary: str = ""
         self._has_accepted_alignment: bool = True
 
-        # One overflow, Remove last and marked (D-175); no close button of its own.
+        # One overflow, Remove last and marked; no close button of its own.
         self.more_button = overflow_button(
             self,
             tr("More actions for {name}").format(name=Path(path).name),
@@ -225,7 +225,7 @@ class SensorInfoWidget(QFrame):
         # A path is one unbreakable token, so wrapping it does nothing and it
         # kept reporting its full width as the panel's minimum: 491 px for a
         # real session path. Elided, its length no longer constrains anything.
-        # Folder and name, not a temporary directory's full path (F-26).
+        # Folder and name, not a temporary directory's full path.
         path_lbl = ElidedLabel(short_path(path))
         path_lbl.setToolTip(path)
         layout.addWidget(path_lbl)
@@ -282,7 +282,7 @@ class SensorInfoWidget(QFrame):
         self.offset_spin.valueChanged.connect(self._on_mapping_changed)
         sync_form.addRow(tr("Offset:"), self.offset_spin)
 
-        # Milliseconds gained per hour, the unit the mapping uses (D-184).
+        # Milliseconds gained per hour, the unit the mapping uses.
         self.drift_spin = DriftSpinBox()
         self.drift_spin.setMinimumWidth(90)
         self.drift_spin.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
@@ -293,7 +293,7 @@ class SensorInfoWidget(QFrame):
         commit_on_edit(self.drift_spin)
         self.drift_spin.valueChanged.connect(self._on_mapping_changed)
         sync_form.addRow(tr("Drift:"), self.drift_spin)
-        # Behind a disclosure that shows the values inline (D-175, F-25): the
+        # Behind a disclosure that shows the values inline: the
         # same spin boxes, so an offset drag is still one undo command.
         timing_body = QWidget(self)
         timing_body.setLayout(sync_form)
@@ -323,7 +323,7 @@ class SensorInfoWidget(QFrame):
             ),
         )
         # Filter, above the tree. A seventy-channel source is a scrolling
-        # column otherwise, and the spec targets 128 (WP-11).
+        # column otherwise, and the spec targets 128.
         self._filter = QLineEdit()
         self._filter.setPlaceholderText(tr("Filter channels…"))
         self._filter.setClearButtonEnabled(True)
@@ -673,13 +673,13 @@ def _render_badge(
 ) -> None:
     """Drive one source's badge from every finding about it, not only the file's.
 
-    `ui/quality_badge.py` was written in Phase 7 to be exactly this -- including
+    `ui/quality_badge.py` was written to be exactly this -- including
     a "No accepted alignment" finding put there for the purpose -- and then
     nothing in `src/` ever imported it. The badge that shipped read
     `inspection.integrity_flags` instead, which is a property of the *file* and
     structurally cannot know whether the source has been aligned. So the "data
-    dirty" half of architecture rule 10, and WP-10's persistent confidence
-    badge, were computed and thrown away.
+    dirty" warning and the persistent confidence badge were computed and
+    thrown away.
 
     Alignment is passed in rather than read off the inspection because it
     belongs to the session: the same recording is aligned in one and not in
@@ -739,7 +739,7 @@ class VideoInfoWidget(QFrame):
         name_lbl.setToolTip(path)
         set_bold(name_lbl)
 
-        # One overflow, Remove last and marked (D-175); no close button of its own.
+        # One overflow, Remove last and marked; no close button of its own.
         self.more_button = overflow_button(
             self,
             tr("More actions for {name}").format(name=Path(path).name),
@@ -815,7 +815,7 @@ class VideoInfoWidget(QFrame):
         # reach it through an accepted fit. A user watching a camera slip
         # against the sensor had to drift the *sensor* instead, which moves it
         # relative to every other camera at the same time.
-        # Milliseconds gained per hour, the unit the mapping uses (D-184).
+        # Milliseconds gained per hour, the unit the mapping uses.
         self.drift_spin = DriftSpinBox()
         self.drift_spin.setMinimumWidth(90)
         self.drift_spin.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
@@ -828,7 +828,7 @@ class VideoInfoWidget(QFrame):
         commit_on_edit(self.drift_spin)
         self.drift_spin.valueChanged.connect(self._on_mapping_changed)
         sync_form.addRow(tr("Drift:"), self.drift_spin)
-        # Behind a disclosure that shows the values inline (D-175, F-25): the
+        # Behind a disclosure that shows the values inline: the
         # same spin boxes, so an offset drag is still one undo command.
         timing_body = QWidget(self)
         timing_body.setLayout(sync_form)
@@ -1005,9 +1005,9 @@ class SidebarPane(QWidget):
         )
 
         # Row 1: every way to bring data in, one full-width button each, in
-        # the order a session is built (D-181, amends D-175's split button,
-        # which hid all but one). Each is the File or Align menu's own QAction
-        # (rule 15, D-092); the window installs them. Stacked, so the longest
+        # the order a session is built (the old split button hid all but
+        # one). Each is the File or Align menu's own QAction;
+        # the window installs them. Stacked, so the longest
         # label sets no width the sidebar cannot give. Reset Session sits apart
         # at the end, marked destructive by glyph and place.
         actions_group = QGroupBox(tr("Open Files"))
@@ -1066,7 +1066,7 @@ class SidebarPane(QWidget):
         self.content_layout.addWidget(self.videos_group)
         self._video_widgets: dict[str, VideoInfoWidget] = {}
 
-        # Imaging stacks: a card each, like a camera's (D-196). Hidden while
+        # Imaging stacks: a card each, like a camera's. Hidden while
         # there are none, so a session without imaging carries no empty group.
         self.imaging_group = QGroupBox(tr("Imaging"))
         self.imaging_layout = QVBoxLayout(self.imaging_group)
@@ -1171,12 +1171,12 @@ class SidebarPane(QWidget):
         apply_role(self.btn_reset_session, ControlRole.DESTRUCTIVE, "reset")
 
     def install_open_imaging_action(self, action: QAction) -> None:
-        """Show File → Open Imaging… beside the other data sources (D-181, D-190)."""
+        """Show File → Open Imaging… beside the other data sources."""
         self.btn_open_imaging.set_action(action)
         apply_role(self.btn_open_imaging, ControlRole.SECONDARY, "imaging")
 
     def install_open_nwb_action(self, action: QAction) -> None:
-        """Show File → Open NWB… with the other ways in (D-181, D-189)."""
+        """Show File → Open NWB… with the other ways in."""
         self.btn_open_nwb.set_action(action)
         apply_role(self.btn_open_nwb, ControlRole.SECONDARY, "data")
 
@@ -1186,7 +1186,7 @@ class SidebarPane(QWidget):
         apply_role(self.btn_open_session, ControlRole.SECONDARY, "open")
 
     def install_align_action(self, action: QAction) -> None:
-        """Show Align → Synchronize beside the open buttons (D-178, D-181)."""
+        """Show Align → Synchronize beside the open buttons."""
         self.btn_align.set_action(action)
         apply_role(self.btn_align, ControlRole.SECONDARY, "align")
         self.btn_align.setAccessibleDescription(

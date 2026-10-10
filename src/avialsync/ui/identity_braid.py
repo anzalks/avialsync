@@ -8,7 +8,7 @@ on with the labels exchanged, and the crossing is where.
 Underneath it, the separation between the two lanes.  A flip is only possible
 where the trajectories came close, so the trace is what makes a node
 *plausible* rather than merely asserted -- the same argument the residual plot
-makes for an alignment (BLUEPRINT principle 8).  It is decimated by minimum
+makes for an alignment.  It is decimated by minimum
 rather than by stride, because the closest approach is the one value on it that
 must survive.
 
@@ -35,7 +35,7 @@ from avialsync.ui.theme import evidence_color, system_accent
 
 __all__ = ["BraidNode", "BraidModel", "build_model", "draw_braid", "draw_separation"]
 
-#: Never more points than pixels (architecture rule 4).
+#: Never more points than pixels.
 MAX_POINTS = 800
 
 #: Half-width of a crossing, as a share of the visible span.  Wide enough to
@@ -60,7 +60,7 @@ class BraidNode:
     #: The parts an *accepted* event moves, empty for the whole group and for a
     #: candidate, which has no scope until somebody accepts one. Carried so a
     #: removal takes the scope that was accepted rather than whatever the part
-    #: selector happens to show now (D-141).
+    #: selector happens to show now.
     parts: tuple[str, ...] = ()
     #: The video frame number for a pose file whose rows are not contiguous.
     display_frame: int | None = None
@@ -232,7 +232,7 @@ def _style(position: int) -> Qt.PenStyle:
     """A dash pattern per lane, so two crossing lines stay tellable apart.
 
     Colour alone does not separate them where they overlap, and does not
-    separate them at all under deuteranopia (rule 17, D-094).
+    separate them at all under deuteranopia.
     """
     styles = (
         Qt.PenStyle.SolidLine,
@@ -296,7 +296,7 @@ def _node_color(palette: QPalette, *, accepted: bool) -> QColor:
     It says *fault* about something that is not one -- a proposal nobody has
     acted on -- and it spends a reserved status colour on a series, which is
     the thing reserved colours must never be spent on. A crossing is a
-    crossing: one hue, drawn hollow until somebody accepts it (rule 17).
+    crossing: one hue, drawn hollow until somebody accepts it.
 
     Full strength, both of them. Fading the proposed one was the obvious way to
     say "not yet", and on a grey lane it said "not there": a 150-alpha mark on

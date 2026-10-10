@@ -37,7 +37,7 @@ def distribute(
     A pane whose share would exceed its maximum is held there and the surplus
     goes to the others: a slot larger than its pane is blank space the pane
     cannot fill, which is how Data Streams once kept 180 px of nothing under
-    two lanes while the video was squeezed (D-180).
+    two lanes while the video was squeezed.
 
     A pane whose proportional share would fall under its minimum is pinned
     there and removed from the pool; the rest re-share what is left. Pinning

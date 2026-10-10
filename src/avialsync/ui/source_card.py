@@ -1,11 +1,11 @@
-"""Pieces of a compact source card in the Sources page (D-175, DS-7).
+"""Pieces of a compact source card in the Sources page.
 
 A card shows what a source is at a glance -- kind, name, quality, visibility --
 and keeps the rest one click away: offset and drift behind a Timing
 disclosure, Properties, Copy details and Remove in one overflow menu. The
 disclosure wraps the card's own spin boxes rather than copies of them, so the
-offset a user drags is still the one authority and D-087's drag coalescing is
-unchanged.
+offset a user drags is still the one authority and the command bus's drag
+coalescing is unchanged.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ __all__ = [
 
 
 def short_path(path: str, base: str | None = None) -> str:
-    """*path* relative to *base* when inside it, else ``…/parent/name`` (F-26).
+    """*path* relative to *base* when inside it, else ``…/parent/name``.
 
     A temporary or deep absolute path says nothing the file name and its
     folder do not, and it is the widest text a card would otherwise show.
@@ -195,7 +195,7 @@ def show_value(spin: QDoubleSpinBox, value: float) -> None:
 
     A Qt spin box silently substitutes its own limit for anything outside its
     range, and `mapping()` then reports the substitute as fact -- which is how
-    a session came to be saved with an offset nobody chose (D-026). These
+    a session came to be saved with an offset nobody chose. These
     controls carry a hand correction, so the declared range is the right one to
     *type* in; a value that arrives from a restored session or an accepted fit
     is shown as it is, whatever it is.

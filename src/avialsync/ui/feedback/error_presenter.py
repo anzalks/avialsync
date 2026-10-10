@@ -1,11 +1,10 @@
-"""Errors are presented, never dumped (AGENTS rule 12, D-088).
+"""Errors are presented, never dumped.
 
 Every failure used to reach the user the same way: ``f"Could not do X:\\n{e}"``
 in a bare ``QMessageBox`` with an OK button.  That is an exception string in a
 box.  It tells someone that something failed, in the vocabulary of the code that
-failed, and offers nothing to do about it — which AGENTS.md already forbade
-("UI layer converts to user dialogs with actionable text") and which the code
-did anyway, in forty places.
+failed, and offers nothing to do about it, and the code did it in forty
+places.
 
 A presented error has three parts and this module is where they are decided:
 
@@ -17,7 +16,7 @@ so the dialog is somewhere to act rather than somewhere to click OK.
 The raw exception is kept, behind *Show details*.  It is what a bug report
 needs and what a scientist reading a dialog does not.
 
-Presentation is non-modal by default (D-091): the strip reports it and the
+Presentation is non-modal by default: the strip reports it and the
 session stays reachable behind it.  A modal is used only when the user must
 choose between recovery actions before anything else can sensibly happen.
 """
@@ -75,17 +74,16 @@ class PresentedError:
     recoveries: tuple[Recovery, ...] = ()
     details: str = ""
     #: Whether the session can carry on without a decision. Almost always True:
-    #: partial success beats refusal, and Law 1 says the application informs
-    #: rather than blocks.
+    #: partial success beats refusal, and the application informs rather
+    #: than blocks.
     recoverable: bool = True
 
 
 #: What each typed exception means, and what to do about it.
 #:
 #: Keyed by class rather than matched on message text: a message is prose that
-#: changes, a type is a contract. `tests/test_error_presenter.py` enumerates
-#: `core/errors.py` against this table, so a new exception type without an
-#: entry fails CI rather than silently falling back to its own repr.
+#: changes, a type is a contract. Every exception type in `core/errors.py` has
+#: an entry here rather than silently falling back to its own repr.
 _PRESENTERS: dict[type[BaseException], Callable[[BaseException], PresentedError]] = {}
 
 
@@ -288,7 +286,7 @@ def presentation_for(error: BaseException) -> PresentedError:
 
     Walking the MRO rather than requiring an exact match means a new subclass
     of an already-handled type presents sensibly on the day it is added, and
-    the enumeration test only has to insist on the *base* types being covered.
+    only the *base* types need an entry.
     """
     for klass in type(error).__mro__:
         builder = _PRESENTERS.get(klass)

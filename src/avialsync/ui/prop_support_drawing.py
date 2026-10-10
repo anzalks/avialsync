@@ -1,4 +1,4 @@
-"""Camera and 3D drawings of ladder layouts and belt placement clicks (D-164, D-165).
+"""Camera and 3D drawings of ladder layouts and belt placement clicks.
 
 Support bars and extrapolated rungs are drawn dashed in a camera: they are
 estimates between clicks, never clicks. A belt's placement clicks are solid

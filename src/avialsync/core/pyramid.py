@@ -21,7 +21,7 @@ RAW_CHUNK_SAMPLES = 1_000_000
 # Subsample stride for median-dt estimation.  Using every N-th point is
 # statistically equivalent to using the full diff for uniform/near-uniform
 # sensor data, and orders of magnitude faster at 180 M samples.
-# (D-023 note: this is the only algorithm-visible change; results are
+# (This is the only algorithm-visible change; results are
 # identical for regular sensor data; irregular multi-second gaps are still
 # detected correctly because the subsample captures global dt statistics.)
 _MEDIAN_SAMPLE_STRIDE = 10_000
@@ -178,7 +178,7 @@ def _aggregate_gap_mask(gap_mask: np.ndarray, factor: int) -> np.ndarray:
         # `np.concatenate` overload that takes a sequence of mixed types
         # resolves to Any on some NumPy versions and to a typed ndarray on
         # others, so this line's type depended on which NumPy happened to be
-        # installed — mypy passed locally and failed in CI on the same code.
+        # installed.
         tail = np.array([bool(np.any(gap_mask[truncated:]))], dtype=bool)
         coarse = np.concatenate((coarse, tail))
     return np.asarray(coarse, dtype=bool)
@@ -320,7 +320,7 @@ class PyramidBuilder:
             ]
 
         # Build and save decimated levels.
-        # vmin/vmax stored as float32 conditionally (D-023): if source is float64
+        # vmin/vmax stored as float32 conditionally: if source is float64
         # (e.g. processed outputs with large magnitude offsets), we keep float64 to
         # avoid lossy downcasts. For raw sensor data (≤16-bit or float32), float32
         # is lossless and halves IO for the largest levels.

@@ -11,7 +11,7 @@ from avialsync.core.source import VideoMetadata
 from avialsync.core.timeline import TimeMap
 
 # Frame selection lives in core/ so the headless decoder resolves time through
-# the same call this readout names it with — one authority, never two (D-075).
+# the same call this readout names it with — one authority, never two.
 # Re-exported here because this is the import path the UI already knows.
 from avialsync.core.video_timing import adjacent_frame_time, frame_index_at
 from avialsync.ui.time_format import format_rate
@@ -118,7 +118,7 @@ def format_video_osd(
     """Build the timestamp-authoritative video-pane information block.
 
     ``detail`` is ``"compact"`` -- time and frame, then resolution and bit
-    depth on a second line, the default on a pane (D-174, D-183) -- or
+    depth on a second line, the default on a pane -- or
     ``"full"``, which adds
     the rate, codec, pixel format and size lines. ``bits`` is the decoded
     frame's depth when known; otherwise it is read from the pixel format.
@@ -173,7 +173,7 @@ class VideoTimingMixin:
     decided which frame the readout named, and the two had to be reconciled
     within a tolerance.  The decoder now resolves time through the same
     ``frame_index_at`` call the readout uses, so there is nothing left to
-    reconcile: one authority selects *and* names the frame (D-075).  Do not
+    reconcile: one authority selects *and* names the frame.  Do not
     reintroduce a second one.
     """
 

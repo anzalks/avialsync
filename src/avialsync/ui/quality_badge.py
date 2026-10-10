@@ -1,4 +1,4 @@
-"""What is wrong with a recording, said plainly (D-088, Law 1).
+"""What is wrong with a recording, said plainly.
 
 "Dirty" has two meanings and this module is the second one.  *Document* dirty
 is unsaved changes, and the title bar carries it.  *Data* dirty is the source
@@ -7,12 +7,12 @@ dropped exposures, an alignment nobody has accepted.
 
 None of it blocks anything.  A file with every one of these findings still
 loads, still plays, and still exports; the user is *told*, never stopped.  That
-is the whole of Law 1 applied to data: partial success beats refusal, and a
+is never block, always inform, applied to data: partial success beats refusal, and a
 scientist is entitled to look at an imperfect recording without arguing with a
 dialog first.
 
 The loaders already detect all of this — ``IntegrityFlags`` and
-``ImportReport`` have carried it since Phase 3.  Until now it reached the user
+``ImportReport`` have long carried it.  Until now it reached the user
 as a bare "⚠" that opened a properties sheet.  This turns the same data into
 sentences, with the time to jump to where the evidence is.
 """

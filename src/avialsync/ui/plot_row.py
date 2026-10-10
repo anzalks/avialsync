@@ -87,7 +87,7 @@ def refresh_channel_plot(
     connects them, the way an oscilloscope or an audio waveform is drawn.
 
     This replaced a lower curve plus an invisible upper curve plus an
-    alpha-blended ``FillBetweenItem`` between them (D-057).  Three items became
+    alpha-blended ``FillBetweenItem`` between them.  Three items became
     one, no blending is done, and the peaks survive: the visible line used to be
     the per-column *minimum*, so a spike was drawn short by the height of the
     shaded band that covered the difference.
@@ -143,7 +143,7 @@ def fit_channel_y(channel: ChannelPlot) -> None:
 
 
 def _update_channel_gutter(channel: ChannelPlot) -> None:
-    """Name the axis: the channel, and its unit when it has one (D-181).
+    """Name the axis: the channel, and its unit when it has one.
 
     The fitted range was a third line here. The tick numbers already state the
     limits, so it repeated them in a crowded gutter; the label says only what
@@ -246,7 +246,7 @@ def detach_row(graphics_layout: pg.GraphicsLayoutWidget, channel: ChannelPlot) -
     destroyed on whatever thread next collected -- a pyramid save worker, an
     importer -- and a top-level window's destructor waits for the GUI thread to
     flush window events. With the GUI thread waiting on that worker, both waited
-    forever (D-188). ``deleteLater`` runs the destructor on the GUI thread, from
+    forever. ``deleteLater`` runs the destructor on the GUI thread, from
     its event loop, whatever happens to the Python wrapper afterwards.
     """
     graphics_layout.removeItem(channel.plot_item)
@@ -255,7 +255,7 @@ def detach_row(graphics_layout: pg.GraphicsLayoutWidget, channel: ChannelPlot) -
 
 
 def reveal_row_tools(channels: list[ChannelPlot], scene_y: float) -> None:
-    """Show the tools of the row under the pointer; fade the rest (D-177)."""
+    """Show the tools of the row under the pointer; fade the rest."""
     for channel in channels:
         band = channel.plot_item.sceneBoundingRect()
         over = channel.visible and band.top() <= scene_y <= band.bottom()
@@ -296,8 +296,8 @@ def create_channel_plot(
     )
     close_proxy = QGraphicsProxyWidget()
     close_proxy.setWidget(close_button)
-    # Shown while the pointer is over the row or the button has keyboard focus
-    # (D-177); transparent, not hidden, so Tab still reaches it.
+    # Shown while the pointer is over the row or the button has keyboard focus;
+    # transparent, not hidden, so Tab still reaches it.
     close_proxy.setOpacity(0.0)
     close_button.installEventFilter(_RevealOnFocus(close_proxy, close_button))
     graphics_layout.addItem(close_proxy, row=row, col=0)
@@ -335,7 +335,7 @@ def create_channel_plot(
     palette = graphics_layout.palette()
     pen = pg.mkPen(color=trace_color(palette, color_index), width=1.4)
     # One curve carrying interleaved per-column min/max — see refresh_channel_plot.
-    # A row is a bright trace, a playhead, and nothing else (D-054, D-057).
+    # A row is a bright trace, a playhead, and nothing else.
     curve = SweepCurveItem(pen=pen, connect="finite")
     curve.setZValue(2)
     plot_item.addItem(curve)

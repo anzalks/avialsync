@@ -1,6 +1,6 @@
 """A push button that is a second *way to reach* a command, not a second one.
 
-Architecture rule 15: a menu item and the button that invokes the same command
+One authority per concept: a menu item and the button that invokes the same command
 may not carry independently written text.  Qt's own answer to that is
 ``QToolButton.setDefaultAction``, and using it is what put a tool button in a
 row of push buttons — flatter, differently proportioned, and visibly not one of
@@ -10,7 +10,7 @@ So the binding is explicit instead.  The ``QAction`` stays the single author of
 the label, the tooltip, the enablement and the checked state; this is an
 ordinary ``QPushButton`` that follows it and triggers it.  A button added beside
 existing ones looks like them, and there is still only one place the command is
-defined (D-092).
+defined.
 
 The follower is a bound method of the button, deliberately: Qt drops a
 connection whose receiver ``QObject`` has been destroyed, so a button that goes
@@ -64,7 +64,7 @@ class ActionButton(QPushButton):
         self.show()
 
     def set_icon_only(self, icon: str) -> None:
-        """Show AvialSync glyph *icon* in place of the text (D-174).
+        """Show AvialSync glyph *icon* in place of the text.
 
         The action's text still names the button -- as its accessible name and
         tooltip -- so the menu, the palette and the button keep one label.
@@ -101,7 +101,7 @@ class ActionButton(QPushButton):
             self.setText("")
             self.setAccessibleName(name)
             # The action's own tooltip when it has one -- it carries the
-            # reason a greyed command is unavailable (D-107) -- else the name.
+            # reason a greyed command is unavailable -- else the name.
             tip = action.toolTip()
             if tip and tip.replace("&", "").rstrip("…").strip() != name:
                 self.setToolTip(tip)
@@ -127,7 +127,7 @@ class ActionCheckBox(QCheckBox):
     The same contract as :class:`ActionButton` -- the action authors the text,
     tooltip, enablement and checked state -- for a switch that reads as a
     setting beside a panel's other fields, such as an overlay's View ->
-    Overlays entry repeated on the Props Wheel page (rules 13 and 15).
+    Overlays entry repeated on the Props Wheel page.
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:

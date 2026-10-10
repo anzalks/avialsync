@@ -1,4 +1,4 @@
-"""User-chosen keyboard shortcuts, layered over the defaults (WP-3).
+"""User-chosen keyboard shortcuts, layered over the defaults.
 
 Every editor, DAW and IDE this competes with for muscle memory lets its
 shortcuts be rebound. AvialSync's were fixed: the shortcuts dialog listed them
@@ -11,7 +11,7 @@ that changes a default still reaches everyone who never expressed a preference
 
 An action's identity is derived from its category and text. That is stable
 across runs and readable in the stored settings, and it means the id comes from
-the action rather than a second table nobody remembers to update (D-092).
+the action rather than a second table nobody remembers to update.
 """
 
 from __future__ import annotations
@@ -110,7 +110,7 @@ def conflicting_action(
 ) -> QAction | None:
     """The action already bound to *sequence*, if any.
 
-    Reported rather than refused (Law 1). Two actions in different contexts can
+    Reported rather than refused. Two actions in different contexts can
     legitimately share a key, and a user rebinding a whole set will pass
     through conflicting intermediate states on the way to a consistent one.
     Telling them which action already has it is useful; stopping them is not.

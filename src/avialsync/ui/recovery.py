@@ -1,4 +1,4 @@
-"""Crash and hot-exit recovery for sessions that were never saved (D-089).
+"""Crash and hot-exit recovery for sessions that were never saved.
 
 ``MainWindow.closeEvent`` has always documented "Always close" — the window
 used to ``event.ignore()`` while a job ran, so a wedged probe on a network
@@ -9,8 +9,8 @@ had *no protection at all*.  Load four cameras, tune offsets, accept a fit,
 drop forty annotations, never pick Save Session — and quitting discarded all of
 it, silently.
 
-The answer is not a save prompt.  A prompt is a gate, and Law 1 says the
-application never blocks the user to tell them something (D-088).  Quitting
+The answer is not a save prompt.  A prompt is a gate, and the
+application never blocks the user to tell them something.  Quitting
 keeps proceeding without asking and becomes lossless instead: a recovery
 snapshot is written unconditionally, and the *next* launch informs the user,
 non-modally, that unsaved work is available.
@@ -64,7 +64,7 @@ class RecoverySnapshot:
 def recovery_dir() -> Path:
     """Return the app-data directory holding the snapshot, creating it."""
     root = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
-    # An empty location is possible on a stripped test environment; fall back to
+    # An empty location is possible on a stripped-down system; fall back to
     # a temp dir rather than writing into the working directory, which would put
     # application state next to the user's recordings.
     base = Path(root) if root else Path(tempfile.gettempdir()) / "AvialSync"
@@ -170,7 +170,7 @@ def clear_recovery() -> None:
     the workspace and sets ``_session_path`` to ``None``; leaving the snapshot
     in place would let a subsequent quit overwrite good unsaved work with an
     empty workspace, turning the safety net into the data loss it exists to
-    prevent (WP-1 step 7).
+    prevent.
     """
     try:
         recovery_path().unlink(missing_ok=True)

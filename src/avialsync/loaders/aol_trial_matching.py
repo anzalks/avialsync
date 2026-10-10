@@ -87,7 +87,7 @@ def first_frame_stamp(timing: Path) -> float | None:
     """The first frame's wall-clock stamp in a ``*-relative times.txt`` file.
 
     The camera PC writes its local clock without a zone; like the camera
-    session (D-202) it is read as if it were UTC, and the controller's zone is
+    session it is read as if it were UTC, and the controller's zone is
     derived separately from its folder names.
     """
     try:

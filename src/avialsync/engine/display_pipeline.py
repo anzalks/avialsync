@@ -1,4 +1,4 @@
-"""Mapping a recording's own bit depth onto an 8-bit screen (WP-9, D-093).
+"""Mapping a recording's own bit depth onto an 8-bit screen.
 
 ``to_ndarray(format="rgb24")`` performs the reduction to 8 bits inside swscale,
 before any application code sees the frame.  Measured on a synthetic 12-bit
@@ -249,9 +249,8 @@ def _contiguous(array: np.ndarray) -> np.ndarray:
     the frame-ready slot and nothing was ever painted.
 
     The copy is here, on the decode thread, rather than in the pane: it costs
-    about 0.24 ms for a 1290x720 frame, and the UI thread does not spend that
-    (AGENTS rule 3).  Aligned footage — which is what every test fixture is,
-    which is why the suite never saw this — pays one flag read.
+    about 0.24 ms for a 1290x720 frame, and the UI thread does not spend that.
+    Aligned footage pays one flag read.
     """
     return array if array.flags["C_CONTIGUOUS"] else np.ascontiguousarray(array)
 

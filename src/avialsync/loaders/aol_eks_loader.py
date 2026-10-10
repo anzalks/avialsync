@@ -84,7 +84,7 @@ class AOLEksLoader(TimeSeriesSource):
         # happens to divide by three. Counting made the claim depend on how many
         # points the user tracked: a flat *2D* file with three body parts has
         # six ``_x``/``_y`` columns, divides cleanly, and was claimed as 3D
-        # tracking, while the same file with two body parts was not (D-140).
+        # tracking, while the same file with two body parts was not.
         try:
             with open(path, encoding="utf-8") as f:
                 header = f.readline().strip()
@@ -153,7 +153,7 @@ class AOLEksLoader(TimeSeriesSource):
         )
 
     def pose_schema(self) -> PoseSchema | None:
-        """The body parts and axes this flat export declares (D-140).
+        """The body parts and axes this flat export declares.
 
         Flat exports carry no individuals, so every point's individual is empty
         and the body part is the whole name -- which is what it always was.

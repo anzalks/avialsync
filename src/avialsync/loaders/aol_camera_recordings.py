@@ -4,7 +4,7 @@ The camera PC saves a fixed set of cameras once per trial, so several of its
 recording folders are one experiment's cameras, not as many separate sessions.
 When the controller's trials can be found -- beside the camera tree, mirroring
 ``<date>/<experiment>``, or under the microscope saved-data folder setting --
-the drop is laid out as those trials with their cameras (D-208). When they
+the drop is laid out as those trials with their cameras. When they
 cannot, each camera's recordings are joined back to back, one segment per
 recording, the way an experiment's trials are.
 """

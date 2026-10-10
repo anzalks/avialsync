@@ -80,7 +80,7 @@ class ImagingFrameView(QWidget):
         """The part of the picture on screen as ``(x, y, width, height)`` fractions.
 
         ``None`` while the whole picture is shown, so an export of it takes all
-        of it; zoomed in, an export takes exactly this part (D-210).
+        of it; zoomed in, an export takes exactly this part.
         """
         geometry = self._geometry()
         if geometry is None or self._image is None or self._zoom == 1.0:

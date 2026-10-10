@@ -1,4 +1,4 @@
-"""The one channel the user's own work leaves by (D-100).
+"""The one channel the user's own work leaves by.
 
 Snapshot, trimmed clip, and data slice render a *range of the recording*.  This
 renders *what a person did to it*: their flagged frames and labelled ranges,
@@ -167,10 +167,10 @@ def export_changes(window: MainWindow) -> None:
 
     # Wired inside `configure`: `_run_job` returns an already-running thread, so
     # a fast export can finish before a connection made afterwards exists and
-    # the user is never told (HANDOUT.md trap 31).
+    # the user is never told.
     # `on_finished`/`on_error` are closures, not slots on a QObject, so they
     # would be called directly in the worker thread and raise the notification
-    # from there (D-051). `on_ui_thread` gives them a receiver on the window.
+    # from there. `on_ui_thread` gives them a receiver on the window.
     def _wire(thread: QThread) -> None:
         worker.finished.connect(on_ui_thread(on_finished, window))
         worker.error.connect(on_ui_thread(on_error, window))
@@ -184,7 +184,7 @@ def _job_for(window: MainWindow, item: ExportItem) -> object | None:
     """Turn a chosen artifact into a job carrying only plain data.
 
     Everything the worker needs is resolved here, on the UI thread, so no
-    reader, widget, or store is touched from the worker (rule 3).
+    reader, widget, or store is touched from the worker.
     """
     from avialsync.engine.changes_export_worker import (
         CorrectedPoseJob,

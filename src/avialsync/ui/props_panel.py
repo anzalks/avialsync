@@ -1,4 +1,4 @@
-"""Non-modal editor for individually clicked physical-prop steps (D-149)."""
+"""Non-modal editor for individually clicked physical-prop steps."""
 
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ def irregular_text(tag: StepIrregularity) -> str:
 
 
 class _NarrowList(QListWidget):
-    """A list that prefers the page's wrap width, not Qt's 256 px default (R3).
+    """A list that prefers the page's wrap width, not Qt's 256 px default.
 
     Preferred, not Expanding, vertically: an empty step list took every spare
     pixel of the page, so the controls below it sat under a screen of nothing.
@@ -171,7 +171,7 @@ class PropsPanel(QWidget):
         self.ladders.setAccessibleDescription(tr("Select a saved prop of the selected kind."))
         self.ladders.currentIndexChanged.connect(self._selection_changed)
         # Labelled, in the order they are used: what kind, which saved one,
-        # or a name for a new one (D-176, F-16).
+        # or a name for a new one.
         self._header_form = header = QFormLayout()
         header.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
         header.addRow(tr("Kind"), self.kind)
@@ -277,7 +277,7 @@ class PropsPanel(QWidget):
         ):
             button.setAccessibleName(button.text())
         self.status = QLabel(tr("Click each point in the cameras where it is visible."), self)
-        # One primary, four ordinary choices, the rest in the overflow (D-176).
+        # One primary, four ordinary choices, the rest in the overflow.
         self.ladder_steps = StepPanel(tr("Ladder steps"), self.ladder_editor)
         self.ladder_steps.use_instruction_label(self.status)
         self.ladder_steps.set_primary(self.save_next_step)

@@ -58,7 +58,7 @@ def show_context_menu(
         menu.addSeparator()
         for extra in extras:
             menu.addAction(extra)
-    # The row's own close, also here so it never depends on hovering (D-177).
+    # The row's own close, also here so it never depends on hovering.
     menu.addSeparator()
     hide = menu.addAction(tr("Hide {name}").format(name=channel.name))
     chosen = menu.exec(event.screenPos().toPoint())

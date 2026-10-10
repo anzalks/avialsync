@@ -71,7 +71,7 @@ class StimulusGridDialog(QDialog):
         outer = QHBoxLayout(self)
         layout = QVBoxLayout()
         outer.addLayout(layout, 3)
-        #: Which cameras, imaging and sensor groups the movie carries (D-210).
+        #: Which cameras, imaging and sensor groups the movie carries.
         self.rows_panel = rows
         if rows is not None:
             rows.setParent(self)

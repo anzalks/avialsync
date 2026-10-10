@@ -1,4 +1,4 @@
-"""What the Props Wheel page says about a wheel and its encoder (D-113, D-123).
+"""What the Props Wheel page says about a wheel and its encoder.
 
 Split from :mod:`avialsync.ui.wheel_panel`, which lays the tab out; the
 placement review in :mod:`avialsync.ui.controllers.wheel_placement` uses the
@@ -20,7 +20,7 @@ _RADIUS_WARNING = 0.07
 
 
 def _unreliable(issue: str) -> str:
-    """Why :func:`fit_issue` doubts a fit, and what to check. It is still drawn (D-123)."""
+    """Why :func:`fit_issue` doubts a fit, and what to check. It is still drawn."""
     cause = (
         tr("The clicked bars do not sit in neighbouring slots.")
         if issue == "bars_not_neighbours"

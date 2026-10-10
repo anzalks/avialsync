@@ -10,8 +10,8 @@ This module is headless and dependency-light on purpose.  Both the decoder
 (``engine/pyav_reader.py``, which selects the frame) and the readout
 (``ui/video_timing.py``, which names it) resolve time through the same call, so
 the two cannot disagree.  Under libmpv they were separate authorities and did
-disagree; keeping them fused is the point (D-075, AGENTS.md rule 6).  ``engine``
-may not import ``ui`` at module scope (ARCHITECTURE §1), so the shared
+disagree; keeping them fused is the point.  ``engine``
+may not import ``ui`` at module scope, so the shared
 primitive lives here rather than beside the readout that used to own it.
 """
 

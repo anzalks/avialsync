@@ -1,4 +1,4 @@
-"""Everything the application can do, in one searchable list (WP-3).
+"""Everything the application can do, in one searchable list.
 
 The menus have grown: File, Edit, View with Theme, Font Size, Time Display and
 Overlays nested inside it, Help, a pane context menu, a sidebar, and a
@@ -6,9 +6,9 @@ transport. Finding a command means knowing which of those it lives in, and the
 newest ones -- the overlay switches especially -- are three levels down.
 
 The palette derives from the same live ``QAction`` objects the shortcuts dialog
-uses (D-022.6), so it cannot list something that does not exist or miss
+uses, so it cannot list something that does not exist or miss
 something that does. An action's name comes from the action; there is no second
-place where a command is called anything (D-092).
+place where a command is called anything.
 """
 
 from __future__ import annotations

@@ -4,9 +4,9 @@ This is the decoder the application scrubs with.  It owns four things: the
 presentation-timestamp table, the resolution of a source time to a frame index,
 seek-and-decode, and a small window of recently decoded frames.
 
-No PySide6 import — a reader is testable, and benchmarkable, without Qt.  It is
+No PySide6 import — a reader works without Qt.  It is
 also safe to drive from a worker thread: PyAV releases the GIL during decode, so
-several readers genuinely decode in parallel (AGENTS.md rule 3).  One reader is
+several readers genuinely decode in parallel.  One reader is
 *not* re-entrant, because it carries decoder position; give each pane its own.
 """
 
@@ -29,7 +29,7 @@ from avialsync.core.errors import CacheError, SourceOpenError
 from avialsync.core.video_timing import frame_index_at
 
 # Imported at module scope deliberately. The rule forbidding a top-level decoder
-# import (D-013) existed because a missing libmpv crashed with a ctypes traceback
+# import existed because a missing libmpv crashed with a ctypes traceback
 # at launch; PyAV carries its own FFmpeg inside its wheel, so that case cannot
 # occur — pip either installed the decoder or the install itself failed.
 # Deferring it would only move its 94 ms first-import onto whichever thread
@@ -241,7 +241,7 @@ class PyAVReader:
 
         The one resolution step in the application: whatever calls this both
         selects and names the frame, so a readout can never disagree with the
-        picture beside it (D-075).
+        picture beside it.
         """
         return frame_index_at(self._frame_times, source_time)
 

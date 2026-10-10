@@ -1,4 +1,4 @@
-"""What an NWB file holds, independent of its HDF5 or Zarr storage (D-188).
+"""What an NWB file holds, independent of its HDF5 or Zarr storage.
 
 Neurodata Without Borders stores one session per file: one subject, one
 ``session_start_time``, one clock, and every recording made in that session --

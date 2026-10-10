@@ -7,8 +7,7 @@ are selected together and the user wants one answer about whether it worked.
 
 Nothing in this file reaches into the application.  Each job carries the plain
 data it needs — rows, coordinates, paths — resolved on the UI thread while the
-dialog was open, so no reader, widget, or store is touched from here
-(architecture rule 3).
+dialog was open, so no reader, widget, or store is touched from here.
 """
 
 from __future__ import annotations

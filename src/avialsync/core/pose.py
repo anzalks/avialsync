@@ -10,14 +10,14 @@ did that, and three shipped defects came out of it: multi-animal support had to
 change three files because each keyed a point by body part alone and each
 collapsed two animals that share ``snout``; the EKS loader decided 2D-versus-3D
 by testing a column count against ``% 3``; and a whole module existed to map
-declared body-part names back onto the names a cache happened to hold (D-140).
+declared body-part names back onto the names a cache happened to hold.
 
 The loader declares a :class:`PoseSchema`; everything downstream reads it.  A
 new format is then one loader emitting the same schema, and no consumer changes.
 
 **The canonical name is a persisted identifier.**  :class:`PointKey.point` is
 written into the ``_avialfix.csv`` corrections sidecar beside each pose file and
-into the session (D-099), so :func:`canonical_name` is the single place that
+into the session, so :func:`canonical_name` is the single place that
 decides it and renaming is a migration, not an edit.
 """
 
@@ -150,7 +150,7 @@ class PoseSchema:
         A property of the file, which the loader can simply state. The EKS
         loader used to infer it by testing a count of ``_x``/``_y``/``_z``
         columns against ``% 3 == 0``, so a flat 2D file with three body parts
-        was 3D and one with two was not (D-140).
+        was 3D and one with two was not.
         """
         return any(point.is_3d for point in self.points)
 
@@ -192,10 +192,10 @@ class PoseSchema:
         """Build a schema from flat ``point_axis`` names.
 
         For a loader whose format gives it names and nothing else -- and for
-        test doubles standing in for one. It is deliberately a *loader-side*
+        anything standing in for one. It is deliberately a *loader-side*
         constructor: a loader may declare its structure however it likes, but a
         consumer reads the declaration and never reconstructs it, which is the
-        whole point of D-140. Names carrying no individual produce points whose
+        whole point of one declared pose schema. Names carrying no individual produce points whose
         individual is empty, because that is what the names say.
         """
         axes: dict[str, list[str]] = {}

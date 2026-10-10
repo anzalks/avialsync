@@ -9,7 +9,7 @@ to right now, and the video-to-widget transform.
 It never writes to the correction store.  A finished drag becomes a
 :class:`~avialsync.core.point_edits.PointMove` on ``point_moved``; the window
 puts it through the command bus so the edit is undoable and marks the document
-dirty (architecture rule 14, D-099).
+dirty.
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ class _Drag:
 
     ``key`` names the file column the value belongs to and ``name`` the label
     it was grabbed under; after an accepted identity flip those differ, and a
-    correction needs both (D-143).
+    correction needs both.
     """
 
     key: PointKey
@@ -84,7 +84,7 @@ class PointEditMixin(QWidget):
 
     #: Emitted with a :class:`PointMove` when a drag finishes somewhere new.
     #: The canvas does not apply it: the window routes it through the command
-    #: bus so the correction is undoable and marks the document dirty (rule 14).
+    #: bus so the correction is undoable and marks the document dirty.
     point_moved = Signal(object)
     #: ``(name, frame, x, y)`` when a hand-placed 3D marker has been dragged.
     custom_point_moved = Signal(str, int, float, float)
@@ -128,7 +128,7 @@ class PointEditMixin(QWidget):
 
         ``resolver(source_id, displayed name, sample index) -> column``.  With
         no resolver the two are the same, which is the answer for every source
-        that has no accepted identity flip (D-141).
+        that has no accepted identity flip.
         """
         self._identity_resolver = resolver
 

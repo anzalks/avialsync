@@ -10,7 +10,7 @@ numbers and the axis titles it was born with.
 That is the whole reason this module exists.  Everything here is the
 application step — walking live scene objects and re-penning them.  What the
 colours *are* is decided in :mod:`avialsync.ui.theme`, with every other colour
-in the application, so there is one authority per user-visible concept (D-092)
+in the application, so there is one authority per user-visible concept
 and pyqtgraph stays out of that module.
 """
 
@@ -64,8 +64,8 @@ def apply_plot_item_palette(plot_item: pg.PlotItem, colors: PlotColors) -> None:
     and visibility back.  pyqtgraph 0.14 treats a ``None`` text as "no label"
     and hides it, so the earlier ``setLabel(color=…)`` emptied every channel's
     name/unit/range gutter on the first theme switch — the gutter was blank in
-    the Light screenshot and in any session switched after load
-    (INTERFACE_DESIGN_PLAN F-27).  A later label rewrite — the channel
+    the Light screenshot and in any session switched after load.
+    A later label rewrite — the channel
     gutter's, say — passes no style of its own and keeps this colour.
     """
     for name in ("left", "right", "top", "bottom"):

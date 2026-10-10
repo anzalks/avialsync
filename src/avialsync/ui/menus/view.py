@@ -75,9 +75,9 @@ def _view_modes(window: MainWindow, view_menu: QMenu, _reg: Register) -> None:
 
 def _view_overlays(window: MainWindow, view_menu: QMenu, _reg: Register) -> None:
     """Offer registered overlays and original tracker."""
-    # Reset Plot Zoom — single authority (D-022.1); QShortcut removed from _setup_shortcuts
+    # Reset Plot Zoom — single authority; QShortcut removed from _setup_shortcuts
     # Overlays: one checkbox per registered layer, generated from the
-    # registry so a new overlay cannot ship without one (D-090).
+    # registry so a new overlay cannot ship without one.
     window._overlays_menu = view_menu.addMenu(tr("Overlays"))
     window._build_overlays_menu(_reg)
     window.tracking_3d_pane.install_reprojection_action(
@@ -125,16 +125,16 @@ def _view_panels(window: MainWindow, view_menu: QMenu, _reg: Register) -> None:
 
     # Workspaces: a session is looked at in more than one way, and
     # rearranging the splitters each time is friction enough to stop
-    # people doing it (WP-11).
+    # people doing it.
     window._workspace_menu = view_menu.addMenu(tr("Workspace"))
     window._rebuild_workspace_menu()
     view_menu.addSeparator()
 
 
 def _view_inspector(window: MainWindow, view_menu: QMenu, _reg: Register) -> None:
-    """One action per inspector page, so the palette and menu reach each (D-172)."""
+    """One action per inspector page, so the palette and menu reach each."""
     inspector_menu = view_menu.addMenu(tr("Inspector"))
-    # The dock's own toggle: shown, hidden, or floating (D-180).
+    # The dock's own toggle: shown, hidden, or floating.
     inspector_menu.addAction(_reg(window.inspector_dock.toggleViewAction(), "View"))
     inspector_menu.addSeparator()
     nav = window._left_tabs
@@ -184,7 +184,7 @@ def _view_navigation(window: MainWindow, view_menu: QMenu, _reg: Register) -> No
     )
     window.view_toolbar.install_fit_videos_action(window._act_fit_videos)
 
-    # Fullscreen toggle — StandardKey.FullScreen = F11 / Ctrl+Cmd+F on macOS (D-022.2)
+    # Fullscreen toggle — StandardKey.FullScreen = F11 / Ctrl+Cmd+F on macOS
     window._act_fullscreen = view_menu.addAction(tr("Fullscreen"))
     window._act_fullscreen.setShortcut(QKeySequence(QKeySequence.StandardKey.FullScreen))
     window._act_fullscreen.triggered.connect(window._toggle_fullscreen)
@@ -197,5 +197,5 @@ def _view_navigation(window: MainWindow, view_menu: QMenu, _reg: Register) -> No
         tr("Load a video — fullscreen applies to a camera pane."),
     )
 
-    # Pass reset-zoom action to plot pane so the context menu uses the same object (D-022)
+    # Pass reset-zoom action to plot pane so the context menu uses the same object
     window.plot_pane.set_context_actions([window._act_reset_zoom])

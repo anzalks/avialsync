@@ -30,7 +30,7 @@ class PlotPresentation(StrEnum):
     REVIEW = "review"
     #: The only selectable live presentation: reveal up to the sweep edge, then
     #: clear and restart at the page boundary.  A "Sweep" mode that instead kept
-    #: the previous page underneath was removed (D-057).
+    #: the previous page underneath was removed.
     SCOPE = "scope"
 
 
@@ -103,7 +103,7 @@ class SweepWindowControl(QWidget):
         super().__init__(parent)
         # A strong child → parent reference would make a Python/Qt ownership
         # cycle. A standalone PlotPane can then be collected after its C++
-        # children, faulting in shiboken during a later unrelated test.
+        # children, faulting in shiboken during later, unrelated work.
         self._focus_target: ReferenceType[QWidget] | None = ref(parent) if parent else None
         self._bounds = (0.0, 0.0)
         self._window_seconds = self._DEFAULT_WINDOW_SECONDS

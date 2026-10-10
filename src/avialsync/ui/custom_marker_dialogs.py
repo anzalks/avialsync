@@ -1,10 +1,10 @@
 """The two questions Add 3D Marker asks: what to call it, and where calibration comes from.
 
 Both are dialogs the user explicitly asked for -- by choosing Add 3D Marker, Add
-Wheel, or a notification's "Choose Calibration…" -- which is the case AGENTS
-rule 11 allows a modal for. Never opened for an overlay switch. Plain ``QDialog`` rather than
-``QInputDialog``/``QMessageBox``: the latter is banned outside ``ui/feedback``
-(rule 12), and building both the same way keeps their accessible names in one
+Wheel, or a notification's "Choose Calibration…" -- the one case a modal is
+allowed for. Never opened for an overlay switch. Plain ``QDialog`` rather than
+``QInputDialog``/``QMessageBox``: the latter is banned outside ``ui/feedback``,
+and building both the same way keeps their accessible names in one
 place.
 """
 

@@ -1,4 +1,4 @@
-"""A glyph button that opens a menu, drawn like every other glyph button (D-181).
+"""A glyph button that opens a menu, drawn like every other glyph button.
 
 ``setMenu`` makes the platform style draw a drop-down arrow under or beside the
 glyph -- on macOS a small chevron below the ``⋯`` -- so overflow buttons looked

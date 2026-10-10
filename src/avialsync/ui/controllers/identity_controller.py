@@ -1,7 +1,7 @@
 """Accepted identity flips: persisted beside the data, materialised into cache.
 
 The same shape as :mod:`avialsync.ui.controllers.corrections_controller`, and
-for the same reasons (D-099): a flip is a fact about the recording, so it is
+for the same reasons: a flip is a fact about the recording, so it is
 written beside the pose file the moment it is accepted rather than waiting for
 somebody to remember Ctrl+S, and the session records only a count so a missing
 sidecar can be *reported* instead of silently showing the old identities.
@@ -13,7 +13,7 @@ agree with the overlay about who is who.  So an accepted flip is materialised:
 :mod:`avialsync.core.edit_cache` writes the edited channels into a generation
 of the source's own cache entry, and every reader is re-pointed at it.  From
 then on nothing downstream knows that flips exist -- it is reading a tracker
-that says what the user says it says (D-142).
+that says what the user says it says.
 
 The recording is never written, the imported pyramid is never written, and the
 generation is a pure function of the two sidecars: deleting the cache costs a
@@ -97,7 +97,7 @@ def data_point_for(window: MainWindow, source_id: str, name: str, index: int) ->
 
     Itself, unless an accepted flip is in force -- and itself again while
     ``Play original`` is on, because then the readers really are the
-    imported prediction and what is on screen is what the model said (D-141).
+    imported prediction and what is on screen is what the model said.
     """
     routes = displayed_routes_for(window, source_id)
     if routes is None:
@@ -148,8 +148,7 @@ def apply(window: MainWindow, source_id: str, event: SwapEvent, *, accept: bool)
 
     The single funnel every flip passes through -- the drag, its undo, and its
     redo alike -- which is why persistence hangs off it rather than off the
-    store's observers: reading a sidecar in must not echo it straight back out
-    (D-099).
+    store's observers: reading a sidecar in must not echo it straight back out.
     """
     store = window.identity_swaps
     changed = store.add(source_id, event) if accept else store.remove(source_id, event)
@@ -217,7 +216,7 @@ def adopt(window: MainWindow, source_id: str) -> None:
     window.identity_swaps.adopt_groups(source_id, window._expected_swap_groups.pop(source_id, ()))
     # Declaring lanes is not an edit, so the store does not notify -- but it is
     # exactly what decides whether Fix Identities has anything to act on, and a
-    # command that greys out with its reason has to be told (D-107).
+    # command that greys out with its reason has to be told.
     window._refresh_action_availability()
 
     held = identity_sidecar.read(Path(source_id))
@@ -270,7 +269,7 @@ def refresh(window: MainWindow, source_id: str) -> None:
     Skipped when the generation the edits name is already on disk, which is
     what makes reopening a session with edits cost nothing.  The rebuild itself
     is a registered job: it writes a pyramid per edited channel and has no
-    business on the UI thread (rules 3 and 11).
+    business on the UI thread.
     """
     cache = cache_dir_for(window, source_id)
     schema = schema_for(window, source_id)
@@ -291,7 +290,7 @@ def refresh(window: MainWindow, source_id: str) -> None:
 
     def _wire(_thread: Any) -> None:
         # Marshalled, not connected bare: these land on the worker's thread
-        # otherwise, and every one of them touches widgets (D-051).
+        # otherwise, and every one of them touches widgets.
         worker.finished.connect(
             on_ui_thread(
                 lambda finished_source, edited: _adopt_generation(window, finished_source, edited),

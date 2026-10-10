@@ -15,7 +15,7 @@ draggable boundary is rather than where its middle happens to be.
 What this does *not* do matters as much. It paints inside the handle Qt already
 lays out: handle width, hit area, drag behaviour, collapse rules and every
 pane's geometry are untouched, so it changes what the boundary looks like and
-nothing about how it works (AGENTS, "themes are appearance-only"). It is not a
+nothing about how it works ("themes are appearance-only"). It is not a
 stylesheet either — an application stylesheet wraps Qt's style engine and can
 move control metrics, which is the thing that rule exists to prevent.
 """

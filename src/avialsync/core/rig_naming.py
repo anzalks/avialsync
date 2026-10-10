@@ -5,7 +5,7 @@ Recordings name their files after the camera that produced them --
 two places need to read that: a session loader matching a track to a camera,
 and the import dialog working out which video a dropped pose file belongs on.
 
-One rule, stated once (rule 15).  Longest label first, so ``SideCam`` cannot be
+One rule, stated once.  Longest label first, so ``SideCam`` cannot be
 shadowed by a shorter label that happens to be a prefix of it, and an empty
 label never matches -- an empty token would otherwise claim every filename.
 """

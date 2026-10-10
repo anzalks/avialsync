@@ -11,13 +11,12 @@ camera's per-trial recordings as one video
 (:mod:`~avialsync.loaders.aol_camera_join`). The trials themselves are declared
 as :attr:`~avialsync.core.source.SessionLayout.segments`, so where one ends and
 the next begins stays visible on the joined timeline. A trial scanned
-differently cannot be joined and is reported, not dropped silently (D-085).
+differently cannot be joined and is reported, not dropped silently.
 
 The camera PC names its folders by its own clock, never by the controller's
 trial, so cameras are associated by when they recorded
 (:func:`~avialsync.loaders.aol_trial_matching.match_cameras`), whether they
-were found beside the trials, dropped with them, or loaded before them
-(D-208).
+were found beside the trials, dropped with them, or loaded before them.
 """
 
 from __future__ import annotations

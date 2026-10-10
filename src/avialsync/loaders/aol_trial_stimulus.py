@@ -1,4 +1,4 @@
-"""The stimulus TTL a microscope trial commanded, rebuilt from its saved settings (D-211).
+"""The stimulus TTL a microscope trial commanded, rebuilt from its saved settings.
 
 The controller's stimulus trigger generator is configured per trial -- enabled
 for acquisition (``EnableInFuncProtocol``), a ``Delay`` from the trial's start,

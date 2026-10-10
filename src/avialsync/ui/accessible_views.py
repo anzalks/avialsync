@@ -1,7 +1,7 @@
-"""Accessible descriptions of the surfaces AvialSync paints itself (D-179, DS-12).
+"""Accessible descriptions of the surfaces AvialSync paints itself.
 
 Plot rows, Data Streams lanes, video panes and the 3D view are drawn, not built
-from labelled widgets, so assistive technology saw a nameless rectangle (F-32).
+from labelled widgets, so assistive technology saw a nameless rectangle.
 Each such widget registers here with a role and a *describer*. Qt asks for an
 accessible interface through the factory installed below, and the interface
 answers ``Value`` and ``Description`` by calling the describer at that moment.

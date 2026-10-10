@@ -1,4 +1,4 @@
-"""The drift field: milliseconds gained per hour, held and shown (D-184).
+"""The drift field: milliseconds gained per hour, held and shown.
 
 The value is the drift the mapping uses, in the same unit the session stores,
 so what a person types is what is applied. Two decimals: 0.01 ms per hour is

@@ -1,9 +1,9 @@
-"""Generating a wheel from its clicked bar ends, off the UI thread (D-113, D-123).
+"""Generating a wheel from its clicked bar ends, off the UI thread.
 
 One fit is 10-20 ms, but a labelled wheel may need several -- a third bar left
 out, a typed radius in the wrong units -- which reached 55 ms, past the 30 ms a
-UI-thread step may take (rule 3). So every fit runs here, registered through
-``MainWindow._run_job`` like any other job (rule 11), and the Props Wheel page says
+UI-thread step may take. So every fit runs here, registered through
+``MainWindow._run_job`` like any other job, and the Props Wheel page says
 "Generating wheel…" while it does.
 
 It is handed frozen values only -- the spec, the clicks, the camera models --

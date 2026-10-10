@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 #: it applies only to a folder ``AOLSessionSource`` claimed, only when
 #: ``trial_config.yml`` declares no skeleton of its own, and only to the parts
 #: the EKS export actually contains. A rig it does not recognise produces
-#: nothing and leaves the 3D view to detect its own (D-082).
+#: nothing and leaves the 3D view to detect its own.
 #: One Data Streams lane for everything the pipeline derived from the cameras:
 #: 3D pose, per-camera 2D pose, and the extracted ROI metrics. They are read
 #: from the same videos frame for frame, so their coverage spans are the same
@@ -583,7 +583,7 @@ def _collect_extracted_metrics(
     ``data_root``. Neither lives at a fixed path -- the export tree can be
     emitted under a separate root, and ``data_root``'s own name follows the
     lab's ``export_filename`` -- so both are recognised by what the file *is*
-    rather than where it sits (D-080, D-081).
+    rather than where it sits.
 
     They are collected together because a session that carries the upstream
     store carries thousands of those small files, and walking the tree twice to
@@ -807,7 +807,7 @@ class AOLSessionSource(SessionSource):
 
     All timing is expressed on one axis. The encoder log is written as
     seconds-since-midnight UTC, so video and pose start epochs are rebased onto
-    the same axis by subtracting the session's anchor epoch (D-045); do not
+    the same axis by subtracting the session's anchor epoch; do not
     "fix" that by adding the anchor to encoder timestamps instead, which shifts
     it by roughly 20 days.
     """
@@ -940,7 +940,7 @@ def _video_items(manifest: AOLManifest, anchor_epoch: float, registry: Any) -> l
                 # than pre-baked as `config["offset"]`: an offset in the config
                 # is a placement the user then owns and must not touch, and it
                 # showed up in the sidebar as a five-digit number to be nudged
-                # around (D-110).
+                # around.
                 source_epoch=_absolute(start_epoch, anchor_epoch),
             )
         )
@@ -948,7 +948,7 @@ def _video_items(manifest: AOLManifest, anchor_epoch: float, registry: Any) -> l
 
 
 def _eks_items(manifest: AOLManifest, anchor_epoch: float) -> list[SessionItem]:
-    """3D triangulated pose, which drives the 3D view rather than a plot row (D-046)."""
+    """3D triangulated pose, which drives the 3D view rather than a plot row."""
     from avialsync.loaders.aol_eks_loader import AOLEksLoader
 
     items: list[SessionItem] = []
@@ -969,7 +969,7 @@ def _eks_items(manifest: AOLManifest, anchor_epoch: float) -> list[SessionItem]:
                 # Named by where it goes, not by what reads it. A session emits
                 # one 3D file and one 2D file per camera, all ending "_eks.csv"
                 # and all detected as "Tracking Data (2D/3D)" — and none of them
-                # becomes a plot row (D-046), so the filename alone left no way
+                # becomes a plot row, so the filename alone left no way
                 # to tell which drives the 3D view and which paint a video.
                 label=f"{eks_file.name} — 3D pose",
                 coverage_group=VIDEO_DERIVED_COVERAGE_GROUP,
@@ -1032,7 +1032,7 @@ def _video_extraction_items(manifest: AOLManifest, anchor_epoch: float) -> list[
     """Exported ROI metrics, plotted like any other recorded signal.
 
     No ``role`` is set: unlike the pose exports sitting in the same recording
-    folder (D-046), these are ordinary sensor traces and belong on plot rows.
+    folder, these are ordinary sensor traces and belong on plot rows.
 
     Both timing reference points are handed over rather than one resolved
     offset, because only the loader discovers which axis its file actually
@@ -1043,7 +1043,7 @@ def _video_extraction_items(manifest: AOLManifest, anchor_epoch: float) -> list[
     Where the camera's own start is known, ``time_base`` asks for it to be the
     anchor. The export's ``absolute_times`` is true POSIX, converted from the
     camera's *local* wall clock at export time, while this session's axis is
-    that wall clock read as seconds since midnight (D-045). On the reference
+    that wall clock read as seconds since midnight. On the reference
     session the two differ by exactly the site's UTC offset, which placed every
     ROI metric one hour before the video it came from. The camera start carries
     no time zone, so it is the one reference both sides already agree on.
@@ -1090,7 +1090,7 @@ def _start_epoch_for_camera(manifest: AOLManifest, camera: str) -> float:
 def _metric_items(manifest: AOLManifest, anchor_epoch: float) -> list[SessionItem]:
     """Extracted per-frame metrics (optical flow / motion index / etc.).
 
-    No ``role`` is set: unlike pose data (D-046) these are ordinary recorded
+    No ``role`` is set: unlike pose data these are ordinary recorded
     signals, so they become plot rows just like the encoder trace.
     """
     from avialsync.loaders.aol_metric_loader import AOLMetricLoader
@@ -1134,7 +1134,7 @@ def _hardware_number(hardware: object, key: str) -> float:
 
 
 def _rotary_hint(manifest: AOLManifest) -> RotaryHint | None:
-    """The running wheel the encoder turns, for the Add Wheel dialog (D-113).
+    """The running wheel the encoder turns, for the Add Wheel dialog.
 
     The encoder log's unwrapped angle is the channel; the wheel's bar count and
     radius come from ``hardware: wheel_bar_count / wheel_radius /

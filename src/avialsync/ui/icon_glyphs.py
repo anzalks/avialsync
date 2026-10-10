@@ -1,4 +1,4 @@
-"""AvialSync's own icon set, as SVG markup (D-169).
+"""AvialSync's own icon set, as SVG markup.
 
 Drawn for this application on a 24-unit grid with 2-unit round strokes, and
 licensed with it (AGPL-3.0-or-later): no third-party set, so no licence to

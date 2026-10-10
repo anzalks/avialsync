@@ -1,9 +1,9 @@
-"""Each camera's display levels: the one place a change is made and shown (D-209).
+"""Each camera's display levels: the one place a change is made and shown.
 
 Three controls edit the same thing -- the inspector's Display Levels panel for
 the focused camera, the levels popover on every pane, and undo -- and the
 session saves it. All of them come here, so the panel, the popover, the pane's
-"adjusted" marker and the decoder can never disagree (AGENTS rule 15). A user
+"adjusted" marker and the decoder can never disagree. A user
 change is a :class:`~avialsync.core.commands.SetVideoLevelsCommand` on the
 bus, so it is undoable and marks the session changed like any other edit.
 """

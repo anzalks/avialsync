@@ -58,7 +58,7 @@ def channel_names(channels: int, green: int) -> tuple[str, ...]:
     """Name each acquired channel by its colour, as the lab's record defines it.
 
     The rig records two PMTs, green and red; with any other channel count only
-    the recorded green one is named, and the rest stay unnamed (D-195).
+    the recorded green one is named, and the rest stay unnamed.
     """
     if channels == 1:
         return ("Green",)
@@ -172,7 +172,7 @@ class AOLRibbonScanSource(ImagingSource):
             dataset=f"ribbon_scan_mosaic_{self._layout.kind}",
             channel_count=first.channels,
             shape=(first.channels, len(frame_times), height, width),
-            # The order is the loader's own, not a guess to correct (D-194 row hidden).
+            # The order is the loader's own, not a guess to correct (row hidden).
             axes="",
             channel_names=channel_names(first.channels, green),
         )
@@ -229,7 +229,7 @@ class AOLRibbonScanSource(ImagingSource):
             dataset="volume",
             channel_count=channels,
             shape=(channels, count, height, width),
-            # The order is the loader's own, not a guess to correct (D-194 row hidden).
+            # The order is the loader's own, not a guess to correct (row hidden).
             axes="",
             channel_names=channel_names(channels, green_channel(path.parent, channels)),
         )

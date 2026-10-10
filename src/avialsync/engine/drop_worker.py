@@ -69,7 +69,7 @@ class DropScanWorker(QObject):
 
         # A directory may *be* a recording rather than merely contain files, and
         # a file may be a whole session -- an NWB file holds a session's time
-        # series, imaging and videos in one (D-188). Ask the session plugins
+        # series, imaging and videos in one. Ask the session plugins
         # before falling back to per-file scanning.
         session_candidates = self._scan_session(path)
         if session_candidates is not None:
@@ -101,7 +101,7 @@ class DropScanWorker(QObject):
                     # Also ours: a corrections file is a CSV, so without this a
                     # folder the user has corrected offers to import the
                     # corrections back as a data source beside the pose file
-                    # they belong to (D-099).
+                    # they belong to.
                     continue
                 candidates.extend(self._collect_drop_candidates(child))
         else:

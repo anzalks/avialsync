@@ -9,7 +9,7 @@ Two kinds of confusion happen to pose data, and they are the same arithmetic:
 
 Both are :class:`~avialsync.core.identity_swaps.SwapGroup` -- lanes that own a
 point each per part -- so the model, the plot, the cache and the export handle
-one case and get the other free (D-141).
+one case and get the other free.
 
 **A group's ``name`` is a persisted identifier, not a label.**  It is written
 into the swap sidecar beside the pose file and referenced by every event, so it
@@ -47,8 +47,7 @@ CUSTOM = "custom"
 #: Separates a group's kind from what qualifies it.  One character, defined
 #: once: a group id is written into the swap sidecar beside the pose file, so
 #: four places testing for a prefix with a string literal is four places that
-#: can disagree about what a persisted identifier means (rule 15, and the same
-#: defect D-140 exists to prevent).
+#: can disagree about what a persisted identifier means.
 _QUALIFIER = ":"
 
 LEFT = "left"

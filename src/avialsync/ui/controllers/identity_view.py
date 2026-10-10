@@ -9,7 +9,7 @@ Two things are worth stating where the code is.
 **The routing comes from the store.**  The braid asks
 :meth:`~avialsync.core.identity_swaps.SwapStore.lane_map` for who displays whom
 at each boundary rather than replaying the events itself, so the picture cannot
-drift from the data it is a picture of (rule 15).  The empty part -- "All
+drift from the data it is a picture of.  The empty part -- "All
 parts" in the selector -- falls out of the same call: an event that names no
 parts moves the whole group, and ``moves("")`` is true for exactly those.
 
@@ -77,7 +77,7 @@ def index_at_time(window: MainWindow, source_id: str, at: float) -> int | None:
     meant a second Apply during that window was silently dropped -- which is
     the moment a person watching for flips is most likely to press it.
 
-    The same rule the video pane uses (rule 6): the last sample at or before
+    The same rule the video pane uses: the last sample at or before
     *at*, so the frame on screen is the frame the swap starts on.
     """
     for sources in window._overlay_sources.values():
@@ -185,7 +185,7 @@ def _frame(window: MainWindow, source_id: str, index: int) -> int:
 
 
 def swap(window: MainWindow, source_id: str, event: SwapEvent) -> None:
-    """Accept one flip, through the command bus so it can be undone (rule 14)."""
+    """Accept one flip, through the command bus so it can be undone."""
     from avialsync.core.commands import SetIdentitySwapCommand
 
     if event in window.identity_swaps.events_for(source_id):

@@ -79,7 +79,7 @@ class Swaps:
     #: discarding a user's work on a guess.
     source_bytes: int | None = None
     #: Rows that could not be read.  A damaged sidecar yields what it can and
-    #: says how much it lost (Law 1 -- never block, always inform).
+    #: says how much it lost (never block, always inform).
     skipped: int = 0
 
 

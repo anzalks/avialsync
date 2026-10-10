@@ -145,7 +145,7 @@ def _side_view_visual(
     """One click in a one-camera belt's own view maps back onto its side profile.
 
     The side plane is the only surface that view's clicks can locate without a
-    second camera, so the mark is read where the profile shows it (D-165).
+    second camera, so the mark is read where the profile shows it.
     """
     view, rollers = belt.side_view, belt.rollers
     assert view is not None and rollers is not None

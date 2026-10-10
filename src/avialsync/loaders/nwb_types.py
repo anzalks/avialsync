@@ -1,4 +1,4 @@
-"""Which NWB types are which, including types an extension defines (D-188).
+"""Which NWB types are which, including types an extension defines.
 
 A file carries the specification of every namespace it uses, extensions
 included, under ``/specifications``. Reading the ``neurodata_type_def`` /

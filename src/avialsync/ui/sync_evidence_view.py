@@ -1,8 +1,7 @@
-"""Showing the evidence behind an alignment, not just its summary (WP-10).
+"""Showing the evidence behind an alignment, not just its summary.
 
-BLUEPRINT principle 8 requires that TTL/event alignment "presents the matched
-evidence, offset/drift fit, residuals, and confidence before the user accepts
-it". What it actually presented was one sentence:
+TTL/event alignment should present the matched evidence, offset/drift fit,
+residuals, and confidence before the user accepts it. What it actually presented was one sentence:
 
     47 matched events; 3 unmatched; offset 1.240000 s; drift +44.6 ms/h;
     maximum residual 3.100 ms.
@@ -16,8 +15,8 @@ This draws the residuals against the tolerance band that decided them, and the
 matched and rejected events on a shared axis, so the shape of the fit is
 visible before it is accepted.
 
-Decimated like any plot in this application: never more points than pixels
-(architecture rule 4). A 50 kHz TTL channel can match tens of thousands of
+Decimated like any plot in this application: never more points than pixels.
+A 50 kHz TTL channel can match tens of thousands of
 events, and drawing all of them would spend the frame budget to produce a
 smear.
 """
@@ -160,7 +159,7 @@ class SyncEvidenceView(QWidget):
         self._plot.setMinimumHeight(110)
         # A managed menu replaces pyqtgraph's own, which offers Downsample and
         # Average -- changes to the evidence, made while it is being judged,
-        # with no record that anything changed (rule 15). Installed below, once
+        # with no record that anything changed. Installed below, once
         # the nav that owns the actions exists.
         self._plot.setMenuEnabled(False)
         self._apply_palette()

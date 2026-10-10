@@ -1,4 +1,4 @@
-"""Support bars and extrapolated rungs of a ladder (D-164, D-165).
+"""Support bars and extrapolated rungs of a ladder.
 
 A horizontal ladder's rungs are held either by a rail through each rung end or
 by one beam under their middles. Bars are drawn through the clicked rungs. A

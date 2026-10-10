@@ -1,4 +1,4 @@
-"""File → Cache: delete, trim, or show derived entries (D-160, D-199).
+"""File → Cache: delete, trim, or show derived entries.
 
 The cache holds only what AvialSync can rebuild from the files beside it, so
 these commands never ask "are you sure": nothing the user made can be lost,
@@ -110,7 +110,7 @@ def _remove(
         window.report_failure(CacheError(message), doing="The cache could not be deleted")
 
     def _wire(thread: QThread) -> None:
-        # Wrapped: both rebuild panes, which must happen on the UI thread (D-051).
+        # Wrapped: both rebuild panes, which must happen on the UI thread.
         worker.finished.connect(on_ui_thread(on_finished, window))
         worker.error.connect(on_ui_thread(on_error, window))
 

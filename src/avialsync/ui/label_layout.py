@@ -1,4 +1,4 @@
-"""Readable, non-overlapping text labels for marks drawn over video or 3D (D-166).
+"""Readable, non-overlapping text labels for marks drawn over video or 3D.
 
 Every overlay that names a point -- props, wheel clicks, the 3D props view --
 places its labels here, after its geometry is drawn, so one rule decides where

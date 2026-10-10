@@ -1,4 +1,4 @@
-"""Application status beside the job activity area (D-170)."""
+"""Application status beside the job activity area."""
 
 from __future__ import annotations
 

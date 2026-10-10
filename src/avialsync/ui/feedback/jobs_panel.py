@@ -1,4 +1,4 @@
-"""What is running and what just finished (D-091).
+"""What is running and what just finished.
 
 ``JobManager`` has always known this — state, elapsed time, whether a worker
 offers a cancel, whether it has gone quiet — and none of it was visible.  When
@@ -108,7 +108,7 @@ class JobsPanel(QGroupBox):
             time_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             self._table.setItem(index, 2, time_item)
 
-    # ── for tests ────────────────────────────────────────────────────
+    # ── inspection ───────────────────────────────────────────────────
 
     @property
     def row_count(self) -> int:

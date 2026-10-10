@@ -2,9 +2,8 @@
 
 Both jobs here read whole channels: a rebuild writes a pyramid per edited
 channel, and a scan walks two trajectories end to end.  Neither belongs on the
-UI thread (architecture rule 3), and both are registered like every other job
-so they get a name in the Tasks panel and an orderly abandonment at shutdown
-(rule 11).
+UI thread, and both are registered like every other job
+so they get a name in the Tasks panel and an orderly abandonment at shutdown.
 
 Each worker opens its **own** readers from the directories it is handed rather
 than borrowing the window's.  A reader owns mmap views, and handing one across

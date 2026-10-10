@@ -1,4 +1,4 @@
-"""Time-synchronized two-photon image viewer with bounded background reads (D-190).
+"""Time-synchronized two-photon image viewer with bounded background reads.
 
 The pane follows the master clock like a video pane: the frame shown for master
 time ``t`` is the one whose presentation interval contains ``t``
@@ -51,9 +51,9 @@ _ABANDONED: set[tuple[QThread, QObject]] = set()
 def _release_finished_threads() -> None:
     """Drop the abandoned threads that have since finished.
 
-    Polled rather than connected to ``finished`` (D-212), and released here on
+    Polled rather than connected to ``finished``, and released here on
     the UI thread, where dropping the last reference destroys the worker with
-    the GIL already held (D-062).
+    the GIL already held.
     """
     for entry in list(_ABANDONED):
         try:
@@ -78,8 +78,8 @@ class _Stack:
 class ImagingPane(QWidget):
     """Shows one of the session's imaging stacks at the master playhead.
 
-    Offset, drift, properties and removal live on the stack's Sources card
-    (D-196); this pane is the picture and how it is drawn.
+    Offset, drift, properties and removal live on the stack's Sources card;
+    this pane is the picture and how it is drawn.
     """
 
     error = Signal(str)
@@ -144,8 +144,8 @@ class ImagingPane(QWidget):
     def _build_layout_row(self, row_widget: QWidget) -> None:
         """Which dimension is time, channel or depth, and which plane: shown when it can vary.
 
-        A stack opens with a default reading so the data is visible at once
-        (D-194); these are where that reading is corrected. Each order is named
+        A stack opens with a default reading so the data is visible at once;
+        these are where that reading is corrected. Each order is named
         by what its dimensions would be and their sizes, not by axis letters.
         """
         row = QHBoxLayout(row_widget)
@@ -455,7 +455,7 @@ class ImagingPane(QWidget):
         worker.window_measured.connect(self._on_window_measured)
         thread.started.connect(worker.open)
         thread.finished.connect(worker.close)
-        # Never `thread.finished.connect(worker.deleteLater)` (D-062): that runs
+        # Never `thread.finished.connect(worker.deleteLater)`: that runs
         # ~QObject on the reader thread, which holds a pooled signal-slot mutex
         # while PySide waits for the GIL, and deadlocks a UI thread holding the
         # GIL in any connect. Python drops the worker on the UI thread instead,
@@ -520,7 +520,7 @@ class ImagingPane(QWidget):
         self._image = QImage(image.data, width, height, image.strides[0], image_format).copy()
         self._show_image()
         average = stack.view.average
-        # The video overlay's own shape (D-183): when, the zero-based frame an
+        # The video overlay's own shape: when, the zero-based frame an
         # exported row carries, then what the picture is.
         info = stack.info
         status = (

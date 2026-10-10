@@ -3,7 +3,7 @@
 Three places consume a pose CSV -- the loader, the corrected-copy exporter and
 the calibration reader -- and all three need the same two answers: how many
 header rows to skip, and what to call each column.  This is the one authority
-for both (rule 15).
+for both.
 
 **Multi-animal files carry a fourth header row and repeat body-part names.**  A
 maDLC export inserts ``individuals`` between ``scorer`` and ``bodyparts``, and
@@ -88,7 +88,7 @@ class PoseHeader:
         ]
 
     def pose_schema(self, *, frame_indexed: bool = True) -> PoseSchema:
-        """Build the format-neutral schema this header describes (D-140).
+        """Build the format-neutral schema this header describes.
 
         This module is the DeepLabCut/LightningPose *CSV* detail; `PoseSchema`
         is what every consumer reads, whatever the file was. A coordinate that

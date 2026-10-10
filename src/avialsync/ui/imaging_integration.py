@@ -92,14 +92,14 @@ def open_dialog(window: MainWindow) -> None:
 
 
 def connect_sidebar(window: MainWindow) -> None:
-    """Offset, drift, properties and removal are the Sources card's (D-196)."""
+    """Offset, drift, properties and removal are the Sources card's."""
     window.sidebar.imaging_remove_requested.connect(window._on_imaging_remove_requested)
     window.sidebar.imaging_mapping_changed.connect(window._on_imaging_mapping_changed)
     window.sidebar.imaging_properties_requested.connect(lambda path: show_properties(window, path))
 
 
 def show_properties(window: MainWindow, path: str) -> None:
-    """Open the stack's properties, the same dialog a camera's card opens (D-183)."""
+    """Open the stack's properties, the same dialog a camera's card opens."""
     from avialsync.ui.feedback.text_dialog import show_text
 
     show_text(window, tr("Imaging Properties"), window.sidebar.properties_text(path))
@@ -127,7 +127,7 @@ def loader_named(window: MainWindow, loader_id: str) -> type[ImagingSource] | No
 def record_view(
     window: MainWindow, path: str, before: dict[str, Any], after: dict[str, Any], aspect: str
 ) -> None:
-    """Log a display edit the pane has already applied (rule 14)."""
+    """Log a display edit the pane has already applied."""
     if before == after:
         return
     window._record(SetImagingViewCommand(path, before, after, aspect, display_name=Path(path).name))
@@ -138,12 +138,12 @@ def apply_view(window: MainWindow, path: str, view: dict[str, Any]) -> None:
     window.imaging_pane.set_view(path, ImagingView.from_dict(view))
 
 
-#: Import choices the pane's axis and plane controls change (D-194).
+#: Import choices the pane's axis and plane controls change.
 _LAYOUT_KEYS = ("axes", "z")
 
 
 def request_layout(window: MainWindow, path: str, layout: dict[str, Any]) -> None:
-    """Reopen *path* with the axis order or plane the user picked, and log it (rule 14)."""
+    """Reopen *path* with the axis order or plane the user picked, and log it."""
     if path not in window.imaging_pane.source_paths():
         return
     _loader, config, _mapping = window.imaging_pane.source_config(path)
@@ -292,7 +292,7 @@ def ask_choice(
     options: tuple[str, ...],
     config: dict[str, Any],
 ) -> dict[str, Any] | None:
-    """Ask for the one scientific choice a probe found missing (D-190).
+    """Ask for the one scientific choice a probe found missing.
 
     Returns the config with the answer added, or ``None`` if the user cancels or
     the file offers nothing to choose from. The answer is saved with the

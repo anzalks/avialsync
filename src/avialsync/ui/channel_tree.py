@@ -1,4 +1,4 @@
-"""Making a long channel list findable (WP-11).
+"""Making a long channel list findable.
 
 A 70-channel source arrives as a flat scrolling column: ``Jaw_MI``,
 ``Jaw_MeanFlow``, ``Jaw_TopFlow``, ``Jaw_DirCoh``, ``Jaw_Brightness``,

@@ -1,4 +1,4 @@
-"""The perspective map between a flat surface and one camera image (D-165).
+"""The perspective map between a flat surface and one camera image.
 
 Four clicked image points of four known points on a plane fix the homography
 between them exactly. That lets one uncalibrated view place a planar model --

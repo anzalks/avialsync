@@ -32,7 +32,7 @@ def _edit_tracking(window: MainWindow, edit_menu: QMenu, _reg: Register) -> None
     """Add point and identity repair commands."""
     # Fix Tracker. One QAction drives both the menu entry and the button in
     # the Data Streams header, so the label, the shortcut, and the checked
-    # state have a single author (D-092, architecture rule 15).
+    # state have a single author.
     window._edit_menu.addSeparator()
     window._act_fix_tracker = window._edit_menu.addAction(tr("Fix Tracker"))
     window._act_fix_tracker.setCheckable(True)
@@ -46,7 +46,7 @@ def _edit_tracking(window: MainWindow, edit_menu: QMenu, _reg: Register) -> None
 
     # Fix Identities: the other half of the same job. Fix Tracker moves a
     # coordinate the model got wrong; this fixes a *label* it got wrong,
-    # which is one statement about every frame from there on (D-141).
+    # which is one statement about every frame from there on.
     window._act_fix_identities = window._edit_menu.addAction(tr("Fix Identities…"))
     window._act_fix_identities.setToolTip(
         tr("Find and undo places where the tracker exchanged two labels")
@@ -64,7 +64,7 @@ def _edit_geometry(window: MainWindow, edit_menu: QMenu, _reg: Register) -> None
     """Add 3D marker and wheel placement commands."""
     # Add 3D Marker: name a point, click it in every camera, triangulate.
     # Checked while a placement is in progress; unchecking cancels it. Same
-    # one-QAction-drives-menu-and-button shape as Fix Tracker (rule 15).
+    # one-QAction-drives-menu-and-button shape as Fix Tracker.
     window._act_add_marker = window._edit_menu.addAction(tr("Add 3D Marker"))
     window._act_add_marker.setCheckable(True)
     window._act_add_marker.setToolTip(

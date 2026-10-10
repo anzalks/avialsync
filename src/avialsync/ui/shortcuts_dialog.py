@@ -2,12 +2,12 @@
 
 The listing has always come from the live ``QAction`` objects rather than a
 hardcoded table, which is what makes it impossible for it to drift from the
-real bindings (D-022.6). That property is kept: editing was *added* to it, not
+real bindings. That property is kept: editing was *added* to it, not
 substituted for it.
 
 Shortcuts were fixed before this. Every editor, DAW and IDE competing for the
 same muscle memory allows rebinding, and a user whose habits came from one of
-them had to relearn rather than adjust (WP-3).
+them had to relearn rather than adjust.
 """
 
 from PySide6.QtCore import Qt
@@ -40,7 +40,7 @@ class ShortcutsDialog(QDialog):
     """Lists every registered command, with its key editable.
 
     Derives content entirely from live QAction objects — impossible to drift
-    from the real bindings (D-022.6).
+    from the real bindings.
 
     Parameters
     ----------
@@ -172,7 +172,7 @@ class ShortcutsDialog(QDialog):
         self._show_live_key(item, act)
 
         if clash is not None:
-            # Reported, not refused (Law 1). Two actions in different contexts
+            # Reported, not refused. Two actions in different contexts
             # can legitimately share a key, and rebinding a set passes through
             # conflicting states on the way to a consistent one.
             self._notice.setText(

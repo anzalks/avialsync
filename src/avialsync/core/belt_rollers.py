@@ -1,8 +1,8 @@
 """Exact centreline and measured surface of a level two roller treadmill belt.
 
 A belt is placed either in the calibration's 3D frame, from four clicked top
-corners seen by two cameras, or in one camera's view of its side plane
-(D-163, D-165). Either way the measured centre distance and radius size it.
+corners seen by two cameras, or in one camera's view of its side plane.
+Either way the measured centre distance and radius size it.
 """
 
 from __future__ import annotations
@@ -141,7 +141,7 @@ def rollers_from_corners(
     centre_distance: float | None,
     viewpoint: Point3,
 ) -> tuple[BeltRollers, float, float]:
-    """Place measured rollers under four clicked corners of the top run (D-165).
+    """Place measured rollers under four clicked corners of the top run.
 
     The corners are the two side edges near the first roller, then the two
     near the second. They fix where the belt is: its top plane, its run, its
@@ -189,7 +189,7 @@ def side_rollers(centre_distance: float, radius: float, width: float) -> BeltRol
 
 @dataclass(frozen=True)
 class BeltSideView:
-    """Four clicks that place a measured belt's side profile in one camera (D-165).
+    """Four clicks that place a measured belt's side profile in one camera.
 
     The clicks are the first and second roller hubs, then the belt's top
     directly above each. With the measured centre distance and radius these

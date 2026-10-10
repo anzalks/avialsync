@@ -124,8 +124,8 @@ class LoaderRegistry:
         # Discovery is deferred, not skipped. Importing the built-ins costs
         # ~470 ms on a warm filesystem -- `neo` pulls in scipy and quantities,
         # the AOL loader pulls in h5py -- and this registry used to run all of
-        # it inside `MainWindow.__init__`, which is module IO on the UI thread
-        # (architecture rule 3). Cold, behind on-access virus scanning, the same
+        # it inside `MainWindow.__init__`, which is module IO on the UI thread.
+        # Cold, behind on-access virus scanning, the same
         # work was measured at over four seconds before the window appeared.
         #
         # `_lock` guards the whole discovery, not just the flag: `drop_worker`
@@ -159,7 +159,7 @@ class LoaderRegistry:
         racing it.
 
         A plain ``threading.Thread`` rather than a ``QThread``: ``core/`` may
-        not import PySide6 (architecture rule 2), and this is exactly what
+        not import PySide6, and this is exactly what
         ``ui/diagnostics.py`` already does for its startup probes.
         """
         with self._lock:
@@ -179,16 +179,16 @@ class LoaderRegistry:
 
         `importlib.metadata.entry_points()` parses every installed
         distribution's metadata and builds an `EntryPoint` per line. Doing that
-        on the warm-up thread segfaulted CPython on a CI runner -- twice, at
-        different points in the suite, with the same two stacks: this thread
-        inside `entry_points`, the main thread garbage-collecting. Reading the
+        on the warm-up thread segfaulted CPython, with the same two stacks each
+        time: this thread inside `entry_points`, the main thread
+        garbage-collecting. Reading the
         metadata here and handing the thread a plain list keeps the expensive
-        half -- importing each plugin module, which is the ~470 ms D-095 exists
-        to move off the UI thread -- where it belongs, and takes the cheap half
+        half -- importing each plugin module, the ~470 ms that deferred discovery
+        moves off the UI thread -- where it belongs, and takes the cheap half
         (measured at 1.5-5 ms per group) back onto the caller's thread.
 
         Held under `_lock` by its caller. A registry whose warm-up never runs
-        (every test that builds one directly) reads the metadata inline in
+        (one built directly) reads the metadata inline in
         `_load_entry_points` instead, as before.
         """
         if self._entry_points is not None:
@@ -219,7 +219,7 @@ class LoaderRegistry:
     def _default_plugin_dirs() -> list[Path]:
         """Return supported loose-plugin directories, in discovery order.
 
-        BLUEPRINT Phase 5 promises two locations: the user's own drop-in folder
+        There are two locations: the user's own drop-in folder
         and the bundled ``examples/plugins/``.  In a PyInstaller bundle the
         source tree does not exist, so the bundled directory is resolved from
         ``sys._MEIPASS`` — without it no loose plugin can load from a release
@@ -409,13 +409,13 @@ class LoaderRegistry:
         *kind* limits the answer to time-series or video loaders. One file can
         be both: an NWB file holds its time series and its imaging, and the
         session that opened it records which of the two each source was. Asked
-        without a kind, the highest score wins as before (D-188).
+        without a kind, the highest score wins as before.
 
         Our own corrections sidecars are excluded here rather than in each
         loader: a ``_avialfix.csv`` is a perfectly well-formed CSV, so the
         generic CSV loader claims it on extension alone and offers to import
         the user's hand corrections back as a time series beside the pose file
-        they belong to (D-099). One place, so a plugin cannot reintroduce it.
+        they belong to. One place, so a plugin cannot reintroduce it.
         """
         self.ensure_discovered()
         if is_own_sidecar(path):

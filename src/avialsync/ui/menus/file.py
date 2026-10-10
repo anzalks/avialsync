@@ -30,7 +30,7 @@ def build_file_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMenu
 
 def _file_open(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     """Open recordings, sessions, and recovery snapshots."""
-    # Ctrl+Shift+V (not Ctrl+V — system Paste collision, D-022.7 / Trap §18)
+    # Ctrl+Shift+V (not Ctrl+V — system Paste collision)
     window._act_open_video = file_menu.addAction(tr("Open Videos…"))
     act = window._act_open_video
     # Renamed from "Open Video(s)…"; keep that label's id so a remapped
@@ -40,7 +40,7 @@ def _file_open(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     act.triggered.connect(window._open_video)
     _reg(act, "File")
 
-    # Ctrl+Shift+D (not Ctrl+D — bookmark/dock collision, D-022.7 / Trap §18)
+    # Ctrl+Shift+D (not Ctrl+D — bookmark/dock collision)
     window._act_open_sensor = file_menu.addAction(tr("Open Sensor/Ephys Data…"))
     act = window._act_open_sensor
     act.setShortcut(QKeySequence("Ctrl+Shift+D"))
@@ -75,7 +75,7 @@ def _file_open(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     # notification. The snapshot is written on every quit whether or not the
     # bar is offered, and it is not an `.avv` file, so Open Session cannot
     # read it -- without this command, turning the offer off would put
-    # unsaved work out of reach (D-133).
+    # unsaved work out of reach.
     act = file_menu.addAction(tr("Recover Unsaved Work…"))
     act.triggered.connect(window._recover_unsaved_work)
     _reg(act, "File")
@@ -115,7 +115,7 @@ def _file_reset(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
 
     Reset had only a sidebar button with its own text, so it was the one
     workspace command the palette, the shortcut editor and the menu bar could
-    not reach. It is undoable and never asks first (UX_FOUNDATIONS WP-2).
+    not reach. It is undoable and never asks first.
     """
     window._act_reset_session = file_menu.addAction(tr("Reset Session"))
     act = window._act_reset_session
@@ -125,7 +125,7 @@ def _file_reset(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     window.sidebar.install_open_actions(window._act_open_video, window._act_open_sensor, act)
     window.sidebar.install_open_imaging_action(window._act_open_imaging)
     window.sidebar.install_open_nwb_action(window._act_open_nwb)
-    # Empty pages offer the command that fills them (D-176).
+    # Empty pages offer the command that fills them.
     window.message_panel.install_empty_action(window._act_open_sensor)
     window.readout_panel.install_empty_action(window._act_open_sensor)
     file_menu.addSeparator()
@@ -211,7 +211,7 @@ def _file_exports(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
 
 
 def _file_cache(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
-    """Offer deletion, trimming, and the cache folder (D-160, D-199)."""
+    """Offer deletion, trimming, and the cache folder."""
     from avialsync.ui.controllers import cache_controller
 
     def idle() -> bool:
@@ -263,7 +263,7 @@ def _file_cache(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
 
 def _file_application(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     """Offer preferences and platform quit."""
-    # Preferences stays in the File menu on every platform (D-135).
+    # Preferences stays in the File menu on every platform.
     # `PreferencesRole` moved it into the macOS application menu, which is
     # named after the running process -- so anyone who starts AvialSync
     # from a terminal or a conda env looks in "File", is told by our own
@@ -277,7 +277,7 @@ def _file_application(window: MainWindow, file_menu: QMenu, _reg: Register) -> N
 
     file_menu.addSeparator()
 
-    # Quit — macOS QuitRole moves this to the app menu (D-022.3)
+    # Quit — macOS QuitRole moves this to the app menu
     act = file_menu.addAction(tr("Quit"))
     act.setShortcut(QKeySequence(QKeySequence.StandardKey.Quit))
     act.setMenuRole(QAction.MenuRole.QuitRole)

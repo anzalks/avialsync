@@ -90,7 +90,7 @@ def save_geometry(window: MainWindow) -> None:
     settings.setValue("window/geometry", window.saveGeometry())
     save_dock_state(window, settings)
     # While nothing is loaded the plots and Data Streams are held at their
-    # minimum for the drop target (D-127); that is not a layout the user chose,
+    # minimum for the drop target; that is not a layout the user chose,
     # so the one they did choose stays saved instead.
     if window._empty_layout_saved is None:
         settings.setValue("splitter/vertical", window._v_splitter.saveState())
@@ -265,7 +265,7 @@ def start_session_save(window: MainWindow, path: Path, is_autosave: bool = False
     def _wire(thread: QThread) -> None:
         # Wrapped: both are closures rather than slots on a QObject, so a plain
         # connection would run them in the worker thread and set the status bar
-        # and the recovery state from there (D-051).
+        # and the recovery state from there.
         worker.finished.connect(on_ui_thread(on_finished, window))
         worker.error.connect(on_ui_thread(on_error, window))
 
@@ -276,7 +276,7 @@ def start_session_save(window: MainWindow, path: Path, is_autosave: bool = False
         # direct and ~QObject runs inside that thread — severing connections
         # while holding one of Qt's pooled signal/slot mutexes and then
         # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-        # thread holding the GIL and waiting on a colliding mutex (D-062).
+        # thread holding the GIL and waiting on a colliding mutex.
         # The owning registry drops its reference on the UI thread instead.
         # Un-latch even if the thread ends abnormally (e.g. worker deleted
         # without emitting finished/error), so a stuck save cannot
@@ -325,7 +325,7 @@ def start_session_load(window: MainWindow, path: Path) -> None:
     def _wire(thread: QThread) -> None:
         # Wrapped: `on_finished` calls `_restore_session`, which rebuilds rows
         # and panes. As a bare closure it is a direct connection and all of
-        # that would be built in the worker thread (D-051).
+        # that would be built in the worker thread.
         worker.finished.connect(on_ui_thread(on_finished, window))
         worker.error.connect(on_ui_thread(on_error, window))
 
@@ -336,7 +336,7 @@ def start_session_load(window: MainWindow, path: Path) -> None:
         # direct and ~QObject runs inside that thread — severing connections
         # while holding one of Qt's pooled signal/slot mutexes and then
         # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-        # thread holding the GIL and waiting on a colliding mutex (D-062).
+        # thread holding the GIL and waiting on a colliding mutex.
         # The owning registry drops its reference on the UI thread instead.
 
     window._run_job(worker, configure=_wire)
@@ -350,8 +350,8 @@ def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
     window.session_runtime.path = None
     # Any snapshot on disk describes work this reset discards on purpose: keeping
     # it would resurrect it at next launch, and the close-time write would replace
-    # it with an empty workspace. Clear it, do not overwrite it (D-089) -- unless
-    # the same workspace is being put straight back, as a cache deletion does (D-160).
+    # it with an empty workspace. Clear it, do not overwrite it -- unless
+    # the same workspace is being put straight back, as a cache deletion does.
     if discard_recovery:
         recovery.clear_recovery()
         forget_pending_recovery(window)
@@ -373,7 +373,7 @@ def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
         None,
     )
     if import_worker is not None:
-        # The progress dialog this used to disconnect from is gone (D-091);
+        # The progress dialog this used to disconnect from is gone;
         # the activity bar takes its place and is dismissed below. Cancelling
         # the worker on reset is the behaviour that mattered and is unchanged.
         _disconnect(getattr(import_worker, "progress", None), window.activity_bar.set_progress)
@@ -498,7 +498,7 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     # opening them; `_note_source_loaded` clears this once they drain.
     window.session_runtime.restoring = True
     # Restored before the panes exist, so each one is built already showing the
-    # right layers rather than flashing the defaults first (D-090).
+    # right layers rather than flashing the defaults first.
     window.overlay_state.load(state.overlays)
     window._apply_overlay_state()
     video_levels.restore(window, state.display_levels)
@@ -510,12 +510,12 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     # Corrections live beside their pose files, so this only takes up what the
     # session claims: the counts to check each source against as it imports, and
     # the coordinates for any source that had to fall back to session storage
-    # because its folder could not be written (D-099).
+    # because its folder could not be written.
     window.point_edits.clear()
     corrections_controller.restore_manifest(window, state.point_edits)
     # Identity swaps are the same arrangement for the same reason: the
     # `_avialswap.csv` beside the pose file is the authority, and the session
-    # holds the count to check it against as the source imports (D-141).
+    # holds the count to check it against as the source imports.
     window.identity_swaps.clear()
     identity_controller.restore_manifest(window, state.identity_swaps)
     # Collect missing files for relink
@@ -647,7 +647,7 @@ def autosave(window: MainWindow) -> None:
 
     This used to return early when there was no session path, which meant the
     two-minute autosave protected only sessions that were already safe. A
-    session that had never been saved had no protection at all (D-089), so an
+    session that had never been saved had no protection at all, so an
     untitled session now writes a recovery snapshot instead of nothing.
     """
     if window._save_in_progress:
@@ -660,7 +660,7 @@ def autosave(window: MainWindow) -> None:
 
 #: Whether the launch-time notification bar is posted at all. Off by default:
 #: the snapshot is written either way, so the choice is about being told, not
-#: about being protected (D-133).
+#: about being protected.
 _OFFER_AT_LAUNCH = setting_for("storage/offer_recovery_at_launch")
 
 
@@ -675,7 +675,7 @@ def note_pending_recovery(window: MainWindow) -> bool:
     Read once, at launch, and held on the window: the File command's precondition
     is re-answered on every source change and every menu that opens, and a
     precondition that stats and parses a file each time is the kind of IO that
-    does not belong on those events (rule 3). The clear sites drop it with the
+    does not belong on those events. The clear sites drop it with the
     snapshot, so the command greys out when there is nothing behind it.
     """
     window.session_runtime.pending_recovery = recovery.pending_recovery()
@@ -697,7 +697,7 @@ def forget_pending_recovery(window: MainWindow) -> None:
 
 
 def recover_unsaved_work(window: MainWindow) -> None:
-    """Restore the held snapshot, on the user's explicit request (D-133).
+    """Restore the held snapshot, on the user's explicit request.
 
     This is what keeps the launch-time bar optional. With the offer off, the
     snapshot is still written on every quit and this command is how it is
@@ -713,19 +713,19 @@ def recover_unsaved_work(window: MainWindow) -> None:
 def offer_pending_recovery(window: MainWindow) -> bool:
     """Offer unsaved work from a previous run, if asked to. Non-modal.
 
-    The other half of D-089. The snapshot has been written on every quit since
-    that decision landed, but nothing ever offered it back, so the work was
+    The other half of hot exit. The snapshot has been written on every quit
+    since quitting stopped asking, but nothing ever offered it back, so the work was
     preserved on disk and unreachable from the interface -- and the payload
     nests the session under a ``state`` key, so Open Session could not read it
     either.
 
     An offer, never a gate: it is one line in the notification strip with a
     Restore button beside it, and dismissing it records the declined version
-    without deleting the snapshot. Law 1 forbids blocking the user, and a
+    without deleting the snapshot. The application never blocks the user, and a
     launch-time "restore your work?" modal is exactly that. Dismissing
     remembers this version so it does not reappear on the next launch.
 
-    Silent unless the user turned the offer on (D-133). Every quit writes a
+    Silent unless the user turned the offer on. Every quit writes a
     fresh snapshot, and a dismissal is remembered per snapshot content, so work
     that changed since the last dismissal is correctly a new offer -- which for
     anyone who works without saving is an offer at every launch, in a strip they
@@ -775,7 +775,7 @@ def _write_recovery_snapshot(window: MainWindow) -> bool:
 
     Serialising is inside the guard, not before it. One call site is
     ``closeEvent``, where the workspace can hold whatever a half-finished load
-    or a test double left behind, and ``SessionState.to_dict`` raises on state
+    left behind, and ``SessionState.to_dict`` raises on state
     it cannot encode. A safety net that throws on the way up is worse than no
     safety net: the surrounding ``_close_step`` would log and continue, but the
     snapshot this function exists to write would silently not happen.
@@ -818,7 +818,7 @@ def autosave_before_close(window: MainWindow) -> None:
     worker registry) is gone right after this returns. It runs after the final
     paint, so the write is not competing with a UI-thread budget.
 
-    Quitting still never prompts (D-088). It is lossless instead, which is what
+    Quitting still never prompts. It is lossless instead, which is what
     removes the reason to prompt.
     """
     write_session_snapshot(window)
@@ -840,7 +840,7 @@ def rebuild_recent_menu(window: MainWindow) -> None:
 def open_recent(window: MainWindow, path: str) -> None:
     p = Path(path)
     if not p.exists():
-        # Open Recent is one of the four paths rule 10 names: it may not put a
+        # Open Recent is one of the four open paths: it may not put a
         # modal in front of the user, not even to say the file is gone. The
         window.report_failure(
             SourceOpenError(f"Session file no longer exists: {path}"),

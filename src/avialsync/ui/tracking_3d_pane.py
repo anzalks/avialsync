@@ -61,8 +61,8 @@ _CUSTOM_RADIUS = 7
 
 #: ``t_master -> [(name, xyz)]``: the hand-placed markers on the frame at *t*.
 CustomPointSource = Callable[[float], list[tuple[str, np.ndarray]]]
-#: ``t_master -> [(ends (N, 2, 3), preview, bar diameter)]``: every wheel's bars at *t*
-#: (D-113); the diameter, in world units, is None until one is set (D-128).
+#: ``t_master -> [(ends (N, 2, 3), preview, bar diameter)]``: every wheel's bars at *t*;
+#: the diameter, in world units, is None until one is set.
 WheelSceneSource = Callable[[float], list[tuple[np.ndarray, bool, float | None]]]
 PropSceneSource = Callable[[float], list[tuple[str, tuple[np.ndarray | None, ...], bool]]]
 #: A wheel is structure, not a tracked point: achromatic, and behind the pose.
@@ -90,7 +90,7 @@ _DERIVED_BONE_WEIGHT = 0.48
 _GRID_WEIGHT = 0.30
 _GRID_ALPHA = 90
 
-# Landmark name fragments used to orient the view anatomically (D-046).
+# Landmark name fragments used to orient the view anatomically.
 # Matching is substring-based and case-insensitive; unmatched data keeps the
 # neutral Z-up default rather than guessing.
 _HEAD_HINTS = ("head", "nose", "snout", "skull", "ear", "eye", "beak")
@@ -184,7 +184,7 @@ def _coordinate_name(channel_id: str) -> tuple[str, str] | None:
 
     The 3D view is fed loose readers -- plotted channels as well as registered
     pose sources -- so it cannot always reach a schema. It uses the one naming
-    rule rather than a second copy of it (D-140).
+    rule rather than a second copy of it.
     """
     return split_channel(channel_id.lower())
 
@@ -327,7 +327,7 @@ def detect_up_axis(sources: tuple[_SourceSamples, ...]) -> tuple[int, bool] | No
     values are anatomically lower -- the usual case for image-derived
     reconstructions, whose vertical axis grows downward. Returns ``None`` when
     the data carries no recognisable head/foot landmarks, so the caller can keep
-    a neutral default instead of guessing (AGENTS: never silently invent).
+    a neutral default instead of guessing (never silently invent).
     """
     head = _mean_axis_position(sources, _HEAD_HINTS)
     foot = _mean_axis_position(sources, _FOOT_HINTS)
@@ -356,9 +356,7 @@ class Tracking3DCanvas(QWidget):
         # It was 88px; with a 13 pt application font and a wide 3D font the
         # window then needed 494px, and at 480 the header was the one squeezed.
         # The floor is what a compact workspace can afford -- videos, 3D, plots,
-        # Data Streams and the transport all have to fit a 640x480 window, which
-        # `test_ui_layout_resize.py` pins as
-        # `test_compact_viewport_keeps_every_workspace_surface_available`. A pane
+        # Data Streams and the transport all have to fit a 640x480 window. A pane
         # minimum is the window's minimum by proxy.
         self.setMinimumHeight(64)
         register_painted(self, QAccessible.Role.Graphic, self.accessible_value)
@@ -384,7 +382,7 @@ class Tracking3DCanvas(QWidget):
 
         # Topology the data declared, and topology derived from its geometry.
         # They are kept apart so a declared skeleton is never diluted by a
-        # derived one, and so the view can say which it is drawing (D-082).
+        # derived one, and so the view can say which it is drawing.
         self._declared_edges: list[tuple[str, str]] = []
         self._inference_samples: tuple[tuple[tuple[str, ...], np.ndarray], ...] = ()
         self._prepared_skeletons: dict[tuple[int, bool], SkeletonEstimate] = {}
@@ -395,7 +393,7 @@ class Tracking3DCanvas(QWidget):
         self._depths: dict[str, int] = {}
 
         # Which world axis renders upward. Z-up is the neutral default; loading
-        # data with recognisable head/foot landmarks re-orients it (D-046).
+        # data with recognisable head/foot landmarks re-orients it.
         self._up_axis = 2
         self._up_inverted = False
         self._up_auto = True
@@ -431,7 +429,7 @@ class Tracking3DCanvas(QWidget):
         )
 
     def accessible_value(self) -> str:
-        """Points shown and the view angles, read on query (D-179)."""
+        """Points shown and the view angles, read on query."""
         return tr("{n} points; azimuth {az}°, elevation {el}°").format(
             n=self.point_count,
             az=f"{math.degrees(self._azimuth):.0f}",
@@ -590,9 +588,9 @@ class Tracking3DCanvas(QWidget):
         Each edge is a ``(name_a, name_b)`` pair referencing point names. Names
         are resolved against the points actually loaded, so an edge a loader
         prefixed differently still lands; an edge whose endpoints are missing or
-        ambiguous is skipped. Topology is never invented from names (D-041) —
+        ambiguous is skipped. Topology is never invented from names —
         an empty list means the data declared none, which in ``BoneMode.AUTO``
-        hands the view over to the geometry-derived estimate (D-082).
+        hands the view over to the geometry-derived estimate.
         """
         self._declared_edges = list(edges)
         self._refresh_bones()
@@ -811,7 +809,7 @@ class Tracking3DCanvas(QWidget):
         The single painting authority for this view: :meth:`paintEvent` is a
         call to it at the widget's own size, and a snapshot export is the same
         call at the size its tile wants.  Nothing draws a second version of the
-        pose (AGENTS rule 15).
+        pose.
         """
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         bounds = QRect(0, 0, width, height)
@@ -921,7 +919,7 @@ class Tracking3DCanvas(QWidget):
     def _draw_wheels(self, painter: QPainter, width: int, height: int, palette: QPalette) -> None:
         """Each wheel: its bars, and the two rims through their ends; dashed until accepted.
 
-        With a bar diameter set, the bars are solid cylinders (D-128) drawn over
+        With a bar diameter set, the bars are solid cylinders drawn over
         the rims, so a rim is seen passing behind the bars it joins.
         """
         color = neutral_on_canvas(palette, _WHEEL_WEIGHT)
@@ -993,7 +991,7 @@ class Tracking3DCanvas(QWidget):
         A derived skeleton is drawn dashed and tapering outward from its root,
         so it never passes for topology the recording declared: the reader can
         see at a glance that these bones are AvialSync's reading of the
-        geometry, and which way that reading runs (D-082).
+        geometry, and which way that reading runs.
 
         Achromatic on purpose, so the bones never compete with the marker
         colours the points carry — and a derived skeleton sits one step back
@@ -1291,7 +1289,7 @@ class Tracking3DPane(QWidget):
         header_layout.addWidget(self.bone_combo, 1, 1)
         header_layout.addWidget(self.fit_button, 1, 2)
         # Filled by install_reprojection_action with the View -> Overlays
-        # action, so the button and the menu entry are one command (rule 15).
+        # action, so the button and the menu entry are one command.
         # Beside the title: it is about the videos, not about this view.
         self.reprojection_button = ActionButton(header)
         self.reprojection_button.hide()

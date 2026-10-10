@@ -3,10 +3,10 @@
 Both operations used to shell out to the ``ffmpeg`` command line, which is why
 the application needed a media runtime installed beside it. They run in-process
 now, against the FFmpeg that PyAV carries inside its own wheel, so nothing here
-requires anything on the machine (D-075).
+requires anything on the machine.
 
-Headless on purpose: no PySide6 import, so the workers that drive these can be
-tested without Qt and the functions can be called from any thread. PyAV releases
+Headless on purpose: no PySide6 import, so the workers that drive these can run
+without Qt and the functions can be called from any thread. PyAV releases
 the GIL during decode and encode, so a transcode does not block the UI thread it
 was started from.
 """
@@ -159,7 +159,7 @@ def encode_proxy(
             output_stream.pix_fmt = "yuv420p"
             output_stream.codec_context.gop_size = 1
             # Both are required; setting only the stream's makes mux() reject
-            # every packet with a bare EINVAL (HANDOUT.md, PyAV fixture trap).
+            # every packet with a bare EINVAL.
             output_stream.time_base = time_base
             output_stream.codec_context.time_base = time_base
             output_stream.options = {"preset": PROXY_PRESET, "crf": PROXY_CRF}

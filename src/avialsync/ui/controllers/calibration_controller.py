@@ -1,7 +1,7 @@
 """The rig's calibration: finding it, importing it, fitting it, and projecting through it.
 
-Split from :mod:`avialsync.ui.controllers.custom_marker_controller` (D-112): Add
-3D Marker, Add Wheel (D-113) and the 3D reprojection overlay all need the same
+Split from :mod:`avialsync.ui.controllers.custom_marker_controller`: Add
+3D Marker, Add Wheel and the 3D reprojection overlay all need the same
 calibration, found and asked for the same way.
 
 **Resolution** is :func:`avialsync.core.calibration_ref.locate`:
@@ -10,9 +10,9 @@ session folder. When nothing is found, :func:`acquire_calibration` asks Import
 or Compute -- **only when the user asked for something that needs it** (Add 3D
 Marker, Add Wheel, or "Choose Calibration…"). A View-menu checkbox, Show All,
 and undo are not such requests, so switching reprojection on without a
-calibration posts a notification offering the question instead (rule 11).
+calibration posts a notification offering the question instead.
 
-**Failures go through the presenter** (rule 12): a :class:`CalibrationError`
+**Failures go through the presenter**: a :class:`CalibrationError`
 reaches the user as :meth:`MainWindow.report_failure`, with the exception's text
 behind Show details, never as the message itself.
 
@@ -283,7 +283,7 @@ def acquire_calibration(
     """Make a calibration available, asking the user when there is none.
 
     Call only for a gesture that asked for something needing a calibration:
-    the question is a modal, allowed because it was asked for (rule 11).
+    the question is a modal, allowed because it was asked for.
     *on_ready* runs once one is loaded -- immediately, after an import, or when
     a background fit finishes; *on_cancel* when the user declines or it fails.
     """
@@ -345,7 +345,7 @@ def reprojection_toggled(window: MainWindow, visible: bool) -> None:
     All, and for a pane's context menu -- a switch, not a request for a dialog
     -- so the overlay stays on (it draws nothing without a calibration) and a
     notification offers the question. The switch is recorded once, whatever
-    the user then does, so undo matches what they did (rule 14).
+    the user then does, so undo matches what they did.
     """
     if not visible:
         return

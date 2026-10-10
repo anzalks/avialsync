@@ -1,4 +1,4 @@
-"""Geometry of a stimulus grid: picture rows by event columns, sensor bands beneath (D-210)."""
+"""Geometry of a stimulus grid: picture rows by event columns, sensor bands beneath."""
 
 from __future__ import annotations
 

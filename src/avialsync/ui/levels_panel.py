@@ -1,9 +1,9 @@
-"""Choosing which part of a recording's range to show (WP-9, D-093).
+"""Choosing which part of a recording's range to show.
 
 The panel asks the decoder what the footage actually is — a
 :class:`~avialsync.engine.display_pipeline.SourceFormat` read from the frame —
 and labels itself in that depth. One instance lives in the inspector for the
-focused camera, and one in each camera's levels popover (D-209); both go through
+focused camera, and one in each camera's levels popover; both go through
 :mod:`avialsync.ui.video_levels`, so they never disagree.
 
 The controls are in normalised units and labelled in the recording's own, so a
@@ -89,7 +89,7 @@ class LevelsPanel(QGroupBox):
     def set_source_format(self, source: SourceFormat | None) -> None:
         """Show the panel once the camera has decoded a frame, labelled in its depth.
 
-        Every camera, 8-bit colour included (D-209): there is no hidden range
+        Every camera, 8-bit colour included: there is no hidden range
         to recover there, but a dark or washed-out camera still reads better
         stretched, and a control that appears only for some cameras was a
         control nobody found.

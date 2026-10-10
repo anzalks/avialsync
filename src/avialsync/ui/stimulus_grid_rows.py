@@ -1,4 +1,4 @@
-"""Which rows a stimulus grid movie carries, chosen in its dialog (D-210).
+"""Which rows a stimulus grid movie carries, chosen in its dialog.
 
 Only what the session has is listed: each camera and each imaging stack as a
 picture row, each sensor group (one data source) as a band with its streams

@@ -14,7 +14,7 @@ Each track is therefore carried forward at its own velocity to the frame in
 question, and the two hypotheses are scored on what is left over.
 
 **It proposes; it never applies.**  Alignment works this way for a reason
-(BLUEPRINT principle 8) and so does this: a candidate carries the evidence it
+and so does this: a candidate carries the evidence it
 was proposed on -- how close the two came, how much cheaper swapping is, how
 many frames were missing across the node -- and a person accepts it or does
 not.  Silently rewriting an identity because a threshold fired is the failure

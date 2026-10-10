@@ -97,7 +97,7 @@ _NOT_VIDEO_SUFFIXES = frozenset(
         # the recording they describe. FFmpeg's detection is permissive enough
         # to find a "video stream" in one -- a four-frame 25 fps container that
         # then raises InvalidDataError on the first decode, after blocking the
-        # UI thread for seconds probing it (D-139).
+        # UI thread for seconds probing it.
         ".pickle",
         ".zip",
         ".gz",
@@ -135,7 +135,7 @@ def _holds_video_stream(path: Path) -> bool:
 
     if not path.is_file():
         # A folder, a missing file, or an object named inside another file
-        # (``session.nwb/acquisition/TwoPhotonSeries``, D-188): none is a
+        # (``session.nwb/acquisition/TwoPhotonSeries``): none is a
         # container, and opening one only asks FFmpeg to fail.
         return False
     if av.logging.get_level() is None:
@@ -147,7 +147,7 @@ def _holds_video_stream(path: Path) -> bool:
     # interleaved it each saved the other's PANIC as "previous" and the last
     # restore left PyAV's Python callback installed for good -- a callback that
     # takes the GIL and two Python locks from inside FFmpeg's own threads, which
-    # deadlocked a pane's decoder against the thread waiting on it (D-188).
+    # deadlocked a pane's decoder against the thread waiting on it.
     with _LOG_LEVEL_LOCK:
         previous_level = av.logging.get_level()
         try:
@@ -282,7 +282,7 @@ class VideoStandardLoader(VideoSource):
         self._frame_times: np.ndarray | None = None
         self._timing_stats_source: np.ndarray | None = None
         self._timing_stats: tuple[bool, float, float, float] = (False, 30.0, 30.0, 30.0)
-        # Extended metadata (D-020) — all probed from the container with PyAV
+        # Extended metadata — all probed from the container with PyAV
         self._codec: str = "unknown"
         self._duration: float = 0.0
         self._container: str = ""
@@ -309,7 +309,7 @@ class VideoStandardLoader(VideoSource):
         real video stream, so a recording FFmpeg can genuinely play is accepted
         even when nobody thought to list its extension.  Probing became worth
         doing when it stopped meaning "launch ffprobe" and started meaning "read
-        a header in-process" (D-075).
+        a header in-process".
 
         A probed match scores below the extension-claiming loaders on purpose.
         FFmpeg's format detection is deliberately permissive, and a loader that
@@ -350,7 +350,7 @@ class VideoStandardLoader(VideoSource):
 
         This used to shell out to ``ffprobe`` and parse its JSON.  PyAV reads
         the same fields from the same FFmpeg libraries in-process, so the media
-        runtime no longer has to exist on the machine (D-075) and a four-camera
+        runtime no longer has to exist on the machine and a four-camera
         session stops paying four process launches.
 
         Nothing here decodes: opening a container reads headers only.
@@ -386,7 +386,7 @@ class VideoStandardLoader(VideoSource):
             self._height = int(codec_context.height or 0)
             # ``base_rate`` is ffprobe's ``r_frame_rate``: the container's
             # declared rate, which for VFR media is a claim the frame
-            # timestamps below routinely contradict (D-072).
+            # timestamps below routinely contradict.
             if stream.base_rate:
                 self._fps = float(stream.base_rate)
             self._frame_count = int(stream.frames) or None
@@ -469,7 +469,7 @@ class VideoStandardLoader(VideoSource):
         The pane decodes through that class, and the table it builds is what
         selects the frame on screen; a loader that derived its own table from
         the same file by different means would be a second authority on which
-        frame is which — the exact split D-075 removed (AGENTS.md rule 6).
+        frame is which — the exact split decoding in-process removed.
         Both are now literally the same code, so they cannot disagree.
 
         Costs one demux pass, no decode: 225 ms on a 716 MB, 13 844-frame file,

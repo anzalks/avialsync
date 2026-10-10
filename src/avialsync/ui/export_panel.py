@@ -51,7 +51,7 @@ class ExportPanel(QWidget):
         self._refresh_empty_note()
 
     def button(self, key: str) -> ActionButton:
-        """Expose a button for tests and accessibility inspection."""
+        """Expose a button for accessibility inspection."""
         return self._buttons[key]
 
     def _refresh_empty_note(self) -> None:

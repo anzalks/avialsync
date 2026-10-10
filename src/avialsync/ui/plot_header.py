@@ -57,7 +57,7 @@ class PlotHeader(QWidget):
         self.row_height_combo.addItem(tr("Compact"), 72)
         self.row_height_combo.addItem(tr("Comfortable"), 110)
         self.row_height_combo.addItem(tr("Large"), 160)
-        # Compact by default, so a laptop shows more rows (D-177, DS-9).
+        # Compact by default, so a laptop shows more rows.
         self.row_height_combo.setCurrentIndex(0)
         self.row_height_combo.setAccessibleName(tr("Plot row density"))
         self.row_height_combo.setToolTip(tr("Shared visible channel row height"))
@@ -66,13 +66,13 @@ class PlotHeader(QWidget):
 
         # The plot pane's own Reset Plots action, which the View menu also
         # shows: it said "Reset plots" here and "Reset Plot Zoom" there for the
-        # same Ctrl+0 command (rule 15, D-092).
+        # same Ctrl+0 command.
         self.reset_button = ActionButton(self)
         self.reset_button.setAccessibleName(tr("Reset plot ranges and time span"))
         layout.addWidget(self.reset_button)
 
     def insert_span_control(self, control: QWidget) -> None:
-        """Place the existing time-span editor in this one plots row (D-170)."""
+        """Place the existing time-span editor in this one plots row."""
         layout = self.layout()
         assert isinstance(layout, QHBoxLayout)
         layout.insertWidget(layout.indexOf(self.fit_all_button), control, 1)

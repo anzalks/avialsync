@@ -1,7 +1,7 @@
-"""Background removal of cache entries (D-160).
+"""Background removal of cache entries.
 
 A trial's cache can be tens of gigabytes across thousands of files, so
-removing it is file IO the UI thread must not wait on (architecture rule 3).
+removing it is file IO the UI thread must not wait on.
 Register through ``MainWindow._run_job``, like every other worker.
 """
 

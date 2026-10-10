@@ -27,8 +27,8 @@ class ChannelInfo:
 
 #: Unit spellings formats use for "no unit", shown as nothing at all.
 _UNITLESS = {"", "dimensionless", "none", "1", "a.u.", "au", "n/a", "n.a.", "na"}
-#: ASCII stand-ins for the micro sign, and the SI names NWB spells out in full
-#: (D-188), written the way a reader expects.
+#: ASCII stand-ins for the micro sign, and the SI names NWB spells out in full,
+#: written the way a reader expects.
 _MICRO = {
     "uv": "µV",
     "um": "µm",
@@ -47,7 +47,7 @@ _MICRO = {
 
 
 def display_unit(unit: str) -> str:
-    """One spelling for a loader's declared unit, so every source reads alike (D-186).
+    """One spelling for a loader's declared unit, so every source reads alike.
 
     ``uV`` from neo and ``µV`` from another format are the same unit; a
     "dimensionless" quantity has no unit to show. Anything else is kept as the
@@ -64,8 +64,8 @@ def container_of(path: Path) -> Path | None:
 
     A source is named by its path, and one file can hold several sources: an
     NWB file holds its time series and its imaging, and the imaging is named
-    ``session.nwb/acquisition/TwoPhotonSeries`` so the two are told apart
-    (D-188). Such a path does not exist on disk, but an existing file or the
+    ``session.nwb/acquisition/TwoPhotonSeries`` so the two are told apart.
+    Such a path does not exist on disk, but an existing file or the
     outermost marked Zarr group can contain it. Ordinary directories do not
     count as containers for a recording that has gone missing.
     """
@@ -252,13 +252,13 @@ class SessionItem:
     #: Not part of ``config``, for the same reason :attr:`label` is not: config
     #: is hashed into the cache key, and a source's placement must not
     #: be able to invalidate the samples underneath it. Re-placing a recording
-    #: is a mapping change and must stay one (architecture rule 8).
+    #: is a mapping change and must stay one.
     source_epoch: float | None = None
 
 
 @dataclass(frozen=True)
 class RotaryHint:
-    """A wheel the session knows is there, and the channel that turns it (D-113).
+    """A wheel the session knows is there, and the channel that turns it.
 
     A presentation hint like :attr:`SessionLayout.skeleton`: it pre-fills the
     Add Wheel dialog and is never applied on its own. The rig's semantics --
@@ -326,7 +326,7 @@ class SessionLayout:
     #: A scanner must not fail a whole folder because one recording in it is
     #: unreadable — the other recordings are still good — but dropping the bad
     #: one silently is worse than either: the session then looks complete while
-    #: missing data, and nothing on screen says so (D-085).
+    #: missing data, and nothing on screen says so.
     warnings: list[str] = field(default_factory=list)
 
 
@@ -356,7 +356,7 @@ class SessionSource(_Nameable, ABC):
 
         Called with every dropped path, files as well as directories: most
         sessions are folders, but a container format such as NWB holds a whole
-        session in one file (D-188). A scanner for folders returns 0.0 for a
+        session in one file. A scanner for folders returns 0.0 for a
         file. Must be cheap — it runs for every dropped path, on the scan
         thread, before anything is read.
         """
@@ -453,7 +453,7 @@ class TimeSeriesSource(_Nameable, ABC):
         """Return True if this source stores frame numbers instead of wall-clock time.
 
         Frame-indexed sources require an explicit fps to convert frame indices to seconds.
-        The UI uses this flag to drive automatic fps resolution from loaded video (D-019).
+        The UI uses this flag to drive automatic fps resolution from loaded video.
         Default False; loaders that store raw frame counters should override to return True.
         """
         return False
@@ -478,7 +478,7 @@ class TimeSeriesSource(_Nameable, ABC):
         Called after :meth:`open`. A loader that emits tracked coordinates
         states here what its channels mean -- individuals, body parts, axes,
         confidence, derived columns -- instead of leaving every consumer to
-        recover it by splitting ``_x`` off a channel name (D-140). Non-pose
+        recover it by splitting ``_x`` off a channel name. Non-pose
         loaders inherit ``None`` and are unaffected.
 
         The schema is carried to consumers on
@@ -508,13 +508,13 @@ class ImagingMetadata:
     timing_source: str
     dataset: str = ""
     channel_count: int = 1
-    #: The stored dimensions and the order they were read in (D-194), so the
+    #: The stored dimensions and the order they were read in, so the
     #: viewer can offer the other valid orders. Empty when the source has none.
     shape: tuple[int, ...] = ()
     axes: str = ""
     #: Depth planes the stack holds; the pane offers a plane choice above one.
     depth_planes: int = 1
-    #: What the file calls each acquired channel (D-195): an OME channel name,
+    #: What the file calls each acquired channel: an OME channel name,
     #: an NWB optical channel or series. Empty where the file names none.
     channel_names: tuple[str, ...] = ()
     tail_duration: float = field(init=False)
@@ -531,7 +531,7 @@ class ImagingSource(_Nameable, ABC):
     A reader is opened, read and closed on one background thread. ``read_frame``
     returns one two-dimensional plane in the file's own pixel units; callers
     never request a whole acquisition, and an implementation must not
-    materialise one (D-190).
+    materialise one.
     """
 
     @classmethod

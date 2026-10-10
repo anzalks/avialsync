@@ -1,4 +1,4 @@
-"""Collapsible source-properties panels for VideoInfoWidget and SensorInfoWidget (D-020).
+"""Collapsible source-properties panels for VideoInfoWidget and SensorInfoWidget.
 
 VideoPropertiesPanel: extended video metadata (codec, resolution, fps, file size, …).
 SensorPropertiesPanel: channel metadata, cache status, import provenance.

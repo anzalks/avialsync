@@ -1,6 +1,6 @@
-"""Every graphic drawn over video, and the switch that turns it off (D-090).
+"""Every graphic drawn over video, and the switch that turns it off.
 
-Law 2 of Phase 7: nothing is composited on a video frame that the user cannot
+Nothing is composited on a video frame that the user cannot
 turn off.  Before this module the situation had drifted in both directions at
 once.  ``PaintCanvas`` carried ``set_point_labels_visible`` and
 ``set_legend_visible`` that no production code ever called — the toggles
@@ -10,10 +10,8 @@ registry adds the next unreachable method.
 
 So there is one declaration of what exists.  :data:`OVERLAY_LAYERS` is the
 inventory; the **View → Overlays** menu is generated from it, per-camera
-overrides use the same labels in the pane context menu, and
-``tests/test_overlay_registry.py`` enumerates it against what the panes and
-grid exporter draw, so drawing something new without registering it fails CI
-rather than review.
+overrides use the same labels in the pane context menu, and the panes and the
+grid exporter draw only what it lists.
 
 A plugin contributing an overlay registers a layer here and gets its checkbox
 automatically — the registry is the extension point, not a fixed list.
@@ -180,8 +178,7 @@ OVERLAY_LAYERS: tuple[OverlayLayer, ...] = (
         locked=True,
         per_camera=False,
         description=(
-            "Always shown. Hiding it would let a blank pane be mistaken for black "
-            "footage, which is the misreading D-010 exists to prevent."
+            "Always shown. Hiding it would let a blank pane be mistaken for black footage."
         ),
     ),
     OverlayLayer(
@@ -205,7 +202,7 @@ def default_visible_for(overlay_id: str) -> bool:
     value is a second authority on a layer's default, and the two drift: the
     tracking canvas came up drawing body-part names that this registry declares
     off, so the menu's unchecked box and the pixels disagreed until something
-    happened to push the resolved state (D-138).
+    happened to push the resolved state.
     """
     layer = _BY_ID.get(overlay_id)
     return layer.default_visible if layer is not None else True

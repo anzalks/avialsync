@@ -116,7 +116,7 @@ class ImportWorker(QObject):
         self._cancel_flag = False
         #: The share of the whole import the current pass reports into. A
         #: grouped import builds each group with the bulk builder, whose progress
-        #: would otherwise run 0-100 once per group (D-188).
+        #: would otherwise run 0-100 once per group.
         self._progress_span = (0.0, 1.0)
 
     def cancel(self) -> None:
@@ -188,7 +188,7 @@ class ImportWorker(QObject):
 
             # Asked once, here, while the loader is open: every consumer of
             # this source reads the schema off the inspection rather than
-            # recovering it from channel names (D-140).
+            # recovering it from channel names.
             pose_schema = None
             try:
                 pose_schema = loader.pose_schema()
@@ -504,7 +504,7 @@ class ImportWorker(QObject):
         channel by channel reads a 2-D series once per column and writes one
         timestamp copy per channel. ``iter_channel_groups`` yields
         ``(names, chunks)`` per clock, and each group goes through the bulk
-        builder: one pass over its rows, one stored timestamp array (D-188).
+        builder: one pass over its rows, one stored timestamp array.
 
         Row and gap counts come from the first group with samples, as the
         per-channel path takes them from its first channel; the bounds span every

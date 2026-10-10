@@ -64,7 +64,7 @@ _CURSOR_REPAINT_SLACK_S = 1.0 / 120.0
 #: How long row construction may hold the UI thread before yielding. One row
 #: costs ~8-12 ms of Qt widget construction, so a large channel selection has to
 #: be built across several event-loop turns or the window stops answering
-#: entirely — no playback keys, no drops, no close button (D-060).
+#: entirely — no playback keys, no drops, no close button.
 #:
 #: Chosen by measuring a 64-channel load, not by reasoning: 12 ms gave a 31-38 ms
 #: worst block, 5 ms was no better (39 ms), and 8 ms won on every axis — an
@@ -99,7 +99,7 @@ class PlotPane(QWidget):
     sources_changed = Signal(list)  # list[MappedChannelReader]
     # Emitted when both measure points are set (t_a, t_b)
     measure_changed = Signal(float, float)
-    # Emitted when user picks "Add marker here" from the plot context menu (D-022)
+    # Emitted when user picks "Add marker here" from the plot context menu
     annotate_at_requested = Signal(float)  # t in master-clock seconds
     # Emitted when a visible plot row is left-clicked at an absolute master time.
     seek_requested = Signal(float)
@@ -185,7 +185,7 @@ class PlotPane(QWidget):
         self.window_unit_combo = self._sweep_control.unit_combo
         self.window_slider = self._sweep_control.slider
         self.window_value_label = self._sweep_control.value_label
-        # D-170: one row contains the existing plot and time-span controls.
+        # One row contains the existing plot and time-span controls.
         self._plot_header.insert_span_control(self._sweep_control)
         self._header_strip = PlotControlStrip(self._plot_header, self)
         _layout.addWidget(self._header_strip)
@@ -209,7 +209,7 @@ class PlotPane(QWidget):
         self._source_time_maps: dict[Path, TimeMap] = {}
         # Units arrive once, when the import finishes, but rows are built in
         # slices across later event-loop turns; kept here so a row built after
-        # the units arrived still gets its own (D-186).
+        # the units arrived still gets its own.
         self._units: dict[ChannelKey | str, str] = {}
         self.follow_playhead = True
         self._playing = False
@@ -342,7 +342,7 @@ class PlotPane(QWidget):
         A row costs ~8-12 ms of Qt widget construction, so building a 64-channel
         selection in one call blocked the UI thread for most of a second — the
         window went white and answered nothing: no playback keys, no drops, no
-        close button (D-060). Qt graphics objects must be created on this thread,
+        close button. Qt graphics objects must be created on this thread,
         so the work cannot move to a worker; it is sliced instead, and a
         zero-delay timer hands control back to the event loop between slices.
         """
@@ -360,7 +360,7 @@ class PlotPane(QWidget):
                 self._request_channel_close,
                 time_map,
                 source_id,
-                # The density chosen now, not the dataclass default (D-177).
+                # The density chosen now, not the dataclass default.
                 row_height=int(self.row_height_combo.currentData()),
                 visible=visible,
             )
@@ -445,8 +445,8 @@ class PlotPane(QWidget):
         #
         # `activate()` alone is not enough: it arranges children *inside* the
         # central item's current geometry, and that geometry is only refreshed
-        # by a resize reaching the view. Rows are built across event-loop turns
-        # (D-060), so the last resize often predates them and the central item
+        # by a resize reaching the view. Rows are built across event-loop turns,
+        # so the last resize often predates them and the central item
         # still holds its pre-show default — every row then collapses to its
         # ~8 px minimum while the pane around it is a thousand pixels wide.
         # Intermittent, because it depends on whether a resize happened to land
@@ -471,7 +471,7 @@ class PlotPane(QWidget):
         """Finish any queued row building immediately.
 
         For callers that need every row to exist before they continue — session
-        restore and tests. Interactive loads must not use this: blocking is the
+        restore. Interactive loads must not use this: blocking is the
         defect the slicing exists to avoid.
         """
         while self._pending_rows:
@@ -604,7 +604,7 @@ class PlotPane(QWidget):
         self._interactions.redraw_annotations()
 
     def load_source(self, cache_dir: Path, channel_id: str) -> None:
-        """Backwards compatibility for Phase 2 single-channel load."""
+        """Backwards compatibility for the original single-channel load."""
         self.load_channels(cache_dir, [channel_id])
 
     def update_plots(self) -> None:
@@ -613,7 +613,7 @@ class PlotPane(QWidget):
         No pyramid row is queried here. Requests coalesce: one page is in
         flight at a time, a newer request cancels it, and the newest is started
         when it stops. Every row of a page is installed in one callback, so
-        rows never disagree about which page they show (D-201).
+        rows never disagree about which page they show.
         """
         if self.sweep_start is None or not self.channels:
             return
@@ -663,7 +663,7 @@ class PlotPane(QWidget):
             thread.finished.connect(self._on_page_thread_finished)
 
         # Registered like every job, but announced only if it outlasts
-        # rule 11's half second: a page usually lands within a frame or two.
+        # the half-second reporting threshold: a page usually lands within a frame or two.
         label = tr("Preparing plot page")
         run_job = getattr(self.window(), "_run_job", None)
         if callable(run_job):
@@ -1079,7 +1079,7 @@ class PlotPane(QWidget):
             self.page_label.setText(text)
 
     def accessible_value(self) -> str:
-        """Each shown row's value at the playhead, read on query (D-179)."""
+        """Each shown row's value at the playhead, read on query."""
         visible = [channel for channel in self.channels if channel.visible][:32]
         if not visible or self.sweep_start is None:
             return tr("No channels are shown.")
@@ -1099,7 +1099,7 @@ class PlotPane(QWidget):
         )
 
     def hide_channel_row(self, channel_id: str) -> None:
-        """Hide a row as its close tool does, from the row's context menu (D-177)."""
+        """Hide a row as its close tool does, from the row's context menu."""
         self._request_channel_close(channel_id)
 
     def _request_channel_close(self, channel_id: str) -> None:

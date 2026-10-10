@@ -1,10 +1,10 @@
-"""How a wheel is drawn over a camera's video (D-113).
+"""How a wheel is drawn over a camera's video.
 
 The wheel is a model -- a handful of clicked bars and a bar count, turned by an
 encoder -- so it must never be read as tracking. Each bar is a **thin line from
 end to end**, a shape nothing else on the frame uses: tracked points are dots,
-hand-placed markers are rings, reprojected points are crosses (AGENTS rule 17:
-the kinds are told apart by shape, not by colour). The colour is neutral, not a
+hand-placed markers are rings, reprojected points are crosses (the kinds are
+told apart by shape, not by colour). The colour is neutral, not a
 body part's, for the same reason.
 
 * Bars the camera sees: a light line over a dark underlay, readable on fur and
@@ -128,7 +128,7 @@ def draw_wheel_clicks(
 ) -> None:
     """Draw real clicks and distinct projected estimates over the tracking.
 
-    Their names are placed by :class:`LabelLayout` (D-166): beside each mark,
+    Their names are placed by :class:`LabelLayout`: beside each mark,
     inside the picture, clear of each other and of the pane's header.
     """
     area = bounds or QRectF(painter.viewport())

@@ -10,7 +10,7 @@ A marker exists on **one frame**: the one it was placed on. Carrying it across
 frames (and interpolating between them) is a later step, and nothing here
 assumes it will not come.
 
-**Never written into a pose file.** Like a Fix Tracker correction (D-099), a
+**Never written into a pose file.** Like a Fix Tracker correction, a
 marker lives in files of its own beside the data it extends, which this module
 reads and writes:
 
@@ -22,7 +22,7 @@ reads and writes:
 The 2D files are the authority: they are what the user did. The 3D file is
 derived from them and rewritten whenever they change.
 
-This module is headless (architecture rule 2): observers are plain callables.
+This module is headless: observers are plain callables.
 """
 
 from __future__ import annotations
@@ -57,7 +57,7 @@ __all__ = [
 
 #: Replaces the pose file's ``.csv``: ``FaceCam_eks.csv`` ->
 #: ``FaceCam_eks_custom_markers.csv``. An underscore rather than a dot, so the
-#: file's only extension is its real one (D-160).
+#: file's only extension is its real one.
 MARKER_SUFFIX = "_custom_markers.csv"
 
 #: DLC keys a column set by scorer; this one says a person placed the points.
@@ -284,7 +284,7 @@ def read_2d(source: Path | str) -> dict[tuple[str, int], tuple[float, float]]:
     """Read a file :func:`write_2d` wrote: ``(name, frame) -> (x, y)``.
 
     A missing file is an empty result; an unreadable row is skipped and logged,
-    so one damaged line does not cost the rest (AGENTS rule 10).
+    so one damaged line does not cost the rest.
     """
     path = Path(source)
     try:

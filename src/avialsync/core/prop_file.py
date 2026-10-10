@@ -1,4 +1,4 @@
-"""Versioned sidecars for physical props, beside their recording (D-149).
+"""Versioned sidecars for physical props, beside their recording.
 
 Each kind has its own typed table under one versioned ``<name>_prop.toml`` record.
 Raw camera clicks remain authoritative for ladders and wheels; declared belt
@@ -66,7 +66,7 @@ __all__ = [
 logger = logging.getLogger(__name__)
 PROP_SUFFIX = "_prop.toml"
 _VERSION = 1
-_HEADER = "# AvialSync physical prop (D-149). Camera clicks are the authority."
+_HEADER = "# AvialSync physical prop. Camera clicks are the authority."
 PropKind = Literal["ladder", "wheel", "belt", "ball"]
 PropRecord = PhysicalProp
 _WINDOWS_RESERVED = {"CON", "PRN", "AUX", "NUL"} | {

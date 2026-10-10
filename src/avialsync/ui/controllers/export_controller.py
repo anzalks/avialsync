@@ -3,8 +3,8 @@
 Every job here hands immutable captures or worker-safe reader references to a
 background thread and reports the outcome through the feedback surface.
 
-**These four used to run outside :class:`~avialsync.ui.job_manager.JobManager`**
-(D-107).  Each kept its own ``dict[QThread, object]`` on the window, wired its
+**These four used to run outside :class:`~avialsync.ui.job_manager.JobManager`**.
+Each kept its own ``dict[QThread, object]`` on the window, wired its
 own ``started``/``finished``/``error`` connections, reported progress by writing
 the transport status line directly, and announced its result in a raw
 ``QMessageBox`` — a modal *on success*, for work the user had already been told
@@ -25,7 +25,7 @@ was running.  Four consequences, all of them things the user met:
 So they go through ``window._run_job`` like everything else, and say what
 happened through ``window.notifications``.  Failures go through
 ``window.report_failure`` so a worker's raw text lands behind "Show details"
-rather than in the message itself (AGENTS rule 12).
+rather than in the message itself.
 """
 
 from __future__ import annotations
@@ -298,7 +298,7 @@ def export_video_clip(window: MainWindow) -> None:
         if not out_dir:
             return
         # Read from what each pane decodes -- a proxy, for a source that has one
-        # (D-188) -- and named after the recording it shows.
+        # -- and named after the recording it shows.
         media = {path: window.video_grid.media_path_for(path) for path in window.video_grid._paths}
         clips = [
             (

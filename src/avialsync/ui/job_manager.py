@@ -16,11 +16,11 @@ Three properties this exists to guarantee, in priority order:
    Python reference is collected before ``started`` fires and its ``run`` slot
    never executes — which silently broke every drop, session save, and session
    load until it was found. Registering here is the only supported way to start
-   background work in this application. ``tests/test_worker_lifetime.py`` pins it.
+   background work in this application.
 
 This is a ``QObject`` rather than a mixin on ``MainWindow`` deliberately: slots
 inherited from a plain mixin lose ``sender()`` and get direct instead of queued
-connections, which put widget construction on a worker thread (D-051). Both ends
+connections, which put widget construction on a worker thread. Both ends
 of every connection here are real QObjects.
 """
 
@@ -65,11 +65,11 @@ _WATCHDOG_INTERVAL_MS = 1000
 
 
 def drain_abandoned(timeout_ms: int = 2000) -> None:
-    """Wait for retained threads to finish. For tests and orderly interpreter exit.
+    """Wait for retained threads to finish, for an orderly interpreter exit.
 
     Production never needs this — the window has already closed — but leaving
     running QThreads alive at interpreter shutdown makes Qt abort, which turns a
-    clean test run into a crash report.
+    clean exit into a crash report.
     """
     for job in list(_ABANDONED):
         try:
@@ -96,8 +96,8 @@ def drain_abandoned(timeout_ms: int = 2000) -> None:
 #: Qt aborts the process with "QThread: Destroyed while thread is still running"
 #: if a running QThread is destroyed, and a QThread *parented to its manager* is
 #: destroyed together with it. That made the abort reachable from ordinary
-#: teardown: a window discarded without `closeEvent` — which is what a test
-#: harness does, and what any path that simply drops the manager does — took its
+#: teardown: a window discarded without `closeEvent` — which is what any path
+#: that simply drops the manager does — took its
 #: running threads down with it and killed the process instead of closing.
 #:
 #: Threads are therefore created unparented and owned here for as long as they
@@ -132,7 +132,7 @@ class _OnUiThread(QObject):
     *direct* connection. A plain callable is not a ``QObject``, so Qt has no
     receiver whose thread it could queue into, and runs it in the thread that
     emitted — the worker. Every widget the callback then touches is touched
-    from there, which is the failure D-051 describes.
+    from there.
 
     ``Qt.QueuedConnection`` does not fix it: with no context object the
     *sender* supplies the thread affinity, so the call is merely queued back
@@ -255,7 +255,7 @@ class JobManager(QObject):
         ``configure`` runs after the standard wiring and before the thread
         starts, so callers can connect their own result signals.
         ``announce_after_s`` keeps a job that ends sooner out of the status bar
-        and Tasks panel; AGENTS rule 11 asks for reporting past ~500 ms.
+        and Tasks panel; work past ~500 ms is reported.
         """
         # Deliberately unparented: see `_ABANDONED`. A thread parented to this
         # manager is destroyed with it, and destroying a running QThread aborts
@@ -426,7 +426,7 @@ class JobManager(QObject):
             self.jobs_changed.emit()
 
     def _on_thread_finished(self) -> None:
-        """Drop finished threads without relying on sender() identity (D-051)."""
+        """Drop finished threads without relying on sender() identity."""
         if self._shutting_down:
             return
         finished = [thread for thread in self._jobs if thread.isFinished()]

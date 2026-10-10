@@ -1,4 +1,4 @@
-"""Every time series in an NWB file, as one source (D-188).
+"""Every time series in an NWB file, as one source.
 
 One source per file rather than one per series, because the application names a
 source by its path and an NWB file is one path holding dozens of series. Each

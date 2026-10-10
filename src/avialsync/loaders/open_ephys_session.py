@@ -20,7 +20,7 @@ Camera placement is deliberately *declared*, never fitted.  The video's filename
 gives its start to about a second, and the recording's own local/UTC evidence
 converts it onto the same axis; the sidecar then times every frame within the
 video exactly.  Fitting the residual second against the TTL line is a
-synchronization proposal, and a proposal needs the user to accept it (D-030), so
+synchronization proposal, and a proposal needs the user to accept it, so
 it belongs to the sync wizard and not to a folder scan.
 """
 
@@ -106,7 +106,7 @@ class OpenEphysSessionSource(SessionSource):
             if defects:
                 # neo raises on these while parsing the header, so *no* stream of
                 # this recording can be enumerated and it would otherwise drop
-                # out of the session with only a log line to say so (D-085).
+                # out of the session with only a log line to say so.
                 listed = "; ".join(str(defect) for defect in defects)
                 warnings.append(f"{recording.name} could not be read — {listed}")
                 logger.warning("Skipping unreadable Open Ephys recording %s: %s", recording, listed)

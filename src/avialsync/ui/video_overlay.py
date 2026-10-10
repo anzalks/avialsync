@@ -4,7 +4,7 @@ Two jobs: draw the current tracking points over the frame, and — while "Fix
 Tracker" is on — let them be dragged to where they belong.  The drag never
 writes to the pose file or its cache; it emits a :class:`PointMove` that the
 window turns into a reversible command against
-:class:`~avialsync.core.point_edits.PointEditStore` (D-099).
+:class:`~avialsync.core.point_edits.PointEditStore`.
 """
 
 from __future__ import annotations
@@ -93,14 +93,14 @@ class PaintCanvas(MarkerOverlayMixin):
         self.t = 0.0
         #: Seeded from the registry, never from literals here: these are the
         #: same defaults View -> Overlays checks its boxes against, and a second
-        #: copy of them is what let the canvas draw a layer the menu called off
-        #: (D-138). Each is replaced by the resolved state in
+        #: copy of them is what let the canvas draw a layer the menu called off.
+        #: Each is replaced by the resolved state in
         #: `VideoPane.apply_overlay_visibility` as soon as one exists.
         self._show_legend = default_visible_for("tracking.legend")
         self._point_labels_visible = default_visible_for("tracking.point_labels")
         #: The points themselves. Previously unconditional: there was no way to
         #: see the raw footage under a prediction, which is exactly what someone
-        #: checking a track needs to do (D-090).
+        #: checking a track needs to do.
         self._points_visible = default_visible_for("tracking.points")
         self._corrections_visible = default_visible_for("tracking.corrections")
         self._init_point_editing()
@@ -177,7 +177,7 @@ class PaintCanvas(MarkerOverlayMixin):
 
         ``sample_at`` is the authority, not ``value_at``: it answers with the
         last sample at or before *t*, which is the same rule the pane uses to
-        pick the frame it is showing (architecture rule 6).  ``value_at``
+        pick the frame it is showing.  ``value_at``
         rounds to the nearest sample, so between two frames it can name the
         coordinate belonging to a frame that is not on screen — harmless while
         the overlay only drew, wrong once a drag has to say which frame it
@@ -251,7 +251,7 @@ class PaintCanvas(MarkerOverlayMixin):
             # Keyed by the column this marker is *drawing*, which is another
             # point's once a flip has been accepted: a correction is a fact
             # about the trajectory under the pointer, not about the label on
-            # it (D-143). The label rides along as provenance.
+            # it. The label rides along as provenance.
             key = (
                 PointKey(source_id, self.data_point(source_id, name, index), index)
                 if source_id
@@ -381,7 +381,7 @@ class PaintCanvas(MarkerOverlayMixin):
             picture = QRectF(offset_x, offset_y, size[0] * scale, size[1] * scale)
             area = area.intersected(picture.adjusted(2, 2, -2, -2))
         chrome: list[QRectF] = []
-        # The pane's declared contract (D-174), not its widgets looked up by name.
+        # The pane's declared contract, not its widgets looked up by name.
         chrome_rects = getattr(parent, "chrome_rects", None)
         if isinstance(parent, QWidget) and callable(chrome_rects):
             for rect in chrome_rects():
@@ -482,8 +482,7 @@ class PaintCanvas(MarkerOverlayMixin):
             # These dots used to carry no text and consult no layer, so "Body-
             # part names" appeared to do nothing for a pose file that had come
             # in as plain channels -- the one case where the names are most
-            # needed, because nothing else on screen says what the dots are
-            # (D-139).
+            # needed, because nothing else on screen says what the dots are.
             if self._point_labels_visible and name:
                 self._draw_point_label(painter, label_font, QColor(*color), name, x, y)
 

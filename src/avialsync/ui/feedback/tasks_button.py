@@ -1,4 +1,4 @@
-"""The status bar's Tasks button and the popover that lists jobs (D-172).
+"""The status bar's Tasks button and the popover that lists jobs.
 
 Tasks was the sixth inspector tab, consulted only when something takes longer
 than expected, and its share of the tab bar was what elided every other title.

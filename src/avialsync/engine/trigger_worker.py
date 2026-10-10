@@ -1,8 +1,8 @@
 """Read declared trigger trains off the UI thread.
 
 A DAQ export is a few hundred thousand rows of sampled logic and thresholding
-it is not free, so it goes through a worker like every other file read
-(architecture rule 3). Every train in one file is read in one job: a user who
+it is not free, so it goes through a worker like every other file read.
+Every train in one file is read in one job: a user who
 declared four is waiting for the file, not for four passes over it.
 """
 

@@ -23,7 +23,7 @@ Two things fix that, and both are presentation rather than suppression:
 
 This is the terminal only.  It is not the user-facing error path: typed
 failures reach people through ``ui/feedback/error_presenter.py``, and source
-quality problems through the per-source quality badge (AGENTS rules 10 and 12).
+quality problems through the per-source quality badge.
 A log line is for whoever launched the process from a shell.
 """
 
@@ -86,7 +86,7 @@ def _configured_level() -> int:
 def configure_logging() -> logging.Handler:
     """Install the console handler, replacing one from an earlier call.
 
-    Returns the handler, so a test can assert what was installed rather than
+    Returns the handler, so a caller can check what was installed rather than
     inspecting the root logger's list by index.
     """
     root = logging.getLogger()

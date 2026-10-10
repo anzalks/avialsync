@@ -1,4 +1,4 @@
-"""Outcomes reported without taking the window away from the user (D-091).
+"""Outcomes reported without taking the window away from the user.
 
 A finished export, a generated proxy, a failed import: things worth saying that
 are not worth a modal.  Success dismisses itself, because the user asked for it
@@ -8,7 +8,7 @@ worse than a modal error is an error that disappears before it is read.
 Some messages are an *offer* rather than a report -- unsaved work found at
 launch is the first -- so a message may carry one named action beside it.
 
-**The strip shows one message at a time and queues the rest (D-107).**  It used
+**The strip shows one message at a time and queues the rest.**  It used
 to hold exactly one, replacing it unconditionally on every post, which made the
 docstring above false in two ways that mattered.  An unread failure was evicted
 by whatever succeeded next.  And the recovery offer -- posted once at startup,
@@ -24,7 +24,7 @@ Two rules make that impossible rather than unlikely:
    something the user asked for and already knows, so an incoming sticky
    message takes the strip from it immediately rather than waiting out its
    timer.  Successes queue behind stickies, never the other way round.
-3. **A success never queues behind another success (D-134).**  Dropping three
+3. **A success never queues behind another success.**  Dropping three
    files posted three "Imported <name>" lines, each waiting out the one before
    it, so a routine import held the strip for the better part of half a minute
    and offered a Dismiss button for work that was already finished and already
@@ -114,8 +114,8 @@ class NotificationStrip(QWidget):
         self._pending_label = QLabel("")
         self._pending_label.setVisible(False)
 
-        #: The one named action a message may offer. Public because the thing
-        #: that posts the offer is also what tests drive.
+        #: The one named action a message may offer. Public so the thing that
+        #: posts the offer can drive it.
         self.action_button = QPushButton("")
         self.action_button.clicked.connect(self._run_action)
         self.action_button.setVisible(False)
@@ -300,7 +300,7 @@ class NotificationStrip(QWidget):
         if callback is not None:
             callback()
 
-    # ── for tests ────────────────────────────────────────────────────
+    # ── inspection ───────────────────────────────────────────────────
 
     @property
     def message(self) -> str:

@@ -1,6 +1,6 @@
 """Video rendering pane: decode with PyAV, blit with Qt.
 
-One path on every platform (D-075).  There is no render context, no ``wid``
+One path on every platform.  There is no render context, no ``wid``
 embedding, and no headless special case, because nothing here talks to a media
 player any more — the pane owns a decoder, asks it for the frame at a given
 master time, and paints the result.
@@ -133,7 +133,7 @@ def _abandon_decoder(thread: QThread, worker: object) -> None:
     # here even though run() is still going.
     thread.setParent(None)
     # Released by polling, never by connecting to ``finished`` on a stopping
-    # thread (D-212).
+    # thread.
     for held in list(_ABANDONED_DECODERS):
         try:
             finished = held[0].isFinished()
@@ -144,11 +144,11 @@ def _abandon_decoder(thread: QThread, worker: object) -> None:
 
 
 def drain_abandoned_decoders(timeout_ms: int = 2000) -> None:
-    """Wait for detached decode threads, for tests and interpreter shutdown.
+    """Wait for detached decode threads, for interpreter shutdown.
 
     Production does not need this: the window has already closed. But a running
     QThread alive at interpreter shutdown makes Qt abort, which turns a clean
-    test run into a crash report — the same reasoning as ``job_manager``'s
+    exit into a crash report — the same reasoning as ``job_manager``'s
     drain.
     """
     for entry in list(_ABANDONED_DECODERS):
@@ -186,7 +186,7 @@ class DecodeWorker(QObject):
     the latest time and the rest find nothing to do.  That is what lets a 60 Hz
     tick drive a decoder that takes longer than a tick without ever queueing a
     backlog of frames nobody will see — sync correctness beats frame
-    completeness (AGENTS.md rule 6).
+    completeness.
 
     Each request carries an id the caller assigns, and the id travels *with* the
     time rather than beside it, so a coalesced request keeps the id of the time
@@ -199,9 +199,9 @@ class DecodeWorker(QObject):
     # request id, frame index, pts seconds, RGB array
     frame_ready = Signal(int, int, float, object)
     #: The pixel format of the first decoded frame, so the UI can offer
-    #: controls sized to what the recording actually is (D-093).
+    #: controls sized to what the recording actually is.
     format_detected = Signal(object)
-    #: Levels chosen from the last decoded frame, before any levels (D-209).
+    #: Levels chosen from the last decoded frame, before any levels.
     levels_measured = Signal(object)
 
     def __init__(self, path: str) -> None:
@@ -260,7 +260,7 @@ class DecodeWorker(QObject):
             frame = self._reader.frame_at_index(index)
             # Windowed here, on the decode thread. A lookup table applied in
             # paintEvent would turn a 2 ms budget into a 3 ms violation on
-            # every frame (D-093). The reader still caches `av.VideoFrame`
+            # every frame. The reader still caches `av.VideoFrame`
             # objects, so a levels change costs a re-conversion, not a
             # re-decode.
             with self._levels_lock:
@@ -578,7 +578,7 @@ def _saved_osd_detail() -> str:
 
 
 class _ChromeOsd(QLabel):
-    """The timecode block: its natural width when it fits, wrapped when not (D-183).
+    """The timecode block: its natural width when it fits, wrapped when not.
 
     It used to keep its natural width at any pane size, so at three cameras the
     full block ran off the right edge. Now it takes the room the pane has left
@@ -642,7 +642,7 @@ class VideoPane(VideoTimingMixin, QWidget):
     Decodes with PyAV on a per-pane worker thread and blits the result.  The
     same path runs on Windows, macOS, and Linux, headless or not; if you find
     yourself adding a ``sys.platform`` branch here, that is a signal to stop and
-    reconsider (AGENTS.md rule 6).
+    reconsider.
     """
 
     double_clicked = Signal(object)
@@ -685,7 +685,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._seek_id = 0
         self._target_pause = True
         #: Resolved overlay visibility for this pane, global default merged
-        #: with any per-camera override by the window (D-090).
+        #: with any per-camera override by the window.
         #: What this recording actually is, read from a decoded frame.
         self.source_format: SourceFormat | None = None
         self._display_levels = DisplayLevels()
@@ -740,7 +740,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._shutdown_decoder()
         self._media_loaded = False
         #: What this pane decodes, which is not always what it is named after: a
-        #: source played through a proxy (NWB imaging, D-188) is named by its
+        #: source played through a proxy (NWB imaging) is named by its
         #: recording and decoded from the proxy. Exports read this one.
         self.media_path = path
 
@@ -755,7 +755,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         worker.moveToThread(thread)
         # The worker must be held for the thread's whole life: a QObject moved
         # to a QThread with no owning Python reference is collected out from
-        # under it (HANDOUT.md trap 0a).
+        # under it.
         self._worker = worker
         self._thread = thread
 
@@ -879,7 +879,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         speed by landing on a keyframe; here the frame containing ``t`` costs a
         few milliseconds when it is anywhere near where the decoder already is,
         so there is nothing to trade away, and an inexact scrub position is
-        exactly the misattribution D-075 exists to remove.
+        exactly the misattribution frame-exact decoding exists to remove.
         """
         del exact
         if not self._media_loaded or self._worker is None:
@@ -928,11 +928,11 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.paint_canvas.set_tracks(tracks)
 
     def set_point_edits(self, edits: object) -> None:
-        """Adopt the session's hand-correction store (D-099)."""
+        """Adopt the session's hand-correction store."""
         self.paint_canvas.set_point_edits(edits)
 
     def set_identity_resolver(self, resolver: object) -> None:
-        """Adopt the window's map from a displayed point to its column (D-143)."""
+        """Adopt the window's map from a displayed point to its column."""
         self.paint_canvas.set_identity_resolver(resolver)  # type: ignore[arg-type]
 
     def set_point_edit_mode(self, enabled: bool) -> None:
@@ -1043,7 +1043,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.lbl_osd.fit()
 
     def apply_overlay_visibility(self, visibility: dict[str, bool]) -> None:
-        """Show or hide each registered overlay layer on this pane (D-090).
+        """Show or hide each registered overlay layer on this pane.
 
         Takes the already-resolved map rather than the registry itself: the
         global default and any per-camera override are combined once, by the
@@ -1076,13 +1076,13 @@ class VideoPane(VideoTimingMixin, QWidget):
         Delegated to the surface rather than mirrored here.  The surface is what
         draws the frame and what :meth:`VideoSurface.frame_geometry` transforms,
         so a second copy on the pane could only ever disagree with the geometry
-        the overlay and the snapshot crop both project through (AGENTS rule 15).
+        the overlay and the snapshot crop both project through.
         """
         return self.surface.video_size
 
     @property
     def shows_footage(self) -> bool:
-        """Whether the pane is showing frames rather than the D-010 placeholder.
+        """Whether the pane is showing frames rather than the no-data placeholder.
 
         Unknown counts as showing: a pane that has never been told otherwise is
         displaying whatever it decoded, not a placeholder.
@@ -1095,7 +1095,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         self._master_has_footage = has_footage
         self.lbl_no_footage.setVisible(not has_footage)
         if not has_footage:
-            # D-010: outside a source's bounds we show a dimmed placeholder,
+            # Outside a source's bounds we show a dimmed placeholder,
             # never the last decoded frame frozen in place.
             self.surface.clear()
 
@@ -1124,7 +1124,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         olayout.setContentsMargins(0, 0, 0, 0)
 
         # Chrome over the picture keeps fixed white-on-translucent colours: the
-        # video behind it, not the theme, decides what is legible (D-174, F-35).
+        # video behind it, not the theme, decides what is legible.
         chrome_style = "color: white; background-color: rgba(0,0,0,128);"
         self.lbl_name = _ChromeName()
         self.lbl_name.setStyleSheet(chrome_style)
@@ -1182,7 +1182,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         )
 
     def _build_levels_popover(self) -> None:
-        """A levels button beside zoom, opening this camera's own levels (D-209).
+        """A levels button beside zoom, opening this camera's own levels.
 
         Per camera, beside the zoom it belongs with: a toolbar acts on every
         pane at once and would need a hidden "which camera" rule. The button
@@ -1240,7 +1240,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.levels_popover_panel.set_levels(self._display_levels)
 
     def accessible_value(self) -> str:
-        """Time and frame on screen, read on query (D-179)."""
+        """Time and frame on screen, read on query."""
         return self.osd_text("compact")
 
     def accessible_detail(self) -> str:
@@ -1251,7 +1251,7 @@ class VideoPane(VideoTimingMixin, QWidget):
     def chrome_rects(self) -> tuple[QRect, ...]:
         """Rectangles, in pane coordinates, that labels drawn over video avoid.
 
-        The explicit contract ``PaintCanvas`` reads (D-174), replacing a lookup
+        The explicit contract ``PaintCanvas`` reads, replacing a lookup
         of widgets by attribute name that a renamed widget broke silently. The
         zoom tools' rectangle is always reserved, shown or not, so labels never
         move when they appear.
@@ -1276,7 +1276,7 @@ class VideoPane(VideoTimingMixin, QWidget):
             self.lbl_osd.fit()
 
     def set_osd_detail(self, detail: str) -> None:
-        """Show the timecode as one compact line or the full block (D-174)."""
+        """Show the timecode as one compact line or the full block."""
         self._osd_detail = detail if detail in _OSD_DETAILS else "compact"
         self._update_osd(self.time_pos, self._decoder_fps)
 
@@ -1347,7 +1347,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         running", which is a crash on exit rather than a leak.
 
         Explicit shutdown through ``VideoGrid.shutdown()`` remains the intended
-        path and stays the documented one (AGENTS.md): this is the backstop for
+        path and stays the documented one: this is the backstop for
         code that drops a window without closing it, not permission to rely on
         destruction.
         """

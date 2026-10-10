@@ -1,4 +1,4 @@
-"""Open an NWB file as a session: its time series, its imaging, its videos (D-188).
+"""Open an NWB file as a session: its time series, its imaging, its videos.
 
 An NWB file is one session in one file, so it is laid out the way a recording
 folder is: a session scanner says what is inside and where each piece sits in
@@ -52,7 +52,7 @@ class NWBSessionSource(SessionSource):
             contents = nwb_format.scan(path)
         except (SourceOpenError, FileUnreadableError) as error:
             # Claimed, so nothing else will lay it out: the reason has to reach
-            # the screen, not just the log (D-085).
+            # the screen, not just the log.
             return SessionLayout(warnings=[str(error)])
 
         epoch = contents.reference_epoch
@@ -109,7 +109,7 @@ class NWBSessionSource(SessionSource):
     def _imaging_items(
         path: Path, contents: nwb_format.FileContents, epoch: float | None
     ) -> list[SessionItem]:
-        """One lazy imaging source per acquisition, its series read as channels (D-195).
+        """One lazy imaging source per acquisition, its series read as channels.
 
         Each is named by its own path inside the file
         (:func:`nwb_format.object_path`): the file's path already names its time
@@ -127,7 +127,7 @@ class NWBSessionSource(SessionSource):
         grouped = {info.path for group in groups for info in group}
         groups += [[info] for info in contents.of_kind("imaging") if info.path not in grouped]
         # Series of one acquisition -- one plane, shape and clock -- are its
-        # channels and open as one stack to show alone or overlaid (D-195).
+        # channels and open as one stack to show alone or overlaid.
         groups.sort(key=lambda group: chosen not in group)
         items: list[SessionItem] = []
         for group in groups:
@@ -142,7 +142,7 @@ class NWBSessionSource(SessionSource):
                     source_epoch=epoch,
                 )
             )
-        # Every ROI of each plane segmentation, tiled in one picture (D-193):
+        # Every ROI of each plane segmentation, tiled in one picture:
         # the only way to see more than the one field -- or, for patch-scanned
         # files, the one cell -- that an image series holds.
         try:

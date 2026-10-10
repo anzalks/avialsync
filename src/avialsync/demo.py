@@ -80,7 +80,7 @@ _DEMO_TIME_BASE = Fraction(1, 90_000)
 _DEMO_RATE = Fraction(30, 1)
 
 #: Length of each generated demo camera. A module constant rather than a default
-#: argument so a test can shorten it without patching a signature.
+#: argument so it can be shortened without changing a signature.
 DEMO_VIDEO_SECONDS = 10.0
 _DEMO_SIZE = (360, 640)  # height, width
 
@@ -90,7 +90,7 @@ def _demo_frame(index: int, height: int, width: int) -> np.ndarray:
 
     A moving bar over a static gradient, plus a block that steps once per
     second. It replaces FFmpeg's ``testsrc`` pattern, which is no longer
-    reachable now that nothing shells out to the command line (D-075); what it
+    reachable now that nothing shells out to the command line; what it
     has to be is *visibly moving*, so that someone scrubbing the demo can see
     at a glance that the cameras are in step.
     """
@@ -118,7 +118,7 @@ def _demo_frame_times(duration: float, vfr: bool) -> list[float]:
     The VFR camera drops every seventh exposure and leaves the survivors where
     they were, which is what a real camera under a varying trigger does. The
     old generator asked FFmpeg to ``select`` frames out and re-time the rest;
-    writing the timestamps directly is both simpler and a truer VFR fixture.
+    writing the timestamps directly is both simpler and a truer VFR sample.
     """
     count = int(round(duration * float(_DEMO_RATE)))
     times = [index / float(_DEMO_RATE) for index in range(count)]
@@ -140,7 +140,7 @@ def _generate_video(
     """Generate one camera, reporting progress as a percentage.
 
     Encoded in-process with PyAV, so `avialsync demo` works on a machine with
-    no media runtime installed — which is the whole point of D-075 and the last
+    no media runtime installed — the point of decoding in-process, and the last
     place the application shelled out to FFmpeg.
     """
     partial_path = video_path.with_name(f"{video_path.stem}.partial{video_path.suffix}")
@@ -456,8 +456,8 @@ def load_demo(window: DemoWindow, data: DemoData) -> None:
     window._enqueue_import(data.tracking, TrackingLoader, {"fps": 30.0})
 
     # Declared skeleton for the demo's walking animal. Never inferred from the
-    # names (D-041); declaring it here also takes precedence over the skeleton
-    # the 3D view would otherwise detect from the geometry (D-082).
+    # names; declaring it here also takes precedence over the skeleton
+    # the 3D view would otherwise detect from the geometry.
     window.tracking_3d_pane.set_skeleton(
         [
             ("left_toe", "left_paw"),
@@ -480,7 +480,7 @@ class DemoProgressDialog(QDialog):
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
         self.setWindowTitle(tr("Preparing AvialSync Demo"))
-        # Not modal (D-091). Demo generation encodes four videos and can take
+        # Not modal. Demo generation encodes four videos and can take
         # minutes; the log below is worth watching, and the window behind it
         # stays usable meanwhile.
         self.setModal(False)
@@ -550,7 +550,7 @@ class DemoLaunch(QObject):
         # thread — severing the progress dialog's connections while holding one
         # of Qt's pooled signal/slot mutexes and then taking the GIL, which
         # deadlocks against a GUI thread that holds the GIL and waits on a
-        # colliding mutex from that pool (D-062). Python owns the worker and
+        # colliding mutex from that pool. Python owns the worker and
         # destroys it with this object, on the GUI thread.
         self._dialog.cancelled.connect(self._on_cancelled)
 
@@ -577,10 +577,10 @@ class DemoLaunch(QObject):
     def _on_failed(self, message: str) -> None:
         """Surface the failed command's diagnostic text to the user.
 
-        Through the window's one failure route (D-107), so the demo reports
+        Through the window's one failure route, so the demo reports
         like everything else: a title in the user's terms, a plain-language
         cause, and the command's raw diagnostic text behind Show details rather
-        than in the message itself (AGENTS rule 12).
+        than in the message itself.
         """
         self._dialog.close()
         if message == "Demo preparation was cancelled.":

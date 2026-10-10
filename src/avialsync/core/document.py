@@ -5,7 +5,7 @@ changed?".  There was no dirty flag and no single place a mutation passed
 through: an offset changed a spin box, an annotation changed a table, an
 accepted fit changed a ``TimeMap``, and nothing observed all three.  Three
 consequences followed — the window title was a constant, closing never
-preserved anything, and nothing could be undone (D-087).
+preserved anything, and nothing could be undone.
 
 Every user-visible mutation is now a :class:`Command` executed against a
 :class:`Document`.  Dirty state, undo, and the autosave trigger all derive from
@@ -18,13 +18,13 @@ Two constraints shape the design, and both are load-bearing:
 idle-RAM budget within roughly twenty edits.  A command carries only what it
 needs to reverse itself — an offset command is a source id and two floats.
 :data:`MAX_LOG_ENTRIES` bounds the rest.  :class:`ResetSessionCommand` is the
-single sanctioned exception, and D-087 explains why it does not generalise.
+single sanctioned exception, and its docstring explains why it does not generalise.
 
-**The bus is headless.**  ``core/`` may not import PySide6 (architecture rule
-2, enforced by a test), so ``QUndoStack`` cannot live here.  This module is
+**The bus is headless.**  ``core/`` may not import PySide6, so ``QUndoStack``
+cannot live here.  This module is
 plain Python; :mod:`avialsync.ui.undo_adapter` wraps each command in a
 ``QUndoCommand``.  Commands act on a :class:`MutationTarget` — a protocol the
-UI implements — so the bus never touches a widget and stays testable against a
+UI implements — so the bus never touches a widget and runs against a plain
 fake.
 
 The concrete commands live in :mod:`avialsync.core.commands`; this module is
@@ -94,11 +94,11 @@ class MutationTarget(Protocol):
     """The operations a command needs from the live application.
 
     The UI implements this; the bus only ever sees the protocol.  That is what
-    keeps ``core/`` headless and lets :mod:`tests.test_document` exercise every
-    command against a plain fake instead of a running ``QApplication``.
+    keeps ``core/`` headless and lets every command run against a plain fake
+    instead of a running ``QApplication``.
 
     Every method must be safe to call from the UI thread and must not block —
-    architecture rule 3 applies to undo as much as to anything else.
+    the UI thread never blocks, for undo as much as for anything else.
     """
 
     def set_source_mapping(self, source_id: str, offset: float, drift_ms_per_hour: float) -> None:
@@ -144,7 +144,7 @@ class MutationTarget(Protocol):
         ``index`` is the sample index within *source_id*; ``point`` is the
         column in the pose file and ``position`` is in that recording's own
         video pixels.  *shown_as* is the name the point carried on screen, which
-        differs from ``point`` while an identity flip is in force (D-143).  The
+        differs from ``point`` while an identity flip is in force.  The
         imported file and its cache are never written -- see
         :mod:`avialsync.core.point_edits`.
         """
@@ -156,7 +156,7 @@ class MutationTarget(Protocol):
         typed loosely here for the same reason the marker is not -- this
         protocol names what the UI must provide, not what each store holds.
         Nothing about the recording or its cache is carried: the edited data is
-        reproduced from the accepted set (D-141, D-142).
+        reproduced from the accepted set.
         """
 
     def set_identity_group(self, source_id: str, group: Any, present: bool) -> None:
@@ -171,7 +171,7 @@ class MutationTarget(Protocol):
         """
 
     def set_wheel(self, name: str, wheel: Wheel | None) -> None:
-        """Place, re-fit, or remove one wheel (D-113).
+        """Place, re-fit, or remove one wheel.
 
         *wheel* carries its clicks, its fit, and its encoder binding, all
         resolved before the command was built, so replaying it needs neither the
@@ -225,8 +225,8 @@ class MutationTarget(Protocol):
     def capture_workspace(self) -> Any:
         """Return an opaque snapshot sufficient to restore the whole workspace.
 
-        Only :class:`ResetSessionCommand` uses this.  See D-087 for why it is
-        not the general mechanism.
+        Only :class:`ResetSessionCommand` uses this.  See its docstring for why
+        it is not the general mechanism.
         """
 
     def restore_workspace(self, snapshot: Any) -> None:
@@ -263,7 +263,7 @@ def _merged(first: Any, second: Any) -> Any | None:
     which does not merge needs no boilerplate.  Only continuous controls merge:
     a spin-box drag emits ``valueChanged`` on every step, and without this a
     single drag would push two hundred entries and evict the real history
-    behind it (WP-1 step 6).
+    behind it.
     """
     merge = getattr(first, "merge_with", None)
     if merge is None:
@@ -534,7 +534,7 @@ class Document:
     # ── recovery ─────────────────────────────────────────────────────
 
     def recovery_payload(self, state: Any) -> dict[str, Any]:
-        """Wrap a serialised session *state* as a recovery snapshot (D-089).
+        """Wrap a serialised session *state* as a recovery snapshot.
 
         The snapshot carries the originating path when there was one, so the
         launch-time check can compare it against that file's mtime and stay

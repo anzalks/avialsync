@@ -1,4 +1,4 @@
-"""Every ROI of an NWB plane segmentation, tiled into one picture per frame (D-193).
+"""Every ROI of an NWB plane segmentation, tiled into one picture per frame.
 
 A plane segmentation names cells by their masks. Shown one series at a time, a
 file with hundreds of ROIs offers one field of view -- or, for patch-scanned

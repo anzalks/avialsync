@@ -34,7 +34,7 @@ class ProxyWorker(QObject):
 
     Every frame is a keyframe, so a seek into a proxy never decodes forward and
     costs one frame wherever it lands. Encoded in-process with PyAV, so a proxy
-    can be built on a machine with no media runtime installed (D-075).
+    can be built on a machine with no media runtime installed.
 
     Cancellation is cooperative and checked once per frame, rather than by
     killing a child process. The partial file is removed either way: a truncated

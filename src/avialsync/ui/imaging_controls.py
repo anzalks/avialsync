@@ -2,11 +2,11 @@
 
 Every control edits an :class:`~avialsync.core.imaging_display.ImagingView` and
 reports the whole new view with the *aspect* it changed, so the window can log
-one undoable command per drag (D-190). Nothing here touches pixels: the reader
+one undoable command per drag. Nothing here touches pixels: the reader
 thread renders whatever view it is handed.
 
 Each channel row names its colour in words beside the swatch, because colour is
-never the only carrier of meaning (D-094).
+never the only carrier of meaning.
 """
 
 from __future__ import annotations
@@ -70,7 +70,7 @@ class _ChannelRow:
         # The tick box is the *acquired* channel -- which recorded signal is
         # drawn -- and carries the name the file gives it. The colour list
         # beside it only says what colour that signal is drawn in. Shown even
-        # for a single channel, so the two are never confused (D-195).
+        # for a single channel, so the two are never confused.
         self.shown = QCheckBox(name, parent)
         self.shown.setAccessibleName(tr("Show acquired channel {name}").format(name=name))
         self.shown.setAccessibleDescription(
@@ -140,7 +140,7 @@ class ImagingControls(QWidget):
         self._grid.setColumnStretch(3, 1)
         self._grid.setColumnStretch(5, 1)
         # One heading per column, so "which channel" and "what colour" are
-        # read as the two different questions they are (D-195).
+        # read as the two different questions they are.
         self._headings = [
             QLabel(tr("Channel"), self),
             QLabel(tr("Colour"), self),
@@ -157,7 +157,7 @@ class ImagingControls(QWidget):
         average_row.setContentsMargins(0, spacing("s", self), 0, 0)
         average_row.setSpacing(spacing("s", self))
         average_row.addWidget(QLabel(tr("Average"), self))
-        # The average is centred, so its length is always odd (D-190). The box
+        # The average is centred, so its length is always odd. The box
         # counts the frames either side -- Off, ±1, ±2 ... -- so every value it
         # accepts is a real window; a frame count would have to reject or
         # silently round every even number typed.

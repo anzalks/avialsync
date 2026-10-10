@@ -212,8 +212,8 @@ def trim_video_clip(
 
     The exported clip therefore holds the original pixels rather than a second
     generation of them, which matters for a tool whose output people measure.
-    Done in-process with PyAV, so it needs no media runtime on the machine
-    (D-075); the cut is keyframe-aligned at the start exactly as a stream copy
+    Done in-process with PyAV, so it needs no media runtime on the machine;
+    the cut is keyframe-aligned at the start exactly as a stream copy
     has always been.
     """
     return remux_clip(video_path, output_path, t0, t1)

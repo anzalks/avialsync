@@ -322,7 +322,7 @@ class ReadoutPanel(QGroupBox):
         )
 
     def install_empty_action(self, action: QAction) -> None:
-        """Offer the command that gives this page something to show (D-176)."""
+        """Offer the command that gives this page something to show."""
         self.empty_note.set_action(action)
 
     def _refresh_empty(self) -> None:

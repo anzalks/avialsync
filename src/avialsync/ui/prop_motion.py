@@ -146,7 +146,7 @@ def check_click(
     camera = rig_paths.camera_name(video)
     side = prop.side_view if isinstance(prop, BeltProp) else None
     if side is not None and isinstance(prop, BeltProp) and prop.rollers is not None:
-        # A one-camera belt is only predicted in its own view (D-165).
+        # A one-camera belt is only predicted in its own view.
         if side.camera != camera:
             return None
         pixel = side.plane_view(prop.rollers).pixel(point[0], point[1])

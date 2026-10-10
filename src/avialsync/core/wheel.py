@@ -4,8 +4,7 @@ A wheel's bars are too many to click and mostly out of shot, but they are
 identical and evenly spaced, so a few of them fix the rest. The user clicks both
 ends of two or three **neighbouring** bars on one frame, in every camera that
 sees them; each end is triangulated through the rig's calibration
-(:mod:`avialsync.core.calibration`), and the wheel is fitted to those clicks
-(D-113).
+(:mod:`avialsync.core.calibration`), and the wheel is fitted to those clicks.
 
 **What the clicks determine, and what they cannot.** Every bar is parallel to
 the axle, so the bars' own directions give the axle directly, and their lengths
@@ -29,7 +28,7 @@ other exists, so the user can choose it from the preview.
 ends; the refinement then moves the whole wheel so every generated bar end lands
 on its click in every camera, the error anipose users already read.
 
-Headless (architecture rule 2). The model is here; fitting it is
+Headless. The model is here; fitting it is
 :mod:`avialsync.core.wheel_fit`, checking the encoder that turns it is
 :mod:`avialsync.core.wheel_check`, and its file is :mod:`avialsync.core.wheel_file`.
 """
@@ -288,7 +287,7 @@ class Wheel:
     #: Each bar's diameter, set on the Props Wheel page; None until then.
     #: In the same units as the measured radius when one was entered -- real
     #: lengths -- else in the calibration's; see :attr:`world_per_unit`. Drawn
-    #: as cylinders in the 3D view only. The fit does not use it (D-128, D-130).
+    #: as cylinders in the 3D view only. The fit does not use it.
     bar_diameter: float | None = None
 
     @property
@@ -303,7 +302,7 @@ class Wheel:
 
     @property
     def world_per_unit(self) -> float:
-        """Calibration units per unit of length the user enters (D-130).
+        """Calibration units per unit of length the user enters.
 
         A radius measured on the rig is a real length, and the fitted radius
         is the same length in the calibration's units, so their ratio converts

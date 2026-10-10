@@ -1,10 +1,10 @@
-"""How a sidecar beside a source file is named (D-160).
+"""How a sidecar beside a source file is named.
 
 A sidecar takes the source's **full** file name with every dot made an
 underscore, then its own tag: ``pose.csv`` -> ``pose_csv_avialfix.csv``.
 
 * **The full name**, not the stem, so ``a.csv`` and ``a.h5`` in one folder
-  cannot share a corrections file (D-099).
+  cannot share a corrections file.
 * **Underscores**, so the only extension a sidecar has is its real one.  A file
   manager, a spreadsheet and ``pathlib.Path.suffix`` all read
   ``pose_csv_avialfix.csv`` as a CSV, where ``pose.csv.avialfix.csv`` read as a

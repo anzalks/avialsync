@@ -13,8 +13,8 @@ from avialsync.core.timeline import MasterClock
 from avialsync.engine.seeker import SeekGroup
 
 if TYPE_CHECKING:
-    # ARCHITECTURE §1 layering: the engine must not depend on the UI at module
-    # scope, or `engine` cannot be imported or tested headlessly.  These names
+    # Layering: the engine must not depend on the UI at module scope, or
+    # `engine` cannot be imported headlessly.  These names
     # are used purely as annotations, so deferring them costs nothing.
     from avialsync.ui.imaging_pane import ImagingPane
     from avialsync.ui.plot_pane import PlotPane
@@ -47,7 +47,6 @@ _PRESENTATION_INTERVAL_S = 1.0 / _PRESENTATION_HZ
 #: ``perf_counter`` is ``QueryPerformanceCounter`` there (~100 ns) and is
 #: monotonic on every platform we ship, the only property ``advance`` needs.
 #: CPython gave ``monotonic`` the same clock in 3.13 (gh-88494); we cannot wait.
-#: ``tests/test_player_clock.py`` pins all of this, measurements included.
 _now = time.perf_counter
 
 
@@ -61,7 +60,7 @@ class Player(QObject):
     nudge.  The app now decodes, so it *is* the clock: every tick asks each pane
     for the frame containing master ``t``, and a pane that is slow shows an
     older frame for one tick rather than sliding out of sync.  Sync is exact by
-    construction (D-075).
+    construction.
     """
 
     def __init__(
@@ -201,7 +200,7 @@ class Player(QObject):
     def _snap_to_frame_evidence(self, t_master: float) -> float:
         """Use the first active exact mapping as the reference frame clock.
 
-        This is evidence-based sync (D-026), not decoder plumbing: when a
+        This is evidence-based sync, not decoder plumbing: when a
         camera's per-frame trigger mapping has been accepted, an exact seek
         lands the *master clock* on a real trigger instant, so an annotation
         records the time the frame was exposed rather than wherever the
@@ -224,7 +223,7 @@ class Player(QObject):
 
         The step size comes from the reference pane's own presentation
         timestamps, so it is exact on VFR and dropped-exposure footage where
-        ``t += 1/fps`` is not (D-007).  There is no decoder round-trip to wait
+        ``t += 1/fps`` is not.  There is no decoder round-trip to wait
         for: the timestamp table already says where the next frame is, so the
         step is one ordinary seek.
         """

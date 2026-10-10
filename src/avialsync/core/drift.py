@@ -1,4 +1,4 @@
-"""Clock drift as time gained per hour of recording (D-184).
+"""Clock drift as time gained per hour of recording.
 
 Drift is a rate: how far one clock runs ahead of another as time passes. It is
 held, stored, fitted and shown in one unit everywhere -- milliseconds gained

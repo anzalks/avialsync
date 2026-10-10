@@ -1,4 +1,4 @@
-"""Shared geometry for near-square ROI grids (D-193)."""
+"""Shared geometry for near-square ROI grids."""
 
 from __future__ import annotations
 

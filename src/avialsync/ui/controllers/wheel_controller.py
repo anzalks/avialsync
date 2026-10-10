@@ -1,4 +1,4 @@
-"""Wheel placement in Props: declare, click, fit, review, accept, turn, verify (D-113).
+"""Wheel placement in Props: declare, click, fit, review, accept, turn, verify.
 
 1. **Declare.** Props → Wheel → Add wheel asks for a name, bar count, 3D units,
    an optional radius and the encoder channel (:mod:`avialsync.ui.wheel_dialogs`),
@@ -16,11 +16,11 @@
 4. **Done Labelling** is available from the moment bars 1 and 2 are labelled,
    and stays so through an optional third bar. It runs one
    :class:`~avialsync.core.commands.SetWheelCommand`, so the wheel is one undo
-   step and dirties the session (rule 14). An unreliable fit is still drawn
-   with a quality warning, so the clicks are not lost (D-122, D-123).
+   step and dirties the session. An unreliable fit is still drawn
+   with a quality warning, so the clicks are not lost.
 5. **Turn.** On any other frame the wheel is turned by the encoder, read at the
    presentation time of the frame on screen -- never the clock's raw time, which
-   sits anywhere inside that frame's interval (rule 6) -- and with the encoder's
+   sits anywhere inside that frame's interval -- and with the encoder's
    *current* offset, so re-aligning the encoder moves the wheel with it.
 6. **Verify.** A click on any bar end, in one camera, on a frame a few turns
    away tests the encoder's direction; two informative checks settle it
@@ -250,7 +250,7 @@ def accept(window: MainWindow) -> None:
 
     Available once bars 1 and 2 are labelled. A fit :func:`fit_issue` rejects
     is still saved and drawn -- the clicks are the user's work and the wheel
-    is what they built -- with a warning and a Re-place offer (D-122, D-123).
+    is what they built -- with a warning and a Re-place offer.
     """
     placement = window.wheel_state.placement
     if placement is None or placement.fit is None:

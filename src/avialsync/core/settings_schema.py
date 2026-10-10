@@ -1,4 +1,4 @@
-"""One declaration of everything that is configurable (WP-7, D-092).
+"""One declaration of everything that is configurable.
 
 Real preferences already existed. They were spread across View-menu radio
 groups and five separate ``QSettings("AvialSync", "AvialSync")`` construction

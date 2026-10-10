@@ -1,4 +1,4 @@
-"""What the window says before anything is loaded (WP-8).
+"""What the window says before anything is loaded.
 
 Launching with no data gave bare splitters: no drop target, no mention of the
 entry points, and no hint that ``avialsync demo`` generates a complete sample
@@ -74,7 +74,7 @@ class EmptyState(QWidget):
 
         # The File menu's own actions, installed by the window: this said "Open
         # Sensor / Ephys Data…" beside a menu saying "Open Sensor/Ephys Data…"
-        # while it carried its own text (rule 15, D-092).
+        # while it carried its own text.
         self.open_videos_button = open_videos = ActionButton(content)
         self.open_data_button = open_data = ActionButton(content)
 

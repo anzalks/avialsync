@@ -1,11 +1,11 @@
-"""What a wheel looks like on each frame, in each view (D-113).
+"""What a wheel looks like on each frame, in each view.
 
 Split from :mod:`avialsync.ui.controllers.wheel_controller`, which decides what
 happens, and :mod:`avialsync.ui.controllers.wheel_placement`, which holds the
 wheel being labelled; this module decides what is drawn. Three rules hold here:
 
 * **Per frame, not per paint.** A wheel's bars are generated once for the frame
-  on screen and cached by frame index (rule 6); every pane only projects them.
+  on screen and cached by frame index; every pane only projects them.
 * **The frame's time, not the clock's.** The encoder is read at the
   presentation time of the frame shown -- the clock sits anywhere inside that
   frame's interval, and a fast wheel turns visibly within one.
@@ -14,7 +14,7 @@ wheel being labelled; this module decides what is drawn. Three rules hold here:
   the encoder moves the wheel with it; the reference frame is re-read the same
   way, so it stays at zero turn.
 
-No file is read here: the paint path must not block (rule 3).
+No file is read here: the paint path must not block.
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ def camera_models(window: MainWindow) -> dict[str, CameraModel]:
 
 
 def projected_hit_radius(window: MainWindow, video: str) -> float:
-    """Eight displayed pixels at this pane's current zoom, in source pixels (D-120)."""
+    """Eight displayed pixels at this pane's current zoom, in source pixels."""
     try:
         index = window.video_grid.pane_paths().index(video)
         pane = window.video_grid.panes[index]
@@ -281,7 +281,7 @@ def diameter(window: MainWindow, wheel: Wheel) -> float | None:
     """The bar diameter to draw, in calibration units: the slider's while dragged.
 
     The slider and the stored value are in the units the user measures in, so
-    both go through the wheel's own scale (D-130).
+    both go through the wheel's own scale.
     """
     typed = window.wheel_state.diameter_preview.get(wheel.name, wheel.bar_diameter)
     return None if typed is None else typed * wheel.world_per_unit

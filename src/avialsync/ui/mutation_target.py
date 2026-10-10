@@ -1,4 +1,4 @@
-"""The live application, as the command bus sees it (WP-1 step 4, D-087).
+"""The live application, as the command bus sees it.
 
 :class:`~avialsync.core.document.Document` executes commands against a
 ``MutationTarget`` — a protocol declared in ``core/`` precisely so the bus never
@@ -196,14 +196,14 @@ class WindowMutationTarget:
         position: tuple[float, float] | None,
         shown_as: str = "",
     ) -> None:
-        """Override one tracked coordinate, or restore the prediction (D-099).
+        """Override one tracked coordinate, or restore the prediction.
 
         Writes the correction store and then the corrections file beside the
         pose source; the pose file itself and its cache entry are never
         touched. This is the one funnel every correction passes through -- drag,
         undo, and redo alike -- which is why persistence hangs off it rather
         than off the store's observers: reading a sidecar in must not echo it
-        straight back out (D-099).
+        straight back out.
         """
         window = self._window
         with self.replaying():
@@ -216,7 +216,7 @@ class WindowMutationTarget:
         The single funnel every flip passes through -- the drag, its undo and
         its redo alike -- which is why the sidecar write and the cache rebuild
         hang off it rather than off the store's observers: reading a sidecar in
-        must not echo it straight back out (D-099).
+        must not echo it straight back out.
         """
         from avialsync.core.identity_swaps import SwapEvent
         from avialsync.ui.controllers import identity_controller
@@ -248,7 +248,7 @@ class WindowMutationTarget:
 
         The single funnel for add, drag, delete, undo and redo alike, so the
         marker files are written from here and never from the store's
-        observers -- reading them back in must not echo them out (D-099).
+        observers -- reading them back in must not echo them out.
         """
         from avialsync.core.custom_markers import CustomMarker
         from avialsync.ui.controllers import custom_marker_controller
@@ -260,11 +260,11 @@ class WindowMutationTarget:
                 custom_marker_controller.persist(window)
 
     def set_wheel(self, name: str, wheel: object) -> None:
-        """Place, re-fit, or remove a wheel, then write its file (D-113).
+        """Place, re-fit, or remove a wheel, then write its file.
 
         The single funnel for add, re-fit, check, remove, undo and redo alike,
         so the wheel's file is written from here and never from the store's
-        observers -- reading it back in must not echo it out (D-099).
+        observers -- reading it back in must not echo it out.
         """
         from avialsync.core.wheel import Wheel
 
@@ -370,7 +370,7 @@ class WindowMutationTarget:
 
         Reversing restores the plain offset/drift mapping the source had before
         acceptance. It deliberately does not re-derive an exact sample mapping:
-        raw timestamps are never rewritten (architecture rule 8), so the
+        raw timestamps are never rewritten, so the
         provenance the command carries is the record of what was accepted.
         """
         window = self._window
@@ -405,7 +405,7 @@ class WindowMutationTarget:
         """Snapshot enough to restore the workspace after a reset.
 
         The one place a command is allowed bulk state, and only because there is
-        no compact way to describe "everything that was open" (D-087). It is a
+        no compact way to describe "everything that was open". It is a
         session document plus the loaded paths, not a deep copy of the widgets.
         """
         window = self._window

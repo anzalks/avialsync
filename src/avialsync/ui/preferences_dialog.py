@@ -1,4 +1,4 @@
-"""Preferences, generated from the schema (WP-7, D-092).
+"""Preferences, generated from the schema.
 
 There was no Preferences window at all. Real settings existed and were spread
 across View-menu radio groups and five ``QSettings`` call sites, so nothing
@@ -72,7 +72,7 @@ def settings_report() -> str:
     Worth its weight the first time someone reports behaviour that turns out
     to be a preference they had changed and forgotten.
 
-    **Two sections, because there are two kinds of stored state (D-107).** This
+    **Two sections, because there are two kinds of stored state.** This
     used to list the nine declared settings and stop, while the application
     also persists window geometry, four splitter positions, the inspector tab,
     the recent-file list, every shortcut override, every saved workspace, and
@@ -146,7 +146,7 @@ class PreferencesDialog(QDialog):
         # dialog and nothing else -- not the window layout, the recent-file
         # list, saved workspaces, or shortcut overrides -- and a button called
         # "Reset all" that quietly means "reset these nine" is the kind of
-        # thing a user only discovers by losing something (D-107).
+        # thing a user only discovers by losing something.
         reset_all.setToolTip(
             tr(
                 "Resets the settings on this dialog. Window layout, saved layouts, "

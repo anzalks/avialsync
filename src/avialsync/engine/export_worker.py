@@ -170,7 +170,7 @@ class SnapshotWorker(QObject):
 
     The figure arrives fully captured: laying it out and painting it can cost
     tens of milliseconds at a multi-camera figure's size, which is well past
-    what the UI thread may spend (AGENTS rule 3).
+    what the UI thread may spend.
     """
 
     finished = Signal(str)
