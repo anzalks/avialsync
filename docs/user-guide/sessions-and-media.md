@@ -97,9 +97,19 @@ a video pane does. The stack opens straight away with a reading of its dimension
 axis labels when they make sense, otherwise the largest dimension as time and a small one (up to
 four) as channels, showing the first depth plane. When another reading is possible, **Axes** lists
 each one by what it would mean — for example *Time 2000 · Channels 2* — and **Plane** picks the
-depth plane; both are undoable and saved with the session. Only what cannot be read off the file
-is asked: which dataset, when it holds several, and the frame rate, when it records none
-(ImageJ's *fps* tag is a playback speed, not the acquisition rate).
+depth plane; both are undoable and saved with the session. A stack whose format fixes its axis
+order, as every AOL microscope source does, has no other reading and shows no **Axes** row. Only
+what cannot be read off the file is asked: which dataset, when it holds several, and the frame
+rate, when it records none (ImageJ's *fps* tag is a playback speed, not the acquisition rate).
+
+The viewer and the stack's card on the Sources page show its acquisition rate, worked out from
+the stack's own frame times rather than from a stated rate, so a joined experiment or a stack with
+a pause reports what it actually ran at (*unknown* for a single frame). A session that names its
+stacks, such as an AOL experiment, labels them by that name (*experiment_2 — 16 trials*) instead
+of by file name. With several stacks open, the selector above the picture switches between them;
+picking one while the playhead is outside it moves the playhead to its first frame. How AOL
+trials, experiments and their cameras load is described under
+[Supported formats](../formats.md).
 
 - **Channel** lists each acquired channel by the name the file gives it (an OME channel name, an
   NWB optical channel or series, otherwise *Ch 1*, *Ch 2*, …). Its tick box chooses which recorded

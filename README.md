@@ -128,7 +128,7 @@ them caused real bugs. Participation is governed by our
 
 Good places to start are format plugins (the `TimeSeriesSource` / `VideoSource` contracts are frozen
 — see the [plugin guide](https://avialsync.readthedocs.io/en/latest/plugin-guide.html)), platform
-verification on real hardware, and the open items under "Pending" in `HANDOUT.md`.
+verification on real hardware, and the [open issues](https://github.com/anzalks/avialsync/issues).
 
 ## Licence
 

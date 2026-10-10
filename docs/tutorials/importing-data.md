@@ -68,7 +68,10 @@ a measurement tool is a trust problem, not a performance one.
 
 Every drop that produces one or more import candidates opens the batch review, whether you drop a
 single file, several files, or a folder. Each row shows the file and detected type; confirm or change
-the choice, skip a row, or adjust its role before importing.
+the choice, skip a row, or adjust its role before importing. A file a session plugin named offers
+only **Skip** or its own type, since the session already knows what it is; a loose file lists every
+installed format. The **Use as** and **Calibration (XCP)** columns appear only while some row has a
+pose role or a Vicon calibration to choose.
 
 Session plugins still lay out recognized folders and provide shared timing, labels, and import
 defaults. Their candidates appear in the same review as files recognized by individual loaders; a

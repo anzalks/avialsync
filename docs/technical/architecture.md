@@ -64,7 +64,7 @@ style's small centre grip. Point names do not imply scientific topology, so the 
 from them. It does derive them from the trajectories: pairs whose separation holds steady across a
 strided sample of the recording are joined by a minimum spanning tree, rooted at the topmost point
 so the bones have a direction. A skeleton the session declared always wins, and a derived one is
-drawn dashed and labelled `detected` rather than passed off as the recording's own (D-082).
+drawn dashed and labelled `detected` rather than passed off as the recording's own.
 
 For exact paused-frame verification, AvialSync reads the pixels the pane actually painted and
 decodes a frame-index strip out of them, rather than trusting a returned seek command or a reported
@@ -123,6 +123,6 @@ provenance. It does not embed, modify, or replace the original recordings. Acqui
 analysis live outside the core viewer. Labs extend formats, event meaning, and optional analysis with
 plugins.
 
-The maintained detailed design record is in `ARCHITECTURE.md`, `BLUEPRINT.md`, and `DECISIONS.md` at
-the repository root. Those documents record the implementation phases, performance requirements, and
-settled architectural decisions.
+Contributors will find the detailed design record — the full architecture, its performance
+requirements, and the reasoning behind settled decisions — in the
+[repository](https://github.com/anzalks/avialsync) rather than in this user documentation.

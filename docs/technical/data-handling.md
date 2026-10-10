@@ -7,7 +7,7 @@ A valid cache must be used on later viewing so a large source is not repeatedly 
 includes source content information, including a content-hash tail, to avoid treating a changed file
 as unchanged.
 
-All cached data lives in one per-user folder, never beside the recording (D-160):
+All cached data lives in one per-user folder, never beside the recording:
 
 | Platform | Cache folder |
 |---|---|
@@ -141,13 +141,13 @@ timestamp, value, and validity/gap information. CSV export may retain separated 
 but both formats must use searchsorted slice bounds and chunked writers instead of allocating a
 full-recording boolean mask.
 
-For a pose source, accepted identity swaps and point corrections form one edit program (D-142).
-Corrections address raw file columns and retain the label shown when they were made (D-143).
+For a pose source, accepted identity swaps and point corrections form one edit program.
+Corrections address raw file columns and retain the label shown when they were made.
 Only affected channels are materialised into fingerprinted generations under the source's cache
 entry, in `edited/`; the imported arrays and original recording remain unchanged.
 The corrected pose CSV streams each row, substitutes raw-column corrections, then permutes all
 fields of routed points. A swap-only source also produces this single edited copy; the export
-path must differ from the recording path (D-145).
+path must differ from the recording path.
 View → Play original switches the readers back to the imported arrays without altering the
 edit program or the corrected export, and the choice is persisted in the session.
 

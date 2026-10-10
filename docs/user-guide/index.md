@@ -13,7 +13,9 @@
   visible span. A smaller limit gives fine adjustment; a larger unit gives coarse adjustment.
   Left-click a trace to move the shared playhead to that exact time across every view.
 - **Data Streams** shows when every loaded file is available. A coloured span means the source has
-  data; an empty span means it does not.
+  data; an empty span means it does not. A session made of trials adds a **Trials** lane, and its
+  trial boundaries are drawn dashed on every plot row. Clicking inside the visible page window
+  moves the playhead there; only a drag moves the window itself.
 - **Shared time bar** moves every view together.
 - **Left panel** has a page rail with **Sources** (files, visibility, offsets, properties),
   **Values**, **Messages** (prose the recording itself carries), **Changes** (everything you
@@ -142,7 +144,8 @@ Numbers use a full stop as the decimal separator everywhere, whatever your syste
 settings, and spin boxes accept it the same way; imported files are still read in their own
 format.
 The playback row holds back/forward jumps, frame steps, **Play**, editable time, the scrubber,
-end time, loop controls and playback rate. The status bar reports activity and short status
+end time, loop controls and playback rate. With no video open, the frame steps (and the Left and
+Right keys) walk the imaging stack's frames, or the plotted samples when there is no imaging. The status bar reports activity and short status
 messages. Hover over a glyph button to read its action name. Physical props are managed in the
 **Props** tab; see [Physical props](#physical-props).
 

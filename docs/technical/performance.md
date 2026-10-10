@@ -40,8 +40,8 @@ The remaining release gate is measurement, not another implementation claim:
 - Record populated 4/32/128-channel latency, peak RSS and warm reopen for the 1 GB import workload.
 - Measure decoder settle through the frame actually painted, including p50/p95/p99 and maximum UI
   heartbeat delay.
-- Retain the representative operating-system and mid-spec-machine checks described in the
-  project `HANDOUT.md`; existing microbenchmarks are baselines, not certification.
+- Keep checking on each supported operating system and on a mid-spec machine; existing
+  microbenchmarks are baselines, not certification.
 
 **Known responsiveness caveat:** On macOS, the first system-accent lookup can synchronously run
 `defaults` with a one-second timeout. The result is cached, so this does not repeat on each paint.

@@ -102,10 +102,10 @@ Return session-wide settings as `SessionLayout` fields, not as extra items:
 the recording started), `anchor_epoch` (the UTC instant relative timestamps are
 measured from — it also switches the display to wall-clock time), `camera_fps`,
 `skeleton` (body-part pairs; declaring them takes precedence over the
-skeleton the 3D view otherwise detects from pairwise rigidity, D-082), and
+skeleton the 3D view otherwise detects from pairwise rigidity), and
 `rotary` (a `RotaryHint` naming the channel that carries a running wheel's
 cumulative angle in degrees, and the wheel's bar count and radius when your rig
-records them, D-113 — it pre-fills the wheel setup in Props and is never applied on its own). Set a
+records them — it pre-fills the wheel setup in Props and is never applied on its own). Set a
 `SessionItem.loader` of `None` to let capability resolution pick one, which is
 what you should do for ordinary video.
 
@@ -159,7 +159,7 @@ application cannot tell which you meant.
 **Never put a placement in `config`.** `config` is hashed into the cache
 key, so an offset there lets a re-placement invalidate the samples underneath it
 — and it lands in the offset control the user nudges by hand, which is how an
-AOL session came to open with -34526 s already typed into every camera (D-110).
+AOL session came to open with -34526 s already typed into every camera.
 `source_epoch` is a `SessionItem` field for exactly that reason, as `label` and
 `coverage_group` are.
 
@@ -167,7 +167,7 @@ AOL session came to open with -34526 s already typed into every camera (D-110).
 unreadable recording beside three good ones should still yield the three — do not
 fail the whole scan — but returning fewer items and nothing else leaves a session
 that looks complete while missing data. Each string is shown to the user; the log
-is not (D-085).
+is not.
 
 ```python
 return SessionLayout(items=items, warnings=[f"{name} could not be read — {why}"])
@@ -248,14 +248,14 @@ notes rather than pinning them to the start of the recording. Do not substitute
 
 Messages are displayed read-only, in their own Inspector page and timeline lane.
 They are not annotations — the user's own markers are separate, editable, and
-exported as their work (see D-078).
+exported as their work.
 
 **Do not return a note the file wrote about itself.** A sync preamble — the line
 declaring the recording's start sample or its software clock — places the clock
 rather than saying anything a person wrote, and listing it puts the same two rows
 at the head of every recording a user opens. Parse it for the times you need and
 withhold it, as both Open Ephys readers do with `sync_messages.txt` and with
-`messages.events`' `Software time:` and `start time:` lines (D-085).
+`messages.events`' `Software time:` and `start time:` lines.
 
 If your format stores a message as a sample number, divide by the rate onto the
 **same axis your `read_chunks` timestamps use**. Rebasing onto the first recorded

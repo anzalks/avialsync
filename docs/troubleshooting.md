@@ -38,6 +38,18 @@ If video still does not appear, open **Help → Diagnostics**: it names the deco
 there means the install is broken, not merely incomplete, so reinstall with
 `python -m pip install --force-reinstall avialsync`.
 
+## AvialSync freezes and uses no CPU
+
+PySide6 6.12.0 can deadlock when a Qt object is destroyed on a background thread: the window stops
+responding and the process sits at 0 % CPU. `pip install avialsync` therefore installs a PySide6
+below 6.12. If something else upgraded it in the same environment, put the supported version back:
+
+```bash
+python -m pip install "PySide6<6.12"
+```
+
+The desktop installers bundle a supported version and are not affected.
+
 ## A video says “No Footage”
 
 This is usually correct: the selected master time is outside that camera’s recording. Check its span
