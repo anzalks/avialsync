@@ -317,6 +317,10 @@ class JobManager(QObject):
     def is_busy(self) -> bool:
         return bool(self._jobs)
 
+    def is_shutting_down(self) -> bool:
+        """Whether :meth:`shutdown` has run; nothing new should start after it."""
+        return self._shutting_down
+
     def stalled_jobs(self) -> list[Job]:
         """Jobs that have gone quiet for longer than the watchdog allows."""
         return [job for job in self._jobs.values() if job.state is JobState.NOT_RESPONDING]

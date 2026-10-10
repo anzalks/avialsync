@@ -113,6 +113,7 @@ from avialsync.ui.coverage_lanes import SourceCoverage
 from avialsync.ui.empty_state import EmptyState
 from avialsync.ui.export_panel import ExportPanel
 from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
+from avialsync.ui.feedback.cache_indicator import CacheIndicator
 from avialsync.ui.feedback.error_presenter import present
 from avialsync.ui.feedback.tasks_button import TasksButton
 from avialsync.ui.feedback.text_dialog import show_text
@@ -274,6 +275,7 @@ class MainWindow(QMainWindow):
     _act_save_session: QAction
     _act_reset_session: QAction
     _act_export_changes: QAction
+    _act_delete_all_cache: QAction
     _act_snapshot: QAction
     _act_fix_tracker: QAction
     _act_fix_identities: QAction
@@ -1038,6 +1040,9 @@ class MainWindow(QMainWindow):
         the data it is reporting on.
         """
         self.statusBar().addWidget(self.transport.status_line, 1)
+        self.cache_indicator = CacheIndicator(self._job_manager, self._run_job, self)
+        self.cache_indicator.set_clear_action(self._act_delete_all_cache)
+        self.statusBar().addPermanentWidget(self.cache_indicator)
         self.statusBar().addPermanentWidget(self.activity_bar)
         self.tasks_button = TasksButton(self.jobs_panel, self)
         self.statusBar().addPermanentWidget(self.tasks_button)
@@ -1103,6 +1108,9 @@ class MainWindow(QMainWindow):
         some later job happened to start, and an idle application showed work
         in progress that had finished minutes ago.
         """
+        # Commands that wait for idle (the cache ones) are also buttons outside
+        # any menu, so they cannot wait for a menu to open to be re-answered.
+        self._refresh_action_availability()
         text = self._job_manager.status_text()
         if not text:
             self.transport.set_status("Ready")

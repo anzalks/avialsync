@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QMenu, QMenuBar
 
+from avialsync.ui.feedback.cache_indicator import is_measuring
 from avialsync.ui.i18n import tr
 
 if TYPE_CHECKING:
@@ -216,8 +217,9 @@ def _file_cache(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
 
     def idle() -> bool:
         # A job may be writing into the cache, or a sidecar beside the data
-        # that the reload would then read half-written.
-        return not window._job_manager.is_busy()
+        # that the reload would then read half-written. Measuring its size
+        # writes nothing, and must not grey out the button beside the size.
+        return not any(not is_measuring(job) for job in window._job_manager.jobs())
 
     cache_menu = file_menu.addMenu(tr("Cache"))
     # Opening the submenu re-answers its preconditions: a job may have finished
@@ -236,7 +238,7 @@ def _file_cache(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
         tr("Open a trial, and let background work finish — its cache is what this deletes."),
     )
 
-    act = cache_menu.addAction(tr("Delete All Cache"))
+    act = window._act_delete_all_cache = cache_menu.addAction(tr("Delete All Cache"))
     act.setStatusTip(
         tr("Delete every cached import. Recordings, corrections and sessions are not touched.")
     )

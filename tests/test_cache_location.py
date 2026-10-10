@@ -467,3 +467,16 @@ def test_an_unwritable_cache_folder_costs_the_timestamp_cache_not_the_video(
         assert reader.frame_count == 10
 
     assert not cache_dir_for(video).exists()
+
+
+def test_cache_size_counts_the_folder_and_a_hard_link_once(tmp_path) -> None:
+    import os
+
+    assert cache_store.cache_size(tmp_path / "missing") == 0
+    entry = tmp_path / "sources" / "a"
+    entry.mkdir(parents=True)
+    (entry / "t.bin").write_bytes(b"\0" * 1000)
+    os.link(entry / "t.bin", entry / "t_again.bin")
+    (tmp_path / "stray.txt").write_bytes(b"\0" * 10)
+
+    assert cache_store.cache_size(tmp_path) == 1010

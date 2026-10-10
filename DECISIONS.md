@@ -6844,3 +6844,19 @@ card's kind glyph is a `QPushButton` made transparent to the mouse, an icon, not
 sweep-window unit selector changes the unit without changing the duration, by design. Quit,
 Delete All Cache, Show Cache Folder and the Help links were run against the test sandboxes and
 work; Quit and the Documentation and Check for Updates links now have tests.
+
+---
+
+## 2026-10 · D-215 · The status bar shows the cache's size beside Delete All Cache
+
+**Decision.** `ui/feedback/cache_indicator.CacheIndicator` sits in the status bar, before the
+activity area: `Cache: 1.2 GB` (the whole cache folder, a hard-linked file counted once,
+`cache_store.cache_size`) and an `ActionButton` bound to File → Cache → Delete All Cache. It is
+measured by `CacheSizeWorker` through `_run_job` with a 2 s announce delay, so a quick measurement
+never reaches the Tasks panel. It measures when first shown and again 750 ms after every other job
+has finished, since imports and deletions are what change it; nothing polls the disk.
+
+The button carries the action's own name, not "Clear": a menu item and the button that invokes the
+same command are never named independently (rule 15). The cache commands' idle precondition ignores
+the measuring job, which writes nothing, and `_on_jobs_changed` now re-answers preconditions, so
+the button greys while an import runs and returns when it ends without a menu being opened.

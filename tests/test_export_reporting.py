@@ -26,6 +26,7 @@ import pytest
 from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
+from avialsync.engine.cache_size_worker import CacheSizeWorker
 from avialsync.engine.stimulus_grid_export import GridLabels, GridVideo
 from avialsync.ui import recovery
 from avialsync.ui.controllers import export_controller
@@ -63,9 +64,11 @@ def test_a_data_export_is_a_registered_job(window: MainWindow, tmp_path: Path, q
     started: list[str] = []
     real_start = window._job_manager.start
 
-    def recording_start(label, worker, configure=None):
-        started.append(label)
-        return real_start(label, worker, configure=configure)
+    def recording_start(label, worker, configure=None, **options):
+        # The status bar's cache measurement may start meanwhile; it is not the export.
+        if not isinstance(worker, CacheSizeWorker):
+            started.append(label)
+        return real_start(label, worker, configure=configure, **options)
 
     window._job_manager.start = recording_start  # type: ignore[method-assign]
 
@@ -80,9 +83,11 @@ def test_a_video_clip_export_is_a_registered_job(window: MainWindow, tmp_path: P
     started: list[str] = []
     real_start = window._job_manager.start
 
-    def recording_start(label, worker, configure=None):
-        started.append(label)
-        return real_start(label, worker, configure=configure)
+    def recording_start(label, worker, configure=None, **options):
+        # The status bar's cache measurement may start meanwhile; it is not the export.
+        if not isinstance(worker, CacheSizeWorker):
+            started.append(label)
+        return real_start(label, worker, configure=configure, **options)
 
     window._job_manager.start = recording_start  # type: ignore[method-assign]
 
@@ -99,9 +104,11 @@ def test_a_stimulus_grid_export_is_a_registered_job(window: MainWindow, tmp_path
     started: list[str] = []
     real_start = window._job_manager.start
 
-    def recording_start(label, worker, configure=None):
-        started.append(label)
-        return real_start(label, worker, configure=configure)
+    def recording_start(label, worker, configure=None, **options):
+        # The status bar's cache measurement may start meanwhile; it is not the export.
+        if not isinstance(worker, CacheSizeWorker):
+            started.append(label)
+        return real_start(label, worker, configure=configure, **options)
 
     window._job_manager.start = recording_start  # type: ignore[method-assign]
 

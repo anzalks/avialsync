@@ -23,6 +23,7 @@ from avialsync.core import cache_store
 from avialsync.core.cache import cache_root
 from avialsync.core.errors import CacheError
 from avialsync.ui.controllers import session_controller
+from avialsync.ui.feedback.cache_indicator import format_size
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import on_ui_thread
 
@@ -123,7 +124,7 @@ def _report(
 ) -> None:
     """Say what was removed, what was kept, and what happens next."""
     message = tr("Deleted {n} cached import(s) for {where}, freeing {size}.").format(
-        n=report.removed, where=where, size=_size(report.freed_bytes)
+        n=report.removed, where=where, size=format_size(report.freed_bytes)
     )
     if restored:
         message += " " + tr("Re-importing from the original files.")
@@ -137,15 +138,3 @@ def _report(
         )
         return
     window.notifications.show_success(message)
-
-
-def _size(count: int) -> str:
-    """A byte count as people read it: ``12.3 GB``."""
-    if count < 1000:
-        return f"{count} B"
-    value = count / 1000
-    for unit in ("KB", "MB"):
-        if value < 1000:
-            return f"{value:.1f} {unit}"
-        value /= 1000
-    return f"{value:.1f} GB"

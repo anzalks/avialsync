@@ -40,6 +40,10 @@ only the time a re-import takes. **File → Cache** offers three commands:
 - **Delete All Cache** deletes the cached imports of every recording you have opened.
 - **Show Cache Folder** opens the folder in your file manager.
 
+The status bar always shows how much disk the cache holds, as **Cache: 1.2 GB**, with
+**Delete All Cache** beside it. The figure is measured again whenever background work such as an
+import or a deletion finishes.
+
 ![The File → Cache submenu with its three commands](../_static/screenshots/feature_menu_file_cache.png)
 
 Your own work is never in the cache: tracking corrections, identity swaps, custom markers and

@@ -693,6 +693,8 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/controllers/aol_microscope_controller.py` | Align-menu search, evidence review, and explicit grouped undoable placement of a loaded AOL trial | `find_trial()`, `accept_trial_pair()` |
 | `engine/session_worker.py` | Off-thread `.avv` save/load | `SessionSaveWorker`, `SessionLoadWorker` |
 | `engine/cache_worker.py` | Off-thread cache removal for File → Cache (D-160) | `CacheRemovalWorker` |
+| `engine/cache_size_worker.py` | Off-thread measurement of the cache folder for the status-bar readout (D-215) | `CacheSizeWorker` |
+| `ui/feedback/cache_indicator.py` | Status-bar `Cache: 1.2 GB` beside the Delete All Cache action; re-measured when every other job has finished, never polled (D-215) | `CacheIndicator`, `format_size()`, `is_measuring()` |
 | `engine/export_worker.py` | Off-thread region stats / data slice / clip / snapshot | `RegionStatsWorker`, `DataExportWorker`, `SnapshotWorker` (takes a `SnapshotFigure`), `ReaderReference` |
 | `engine/video_worker.py` | Off-thread video probe before native pane creation | `VideoOpenWorker` |
 | `loaders/aol_session_loader.py` | AOL MP4/AVI folder detection + manifest (pose, encoder, per-frame times). Uses exact stems and shared median camera start; cross-checks the timing report without blocking partial loads (D-202) | `is_aol_session()`, `build_manifest()`, `AOLManifest`, `AOL2DTrack` |

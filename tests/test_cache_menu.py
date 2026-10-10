@@ -23,6 +23,7 @@ from avialsync.core.cache import CACHE_DIR_ENV, CacheManager, cache_dir_for, cac
 from avialsync.loaders.csv_loader import CSVLoader
 from avialsync.ui import recovery
 from avialsync.ui.controllers import cache_controller
+from avialsync.ui.feedback.cache_indicator import format_size
 from avialsync.ui.main_window import MainWindow
 
 _CONFIG = {"time_col": "time", "time_unit": "s", "separator": ","}
@@ -130,7 +131,17 @@ def test_trial_deletion_needs_a_trial_and_an_idle_workspace(
     window._refresh_action_availability()
     assert _action(window, "Delete Cache for This Trial").isEnabled()
 
-    monkeypatch.setattr(window._job_manager, "is_busy", lambda: True)
+    from types import SimpleNamespace
+
+    from avialsync.engine.cache_size_worker import CacheSizeWorker
+
+    measuring = SimpleNamespace(worker=CacheSizeWorker(tmp_path))
+    monkeypatch.setattr(window._job_manager, "jobs", lambda: [measuring])
+    window._refresh_action_availability()
+    assert _action(window, "Delete All Cache").isEnabled(), "measuring the size writes nothing"
+
+    importing = SimpleNamespace(worker=object())
+    monkeypatch.setattr(window._job_manager, "jobs", lambda: [measuring, importing])
     window._refresh_action_availability()
     assert not _action(window, "Delete Cache for This Trial").isEnabled()
     assert not _action(window, "Delete All Cache").isEnabled()
@@ -235,7 +246,7 @@ def test_show_cache_folder_opens_the_root(
     [(0, "0 B"), (999, "999 B"), (1500, "1.5 KB"), (2_500_000, "2.5 MB"), (3 * 10**10, "30.0 GB")],
 )
 def test_sizes_read_the_way_people_say_them(count: int, text: str) -> None:
-    assert cache_controller._size(count) == text
+    assert format_size(count) == text
 
 
 def test_unsaved_marking_belongs_to_one_restore_only() -> None:
@@ -250,3 +261,31 @@ def test_unsaved_marking_belongs_to_one_restore_only() -> None:
     runtime.dirty_after_restore = 4
     runtime.generation += 1
     assert not runtime.take_dirty_after_restore()
+
+
+def test_the_status_bar_shows_the_cache_size_beside_delete_all(
+    window: MainWindow, qtbot, tmp_path: Path
+) -> None:
+    """Measured once shown, and again after a job that may have changed it."""
+    indicator = window.cache_indicator
+    assert indicator.clear_button.action is _action(window, "Delete All Cache")
+    assert indicator.clear_button.text() == "Delete All Cache", "one name, the command's"
+
+    window.show()
+    qtbot.waitUntil(lambda: indicator.label.text() != "Cache: …", timeout=10_000)
+    before = indicator.label.text()
+
+    _import(window, qtbot, _recording(tmp_path / "data" / "trial1"))
+    qtbot.waitUntil(lambda: indicator.label.text() != before, timeout=10_000)
+    assert indicator.label.text().startswith("Cache: ")
+    assert indicator.label.text() != "Cache: 0 B"
+
+
+def test_the_measurement_stays_out_of_the_tasks_panel(window: MainWindow) -> None:
+    """A quick measurement is not a task the user needs told about."""
+    started: list[dict] = []
+    window.cache_indicator._run_job = lambda worker, **options: started.append(options)
+
+    window.cache_indicator.refresh()
+
+    assert started and started[0]["announce_after_s"] >= 1.0

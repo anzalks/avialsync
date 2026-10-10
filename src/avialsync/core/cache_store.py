@@ -39,6 +39,7 @@ from avialsync.core.edit_cache import pinned_cache_entries
 __all__ = [
     "CacheEntry",
     "RemovalReport",
+    "cache_size",
     "entries_under",
     "list_entries",
     "remove_all",
@@ -241,6 +242,16 @@ def _sweep_trash(sources: Path) -> None:
     for child in children:
         if child.name.startswith(TRASH_PREFIX) and not child.is_symlink():
             shutil.rmtree(child.path, ignore_errors=True)
+
+
+def cache_size(root: Path | None = None) -> int:
+    """Bytes the cache folder holds on disk; ``0`` when it does not exist yet.
+
+    The whole folder, not only recognised entries: it is what the disk gives
+    up, and what the user sees in their file manager.
+    """
+    folder = root if root is not None else cache_root()
+    return _tree_size(folder) if folder.is_dir() else 0
 
 
 def _tree_size(directory: Path) -> int:
