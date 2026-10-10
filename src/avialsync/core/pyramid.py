@@ -14,7 +14,7 @@ from typing import Any
 import numpy as np
 
 from avialsync.core.channel_store import level_stem, read_level, safe_save, write_times
-from avialsync.core.columns import RegularTimes, fit_regular, no_gaps
+from avialsync.core.columns import RegularTimes, ScaledColumn, fit_regular, no_gaps
 
 LEVELS = [1, 16, 256, 4096]
 
@@ -138,23 +138,47 @@ def _aggregate_pyramid_level(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Aggregate one pyramid level from the preceding level's min/max envelopes."""
     n = len(t)
+    n_trunc = n - n % factor
+    t_dec = t[:n_trunc:factor]
+    if n_trunc < n:
+        t_dec = np.concatenate((t_dec, t[n_trunc : n_trunc + 1]))
+    min_dec, max_dec = _aggregate_envelope(v_min, v_max, factor)
+    return t_dec, min_dec, max_dec
+
+
+def _aggregate_envelope(
+    v_min: np.ndarray, v_max: np.ndarray, factor: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Each run of *factor* buckets' lowest minimum and highest maximum."""
+    n = len(v_min)
     remainder = n % factor
     n_trunc = n - remainder
-
-    t_dec = t[:n_trunc:factor]
+    same = v_min is v_max
     min_dec, max_dec = _nan_envelope(
         v_min[:n_trunc].reshape(-1, factor),
-        v_max[:n_trunc].reshape(-1, factor),
+        (v_min if same else v_max)[:n_trunc].reshape(-1, factor),
         axis=1,
     )
-
     if remainder:
-        t_dec = np.concatenate((t_dec, t[n_trunc : n_trunc + 1]))
         rem_min, rem_max = _nan_envelope(v_min[n_trunc:], v_max[n_trunc:])
         min_dec = np.concatenate((min_dec, [rem_min]))
         max_dec = np.concatenate((max_dec, [rem_max]))
+    return min_dec, max_dec
 
-    return t_dec, min_dec, max_dec
+
+def _order_space(column: Any) -> tuple[Any, Any, tuple[Any, ...] | None]:
+    """``(stored, convert, key)``: *column* as stored values and their conversion.
+
+    Only a conversion that never reverses two values' order is offered (every
+    multiplier positive), so the envelope of the stored values, converted, is
+    the envelope of the converted values. Columns that share a *key* convert
+    alike. A column without one is used as it reads.
+    """
+    if isinstance(column, ScaledColumn) and all(scale > 0 for scale in column.scales):
+        return column.raw, column.convert, column.conversion
+    if isinstance(column, np.ndarray) and not np.issubdtype(column.dtype, np.integer):
+        return column, None, ("as stored", column.dtype.str)
+    return column, None, None
 
 
 def _aggregate_gap_mask(gap_mask: np.ndarray, factor: int) -> np.ndarray:
@@ -515,7 +539,9 @@ class PyramidReader:
         t, v, _, _ = self._load_level(1)
         if len(t) == 0:
             return None
-        index = int(np.searchsorted(t, t_target, side="right")) - 1
+        # The method, not np.searchsorted: the same answer without NumPy's dispatch,
+        # on a stored array or a grid alike.
+        index = int(t.searchsorted(t_target, side="right")) - 1
         index = max(0, min(index, len(v) - 1))
         return index, float(v[index])
 
@@ -633,59 +659,93 @@ class PyramidReader:
             chosen_level = level
 
         t, vmin, vmax, gap = self._load_level(chosen_level)
+        first, last = int(i0), int(i1)
         if chosen_level == 1:
-            t, vmin, vmax, gap = (column[int(i0) : int(i1)] for column in (t, vmin, vmax, gap))
+            start, stop, left, right = first, last, None, None
+            edge_t: Any = None
+            edge_v: Any = None
+            edge_gap: Any = None
         else:
             # Stored buckets are aligned by sample index. Selecting by their
             # first timestamp misses a bucket overlapping the left edge and
             # includes out-of-window values at the right edge. Reduce only the
             # two partial buckets from raw samples; the interior stays mmapped.
-            raw_t, raw_v, _, raw_gap = self._load_level(1)
-            first = int(i0)
-            last = int(i1)
+            edge_t, edge_v, _, edge_gap = self._load_level(1)
             left_stop = min(last, -(-first // chosen_level) * chosen_level)
             full_stop = (last // chosen_level) * chosen_level
             right_start = max(left_stop, full_stop)
-            parts: list[tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = []
-            if first < left_stop:
-                parts.append(self._edge_envelope(raw_t, raw_v, raw_gap, first, left_stop))
-            if left_stop < full_stop:
-                start_bucket = left_stop // chosen_level
-                stop_bucket = full_stop // chosen_level
-                parts.append(
-                    (
-                        t[start_bucket:stop_bucket],
-                        vmin[start_bucket:stop_bucket],
-                        vmax[start_bucket:stop_bucket],
-                        gap[start_bucket:stop_bucket],
-                    )
-                )
-            if right_start < last:
-                parts.append(self._edge_envelope(raw_t, raw_v, raw_gap, right_start, last))
-            if not parts:
-                return np.array([]), np.array([]), np.array([]), np.array([], dtype=bool)
-            t, vmin, vmax, gap = (np.concatenate(columns) for columns in zip(*parts, strict=True))
-
-        if len(t) <= budget:
-            return t, vmin, vmax, gap
-
+            start = left_stop // chosen_level
+            stop = max(start, full_stop // chosen_level)
+            left = (first, left_stop) if first < left_stop else None
+            right = (right_start, last) if right_start < last else None
+        edges = [edge for edge in (left, right) if edge is not None]
+        total = (stop - start) + len(edges)
+        if total == 0:
+            return np.array([]), np.array([]), np.array([]), np.array([], dtype=bool)
         # -(-a // b) is ceiling division: land at or under the budget, never over.
-        factor = int(-(-len(t) // budget))
-        t_dec, min_dec, max_dec = _aggregate_pyramid_level(t, vmin, vmax, factor)
-        return t_dec, min_dec, max_dec, _aggregate_gap_mask(gap, factor)
+        factor = 1 if total <= budget else int(-(-total // budget))
+
+        # Reduce the stored values and convert only what is returned, when
+        # the conversion keeps their order (D-216): an in-place recording's
+        # envelope then costs what a stored float column's did.
+        same = vmin is vmax
+        columns = [vmin, vmax] + ([edge_v] if edges else [])
+        spaces = [_order_space(column) for column in columns]
+        convert = spaces[0][1]
+        if all(space[2] is not None and space[2] == spaces[0][2] for space in spaces):
+            low, high = spaces[0][0], spaces[1][0]
+            edge_v = spaces[-1][0]
+        else:
+            low, high, convert = vmin, vmax, None
+
+        lows = low[start:stop]
+        highs = lows if same else high[start:stop]
+        gaps = gap[start:stop]
+        if edges:
+            pieces: list[tuple[Any, Any, Any]] = []
+            for a, b in edges:
+                block = edge_v[a:b]
+                minimum, maximum = _nan_envelope(block, block)
+                gapped = bool(np.any(edge_gap[a:b]))
+                pieces.append((np.array([minimum]), np.array([maximum]), np.array([gapped])))
+            before = [pieces[0]] if left is not None else []
+            after = [pieces[-1]] if right is not None else []
+            lows, highs, gaps = (
+                np.concatenate([p[n] for p in before] + [inner] + [p[n] for p in after])
+                for n, inner in enumerate((lows, highs, gaps))
+            )
+            same = False
+        if factor > 1:
+            lows, highs = _aggregate_envelope(lows, highs, factor)
+            gaps = _aggregate_gap_mask(gaps, factor)
+            same = False
+        if convert is not None:
+            lows = convert(lows)
+            highs = lows if same else convert(highs)
+        return self._times_at(t, start, stop, edge_t, left, right, factor), lows, highs, gaps
 
     @staticmethod
-    def _edge_envelope(
-        times: np.ndarray, values: np.ndarray, gaps: np.ndarray, start: int, stop: int
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """Reduce one partial stored bucket using only visible raw samples."""
-        minimum, maximum = _nan_envelope(values[start:stop], values[start:stop])
-        return (
-            times[start : start + 1],
-            np.array([minimum]),
-            np.array([maximum]),
-            np.array([bool(np.any(gaps[start:stop]))]),
-        )
+    def _times_at(
+        t: Any,
+        start: int,
+        stop: int,
+        edge_t: Any,
+        left: tuple[int, int] | None,
+        right: tuple[int, int] | None,
+        factor: int,
+    ) -> np.ndarray:
+        """Every *factor*-th time of [left edge] + ``t[start:stop]`` + [right edge], unbuilt."""
+        offset = 1 if left is not None else 0
+        first = -(-offset // factor) * factor - offset  # the first kept interior position
+        inner = t[start + first : stop : factor]
+        if left is None and (right is None or (offset + stop - start) % factor):
+            return np.asarray(inner)
+        parts = [np.asarray(inner, dtype=np.float64)]
+        if left is not None:
+            parts.insert(0, np.array([edge_t[left[0]]], dtype=np.float64))
+        if right is not None and (offset + stop - start) % factor == 0:
+            parts.append(np.array([edge_t[right[0]]], dtype=np.float64))
+        return np.concatenate(parts)
 
     def value_at(self, t_target: float) -> float:
         """

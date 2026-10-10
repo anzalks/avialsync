@@ -157,6 +157,40 @@ def test_open_ephys_samples_stay_in_the_recording(recording: Path) -> None:
     assert stored < raw / 4
 
 
+def test_in_place_reads_answer_as_the_copied_samples_do(recording: Path, tmp_path: Path) -> None:
+    """Plot envelopes reduced from stored counts, and single samples looked up, equal the copy's."""
+    cache = _import(recording, NeoLoader)
+    loader = NeoLoader()
+    loader.open(recording, {})
+    times, values = _loader_columns(loader, "CH2")
+    copied = tmp_path / "copied"
+    copied.mkdir()
+    PyramidBuilder(copied, "CH2").build_and_save(times, values)
+    in_place, reference = PyramidReader(cache, "CH2"), PyramidReader(copied, "CH2")
+    assert isinstance(in_place.mapped_columns()[1], ScaledColumn)
+    first, last = float(times[0]), float(times[-1])
+    windows = [(first, last), (first + 0.0123, last - 0.0456), (0.5, 0.5004), (0.3, 1.7)]
+    for t0, t1 in windows:
+        for budget in (1, 7, 300, 1400, 50_000):
+            for ours, theirs in zip(
+                in_place.query(t0, t1, budget), reference.query(t0, t1, budget), strict=True
+            ):
+                np.testing.assert_array_equal(np.asarray(ours), np.asarray(theirs))
+    for target in np.random.default_rng(3).uniform(first - 1, last + 1, 200):
+        assert in_place.sample_at(float(target)) == reference.sample_at(float(target))
+
+
+def test_one_sample_reads_as_the_whole_column_converts_it() -> None:
+    """Single samples come from a table of every 16-bit value; it must agree with the bulk path."""
+    raw = np.arange(-32_768, 32_768, dtype=np.int64).astype(np.int16)
+    for scales, offset in (((0.195,), 0.0), ((-0.25, 3.0), 1.5)):
+        column = ScaledColumn(raw, scales, offset)
+        bulk = column[:]
+        assert all(column[n] == bulk[n] for n in (0, 1, 32_767, 32_768, -1))
+        column[0]  # builds the table
+        np.testing.assert_array_equal([column[n] for n in range(0, len(raw), 997)], bulk[::997])
+
+
 def test_dropped_sample_numbers_date_samples_by_their_numbers(recording: Path) -> None:
     """The header's rate claims a grid; the data's own numbers say a sample went missing."""
     numbers_path = next(recording.rglob("timestamps.npy"))

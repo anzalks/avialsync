@@ -6889,10 +6889,12 @@ the button greys while an import runs and returns when it ends without a menu be
   read in place. (The copying path, via neo, uses the header grid only, as before.)
 - **AOL cameras joined across trials are read in place.** The join writes a manifest
   (`joined.segments.json`) naming each trial file and its kept frames, counted from the file's own
-  AVI index, plus the per-frame sidecar as before; no footage is read or copied.
-  `engine/segmented_media.SegmentedReader` (which `PyAVReader(path)` returns for a manifest) plays
-  the files as one video, each through its own `PyAVReader` and ordinary seeks, at most two files
-  open. Clip export and proxy encoding read a manifest file by file. A trial whose index cannot vouch
+  AVI index, and their timestamps (`joined.ticks.npy`), plus the per-frame sidecar as before; no
+  footage is read or copied. `engine/segmented_media.SegmentedReader` (which `PyAVReader(path)`
+  returns for a manifest) plays the files as one video, each through its own `PyAVReader` and
+  ordinary seeks. Opening it opens no file: its frame table is the stored timestamps, a file is
+  opened when one of its frames is first wanted and stays open, and decoded frames are capped across
+  all files at one reader's budget. Clip export and proxy encoding read a manifest file by file. A trial whose index cannot vouch
   for every frame (not an MJPEG AVI, an empty dropped-frame entry, a count disagreeing with the
   header), or a joined frame count disagreeing with the sidecar, falls back to the stream copy.
   *Not* FFmpeg's concat demuxer: tried first and reverted, because it cannot seek these files — an
@@ -6902,18 +6904,32 @@ the button greys while an import runs and returns when it ends without a menu be
 - **MJPEG-in-AVI frame tables come from the file's index** (`PyAVReader._index_table`) when it has
   one non-empty, increasing entry per declared frame — 25 ms instead of reading every frame (0.9 s
   per 370 MB trial even from memory); otherwise the full read as before.
-- `_IMPORT_CACHE_VERSION` 9 → 10 and `_JOIN_VERSION` 2 → 5: existing entries are rebuilt once, on
+- `_IMPORT_CACHE_VERSION` 9 → 10 and `_JOIN_VERSION` 2 → 6: existing entries are rebuilt once, on
   first open (a joined camera's rebuild now reads no footage).
 
 **Why.** The cache was routinely larger than the recordings it was built from: a 28.8 MB Open Ephys
 recording took 101.8 MB (int16 samples became floats, every channel carried an 8-byte timestamp and a
 gap byte per sample) and a 120 MB NWB trace file 426.6 MB; now 1.9 MB and 18.1 MB. A 17-trial,
 three-camera AOL experiment (13 GB of MJPEG on a USB drive) was copied into the cache on first open,
-taking minutes and 13 GB of disk; each camera now prepares in 0.4–0.6 s, its reader opens in about
-110 ms, a random frame takes about 10 ms, and its cache entry is a few kilobytes. Frames and frame
+taking minutes and 13 GB of disk (15.5 s per camera); the first open now takes 0.1 s per camera and
+the entry is a few kilobytes. Frames and frame
 times are identical to the copy's (checked on that recording and in tests). Benchmarks: NWB trace import
-11.8 s → 1.4 s, cached reopen 2.1 s → 0.6 s (its 0.25 s budget, missed before too, is now spent fingerprinting each cached array); pyramid query and video seek unchanged within noise.
+11.8 s → 1.4 s, cached reopen 2.1 s → 0.6 s (its 0.25 s budget, missed before too, is now spent fingerprinting each cached array).
+
+**No interactive read is slower than the copy's.** Measured against the previous layout on the same
+machine: a 32-channel, 120 s Open Ephys recording imports in 0.5 s instead of 3.7–4.1 s and reopens
+in 0.03 s instead of 0.10–0.12 s; a full-span plot query of all 32 channels takes 2.9–3.0 ms instead
+of 3.2–3.4 ms, a 0.5 s zoom 2.6–2.7 ms instead of 2.9–3.2 ms, and 1000 cursor reads 2.0–2.1 ms
+instead of 2.1–2.2 ms. On the AOL experiment a joined camera's reader opens in 0.65 ms instead of
+7.5 ms, a random frame takes 2.7 ms as before, and sequential playback runs at about 400 frames/s as
+before. To get there, a plot query reduces the stored integers and converts only the points it
+returns (the conversion never reverses two values' order, so this is the same envelope; a negative
+multiplier converts first, as before), a cursor read looks its sample up in a table of every 16-bit
+value converted once, and a grid answers a single `searchsorted` in Python arithmetic.
 
 **Costs, accepted.** A session holds the source `.dat`/`.nwb` mapped while it shows it, so on Windows
 that file cannot be renamed or deleted until it is closed. A full-length scan of one channel of an
-interleaved file reads every channel's bytes; plotting reads the cached levels and is unaffected.
+interleaved file reads every channel's bytes: 28 ms instead of 1 ms for one channel of the
+32-channel, 120 s recording, from the page cache. Only background work scans whole channels (export,
+synchronization, the stimulus grid); plotting reads the cached levels. An unaggregated 1 s slice
+(`raw_slice`, no interface caller) computes its times and values: 0.07 ms instead of a 0.005 ms view.

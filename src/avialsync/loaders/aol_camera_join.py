@@ -55,9 +55,9 @@ logger = logging.getLogger(__name__)
 
 #: Last path part of a joined camera's source id: ``<first segment video>/joined_trials``.
 JOINED_NAME = "joined_trials"
-# 5: a manifest of the trial files instead of a copy (D-216; 3 and 4 were the
-# concat lists that could not seek).
-_JOIN_VERSION = 5
+# 6: a manifest of the trial files, with their frame ticks, instead of a copy
+# (D-216; 3 and 4 were the concat lists that could not seek, 5 stored no ticks).
+_JOIN_VERSION = 6
 _VIDEO_NAME = "joined.mkv"
 _MANIFEST_NAME = "joined.segments.json"
 _STAMPS_NAME = "joined_timestamps.csv"
@@ -376,8 +376,8 @@ def _join(
     stamps_out.write_text("\n".join(rows) + "\n", encoding="utf-8")
 
 
-def _indexed_frames(video: Path) -> int | None:
-    """How many frames *video*'s own index vouches for, or ``None`` if it cannot.
+def _indexed_frames(video: Path) -> tuple[np.ndarray, Fraction] | None:
+    """The frame ticks and time base *video*'s own index vouches for, or ``None``.
 
     The same conditions the reader's index fast path uses
     (:meth:`PyAVReader._index_table`): an MJPEG AVI whose index has one
@@ -394,16 +394,17 @@ def _indexed_frames(video: Path) -> int | None:
             if (stream.codec_context.name or "") != "mjpeg":
                 return None
             entries = stream.index_entries
-            sizes = [entry.size for entry in entries]
-            ticks = [entry.timestamp for entry in entries]
+            sizes = np.fromiter((entry.size for entry in entries), dtype=np.int64)
+            ticks = np.fromiter((entry.timestamp for entry in entries), dtype=np.int64)
             declared = int(stream.frames or 0)
+            time_base = stream.time_base
     except (av.FFmpegError, OSError, IndexError, AttributeError):
         return None
-    if not sizes or len(sizes) != declared or min(sizes) <= 0:
+    if time_base is None or not len(sizes) or len(sizes) != declared or int(sizes.min()) <= 0:
         return None
-    if any(later <= earlier for earlier, later in zip(ticks, ticks[1:], strict=False)):
+    if bool(np.any(np.diff(ticks) <= 0)):
         return None
-    return len(sizes)
+    return ticks, Fraction(time_base.numerator, time_base.denominator)
 
 
 def _manifest(
@@ -421,6 +422,8 @@ def _manifest(
 
     rows: list[str] = []
     kept: list[Segment] = []
+    kept_ticks: list[np.ndarray] = []
+    shared_base: Fraction | None = None
     counter_base = 0.0
     for number, segment in enumerate(segments):
         counters, times = _timing_rows(segment.timing)
@@ -430,14 +433,19 @@ def _manifest(
         if first >= keep:
             progress((number + 1) / len(segments))
             continue
-        frames = _indexed_frames(segment.video)
-        if frames is None:
+        indexed = _indexed_frames(segment.video)
+        if indexed is None:
             return False
-        keep = min(keep, frames)
+        ticks, time_base = indexed
+        if shared_base is not None and time_base != shared_base:
+            return False  # one joined timeline needs one time base
+        shared_base = time_base
+        keep = min(keep, len(ticks))
         if first >= keep:
             progress((number + 1) / len(segments))
             continue
         kept.append(Segment(str(segment.video.resolve()), first, keep))
+        kept_ticks.append(ticks[first:keep])
         for frame in range(first, keep):
             instant = segment.start + float(placed[frame])
             rows.append(f"{int(counter_base + counters[frame])},{round(instant * 1e9)}")
@@ -445,7 +453,7 @@ def _manifest(
         progress((number + 1) / len(segments))
     if not kept:
         return False
-    write_manifest(manifest_out, kept)
+    write_manifest(manifest_out, kept, kept_ticks, shared_base)
     stamps_out.write_text("\n".join(rows) + "\n", encoding="utf-8")
     return True
 
@@ -499,12 +507,10 @@ class AOLJoinedCameraSource(VideoStandardLoader):
         built = (entry / _MANIFEST_NAME).is_file() or (entry / _VIDEO_NAME).is_file()
         if not (cache.is_cache_valid(first) and built):
             self._build(cache, progress_cb, copy=False)
+        # A manifest's frames and the sidecar's rows are written from the same
+        # kept ranges, so they cannot disagree; the copy is used only when an
+        # index could not vouch for its file (``_manifest``).
         joined = self._open_joined(entry)
-        if joined.name == _MANIFEST_NAME and not self._frames_match(entry):
-            # Never show a frame under another frame's time: copy instead.
-            logger.warning("%s: joined frames disagree with their timestamps; copying.", first)
-            self._build(cache, progress_cb, copy=True)
-            joined = self._open_joined(entry)
         self._joined = joined
         progress_cb(1.0)
         return joined
@@ -545,13 +551,6 @@ class AOLJoinedCameraSource(VideoStandardLoader):
             # own recorded frame times say what it really ran at.
             self._fps = 1.0 / float(np.median(np.diff(mapping[0])))
         return joined
-
-    def _frames_match(self, entry: Path) -> bool:
-        """Whether the opened media has exactly one frame per sidecar row."""
-        frames = self._frame_times
-        with (entry / _STAMPS_NAME).open(encoding="utf-8") as handle:
-            rows = sum(1 for line in handle if line.strip())
-        return frames is not None and len(frames) == rows
 
     def media_path(self) -> Path:
         if self._joined is None:

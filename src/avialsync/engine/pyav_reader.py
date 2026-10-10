@@ -76,21 +76,36 @@ class PyAVReader:
         path: The media file being read.
     """
 
-    def __new__(cls, path: Path | str, max_cached_frames: int = DEFAULT_CACHE_FRAMES) -> Self:
+    def __new__(
+        cls,
+        path: Path | str,
+        max_cached_frames: int = DEFAULT_CACHE_FRAMES,
+        *,
+        table: tuple[np.ndarray, np.ndarray] | None = None,
+    ) -> Self:
         """Open a joined-video manifest as one video (``engine.segmented_media``)."""
-        del max_cached_frames
+        del max_cached_frames, table
         if cls is PyAVReader and str(path).endswith(".segments.json"):
             from avialsync.engine.segmented_media import SegmentedReader
 
             return cast(Self, super().__new__(SegmentedReader))
         return super().__new__(cls)
 
-    def __init__(self, path: Path | str, max_cached_frames: int = DEFAULT_CACHE_FRAMES) -> None:
+    def __init__(
+        self,
+        path: Path | str,
+        max_cached_frames: int = DEFAULT_CACHE_FRAMES,
+        *,
+        table: tuple[np.ndarray, np.ndarray] | None = None,
+    ) -> None:
         """Open ``path`` and build its presentation-timestamp table.
 
         Args:
             path: Media file to read.
             max_cached_frames: Size of the recently-decoded frame window.
+            table: ``(pts ticks, keyframe indices)`` already known for this
+                file, as a joined video's manifest stores them; skips looking
+                the table up, which is most of opening a file.
 
         Raises:
             SourceOpenError: The file cannot be opened or carries no video
@@ -126,21 +141,27 @@ class PyAVReader:
                 f"Video stream declares no time base, so its timestamps cannot be read: {self.path}"
             )
 
-        cached = self._load_cached_index(time_base)
-        if cached is None:
-            indexed = self._index_table()
-            self._pts_ticks, self._keyframe_indices = (
-                indexed if indexed is not None else self._build_pts_table()
-            )
-            if len(self._pts_ticks):
-                self._save_cached_index(time_base)
+        if table is not None:
+            self._pts_ticks, self._keyframe_indices = table
         else:
-            self._pts_ticks, self._keyframe_indices = cached
-            self._cache_manager().record_access(self.path)
+            self._pts_ticks, self._keyframe_indices = self._known_table(time_base)
         if not len(self._pts_ticks):
             self._container.close()
             raise SourceOpenError(f"Video stream carries no timestamps: {self.path}")
         self._frame_times: np.ndarray = self._pts_ticks * float(time_base)
+
+    def _known_table(self, time_base: _TimeBase) -> tuple[np.ndarray, np.ndarray]:
+        """The cached table, else the container's own index, else one full read."""
+        cached = self._load_cached_index(time_base)
+        if cached is not None:
+            self._cache_manager().record_access(self.path)
+            return cached
+        indexed = self._index_table()
+        table = indexed if indexed is not None else self._build_pts_table()
+        if len(table[0]):
+            self._pts_ticks, self._keyframe_indices = table
+            self._save_cached_index(time_base)
+        return table
 
     def _cache_manager(self) -> CacheManager:
         """Use the loader's source entry for this decoder's index."""

@@ -86,6 +86,10 @@ class LazyColumn(NDArrayOperatorsMixin):
     def _range(self, start: int, stop: int, step: int) -> np.ndarray:
         return self._take(np.arange(start, stop, step, dtype=np.int64))
 
+    def _item(self, index: int) -> Any:
+        """One element; subclasses answer without building an array (a cursor's hot path)."""
+        return self._take(np.array([index], dtype=np.int64))[0]
+
     def __getitem__(self, key: Any) -> Any:
         length = len(self)
         if isinstance(key, (int, np.integer)):
@@ -94,7 +98,7 @@ class LazyColumn(NDArrayOperatorsMixin):
                 index += length
             if not 0 <= index < length:
                 raise IndexError("index out of range for column")
-            return self._take(np.array([index], dtype=np.int64))[0]
+            return self._item(index)
         if isinstance(key, slice):
             return self._range(*key.indices(length))
         if isinstance(key, tuple) and len(key) == 1:
@@ -155,6 +159,18 @@ class RegularTimes(LazyColumn):
         self.ticks = None if ticks is None else float(ticks)
         self.length = int(length)
         self.stride = int(stride)
+        self._value = self._formula()
+
+    def _formula(self) -> Any:
+        """Element *index*, in Python floats: the same IEEE arithmetic as :meth:`_take`."""
+        t0, rate, stride = self.t0, self.rate, self.stride
+        if self.step is not None:
+            step = self.step
+            return lambda index: t0 + float(index * stride) * step
+        if self.ticks is not None:
+            ticks = self.ticks
+            return lambda index: (ticks + float(index * stride)) / rate
+        return lambda index: t0 + float(index * stride) / rate
 
     def __len__(self) -> int:
         return self.length
@@ -178,9 +194,13 @@ class RegularTimes(LazyColumn):
         """Every *factor*-th time, plus the last partial block's first: a pyramid level."""
         return self._with(-(-self.length // factor), self.stride * factor)
 
-    def _value(self, index: int) -> float:
-        """Element *index*, in Python floats: the same IEEE arithmetic as :meth:`_take`."""
-        ticks = float(index * self.stride)
+    def _item(self, index: int) -> Any:
+        return np.float64(self._value(index))
+
+    def _range(self, start: int, stop: int, step: int) -> np.ndarray:
+        ticks = np.arange(
+            start * self.stride, stop * self.stride, step * self.stride, dtype=np.float64
+        )
         if self.step is not None:
             return self.t0 + ticks * self.step
         if self.ticks is not None:
@@ -189,23 +209,23 @@ class RegularTimes(LazyColumn):
 
     def _search_one(self, target: float, right: bool) -> int:
         """:meth:`searchsorted` for one value, without array overhead (a query's hot path)."""
-        if target != target:  # NaN sorts after everything
-            return self.length
-        if target == math.inf:
-            return self.length
+        length = self.length
+        if not target < math.inf:  # NaN sorts after everything, as +inf does
+            return length
         if target == -math.inf:
             return 0
-        guess = math.ceil((target - self.t0) * self.rate / self.stride)
-        index = min(max(guess, 0), self.length)
-
-        def before(position: int) -> bool:
-            value = self._value(position)
-            return value <= target if right else value < target
-
-        while index > 0 and not before(index - 1):
-            index -= 1
-        while index < self.length and before(index):
-            index += 1
+        index = min(max(math.ceil((target - self.t0) * self.rate / self.stride), 0), length)
+        value = self._value
+        if right:
+            while index > 0 and value(index - 1) > target:
+                index -= 1
+            while index < length and value(index) <= target:
+                index += 1
+        else:
+            while index > 0 and value(index - 1) >= target:
+                index -= 1
+            while index < length and value(index) < target:
+                index += 1
         return index
 
     def as_record(self) -> np.ndarray:
@@ -240,6 +260,8 @@ class RegularTimes(LazyColumn):
         these same values would give.
         """
         del sorter
+        if isinstance(value, (float, int, np.floating, np.integer)):
+            return self._search_one(float(value), side == "right")
         scalar = np.ndim(value) == 0
         if scalar:
             return self._search_one(float(value), side == "right")
@@ -282,15 +304,42 @@ class ScaledColumn(LazyColumn):
         offset: float = 0.0,
         dtype: Any = np.float32,
     ) -> None:
-        self.raw = raw
+        # A plain view of a memmap: NumPy's memmap indexes through Python, which a
+        # cursor reading one sample at a time would pay on every move.
+        self.raw = raw.view(np.ndarray) if isinstance(raw, np.memmap) else raw
         self.scales = tuple(float(scale) for scale in scales)
         self.offset = float(offset)
         self.dtype = np.dtype(dtype)
+        self._table: np.ndarray | None = None
 
     def __len__(self) -> int:
         return int(self.raw.shape[0])
 
-    def _convert(self, block: Any) -> np.ndarray:
+    def __getitem__(self, key: Any) -> Any:
+        table = self._table
+        if table is not None and isinstance(key, (int, np.integer)):
+            return table[self.raw[key]]  # a cursor's read: the stored array checks the index
+        return super().__getitem__(key)
+
+    def _lookup(self) -> np.ndarray | None:
+        """Every 8- or 16-bit stored value converted once, indexed by the stored value.
+
+        Ordered by the unsigned reading of the bits, so a negative stored value
+        indexes from the end -- which is where its bits put it.
+        """
+        if self._table is None and self.raw.dtype.kind in "iu" and self.raw.dtype.itemsize <= 2:
+            bits = np.dtype(f"u{self.raw.dtype.itemsize}")
+            every = np.arange(np.iinfo(bits).max + 1, dtype=bits).view(self.raw.dtype)
+            self._table = self.convert(every)
+        return self._table
+
+    @property
+    def conversion(self) -> tuple[Any, ...]:
+        """What decides a stored value's conversion: equal for columns that convert alike."""
+        return (self.scales, self.offset, self.dtype.str)
+
+    def convert(self, block: Any) -> np.ndarray:
+        """Stored values, as many as given, converted as this column reads them."""
         values = np.asarray(block).astype(self.dtype)
         for scale in self.scales:
             if scale != 1.0:
@@ -299,11 +348,25 @@ class ScaledColumn(LazyColumn):
             values += np.asarray([self.offset], dtype=np.float64)
         return values
 
+    def _item(self, index: int) -> Any:
+        """One sample: looked up, or by the same steps in Python floats (IEEE double)."""
+        table = self._lookup()
+        if table is not None:
+            return table[self.raw[index]]
+        cast = self.dtype.type
+        value = float(cast(self.raw[index]))
+        for scale in self.scales:
+            if scale != 1.0:
+                value = float(cast(value * scale))
+        if self.offset != 0.0:
+            value = float(cast(value + self.offset))
+        return cast(value)
+
     def _take(self, positions: np.ndarray) -> np.ndarray:
-        return self._convert(self.raw[positions])
+        return self.convert(self.raw[positions])
 
     def _range(self, start: int, stop: int, step: int) -> np.ndarray:
-        return self._convert(self.raw[start:stop:step])
+        return self.convert(self.raw[start:stop:step])
 
 
 def _candidates(t0: float, last: float, length: int) -> list[RegularTimes]:

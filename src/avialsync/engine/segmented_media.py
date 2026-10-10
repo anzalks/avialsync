@@ -13,8 +13,13 @@ it as one stream: its frame table is the kept frames of every file in order,
 each file's times shifted to follow the previous file's, so the table is
 strictly increasing and every frame keeps its own spacing. A frame is decoded by
 the file's own :class:`~avialsync.engine.pyav_reader.PyAVReader`, so which
-frame is shown is still decided by one authority (D-075). At most
-:data:`OPEN_FILES` files are open at a time.
+frame is shown is still decided by one authority (D-075).
+
+**As fast to open and seek as one file.** The manifest stores each file's kept
+frame timestamps (``*.ticks.npy``) and the shared time base, so opening the
+joined video opens no file. A file is opened the first time one of its frames
+is wanted (about 1.3 ms, given its table) and stays open; decoded frames are
+capped across all files at the reader's own budget.
 """
 
 from __future__ import annotations
@@ -23,12 +28,13 @@ import json
 from collections import OrderedDict
 from collections.abc import Iterator
 from dataclasses import dataclass
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from avialsync.core.errors import SourceOpenError
+from avialsync.core.errors import LoaderContractError, SourceOpenError
 from avialsync.engine.pyav_reader import DEFAULT_CACHE_FRAMES, PyAVReader
 
 __all__ = [
@@ -42,9 +48,6 @@ __all__ = [
 
 #: The suffix of a manifest; :class:`PyAVReader` opens such a path as one video.
 MANIFEST_SUFFIX = ".segments.json"
-
-#: Files kept open at once: the one being shown and the one a scrub just left.
-OPEN_FILES = 2
 
 
 @dataclass(frozen=True)
@@ -60,8 +63,25 @@ def is_segmented(path: Path | str) -> bool:
     return str(path).endswith(MANIFEST_SUFFIX)
 
 
-def write_manifest(path: Path, segments: list[Segment]) -> None:
-    payload = {"segments": [{"path": s.path, "first": s.first, "stop": s.stop} for s in segments]}
+def _ticks_path(path: Path) -> Path:
+    return path.with_name(path.name[: -len(MANIFEST_SUFFIX)] + ".ticks.npy")
+
+
+def write_manifest(
+    path: Path,
+    segments: list[Segment],
+    ticks: list[np.ndarray] | None = None,
+    time_base: Fraction | None = None,
+) -> None:
+    """Write *segments*, and each one's kept frame ticks when known, so opening reads no file."""
+    payload: dict[str, Any] = {
+        "segments": [{"path": s.path, "first": s.first, "stop": s.stop} for s in segments]
+    }
+    if ticks is not None and time_base is not None:
+        if [len(t) for t in ticks] != [s.stop - s.first for s in segments]:
+            raise LoaderContractError("each segment needs one tick per kept frame")
+        np.save(_ticks_path(path), np.concatenate(ticks).astype(np.int64))
+        payload["time_base"] = [time_base.numerator, time_base.denominator]
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
@@ -79,38 +99,73 @@ def read_manifest(path: Path | str) -> list[Segment]:
     return segments
 
 
+def _stored_ticks(path: Path, segments: list[Segment]) -> tuple[np.ndarray, Fraction] | None:
+    """The kept frames' ticks and time base the manifest stored, if it stored them."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        numerator, denominator = (int(n) for n in payload["time_base"])
+        ticks = np.load(_ticks_path(path), allow_pickle=False)
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    if ticks.ndim != 1 or len(ticks) != sum(s.stop - s.first for s in segments):
+        return None
+    return ticks.astype(np.int64, copy=False), Fraction(numerator, denominator)
+
+
 class SegmentedReader(PyAVReader):
     """A manifest's files read as one video, through each file's own reader."""
 
-    def __init__(self, path: Path | str, max_cached_frames: int = DEFAULT_CACHE_FRAMES) -> None:
+    def __init__(
+        self,
+        path: Path | str,
+        max_cached_frames: int = DEFAULT_CACHE_FRAMES,
+        *,
+        table: tuple[np.ndarray, np.ndarray] | None = None,
+    ) -> None:
+        del table  # a joined video's table is its manifest's
         self.path = Path(path)
         self._max_cached_frames = max(1, max_cached_frames)
         self._segments = read_manifest(self.path)
         self._open: OrderedDict[int, PyAVReader] = OrderedDict()
+        counts = [s.stop - s.first for s in self._segments]
+        self._starts = np.concatenate(([0], np.cumsum(counts))).astype(np.int64)
+        stored = _stored_ticks(self.path, self._segments)
+        if stored is not None:
+            ticks, time_base = stored
+            self._ticks = [
+                ticks[int(self._starts[n]) : int(self._starts[n + 1])]
+                for n in range(len(self._segments))
+            ]
+        else:  # a manifest without stored ticks: read each file's table once, here
+            self._ticks, time_base = self._read_tables()
+        self._time_base = time_base
         times: list[np.ndarray] = []
-        starts = [0]
         #: Per segment: the shift from its own times to the joined timeline.
         self._shifts: list[float] = []
         offset = 0.0
-        time_base: Any = None
-        for number, segment in enumerate(self._segments):
-            part = self._part(number)
-            local = np.asarray(part.frame_times[segment.first : segment.stop], dtype=np.float64)
-            if len(local) != segment.stop - segment.first:
-                raise SourceOpenError(f"{segment.path} has fewer frames than its manifest names.")
-            if time_base is None:
-                time_base = part.stream.time_base
-            elif part.stream.time_base != time_base:
-                raise SourceOpenError("The joined files do not share one time base.")
+        for local_ticks in self._ticks:
+            local = local_ticks * float(time_base)
             shift = offset - float(local[0])
             times.append(local + shift)
             self._shifts.append(shift)
             step = float(np.median(np.diff(local))) if len(local) > 1 else float(time_base)
             offset = float(local[-1]) + shift + step
-            starts.append(starts[-1] + len(local))
         self._frame_times = np.concatenate(times)
-        self._starts = np.asarray(starts, dtype=np.int64)
-        self._time_base = time_base
+
+    def _read_tables(self) -> tuple[list[np.ndarray], Any]:
+        tables: list[np.ndarray] = []
+        time_base: Any = None
+        for segment in self._segments:
+            with PyAVReader(segment.path) as part:
+                if time_base is None:
+                    time_base = part.stream.time_base
+                elif part.stream.time_base != time_base:
+                    raise SourceOpenError("The joined files do not share one time base.")
+                ticks = np.asarray(part._pts_ticks[segment.first : segment.stop], dtype=np.int64)
+            if len(ticks) != segment.stop - segment.first:
+                raise SourceOpenError(f"{segment.path} has fewer frames than its manifest names.")
+            tables.append(ticks)
+        return tables, time_base
 
     # -- the joined table ------------------------------------------------
 
@@ -139,22 +194,33 @@ class SegmentedReader(PyAVReader):
     def frame_at_index(self, index: int) -> Any:
         target = max(0, min(int(index), self.frame_count - 1))
         number = int(np.searchsorted(self._starts, target, side="right")) - 1
-        segment = self._segments[number]
-        return self._part(number).frame_at_index(segment.first + target - int(self._starts[number]))
+        frame = self._part(number).frame_at_index(target - int(self._starts[number]))
+        self._trim_caches()
+        return frame
 
     # -- files -----------------------------------------------------------
 
     def _part(self, number: int) -> PyAVReader:
+        """File *number*'s reader over its kept frames, opened on first use and kept."""
         reader = self._open.get(number)
-        if reader is not None:
-            self._open.move_to_end(number)
-            return reader
-        reader = PyAVReader(self._segments[number].path, self._max_cached_frames)
-        self._open[number] = reader
-        while len(self._open) > OPEN_FILES:
-            _number, evicted = self._open.popitem(last=False)
-            evicted.close()
+        if reader is None:
+            ticks = self._ticks[number]
+            # The manifest is only written for MJPEG camera video, which is
+            # intra-frame: every kept frame is a keyframe.
+            table = (ticks, np.arange(len(ticks), dtype=np.int64))
+            reader = PyAVReader(self._segments[number].path, self._max_cached_frames, table=table)
+            self._open[number] = reader
+        self._open.move_to_end(number)
         return reader
+
+    def _trim_caches(self) -> None:
+        """Hold no more decoded frames across all files than one reader would."""
+        held = sum(len(reader._cache) for reader in self._open.values())
+        for reader in list(self._open.values())[:-1]:  # least recently used first
+            if held <= self._max_cached_frames:
+                break
+            held -= len(reader._cache)
+            reader._cache.clear()
 
     def close(self) -> None:
         while self._open:

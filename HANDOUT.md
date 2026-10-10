@@ -942,7 +942,11 @@ first, and test with a null-free column.
 and never compare stored files by name (`_t.npy` may be `_tgrid.npy`): compare
 `RegularTimes.as_record()`s, as `tracking_3d_pane._same_time_axis` does. A grid is
 only ever accepted when it reproduces every stored timestamp exactly, so values
-read through it equal the file's.
+read through it equal the file's. Hot paths keep their speed by working on the stored
+values: `PyramidReader.query` reduces `ScaledColumn.raw` and converts only what it
+returns (only when every multiplier is positive), and a single sample is looked
+up in a table of every 16-bit value. Do not slice a whole column to read one
+value or to reduce it.
 
 ### 0-concat. FFmpeg's concat demuxer cannot seek AOL camera AVIs
 

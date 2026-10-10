@@ -44,6 +44,12 @@ Each channel stores only the columns that carry information (`core/channel_store
   manifest naming each file and its kept frames, counted from the file's own AVI index, so preparing a
   camera reads no footage. A trial whose index cannot vouch for every frame is copied as before.
 
+No interactive read is slower than it was with the copied layout: plot queries reduce the stored
+integers and convert only the points drawn, and a cursor read looks its sample up in a table. A
+background scan of a whole channel (export, synchronization) reads every channel's bytes of an
+interleaved file, so it is slower than from a copy: 28 ms instead of 1 ms for one channel of a
+32-channel, 120 s Open Ephys recording.
+
 Measured on this layout, against the previous one: a 4-channel, 60 s Open Ephys recording
 (28.8 MB) went from 101.8 MB of cache to 1.9 MB; a 1 M-row CSV of integer ADC counts from 56.6 MB to
 9.1 MB; a 600-ROI NWB trace file (120 MB) from 426.6 MB to 18.1 MB, imported in 1.4 s instead of
