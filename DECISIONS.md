@@ -7069,3 +7069,14 @@ from the page start, so its numbers jump across a break. Everything read back ou
 a click, a context-menu time, the cursor readout, the page label -- is master time
 (`PlotPane.master_at`, `x_of`, `x_range`); nothing adds a position to the page start any more.
 Every plugin's rows get this, because it is in the pane, not in a loader.
+
+**Amended: frame-indexed parts and sidecars.** Pose sampled on a video's frames (frame-indexed)
+is numbered on through the joined video's frames -- part *k*'s first frame follows part *k-1*'s
+last, by its `frame_count` -- instead of being moved by its part's start in seconds: the video's
+own frame times then place every sample, gaps included (on 2026-06-25 `1113_01`, 46 859 marker
+frames on 46 859 video frames). A shift in seconds named frames the joined video does not have, so
+the overlay was refused ("frame indices do not fit the video"). A tracking source's Data Streams
+lane now spans where its readers put it once its camera times it, not its frame count at the
+nominal rate. A source named inside a file (`a.avi/joined_parts`) keeps its sidecars beside that
+file, named after both (`a_avi_joined_parts_custom_markers.csv`, `core.sidecar_names.on_disk`):
+reading one "inside" the video raised NotADirectoryError.

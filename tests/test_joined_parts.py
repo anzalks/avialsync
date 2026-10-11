@@ -157,3 +157,41 @@ def test_two_spellings_in_one_part_stay_two_channels(tmp_path: Path) -> None:
         },
     )
     assert [channel.name for channel in loader.channels()] == ["A", "a"]
+
+
+class FakeFramePart(FakePart):
+    """Pose on a video's frames: times are frame index / fps."""
+
+    def is_frame_indexed(self) -> bool:
+        return True
+
+
+def test_frame_indexed_parts_number_on_through_the_joined_video(tmp_path: Path) -> None:
+    """The video's own frame times place them; a shift by seconds names no frame."""
+    loader = JoinedTimeSeriesSource()
+    loader.open(
+        tmp_path / "a",
+        {
+            "part_loader": loader_name(FakeFramePart),
+            "parts": [
+                {"path": "a", "start": 0.0, "config": {"value": 1, "fps": 10, "frame_count": 3}},
+                {"path": "b", "start": 60.0, "config": {"value": 2, "fps": 10, "frame_count": 3}},
+            ],
+        },
+    )
+    assert loader.is_frame_indexed()
+    times = np.concatenate([t for t, _v in loader.read_chunks("x")])
+    np.testing.assert_allclose(times * 10, [0, 1, 2, 3, 4, 5])
+
+
+def test_a_joined_sources_sidecars_sit_beside_its_first_file(tmp_path: Path) -> None:
+    from avialsync.core.artifacts import get_kind
+    from avialsync.core.sidecar_names import beside, on_disk
+
+    video = tmp_path / "trial_1.avi"
+    video.write_bytes(b"")
+    joined = video / JOINED_PARTS
+    assert on_disk(joined) == tmp_path / "trial_1_avi_joined_parts"
+    assert beside(joined, "_avialfix.csv").parent == tmp_path
+    marker_file = get_kind("custom-markers-2d").target_for(joined)
+    assert marker_file == tmp_path / "trial_1_avi_joined_parts_custom_markers.csv"

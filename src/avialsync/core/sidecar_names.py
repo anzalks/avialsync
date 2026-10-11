@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-__all__ = ["beside", "flat_name"]
+__all__ = ["beside", "flat_name", "on_disk"]
 
 
 def flat_name(source: Path | str) -> str:
@@ -23,7 +23,20 @@ def flat_name(source: Path | str) -> str:
     return Path(source).name.replace(".", "_")
 
 
+def on_disk(source: Path | str) -> Path:
+    """Where a source's sidecars are named from: itself, or for a name inside a file, beside it.
+
+    A joined stream is named inside its first file (``a.avi/joined_parts``,
+    D-219), which no folder holds; its sidecars sit beside that file instead,
+    named after both: ``a_avi_joined_parts``.
+    """
+    path = Path(source)
+    if path.parent.is_file():
+        return path.parent.with_name(f"{flat_name(path.parent)}_{path.name}")
+    return path
+
+
 def beside(source: Path | str, suffix: str) -> Path:
     """Return the sidecar named *suffix* that belongs beside *source*."""
-    path = Path(source)
+    path = on_disk(source)
     return path.with_name(f"{flat_name(path)}{suffix}")

@@ -151,6 +151,19 @@ def calibrate_overlay_timing(window: MainWindow, video: str) -> None:
         if hasattr(window, "sidebar"):
             # The camera now times this source, so its own Offset and Drift cannot move it.
             show_timing_owner(window, first_reader.source_id)
+        # Its lane spans the frames it is drawn on now, not its frame count at the
+        # camera's nominal rate: a joined track's frames run across every trial.
+        source_id = first_reader.source_id
+        if not hasattr(window, "transport"):
+            continue
+        window.transport.set_source_coverage(
+            source_id,
+            float(master_times[0]),
+            float(master_times[-1]),
+            "data",
+            window.coverage_group_for(source_id),
+        )
+        window._recompute_bounds()
 
 
 def _report_uncalibrated_overlay(window: MainWindow, video: str, source_id: str) -> None:

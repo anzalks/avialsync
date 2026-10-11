@@ -11,7 +11,8 @@ camera, one set of markers -- with the time between parts kept as a gap
   start. Any codec: each file is read through its own keyframes.
 * :class:`JoinedTimeSeriesSource` -- each part read by its own loader with its
   own config (its own calibration, its own video size), every chunk moved to
-  its part's start.
+  its part's start. Frame-indexed parts (pose on a video's frames) are instead
+  numbered on through the joined video's frames, which time them, gaps and all.
 
 ``parts`` in the item's config is ``[{"path", "start", "config"?}]``, with
 ``start`` in seconds from the item's ``source_epoch`` -- the plan from
@@ -250,6 +251,12 @@ class JoinedTimeSeriesSource(TimeSeriesSource):
         if not self._readers:
             raise SourceOpenError("A joined stream has not been opened.")
         wanted = tuple(channels or (channel.name for channel in self._channels))
+        # Frame-indexed parts (pose sampled on a video's frames) are numbered on
+        # through the joined video's frames, not moved by seconds: the video's
+        # own frame times say when each frame was, gaps included, and a time
+        # shifted by a part's start would name a frame the video does not have.
+        indexed = self.is_frame_indexed()
+        frames_before = 0
         for part, reader in zip(self._parts, self._readers, strict=True):
             # This part's own spelling of each joined channel it recorded.
             own = {self._names.get(c.name, c.name): c.name for c in reader.channels()}
@@ -257,14 +264,22 @@ class JoinedTimeSeriesSource(TimeSeriesSource):
             # A part with none of the wanted channels still has samples: read
             # one of its own for their times, and the wanted ones are NaN there.
             asked = tuple(present.values()) or tuple(list(own.values())[:1])
-            start = float(part["start"])
+            config = dict(part.get("config") or {})
+            fps = float(config.get("fps") or 0.0)
+            if indexed and fps > 0:
+                start = frames_before / fps
+            else:
+                start = float(part["start"])
+            seen = 0
             for chunk in _chunks(reader, asked):
                 times = next(iter(chunk.values()))[0]
+                seen += len(times)
                 missing = np.full(len(times), np.nan, dtype=np.float64)
                 yield {
                     name: (start + times, chunk[present[name]][1] if name in present else missing)
                     for name in wanted
                 }
+            frames_before += int(config.get("frame_count") or seen)
 
 
 def _one_spelling(parts: list[list[str]]) -> dict[str, str]:

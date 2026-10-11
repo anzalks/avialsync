@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
-from avialsync.core.sidecar_names import beside
+from avialsync.core.sidecar_names import beside, on_disk
 
 
 class ArtifactClass(StrEnum):
@@ -43,7 +43,7 @@ class ArtifactKind:
         if self.sidecar_suffix is None:
             raise ValueError(f"{self.id} needs a user-selected destination")
         if self.source_stem:
-            path = Path(source)
+            path = on_disk(source)
             return path.with_name(path.stem + self.sidecar_suffix)
         return beside(source, self.sidecar_suffix)
 

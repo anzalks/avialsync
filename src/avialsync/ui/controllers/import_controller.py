@@ -238,6 +238,23 @@ def rebind_frame_indexed_sources(window: MainWindow) -> None:
         window._enqueue_import(dlc_path, loader_cls, config)
 
 
+def _tracking_coverage(
+    window: MainWindow, path: str, bounds: tuple[float, float], offset: float, drift: float
+) -> tuple[float, float]:
+    """Where a tracking source's readers now put it, in master time.
+
+    Timed by its camera's frames, a frame count at a nominal rate is not where
+    the data is (D-219); a 2D-only track is placed by its own offset and drift.
+    """
+    spans = [span for reader in window.source_readers(path) if (span := reader.coverage())]
+    if not spans:
+        from avialsync.core.timeline import TimeMap
+
+        mapping = TimeMap(offset=offset, drift_ms_per_hour=drift)
+        spans = [(mapping.to_master(bounds[0]), mapping.to_master(bounds[1]))]
+    return min(a for a, _b in spans), max(b for _a, b in spans)
+
+
 def on_import_finished(
     window: MainWindow,
     path: str,
@@ -326,13 +343,7 @@ def on_import_finished(
         window._register_tracking_source(
             path, Path(cache_dir), channels, role, inspection, offset, drift
         )
-        if offset != 0.0 or drift != 0.0:
-            from avialsync.core.timeline import TimeMap
-
-            tm = TimeMap(offset=offset, drift_ms_per_hour=drift)
-            mapped = (tm.to_master(bounds[0]), tm.to_master(bounds[1]))
-        else:
-            mapped = bounds
+        mapped = _tracking_coverage(window, path, bounds, offset, drift)
     else:
         window.plot_pane.load_channels(
             Path(cache_dir),
