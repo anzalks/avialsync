@@ -477,6 +477,23 @@ def test_the_surface_holds_the_buffer_its_image_borrows(qapp: QApplication) -> N
     assert surface._image.height() == 360
 
 
+def test_a_video_joined_from_trials_shows_no_footage_between_them(qapp: QApplication) -> None:
+    """D-217: the time between two recordings is a gap, not the last frame held."""
+    pane = video_pane.VideoPane()
+    try:
+        times = np.concatenate([np.arange(5) * 0.1, 60.0 + np.arange(5) * 0.1])
+        pane._frame_times = times
+        pane.set_source_bounds((0.0, 60.5))
+        assert pane.has_footage_at_master(0.2)
+        assert pane.has_footage_at_master(0.45)  # the last frame lasts one period
+        assert not pane.has_footage_at_master(30.0)
+        assert pane.has_footage_at_master(60.2)
+        pane._frame_times = np.arange(10) * 0.1  # a new table, found afresh
+        assert pane.has_footage_at_master(0.5)
+    finally:
+        pane.close()
+
+
 def test_losing_footage_clears_the_frame_instead_of_freezing_it(clip: Path, qtbot) -> None:
     """D-010: outside a source's bounds we show a placeholder, never a stale frame."""
     pane = _opened_pane(clip, qtbot)

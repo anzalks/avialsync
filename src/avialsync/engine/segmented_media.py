@@ -10,8 +10,10 @@ its own ordinary container and seek.
 A **manifest** (``*.segments.json`` in the cache) names each file and the run
 of its frames that belongs to the joined video. :class:`SegmentedReader` reads
 it as one stream: its frame table is the kept frames of every file in order,
-each file's times shifted to follow the previous file's, so the table is
-strictly increasing and every frame keeps its own spacing. A frame is decoded by
+each file's times shifted to the ``start`` the manifest gives it -- so the time
+between two files stays a gap, where no frame is shown (D-217) -- or, for a
+file without one, to follow the previous file's. The table is strictly
+increasing and every frame keeps its own spacing. A frame is decoded by
 the file's own :class:`~avialsync.engine.pyav_reader.PyAVReader`, so which
 frame is shown is still decided by one authority (D-075).
 
@@ -52,11 +54,16 @@ MANIFEST_SUFFIX = ".segments.json"
 
 @dataclass(frozen=True)
 class Segment:
-    """Frames ``[first, stop)`` of *path*, by its reader's frame index."""
+    """Frames ``[first, stop)`` of *path*, by its reader's frame index.
+
+    ``start`` is where the first kept frame sits on the joined video's
+    timeline, in seconds; ``None`` puts it one frame after the previous file.
+    """
 
     path: str
     first: int
     stop: int
+    start: float | None = None
 
 
 def is_segmented(path: Path | str) -> bool:
@@ -75,7 +82,11 @@ def write_manifest(
 ) -> None:
     """Write *segments*, and each one's kept frame ticks when known, so opening reads no file."""
     payload: dict[str, Any] = {
-        "segments": [{"path": s.path, "first": s.first, "stop": s.stop} for s in segments]
+        "segments": [
+            {"path": s.path, "first": s.first, "stop": s.stop}
+            | ({} if s.start is None else {"start": s.start})
+            for s in segments
+        ]
     }
     if ticks is not None and time_base is not None:
         if [len(t) for t in ticks] != [s.stop - s.first for s in segments]:
@@ -89,7 +100,12 @@ def read_manifest(path: Path | str) -> list[Segment]:
     try:
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
         segments = [
-            Segment(str(item["path"]), int(item["first"]), int(item["stop"]))
+            Segment(
+                str(item["path"]),
+                int(item["first"]),
+                int(item["stop"]),
+                None if item.get("start") is None else float(item["start"]),
+            )
             for item in payload["segments"]
         ]
     except (OSError, ValueError, KeyError, TypeError) as error:
@@ -143,9 +159,12 @@ class SegmentedReader(PyAVReader):
         #: Per segment: the shift from its own times to the joined timeline.
         self._shifts: list[float] = []
         offset = 0.0
-        for local_ticks in self._ticks:
+        for segment, local_ticks in zip(self._segments, self._ticks, strict=True):
             local = local_ticks * float(time_base)
-            shift = offset - float(local[0])
+            # A file placed before the previous one ends would reorder frames;
+            # it follows on instead, as a file with no place of its own does.
+            begin = offset if segment.start is None else max(segment.start, offset)
+            shift = begin - float(local[0])
             times.append(local + shift)
             self._shifts.append(shift)
             step = float(np.median(np.diff(local))) if len(local) > 1 else float(time_base)

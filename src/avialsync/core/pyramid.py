@@ -15,6 +15,7 @@ import numpy as np
 
 from avialsync.core.channel_store import level_stem, read_level, safe_save, write_times
 from avialsync.core.columns import RegularTimes, ScaledColumn, fit_regular, no_gaps
+from avialsync.core.trials import GAP_FACTOR
 
 LEVELS = [1, 16, 256, 4096]
 
@@ -121,7 +122,7 @@ def build_gap_mask(t: np.ndarray) -> np.ndarray:
     if math.isnan(median_dt) or median_dt <= 0:
         return np.zeros(len(t), dtype=bool)
 
-    gap_threshold = median_dt * 10.0
+    gap_threshold = median_dt * GAP_FACTOR
     mask = np.zeros(len(t), dtype=bool)
     scratch = np.empty(min(_GAP_CHUNK_SIZE, len(t) - 1), dtype=np.float64)
     for start in range(0, len(t) - 1, _GAP_CHUNK_SIZE):

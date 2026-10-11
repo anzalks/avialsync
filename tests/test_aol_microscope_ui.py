@@ -101,7 +101,7 @@ def test_encoder_angle_is_hidden_but_still_drives_the_wheel(
     assert "encoder_angle" in offered
 
 
-def test_pairing_a_trial_moves_its_joined_experiment_by_its_joined_start(
+def test_pairing_a_trial_moves_its_experiment_by_that_trials_start(
     window: MainWindow, qtbot, tmp_path
 ) -> None:
     experiment = tmp_path / "experiment_1"
@@ -110,7 +110,7 @@ def test_pairing_a_trial_moves_its_joined_experiment_by_its_joined_start(
     second = _trial(experiment / "12-10-00", start_ms=1_700_000_600_000)
     layout = AOLMicroscopeTrialSource().scan(experiment, None)
     item = layout.items[0]
-    assert item.config["trial_starts"] == pytest.approx([0.0, 0.029])
+    assert item.config["trial_starts"] == pytest.approx([0.0, 600.0])
     window._route_import_candidate(item.path, item.loader, dict(item.config))
     source_id = str(experiment)
     qtbot.waitUntil(lambda: source_id in window.imaging_pane.source_paths(), timeout=_TIMEOUT)
@@ -118,8 +118,29 @@ def test_pairing_a_trial_moves_its_joined_experiment_by_its_joined_start(
     accept_trial_pair(window, {"status": "matched", "folder": str(second)})
     residual, _drift = window._mutations.source_mapping(source_id)
     # The second trial's zero is on camera frame zero (master 0 with no camera
-    # loaded); back to back, the experiment's own zero is 29 ms before it.
-    assert window.effective_offset(source_id, residual) == pytest.approx(0.029)
+    # loaded); the experiment's own zero is that trial's STARTTIME before it.
+    assert window.effective_offset(source_id, residual) == pytest.approx(600.0)
+
+
+def test_imaging_shows_no_frame_between_two_trials(window: MainWindow, qtbot, tmp_path) -> None:
+    """D-217: ten minutes between trials is a gap, not the last frame held."""
+    experiment = tmp_path / "experiment_1"
+    experiment.mkdir()
+    _trial(experiment / "12-00-00")
+    _trial(experiment / "12-10-00", start_ms=1_700_000_600_000)
+    item = AOLMicroscopeTrialSource().scan(experiment, None).items[0]
+    window._route_import_candidate(item.path, item.loader, dict(item.config))
+    source_id = str(experiment)
+    pane = window.imaging_pane
+    qtbot.waitUntil(lambda: source_id in pane.source_paths(), timeout=_TIMEOUT)
+    _loader, _config, mapping = pane.source_config(source_id)
+    pane.set_cursor(mapping.to_master(300.0))
+    assert pane.frame_label.text() == "No imaging data at this time"
+    pane.set_cursor(mapping.to_master(600.006))
+    qtbot.waitUntil(
+        lambda: pane.frame_label.text() != "No imaging data at this time", timeout=_TIMEOUT
+    )
+    assert pane._last_index == 2  # the second trial's first frame
 
 
 def test_frame_step_walks_imaging_frames_when_no_video_is_loaded(
@@ -213,9 +234,10 @@ def test_trials_are_drawn_on_the_timeline_and_the_plots(window: MainWindow, tmp_
     assert "Trials" in overview.lane_labels()
     assert [name for _s, _e, name in overview._segments] == ["12-00-00", "12-10-00"]
     # Converted from Unix seconds, so about 1e-7 s of float rounding is expected.
-    assert overview._segments[1][0] == pytest.approx(0.029, abs=1e-6)
+    # Each trial at its STARTTIME, ten minutes apart: the gap between them stays.
+    assert overview._segments[1][0] == pytest.approx(600.0, abs=1e-6)
     bounds = window.plot_pane._interactions._segment_bounds
-    assert bounds == pytest.approx((0.0, 0.029, 0.051), abs=1e-6)
+    assert bounds == pytest.approx((0.0, 0.029, 600.0, 600.029), abs=1e-6)
 
 
 def test_the_viewer_states_the_frame_rate_the_file_gives(

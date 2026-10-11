@@ -1,10 +1,11 @@
-"""AOL ribbon-scan imaging: trials tiled, an experiment end to end, or one ROI file.
+"""AOL ribbon-scan imaging: trials tiled, an experiment on its clock, or one ROI file.
 
 A trial folder opens as one mosaic per frame with every scanned ROI in its
 tile, laid out as the microscope controller reconstructs the dendritic tree
 (:mod:`~avialsync.loaders.aol_mosaic_layout`). An experiment folder opens
-as one source spanning all of its trials back to back, as the controller's own
-analysis joins them (:func:`~avialsync.loaders.aol_microscope_trial.joined_starts`). A single
+as one source spanning all of its trials, each at its own ``STARTTIME``
+(:func:`~avialsync.loaders.aol_microscope_trial.place_trials`); between trials
+there is no frame, and the viewer says so. A single
 ``RibbonScan_ROI_*.mat`` opens on its own, exactly as the controller wrote it:
 both channels, ``uint16``, at that ROI's own line-clock times.
 
@@ -27,12 +28,13 @@ import numpy as np
 
 from avialsync.core.errors import ImagingChoiceRequired, SourceOpenError
 from avialsync.core.source import ImagingMetadata, ImagingSource
+from avialsync.core.trials import Placement
 from avialsync.loaders.aol_microscope_trial import (
     MicroscopeTrial,
     declared_green_channel,
     is_microscope_trial,
-    joined_starts,
     logged_rate,
+    place_trials,
     read_trial,
     roi_file_parts,
 )
@@ -149,16 +151,17 @@ class AOLRibbonScanSource(ImagingSource):
                 raise SourceOpenError(
                     f"Trial {trial.folder.name} does not share the first trial's scan."
                 )
+        starts, placement = self._starts(trials, config)
         times: list[np.ndarray] = []
         next_index = 0
-        for trial, start in zip(trials, joined_starts(trials), strict=True):
+        for trial, start in zip(trials, starts, strict=True):
             self._segments.append(_Segment(trial, next_index))
             times.append(trial.frame_times + start)
             next_index += trial.timepoints
         frame_times = np.concatenate(times)
         source = first.timing_source
         if len(folders) > 1:
-            source += f"; {len(folders)} trials back to back"
+            source += f"; {len(folders)} trials {placement}"
         self._load(first)
         height, width = self._layout.size
         green = green_channel(first.folder, first.channels)
@@ -176,6 +179,29 @@ class AOLRibbonScanSource(ImagingSource):
             axes="",
             channel_names=channel_names(first.channels, green),
         )
+
+    @staticmethod
+    def _starts(trials: list[MicroscopeTrial], config: dict[str, Any]) -> tuple[list[float], str]:
+        """Each trial's start on the session timeline, and how they were placed.
+
+        The session stored them when it laid the trials out, so every source
+        of the experiment agrees; they are derived only when it did not. A
+        session saved before D-217 stored back-to-back starts and no placement.
+        """
+        stored = config.get("trial_starts")
+        if stored and len(stored) == len(trials):
+            starts = [float(start) for start in stored]
+            placement = str(config.get("trial_placement", Placement.BACK_TO_BACK.value))
+        else:
+            plan = place_trials(trials)
+            if len(plan.kept) != len(trials):
+                raise SourceOpenError("; ".join(plan.warnings))
+            starts, placement = plan.starts, plan.placement.value
+        if any(b <= a for a, b in zip(starts, starts[1:], strict=False)):
+            raise SourceOpenError("The trials' starts are not in time order.")
+        if placement == Placement.CLOCK.value:
+            return starts, "at their STARTTIME"
+        return starts, "back to back"
 
     def _load(self, trial: MicroscopeTrial) -> _Pixels:
         """Pixels of one trial, read once and kept for a few trials."""

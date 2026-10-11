@@ -47,7 +47,7 @@ def test_a_trial_offers_only_its_wheel_speed_on_its_start(tmp_path: Path) -> Non
     np.testing.assert_allclose(rpm, [1.0, 2.0, 3.0])
 
 
-def test_trials_play_their_wheel_speed_back_to_back(tmp_path: Path) -> None:
+def test_trials_play_their_wheel_speed_on_their_own_trials(tmp_path: Path) -> None:
     experiment = tmp_path / "experiment_1"
     experiment.mkdir()
     first = _trial(experiment / "12-00-00")

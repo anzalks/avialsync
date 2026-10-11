@@ -1446,8 +1446,9 @@ class MainWindow(QMainWindow):
             (start - zero, end - zero, name) for start, end, name in self._trial_segment_epochs
         ]
         self.transport.set_trial_segments(segments)
+        # Both edges of every trial: between two trials there may be a gap (D-217).
         self.plot_pane.set_segment_boundaries(
-            sorted({start for start, _end, _name in segments} | {segments[-1][1]})
+            sorted({edge for start, end, _name in segments for edge in (start, end)})
         )
 
     def forget_session_start(self) -> None:

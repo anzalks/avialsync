@@ -169,6 +169,22 @@ def test_a_file_lays_out_its_time_series_and_imaging_on_its_own_clock(tmp_path: 
     assert any("SpikeWaveforms" in warning for warning in layout.warnings)
 
 
+def test_the_trials_table_is_declared_as_the_sessions_trials(tmp_path: Path) -> None:
+    """Each trial named where it ran on the session clock, gaps kept (D-217)."""
+    layout = NWBSessionSource().scan(write_nwb(tmp_path / "s.nwb"), LoaderRegistry())
+    epoch = layout.session_epoch
+    assert epoch > 0
+    relative = [(start - epoch, end - epoch, name) for start, end, name in layout.segments]
+    assert [name for _s, _e, name in relative] == ["trial 0", "trial 1", "trial 2"]
+    edges = [edge for s, e, _n in relative for edge in (s, e)]
+    assert edges == pytest.approx([1.0, 3.0, 4.0, 6.5, 7.0, 9.0])
+
+
+def test_a_file_without_trials_declares_none(tmp_path: Path) -> None:
+    path = write_nwb(tmp_path / "s.nwb", NWBSpec(trials=False))
+    assert NWBSessionSource().scan(path, LoaderRegistry()).segments == []
+
+
 def test_kinds_are_labels_their_loaders_offer(tmp_path: Path) -> None:
     layout = NWBSessionSource().scan(write_nwb(tmp_path / "s.nwb"), LoaderRegistry())
 

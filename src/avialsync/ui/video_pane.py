@@ -60,6 +60,7 @@ from PySide6.QtWidgets import (
 
 from avialsync.core.errors import SourceOpenError
 from avialsync.core.source import VideoMetadata
+from avialsync.core.trials import FrameGaps
 from avialsync.engine.display_pipeline import (
     DisplayLevels,
     SourceFormat,
@@ -673,6 +674,9 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.time_pos = 0.0
         self._is_vfr = False
         self._frame_times: np.ndarray | None = None
+        #: Gaps in ``_frame_times``, and the table they were found in.
+        self._frame_gaps: FrameGaps | None = None
+        self._frame_gaps_for: np.ndarray | None = None
         self._nominal_fps = 0.0
         self._decoder_fps = 0.0
         self._metadata = VideoMetadata()
@@ -918,7 +922,21 @@ class VideoPane(VideoTimingMixin, QWidget):
             return True
         t_source = self.time_map.to_source(t_master)
         start, end = self._source_bounds
-        return bool(start <= t_source <= end)
+        return bool(start <= t_source <= end) and not self._in_frame_gap(t_source)
+
+    def _in_frame_gap(self, t_source: float) -> bool:
+        """Whether *t_source* falls between recordings, where no frame was recorded.
+
+        A video joined from several recordings keeps the time between them
+        (D-217); holding the last frame across it would show footage of an
+        instant nobody filmed.
+        """
+        times = self._frame_times
+        if times is None or len(times) < 2:
+            return False
+        if self._frame_gaps is None or self._frame_gaps_for is not times:
+            self._frame_gaps, self._frame_gaps_for = FrameGaps(times), times
+        return self._frame_gaps.in_gap(t_source)
 
     def set_tracking_readers(self, readers: list) -> None:
         self.paint_canvas.set_readers(readers)

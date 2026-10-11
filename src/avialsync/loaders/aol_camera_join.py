@@ -1,4 +1,4 @@
-"""One video per camera across an AOL experiment's trials, back to back.
+"""One video per camera across an AOL experiment's trials, each on its own trial.
 
 The camera PC saves each trial in a folder of its own, named by its own clock
 when it armed -- never by the controller's trial name, and seconds apart from
@@ -10,12 +10,14 @@ trial folders, beside them, under the configured camera data folders, and in a
 sibling tree that mirrors the controller's ``<date>/<experiment>`` (such as
 ``videos/<date>/<experiment>`` next to ``<date>``).
 
-Each camera's per-trial recordings are joined the way the controller's own
-analysis joins trials: back to back, trial after trial, each segment starting
-at its trial's start (the controller's trigger starts every camera) and trimmed
-to that trial's length (the camera's stop is not triggered, so its last frames
-overrun the trial). A recording that did not start on its trial's trigger is
-placed where its own clock puts it, and keeps only the frames inside the trial.
+Each camera's per-trial recordings are joined trial after trial, each segment
+starting at its trial's start on the session timeline (the controller's
+trigger starts every camera) and trimmed to that trial's length (the camera's
+stop is not triggered, so its last frames overrun the trial). Trials sit at
+their ``STARTTIME`` (D-217), so the time between two trials is a gap in the
+joined video too, where the pane shows no footage. A recording that did not
+start on its trial's trigger is placed where its own clock puts it, and keeps
+only the frames inside the trial.
 
 The joined video is not copied. The cache holds a manifest naming each trial's
 own file and the run of frames it contributes, with a per-frame timestamp
@@ -55,9 +57,10 @@ logger = logging.getLogger(__name__)
 
 #: Last path part of a joined camera's source id: ``<first segment video>/joined_trials``.
 JOINED_NAME = "joined_trials"
-# 6: a manifest of the trial files, with their frame ticks, instead of a copy
-# (D-216; 3 and 4 were the concat lists that could not seek, 5 stored no ticks).
-_JOIN_VERSION = 6
+# 7: each file at its trial's start, gaps kept (D-217). 6: a manifest of the
+# trial files, with their frame ticks, instead of a copy (D-216; 3 and 4 were
+# the concat lists that could not seek, 5 stored no ticks).
+_JOIN_VERSION = 7
 _VIDEO_NAME = "joined.mkv"
 _MANIFEST_NAME = "joined.segments.json"
 _STAMPS_NAME = "joined_timestamps.csv"
@@ -71,7 +74,7 @@ class CameraSegment:
 
     video: Path
     timing: Path
-    start: float  # seconds on the joined timeline where the trial's trigger falls
+    start: float  # seconds on the session timeline where the trial's trigger falls
     length: float  # the trial's length; later frames are the camera's overrun
     offset: float = 0.0  # the camera's first frame after the trigger; 0 when on it
 
@@ -444,7 +447,8 @@ def _manifest(
         if first >= keep:
             progress((number + 1) / len(segments))
             continue
-        kept.append(Segment(str(segment.video.resolve()), first, keep))
+        start = segment.start + float(placed[first])
+        kept.append(Segment(str(segment.video.resolve()), first, keep, start))
         kept_ticks.append(ticks[first:keep])
         for frame in range(first, keep):
             instant = segment.start + float(placed[frame])

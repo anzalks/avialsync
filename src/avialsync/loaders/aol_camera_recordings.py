@@ -5,8 +5,9 @@ recording folders are one experiment's cameras, not as many separate sessions.
 When the controller's trials can be found -- beside the camera tree, mirroring
 ``<date>/<experiment>``, or under the microscope saved-data folder setting --
 the drop is laid out as those trials with their cameras. When they
-cannot, each camera's recordings are joined back to back, one segment per
-recording, the way an experiment's trials are.
+cannot, each camera's recordings are joined into one video, each recording at
+its own first-frame stamp on the camera PC's clock, the time between
+recordings a gap (D-217).
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from avialsync.core.source import SessionItem, SessionLayout
+from avialsync.core.trials import Part, Placement, place
 from avialsync.loaders.aol_camera_join import (
     AOLJoinedCameraSource,
     CameraSegment,
@@ -55,8 +57,8 @@ def trials_for(
     roots = trial_roots() if roots is None else roots
     found: dict[Path, None] = {}
     for experiment in dict.fromkeys(recording.folder.parent for recording in recordings):
-        for place in _places(experiment, roots):
-            found.update(dict.fromkeys(experiment_trials(place)))
+        for where in _places(experiment, roots):
+            found.update(dict.fromkeys(experiment_trials(where)))
     return list(found)
 
 
@@ -75,40 +77,52 @@ def is_plain(folder: Path) -> bool:
         return False
 
 
-def back_to_back(recordings: Sequence[CameraRecording]) -> SessionLayout:
-    """Each camera's recordings as one video, one recording after another."""
+def by_clock(recordings: Sequence[CameraRecording]) -> SessionLayout:
+    """Each camera's recordings as one video, each recording where the camera clock puts it.
+
+    Recordings without a first-frame stamp cannot be placed on that clock;
+    when none has one, they play back to back and the layout says so.
+    """
     ordered = sorted(
         recordings, key=lambda recording: (recording.local_epoch, recording.folder.name)
     )
+    lengths = [recording_length(recording.folder) for recording in ordered]
+    parts = [
+        Part(recording.folder.name, length, recording.local_epoch)
+        for recording, length in zip(ordered, lengths, strict=True)
+    ]
+    plan = place(parts)
+    notes = list(plan.warnings)
+    if not plan.kept:
+        plan = place(parts, Placement.BACK_TO_BACK)
+        notes = [
+            "These recordings carry no frame stamps, so the time between them is not "
+            "known: they play back to back."
+        ]
     joined: dict[str, list[CameraSegment]] = {}
-    segments: list[tuple[float, float, str]] = []
-    epoch = ordered[0].local_epoch
-    position = 0.0
-    for recording in ordered:
-        length = recording_length(recording.folder)
-        for camera, (video, timing) in camera_files(recording.folder).items():
-            joined.setdefault(camera, []).append(CameraSegment(video, timing, position, length))
-        if epoch > 0:
-            segments.append((epoch + position, epoch + position + length, recording.folder.name))
-        position += length
+    for index, start, length in zip(plan.kept, plan.starts, plan.lengths, strict=True):
+        for camera, (video, timing) in camera_files(ordered[index].folder).items():
+            joined.setdefault(camera, []).append(CameraSegment(video, timing, start, length))
+    epoch = plan.epoch
     items = [
         SessionItem(
-            path=joined_source_id(parts),
+            path=joined_source_id(pieces),
             loader=AOLJoinedCameraSource,
-            config={"segments": [part.to_config() for part in parts]},
-            label=f"{camera} — camera, {len(parts)} of {len(ordered)} recordings joined",
+            config={"segments": [piece.to_config() for piece in pieces]},
+            label=f"{camera} — camera, {len(pieces)} of {len(ordered)} recordings joined",
             source_epoch=epoch if epoch > 0 else None,
         )
-        for camera, parts in sorted(joined.items())
+        for camera, pieces in sorted(joined.items())
     ]
     return SessionLayout(
         items=items,
-        session_epoch=max(epoch, 0.0),
-        anchor_epoch=max(epoch, 0.0),
-        segments=segments,
+        session_epoch=epoch,
+        anchor_epoch=epoch,
+        segments=plan.segments(),
         warnings=[
-            "No microscope trials were found for these recordings, so they play back to "
-            "back. Set Preferences → Lab Data → AOL microscope saved-data folder, or drop "
-            "the trials with them, to pair them with their trials."
+            "No microscope trials were found for these recordings, so they are joined on "
+            "the camera clock alone. Set Preferences → Lab Data → AOL microscope saved-data "
+            "folder, or drop the trials with them, to pair them with their trials.",
+            *notes,
         ],
     )

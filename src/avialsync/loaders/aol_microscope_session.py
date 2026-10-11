@@ -3,15 +3,16 @@
 A trial folder is one session: its ribbon scan tiled as the reconstructed tree,
 and the trial's cameras -- each camera's frame 0 on the trial's trigger.
 
-An experiment folder, or several trial folders dropped together, is one long
-session joined back to back the way the controller's own analysis joins
-trials (:func:`~avialsync.loaders.aol_microscope_trial.joined_starts`): one
-ribbon source across every trial that shares the first trial's scan, and each
-camera's per-trial recordings as one video
-(:mod:`~avialsync.loaders.aol_camera_join`). The trials themselves are declared
-as :attr:`~avialsync.core.source.SessionLayout.segments`, so where one ends and
-the next begins stays visible on the joined timeline. A trial scanned
-differently cannot be joined and is reported, not dropped silently.
+An experiment folder, or several trial folders dropped together, is one
+session with every trial at its own ``STARTTIME``
+(:func:`~avialsync.loaders.aol_microscope_trial.place_trials`, D-217): the time
+between trials stays on the timeline as a gap, where no imaging, camera or
+controller signal is shown. One ribbon source spans every trial that shares the
+first trial's scan, and each camera's per-trial recordings are one video
+(:mod:`~avialsync.loaders.aol_camera_join`), each on its own trial. The trials
+are declared as :attr:`~avialsync.core.source.SessionLayout.segments`. A trial
+scanned differently, or one that cannot be placed on the clock, is reported,
+not dropped silently.
 
 The camera PC names its folders by its own clock, never by the controller's
 trial, so cameras are associated by when they recorded
@@ -39,13 +40,14 @@ from avialsync.loaders.aol_camera_join import (
     match_tolerance,
     recording,
 )
-from avialsync.loaders.aol_camera_recordings import back_to_back, is_plain, trials_for
+from avialsync.loaders.aol_camera_recordings import by_clock, is_plain, trials_for
 from avialsync.loaders.aol_microscope_trial import (
     MicroscopeTrial,
     experiment_trials,
     is_microscope_trial,
-    joined_starts,
+    place_trials,
     read_trial,
+    trial_span,
 )
 from avialsync.loaders.aol_ribbon_scan import AOLRibbonScanSource
 from avialsync.loaders.aol_trial_encoder import (
@@ -73,28 +75,6 @@ def _at(epoch: float, offset: float = 0.0) -> float | None:
 
 def _scan_signature(trial: MicroscopeTrial) -> tuple[Any, ...]:
     return (trial.roi_numbers, trial.channels, trial.lines, trial.width)
-
-
-def _trial_lengths(trials: Sequence[MicroscopeTrial], starts: Sequence[float]) -> list[float]:
-    """Each trial's slot on the joined timeline: up to the next trial's start."""
-    return [
-        (starts[index + 1] if index + 1 < len(starts) else starts[index] + trial.duration)
-        - starts[index]
-        for index, trial in enumerate(trials)
-    ]
-
-
-def _segments(trials: Sequence[MicroscopeTrial]) -> list[tuple[float, float, str]]:
-    """The trials as named stretches of the joined timeline, in Unix-epoch seconds."""
-    epoch = trials[0].start_epoch
-    if epoch <= 0:
-        return []
-    starts = joined_starts(list(trials))
-    lengths = _trial_lengths(trials, starts)
-    return [
-        (epoch + start, epoch + start + length, trial.folder.name)
-        for trial, start, length in zip(trials, starts, lengths, strict=True)
-    ]
 
 
 def _ribbon_item(
@@ -188,13 +168,16 @@ def camera_items(
     pairs: Sequence[CameraPairing],
     epoch: float | None,
     starts: Sequence[float] | None = None,
+    lengths: Sequence[float] | None = None,
 ) -> tuple[list[SessionItem], list[str]]:
     """Each paired camera, placed on its trial's trigger -- or where its clock says.
 
     One trial: its recordings directly, frame 0 on the trial's ``STARTTIME``
-    plus the pairing's offset. Several: one joined video per camera on the
-    back-to-back timeline (*starts*, the joined starts, are derived when not
-    given). *epoch* is the Unix time of the timeline's zero.
+    plus the pairing's offset. Several: one video per camera, each recording
+    on its own trial, the time between trials a gap. *starts* and *lengths*
+    are each trial's place on the session timeline; they are derived
+    (:func:`place_trials`) when not given. *epoch* is the Unix time of the
+    timeline's zero.
     """
     if not trials:
         return [], []
@@ -216,12 +199,19 @@ def camera_items(
                     )
                 )
         return items, []
-    starts = list(starts) if starts is not None else joined_starts(list(trials))
     folders = [trial.folder for trial in trials]
+    if starts is not None and lengths is None and len(starts) == len(trials):
+        # A session saved before D-217: back to back, each trial up to the next.
+        ends = [*starts[1:], starts[-1] + trial_span(trials[-1])]
+        lengths = [end - start for start, end in zip(starts, ends, strict=True)]
+    if starts is None or lengths is None or not len(starts) == len(lengths) == len(trials):
+        plan = place_trials(trials)
+        folders = [folders[index] for index in plan.kept]
+        starts, lengths = plan.starts, plan.lengths
     found, notes = camera_segments(
         pairs,
         dict(zip(folders, starts, strict=True)),
-        dict(zip(folders, _trial_lengths(trials, starts), strict=True)),
+        dict(zip(folders, lengths, strict=True)),
     )
     joined = [
         SessionItem(
@@ -256,7 +246,7 @@ def lay_out(
     loaded: Sequence[CameraRecording] = (),
     wheel: bool = True,
 ) -> tuple[SessionLayout, list[CameraPairing]]:
-    """One trial, or several joined back to back, with their cameras and wheel speed.
+    """One trial, or several on their clock, with their cameras and wheel speed.
 
     Cameras already *loaded* are matched but not laid out again. *wheel* off
     leaves out the controller's wheel speed, when an encoder log already gives
@@ -267,22 +257,31 @@ def lay_out(
     warnings = [f"{t.folder.name}: {w}" for t in ordered for w in t.warnings]
     if len(ordered) == 1:
         joined = ordered
+        plan = place_trials(joined)
         config: dict[str, object] = {"trial_folder": str(ordered[0].folder)}
         label = name
     else:
-        joined, skipped = _joinable(ordered)
-        warnings += skipped
+        scanned, skipped = _joinable(ordered)
+        plan = place_trials(scanned)
+        joined = [scanned[index] for index in plan.kept]
+        warnings += skipped + plan.warnings
         # Stored so placing the experiment later costs no file reads on the UI thread.
         config = {
             "trial_folders": [str(t.folder) for t in joined],
-            "trial_starts": joined_starts(joined),
+            "trial_starts": plan.starts,
+            "trial_lengths": plan.lengths,
+            "trial_placement": plan.placement.value,
         }
         label = f"{name} — {len(joined)} trials"
     pairs, notes = match_for(joined, dropped, loaded)
     shown = {camera.folder for camera in loaded}
     epoch = _at(joined[0].start_epoch)
     cameras, more = camera_items(
-        joined, [pair for pair in pairs if pair.camera.folder not in shown], epoch
+        joined,
+        [pair for pair in pairs if pair.camera.folder not in shown],
+        epoch,
+        plan.starts,
+        plan.lengths,
     )
     layout = SessionLayout(
         items=[
@@ -292,7 +291,7 @@ def lay_out(
         ],
         session_epoch=epoch or 0.0,
         anchor_epoch=epoch or 0.0,
-        segments=_segments(joined),
+        segments=plan.segments(),
         warnings=warnings + notes + more,
     )
     return layout, pairs
@@ -414,12 +413,13 @@ def _cameras_onto(
         ]
         trials = [read_trial(folder, verify=False) for folder in folders]
         starts = item.config.get("trial_starts")
+        lengths = item.config.get("trial_lengths")
         mine = {camera.folder for camera in dropped}
         # Recordings saved inside a loaded trial folder are on screen already.
         pairs = [pair for pair in match_for(trials, dropped)[0] if pair.camera.folder in mine]
         paired.update(pair.camera.folder for pair in pairs)
         notes += [note for pair in pairs if (note := pairing_note(pair))]
-        found, more = camera_items(trials, pairs, item.source_epoch, starts)
+        found, more = camera_items(trials, pairs, item.source_epoch, starts, lengths)
         items += found
         notes += more
     notes += [unmatched_note(camera) for camera in dropped if camera.folder not in paired]
@@ -454,7 +454,7 @@ def _dropped(paths: Sequence[Path]) -> tuple[list[Path], list[Path], list[Path],
 
 
 class AOLMicroscopeTrialSource(SessionSource):
-    """Load one controller trial, or a whole experiment back to back."""
+    """Load one controller trial, or a whole experiment with each trial at its STARTTIME."""
 
     @classmethod
     def display_name(cls) -> str:
@@ -482,7 +482,7 @@ class AOLMicroscopeTrialSource(SessionSource):
     ) -> tuple[SessionLayout, list[Path]] | None:
         """Trials and cameras dropped together, or onto each other, as one session.
 
-        Several trials (folders or experiments) join back to back; cameras
+        Several trials (folders or experiments) join on their clock; cameras
         dropped with them are matched to them by clock rather than looked for.
         Cameras dropped onto loaded trials join those trials, and trials
         dropped onto loaded cameras are placed on them. A lone trial or
@@ -512,12 +512,12 @@ class AOLMicroscopeTrialSource(SessionSource):
 
 
 def _cameras_alone(dropped: Sequence[CameraRecording]) -> SessionLayout | None:
-    """Several camera recordings dropped with nothing open: their trials, or back to back.
+    """Several camera recordings dropped with nothing open: their trials, or on their clock.
 
     The camera PC records the same cameras for every trial, so these are one
     experiment's cameras. With its trials found they load as that experiment
     (the imaging is offered in the review, to keep or skip); without, each
-    camera's recordings join one after another.
+    camera's recordings join on the camera clock.
     """
     folders = trials_for(dropped)
     if folders:
@@ -534,7 +534,7 @@ def _cameras_alone(dropped: Sequence[CameraRecording]) -> SessionLayout | None:
             )
             return replace(layout, warnings=[*layout.warnings, note])
     if all(is_plain(recording.folder) for recording in dropped):
-        return back_to_back(dropped)
+        return by_clock(dropped)
     return None
 
 

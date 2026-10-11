@@ -139,7 +139,7 @@ def on_drop_scan_error(window: MainWindow, error_msg: str) -> None:
 def _adopt_declared_evidence(window: MainWindow, layout: SessionLayout) -> None:
     """What the session recorded about itself: AOL camera starts, and its trials.
 
-    Trials are kept visible on the joined timeline as a Data Streams lane and a
+    Trials are kept visible on the session timeline as a Data Streams lane and a
     boundary on every plot. Only a layout that declares them sets them; an
     ordinary file dropped into the session leaves an experiment's trials alone.
     """

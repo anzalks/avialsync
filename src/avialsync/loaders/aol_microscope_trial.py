@@ -5,13 +5,15 @@ from __future__ import annotations
 import logging
 import math
 import re
-from dataclasses import dataclass
+from collections.abc import Sequence
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import h5py
 import numpy as np
 
 from avialsync.core.errors import SourceOpenError
+from avialsync.core.trials import Part, PartPlan, Placement, place
 
 logger = logging.getLogger(__name__)
 _ROI_FILE = re.compile(r"^RibbonScan_ROI_(\d+)_repeat_(\d+)_timepoints_(\d+)\.mat$", re.IGNORECASE)
@@ -317,21 +319,35 @@ def experiment_trials(folder: Path) -> list[Path]:
         return []
 
 
-def joined_starts(trials: list[MicroscopeTrial]) -> list[float]:
-    """Where each trial starts when an experiment's trials play back to back.
+def trial_span(trial: MicroscopeTrial) -> float:
+    """How long a trial spans from its trigger: its recorded length, or to its last frame.
 
-    The controller's own analysis joins trials end to end with the gaps between
-    them removed; each trial takes its recorded length, or longer if its last
-    frame (plus one frame period) runs past that, so trials never overlap.
+    The last frame plus one frame period, when that runs past the recorded
+    length, so a trial's own frames always lie inside it.
     """
-    starts: list[float] = []
-    position = 0.0
-    for trial in trials:
-        starts.append(position)
-        frames = trial.frame_times
-        period = float(np.median(np.diff(frames))) if len(frames) > 1 else 0.0
-        position += max(trial.duration, float(frames[-1]) + period if len(frames) else 0.0)
-    return starts
+    frames = trial.frame_times
+    period = float(np.median(np.diff(frames))) if len(frames) > 1 else 0.0
+    return max(trial.duration, float(frames[-1]) + period if len(frames) else 0.0)
+
+
+def place_trials(trials: Sequence[MicroscopeTrial]) -> PartPlan:
+    """Where each trial sits: at its ``STARTTIME``, the time between trials a gap (D-217).
+
+    A trial without a ``STARTTIME``, or starting inside the trial before it,
+    is left out and reported (:func:`~avialsync.core.trials.place`). When no
+    trial recorded a ``STARTTIME`` there is no clock to place them on, and
+    they play back to back, as the controller's own analysis joins them.
+    """
+    parts = [Part(trial.folder.name, trial_span(trial), trial.start_epoch) for trial in trials]
+    plan = place(parts)
+    if plan.kept or not parts:
+        return plan
+    joined = place(parts, Placement.BACK_TO_BACK)
+    note = (
+        "None of these trials recorded a STARTTIME, so the time between them is not "
+        "known: they play back to back, as the controller's analysis joins them."
+    )
+    return replace(joined, warnings=[note])
 
 
 def _line_tick(ticks: np.ndarray, duration: float | None) -> tuple[float, str]:

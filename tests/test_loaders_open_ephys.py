@@ -186,6 +186,34 @@ def test_layout_places_everything_on_the_acquisition_clock(session_dir: Path) ->
     assert len(layout.items) == 4  # two streams, one TTL line, one camera
 
 
+def test_one_recording_declares_no_segments(session_dir: Path) -> None:
+    assert _layout(session_dir).segments == []
+
+
+def test_several_recordings_are_named_where_their_samples_sit(tmp_path: Path) -> None:
+    """Each recording on the acquisition clock, the time between them a gap (D-217)."""
+    first = write_recording(tmp_path)
+    later = default_spec()
+    for stream in later.streams:
+        stream.t_start += 10.0
+    later.ttl = None
+    other = write_recording(tmp_path / "staging", later)
+    other.rename(first.parent / "recording2")
+
+    layout = _layout(tmp_path)
+    relative = [
+        (start - EXPECTED_ANCHOR, end - EXPECTED_ANCHOR, name)
+        for start, end, name in layout.segments
+    ]
+    assert [name for _s, _e, name in relative] == [
+        "experiment1/recording1",
+        "experiment1/recording2",
+    ]
+    # 2000 samples at 1 kHz from 5.0 s, and the aux stream to 7.01 s; then 10 s later.
+    edges = [edge for s, e, _n in relative for edge in (s, e)]
+    assert edges == pytest.approx([5.0, 7.01, 15.0, 17.01])
+
+
 def test_layout_gives_every_stream_its_own_path(session_dir: Path) -> None:
     """A sidecar cache is named after its source path, so shared paths overwrite.
 

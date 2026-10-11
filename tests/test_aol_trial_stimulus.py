@@ -102,7 +102,7 @@ def test_a_trial_offers_its_stimulus_ttl_as_a_plot_channel(tmp_path: Path) -> No
     assert times[len(level) - np.argmax(level[::-1] > 0)] == pytest.approx(0.014)
 
 
-def test_joined_trials_place_each_pulse_at_its_trials_joined_start(tmp_path: Path) -> None:
+def test_trials_place_each_pulse_at_their_start_and_nothing_between(tmp_path: Path) -> None:
     experiment = tmp_path / "experiment_1"
     experiment.mkdir()
     _trial(experiment / "12-00-00")  # no stimulus: flat
@@ -114,6 +114,10 @@ def test_joined_trials_place_each_pulse_at_its_trials_joined_start(tmp_path: Pat
     assert not level[times < start].any()
     assert times[np.argmax(level > 0)] == pytest.approx(start + 0.004)
     assert np.all(np.diff(times) > 0)
+    # The first trial's TTL stops at its end: between trials nothing was
+    # recorded, so the row has a gap there, not a level (D-217).
+    first_end = item.config["trial_lengths"][0]
+    assert not np.any((times >= first_end) & (times < start))
 
 
 def test_wheel_speed_and_ttl_come_from_one_source(tmp_path: Path) -> None:

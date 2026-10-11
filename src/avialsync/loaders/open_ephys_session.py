@@ -22,6 +22,10 @@ converts it onto the same axis; the sidecar then times every frame within the
 video exactly.  Fitting the residual second against the TTL line is a
 synchronization proposal, and a proposal needs the user to accept it, so
 it belongs to the sync wizard and not to a folder scan.
+
+A folder holding several recordings declares each one as a segment of the
+session (D-217), named where its samples sit on the acquisition clock. Nothing
+is moved: the time between recordings is already on that clock, as a gap.
 """
 
 from __future__ import annotations
@@ -33,7 +37,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from avialsync.core.source import SessionItem, SessionLayout, SessionSource
+from avialsync.core.trials import Part, place
 from avialsync.loaders.neo_loader import NeoLoader
 from avialsync.loaders.open_ephys_format import (
     anchor_epoch,
@@ -101,6 +108,7 @@ class OpenEphysSessionSource(SessionSource):
 
         items: list[SessionItem] = []
         warnings: list[str] = []
+        parts: list[Part] = []
         for recording in recordings:
             defects = event_stream_defects(recording)
             if defects:
@@ -111,8 +119,10 @@ class OpenEphysSessionSource(SessionSource):
                 warnings.append(f"{recording.name} could not be read — {listed}")
                 logger.warning("Skipping unreadable Open Ephys recording %s: %s", recording, listed)
                 continue
-            items.extend(_stream_items(recording))
+            streams = _neo_streams(recording)
+            items.extend(_stream_items(recording, streams))
             items.extend(_event_items(recording))
+            parts.extend(_recording_part(recording, streams, clock.anchor_epoch))
         items.extend(_camera_items(path, recordings, clock))
 
         logger.info(
@@ -122,7 +132,12 @@ class OpenEphysSessionSource(SessionSource):
             clock.anchor_epoch,
             "unknown" if clock.utc_offset is None else f"{clock.utc_offset / 3600:+.2f} h",
         )
-        return SessionLayout(items=items, anchor_epoch=clock.anchor_epoch, warnings=warnings)
+        return SessionLayout(
+            items=items,
+            anchor_epoch=clock.anchor_epoch,
+            segments=_recording_segments(parts, warnings),
+            warnings=warnings,
+        )
 
 
 class _RecordingClock:
@@ -186,6 +201,9 @@ class _Stream:
     name: str
     channels: int = 0
     rate_hz: float = 0.0
+    #: First and last sample time on the acquisition clock, in seconds.
+    start: float = 0.0
+    stop: float = 0.0
 
     def kind(self) -> str:
         """Return the user's word for this stream, not the reader's.
@@ -246,17 +264,21 @@ def _neo_streams(recording: Path) -> list[_Stream]:
         logger.warning("Neo could not enumerate streams in %s.", recording, exc_info=True)
         return []
 
-    shapes: dict[str, tuple[int, float]] = {}
+    shapes: dict[str, tuple[int, float, float, float]] = {}
     fallback_names: dict[str, str] = {}
     for segment in block.segments:
         for signal in segment.analogsignals:
             stream_id = str(signal.annotations.get("stream_id", ""))
             if not stream_id:
                 continue
-            channels, rate = shapes.get(stream_id, (0, 0.0))
+            channels, rate, start, stop = shapes.get(stream_id, (0, 0.0, np.inf, -np.inf))
+            own_rate = float(signal.sampling_rate.magnitude)
+            first = float(signal.t_start.magnitude)
             shapes[stream_id] = (
                 channels + int(signal.shape[1]),
-                rate or float(signal.sampling_rate.magnitude),
+                rate or own_rate,
+                min(start, first),
+                max(stop, first + int(signal.shape[0]) / own_rate if own_rate > 0 else first),
             )
             fallback_names.setdefault(stream_id, str(signal.name or ""))
 
@@ -266,19 +288,51 @@ def _neo_streams(recording: Path) -> list[_Stream]:
 
     return sorted(
         (
-            _Stream(stream_id, names.get(stream_id, ""), *shapes.get(stream_id, (0, 0.0)))
+            _Stream(stream_id, names.get(stream_id, ""), *shapes.get(stream_id, (0, 0.0, 0.0, 0.0)))
             for stream_id in names
         ),
         key=lambda stream: stream.stream_id,
     )
 
 
-def _stream_items(recording: Path) -> list[SessionItem]:
+def _recording_part(recording: Path, streams: list[_Stream], anchor: float) -> list[Part]:
+    """The recording as one part, where its samples sit on the session's clock.
+
+    Declared on the clock the samples are shown on (the first recording's
+    anchor), so the segment names exactly the stretch the data covers. Without
+    an anchor, or without a stream, there is nothing to name.
+    """
+    spans = [(s.start, s.stop) for s in streams if np.isfinite(s.start) and s.stop > s.start]
+    if anchor <= 0.0 or not spans:
+        return []
+    start = min(span[0] for span in spans)
+    stop = max(span[1] for span in spans)
+    name = f"{recording.parent.name}/{recording.name}"
+    return [Part(name, stop - start, anchor + start)]
+
+
+def _recording_segments(parts: list[Part], warnings: list[str]) -> list[tuple[float, float, str]]:
+    """Several recordings as the session's segments; one recording needs none."""
+    if len(parts) < 2:
+        return []
+    ordered = sorted(parts, key=lambda part: part.start or 0.0)
+    plan = place(ordered)
+    named = set(plan.names)
+    warnings.extend(
+        f"{part.name} overlaps the recording before it on the acquisition clock, "
+        "so it is not marked as a segment."
+        for part in ordered
+        if part.name not in named
+    )
+    return plan.segments()
+
+
+def _stream_items(recording: Path, streams: list[_Stream]) -> list[SessionItem]:
     """One item per continuous stream, each pointed at its own directory."""
     folders = stream_folder_names(recording)
     items: list[SessionItem] = []
 
-    for stream in _neo_streams(recording):
+    for stream in streams:
         folder = _match_folder(stream.name, folders)
         if folder is None:
             logger.warning(

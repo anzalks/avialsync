@@ -9,7 +9,9 @@ folders for that reason.
 Placement needs no evidence and no fit. Every timestamp in an NWB file counts
 from one declared instant, ``timestamps_reference_time`` (by default
 ``session_start_time``), so that instant is the session's zero and each item
-declares it as its own epoch. What a file could not contribute -- a second
+declares it as its own epoch. The file's ``trials`` table, when it has one,
+is declared as the session's segments too (D-217), so each trial is named on
+the timeline at the time it ran. What a file could not contribute -- a second
 imaging plane, a video it names but that is not beside it, a series of a shape
 this application does not show -- is reported in the layout's warnings rather
 than dropped.
@@ -23,7 +25,8 @@ from typing import Any
 
 from avialsync.core.errors import FileUnreadableError, SourceOpenError
 from avialsync.core.source import SessionItem, SessionLayout, SessionSource, VideoSource
-from avialsync.loaders import nwb_format
+from avialsync.core.trials import Part, place
+from avialsync.loaders import nwb_format, nwb_read
 from avialsync.loaders.nwb_imaging import default_imaging
 from avialsync.loaders.nwb_loader import NWBLoader
 from avialsync.loaders.nwb_roi_grid import NWBRoiGridSource, find_roi_grids
@@ -90,6 +93,7 @@ class NWBSessionSource(SessionSource):
                 warnings.append(f"…and {more} more objects in {label} that cannot be shown.")
         if not items:
             warnings.append(f"{label} holds nothing AvialSync can show.")
+        segments = self._trial_segments(path, contents, epoch, warnings)
 
         logger.info(
             "NWB session %s (NWB %s): %d items, %d warnings",
@@ -102,8 +106,36 @@ class NWBSessionSource(SessionSource):
             items=items,
             anchor_epoch=epoch or 0.0,
             session_epoch=epoch or 0.0,
+            segments=segments,
             warnings=warnings,
         )
+
+    @staticmethod
+    def _trial_segments(
+        path: Path, contents: nwb_format.FileContents, epoch: float | None, warnings: list[str]
+    ) -> list[tuple[float, float, str]]:
+        """The ``trials`` table as named stretches of the session, each where it ran.
+
+        Only the table NWB defines for trials: other interval tables are the
+        lab's own and stay channels and messages. Without a reference time
+        there is no clock to name them on.
+        """
+        table = next((t for t in contents.interval_tables if t.path == "/intervals/trials"), None)
+        if table is None or not epoch:
+            return []
+        try:
+            with nwb_format.open_file(path) as handle:
+                starts, stops = nwb_read.read_intervals(handle, table)
+        except (SourceOpenError, FileUnreadableError, OSError, KeyError, ValueError):
+            logger.warning("Could not read the trials table of %s", path, exc_info=True)
+            return []
+        parts = [
+            Part(f"trial {row}", float(stop - start) if stop > start else 0.0, epoch + start)
+            for row, (start, stop) in enumerate(zip(starts, stops, strict=True))
+        ]
+        plan = place(parts)
+        warnings.extend(plan.warnings)
+        return plan.segments()
 
     @staticmethod
     def _imaging_items(

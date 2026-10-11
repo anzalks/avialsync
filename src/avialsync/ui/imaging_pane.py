@@ -384,6 +384,7 @@ class ImagingPane(QWidget):
         if (
             source_time < info.frame_times[0]
             or source_time > info.frame_times[-1] + info.tail_duration
+            or info.frame_gaps.in_gap(source_time)
         ):
             if not self._out_of_range:
                 self._show_message(tr("No imaging data at this time"))

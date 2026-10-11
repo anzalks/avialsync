@@ -54,11 +54,15 @@ imaging source: every `RibbonScan_ROI_*.mat` tile of the scan in one mosaic, lai
 reconstructed dendritic tree (branches as columns, their segments stacked, population patches
 beside them) and oriented as the lab's own figures show it. Each frame carries the midpoint of
 its line scan; the timing note gives how far its tiles were scanned either side. An experiment
-folder plays its trials back to back, as the lab's own analysis joins them, and the trials are
-drawn as a **Trials** lane in Data Streams and as dashed boundaries on the plots. Each camera's
-per-trial recordings become one video on the same timeline, each started on its trial's trigger
-and trimmed to the trial. The joined video is a copy kept in AvialSync's cache; the recordings
-are not changed.
+folder places each trial at its own `STARTTIME`, so the time between trials stays on the
+timeline as a gap, and the trials are drawn as a **Trials** lane in Data Streams and as dashed
+boundaries at both edges of each trial on the plots. Each camera's per-trial recordings become
+one video on the same timeline, each started on its trial's trigger and trimmed to the trial.
+Between trials nothing is shown: the cameras show **No Footage**, the imaging viewer says there
+is no imaging data, and the plots have a gap. A trial without a `STARTTIME`, or one that starts
+inside the trial before it, is left out and named; only when no trial recorded a `STARTTIME` do
+the trials play back to back, and the warnings say so. The recordings are not changed or
+copied.
 
 The camera PC names its folders by its own clock, so they never match the trial names
 (`12-21-24` for trial `12-21-28`). AvialSync pairs them by **when they recorded**: the cameras'
@@ -75,26 +79,27 @@ saved-data folder**, and in any folder beside the date folder that mirrors
 `<date>/<experiment>` (for example `videos/2026-09-03/experiment_2` next to `2026-09-03`).
 
 What you drop decides what is joined. One trial folder opens that trial and its cameras; an
-experiment folder, or several trial folders selected together, play back to back. Trial and
+experiment folder, or several trial folders selected together, open together, each trial at its
+`STARTTIME`. Trial and
 camera folders (or an experiment folder and its camera experiment folder) dropped together are
 paired with each other, wherever the camera folders are. Camera folders dropped onto trials
 already open join those trials where they now sit; trials dropped onto an open camera session
 are placed on its cameras. Several camera folders dropped on their own (or the camera PC's
 experiment folder) load as their trials when AvialSync can find them, beside the camera tree or
 under **AOL microscope saved-data folder**: the imaging is offered in the import review, where
-you can skip it. Without trials, each camera's recordings join into one video, one recording
-after another. Either way the same cameras are one video each, not one per recording. Channels named Green and Red start in those colours, taken from the lab's record
+you can skip it. Without trials, each camera's recordings join into one video, each recording at
+its first-frame stamp on the camera PC's clock. Either way the same cameras are one video each, not one per recording. Channels named Green and Red start in those colours, taken from the lab's record
 (index 1 green, index 0 red, unless the trial's analysis says otherwise). When a trial's line
 clock and duration are missing, the controller's `Log.txt` rate for that trial is used before
 AvialSync asks for one. A single `RibbonScan_ROI_*.mat` can also be opened on its own like any
 HDF5 or TIFF stack: its stored 16-bit pixels, both channels, at that ROI's exact line-clock times
 when the trial's `params.mat` is beside it. The lab's ROI-analysis files (`roi_activity/`,
 `thin_mask.mat` masks) are not loaded. When the controller logged the running wheel into the
-trial's `params.mat` (`behaviour/encoder`), its speed is plotted in rpm, on the trial's clock and
-back to back with the other trials; with the stimulus TTL the trial commanded beside it. The controller saves its stimulus trigger
+trial's `params.mat` (`behaviour/encoder`), its speed is plotted in rpm, on the trial's clock,
+each trial at its start; with the stimulus TTL the trial commanded beside it. The controller saves its stimulus trigger
 settings with each trial -- whether it fires during acquisition, the delay from the trial's start,
 the pulse width, and the number and period of pulses -- and AvialSync rebuilds the 0/1 trace from
-them, on the trial's clock and back to back across an experiment: on 2026-09-03 experiment_2 one
+them, on the trial's clock and ending with the trial, so the row has a gap between trials: on 2026-09-03 experiment_2 one
 pulse 4 s into every trial from `12-21-28` on, 1 s long (0.1 s in the last two), exactly as
 `Log.txt` notes. No edge is recorded, so this is the commanded schedule rather than a measured
 one; the source is labelled "stimulus TTL" and its pulses are found by the Stimulus Grid's
@@ -191,7 +196,8 @@ plots, and TTL lines become a square wave drawn from their edges rather than a d
 **Open Ephys** folders are recognised as whole sessions. Drop the recording folder — or the folder
 holding it and the cameras recorded beside it — and the streams, TTL lines, and videos are laid out
 together on the recording's own clock, with wall-clock time taken from the recording's own
-`sync_messages.txt` rather than assumed.
+`sync_messages.txt` rather than assumed. A folder holding several recordings names each one in the
+**Trials** lane where its samples sit; the time between recordings stays a gap.
 
 Both Open Ephys layouts are read, including the free text each one stores:
 
@@ -228,6 +234,8 @@ session's zero, and times read as wall clock.
 
 Trials, epochs, and any other interval table become a row that is 1 inside an interval and 0
 outside it, plus one message per row listing its columns (`trials 3 · 12.3–14.1 s · condition=left`).
+The file's `trials` table is also drawn as the **Trials** lane in Data Streams, each trial where it
+ran, with dashed boundaries on the plots.
 `IntervalSeries` (reward, licking epochs) become the same kind of row. Spike-sorted units become one
 row per unit, high for an instant at each spike. Text annotations become messages.
 

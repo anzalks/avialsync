@@ -1,4 +1,4 @@
-"""Per-trial AOL camera recordings joined into one video per camera, back to back."""
+"""Per-trial AOL camera recordings joined into one video per camera, each on its trial."""
 
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ def _experiment(tmp_path: Path) -> tuple[Path, Path, Path]:
     return experiment, first, second
 
 
-def test_cameras_saved_in_the_trial_folders_join_back_to_back(tmp_path: Path) -> None:
+def test_cameras_saved_in_the_trial_folders_join_on_their_trials(tmp_path: Path) -> None:
     experiment, first, second = _experiment(tmp_path)
     # 10 ms frames for 50 ms: each overruns its trial, as an untriggered stop does.
     _camera(first, "FaceCam", 5, 10.0, 40)
@@ -79,7 +79,7 @@ def test_cameras_saved_in_the_trial_folders_join_back_to_back(tmp_path: Path) ->
     item = cameras[0]
     assert item.path == first / "FaceCam.avi" / "joined_trials"
     assert LoaderRegistry(plugin_dirs=[]).find_best_loader(item.path) is AOLJoinedCameraSource
-    assert [s["start"] for s in item.config["segments"]] == pytest.approx([0.0, 0.029])
+    assert [s["start"] for s in item.config["segments"]] == pytest.approx([0.0, 600.0])
 
     loader = AOLJoinedCameraSource()
     loader.open(item.path, dict(item.config))
@@ -87,10 +87,13 @@ def test_cameras_saved_in_the_trial_folders_join_back_to_back(tmp_path: Path) ->
     joined = loader.prepare(lambda _fraction: None)
     mapping = loader.exact_time_mapping()
     assert mapping is not None
-    master, _source = mapping
-    # Trial 1 is 29 ms long on the joined timeline, trial 2 is 22 ms: later
-    # frames are the camera running past its trial and are trimmed.
-    np.testing.assert_allclose(master, [0.0, 0.01, 0.02, 0.029, 0.039, 0.049], atol=1e-9)
+    master, source = mapping
+    # Each trial is 29 ms long and ten minutes after the last (D-217): later
+    # frames are the camera running past its trial and are trimmed, and the
+    # time between trials has no frame.
+    np.testing.assert_allclose(master, [0.0, 0.01, 0.02, 600.0, 600.01, 600.02], atol=1e-6)
+    # The joined video's own frame table keeps the gap too, so the pane finds it.
+    np.testing.assert_allclose(np.diff(source), [0.01, 0.01, 599.98, 0.01, 0.01], atol=1e-3)
     assert joined.is_file() and not str(joined).startswith(str(tmp_path))
     assert loader._fps == pytest.approx(100.0)  # the camera's rate, not the container's
 
@@ -99,6 +102,22 @@ def test_cameras_saved_in_the_trial_folders_join_back_to_back(tmp_path: Path) ->
     again.open(item.path, dict(item.config))
     assert again.prepare(lambda _fraction: None) == joined
     assert joined.stat().st_mtime_ns == built  # reused, not rebuilt
+
+
+def test_cameras_added_to_a_session_saved_back_to_back_stay_back_to_back(tmp_path: Path) -> None:
+    """A session saved before D-217 stored back-to-back starts and no lengths."""
+    from avialsync.loaders.aol_microscope_session import camera_items, match_for
+    from avialsync.loaders.aol_microscope_trial import read_trial
+
+    _experiment_dir, first, second = _experiment(tmp_path)
+    _camera(first, "FaceCam", 5, 10.0, 40)
+    _camera(second, "FaceCam", 5, 10.0, 140)
+    trials = [read_trial(first, verify=False), read_trial(second, verify=False)]
+    pairs, _notes = match_for(trials, [])
+    items, _more = camera_items(trials, pairs, 1_700_000_000.0, [0.0, 0.029], None)
+    segments = items[0].config["segments"]
+    assert [s["start"] for s in segments] == pytest.approx([0.0, 0.029])
+    assert [s["length"] for s in segments] == pytest.approx([0.029, 0.029])
 
 
 def test_a_single_trial_places_its_cameras_on_its_trigger(tmp_path: Path) -> None:

@@ -11,6 +11,7 @@ import numpy as np
 
 from avialsync.core.messages import Message
 from avialsync.core.pose import PoseSchema
+from avialsync.core.trials import FrameGaps
 
 
 @dataclass
@@ -518,11 +519,15 @@ class ImagingMetadata:
     #: an NWB optical channel or series. Empty where the file names none.
     channel_names: tuple[str, ...] = ()
     tail_duration: float = field(init=False)
+    #: Where the stack has no frame between its first and last: the time
+    #: between trials, or any pause past the gap rule (D-009, D-217).
+    frame_gaps: FrameGaps = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
-        """Compute the final frame's display interval once, off the UI thread."""
+        """Compute the final frame's display interval and the gaps once, off the UI thread."""
         duration = float(np.median(np.diff(self.frame_times))) if self.frame_count > 1 else 0.0
         object.__setattr__(self, "tail_duration", duration)
+        object.__setattr__(self, "frame_gaps", FrameGaps(self.frame_times))
 
 
 class ImagingSource(_Nameable, ABC):

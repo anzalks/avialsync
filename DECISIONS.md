@@ -6545,6 +6545,7 @@ Pairing a trial with a joined experiment loaded moves the whole experiment by th
 ## 2026-10 · D-205 · AOL trials join back to back, cameras included
 
 > Finding a trial's cameras by its name is superseded by D-208: they are matched by clock.
+> Playing trials back to back is superseded by D-217: each trial sits at its `STARTTIME`.
 
 **Decision.** An experiment's trials play back to back, as the controller's own analysis joins
 them, not on their wall-clock `STARTTIME`: trial *k* starts where trial *k-1* ends, taking its
@@ -6933,3 +6934,46 @@ interleaved file reads every channel's bytes: 28 ms instead of 1 ms for one chan
 32-channel, 120 s recording, from the page cache. Only background work scans whole channels (export,
 synchronization, the stimulus grid); plotting reads the cached levels. An unaggregated 1 s slice
 (`raw_slice`, no interface caller) computes its times and values: 0.07 ms instead of a 0.005 ms view.
+
+---
+
+## 2026-10 · D-217 · A recording's parts sit on its clock; the time between them is a gap
+
+> Supersedes D-205's "an experiment's trials play back to back".
+
+**Decision.** A session whose recording comes in parts -- an experiment's trials, an acquisition's
+recordings, an NWB file's trials -- declares each part (`core.trials.Part`: name, length,
+recorded start) and places them with `core.trials.place`, one placement every plugin uses. By
+default each part sits at its recorded start, so the time between two parts stays on the timeline
+as a gap. `Placement.BACK_TO_BACK` exists for a plugin whose format defines its parts that way;
+no built-in plugin uses it except where no clock was recorded at all (AOL trials without any
+`STARTTIME`, camera recordings without frame stamps), and then the layout says so. A part
+without a recorded start, or starting inside the part before it, is left out and named, never
+moved. The placed parts are the layout's `segments`.
+
+AOL is not a special case of this: its trials are parts at their `STARTTIME`, and the ribbon
+scan, the wheel speed and stimulus TTL, and each joined camera all use the session's stored
+`trial_starts` and `trial_lengths`. A joined camera's manifest gives each file its trial's start
+(`Segment.start`), so the video's own frame table has the gap too (join version 7). Sessions
+saved before this stored back-to-back `trial_starts` and no `trial_placement`; they reopen back
+to back, as saved. NWB declares its `/intervals/trials` table; Open Ephys declares each of
+several recordings where its samples sit on the acquisition clock (a label; nothing moves).
+
+In a gap nothing is shown. Plots already break a line across a gap (D-009), so the controller's
+signals end at each trial's end: the stimulus TTL is no longer drawn low between trials, where
+nothing was recorded. A video pane shows its No Footage placeholder rather than holding the last
+frame, and the imaging viewer says "No imaging data at this time"; both use the same rule as the
+plots (`core.trials.FrameGaps`, `GAP_FACTOR` = 10 median intervals, which `core.pyramid` now
+shares). Trial boundaries are drawn at both edges of every trial. Vicon trials are not joined:
+they record no clock to place them on, and their video is inter-frame, which the joined reader
+cannot cut.
+
+**Why.** Back to back showed footage and imaging from different trials as adjacent in time, and a
+level for the TTL where nothing was recorded. The real time between trials is evidence (rule 8);
+a session that removes it must say so, and only a plugin whose format defines its parts that way
+may.
+
+**Alternatives rejected.** Keeping back to back for AOL because the controller's analysis joins
+trials that way: that is a presentation of the analysis, not of when things happened, and the
+cameras align to imaging per trial either way. Holding the last frame through a gap: indistinguishable
+from footage of that instant.

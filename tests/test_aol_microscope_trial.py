@@ -15,7 +15,7 @@ from avialsync.loaders.aol_microscope_session import AOLMicroscopeTrialSource
 from avialsync.loaders.aol_microscope_trial import (
     MicroscopeTrial,
     is_microscope_trial,
-    joined_starts,
+    place_trials,
     read_trial,
 )
 from avialsync.loaders.aol_mosaic_layout import analysis_layout, branch_layout, choose_layout
@@ -375,22 +375,73 @@ def test_population_patches_pack_after_the_tree(tmp_path: Path) -> None:
     assert layout.origins[3] == (0, 2)
 
 
-def test_an_experiment_plays_its_trials_back_to_back(tmp_path: Path) -> None:
+def test_an_experiment_places_each_trial_at_its_starttime(tmp_path: Path) -> None:
     experiment = tmp_path / "experiment_1"
     experiment.mkdir()
     first = _trial(experiment / "12-00-00")
     second = _trial(experiment / "12-10-00", start_ms=1_700_000_600_000)
     trials = [read_trial(first), read_trial(second)]
+    plan = place_trials(trials)
+    # Ten minutes apart on the controller clock, and the ten minutes stay (D-217).
+    assert plan.starts == pytest.approx([0.0, 600.0])
     # Each trial takes its length, or its last frame plus one period if later:
-    # frames at 5 and 17 ms, 12 ms apart, so the second trial starts at 29 ms.
-    assert joined_starts(trials) == pytest.approx([0.0, 0.029])
+    # frames at 5 and 17 ms, 12 ms apart, so 29 ms.
+    assert plan.lengths == pytest.approx([0.029, 0.029])
+    assert plan.epoch == pytest.approx(1_700_000_000.0)
+    assert [name for _start, _end, name in plan.segments()] == ["12-00-00", "12-10-00"]
 
     source = AOLRibbonScanSource()
-    metadata = source.open(experiment, {"trial_folders": [str(first), str(second)]})
+    config = {
+        "trial_folders": [str(first), str(second)],
+        "trial_starts": plan.starts,
+        "trial_placement": plan.placement.value,
+    }
+    metadata = source.open(experiment, config)
     assert metadata.frame_count == 4
+    np.testing.assert_allclose(metadata.frame_times, [0.005, 0.017, 600.005, 600.017])
+    assert "2 trials at their STARTTIME" in metadata.timing_source
+    assert np.nanmax(source.read_frame(2, 0)) > 0
+
+
+def test_trials_opened_without_stored_starts_are_placed_the_same_way(tmp_path: Path) -> None:
+    experiment = tmp_path / "experiment_1"
+    experiment.mkdir()
+    first = _trial(experiment / "12-00-00")
+    second = _trial(experiment / "12-10-00", start_ms=1_700_000_600_000)
+    metadata = AOLRibbonScanSource().open(experiment, {"trial_folders": [str(first), str(second)]})
+    np.testing.assert_allclose(metadata.frame_times, [0.005, 0.017, 600.005, 600.017])
+
+
+def test_a_trial_starting_inside_the_one_before_is_left_out(tmp_path: Path) -> None:
+    first = read_trial(_trial(tmp_path / "12-00-00"))
+    overlapping = read_trial(_trial(tmp_path / "12-00-01", start_ms=1_700_000_000_010))
+    third = read_trial(_trial(tmp_path / "12-00-02", start_ms=1_700_000_002_000))
+    plan = place_trials([first, overlapping, third])
+    assert plan.names == ["12-00-00", "12-00-02"]
+    assert plan.starts == pytest.approx([0.0, 2.0])
+    assert "12-00-01" in plan.warnings[0] and "overlap" in plan.warnings[0]
+
+
+def test_trials_without_any_starttime_play_back_to_back_and_say_so(tmp_path: Path) -> None:
+    trials = [
+        read_trial(_trial(tmp_path / "12-00-00", start_ms=0)),
+        read_trial(_trial(tmp_path / "12-10-00", start_ms=0)),
+    ]
+    plan = place_trials(trials)
+    assert plan.starts == pytest.approx([0.0, 0.029])
+    assert plan.segments() == []  # no clock: nothing to place the trials lane on
+    assert "STARTTIME" in plan.warnings[0]
+
+
+def test_a_saved_back_to_back_session_reopens_back_to_back(tmp_path: Path) -> None:
+    """Sessions saved before D-217 stored back-to-back starts and no placement."""
+    first = _trial(tmp_path / "12-00-00")
+    second = _trial(tmp_path / "12-10-00", start_ms=1_700_000_600_000)
+    metadata = AOLRibbonScanSource().open(
+        tmp_path, {"trial_folders": [str(first), str(second)], "trial_starts": [0.0, 0.029]}
+    )
     np.testing.assert_allclose(metadata.frame_times, [0.005, 0.017, 0.034, 0.046])
     assert "2 trials back to back" in metadata.timing_source
-    assert np.nanmax(source.read_frame(2, 0)) > 0
 
 
 def test_a_clock_that_disagrees_with_the_trial_length_is_taken_from_the_recording(

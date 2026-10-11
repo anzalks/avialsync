@@ -20,7 +20,7 @@ from avialsync.core.source import SessionItem
 from avialsync.engine.drop_worker import DropScanWorker
 from avialsync.loaders.aol_camera_join import AOLJoinedCameraSource
 from avialsync.loaders.aol_microscope_session import AOLMicroscopeTrialSource
-from avialsync.loaders.aol_microscope_trial import joined_starts, read_trial
+from avialsync.loaders.aol_microscope_trial import place_trials, read_trial
 from avialsync.loaders.aol_trial_matching import CameraRecording, match_cameras
 from avialsync.loaders.video_standard import VideoStandardLoader
 from tests.test_aol_camera_join import _camera
@@ -140,7 +140,11 @@ def test_an_experiment_joins_cameras_by_clock_and_keeps_only_frames_in_each_tria
     assert any(f"{STRAY}: no trial was recording" in w for w in layout.warnings)
 
     trials = [read_trial(experiment / name, verify=False) for name in TRIALS]
-    starts = dict(zip(TRIALS, joined_starts(trials), strict=True))
+    plan = place_trials(trials)
+    # Each trial at its STARTTIME, a minute apart (D-217).
+    assert plan.starts == pytest.approx([0.0, 60.0, 120.0, 180.0])
+    starts = dict(zip(TRIALS, plan.starts, strict=True))
+    lengths = dict(zip(TRIALS, plan.lengths, strict=True))
     loader = AOLJoinedCameraSource()
     loader.open(joined[0].path, dict(joined[0].config))
     loader.prepare(lambda _fraction: None)
@@ -151,8 +155,10 @@ def test_an_experiment_joins_cameras_by_clock_and_keeps_only_frames_in_each_tria
     # The early camera's frames before its trigger are dropped; the rest keep
     # their recorded spacing, moved by the offset its clock gave.
     recorded = segments[1]["offset"] + np.arange(30) * 0.1
-    expected = recorded[(recorded >= 0.0) & (recorded < starts["12-03-06"] - starts["12-02-06"])]
+    expected = recorded[(recorded >= 0.0) & (recorded < lengths["12-02-06"])]
     assert len(expected) in (14, 15)
+    # Between trials there are no frames: the minute between them is a gap.
+    assert not np.any((master > starts["12-02-06"] + 2.1) & (master < starts["12-03-06"]))
     np.testing.assert_allclose(early - starts["12-02-06"], expected, atol=1e-3)
     assert master[0] == pytest.approx(0.0, abs=1e-6)
 
@@ -262,7 +268,7 @@ def test_camera_folders_dropped_alone_load_as_their_trials(tmp_path: Path) -> No
     assert any("skip the imaging in the review" in w for w in layout.warnings)
 
 
-def test_camera_folders_without_trials_play_back_to_back(tmp_path: Path) -> None:
+def test_camera_folders_without_trials_join_on_the_camera_clock(tmp_path: Path) -> None:
     _trials, videos = _experiment(tmp_path, cameras_under=tmp_path / "usb" / "camera_pc")
     claimed = AOLMicroscopeTrialSource().scan_together([videos], [], None)
     assert claimed is not None
@@ -270,10 +276,14 @@ def test_camera_folders_without_trials_play_back_to_back(tmp_path: Path) -> None
     assert [item.loader for item in layout.items] == [AOLJoinedCameraSource]
     segments = layout.items[0].config["segments"]
     assert len(segments) == len(layout.segments) == len(CAMERAS) + 1
-    # Each recording follows the last: 30 frames 100 ms apart run 3.0 s.
-    assert [s["start"] for s in segments] == pytest.approx([0.0, 3.0, 6.0, 9.0, 12.0])
-    assert layout.session_epoch == pytest.approx(_local("12-00-06", 0.03))
-    assert "play back to back" in layout.warnings[0]
+    # Each recording at its first-frame stamp; the time between them stays.
+    first = _local("12-00-06", 0.03)
+    stamps = sorted([_local(t, r) for t, r in CAMERAS.values()] + [_local("12-02-06", 30.0)])
+    assert [s["start"] for s in segments] == pytest.approx(
+        [stamp - first for stamp in stamps], abs=1e-3
+    )
+    assert layout.session_epoch == pytest.approx(first)
+    assert "camera clock alone" in layout.warnings[0]
 
 
 def test_camera_sessions_with_more_than_cameras_are_left_to_their_scanner(tmp_path: Path) -> None:

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from avialsync.core.commands import SetSourceMappingsCommand, SourceMappingChange
 from avialsync.core.settings_schema import setting_for
 from avialsync.engine.aol_trial_search import AOLTrialSearchWorker
-from avialsync.loaders.aol_microscope_trial import joined_starts, read_trial
+from avialsync.loaders.aol_microscope_trial import place_trials, read_trial
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import on_ui_thread
 
@@ -105,9 +105,9 @@ def _pair_targets(window: MainWindow, folder: Path) -> list[tuple[str, float]]:
     """Loaded sources of the matched trial or of its joined experiment, with each one's zero.
 
     Each entry is ``(source id, seconds from the matched trial's zero to this
-    source's own zero)``. A joined experiment plays its trials back to back
-    (``joined_starts``), so its zero is the matched trial's joined start
-    earlier.
+    source's own zero)``. A joined experiment places each trial at its start
+    on the session timeline (``place_trials``), so its zero is the matched
+    trial's start earlier.
     """
     joined: dict[Path, float] = {}
     targets: list[tuple[str, float]] = []
@@ -120,7 +120,10 @@ def _pair_targets(window: MainWindow, folder: Path) -> list[tuple[str, float]]:
             starts = config.get("trial_starts")
             if not starts or len(starts) != len(members):
                 # A session saved before starts were stored: derive them once.
-                starts = joined_starts([read_trial(member, verify=False) for member in members])
+                plan = place_trials([read_trial(member, verify=False) for member in members])
+                if len(plan.kept) != len(members):
+                    continue
+                starts = plan.starts
             joined = dict(zip(members, (float(start) for start in starts), strict=True))
         targets.append((source_id, -joined[folder]))
 
@@ -211,7 +214,7 @@ def accept_trial_pair(window: MainWindow, result: dict[str, Any]) -> None:
     """Place the matched trial's zero on camera frame zero, as one undoable command.
 
     A joined experiment moves as one: its own zero is its first trial's, so it
-    lands the matched trial's joined start earlier.
+    lands the matched trial's start on the session timeline earlier.
     """
     folder = Path(str(result["folder"]))
     targets = _pair_targets(window, folder)
