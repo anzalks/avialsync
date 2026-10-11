@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtWidgets import QMenu, QMenuBar
 
-from avialsync.ui.controllers import calibration_controller
+from avialsync.ui.controllers import calibration_controller, gap_view
 from avialsync.ui.i18n import tr
 from avialsync.ui.time_format import TimeDisplayMode
 
@@ -183,6 +183,20 @@ def _view_navigation(window: MainWindow, view_menu: QMenu, _reg: Register) -> No
         tr("There are no videos to fit until one is loaded."),
     )
     window.view_toolbar.install_fit_videos_action(window._act_fit_videos)
+
+    # A view, never a change to time: the preference is the one authority,
+    # and this action is its switch (D-218).
+    window._act_collapse_gaps = view_menu.addAction(tr("Collapse Gaps Without Data"))
+    window._act_collapse_gaps.setCheckable(True)
+    window._act_collapse_gaps.setChecked(gap_view.collapse_enabled())
+    window._act_collapse_gaps.setToolTip(
+        tr(
+            "Skip the time no loaded source recorded anything in, on the timeline and in "
+            "playback. Timestamps are unchanged."
+        )
+    )
+    window._act_collapse_gaps.toggled.connect(lambda on: gap_view.set_collapse(window, on))
+    _reg(window._act_collapse_gaps, "View")
 
     # Fullscreen toggle — StandardKey.FullScreen = F11 / Ctrl+Cmd+F on macOS
     window._act_fullscreen = view_menu.addAction(tr("Fullscreen"))

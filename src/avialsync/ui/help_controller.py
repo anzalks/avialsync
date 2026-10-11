@@ -100,6 +100,12 @@ class HelpController(QObject):
         app = QApplication.instance()
         if not isinstance(app, QApplication):
             return
+        if key == "playback/collapse_gaps":
+            from avialsync.ui.controllers import gap_view
+
+            # The menu action is the switch; setting it applies the preference.
+            self._window._act_collapse_gaps.setChecked(gap_view.collapse_enabled())
+            return
         if key == "theme/preference":
             from avialsync.ui.theme import apply_theme, load_saved_theme
 

@@ -6968,6 +6968,8 @@ shares). Trial boundaries are drawn at both edges of every trial. Vicon trials a
 they record no clock to place them on, and their video is inter-frame, which the joined reader
 cannot cut.
 
+> Vicon placement is amended by D-218: trials are placed by their `.xcp` capture times.
+
 **Why.** Back to back showed footage and imaging from different trials as adjacent in time, and a
 level for the TTL where nothing was recorded. The real time between trials is evidence (rule 8);
 a session that removes it must say so, and only a plugin whose format defines its parts that way
@@ -6977,3 +6979,41 @@ may.
 trials that way: that is a presentation of the analysis, not of when things happened, and the
 cameras align to imaging per trial either way. Holding the last frame through a gap: indistinguishable
 from footage of that instant.
+
+---
+
+## 2026-10 · D-218 · Streams stop where they have no data; gaps collapse for viewing only
+
+**Decision.** A stream's Data Streams lane is its stretches of data, not one span from first to last:
+between two of the session's parts (its `segments`) a stream with no frame or sample there shows
+nothing (`ui/controllers/gap_view.py`, `core.trials.holes_between`). Each stream answers from its
+own table -- video frames through its pane's mapping, imaging frames, a data channel's next
+sample -- so a plugin gets this by declaring its parts; a stream that cannot answer is taken to
+have data. Only time between parts can be such a hole: a dropout inside a part stays a data gap,
+and an imported gap stamped within a second of a hole's start is that hole, not listed as a data
+gap. A grouped lane (`coverage_group`) is the union of its members' stretches.
+
+**View → Collapse Gaps Without Data** (`playback/collapse_gaps`, Preferences → Playback, on by
+default) collapses the time no loaded stream has data in (`core.trials.common_gaps`, gaps of a
+second or more) to a double dashed break. The overview strip and the scrub slider are drawn in
+view time (`core.trials.TimeWarp`), a click or slider value on a break means the data after it, and
+playback that reaches a collapsed gap goes on from its end. Master time, timestamps, readouts,
+exports, saved sessions and synchronization are untouched; plots keep their own time axis.
+
+Vicon trials are placed by their `.xcp` `Capture` `START_TIME`/`END_TIME` (millisecond, every
+camera agreeing; on 2026-06-25 trial 02 ran 13:59:36.246-13:59:53.424, its 3436 frames at 200 Hz).
+The stamps are the capture PC's local time with no zone, so they place trials against each other
+only: the layout declares no `anchor_epoch`, and the display switches to wall clock only for a
+session that declares one. Each camera's trials share a lane, as do their markers. The video file
+names' stamps are export times (14 s apart for 17 s videos) and are not used.
+
+**Why.** A session laid out on its true clock showed every stream as continuous across minutes it
+did not record, and asked the user to scrub through those minutes. Collapsing them by moving data
+(placing parts back to back) would have changed every timestamp a user reads, exports or annotates;
+drawing them collapsed changes none. Collapsing only what no stream recorded is the least-gap
+stream's gaps less anything another stream recorded, so nothing loaded is hidden.
+
+**Alternatives rejected.** A plugin-named reference stream whose gaps are collapsed even where
+another stream has data: it hides data the user loaded. Splitting every lane at every gap past the
+D-009 rule: a dropout inside a recording would read as the stream stopping, which is what the Data
+gaps lane is for.

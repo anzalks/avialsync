@@ -43,6 +43,7 @@ from PySide6.QtWidgets import (
 )
 
 from avialsync.core.settings_schema import setting_for
+from avialsync.core.trials import MIN_COLLAPSED_GAP_S, TimeWarp, common_gaps, stream_spans
 from avialsync.ui.accessible_views import register_painted
 from avialsync.ui.app_settings import app_settings
 from avialsync.ui.design_tokens import DENSITY_ROW_HEIGHT, ControlRole, Density, apply_role, spacing
@@ -112,6 +113,28 @@ def _lane_ground(palette: QColor | object) -> QColor:
 _RUG_ALPHA = 200
 
 
+def _union(spans: tuple[tuple[float, float], ...]) -> tuple[tuple[float, float], ...]:
+    """Overlapping stretches merged, in time order."""
+    merged: list[tuple[float, float]] = []
+    for start, end in sorted(spans):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return tuple(merged)
+
+
+def _duration_words(seconds: float) -> str:
+    """A gap's length as a person says it: 33.4 s, 4 min 12 s, 2 h 5 min."""
+    if seconds < 60:
+        return f"{seconds:.1f} s"
+    minutes, rest = divmod(round(seconds), 60)
+    if minutes < 60:
+        return f"{minutes} min {rest} s"
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours} h {minutes} min"
+
+
 def _paint_span(
     painter: QPainter, left: int, top: int, width: int, height: int, color: QColor
 ) -> None:
@@ -154,6 +177,12 @@ class _CoverageLane:
     end: float
     kind: str
     members: int = 1
+    #: The stretches with data, ``start`` to ``end`` less the time between a
+    #: session's parts where the source recorded nothing (D-218).
+    spans: tuple[tuple[float, float], ...] = ()
+
+    def covers(self, time: float) -> bool:
+        return any(a <= time <= b for a, b in self.spans or ((self.start, self.end),))
 
 
 @dataclass(frozen=True)
@@ -233,6 +262,12 @@ class TimelineOverview(QWidget):
         #: even when grouped, so one member can still be replaced or removed
         #: without the rest of its group being rebuilt.
         self._coverage: dict[str, tuple[float, float, str, str]] = {}
+        #: source id -> where between the session's parts it has no data.
+        self._holes: dict[str, tuple[tuple[float, float], ...]] = {}
+        #: Collapse the time no source has data in, for viewing (D-218).
+        self._collapse_gaps = False
+        self._warp = TimeWarp()
+        self._raw_gap_events: tuple[tuple[float, str], ...] = ()
         self._ttl_events: tuple[tuple[float, str], ...] = ()
         self._gap_events: tuple[tuple[float, str], ...] = ()
         self._message_events: tuple[tuple[float, str], ...] = ()
@@ -304,7 +339,13 @@ class TimelineOverview(QWidget):
         self.update()
 
     def set_coverage(
-        self, source_id: str, t0: float, t1: float, kind: str, group: str = ""
+        self,
+        source_id: str,
+        t0: float,
+        t1: float,
+        kind: str,
+        group: str = "",
+        holes: tuple[tuple[float, float], ...] | list[tuple[float, float]] = (),
     ) -> None:
         """Register one source coverage span, keyed for later replacement.
 
@@ -318,9 +359,31 @@ class TimelineOverview(QWidget):
         """
         if t0 == 0.0 and t1 == 0.0:
             self._coverage.pop(source_id, None)
+            self._holes.pop(source_id, None)
         else:
             self._coverage[source_id] = (t0, t1, kind, group)
+            self._holes[source_id] = tuple(holes)
         self._on_evidence_changed()
+
+    def set_holes(self, holes: dict[str, list[tuple[float, float]]]) -> None:
+        """Replace where each source has no data between parts, once the parts change."""
+        self._holes = {source_id: tuple(holes.get(source_id, ())) for source_id in self._coverage}
+        self._on_evidence_changed()
+
+    def source_spans(self, source_id: str) -> list[tuple[float, float]]:
+        """One source's stretches of data, in master seconds."""
+        start, end, _kind, _group = self._coverage[source_id]
+        return stream_spans((start, end), self._holes.get(source_id, ()))
+
+    def set_collapse_gaps(self, collapse: bool) -> None:
+        """Draw the time no source has data in as a break, or at its length (D-218)."""
+        self._collapse_gaps = bool(collapse)
+        self._on_evidence_changed()
+
+    @property
+    def warp(self) -> TimeWarp:
+        """How the timeline is drawn: the collapsed gaps, none when not collapsing."""
+        return self._warp
 
     def coverage_span(self) -> tuple[float, float] | None:
         """Return the master-time extent of every registered source, or None.
@@ -344,10 +407,25 @@ class TimelineOverview(QWidget):
         self._on_evidence_changed()
 
     def set_gap_events(self, events: list[float | tuple[float, str]] | tuple[float, ...]) -> None:
-        """Display imported data gaps as red ticks."""
-        self._gap_events = _normalise_events(events)
-        self._event_times["gap"] = _time_index(self._gap_events)
+        """Display imported data gaps as red ticks.
+
+        A gap a source shows between a session's parts is that time, not a
+        dropout: the source's lane shows it stopping, and it is left out here.
+        """
+        self._raw_gap_events = _normalise_events(events)
         self._on_evidence_changed()
+
+    def _filter_gap_events(self) -> None:
+        holes = sorted(hole for holes in self._holes.values() for hole in holes)
+        # A gap is stamped at the last sample before it, just short of the hole.
+        events = tuple(
+            event
+            for event in self._raw_gap_events
+            if not any(a - MIN_COLLAPSED_GAP_S <= event[0] < b for a, b in holes)
+        )
+        if events != self._gap_events:
+            self._gap_events = events
+            self._event_times["gap"] = _time_index(events)
 
     def set_message_events(
         self, events: list[float | tuple[float, str]] | tuple[float, ...]
@@ -465,6 +543,12 @@ class TimelineOverview(QWidget):
 
     def _on_evidence_changed(self) -> None:
         """Refresh labels and ensure populated lanes have usable vertical space."""
+        self._filter_gap_events()
+        self._warp = TimeWarp(
+            common_gaps([lane.spans for lane in self._coverage_payloads()])
+            if self._collapse_gaps
+            else ()
+        )
         lane_count = max(1, len(self.lane_labels()))
         self.setFixedHeight(max(28, lane_count * self.lane_height()))
         self.evidence_changed.emit()
@@ -488,12 +572,13 @@ class TimelineOverview(QWidget):
         lanes: list[tuple[str, str, _CoverageLane | _EventLane | _AnnotationLane | None]] = []
         positions: dict[tuple[str, str], int] = {}
         for source_id, (start, end, kind, group) in self._coverage.items():
+            spans = tuple(self.source_spans(source_id))
             if not group:
                 lanes.append(
                     (
                         self._coverage_label(source_id, kind),
                         "coverage",
-                        _CoverageLane(source_id, start, end, kind),
+                        _CoverageLane(source_id, start, end, kind, spans=spans),
                     )
                 )
                 continue
@@ -504,12 +589,14 @@ class TimelineOverview(QWidget):
                     (
                         self._coverage_label(group, kind),
                         "coverage",
-                        _CoverageLane(group, start, end, kind),
+                        _CoverageLane(group, start, end, kind, spans=spans),
                     )
                 )
                 continue
             label, tag, merged = lanes[position]
             assert isinstance(merged, _CoverageLane)
+            # The members' stretches, not their outer span: the time between
+            # two trials' files is not covered by either (D-218).
             lanes[position] = (
                 label,
                 tag,
@@ -519,6 +606,7 @@ class TimelineOverview(QWidget):
                     max(merged.end, end),
                     kind,
                     merged.members + 1,
+                    spans=_union(merged.spans + spans),
                 ),
             )
         return lanes
@@ -560,18 +648,27 @@ class TimelineOverview(QWidget):
                 painter.setPen(palette.color(palette.ColorRole.Text))
                 painter.drawText(left + 2, top, width, height, Qt.AlignmentFlag.AlignVCenter, name)
 
+    def _coverage_payloads(self) -> list[_CoverageLane]:
+        return [
+            payload
+            for _l, _k, payload in self._coverage_lanes()
+            if isinstance(payload, _CoverageLane)
+        ]
+
     def _content_x(self, time: float) -> int:
-        t0, t1 = self._bounds
+        warp = self._warp
+        t0, t1 = (warp.to_view(t) for t in self._bounds)
         width = max(1, self.width() - self._LABEL_WIDTH - 1)
         if t1 <= t0:
             return self._LABEL_WIDTH
-        return self._LABEL_WIDTH + round((time - t0) / (t1 - t0) * width)
+        return self._LABEL_WIDTH + round((warp.to_view(time) - t0) / (t1 - t0) * width)
 
     def _time_at_x(self, x: float) -> float:
-        t0, t1 = self._bounds
+        warp = self._warp
+        t0, t1 = (warp.to_view(t) for t in self._bounds)
         width = max(1, self.width() - self._LABEL_WIDTH - 1)
         fraction = min(1.0, max(0.0, (x - self._LABEL_WIDTH) / width))
-        return t0 + fraction * (t1 - t0)
+        return warp.to_master(t0 + fraction * (t1 - t0), snap=0.5 * (t1 - t0) / width)
 
     def _visible_span_x(self, start: float, end: float) -> tuple[int, int] | None:
         """Return the clipped timeline span, excluding the source-label gutter."""
@@ -693,12 +790,12 @@ class TimelineOverview(QWidget):
             band_top = top + _LANE_INSET
             band_height = max(3, lane_height - 2 * _LANE_INSET)
             if isinstance(payload, _CoverageLane):
-                span = self._visible_span_x(payload.start, payload.end)
-                if span is None:
-                    continue
-                left, right = span
                 color = accent if payload.kind == "video" else data_color
-                _paint_span(painter, left, band_top, right - left, band_height, color)
+                for first, last in payload.spans or ((payload.start, payload.end),):
+                    span = self._visible_span_x(first, last)
+                    if span is not None:
+                        left, right = span
+                        _paint_span(painter, left, band_top, right - left, band_height, color)
             elif lane_kind == "ttl":
                 # A rug, not a picket fence. A periodic train collapses to one
                 # tick per pixel column, and at full height that is a striped
@@ -789,15 +886,41 @@ class TimelineOverview(QWidget):
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRect(left, 1, max(1, right - left), max(1, self.height() - 3))
 
+        self._paint_breaks(painter)
         painter.setPen(palette.color(palette.ColorRole.BrightText))
         cursor_x = min(self.width() - 1, max(self._LABEL_WIDTH, self._content_x(self._cursor)))
         painter.drawLine(cursor_x, 0, cursor_x, self.height() - 1)
+
+    def _paint_breaks(self, painter: QPainter) -> None:
+        """A collapsed gap is a double dashed line, so a break never reads as a seam (D-218)."""
+        t0, t1 = self._bounds
+        pen = QPen(evidence_color(self.palette(), "gap"))
+        pen.setStyle(Qt.PenStyle.DashLine)
+        painter.setPen(pen)
+        for a, _b in self._warp.gaps:
+            if t0 <= a <= t1:
+                x = self._content_x(a)
+                painter.drawLine(x - 1, 0, x - 1, self.height() - 1)
+                painter.drawLine(x + 1, 0, x + 1, self.height() - 1)
+
+    def _break_detail(self, x: float) -> str:
+        """The collapsed gap under *x*, in the words of its tooltip."""
+        for a, b in self._warp.gaps:
+            if abs(self._content_x(a) - x) <= 3:
+                return tr(
+                    "Collapsed: {length} with no data, {start:.3f}–{end:.3f} s\n"
+                    "Uncheck View → Collapse Gaps Without Data to show it at its length."
+                ).format(length=_duration_words(b - a), start=a, end=b)
+        return ""
 
     def _event_detail(self, x: float, y: float) -> str:
         """Return concise inspectable evidence nearest the pointer, if any."""
         t0, t1 = self._bounds
         if t1 <= t0:
             return ""
+        collapsed = self._break_detail(x)
+        if collapsed:
+            return collapsed
         lanes = self._lanes()
         if not lanes:
             return f"Navigator\nMaster time: {self._time_at_x(x):.3f} s"
@@ -807,7 +930,7 @@ class TimelineOverview(QWidget):
         time = self._time_at_x(x)
         tolerance = (t1 - t0) * 8 / max(1, self.width() - self._LABEL_WIDTH)
         if isinstance(payload, _CoverageLane):
-            if payload.start <= time <= payload.end:
+            if payload.covers(time):
                 source = Path(payload.source_id).name
                 if payload.members > 1:
                     source = f"{source} ({payload.members} sources)"
@@ -1189,13 +1312,26 @@ class Transport(QWidget):
 
     def _sync_scrub_track(self) -> None:
         """Snapshot changed evidence for the slider, never called by a cursor tick."""
-        coverage = tuple((start, end) for start, end, _, _ in self.overview._coverage.values())
-        self.slider.set_track_data(
-            self._bounds,
-            coverage,
-            self.overview._markers,
-            (self._ab_in_t, self._ab_out_t),
+        # The slider is drawn in view time: with gaps collapsed, a collapsed
+        # gap takes no track at all (D-218).
+        view = self.overview.warp.to_view
+        coverage = tuple(
+            (view(start), view(end))
+            for source_id in self.overview._coverage
+            for start, end in self.overview.source_spans(source_id)
         )
+        markers = tuple(
+            (view(start), None if end is None else view(end), label)
+            for start, end, label in self.overview._markers
+        )
+        loop = tuple(None if t is None else view(t) for t in (self._ab_in_t, self._ab_out_t))
+        self.slider.set_track_data(
+            (view(self._bounds[0]), view(self._bounds[1])),
+            coverage,
+            markers,
+            (loop[0], loop[1]),
+        )
+        self._repin()
 
     def set_time_mode(self, mode: TimeDisplayMode) -> None:
         self._time_mode = mode
@@ -1225,15 +1361,36 @@ class Transport(QWidget):
         self.status_line.set_status(message, severity)
 
     def set_source_coverage(
-        self, source_id: str, t0: float, t1: float, kind: str, group: str = ""
+        self,
+        source_id: str,
+        t0: float,
+        t1: float,
+        kind: str,
+        group: str = "",
+        holes: tuple[tuple[float, float], ...] | list[tuple[float, float]] = (),
     ) -> None:
         """Show one video or data coverage span in the overview strip.
 
         A *group* draws this span in one shared lane with every other source
         naming the same group, for files that are one recording seen from one
         angle and would otherwise repeat one span down the whole strip.
+        *holes* are where between the session's parts the source has no data;
+        its lane is empty there (D-218).
         """
-        self.overview.set_coverage(source_id, t0, t1, kind, group)
+        self.overview.set_coverage(source_id, t0, t1, kind, group, holes)
+
+    def set_coverage_holes(self, holes: dict[str, list[tuple[float, float]]]) -> None:
+        """Replace every source's holes, once the session's parts change."""
+        self.overview.set_holes(holes)
+
+    def set_collapse_gaps(self, collapse: bool) -> None:
+        """Collapse the time no source has data in, for viewing only (D-218)."""
+        self.overview.set_collapse_gaps(collapse)
+
+    @property
+    def warp(self):
+        """How the timeline is drawn; master time is never changed by it."""
+        return self.overview.warp
 
     def coverage_span(self) -> tuple[float, float] | None:
         """Return the master-time extent of every registered source, or None."""
@@ -1283,10 +1440,8 @@ class Transport(QWidget):
             self._time_edit.setText(format_time(t, self._time_mode, self._t_epoch))
 
         if not self._is_scrubbing:
-            duration = self._bounds[1] - self._bounds[0]
-            if duration > 0:
-                val = int((t - self._bounds[0]) / duration * 10000)
-                val = max(0, min(10000, val))
+            if self._bounds[1] > self._bounds[0]:
+                val = max(0, min(10000, int(self._time_to_frac(t) * 10000)))
                 self.slider.blockSignals(True)
                 self.slider.setValue(val)
                 self.slider.blockSignals(False)
@@ -1308,16 +1463,19 @@ class Transport(QWidget):
     # ── Internal helpers ──────────────────────────────────────────────
 
     def _t_from_slider(self, val: int) -> float:
-        duration = self._bounds[1] - self._bounds[0]
-        return self._bounds[0] + (val / 10000.0) * duration
+        """The master time at a slider value; gaps collapsed take no track (D-218)."""
+        warp = self.overview.warp
+        t0, t1 = (warp.to_view(t) for t in self._bounds)
+        return warp.to_master(t0 + (val / 10000.0) * (t1 - t0))
 
     def _time_to_frac(self, t: float) -> float:
         """Convert absolute time to a [0, 1] fraction within current bounds."""
-        t0, t1 = self._bounds
+        warp = self.overview.warp
+        t0, t1 = (warp.to_view(time) for time in self._bounds)
         duration = t1 - t0
         if duration <= 0:
             return 0.0
-        return max(0.0, min(1.0, (t - t0) / duration))
+        return max(0.0, min(1.0, (warp.to_view(t) - t0) / duration))
 
     def _repin(self) -> None:
         """Reposition all visible A/B pins from stored times + current geometry."""

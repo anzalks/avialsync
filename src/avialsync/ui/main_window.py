@@ -96,6 +96,7 @@ from avialsync.ui.controllers import (
     custom_marker_controller,
     drop_controller,
     export_controller,
+    gap_view,
     identity_controller,
     identity_view,
     import_controller,
@@ -288,6 +289,7 @@ class MainWindow(QMainWindow):
     _act_panels_back: QAction
     _act_reset_zoom: QAction
     _act_fit_videos: QAction
+    _act_collapse_gaps: QAction
     _act_fullscreen: QAction
     _act_review_workflow: QAction
     _act_first_session: QAction
@@ -584,6 +586,7 @@ class MainWindow(QMainWindow):
             tracking_3d_pane=self.tracking_3d_pane,
             imaging_pane=self.imaging_pane,
         )
+        gap_view.install(self)  # D-218
 
         # Annotations
         self.annotation_store = AnnotationStore(self)

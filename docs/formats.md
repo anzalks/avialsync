@@ -179,6 +179,13 @@ of the overlay rather than projected with guessed calibration. When importing a 
 assign its matching AVI as the overlay target; AvialSync reads that video's dimensions and scales
 the XCP projection to its pixel grid.
 
+Each Vicon trial is placed where it was captured: its `.xcp` records every camera's capture start
+and end to the millisecond, so the trials of a session sit one after another with the time between
+them kept, and each camera's trials and their markers share one Data Streams lane. Those stamps are
+the capture PC's local time without a time zone, so they order and space the trials but the clock
+shows time from the first trial rather than wall-clock time. A video's file name carries the time
+it was exported, not captured, and is not used.
+
 To open one trial, copy its `.c3d`, matching `.xcp`, and camera AVI into a separate folder and drop
 that folder onto AvialSync. The review dialog lists the paired video and tracking file, with the
 Vicon labels, combined 3D-pose/2D-overlay role, and XCP calibration preselected. Confirm the rows to

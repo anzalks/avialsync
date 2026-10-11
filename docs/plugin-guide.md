@@ -109,6 +109,17 @@ records them — it pre-fills the wheel setup in Props and is never applied on i
 `SessionItem.loader` of `None` to let capability resolution pick one, which is
 what you should do for ordinary video.
 
+A recording that comes in parts -- trials, recordings -- declares them in
+`segments`, `(start, end, name)` in Unix seconds, placed with
+`avialsync.core.trials.place`: each part at its recorded start, the time between
+parts kept as a gap, and a part without a start or overlapping the one before
+left out and named. Pass `Placement.BACK_TO_BACK` only when your format defines
+its parts that way. Nothing more is needed for the rest: each stream's Data
+Streams lane is empty between parts where it has no frame or sample, and **View
+→ Collapse Gaps Without Data** hides only the time no stream recorded. Give
+the files one camera recorded across parts the same `SessionItem.coverage_group`
+so they share one lane.
+
 `session_epoch` and `anchor_epoch` are commonly different, and both are useful:
 a rig whose logs are written as seconds since midnight has an `anchor_epoch` of
 that midnight, while its master zero is the instant the cameras started, hours

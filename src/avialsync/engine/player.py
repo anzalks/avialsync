@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QObject, Qt, QTimer
 
 from avialsync.core.timeline import MasterClock
+from avialsync.core.trials import TimeWarp
 from avialsync.engine.seeker import SeekGroup
 
 if TYPE_CHECKING:
@@ -317,6 +318,13 @@ class Player(QObject):
             self.clock.advance(now)
 
             t = self.clock.state.t
+            # With gaps collapsed (D-218), playback does not run through time
+            # no source recorded: it goes on from the data after the gap.
+            warp = getattr(self.transport, "warp", None)
+            gap = warp.gap_at(t) if isinstance(warp, TimeWarp) else None
+            if gap is not None:
+                self.clock.seek(gap[1])
+                t = self.clock.state.t
 
             # A/B loop enforcement
             if self._ab_in is not None and self._ab_out is not None and t >= self._ab_out:

@@ -5,7 +5,18 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from avialsync.core.trials import GAP_FACTOR, FrameGaps, Part, Placement, into_slot, place
+from avialsync.core.trials import (
+    GAP_FACTOR,
+    FrameGaps,
+    Part,
+    Placement,
+    TimeWarp,
+    common_gaps,
+    holes_between,
+    into_slot,
+    place,
+    stream_spans,
+)
 
 EPOCH = 1_700_000_000.0
 
@@ -89,3 +100,45 @@ def test_a_steady_table_has_no_gaps() -> None:
     gaps = FrameGaps(times)
     assert not gaps.has_gaps and not gaps.in_gap(0.55)
     assert not FrameGaps(np.array([1.0])).in_gap(1.0)
+
+
+def test_a_stream_has_holes_only_between_parts_where_it_recorded_nothing() -> None:
+    parts = [(0.0, 10.0), (60.0, 70.0), (100.0, 110.0)]
+    samples = np.array([1.0, 5.0, 61.0, 80.0, 101.0])  # recorded once between parts 2 and 3
+
+    def has_data(a: float, b: float) -> bool:
+        return bool(np.any((samples > a) & (samples < b)))
+
+    holes = holes_between((0.0, 110.0), parts, has_data)
+    assert holes == [(10.0, 60.0)]
+    assert stream_spans((0.0, 110.0), holes) == [(0.0, 10.0), (60.0, 110.0)]
+    # A stream that starts later only has holes inside its own bounds.
+    assert holes_between((61.0, 110.0), parts, lambda a, b: False) == [(70.0, 100.0)]
+
+
+def test_only_time_no_stream_recorded_is_collapsible() -> None:
+    video = [(0.0, 10.0), (60.0, 70.0)]
+    markers = [(0.0, 10.0), (30.0, 40.0), (60.0, 70.0)]  # data the video lacks
+    assert common_gaps([video, markers]) == [(10.0, 30.0), (40.0, 60.0)]
+    assert common_gaps([[(0.0, 10.0), (10.5, 20.0)]]) == []  # under a second is kept
+
+
+def test_a_warp_draws_gaps_as_breaks_and_leaves_master_time_alone() -> None:
+    warp = TimeWarp([(10.0, 60.0), (70.0, 100.0)])
+    assert [warp.to_view(t) for t in (0.0, 10.0, 30.0, 60.0, 65.0, 100.0, 110.0)] == [
+        0.0,
+        10.0,
+        10.0,
+        10.0,
+        15.0,
+        20.0,
+        30.0,
+    ]
+    # A position on a break means the data after it.
+    assert warp.to_master(10.0) == 60.0
+    assert warp.to_master(9.0) == 9.0
+    assert warp.to_master(15.0) == 65.0
+    assert warp.to_master(20.0) == 100.0
+    assert warp.gap_at(30.0) == (10.0, 60.0)
+    assert warp.gap_at(60.0) is None and warp.gap_at(5.0) is None
+    assert not TimeWarp() and TimeWarp().to_view(5.0) == 5.0

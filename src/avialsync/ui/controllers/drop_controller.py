@@ -218,7 +218,8 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
     declared = layout.session_epoch or layout.anchor_epoch
     if declared > 0.0:
         window.adopt_session_start(declared)
-        # Times become readable wall clock rather than seconds-from-zero.
+    if layout.anchor_epoch > 0.0:
+        # Wall clock only from a real UTC instant; a zone-less clock (Vicon) only places.
         window._set_time_mode(TimeDisplayMode.UTC)
 
     # Set unconditionally, including to nothing: a session that declares no

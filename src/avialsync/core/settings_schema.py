@@ -185,6 +185,18 @@ SETTINGS: tuple[Setting, ...] = (
         kind=bool,
         help_text="Return to A when playback reaches B, instead of continuing.",
     ),
+    Setting(
+        key="playback/collapse_gaps",
+        label="Collapse gaps without data",
+        group="Playback",
+        default=True,
+        kind=bool,
+        help_text=(
+            "Draw the time no loaded source recorded anything -- between trials, or "
+            "between files hours apart -- as a break, so the timeline and playback "
+            "skip it. Timestamps are unchanged. Also in the View menu."
+        ),
+    ),
     # ── Plots ────────────────────────────────────────────────────────
     Setting(
         key="plot/live_presentation",

@@ -19,12 +19,18 @@ The gap rule shared with the plots (D-009) lives here too: consecutive frames
 or samples further apart than :data:`GAP_FACTOR` times their median spacing
 have a gap between them, and :class:`FrameGaps` answers whether an instant is
 inside one.
+
+Gaps stay on the clock, but nobody should have to scrub through them.
+:func:`common_gaps` finds the stretches where no stream has data, and
+:class:`TimeWarp` collapses them for viewing only (D-218): master time, every
+timestamp and every readout stay true; only the timeline's drawing and
+playback skip the empty stretches.
 """
 
 from __future__ import annotations
 
 import enum
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -33,7 +39,12 @@ from avialsync.core.video_timing import frame_index_at
 
 __all__ = [
     "GAP_FACTOR",
+    "MIN_COLLAPSED_GAP_S",
     "FrameGaps",
+    "TimeWarp",
+    "common_gaps",
+    "holes_between",
+    "stream_spans",
     "Part",
     "PartPlan",
     "Placement",
@@ -43,6 +54,10 @@ __all__ = [
 
 #: Spacing beyond this many median intervals is a gap, not a slow sample (D-009).
 GAP_FACTOR = 10.0
+
+#: Shorter stretches without data are left as they are when gaps are collapsed:
+#: skipping a second saves nothing and would hide where one part meets the next.
+MIN_COLLAPSED_GAP_S = 1.0
 
 #: Parts closer than this are touching, not overlapping: float rounding of
 #: epoch seconds is about a microsecond at today's Unix times.
@@ -219,3 +234,128 @@ class FrameGaps:
         if position == len(self._gaps) or int(self._gaps[position]) != index:
             return False
         return bool(times[index] + self._period < t < times[index + 1])
+
+
+Span = tuple[float, float]
+
+
+def holes_between(
+    bounds: Span, parts: Sequence[Span], has_data: Callable[[float, float], bool]
+) -> list[Span]:
+    """Where between the session's *parts* a stream with *bounds* has no data.
+
+    Only the time between two parts can be a hole: a dropout inside a
+    recording is a data gap (D-009), shown as one, not as the stream stopping.
+    *has_data(a, b)* says whether the stream has a sample or frame strictly
+    between *a* and *b*.
+    """
+    first, last = bounds
+    ordered = sorted(parts)
+    holes: list[Span] = []
+    for (_start, end), (start, _end) in zip(ordered, ordered[1:], strict=False):
+        a, b = max(end, first), min(start, last)
+        if b > a and not has_data(a, b):
+            holes.append((a, b))
+    return holes
+
+
+def stream_spans(bounds: Span, holes: Sequence[Span]) -> list[Span]:
+    """A stream's stretches of data: its bounds less its holes."""
+    spans: list[Span] = []
+    position = bounds[0]
+    for a, b in sorted(holes):
+        if a > position:
+            spans.append((position, a))
+        position = max(position, b)
+    if bounds[1] > position or not spans:
+        spans.append((position, bounds[1]))
+    return spans
+
+
+def common_gaps(
+    streams: Sequence[Sequence[Span]], minimum: float = MIN_COLLAPSED_GAP_S
+) -> list[Span]:
+    """Where no stream has data, between the first data and the last.
+
+    Collapsing only these hides nothing: the stream with the fewest gaps
+    decides, and wherever any stream recorded, the time is kept. Stretches
+    shorter than *minimum* are kept too.
+    """
+    merged: list[Span] = []
+    for start, end in sorted(span for spans in streams for span in spans if span[1] >= span[0]):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return [
+        (a[1], b[0]) for a, b in zip(merged, merged[1:], strict=False) if b[0] - a[1] >= minimum
+    ]
+
+
+class TimeWarp:
+    """Master time drawn with the gaps between data collapsed (D-218).
+
+    Each collapsed gap is drawn as a break of no width: view time runs on
+    from the last data before it to the first data after it. Master time is
+    untouched -- this only says where to draw an instant, and which instant a
+    position on the timeline means. A position on a break means the data
+    after it.
+    """
+
+    def __init__(self, gaps: Sequence[Span] = ()) -> None:
+        self.gaps: tuple[Span, ...] = tuple(sorted((float(a), float(b)) for a, b in gaps if b > a))
+        self._starts = np.asarray([a for a, _b in self.gaps], dtype=np.float64)
+        self._removed = np.cumsum([b - a for a, b in self.gaps], dtype=np.float64)
+        # A gap's start in view time: where the break is drawn.
+        self._breaks = self._starts - np.concatenate(([0.0], self._removed[:-1]))
+
+    def __bool__(self) -> bool:
+        return bool(self.gaps)
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, TimeWarp) and other.gaps == self.gaps
+
+    def __hash__(self) -> int:
+        return hash(self.gaps)
+
+    @property
+    def breaks(self) -> np.ndarray:
+        """Where each collapsed gap sits, in view time."""
+        return self._breaks
+
+    def to_view(self, t: float) -> float:
+        """Where master time *t* is drawn; inside a gap, at its break."""
+        if not self.gaps:
+            return float(t)
+        index = int(np.searchsorted(self._starts, t, side="right")) - 1
+        if index < 0:
+            return float(t)
+        a, b = self.gaps[index]
+        before = float(self._removed[index - 1]) if index else 0.0
+        if t < b:
+            return a - before
+        return float(t) - float(self._removed[index])
+
+    def to_master(self, v: float, snap: float = 0.0) -> float:
+        """The master time drawn at view time *v*; a break means the data after it.
+
+        A *v* within *snap* before a break is on it: a click lands on a pixel,
+        and the break's pixel is the one a person aims at to cross it.
+        """
+        if not self.gaps:
+            return float(v)
+        ahead = int(np.searchsorted(self._breaks, v, side="right"))
+        if ahead < len(self._breaks) and self._breaks[ahead] - v <= snap:
+            return self.gaps[ahead][1]
+        index = ahead - 1
+        if index < 0:
+            return float(v)
+        return float(v) + float(self._removed[index])
+
+    def gap_at(self, t: float) -> Span | None:
+        """The collapsed gap *t* lies in, if any (its start counts, its end does not)."""
+        index = int(np.searchsorted(self._starts, t, side="right")) - 1
+        if index < 0:
+            return None
+        a, b = self.gaps[index]
+        return (a, b) if a <= t < b else None

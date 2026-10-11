@@ -14,8 +14,15 @@
   Left-click a trace to move the shared playhead to that exact time across every view.
 - **Data Streams** shows when every loaded file is available. A coloured span means the source has
   data; an empty span means it does not. A session made of trials adds a **Trials** lane, and its
-  trial boundaries are drawn dashed on every plot row. Clicking inside the visible page window
-  moves the playhead there; only a drag moves the window itself.
+  trial boundaries are drawn dashed on every plot row. Each stream is empty between trials where it
+  recorded nothing, so you can see when each one starts and stops; a dropout inside a trial is
+  marked in the **Data gaps** lane instead. Clicking inside the visible page window moves the
+  playhead there; only a drag moves the window itself.
+- **View → Collapse Gaps Without Data** (on by default; also **Preferences → Playback**) draws the
+  time no loaded source recorded anything in -- between trials, or between files hours apart -- as
+  a double dashed break. The time bar, Data Streams and playback skip it, so you never scrub through
+  minutes of nothing. It is only a view: every time shown, exported or saved stays the true time.
+  Turn it off to see each gap at its real length.
 - **Shared time bar** moves every view together.
 - **Left panel** has a page rail with **Sources** (files, visibility, offsets, properties),
   **Values**, **Messages** (prose the recording itself carries), **Changes** (everything you
