@@ -186,14 +186,12 @@ class JoinedTimeSeriesSource(TimeSeriesSource):
         self._loader: type[TimeSeriesSource] | None = None
         self._readers: list[TimeSeriesSource] = []
         self._channels: list[ChannelInfo] = []
+        #: A part's spelling of a channel -> the joined one, where they differ in case.
+        self._names: dict[str, str] = {}
 
     @classmethod
     def display_name(cls) -> str:
-        return "Data (Joined Parts)"
-
-    @classmethod
-    def display_aliases(cls) -> list[str]:
-        return ["3D Marker Tracking"]
+        return "Time Series (Joined Parts)"
 
     @classmethod
     def pose_roles(cls) -> tuple[str, ...]:
@@ -211,10 +209,12 @@ class JoinedTimeSeriesSource(TimeSeriesSource):
         self._parts = _parts(config)
         self._loader = _loader_class(str(config.get("part_loader", "")))
         self._readers = [self._open_part(part) for part in self._parts]
+        self._names = _one_spelling([[c.name for c in r.channels()] for r in self._readers])
         known: dict[str, ChannelInfo] = {}
         for reader in self._readers:
             for channel in reader.channels():
-                known.setdefault(channel.name, channel)
+                name = self._names.get(channel.name, channel.name)
+                known.setdefault(name, replace(channel, name=name))
         self._channels = list(known.values())
 
     def _open_part(self, part: dict[str, Any]) -> TimeSeriesSource:
@@ -233,7 +233,10 @@ class JoinedTimeSeriesSource(TimeSeriesSource):
         schemas = [schema for reader in self._readers if (schema := reader.pose_schema())]
         if not schemas:
             return None
-        points = {point.name: point for schema in schemas for point in schema.points}
+        points: dict[str, Any] = {}
+        for schema in schemas:
+            for point in schema.points:
+                points.setdefault(point.name.casefold(), point)
         return replace(schemas[0], points=tuple(points.values()))
 
     def read_chunks(self, ch: str) -> Iterator[tuple[np.ndarray, np.ndarray]]:
@@ -248,19 +251,47 @@ class JoinedTimeSeriesSource(TimeSeriesSource):
             raise SourceOpenError("A joined stream has not been opened.")
         wanted = tuple(channels or (channel.name for channel in self._channels))
         for part, reader in zip(self._parts, self._readers, strict=True):
-            own = [channel.name for channel in reader.channels()]
-            present = tuple(name for name in wanted if name in own)
+            # This part's own spelling of each joined channel it recorded.
+            own = {self._names.get(c.name, c.name): c.name for c in reader.channels()}
+            present = {name: own[name] for name in wanted if name in own}
             # A part with none of the wanted channels still has samples: read
             # one of its own for their times, and the wanted ones are NaN there.
-            asked = present or tuple(own[:1])
+            asked = tuple(present.values()) or tuple(list(own.values())[:1])
             start = float(part["start"])
             for chunk in _chunks(reader, asked):
                 times = next(iter(chunk.values()))[0]
                 missing = np.full(len(times), np.nan, dtype=np.float64)
                 yield {
-                    name: (start + times, chunk[name][1] if name in present else missing)
+                    name: (start + times, chunk[present[name]][1] if name in present else missing)
                     for name in wanted
                 }
+
+
+def _one_spelling(parts: list[list[str]]) -> dict[str, str]:
+    """Channel names that differ only in case across parts, mapped to the first spelling.
+
+    A label typed ``Back2`` in one block of trials and ``back2`` in the next
+    is one marker -- and two files on a case-insensitive disk (macOS, Windows),
+    where they would overwrite each other. Merged only when no single part
+    has both spellings; then they are two channels and stay apart.
+    """
+    within = {
+        name.casefold()
+        for names in parts
+        for name in names
+        if sum(other.casefold() == name.casefold() for other in names) > 1
+    }
+    first: dict[str, str] = {}
+    renames: dict[str, str] = {}
+    for names in parts:
+        for name in names:
+            key = name.casefold()
+            if key in within:
+                continue
+            chosen = first.setdefault(key, name)
+            if name != chosen:
+                renames[name] = chosen
+    return renames
 
 
 def _chunks(

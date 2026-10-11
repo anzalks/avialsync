@@ -125,3 +125,35 @@ def test_a_missing_part_loader_is_named() -> None:
         JoinedTimeSeriesSource().open(
             Path("x"), {"part_loader": "nowhere:Nothing", "parts": [{"path": "x", "start": 0}]}
         )
+
+
+def test_a_label_spelled_two_ways_across_parts_is_one_channel(tmp_path: Path) -> None:
+    """``Back2`` then ``back2``: one marker, and one file on a case-insensitive disk."""
+    loader = JoinedTimeSeriesSource()
+    loader.open(
+        tmp_path / "a",
+        {
+            "part_loader": loader_name(FakePart),
+            "parts": [
+                {"path": "a", "start": 0.0, "config": {"value": 1, "channels": ["Back2_x"]}},
+                {"path": "b", "start": 60.0, "config": {"value": 2, "channels": ["back2_x"]}},
+            ],
+        },
+    )
+    assert [channel.name for channel in loader.channels()] == ["Back2_x"]
+    values = np.concatenate([chunk["Back2_x"][1] for chunk in loader.read_all_chunks()])
+    np.testing.assert_allclose(values, [1, 1, 1, 2, 2, 2])
+
+
+def test_two_spellings_in_one_part_stay_two_channels(tmp_path: Path) -> None:
+    loader = JoinedTimeSeriesSource()
+    loader.open(
+        tmp_path / "a",
+        {
+            "part_loader": loader_name(FakePart),
+            "parts": [
+                {"path": "a", "start": 0.0, "config": {"value": 1, "channels": ["A", "a"]}},
+            ],
+        },
+    )
+    assert [channel.name for channel in loader.channels()] == ["A", "a"]

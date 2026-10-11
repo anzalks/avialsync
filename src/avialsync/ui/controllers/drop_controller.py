@@ -183,15 +183,15 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
 
     window.session_runtime.camera_fps = layout.camera_fps
     window.session_runtime.anchor_epoch = layout.anchor_epoch
-    # A session knows what each item is; the dialog can only re-derive a name
-    # from the path. Keyed by path rather than carried in the candidate tuple,
-    # which several consumers and any third-party signal reader unpack by arity.
+    # A session knows what each item is; a dialog or lane can only re-derive a
+    # name from the path. Keyed by path: candidate tuples are unpacked by arity.
     window.session_runtime.item_labels = {
         str(item.path): item.label for item in layout.items if item.label
     }
     window.session_runtime.item_kinds = {
         str(item.path): item.kind for item in layout.items if item.kind
     }
+    window.transport.overview.set_source_labels(window.session_runtime.item_labels)
     # Which items share one Data Streams lane is the session's call for the same
     # reason: seven files extracted from three videos cover one span, and only
     # the thing that laid them out knows that they do.

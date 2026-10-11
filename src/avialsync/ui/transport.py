@@ -268,6 +268,8 @@ class TimelineOverview(QWidget):
         self._collapse_gaps = False
         self._warp = TimeWarp()
         self._raw_gap_events: tuple[tuple[float, str], ...] = ()
+        #: Source id -> the session's name for it, for lane labels.
+        self._labels: dict[str, str] = {}
         self._ttl_events: tuple[tuple[float, str], ...] = ()
         self._gap_events: tuple[tuple[float, str], ...] = ()
         self._message_events: tuple[tuple[float, str], ...] = ()
@@ -554,10 +556,15 @@ class TimelineOverview(QWidget):
         self.evidence_changed.emit()
         self.update()
 
-    @staticmethod
-    def _coverage_label(source_id: str, kind: str) -> str:
+    def _coverage_label(self, source_id: str, kind: str) -> str:
+        """The lane's kind and name: the session's name for it, else the file's."""
         kind_label = {"video": tr("Video"), "imaging": tr("Imaging")}.get(kind, tr("Data"))
-        return f"{kind_label} · {Path(source_id).name}"
+        return f"{kind_label} · {self._labels.get(source_id) or Path(source_id).name}"
+
+    def set_source_labels(self, labels: dict[str, str]) -> None:
+        """Name lanes as the session named its items ("camera 2125010 — 17 trials")."""
+        self._labels = dict(labels)
+        self._on_evidence_changed()
 
     def _coverage_lanes(
         self,

@@ -7046,3 +7046,17 @@ and its camera-clock offsets are rig evidence the generic joiner has no fields f
 **Why.** A session loaded file by file showed one camera as eighteen panes and one set of markers as
 eighteen 3D objects, most of them saying No Footage at any instant. The streams are one camera and
 one body; the parts are when it was recording.
+
+**Amended the same day, from the first real session.** A Vicon camera runs up to six frames
+(60 ms) past its capture's recorded end, so "any frame between two trials" answered yes for four
+of sixteen gaps. A hole is now each stretch between two parts longer than the D-009 rule of the
+stream's own spacing, from one spacing after its last sample (`core.trials.holes_between`): a
+camera's run-on frames stay on screen and the minutes after them are a gap. A stream that kept
+recording (more than 100 000 samples between two parts) is taken to have data, without mapping
+every sample. Marker labels that differ only in case across blocks of trials (`Back2`, `back2`)
+are one marker under the first spelling: two channels so named are one file on a
+case-insensitive disk (macOS, Windows), which broke the import. They stay apart if one trial has
+both. The joined markers' 2D overlay map (`vicon_projection_channels`) is built at scan from each
+trial's own, under the same rule. Lanes take the session's name for their item
+("camera 2125010 — 17 trials") rather than a file name. Holes are asked again when a video pane
+finishes opening, so a camera that could not answer yet is not left looking continuous.

@@ -43,6 +43,7 @@ __all__ = [
     "FrameGaps",
     "TimeWarp",
     "common_gaps",
+    "Samples",
     "holes_between",
     "stream_spans",
     "Part",
@@ -239,24 +240,57 @@ class FrameGaps:
 Span = tuple[float, float]
 
 
+#: What a stream has between two instants: its sample times there, in master
+#: seconds, and its usual spacing -- or ``None`` when it cannot tell.
+Samples = tuple[np.ndarray, float] | None
+
+
 def holes_between(
-    bounds: Span, parts: Sequence[Span], has_data: Callable[[float, float], bool]
+    bounds: Span, parts: Sequence[Span], samples: Callable[[float, float], Samples]
 ) -> list[Span]:
     """Where between the session's *parts* a stream with *bounds* has no data.
 
-    Only the time between two parts can be a hole: a dropout inside a
-    recording is a data gap (D-009), shown as one, not as the stream stopping.
-    *has_data(a, b)* says whether the stream has a sample or frame strictly
-    between *a* and *b*.
+    Only the time between two parts can be a hole: a dropout inside a part is a
+    data gap (D-009), shown as one, not as the stream stopping. Between two
+    parts, a stream may run on a little past one part's end or start a little
+    before the next (a camera stopping a few frames after its capture); those
+    samples are data, and the hole is the empty stretch between them -- any
+    stretch longer than :data:`GAP_FACTOR` of its spacing, from one spacing
+    after a sample. A stream that cannot say has no holes: nothing is hidden on
+    a guess.
     """
     first, last = bounds
     ordered = sorted(parts)
     holes: list[Span] = []
     for (_start, end), (start, _end) in zip(ordered, ordered[1:], strict=False):
         a, b = max(end, first), min(start, last)
-        if b > a and not has_data(a, b):
-            holes.append((a, b))
+        if b <= a:
+            continue
+        found = samples(a, b)
+        if found is not None:
+            holes += _empty_stretches(a, b, *found)
     return holes
+
+
+def _empty_stretches(a: float, b: float, inside: np.ndarray, period: float) -> list[Span]:
+    """The stretches of ``(a, b)`` without samples, longer than the gap rule."""
+    times = np.asarray(inside, dtype=np.float64)
+    times = times[(times > a) & (times < b)]
+    if not len(times):
+        return [(a, b)]
+    if period <= 0.0 and len(times) > 1:
+        period = float(np.median(np.diff(times)))
+    tolerance = period * GAP_FACTOR
+    edges = np.concatenate(([a], times, [b]))
+    steps = np.diff(edges)
+    stretches: list[Span] = []
+    for index in np.flatnonzero(steps > tolerance):
+        # From one spacing after a sample: the last one shows for its own period.
+        left = float(edges[index]) + (period if index > 0 else 0.0)
+        right = float(edges[index + 1])
+        if right > left:
+            stretches.append((left, right))
+    return stretches
 
 
 def stream_spans(bounds: Span, holes: Sequence[Span]) -> list[Span]:

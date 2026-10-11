@@ -630,7 +630,8 @@ def test_video_coverage_is_projected_onto_master_time(main_window: MainWindow, m
 
     main_window._set_video_coverage("camera.mp4", (0.0, 10.0), offset=1.0, drift_ms_per_hour=0.0)
 
-    coverage.assert_called_once_with("camera.mp4", -1.0, 9.0, "video")
+    # No session grouped it, so it keeps a lane of its own ("" group).
+    coverage.assert_called_once_with("camera.mp4", -1.0, 9.0, "video", "")
 
 
 def test_real_drop_event_reviews_sensor_file(

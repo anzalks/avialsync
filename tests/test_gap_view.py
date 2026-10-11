@@ -139,3 +139,29 @@ def window(qapp, qtbot):
     qtbot.addWidget(main)
     yield main
     main.close()
+
+
+def test_an_aol_joined_camera_stops_between_its_trials(window, qtbot, tmp_path) -> None:
+    from avialsync.core.registry import LoaderRegistry
+    from avialsync.loaders.aol_camera_join import AOLJoinedCameraSource
+    from avialsync.loaders.aol_microscope_session import AOLMicroscopeTrialSource
+    from avialsync.ui.controllers import drop_controller, gap_view
+    from tests.test_aol_camera_join import _camera
+    from tests.test_aol_microscope_trial import _trial
+
+    experiment = tmp_path / "2026-09-03" / "experiment_1"
+    experiment.mkdir(parents=True)
+    first = _trial(experiment / "12-00-00")
+    second = _trial(experiment / "12-10-00", start_ms=1_700_000_600_000)
+    _camera(first, "FaceCam", 5, 10.0, 40)
+    _camera(second, "FaceCam", 5, 10.0, 140)
+    layout = AOLMicroscopeTrialSource().scan(experiment, LoaderRegistry(plugin_dirs=[]))
+    drop_controller.apply_session_layout(window, layout)
+    item = next(item for item in layout.items if item.loader is AOLJoinedCameraSource)
+    window._route_import_candidate(item.path, item.loader, dict(item.config))
+    source_id = str(item.path)
+    qtbot.waitUntil(lambda: source_id in window.video_grid.pane_paths(), timeout=10_000)
+    qtbot.waitUntil(lambda: source_id in window.transport.overview._coverage, timeout=10_000)
+    gap_view.refresh_holes(window)
+    spans = window.transport.overview.source_spans(source_id)
+    assert len(spans) == 2, spans

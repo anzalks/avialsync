@@ -1198,6 +1198,11 @@ class MainWindow(QMainWindow):
         for splitter, sizes in defaults:
             self._pane_proportions.set_fractions(splitter, sizes)
 
+    def source_readers(self, source_id: str) -> list[Any]:
+        """Every channel reader of one source: its plot rows, then its 3D pose readers."""
+        rows = [c.reader for c in self.plot_pane.channels if c.reader.source_id == source_id]
+        return rows + list(self._pose_3d_sources.get(source_id, ()))
+
     def coverage_group_for(self, path: str) -> str:
         """Return the shared Data Streams lane *path* belongs in, if any.
 
@@ -3209,6 +3214,9 @@ class MainWindow(QMainWindow):
     @Slot()
     def _on_video_pane_ready(self) -> None:
         video_controller.on_video_pane_ready(self)
+        # Its frames are known only now; where it has none between parts may
+        # have been asked of a pane that could not answer yet (D-218).
+        gap_view.refresh_holes(self)
 
     def _on_video_offset_changed(self, path: str, offset: float) -> None:
         """Move one camera by hand. *offset* is the sidebar residual, not the map.

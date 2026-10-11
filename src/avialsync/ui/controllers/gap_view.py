@@ -11,7 +11,7 @@ default) draws the time no stream has data in as a break of no width, so neither
 the slider, the strip nor playback runs through minutes of nothing. It is a view:
 master time, timestamps and readouts are unchanged.
 
-Every stream answers "do you have data between *a* and *b*" from its own frames
+Every stream answers "what do you have between *a* and *b*" from its own frames
 or samples, so any plugin that declares its parts gets this without code of its
 own. A stream that cannot answer is taken to have data -- nothing is hidden on
 a guess.
@@ -26,11 +26,15 @@ import numpy as np
 from PySide6.QtCore import QTimer
 
 from avialsync.core.settings_schema import Setting, setting_for
+from avialsync.core.timeline import TimeMap
 from avialsync.core.trials import holes_between
 from avialsync.ui.preferences_dialog import read_setting, write_setting
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
+
+#: More samples than this between two parts is a stream that kept recording.
+_CONTINUOUS = 100_000
 
 #: The preference behind View → Collapse Gaps Without Data.
 COLLAPSE_SETTING = "playback/collapse_gaps"
@@ -78,61 +82,75 @@ def refresh_holes(window: MainWindow) -> None:
             holes[source_id] = []
             continue
         holes[source_id] = holes_between(
-            (start, end), parts, partial(has_data_between, window, source_id, kind)
+            (start, end), parts, partial(samples_between, window, source_id, kind)
         )
     current = {source_id: list(overview._holes.get(source_id, ())) for source_id in holes}
     if holes != current:
         window.transport.set_coverage_holes(holes)
 
 
-def has_data_between(window: MainWindow, source_id: str, kind: str, a: float, b: float) -> bool:
-    """Whether *source_id* has a frame or sample strictly between master *a* and *b*."""
+def samples_between(
+    window: MainWindow, source_id: str, kind: str, a: float, b: float
+) -> tuple[np.ndarray, float] | None:
+    """*source_id*'s sample or frame times between master *a* and *b*, and its spacing.
+
+    ``None`` when it cannot tell yet -- not open, no rows -- which counts as data.
+    """
     if kind == "video":
-        return _video_has(window, source_id, a, b)
+        return _video_samples(window, source_id, a, b)
     if kind == "imaging":
-        return _imaging_has(window, source_id, a, b)
+        return _imaging_samples(window, source_id, a, b)
     if kind == "data":
-        return _data_has(window, source_id, a, b)
-    return True
+        return _data_samples(window, source_id, a, b)
+    return None
 
 
-def _between(times: np.ndarray | None, low: float, high: float) -> bool:
-    if times is None or not len(times):
-        return True
+def _frames(
+    times: np.ndarray | None, mapping: TimeMap, a: float, b: float
+) -> tuple[np.ndarray, float] | None:
+    """Frames with source *times* under *mapping* that fall between master *a* and *b*."""
+    if times is None or len(times) < 2:
+        return None
+    low, high = sorted((mapping.to_source(a), mapping.to_source(b)))
     first = int(np.searchsorted(times, low, side="right"))
-    return first < len(times) and float(times[first]) < high
+    stop = int(np.searchsorted(times, high, side="left"))
+    period = float(np.median(np.diff(times[: min(len(times), 1000)])))
+    return mapping.to_master_array(np.asarray(times[first:stop])), period
 
 
-def _video_has(window: MainWindow, source_id: str, a: float, b: float) -> bool:
+def _video_samples(
+    window: MainWindow, source_id: str, a: float, b: float
+) -> tuple[np.ndarray, float] | None:
     grid = window.video_grid
     try:
         pane = grid.panes[grid.pane_paths().index(source_id)]
     except ValueError:
-        return True
-    mapping = pane.time_map
-    return _between(pane._frame_times, mapping.to_source(a), mapping.to_source(b))
+        return None
+    # Not open yet: asked again when it is (``_on_video_pane_ready``).
+    return _frames(pane._frame_times, pane.time_map, a, b)
 
 
-def _imaging_has(window: MainWindow, source_id: str, a: float, b: float) -> bool:
+def _imaging_samples(
+    window: MainWindow, source_id: str, a: float, b: float
+) -> tuple[np.ndarray, float] | None:
     pane = window.imaging_pane
     if source_id not in pane.source_paths():
-        return True
+        return None
     _loader, _config, mapping = pane.source_config(source_id)
-    times = pane.metadata_for(source_id).frame_times
-    return _between(times, mapping.to_source(a), mapping.to_source(b))
+    return _frames(pane.metadata_for(source_id).frame_times, mapping, a, b)
 
 
-def _data_has(window: MainWindow, source_id: str, a: float, b: float) -> bool:
-    readers = [
-        channel.reader
-        for channel in window.plot_pane.channels
-        if channel.reader.source_id == source_id
-    ]
+def _data_samples(
+    window: MainWindow, source_id: str, a: float, b: float
+) -> tuple[np.ndarray, float] | None:
+    """The source's samples there, through its plot rows or, for a pose, its 3D readers."""
+    readers = window.source_readers(source_id)
     if not readers:
-        return True
-    for reader in readers:
-        following = reader.neighbour_sample_time(a, 1)
-        if following is None or following >= b:
-            continue
-        return True
-    return False
+        return None
+    reader = readers[0]
+    mapping = reader.time_map
+    source = reader.source_reader.raw_slice(mapping.to_source(a), mapping.to_source(b))[0]
+    if len(source) > _CONTINUOUS:
+        # Recorded straight through: data, without mapping a million samples.
+        return np.asarray([(a + b) / 2.0]), 0.0
+    return mapping.to_master_array(np.asarray(source, dtype=np.float64)), 0.0

@@ -104,16 +104,30 @@ def test_a_steady_table_has_no_gaps() -> None:
 
 def test_a_stream_has_holes_only_between_parts_where_it_recorded_nothing() -> None:
     parts = [(0.0, 10.0), (60.0, 70.0), (100.0, 110.0)]
-    samples = np.array([1.0, 5.0, 61.0, 80.0, 101.0])  # recorded once between parts 2 and 3
+    samples = np.array([1.0, 5.0, 61.0, 85.0, 101.0])  # recorded once between parts 2 and 3
 
-    def has_data(a: float, b: float) -> bool:
-        return bool(np.any((samples > a) & (samples < b)))
+    def between(a: float, b: float) -> tuple[np.ndarray, float]:
+        return samples[(samples > a) & (samples < b)], 1.0
 
-    holes = holes_between((0.0, 110.0), parts, has_data)
-    assert holes == [(10.0, 60.0)]
-    assert stream_spans((0.0, 110.0), holes) == [(0.0, 10.0), (60.0, 110.0)]
+    holes = holes_between((0.0, 110.0), parts, between)
+    # Between parts 2 and 3 the one sample at 85 s is data; around it, nothing.
+    assert holes == [(10.0, 60.0), (70.0, 85.0), (86.0, 100.0)]
+    assert stream_spans((0.0, 110.0), holes)[:2] == [(0.0, 10.0), (60.0, 70.0)]
     # A stream that starts later only has holes inside its own bounds.
-    assert holes_between((61.0, 110.0), parts, lambda a, b: False) == [(70.0, 100.0)]
+    assert holes_between((61.0, 110.0), parts, lambda a, b: (np.empty(0), 1.0)) == [(70.0, 100.0)]
+    # One that cannot say has none.
+    assert holes_between((0.0, 110.0), parts, lambda a, b: None) == []
+
+
+def test_a_camera_running_on_past_its_trial_keeps_those_frames() -> None:
+    """Vicon video runs a few frames past the capture's end: data, then the hole."""
+    frames = 17.178 + np.arange(1, 7) * 0.01  # six frames after the trial ends
+
+    def between(a: float, b: float) -> tuple[np.ndarray, float]:
+        return frames[(frames > a) & (frames < b)], 0.01
+
+    holes = holes_between((0.0, 70.0), [(0.0, 17.178), (49.169, 65.465)], between)
+    assert holes == [(pytest.approx(17.248), 49.169)]
 
 
 def test_only_time_no_stream_recorded_is_collapsible() -> None:

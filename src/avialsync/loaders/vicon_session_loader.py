@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import struct
 import xml.etree.ElementTree as ET
 from dataclasses import replace
 from pathlib import Path
@@ -257,6 +258,17 @@ def _joined(
     video_id = videos[0].path / JOINED_PARTS
     first = markers[0].config
     count = len(placed)
+    # Each trial's own projection channels (a header read each), and one map
+    # for the joined source: a marker spelled two ways across blocks of trials
+    # is one marker, under its first spelling, as the joined channels are.
+    configs = [_prepared(marker) for marker in markers]
+    projection: dict[str, list[str]] = {}
+    spellings: set[str] = set()
+    for config in configs:
+        for point, pair in dict(config.get("vicon_projection_channels") or {}).items():
+            if point.casefold() not in spellings:
+                spellings.add(point.casefold())
+                projection[point] = list(pair)
     return [
         SessionItem(
             path=video_id,
@@ -279,19 +291,32 @@ def _joined(
                     {
                         "path": str(marker.path),
                         "start": start,
-                        "config": dict(marker.config),
+                        "config": config,
                         **part_stamp(marker.path),
                     }
-                    for marker, start in zip(markers, starts, strict=True)
+                    for marker, start, config in zip(markers, starts, configs, strict=True)
                 ],
                 "role": first["role"],
+                "vicon_projection_channels": projection,
                 "fps": first["fps"],
                 "overlay_video": str(video_id),
                 "overlay_camera": camera,
                 "overlay_label": first.get("overlay_label", "Vicon markers"),
             },
             label=f"markers over camera {camera} — {count} trials",
-            kind="3D Marker Tracking",
             source_epoch=epoch,
         ),
     ]
+
+
+def _prepared(marker: SessionItem) -> dict[str, Any]:
+    """A trial's import config as its loader completes it, or as scanned if unreadable.
+
+    An unreadable header is left for the import to report, where the user sees
+    which file it was; the scan does not fail every trial for one.
+    """
+    try:
+        return ViconC3DLoader.prepare_import_config(marker.path, dict(marker.config))
+    except (SourceOpenError, OSError, ValueError, struct.error) as error:
+        logger.warning("Could not read marker labels of %s: %s", marker.path.name, error)
+        return dict(marker.config)
