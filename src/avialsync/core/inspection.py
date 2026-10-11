@@ -155,6 +155,10 @@ class SourceInspection:
     default_channel_visibility: dict[str, bool] | None = None
     #: Optional channel descriptions declared by the source plugin.
     channel_descriptions: dict[str, str] | None = None
+    #: Trigger lines the source plugin declared, as ``{channel: (kind, target)}``
+    #: (``ChannelInfo.trigger`` / ``trigger_for``). ``None`` when the manifest
+    #: predates the field.
+    channel_triggers: dict[str, tuple[str, str]] | None = None
 
     def units(self) -> dict[str, str]:
         """Each channel's unit: the loader's, overridden by any the import set."""
@@ -183,6 +187,11 @@ class SourceInspection:
             "channel_descriptions": (
                 dict(self.channel_descriptions) if self.channel_descriptions is not None else None
             ),
+            "channel_triggers": (
+                {name: list(value) for name, value in self.channel_triggers.items()}
+                if self.channel_triggers is not None
+                else None
+            ),
         }
 
     @classmethod
@@ -210,6 +219,11 @@ class SourceInspection:
             channel_descriptions=(
                 {str(k): str(v) for k, v in d["channel_descriptions"].items()}
                 if isinstance(d.get("channel_descriptions"), dict)
+                else None
+            ),
+            channel_triggers=(
+                {str(k): (str(v[0]), str(v[1])) for k, v in d["channel_triggers"].items()}
+                if isinstance(d.get("channel_triggers"), dict)
                 else None
             ),
         )

@@ -27,6 +27,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+from avialsync.core.settings_schema import Setting
 from avialsync.core.source import SessionItem, SessionLayout, SessionSource
 from avialsync.loaders.aol_camera_join import (
     AOLJoinedCameraSource,
@@ -49,6 +50,7 @@ from avialsync.loaders.aol_microscope_trial import (
     read_trial,
     trial_span,
 )
+from avialsync.loaders.aol_pairing import AOL_PLUGIN_ID, AOL_SETTINGS, configure_aol
 from avialsync.loaders.aol_ribbon_scan import AOLRibbonScanSource
 from avialsync.loaders.aol_trial_encoder import (
     ENCODER_LOG,
@@ -459,6 +461,18 @@ class AOLMicroscopeTrialSource(SessionSource):
     @classmethod
     def display_name(cls) -> str:
         return "AOL Microscope Trial"
+
+    @classmethod
+    def plugin_id(cls) -> str:
+        return AOL_PLUGIN_ID
+
+    @classmethod
+    def settings(cls) -> tuple[Setting, ...]:
+        return AOL_SETTINGS
+
+    @classmethod
+    def configure(cls, values: dict[str, Any]) -> None:
+        configure_aol(values)
 
     @classmethod
     def can_open(cls, path: Path) -> float:

@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from avialsync.core.source import PairingHint, PartnerSearch
 from avialsync.ui.recovery import RecoverySnapshot
 
 
@@ -31,11 +32,13 @@ class SessionRuntimeState:
     item_labels: dict[str, str] = field(default_factory=dict)
     item_kinds: dict[str, str] = field(default_factory=dict)
     coverage_groups: dict[str, str] = field(default_factory=dict)
+    #: Trigger lines loaders declared: ``{source path: {channel: (kind, target)}}``.
+    channel_triggers: dict[str, dict[str, tuple[str, str]]] = field(default_factory=dict)
     # Unix epoch of master-clock zero, until a source declares wall time.
     start_time: float = 0.0
-    # Camera wall-clock metadata and the user's pending AOL trial-pair offer.
-    aol_camera_start_epoch: float = 0.0
-    pending_aol_pair: dict[str, Any] | None = None
+    # A loaded recording whose partner a plugin can find, and the match on offer.
+    pairing: PairingHint | None = None
+    pending_pair: PartnerSearch | None = None
     #: ``(generation, choices)``: the stimulus grid's last rows, for this session only.
     stimulus_grid_rows: tuple[int, Any] | None = None
 

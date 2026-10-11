@@ -344,8 +344,8 @@ def start_session_load(window: MainWindow, path: Path) -> None:
 
 def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
     """Return the workspace to its empty, ready-to-open state."""
-    window.session_runtime.aol_camera_start_epoch = 0.0
-    window.session_runtime.pending_aol_pair = None
+    window.session_runtime.pairing = None
+    window.session_runtime.pending_pair = None
     window.session_runtime.generation += 1
     window.session_runtime.path = None
     # Any snapshot on disk describes work this reset discards on purpose: keeping

@@ -1,8 +1,17 @@
-# Plugin guide
+# Plugin reference
 
-AvialSync discovers plugins from the `avialsync.loaders` entry-point group
-and from Python files in `~/.avialsync/plugins/`. The highest non-zero
-`can_open(path)` score wins. A plugin must be importable without importing Qt.
+The contract every plugin is written against: plugin API **2**. New to plugins? Start with the
+[tutorial track](plugins/index.md).
+
+AvialSync discovers plugins from the `avialsync.loaders` and `avialsync.sessions` entry-point
+groups, and from drop-ins in `~/.avialsync/plugins/`: single `*.py` files and package folders with an
+`__init__.py`, plus pure-Python libraries in its `lib/` folder. Drop-ins load in the installed
+application exactly as from source. The highest non-zero `can_open(path)` score wins; when two
+plugins tie, the import review asks the user rather than letting load order decide. **File →
+Plugins** lists, reloads and switches plugins off. A plugin must be importable without importing Qt.
+
+Every plugin class may also define `api_version` (default: the running version; another version is
+refused), `plugin_id()`, `settings()` and `configure()` ([Plugin settings](plugins/settings.md)).
 
 ## Time-series plugins
 
@@ -231,7 +240,7 @@ def read_all_chunks(self) -> Iterator[dict[str, tuple[np.ndarray, np.ndarray]]]:
 
 AvialSync uses it in place of the per-channel calls when it is present, and
 falls back to `read_chunks` when it is not. This is an optional extension, not
-part of the frozen v1 contract: it is absent from `TimeSeriesSource`, and a
+part of the abstract contract: it is absent from `TimeSeriesSource`, and a
 plugin that never defines it is fully supported. If you do define it, every
 chunk must carry every channel you declared, on the same rows, under the same
 ordering, duplicate, and NaN rules as `read_chunks` — both paths must build the
@@ -310,65 +319,12 @@ the config key as `choice` (`fps`, `dataset`, `series`, `axes` or `z`) and the v
 again, and saves the answer with the session. Never substitute a default. The HDF5/TIFF built-ins
 demonstrate the contract; a session plugin can also provide these choices in `SessionItem.config`.
 
-## Trigger plugins
+## Trigger lines
 
-A trigger plugin is another source kind beside time-series, video, and imaging, and it
-answers a different question from either: not *what* was recorded but *when
-things happened*, and what those instants are evidence **of**.
-
-That second half is the reason the kind exists. A pulse train is not
-self-describing. The same column of edges means something different depending
-on which way the wire ran, and the difference decides what may be done with it:
-
-- `frame_strobe` — the camera emitted a pulse per exposure it **took**. Pulse
-  count is frame count, so pulse *i* may be paired with frame *i*.
-- `frame_trigger` — a generator **asked** for each exposure. A frame the camera
-  dropped looks exactly like one it kept, so index pairing would shift
-  everything after the loss. Counts agreeing does not rescue it — a drop plus a
-  duplicate agree too.
-- `sync_train` — a shared square wave, far sparser than the frame rate. Enough
-  to follow two clocks wherever they wander; not enough to identify a frame.
-- `sparse_events` — a handful of landmarks. Enough to place a recording, rarely
-  enough to check the placing.
-
-Your plugin declares the kind; `core.alignment.choose_method` derives the model
-from it. This is deliberately not a user-facing dropdown: asking someone to
-pick "exact index mapping" asks them to certify something only the recording
-knows.
-
-Register under the `avialsync.triggers` entry-point group:
-
-```toml
-[project.entry-points."avialsync.triggers"]
-my_rig_ttl = "my_package.triggers:MyRigTriggerSource"
-```
-
-Implement `core.source.TriggerSource`:
-
-| Method | Returns |
-|---|---|
-| `can_open(path)` | Confidence in `[0, 1]`, without expensive I/O |
-| `open(path, config)` | Nothing; reads what is needed to enumerate trains |
-| `trains()` | The id of every train this file offers |
-| `kind_of(train_id)` | One of the four kinds above, as a string |
-| `read_train(train_id)` | `(times, durations)` in the file's own clock |
-
-Two optional hooks. `suggest_trains(path)` proposes a starting configuration
-for the user to correct — **never suggest `frame_strobe`**, because that is a
-claim about wiring your file cannot make, and it is the one decision that must
-not be made on the user's behalf. `target_hint(train_id)` names the source a
-train is evidence about, when the file records it.
-
-`durations` is the exposure length per event where both edges were recorded,
-and `None` where only one was. Return `None` rather than zeros: a provider with
-only rising edges does not know the width, and saying so is not the same as
-measuring it as nothing. Where durations exist, a strobe is timestamped at its
-exposure **midpoint**, which is the instant a frame represents for a subject
-moving through the exposure.
-
-`times` must be strictly increasing, in the file's own clock. Do not rebase it
-onto anything — AvialSync places sources through their own time map and never
-rewrites a timestamp.
+There is no trigger-plugin kind. A loader declares a trigger line on the channel that carries it:
+`ChannelInfo(trigger=..., trigger_for=...)`, with `trigger` one of `frame_strobe`,
+`frame_trigger`, `sync_train` or `sparse_events`. The sync wizard starts from the declared kind;
+the user still accepts the fit. See [Trigger lines](plugins/trigger-lines.md).
 
 Keep laboratory-specific parsing and semantics in the plugin. AvialSync
 preserves raw timestamps, performs the alignment, shows the matched evidence

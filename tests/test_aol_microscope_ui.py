@@ -8,12 +8,14 @@ import pytest
 from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
+from avialsync.core.source import PairingHint, PartnerSearch
 from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
 from avialsync.loaders.aol_microscope_session import AOLMicroscopeTrialSource
 from avialsync.loaders.aol_ribbon_scan import AOLRibbonScanSource
+from avialsync.loaders.aol_session_loader import AOLSessionSource
 from avialsync.ui.batch_import_dialog import BatchImportDialog
 from avialsync.ui.controllers import wheel_controller
-from avialsync.ui.controllers.aol_microscope_controller import accept_trial_pair
+from avialsync.ui.controllers.pairing_controller import accept_pair
 from avialsync.ui.main_window import MainWindow
 from tests.test_aol_microscope_trial import _analysis, _trial
 
@@ -68,7 +70,8 @@ def test_accepting_a_pairing_places_the_trial_and_undo_restores_it(
     qtbot.waitUntil(lambda: source_id in window.imaging_pane.source_paths(), timeout=_TIMEOUT)
     before = window._mutations.source_mapping(source_id)
 
-    accept_trial_pair(window, {"status": "matched", "folder": source_id})
+    window.session_runtime.pairing = PairingHint(0.0, AOLSessionSource)
+    accept_pair(window, PartnerSearch(folder, "found"))
     offset, drift = window._mutations.source_mapping(source_id)
     assert offset == pytest.approx(-window.base_offset(source_id))
     assert drift == 0.0
@@ -115,7 +118,8 @@ def test_pairing_a_trial_moves_its_experiment_by_that_trials_start(
     source_id = str(experiment)
     qtbot.waitUntil(lambda: source_id in window.imaging_pane.source_paths(), timeout=_TIMEOUT)
 
-    accept_trial_pair(window, {"status": "matched", "folder": str(second)})
+    window.session_runtime.pairing = PairingHint(0.0, AOLSessionSource)
+    accept_pair(window, PartnerSearch(second, "found"))
     residual, _drift = window._mutations.source_mapping(source_id)
     # The second trial's zero is on camera frame zero (master 0 with no camera
     # loaded); the experiment's own zero is that trial's STARTTIME before it.
@@ -298,4 +302,4 @@ def test_cameras_that_came_with_their_trial_leave_no_trial_to_find(
     layout = AOLMicroscopeTrialSource().scan(experiment / "12-00-06", None)
     assert any(item.config.get("frame_timestamps_format") for item in layout.items)
     drop_controller.apply_session_layout(window, layout)
-    assert window.session_runtime.aol_camera_start_epoch == 0.0
+    assert window.session_runtime.pairing is None

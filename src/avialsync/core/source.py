@@ -11,7 +11,14 @@ import numpy as np
 
 from avialsync.core.messages import Message
 from avialsync.core.pose import PoseSchema
+from avialsync.core.settings_schema import Setting
 from avialsync.core.trials import FrameGaps
+
+#: The plugin API this application implements (D-220). A plugin declares the
+#: version it was written against as ``api_version``; the registry refuses one
+#: written for another, with the reason in Help → Diagnostics, rather than let
+#: it fail halfway through a scan.
+PLUGIN_API_VERSION = 2
 
 
 @dataclass
@@ -24,6 +31,14 @@ class ChannelInfo:
     rate_hz: float | None  # None indicates irregular sampling
     shown: bool = True  # Initial plot visibility; the reader and cache remain available.
     description: str = ""  # Additional channel-specific context for the inspector.
+    #: This channel is a trigger line: one of ``frame_strobe``, ``frame_trigger``,
+    #: ``sync_train`` or ``sparse_events`` (`core.triggers.TriggerKind`). Empty
+    #: means an ordinary trace, which alignment still offers as sparse events.
+    #: The sync wizard starts from this kind; the user still accepts the fit.
+    trigger: str = ""
+    #: The source a trigger line is evidence about, e.g. the camera file a strobe
+    #: came from, when the recording says so. Matched against loaded video paths.
+    trigger_for: str = ""
 
 
 #: Unit spellings formats use for "no unit", shown as nothing at all.
@@ -188,6 +203,37 @@ class _Nameable:
         """
         return []
 
+    #: The plugin API this class was written against (:data:`PLUGIN_API_VERSION`).
+    api_version: int = PLUGIN_API_VERSION
+
+    @classmethod
+    def plugin_id(cls) -> str:
+        """Stable identifier: the prefix its settings are stored under.
+
+        Defaults to the lower-cased class name. Several classes of one plugin
+        may share an id, and then share its settings.
+        """
+        return cls.__name__.lower()
+
+    @classmethod
+    def settings(cls) -> tuple[Setting, ...]:
+        """Preferences this plugin needs: folders, tolerances, choices.
+
+        Keys are the plugin's own (``"data_folder"``); the application stores
+        them under ``plugins/<plugin_id>/`` and shows them in Preferences, one
+        tab per plugin, grouped under :meth:`display_name`. Values reach the
+        plugin through :meth:`configure`.
+        """
+        return ()
+
+    @classmethod
+    def configure(cls, values: dict[str, Any]) -> None:
+        """Receive the current values of :meth:`settings`, keyed by the plugin's keys.
+
+        Called before every drop scan and whenever a value changes, on the UI
+        thread; store what the scan will need. The default ignores them.
+        """
+
 
 @dataclass(frozen=True)
 class SessionItem:
@@ -323,6 +369,11 @@ class SessionLayout:
     #: imposed stays visible after its pieces are joined into one timeline.
     segments: list[tuple[float, float, str]] = field(default_factory=list)
 
+    #: This recording can be paired with one made on another machine: the
+    #: scanner offers **Align → Find Matching Recording**, which asks it to
+    #: :meth:`SessionSource.find_partner`. ``None`` offers nothing.
+    pairing: "PairingHint | None" = None
+
     #: What the scan could not lay out, in the user's words rather than the log's.
     #: A scanner must not fail a whole folder because one recording in it is
     #: unreadable — the other recordings are still good — but dropping the bad
@@ -331,8 +382,42 @@ class SessionLayout:
     warnings: list[str] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class PairingHint:
+    """A loaded recording whose partner, made on another machine, can be searched for."""
+
+    #: The wall-clock instant a partner must match, as the scanner reads it.
+    epoch: float
+    #: The scanner whose :meth:`SessionSource.find_partner` searches for it.
+    finder: type["SessionSource"]
+
+
+@dataclass(frozen=True)
+class PartnerSearch:
+    """What :meth:`SessionSource.find_partner` found, or why it found nothing."""
+
+    #: The recording to load and place; ``None`` when nothing was paired.
+    path: Path | None
+    #: One line for the user: what was found, or why nothing was.
+    message: str
+    #: Evidence for the acceptance prompt: clocks, offsets, residuals.
+    details: str = ""
+    #: The partner's recorded length in seconds, compared with the loaded video.
+    duration: float | None = None
+    #: Anything else :meth:`SessionSource.partner_targets` needs back.
+    data: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class LoadedSource:
+    """A source that is open now, as :meth:`SessionSource.partner_targets` sees it."""
+
+    source_id: str
+    config: dict[str, Any] = field(default_factory=dict)
+
+
 class SessionSource(_Nameable, ABC):
-    """Optional plugin contract for a whole recording folder.
+    """Plugin contract for a whole recording folder.
 
     Additive to API v1 and outside it: ``TimeSeriesSource`` and ``VideoSource``
     are unchanged, and a plugin that implements neither this nor anything else
@@ -389,6 +474,32 @@ class SessionSource(_Nameable, ABC):
         UI thread under the same rules as :meth:`scan`.
         """
         return None
+
+    @classmethod
+    def find_partner(cls, epoch: float) -> PartnerSearch:
+        """Search for the recording made with a loaded one, on another machine.
+
+        Optional; asked only for a layout that declared
+        :attr:`SessionLayout.pairing` naming this class. *epoch* is that hint's
+        instant. Read search folders and tolerances from :meth:`configure`.
+        Runs off the UI thread; return a :class:`PartnerSearch` whose ``path``
+        is ``None`` and whose ``message`` says why when nothing matches.
+        """
+        return PartnerSearch(None, f"{cls.display_name()} cannot search for a partner.")
+
+    @classmethod
+    def partner_targets(
+        cls, match: PartnerSearch, loaded: Sequence[LoadedSource]
+    ) -> list[tuple[str, float]]:
+        """The loaded sources that are *match*, with each one's zero after it.
+
+        Each entry is ``(source id, seconds from the partner's zero to this
+        source's own zero)``. Accepting the pairing places the partner's zero on
+        the paired recording's first video frame. The default is every loaded
+        source whose id is the partner's path, at zero.
+        """
+        wanted = str(match.path)
+        return [(source.source_id, 0.0) for source in loaded if source.source_id == wanted]
 
 
 class TimeSeriesSource(_Nameable, ABC):

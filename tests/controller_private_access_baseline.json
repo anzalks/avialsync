@@ -33,12 +33,6 @@
     "session_controller.py": 850
   },
   "private_accesses": {
-    "aol_microscope_controller.py": {
-      "_mutations": 2,
-      "_run_job": 1,
-      "_sensor_cache_dirs": 2,
-      "_video_source_bounds": 1
-    },
     "cache_controller.py": {
       "_run_job": 1
     },
@@ -166,6 +160,11 @@
       "_update_tracking_pane_visibility": 1,
       "_video_fps": 2,
       "_video_frame_times": 1
+    },
+    "pairing_controller.py": {
+      "_mutations": 2,
+      "_run_job": 1,
+      "_sensor_cache_dirs": 1
     },
     "session_controller.py": {
       "_act_show_original_tracker": 2,

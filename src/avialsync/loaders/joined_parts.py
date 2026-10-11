@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib
+import inspect
 import json
 import shutil
 from collections.abc import Callable, Iterator
@@ -315,7 +316,13 @@ def _chunks(
     """A part's chunks, through its bulk read when it has one."""
     bulk = getattr(reader, "read_all_chunks", None)
     if callable(bulk):
-        yield from bulk(channels)
+        if inspect.signature(bulk).parameters:
+            yield from bulk(channels)
+            return
+        # The documented bulk read takes no arguments (D-067) and yields every
+        # channel; keep the ones asked for.
+        for every in bulk():
+            yield {name: every[name] for name in channels if name in every}
         return
     # Without a bulk read, each channel whole: one part is one chunk.
     chunk: dict[str, tuple[np.ndarray, np.ndarray]] = {}

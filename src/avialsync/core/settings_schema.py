@@ -17,6 +17,7 @@ text are facts about the application, not about Qt.
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Sequence
 from typing import Any
 
 __all__ = ["Setting", "SETTINGS", "setting_for", "settings_by_group", "GROUP_ORDER"]
@@ -42,6 +43,9 @@ class Setting:
     maximum: float | None = None
     #: Remembered state may be schema-owned without appearing in Preferences.
     visible: bool = True
+    #: Where an earlier release stored this value. Read once when the current
+    #: key holds nothing, so moving a setting never loses what a user chose.
+    legacy_key: str = ""
 
 
 #: Groups, in the order a Preferences dialog should show them: what people
@@ -53,42 +57,11 @@ GROUP_ORDER = (
     "Overlays",
     "Video Display",
     "Wheel Setup",
-    "Lab Data",
     "Storage",
 )
 
 
 SETTINGS: tuple[Setting, ...] = (
-    Setting(
-        key="aol/saved_data_folder",
-        label="AOL microscope saved-data folder",
-        group="Lab Data",
-        default="",
-        kind=str,
-        help_text="Root folder containing dated microscope experiment folders.",
-    ),
-    Setting(
-        key="aol/camera_data_folder",
-        label="AOL camera saved-data folder",
-        group="Lab Data",
-        default="",
-        kind=str,
-        help_text=(
-            "Root folder the camera PC saves trials in. Recordings are matched to trials "
-            "by when they started, not by folder name. Leave empty when cameras are saved "
-            "in or beside the trial folders, or in a tree beside the date folder."
-        ),
-    ),
-    Setting(
-        key="aol/match_tolerance_seconds",
-        label="AOL camera-to-trial match tolerance",
-        group="Lab Data",
-        default=10.0,
-        kind=float,
-        minimum=0.0,
-        maximum=60.0,
-        help_text="Maximum camera-PC clock difference when matching a trial start.",
-    ),
     *(
         Setting(
             key=f"export/last_folder/{kind}",
@@ -319,10 +292,14 @@ def setting_for(key: str) -> Setting | None:
     return _BY_KEY.get(key)
 
 
-def settings_by_group() -> dict[str, list[Setting]]:
-    """Settings grouped for display, in :data:`GROUP_ORDER`."""
+def settings_by_group(extra: Sequence[Setting] = ()) -> dict[str, list[Setting]]:
+    """Settings grouped for display, in :data:`GROUP_ORDER`.
+
+    *extra* are the plugins' declared settings, already namespaced; their
+    groups follow the application's own.
+    """
     grouped: dict[str, list[Setting]] = {}
-    for setting in SETTINGS:
+    for setting in (*SETTINGS, *extra):
         if not setting.visible:
             continue
         grouped.setdefault(setting.group, []).append(setting)

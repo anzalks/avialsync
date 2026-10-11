@@ -47,7 +47,11 @@ Phase 5.1 has frozen the Plugin API v1: time-series plugins
 provide chunked ingest only; video sources open asynchronously through the registry,
 retain D-006 conversion hooks, and may be discovered through entry points or drop-ins.
 P5.4 has an initial implementation: cached TTL-channel extraction and video frame-event alignment
-with explicit user acceptance and session provenance. Native plugin event providers remain unfrozen.
+with explicit user acceptance and session provenance. Plugin API 2 (D-220) supersedes v1: plugin
+settings, partner pairing (`pairing_controller.py`, AOL via `loaders/aol_pairing.py`), trigger
+lines on `ChannelInfo`, tie review, File → Plugins, package drop-ins, `avialsync plugin-check`
+(`core/plugin_check.py`). The `avialsync.triggers` group and `aol_microscope_controller.py` /
+`engine/aol_trial_search.py` are gone.
 
 **Phase 7 (UX foundations) has landed** on branch `ux_foundations` — WP-0 … WP-12, all thirteen
 packages. It added seven pieces of shared infrastructure — command bus, settings registry, the
@@ -689,8 +693,11 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `engine/player.py` | precise 60 Hz tick; MasterClock ↔ panes ↔ UI. Owns the clock, so no drift correction (D-075) | `Player.seek()`, `.set_playing()`, `.step_frame()`, `.stop()` |
 | `engine/seeker.py` | Parallel seek across all video panes | `SeekGroup` |
 | `engine/drop_worker.py` | Off-thread drop classification; AOL session fan-out, pose `role` tagging (D-046) | `DropScanWorker` — signals: `finished(candidates, is_aol)`, `session_found`, `error` |
-| `engine/aol_trial_search.py` | Registered worker that searches one camera-stamped day and returns only a unique trial match | `AOLTrialSearchWorker` |
-| `ui/controllers/aol_microscope_controller.py` | Align-menu search, evidence review, and explicit grouped undoable placement of a loaded AOL trial | `find_trial()`, `accept_trial_pair()` |
+| `engine/partner_search.py` | Registered worker running a session plugin's `find_partner` | `PartnerSearchWorker` |
+| `ui/controllers/pairing_controller.py` | Align → Find Matching Recording: search, evidence review, grouped undoable placement of the partner | `find_partner()`, `accept_pair()` |
+| `ui/controllers/plugin_controller.py` | File → Plugins (folder, reload, switches) and handing plugins their settings | `fill_plugin_menu()`, `publish_plugin_settings()` |
+| `loaders/aol_pairing.py` | AOL settings and camera-to-trial search through the plugin hooks | `AOL_SETTINGS`, `find_aol_partner()` |
+| `core/plugin_check.py` | Headless plugin check behind `avialsync plugin-check` | `check_path()`, `list_plugins()` |
 | `engine/session_worker.py` | Off-thread `.avv` save/load | `SessionSaveWorker`, `SessionLoadWorker` |
 | `engine/cache_worker.py` | Off-thread cache removal for File → Cache (D-160) | `CacheRemovalWorker` |
 | `core/trials.py` | A recording's parts (trials, recordings) placed on one timeline: at their recorded start by default, back to back only when a plugin declares it; overlaps and clockless parts left out and named; the shared gap rule (`GAP_FACTOR`, `FrameGaps`); a stream's holes and spans, the gaps no stream has data in, and the view-only `TimeWarp` that collapses them (D-217, D-218) | `place()`, `Part`, `PartPlan`, `Placement`, `into_slot()`, `FrameGaps`, `holes_between()`, `stream_spans()`, `common_gaps()`, `TimeWarp` |

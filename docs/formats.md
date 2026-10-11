@@ -68,7 +68,7 @@ The camera PC names its folders by its own clock, so they never match the trial 
 (`12-21-24` for trial `12-21-28`). AvialSync pairs them by **when they recorded**: the cameras'
 first-frame stamp against each trial's `STARTTIME`, after removing the controller's time zone
 (from its folder names) and the offset most recordings agree on between the two PCs' clocks.
-Pairs are one to one and in time order, within **Preferences → Lab Data → AOL camera-to-trial
+Pairs are one to one and in time order, within **Preferences → AOL → Camera-to-trial
 match tolerance**. A lone recording left between two matched trials, beside a lone unmatched
 trial, is paired with it "by order only" and reported. A camera that started more than a second
 from its trial's trigger is placed where its own clock says rather than on the trigger, and only

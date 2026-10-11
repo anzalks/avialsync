@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import dataclasses
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from avialsync.core.commands import AcceptSyncCommand
 from avialsync.core.session import SyncProvenance
 from avialsync.core.timeline import PreparedExactMapping, TimeMap
+from avialsync.core.triggers import TriggerKind
 
 if TYPE_CHECKING:
     from avialsync.core.sync import SyncProposal
@@ -44,6 +45,7 @@ def collect_sync_evidence(
 
     channels = window.plot_pane.channels
     placeable = _placeable(window)
+    panes = window.video_grid.pane_paths()
     references: list[EvidenceSpec] = [
         SignalEvidenceSpec(
             source_id=(
@@ -54,10 +56,10 @@ def collect_sync_evidence(
             channel_id=channel.reader.channel_id,
             clock_id=channel.reader.source_id,
             accepted_mapping=channel.reader.time_map.copy(),
+            **_declared_trigger(window, channel.reader.source_id, channel.reader.channel_id, panes),
         )
         for channel in channels
     ]
-    panes = window.video_grid.pane_paths()
     targets: list[EvidenceSpec] = [
         EventEvidenceSpec(path, frame_times, clock_id=path, is_video_time_axis=True)
         for path, frame_times in window._video_frame_times.items()
@@ -88,6 +90,26 @@ def collect_sync_evidence(
                 )
             )
     return references, targets
+
+
+def _declared_trigger(
+    window: MainWindow, source_id: str, channel_id: str, panes: list[str]
+) -> dict[str, Any]:
+    """The trigger kind and camera a loader declared for this channel, if it did.
+
+    A declaration is where the wizard starts, not what it accepts: the fit is
+    still shown with its evidence and placed only when the user accepts it.
+    """
+    declared = window.session_runtime.channel_triggers.get(source_id, {}).get(channel_id)
+    if declared is None:
+        return {}
+    kind_name, target = declared
+    try:
+        kind = TriggerKind(kind_name)
+    except ValueError:
+        return {}
+    strobe_for = next((path for path in panes if target and target in (path, Path(path).name)), "")
+    return {"kind": kind, "strobe_for": strobe_for}
 
 
 def has_alignment_evidence(window: MainWindow) -> bool:

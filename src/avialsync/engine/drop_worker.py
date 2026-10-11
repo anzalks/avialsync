@@ -7,9 +7,11 @@ lab's folder layout, and adding support for one must not require editing this
 file.
 """
 
+import dataclasses
 import logging
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 from PySide6.QtCore import QObject, Signal, Slot
 
@@ -17,6 +19,9 @@ from avialsync.core.registry import LoaderRegistry, is_own_sidecar
 from avialsync.core.source import SessionItem, SessionLayout, SessionSource, TimeSeriesSource
 
 logger = logging.getLogger(__name__)
+
+#: Candidate-config key naming the readers tied for a file; the review asks.
+TIED_KEY = "_tied_loaders"
 
 
 class DropScanWorker(QObject):
@@ -79,7 +84,7 @@ class DropScanWorker(QObject):
 
         if loader_class is not None:
             # Pre-compute is_frame_indexed for time series off-thread
-            config = None
+            config: dict[str, Any] | None = None
             if issubclass(loader_class, TimeSeriesSource):
                 try:
                     if getattr(loader_class, "is_frame_indexed", lambda s: False)(loader_class()):
@@ -87,6 +92,11 @@ class DropScanWorker(QObject):
                 except Exception as e:
                     # Ignore instantiation errors during probing, but log them
                     logger.debug("Failed to probe %s: %s", loader_class, e)
+            tied = self._registry.tied_loaders(path)
+            if tied:
+                # Several readers are equally sure: the review makes the user
+                # choose rather than letting registration order decide.
+                config = {**(config or {}), TIED_KEY: [cls.display_name() for cls in tied]}
             return [(path, loader_class, config)]
 
         candidates = []
@@ -179,5 +189,16 @@ class DropScanWorker(QObject):
             )
             return None
 
+        tied = self._registry.tied_sessions(path)
+        if tied:
+            names = ", ".join(cls.display_name() for cls in tied)
+            layout = dataclasses.replace(
+                layout,
+                warnings=[
+                    *layout.warnings,
+                    f"{names} all claim {path.name}; {session_cls.display_name()} laid it out. "
+                    "Switch the others off in File → Plugins to choose.",
+                ],
+            )
         self._adopt(session_cls, layout, path.name)
         return [(item.path, item.loader, dict(item.config)) for item in layout.items]

@@ -7087,3 +7087,46 @@ so the 3D view draws Nexus's own bones (ten on `1113`). The joined marker source
 past the estimator's 64-point limit, so it drew none; and an estimate across trials would join
 static props (ladder, platform), which hold perfectly still and so look perfectly rigid. Without a
 `.vsk` the estimate is unchanged.
+
+## 2026-10 · D-220 · Plugin API 2: settings, pairing and trigger lines are plugin hooks; nothing in the app names a rig
+
+**Decision.** The plugin API is version 2 (`core.source.PLUGIN_API_VERSION`), fixed from this
+release; changes after it are additive. Every plugin class may declare `api_version` (default: the
+running version), and the registry refuses another version with the reason in Diagnostics.
+
+- **Settings.** A plugin declares `settings()` (`core.settings_schema.Setting`, its own keys) and
+  receives their values in `configure()`. The application stores them under
+  `plugins/<plugin_id>/<key>`, shows one Preferences tab per plugin, and calls `configure` before
+  every drop scan and on change. `Setting.legacy_key` reads a moved value once. AOL's three
+  `aol/*` preferences are now declared by the AOL scanners (`loaders/aol_pairing.py`), which share
+  the id `aol`.
+- **Pairing.** A layout may declare `pairing=PairingHint(epoch, finder)`; **Align → Find Matching
+  Recording** asks `finder.find_partner(epoch)` on a worker and, once the match is loaded, places
+  the sources `finder.partner_targets(match, loaded)` names on the first camera frame as one
+  undoable command (`ui/controllers/pairing_controller.py`). This replaced the AOL-only controller,
+  worker, menu action, runtime fields (`aol_camera_start_epoch`, `pending_aol_pair` → `pairing`,
+  `pending_pair`) and the drop path's check for `"aol_relative_ms"`.
+- **Trigger lines.** A loader declares a trigger on its channel (`ChannelInfo.trigger`,
+  `trigger_for`); the import manifest keeps it (`SourceInspection.channel_triggers`) and the sync
+  wizard starts from that kind. The `avialsync.triggers` entry-point group is gone: trigger lines
+  come with the data in practice, and a separate plugin kind duplicated the loader. The built-in
+  CSV reader behind **Open Trigger Evidence** stays.
+- **Ties.** Equal top `can_open` scores are no longer decided by load order: a tied file arrives in
+  the import review unchosen, and tied session scanners are named in a layout warning.
+- **Switches and reload.** **File → Plugins** opens the drop-in folder, reloads plugins, and switches
+  any plugin off (`plugins/disabled`, by `module:Class`; a drop-in by file name).
+- **Drop-ins.** Package folders load as well as single files, registered in `sys.modules` so their
+  relative imports and `part_loader` names resolve; `~/.avialsync/plugins/lib/` is importable. The
+  release smoke test runs the installed bundle's `plugin-check` against a throwaway home holding a
+  file and a package drop-in.
+- **Checking.** `avialsync plugin-check [PATH]` (`core/plugin_check.py`) lists plugins and lays
+  out a path as a drop would, checking absolute epochs, trial overlap, chunk shape and order, and
+  trigger kinds.
+
+`joined_parts._chunks` now calls a part loader's `read_all_chunks()` without arguments when that is
+its signature (the D-067 contract); a joined CSV failed before.
+
+**Why.** A new lab could not reach parity with AOL without editing the application: the pairing
+search, its preferences and its state named AOL, and plugins had no way to ask for a folder. The
+check and the tutorials (`docs/plugins/`, with a tested example in `examples/plugin_tutorials/`)
+make the API learnable without reading a 1 200-line reference implementation.

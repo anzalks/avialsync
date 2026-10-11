@@ -371,6 +371,11 @@ def on_import_finished(
     )
     window._recompute_bounds()
     channel_descriptions = getattr(inspection, "channel_descriptions", None) or {}
+    triggers = getattr(inspection, "channel_triggers", None) or {}
+    if triggers:
+        window.session_runtime.channel_triggers[path] = dict(triggers)
+    else:
+        window.session_runtime.channel_triggers.pop(path, None)
     window.sidebar.add_sensor(
         path,
         channels,
@@ -419,9 +424,9 @@ def on_import_finished(
                 for ch in channels:
                     window.plot_pane.set_gap_markers(ch, gap_times)
     window.transport.set_status(f"Ready · imported {Path(path).name}")
-    from avialsync.ui.controllers.aol_microscope_controller import trial_source_loaded
+    from avialsync.ui.controllers.pairing_controller import partner_source_loaded
 
-    trial_source_loaded(window)
+    partner_source_loaded(window)
 
 
 # ── Pose sources (overlay + 3D view, never plotted) ──────────────────

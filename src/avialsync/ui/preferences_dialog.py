@@ -12,6 +12,7 @@ can be forgotten separately.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from PySide6.QtCore import QSettings, Qt, Signal
@@ -51,7 +52,15 @@ def read_setting(setting: Setting) -> Any:
     platforms and native types on others, and a bool that arrives as ``"false"``
     is otherwise true.
     """
-    raw = _store().value(setting.key, setting.default)
+    store = _store()
+    if (
+        setting.legacy_key
+        and not store.contains(setting.key)
+        and store.contains(setting.legacy_key)
+    ):
+        # Moved: adopt what the user chose under the old key, once.
+        store.setValue(setting.key, store.value(setting.legacy_key))
+    raw = store.value(setting.key, setting.default)
     if setting.kind is bool:
         if isinstance(raw, str):
             return raw.strip().lower() in {"true", "1", "yes"}
@@ -66,7 +75,7 @@ def write_setting(setting: Setting, value: Any) -> None:
     _store().setValue(setting.key, value)
 
 
-def settings_report() -> str:
+def settings_report(extra: Sequence[Setting] = ()) -> str:
     """Everything the application remembers, for Diagnostics and bug reports.
 
     Worth its weight the first time someone reports behaviour that turns out
@@ -84,7 +93,7 @@ def settings_report() -> str:
     """
     lines = ["[preferences]"]
     declared = set()
-    for setting in SETTINGS:
+    for setting in (*SETTINGS, *extra):
         declared.add(setting.key)
         value = read_setting(setting)
         marker = "" if value == setting.default else "  (changed)"
@@ -124,9 +133,11 @@ class PreferencesDialog(QDialog):
     #: immediately rather than on close.
     setting_changed = Signal(str)
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: QWidget | None = None, extra: Sequence[Setting] = ()) -> None:
         super().__init__(parent)
         self.setWindowTitle(tr("Preferences"))
+        #: The plugins' declared settings, namespaced (D-220).
+        self._extra = tuple(extra)
         self.setMinimumWidth(520)
         self._editors: dict[str, QWidget] = {}
 
@@ -134,7 +145,7 @@ class PreferencesDialog(QDialog):
         tabs = QTabWidget()
         layout.addWidget(tabs)
 
-        for group, entries in settings_by_group().items():
+        for group, entries in settings_by_group(self._extra).items():
             tabs.addTab(self._build_page(entries), tr(group))
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
@@ -259,7 +270,7 @@ class PreferencesDialog(QDialog):
         self.setting_changed.emit(setting.key)
 
     def _reset_all(self) -> None:
-        for setting in SETTINGS:
+        for setting in (*SETTINGS, *self._extra):
             write_setting(setting, setting.default)
             self._reload(setting)
             self.setting_changed.emit(setting.key)

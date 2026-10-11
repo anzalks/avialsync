@@ -14,6 +14,7 @@ import datetime
 import logging
 import math
 import statistics
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -24,7 +25,23 @@ import numpy as np
 from avialsync.core.custom_markers import is_custom_marker_path
 from avialsync.core.pose import split_channel
 from avialsync.core.rig_naming import match_label
-from avialsync.core.source import RotaryHint, SessionItem, SessionLayout, SessionSource
+from avialsync.core.settings_schema import Setting
+from avialsync.core.source import (
+    LoadedSource,
+    PairingHint,
+    PartnerSearch,
+    RotaryHint,
+    SessionItem,
+    SessionLayout,
+    SessionSource,
+)
+from avialsync.loaders.aol_pairing import (
+    AOL_PLUGIN_ID,
+    AOL_SETTINGS,
+    aol_partner_targets,
+    configure_aol,
+    find_aol_partner,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -817,6 +834,29 @@ class AOLSessionSource(SessionSource):
         return "AOL Session"
 
     @classmethod
+    def plugin_id(cls) -> str:
+        return AOL_PLUGIN_ID
+
+    @classmethod
+    def settings(cls) -> tuple[Setting, ...]:
+        return AOL_SETTINGS
+
+    @classmethod
+    def configure(cls, values: dict[str, Any]) -> None:
+        configure_aol(values)
+
+    @classmethod
+    def find_partner(cls, epoch: float) -> PartnerSearch:
+        """The microscope trial these cameras recorded, found by the camera start stamp."""
+        return find_aol_partner(epoch)
+
+    @classmethod
+    def partner_targets(
+        cls, match: PartnerSearch, loaded: Sequence[LoadedSource]
+    ) -> list[tuple[str, float]]:
+        return aol_partner_targets(match, loaded)
+
+    @classmethod
     def can_open(cls, path: Path) -> float:
         return 1.0 if is_aol_session(path) else 0.0
 
@@ -839,6 +879,10 @@ class AOLSessionSource(SessionSource):
             path.name,
             manifest.camera_fps,
         )
+        # Cameras stamped by the camera PC have a microscope trial to find.
+        stamped = any(
+            item.config.get("frame_timestamps_format") == "aol_relative_ms" for item in items
+        )
         return SessionLayout(
             items=items,
             anchor_epoch=anchor_epoch,
@@ -846,6 +890,7 @@ class AOLSessionSource(SessionSource):
             camera_fps=manifest.camera_fps,
             skeleton=manifest.skeleton,
             rotary=_rotary_hint(manifest),
+            pairing=PairingHint(session_epoch, AOLSessionSource) if stamped else None,
             warnings=manifest.warnings,
         )
 

@@ -50,6 +50,13 @@ Every page also carries an "Edit this page" link to its source in the repository
    :maxdepth: 2
    :caption: Extending and internals
 
+   plugins/index
+   plugins/first-loader
+   plugins/folder-of-trials
+   plugins/trigger-lines
+   plugins/settings
+   plugins/partner-recordings
+   plugins/installing-and-testing
    plugin-guide
    technical/index
    licensing

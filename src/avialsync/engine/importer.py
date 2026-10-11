@@ -104,6 +104,15 @@ def _declared_descriptions(channels: Any) -> dict[str, str]:
     }
 
 
+def _declared_triggers(channels: Any) -> dict[str, tuple[str, str]]:
+    """Each channel the loader declared a trigger line, as ``(kind, target)``."""
+    return {
+        str(ch.name): (str(getattr(ch, "trigger", "")), str(getattr(ch, "trigger_for", "")))
+        for ch in channels
+        if getattr(ch, "trigger", "")
+    }
+
+
 class ImportWorker(QObject):
     """Background worker for parsing and building pyramids from time-series sources."""
 
@@ -138,6 +147,7 @@ class ImportWorker(QObject):
                     inspection.channel_units is None
                     or inspection.default_channel_visibility is None
                     or inspection.channel_descriptions is None
+                    or inspection.channel_triggers is None
                 ):
                     inspection = self._backfill_units(cache_dir, channels, bounds, inspection)
                 self.progress.emit(100)
@@ -214,6 +224,7 @@ class ImportWorker(QObject):
                 channel_units=_declared_units(channels),
                 default_channel_visibility=_declared_visibility(channels),
                 channel_descriptions=_declared_descriptions(channels),
+                channel_triggers=_declared_triggers(channels),
             )
 
             self._write_manifest(temp_dir, channel_names, (t0, t1), inspection)
@@ -245,6 +256,7 @@ class ImportWorker(QObject):
         units: dict[str, str] = {}
         visibility: dict[str, bool] = {}
         descriptions: dict[str, str] = {}
+        triggers: dict[str, tuple[str, str]] = {}
         loader = None
         try:
             loader = self.loader_class()
@@ -253,6 +265,7 @@ class ImportWorker(QObject):
             units = _declared_units(channels_info)
             visibility = _declared_visibility(channels_info)
             descriptions = _declared_descriptions(channels_info)
+            triggers = _declared_triggers(channels_info)
         except Exception:  # noqa: BLE001 - optional metadata from a plugin boundary
             logger.info("Could not read channel units for %s", self.path, exc_info=True)
         finally:
@@ -267,6 +280,7 @@ class ImportWorker(QObject):
             channel_units=units,
             default_channel_visibility=visibility,
             channel_descriptions=descriptions,
+            channel_triggers=triggers,
         )
         try:
             self._write_manifest(cache_dir, channels, bounds, updated)

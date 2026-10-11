@@ -16,18 +16,20 @@ if TYPE_CHECKING:
 Register = Callable[[QAction, str], QAction]
 
 
-def _add_microscope_trial_action(window: MainWindow, menu: QMenu, register: Register) -> QAction:
-    """Add the configured AOL trial search to the Align menu."""
-    from avialsync.ui.controllers import aol_microscope_controller
+def _add_partner_action(window: MainWindow, menu: QMenu, register: Register) -> QAction:
+    """Add the search for a recording made with the loaded one on another machine."""
+    from avialsync.ui.controllers import pairing_controller
 
-    action = menu.addAction(tr("Find microscope trial…"))
-    action.setToolTip(tr("Find the matching AOL microscope trial by its recorded start time"))
-    action.triggered.connect(lambda: aol_microscope_controller.find_trial(window))
+    action = menu.addAction(tr("Find Matching Recording…"))
+    action.setToolTip(
+        tr("Ask the session's plugin for the recording made with it, by recorded start time")
+    )
+    action.triggered.connect(lambda: pairing_controller.find_partner(window))
     register(action, "Align")
     window._require(
         action,
-        lambda: aol_microscope_controller.can_find_trial(window),
-        tr("Load an AOL camera session and set its microscope folder in Preferences."),
+        lambda: pairing_controller.can_find_partner(window),
+        tr("Load a session whose plugin can find a matching recording."),
     )
     return action
 
@@ -55,9 +57,7 @@ def build_align_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMen
         ),
     )
 
-    window._act_find_microscope_trial = _add_microscope_trial_action(
-        window, window._align_menu, _reg
-    )
+    window._act_find_partner = _add_partner_action(window, window._align_menu, _reg)
 
     act = window._align_menu.addAction(tr("Open Trigger Evidence…"))
     act.setToolTip(tr("Load a TTL or strobe file and say what each of its lines is"))

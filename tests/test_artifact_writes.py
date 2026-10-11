@@ -53,6 +53,7 @@ _KNOWN_WRITERS: dict[str, str] = {
     "demo.py:_write_sensors": "Standalone demo data generator, not a user export.",
     "demo.py:_write_ephys": "Standalone demo data generator, not a user export.",
     "demo.py:_write_tracking": "Standalone demo data generator, not a user export.",
+    "__main__.py:_plugin_check": "Plain-text report named on the command line, not an artifact.",
 }
 
 

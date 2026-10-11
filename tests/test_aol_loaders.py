@@ -634,6 +634,10 @@ class TestAOLSessionDetection:
         assert item.config["frame_timestamps_format"] == "aol_relative_ms"
         assert item.config["start_time"] == 0.0
         assert "fps" not in item.config
+        # Stamped cameras offer Align → Find Matching Recording through the hook.
+        assert layout.pairing is not None
+        assert layout.pairing.finder is AOLSessionSource
+        assert layout.pairing.epoch == layout.session_epoch
 
     def test_mp4_wins_over_avi_with_same_stem(self, tmp_path: Path) -> None:
         from avialsync.loaders.aol_session_loader import AOLManifest, _add_root_videos

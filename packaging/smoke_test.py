@@ -75,6 +75,59 @@ def smoke_bundle(
         raise RuntimeError(f"AvialSync bundle startup failed: {details}") from error
 
 
+_DROP_IN_FILE = """
+from avialsync.core.source import SessionLayout, SessionSource
+
+
+class SmokeFileSession(SessionSource):
+    @classmethod
+    def can_open(cls, path):
+        return 0.0
+
+    def scan(self, path, registry):
+        return SessionLayout()
+"""
+
+_DROP_IN_PACKAGE = """
+from .scanner import SmokePackageSession
+"""
+
+_DROP_IN_PACKAGE_MODULE = _DROP_IN_FILE.replace("SmokeFileSession", "SmokePackageSession")
+
+
+def smoke_drop_in_plugins(bundle_dir: Path, timeout: float = 60.0) -> None:
+    """Require the installed application to load drop-in plugins from the user's folder.
+
+    The point of the drop-in folder is that an installed copy, which has no
+    pip, still takes plugins: one ``.py`` file and one package folder are put
+    in a throwaway home directory and the bundle must list both.
+    """
+    executable = bundle_executable(bundle_dir)
+    with tempfile.TemporaryDirectory(prefix=".avialsync-home-", dir=bundle_dir.parent) as home:
+        plugins = Path(home) / ".avialsync" / "plugins"
+        (plugins / "smoke_package").mkdir(parents=True)
+        (plugins / "smoke_file.py").write_text(_DROP_IN_FILE, encoding="utf-8")
+        (plugins / "smoke_package" / "__init__.py").write_text(_DROP_IN_PACKAGE, encoding="utf-8")
+        (plugins / "smoke_package" / "scanner.py").write_text(
+            _DROP_IN_PACKAGE_MODULE, encoding="utf-8"
+        )
+        report = Path(home) / "plugins.txt"
+        env = os.environ.copy()
+        env.update({"HOME": home, "USERPROFILE": home})
+        subprocess.run(
+            [str(executable), "plugin-check", "--output", str(report)],
+            cwd=bundle_dir,
+            env=env,
+            timeout=timeout,
+            capture_output=True,
+            text=True,
+        )
+        text = report.read_text(encoding="utf-8") if report.is_file() else "(no report written)"
+        for name in ("Smoke File Session", "Smoke Package Session"):
+            if name not in text:
+                raise RuntimeError(f"The bundle did not load the drop-in {name!r}:\n{text}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("bundle_dir", type=Path)
@@ -92,7 +145,8 @@ def main() -> None:
         demo=args.demo,
         qt_platform=args.qt_platform,
     )
-    print(f"AvialSync bundle smoke test passed ({args.qt_platform})")
+    smoke_drop_in_plugins(args.bundle_dir.resolve())
+    print(f"AvialSync bundle smoke test passed ({args.qt_platform}, drop-in plugins)")
 
 
 if __name__ == "__main__":

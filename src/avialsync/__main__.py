@@ -15,8 +15,11 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "command",
         nargs="?",
-        choices=("demo", "open"),
-        help="demo: generate and load the inspection demo. open: load PATH.",
+        choices=("demo", "open", "plugin-check"),
+        help=(
+            "demo: generate and load the inspection demo. open: load PATH. "
+            "plugin-check: list plugins, and check how they lay out PATH if given."
+        ),
     )
     parser.add_argument(
         "path",
@@ -25,6 +28,11 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
         help="Session file (.avv) or a folder of recordings, for 'open'.",
     )
     parser.add_argument("--smoke-test", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="plugin-check: also write the report here (an installed app has no terminal).",
+    )
     args = parser.parse_args(argv)
     if args.command == "open":
         if args.path is None:
@@ -34,13 +42,37 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
             # it in a dialog behind a window that has already opened is worse
             # than reporting it on the terminal that issued the command.
             parser.error(f"no such file or folder: {args.path}")
+    elif args.command == "plugin-check":
+        if args.path is not None and not args.path.exists():
+            parser.error(f"no such file or folder: {args.path}")
     elif args.path is not None:
         parser.error(f"'{args.command}' takes no path argument")
     return args
 
 
+def _plugin_check(path: Path | None, output: Path | None) -> int:
+    """Run the headless plugin check; 0 when nothing is wrong."""
+    from avialsync.core.plugin_check import check_path, list_plugins
+    from avialsync.core.registry import LoaderRegistry
+
+    registry = LoaderRegistry()
+    report = list_plugins(registry)
+    if path is not None:
+        checked = check_path(registry, path)
+        report.lines += ["", *checked.lines]
+        report.problems += checked.problems
+    text = report.text()
+    if output is not None:
+        output.write_text(text + "\n", encoding="utf-8")
+    if sys.stdout is not None:
+        print(text)
+    return 0 if report.ok else 1
+
+
 def main() -> None:
     args = _parse_args(sys.argv[1:])
+    if args.command == "plugin-check":
+        sys.exit(_plugin_check(args.path, args.output))
 
     # Before anything can log. Without this the stdlib's last-resort handler
     # prints bare messages, so AvialSync's own reports and a dependency's are

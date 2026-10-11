@@ -121,7 +121,7 @@ def by_clock(recordings: Sequence[CameraRecording]) -> SessionLayout:
         segments=plan.segments(),
         warnings=[
             "No microscope trials were found for these recordings, so they are joined on "
-            "the camera clock alone. Set Preferences → Lab Data → AOL microscope saved-data "
+            "the camera clock alone. Set Preferences → AOL → Microscope saved-data "
             "folder, or drop the trials with them, to pair them with their trials.",
             *notes,
         ],

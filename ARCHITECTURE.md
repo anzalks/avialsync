@@ -382,7 +382,7 @@ path, so CI exercises timeline, seek, decode, and exact-frame correctness on the
 desktop runs, without claiming to validate a compositor. CI must not force `qwindows` merely to
 make a Windows runner behave like a desktop.
 
-## 4. Plugin contract (frozen at Phase 5 as API v1)
+## 4. Plugin contract (API 2, D-220)
 
 The original `TimeSeriesSource` and `VideoSource` contracts remain frozen.
 `ImagingSource` is an independent random-access contract for time-indexed 2D planes
@@ -499,8 +499,10 @@ placeholder (never last frame frozen, which misleads); plots show axis with no c
 shows "—". Timeline bounds = union of all sources; a 4 h video + 10 min data is legal and the
 overview strip shades each source's coverage span.
 
-Discovery: Python entry points and dynamic directory scanning (`~/.avialsync/plugins/`); highest `can_open` score wins,
-ties → user picks. Built-ins register directly into the PluginManager.
+Discovery: Python entry points and drop-ins in `~/.avialsync/plugins/` (files, package folders,
+`lib/`); highest `can_open` score wins; a tie is put to the user in the import review. Plugins
+declare settings (`settings()`/`configure()`), pairing (`SessionLayout.pairing`, `find_partner`,
+`partner_targets`) and trigger lines (`ChannelInfo.trigger`) through the same classes (D-220).
 
 ### Synchronization plugin extension (D-026; not frozen API v1)
 

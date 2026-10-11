@@ -283,7 +283,7 @@ class MainWindow(QMainWindow):
     _act_add_marker: QAction
     _act_add_prop: QAction
     _act_synchronize: QAction
-    _act_find_microscope_trial: QAction
+    _act_find_partner: QAction
     _act_show_original_tracker: QAction
     _act_detach_plots: QAction
     _act_panels_back: QAction
@@ -565,9 +565,9 @@ class MainWindow(QMainWindow):
         self.plot_pane.seek_requested.connect(self._on_plot_seek_requested)
 
         # Engine
-        from avialsync.core.registry import LoaderRegistry
+        from avialsync.ui.controllers.plugin_controller import new_registry
 
-        self._registry = LoaderRegistry()
+        self._registry = new_registry()
         # Discover plugins on a background thread rather than here. Constructing
         # the registry used to import every built-in loader inline -- `neo`
         # pulling in scipy and quantities, the AOL loader pulling in h5py --

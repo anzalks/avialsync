@@ -385,9 +385,9 @@ def load_imaging(
             window._note_source_loaded(source_id, "imaging")
         window._refresh_empty_state()
         window.imaging_pane.set_cursor(window.clock.state.t)
-        from avialsync.ui.controllers.aol_microscope_controller import trial_source_loaded
+        from avialsync.ui.controllers.pairing_controller import partner_source_loaded
 
-        trial_source_loaded(window)
+        partner_source_loaded(window)
 
     def needs_choice(choice: str, message: str, options: object) -> None:
         if not current():

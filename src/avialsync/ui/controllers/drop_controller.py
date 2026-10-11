@@ -52,24 +52,6 @@ def drop_event(window: MainWindow, event: QDropEvent) -> None:
     window._start_drop_scan(paths)
 
 
-def _publish_camera_roots() -> None:
-    """Tell the AOL scanner where the camera PC saves trials, from the user's settings."""
-    from avialsync.core.settings_schema import setting_for
-    from avialsync.loaders.aol_camera_join import configure_camera_roots
-    from avialsync.ui.preferences_dialog import read_setting
-
-    setting = setting_for("aol/camera_data_folder")
-    folder = str(read_setting(setting)).strip() if setting is not None else ""
-    tolerance = setting_for("aol/match_tolerance_seconds")
-    saved = setting_for("aol/saved_data_folder")
-    trials = str(read_setting(saved)).strip() if saved is not None else ""
-    configure_camera_roots(
-        [Path(folder).expanduser()] if folder else [],
-        float(read_setting(tolerance)) if tolerance is not None else None,
-        [Path(trials).expanduser()] if trials else [],
-    )
-
-
 def loaded_items(window: MainWindow) -> list[SessionItem]:
     """What is open now, each source's zero as a Unix time, for a drop to land against.
 
@@ -99,7 +81,9 @@ def start_drop_scan(window: MainWindow, paths: list[Path]) -> None:
     from avialsync.engine.drop_worker import DropScanWorker
 
     window.transport.set_status("Scanning files…")
-    _publish_camera_roots()
+    from avialsync.ui.controllers.plugin_controller import publish_plugin_settings
+
+    publish_plugin_settings(window.registry)
     worker = DropScanWorker(paths, window.registry, loaded_items(window))
 
     # Wired through `configure`, which runs before the thread starts. Connecting
@@ -137,33 +121,29 @@ def on_drop_scan_error(window: MainWindow, error_msg: str) -> None:
 
 
 def _adopt_declared_evidence(window: MainWindow, layout: SessionLayout) -> None:
-    """What the session recorded about itself: AOL camera starts, and its trials.
+    """What the session recorded about itself: a partner to find, and its trials.
 
     Trials are kept visible on the session timeline as a Data Streams lane and a
     boundary on every plot. Only a layout that declares them sets them; an
     ordinary file dropped into the session leaves an experiment's trials alone.
     """
-    _remember_aol_camera_session(window, layout)
+    _remember_pairing(window, layout)
     if layout.segments:
         window.show_trial_segments(layout.segments)
 
 
-def _remember_aol_camera_session(window: MainWindow, layout: SessionLayout) -> None:
-    """Retain AOL wall-clock evidence while a microscope trial is opened.
+def _remember_pairing(window: MainWindow, layout: SessionLayout) -> None:
+    """Keep the plugin's offer to find this recording's partner, while it is open.
 
-    Cameras a microscope layout brought with its trials (it declares them as
-    segments) are paired already: their epoch is the controller's, not a
-    camera session's, so there is no trial left to find for them.
+    New cameras without one replace an earlier offer: the partner belonged to
+    the recording those cameras replaced.
     """
-    is_aol_camera_session = not layout.segments and any(
-        item.config.get("frame_timestamps_format") == "aol_relative_ms" for item in layout.items
-    )
-    if is_aol_camera_session:
-        window.session_runtime.aol_camera_start_epoch = float(layout.session_epoch)
-        window.session_runtime.pending_aol_pair = None
+    if layout.pairing is not None:
+        window.session_runtime.pairing = layout.pairing
+        window.session_runtime.pending_pair = None
     elif any(item.kind == "video" for item in layout.items):
-        window.session_runtime.aol_camera_start_epoch = 0.0
-        window.session_runtime.pending_aol_pair = None
+        window.session_runtime.pairing = None
+        window.session_runtime.pending_pair = None
 
 
 def apply_session_layout(window: MainWindow, layout: object) -> None:

@@ -82,14 +82,21 @@ def test_script_entrypoint_runs_bundle_smoke(
 
     def fake_run(command: list[str], **_kwargs: object) -> None:
         calls.append(command)
+        if "plugin-check" in command:
+            # The bundle lists both drop-ins the smoke step put in its home.
+            report = Path(command[command.index("--output") + 1])
+            report.write_text("Smoke File Session\nSmoke Package Session\n", encoding="utf-8")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(sys, "argv", ["smoke_test.py", str(tmp_path)])
 
     runpy.run_path("packaging/smoke_test.py", run_name="__main__")
 
-    assert calls == [[str(executable), "--smoke-test"]]
-    assert capsys.readouterr().out == "AvialSync bundle smoke test passed (offscreen)\n"
+    assert calls[0] == [str(executable), "--smoke-test"]
+    assert calls[1][:2] == [str(executable), "plugin-check"]
+    assert capsys.readouterr().out == (
+        "AvialSync bundle smoke test passed (offscreen, drop-in plugins)\n"
+    )
 
 
 def test_bundle_smoke_can_require_a_real_platform_plugin(

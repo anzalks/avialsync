@@ -277,6 +277,14 @@ def _file_application(window: MainWindow, file_menu: QMenu, _reg: Register) -> N
     act.triggered.connect(window._help_controller.show_preferences)
     _reg(act, "File")
 
+    # Plugins: their folder, a reload, and a switch for each. Filled when
+    # opened, so it lists what discovery found rather than what it had found
+    # when the window was built.
+    from avialsync.ui.controllers.plugin_controller import fill_plugin_menu
+
+    plugins_menu = file_menu.addMenu(tr("Plugins"))
+    plugins_menu.aboutToShow.connect(lambda: fill_plugin_menu(window, plugins_menu))
+
     file_menu.addSeparator()
 
     # Quit — macOS QuitRole moves this to the app menu

@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from avialsync.core.registry import LoaderRegistry
 from avialsync.core.rig_naming import match_label
 from avialsync.core.source import ImagingSource, TimeSeriesSource, VideoSource
+from avialsync.engine.drop_worker import TIED_KEY
 from avialsync.ui.design_tokens import spacing
 from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
@@ -190,6 +191,16 @@ class BatchImportDialog(QDialog):
                     default_index = fallback_index
 
                 combo.setCurrentIndex(default_index)
+            tied = (_config or {}).get(TIED_KEY)
+            if tied:
+                # Equally sure readers: nothing is chosen until the user picks.
+                combo.setCurrentIndex(0)
+                combo.setToolTip(
+                    tr("Several readers claim this file: {names}. Choose one.").format(
+                        names=", ".join(str(name) for name in tied)
+                    )
+                )
+                name_label.setToolTip(combo.toolTip())
             exclusive_group = str((_config or {}).get("_exclusive_group", ""))
             if exclusive_group:
                 combo.setCurrentIndex(0)
@@ -432,6 +443,7 @@ class BatchImportDialog(QDialog):
                 role, video = role_combo.currentData()
                 chosen = dict(config or {})
                 chosen.pop("_exclusive_group", None)
+                chosen.pop(TIED_KEY, None)
                 chosen.pop("role", None)
                 chosen.pop("overlay_video", None)
                 if role:

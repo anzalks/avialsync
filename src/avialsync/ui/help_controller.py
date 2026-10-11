@@ -25,6 +25,8 @@ class HelpController(QObject):
         super().__init__(window)
         self._window = window
         self._preferences_dialog: PreferencesDialog | None = None
+        #: The plugin set the dialog's plugin tabs were built from.
+        self._preferences_generation = -1
         self._review_workflow_dialog: ReviewWorkflowDialog | None = None
 
     @Slot(str)
@@ -66,14 +68,27 @@ class HelpController(QObject):
     @Slot()
     def show_preferences(self) -> None:
         """Show the generated Preferences dialog without blocking the workspace."""
+        if self._preferences_generation != self._window.registry.generation:
+            self.forget_preferences()
         if self._preferences_dialog is None:
             from avialsync.ui.preferences_dialog import PreferencesDialog
 
-            self._preferences_dialog = PreferencesDialog(self._window)
+            self._preferences_generation = self._window.registry.generation
+
+            self._preferences_dialog = PreferencesDialog(
+                self._window, extra=self._window.registry.plugin_settings()
+            )
             self._preferences_dialog.setting_changed.connect(self.on_setting_changed)
         self._preferences_dialog.show()
         self._window._bring_onto_screen(self._preferences_dialog)
         self._preferences_dialog.raise_()
+
+    def forget_preferences(self) -> None:
+        """Rebuild Preferences next time: the plugins, and so their settings, changed."""
+        if self._preferences_dialog is not None:
+            self._preferences_dialog.close()
+            self._preferences_dialog.deleteLater()
+            self._preferences_dialog = None
 
     @Slot()
     def show_review_workflow(self) -> None:
@@ -97,6 +112,11 @@ class HelpController(QObject):
     @Slot(str)
     def on_setting_changed(self, key: str) -> None:
         """Apply appearance preferences immediately."""
+        if key.startswith("plugins/"):
+            from avialsync.ui.controllers.plugin_controller import publish_plugin_settings
+
+            publish_plugin_settings(self._window.registry)
+            return
         app = QApplication.instance()
         if not isinstance(app, QApplication):
             return

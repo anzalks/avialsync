@@ -10,7 +10,6 @@ import pytest
 
 from avialsync.core.errors import ImagingChoiceRequired
 from avialsync.core.registry import LoaderRegistry
-from avialsync.engine.aol_trial_search import AOLTrialSearchWorker
 from avialsync.loaders.aol_microscope_session import AOLMicroscopeTrialSource
 from avialsync.loaders.aol_microscope_trial import (
     MicroscopeTrial,
@@ -307,23 +306,30 @@ def test_the_aol_sources_are_registered_for_import_and_restore() -> None:
 
 
 def test_trial_search_finds_the_camera_trial_on_its_day(tmp_path: Path) -> None:
+    from avialsync.loaders.aol_pairing import configure_aol
+    from avialsync.loaders.aol_session_loader import AOLSessionSource
+
     # 1_700_000_000 s is 2023-11-14 22:13:20 UTC; the folder is named 5 s earlier
     # in local time, here UTC, as the controller names its trials.
     experiment = tmp_path / "saved" / "2023-11-14" / "experiment_1"
     experiment.mkdir(parents=True)
     _trial(experiment / "22-13-15")
-    worker = AOLTrialSearchWorker(tmp_path / "saved", 1_700_000_002.0, 10.0)
-    result = worker.search()
-    assert result["status"] == "matched"
-    assert result["folder"] == str(experiment / "22-13-15")
-    assert result["utc_offset_s"] == 0
-    assert result["residual_s"] == pytest.approx(2.0)
+    try:
+        configure_aol({"saved_data_folder": str(tmp_path / "saved")})
+        result = AOLSessionSource.find_partner(1_700_000_002.0)
+        assert result.path == experiment / "22-13-15"
+        assert result.data["utc_offset_s"] == 0
+        assert result.data["residual_s"] == pytest.approx(2.0)
 
-    distant = AOLTrialSearchWorker(tmp_path / "saved", 1_700_000_100.0, 10.0).search()
-    assert distant["status"] == "ambiguous_or_distant"
-    assert AOLTrialSearchWorker(tmp_path / "none", 1_700_000_002.0, 10.0).search()["status"] == (
-        "missing_day"
-    )
+        distant = AOLSessionSource.find_partner(1_700_000_100.0)
+        assert distant.path is None and "tolerance" in distant.message
+        configure_aol({"saved_data_folder": str(tmp_path / "none")})
+        missing = AOLSessionSource.find_partner(1_700_000_002.0)
+        assert missing.path is None and "No microscope folder" in missing.message
+        configure_aol({})
+        assert "Preferences" in AOLSessionSource.find_partner(1_700_000_002.0).message
+    finally:
+        configure_aol({})
 
 
 def _thin_mask(folder: Path) -> None:
