@@ -10,6 +10,7 @@ session opened again.
 from __future__ import annotations
 
 import dataclasses
+import gc
 import time
 from pathlib import Path
 
@@ -325,6 +326,11 @@ def test_accepting_a_hundred_thousand_events_is_a_short_ui_operation(
     )
     proposal = dataclasses.replace(proposal, display=prepare_display_summary(proposal))
 
+    # Collect what earlier tests left first: in a full run some 700 000 objects
+    # wait for a full collection, which takes about 340 ms wherever it lands.
+    # That is the suite's garbage, not this operation's cost (2 ms once
+    # collected), and allocation counts decide whether it lands in here.
+    gc.collect()
     started = time.perf_counter()
     window._accept_sync_proposal(str(box), proposal)
     elapsed = time.perf_counter() - started

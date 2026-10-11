@@ -8,6 +8,7 @@ import pytest
 from avialsync.core.calibration import CameraModel
 from avialsync.core.registry import LoaderRegistry
 from avialsync.loaders import vicon_session_loader
+from avialsync.loaders.joined_parts import JoinedTimeSeriesSource, JoinedVideoSource
 from avialsync.loaders.vicon_session_loader import ViconSessionSource
 
 
@@ -98,8 +99,6 @@ def test_trials_sit_at_their_capture_starts_with_the_time_between_kept(
     layout = ViconSessionSource().scan(tmp_path, LoaderRegistry(plugin_dirs=[]))
 
     epoch = layout.session_epoch
-    starts = [item.source_epoch - epoch for item in layout.items]
-    assert starts == pytest.approx([0.0, 0.0, 49.169, 49.169])
     relative = [(s - epoch, e - epoch, n) for s, e, n in layout.segments]
     assert [n for _s, _e, n in relative] == ["t_02", "t_03"]
     assert [edge for s, e, _n in relative for edge in (s, e)] == pytest.approx(
@@ -108,11 +107,21 @@ def test_trials_sit_at_their_capture_starts_with_the_time_between_kept(
     # Zone-less local time: placement only, never shown as wall clock.
     assert layout.anchor_epoch == 0.0
     assert any("without its time zone" in warning for warning in layout.warnings)
-    # One lane per camera, one for its markers, rather than one per trial.
-    assert {item.coverage_group for item in layout.items} == {
-        "Vicon camera video-1",
-        "Vicon markers over camera video-1",
-    }
+
+    # D-219: one camera's trials are one video and one marker source.
+    video, markers = layout.items
+    assert video.loader is JoinedVideoSource and markers.loader is JoinedTimeSeriesSource
+    assert video.source_epoch == markers.source_epoch == epoch
+    assert video.path == tmp_path / "t_02.video-1.20260625143252.avi" / "joined_parts"
+    assert [p["start"] for p in video.config["parts"]] == pytest.approx([0.0, 49.169])
+    assert [p["start"] for p in markers.config["parts"]] == pytest.approx([0.0, 49.169])
+    # Each trial is still read with its own calibration.
+    assert [p["config"]["xcp_path"] for p in markers.config["parts"]] == [
+        str(tmp_path / "t_02.xcp"),
+        str(tmp_path / "t_03.xcp"),
+    ]
+    assert markers.config["overlay_video"] == str(video.path)
+    assert markers.config["role"] == "pose3d_overlay2d"
 
 
 def test_trials_without_capture_times_start_together_and_say_so(

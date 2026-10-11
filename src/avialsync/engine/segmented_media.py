@@ -43,9 +43,11 @@ __all__ = [
     "MANIFEST_SUFFIX",
     "Segment",
     "SegmentedReader",
+    "file_table",
     "is_segmented",
     "read_manifest",
     "write_manifest",
+    "write_tables",
 ]
 
 #: The suffix of a manifest; :class:`PyAVReader` opens such a path as one video.
@@ -72,6 +74,55 @@ def is_segmented(path: Path | str) -> bool:
 
 def _ticks_path(path: Path) -> Path:
     return path.with_name(path.name[: -len(MANIFEST_SUFFIX)] + ".ticks.npy")
+
+
+def _tables_path(path: Path) -> Path:
+    return path.with_name(path.name[: -len(MANIFEST_SUFFIX)] + ".tables.npz")
+
+
+def file_table(path: Path | str) -> tuple[np.ndarray, np.ndarray, float]:
+    """A file's own ``(pts ticks, keyframe indices, seconds per tick)``, read once."""
+    with PyAVReader(path) as reader:
+        return (
+            np.asarray(reader._pts_ticks, dtype=np.int64),
+            np.asarray(reader._keyframe_indices, dtype=np.int64),
+            float(reader.stream.time_base),
+        )
+
+
+def write_tables(path: Path, tables: list[tuple[np.ndarray, np.ndarray, float]]) -> None:
+    """Store each file's own table beside *path*'s manifest, so opening reads no file.
+
+    For inter-frame video (H.264): each file is then read through its own
+    keyframes, in its own frame numbering.
+    """
+    arrays: dict[str, np.ndarray] = {}
+    for number, (ticks, keys, base) in enumerate(tables):
+        arrays[f"ticks{number}"] = ticks
+        arrays[f"keys{number}"] = keys
+        arrays[f"base{number}"] = np.asarray([base], dtype=np.float64)
+    with _tables_path(path).open("wb") as handle:
+        np.savez(handle, **arrays)  # type: ignore[arg-type]  # numpy stubs: **dict unpacking
+
+
+def _stored_tables(
+    path: Path, segments: list[Segment]
+) -> list[tuple[np.ndarray, np.ndarray, float]] | None:
+    try:
+        with np.load(_tables_path(path), allow_pickle=False) as stored:
+            tables = [
+                (
+                    stored[f"ticks{n}"].astype(np.int64, copy=False),
+                    stored[f"keys{n}"].astype(np.int64, copy=False),
+                    float(stored[f"base{n}"][0]),
+                )
+                for n in range(len(segments))
+            ]
+    except (OSError, ValueError, KeyError):
+        return None
+    if any(len(ticks) < s.stop for (ticks, _k, _b), s in zip(tables, segments, strict=True)):
+        return None
+    return tables
 
 
 def write_manifest(
@@ -145,6 +196,10 @@ class SegmentedReader(PyAVReader):
         self._open: OrderedDict[int, PyAVReader] = OrderedDict()
         counts = [s.stop - s.first for s in self._segments]
         self._starts = np.concatenate(([0], np.cumsum(counts))).astype(np.int64)
+        #: Each file's own ``(pts ticks, keyframe indices)``, when the manifest
+        #: stored none: then frames are addressed in the file's own numbering,
+        #: and inter-frame video (H.264) seeks through its real keyframes.
+        self._tables: list[tuple[np.ndarray, np.ndarray]] | None = None
         stored = _stored_ticks(self.path, self._segments)
         if stored is not None:
             ticks, time_base = stored
@@ -152,39 +207,38 @@ class SegmentedReader(PyAVReader):
                 ticks[int(self._starts[n]) : int(self._starts[n + 1])]
                 for n in range(len(self._segments))
             ]
-        else:  # a manifest without stored ticks: read each file's table once, here
-            self._ticks, time_base = self._read_tables()
-        self._time_base = time_base
+            bases = [float(time_base)] * len(self._segments)
+        else:  # each file's own table: stored beside the manifest, or read once here
+            tables = _stored_tables(self.path, self._segments) or self._read_tables()
+            self._tables = [(ticks, keys) for ticks, keys, _base in tables]
+            self._ticks = [
+                ticks[s.first : s.stop]
+                for (ticks, _k, _b), s in zip(tables, self._segments, strict=True)
+            ]
+            bases = [base for _t, _k, base in tables]
         times: list[np.ndarray] = []
         #: Per segment: the shift from its own times to the joined timeline.
         self._shifts: list[float] = []
         offset = 0.0
-        for segment, local_ticks in zip(self._segments, self._ticks, strict=True):
-            local = local_ticks * float(time_base)
+        for segment, local_ticks, base in zip(self._segments, self._ticks, bases, strict=True):
+            local = local_ticks * base
             # A file placed before the previous one ends would reorder frames;
             # it follows on instead, as a file with no place of its own does.
             begin = offset if segment.start is None else max(segment.start, offset)
             shift = begin - float(local[0])
             times.append(local + shift)
             self._shifts.append(shift)
-            step = float(np.median(np.diff(local))) if len(local) > 1 else float(time_base)
+            step = float(np.median(np.diff(local))) if len(local) > 1 else base
             offset = float(local[-1]) + shift + step
         self._frame_times = np.concatenate(times)
 
-    def _read_tables(self) -> tuple[list[np.ndarray], Any]:
-        tables: list[np.ndarray] = []
-        time_base: Any = None
-        for segment in self._segments:
-            with PyAVReader(segment.path) as part:
-                if time_base is None:
-                    time_base = part.stream.time_base
-                elif part.stream.time_base != time_base:
-                    raise SourceOpenError("The joined files do not share one time base.")
-                ticks = np.asarray(part._pts_ticks[segment.first : segment.stop], dtype=np.int64)
-            if len(ticks) != segment.stop - segment.first:
+    def _read_tables(self) -> list[tuple[np.ndarray, np.ndarray, float]]:
+        """Each file's own table, read from the file. Files may differ in time base."""
+        tables = [file_table(segment.path) for segment in self._segments]
+        for (ticks, _keys, _base), segment in zip(tables, self._segments, strict=True):
+            if len(ticks) < segment.stop:
                 raise SourceOpenError(f"{segment.path} has fewer frames than its manifest names.")
-            tables.append(ticks)
-        return tables, time_base
+        return tables
 
     # -- the joined table ------------------------------------------------
 
@@ -213,7 +267,10 @@ class SegmentedReader(PyAVReader):
     def frame_at_index(self, index: int) -> Any:
         target = max(0, min(int(index), self.frame_count - 1))
         number = int(np.searchsorted(self._starts, target, side="right")) - 1
-        frame = self._part(number).frame_at_index(target - int(self._starts[number]))
+        local = target - int(self._starts[number])
+        if self._tables is not None:  # the file's own numbering
+            local += self._segments[number].first
+        frame = self._part(number).frame_at_index(local)
         self._trim_caches()
         return frame
 
@@ -223,10 +280,13 @@ class SegmentedReader(PyAVReader):
         """File *number*'s reader over its kept frames, opened on first use and kept."""
         reader = self._open.get(number)
         if reader is None:
-            ticks = self._ticks[number]
-            # The manifest is only written for MJPEG camera video, which is
-            # intra-frame: every kept frame is a keyframe.
-            table = (ticks, np.arange(len(ticks), dtype=np.int64))
+            if self._tables is not None:
+                table = self._tables[number]
+            else:
+                # Stored ticks are only written for MJPEG camera video, which
+                # is intra-frame: every kept frame is a keyframe.
+                ticks = self._ticks[number]
+                table = (ticks, np.arange(len(ticks), dtype=np.int64))
             reader = PyAVReader(self._segments[number].path, self._max_cached_frames, table=table)
             self._open[number] = reader
         self._open.move_to_end(number)

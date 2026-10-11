@@ -155,7 +155,9 @@ def set_video_coverage(
     # Coverage first: the master timeline is derived from the registered spans,
     # so re-placing a camera has to replace its span before the bounds are
     # recomputed, or the timeline keeps the span it had at the old offset.
-    window.transport.set_source_coverage(path, *master_bounds, "video")
+    window.transport.set_source_coverage(
+        path, *master_bounds, "video", window.coverage_group_for(path)
+    )
     window._recompute_bounds()
 
 

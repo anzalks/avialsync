@@ -7017,3 +7017,32 @@ stream's gaps less anything another stream recorded, so nothing loaded is hidden
 another stream has data: it hides data the user loaded. Splitting every lane at every gap past the
 D-009 rule: a dropout inside a recording would read as the stream stopping, which is what the Data
 gaps lane is for.
+
+---
+
+## 2026-10 · D-219 · A stream recorded in parts is one source: joined in place, any codec
+
+**Decision.** A session whose parts record the same streams declares each stream once, as a joined
+item, instead of one item per part (`loaders/joined_parts.py`). `JoinedVideoSource` reads the parts'
+video files as one video in place: a cache manifest places each file at its part's start
+(`Segment.start`, D-217) and stores each file's own frame and keyframe table
+(`segmented_media.write_tables`), so inter-frame video (H.264) seeks through its own keyframes in
+its own frame numbering, as MJPEG did. `JoinedTimeSeriesSource` reads each part with the loader that
+reads one part (`part_loader`, `module:Class`) and that part's own config -- its own calibration
+and video size -- moving every chunk to the part's start. Its channels are every channel any part
+has, in first-seen order; a part that did not record one reads NaN there, shown as missing. Its pose
+schema is every part's points. Both are built-in loaders, so sessions save and restore them by name.
+
+Vicon is the first user: each calibrated camera's trials are one joined video and one joined marker
+source (one pane, one Data Streams lane, one 3D object). On 2026-06-25 `1113_01` that is 17 trials,
+46 859 frames, 16 gaps (the longest 146 s), and 68 markers -- trials 10 on track the ladder, which
+02-09 did not. Opening the joined camera reads each file's index once (0.4 s for 17 H.264 files);
+nothing is copied. Video lanes now honour the session's `coverage_group` too.
+
+AOL keeps its own camera joiner (`AOLJoinedCameraSource`): its per-recording trimming to each trial
+and its camera-clock offsets are rig evidence the generic joiner has no fields for. Moving it onto
+`JoinedVideoSource` is possible once a part can carry a frame range.
+
+**Why.** A session loaded file by file showed one camera as eighteen panes and one set of markers as
+eighteen 3D objects, most of them saying No Footage at any instant. The streams are one camera and
+one body; the parts are when it was recording.

@@ -7,7 +7,11 @@ another with the time between them kept as a gap. Each trial's video and
 markers start together at that instant, as before. The stamp is the capture
 PC's local time and names no zone, so it places trials against each other and
 nothing more: the session shows time from its first trial, not wall clock.
-Trials of one camera share a Data Streams lane, as do their markers.
+
+A camera's trials are one camera, and their markers one set of markers: they
+load as one joined video and one joined marker source
+(:mod:`~avialsync.loaders.joined_parts`, D-219) -- one pane, one Data Streams
+lane, one 3D object -- each trial still projected through its own calibration.
 """
 
 from __future__ import annotations
@@ -24,6 +28,13 @@ import av
 from avialsync.core.errors import SourceOpenError
 from avialsync.core.source import SessionItem, SessionLayout, SessionSource
 from avialsync.core.trials import Part, place
+from avialsync.loaders.joined_parts import (
+    JOINED_PARTS,
+    JoinedTimeSeriesSource,
+    JoinedVideoSource,
+    loader_name,
+    part_stamp,
+)
 from avialsync.loaders.vicon_c3d_loader import ViconC3DLoader, camera_from_xcp
 
 logger = logging.getLogger(__name__)
@@ -215,9 +226,17 @@ def _placed(trials: list[tuple[Path, list[SessionItem]]], warnings: list[str]) -
         )
         return SessionLayout(items=[i for _c3d, items in trials for i in items], warnings=warnings)
     items: list[SessionItem] = []
+    cameras: dict[str, list[tuple[float, list[SessionItem]]]] = {}
     for position, start in zip(plan.kept, plan.starts, strict=True):
+        trial = trials[order[position]][1]
+        cameras.setdefault(str(trial[1].config["camera_id"]), []).append((start, trial))
+    for camera, placed in cameras.items():
+        if len(placed) > 1:
+            items += _joined(camera, placed, plan.epoch or None)
+            continue
+        start, trial = placed[0]
         epoch = plan.epoch + start if plan.epoch > 0 else None
-        items += [replace(item, source_epoch=epoch) for item in trials[order[position]][1]]
+        items += [replace(item, source_epoch=epoch) for item in trial]
     if plan.epoch > 0:
         warnings = [*warnings, *plan.warnings, _LOCAL_CLOCK_NOTE]
     return SessionLayout(
@@ -226,3 +245,53 @@ def _placed(trials: list[tuple[Path, list[SessionItem]]], warnings: list[str]) -
         segments=plan.segments() if len(plan.kept) > 1 else [],
         warnings=warnings,
     )
+
+
+def _joined(
+    camera: str, placed: list[tuple[float, list[SessionItem]]], epoch: float | None
+) -> list[SessionItem]:
+    """One camera's trials as one video and one marker source, each trial at its start."""
+    videos = [trial[0] for _start, trial in placed]
+    markers = [trial[1] for _start, trial in placed]
+    starts = [start for start, _trial in placed]
+    video_id = videos[0].path / JOINED_PARTS
+    first = markers[0].config
+    count = len(placed)
+    return [
+        SessionItem(
+            path=video_id,
+            loader=JoinedVideoSource,
+            config={
+                "parts": [
+                    {"path": str(video.path), "start": start}
+                    for video, start in zip(videos, starts, strict=True)
+                ]
+            },
+            label=f"camera {camera} — {count} trials",
+            source_epoch=epoch,
+        ),
+        SessionItem(
+            path=markers[0].path,
+            loader=JoinedTimeSeriesSource,
+            config={
+                "part_loader": loader_name(ViconC3DLoader),
+                "parts": [
+                    {
+                        "path": str(marker.path),
+                        "start": start,
+                        "config": dict(marker.config),
+                        **part_stamp(marker.path),
+                    }
+                    for marker, start in zip(markers, starts, strict=True)
+                ],
+                "role": first["role"],
+                "fps": first["fps"],
+                "overlay_video": str(video_id),
+                "overlay_camera": camera,
+                "overlay_label": first.get("overlay_label", "Vicon markers"),
+            },
+            label=f"markers over camera {camera} — {count} trials",
+            kind="3D Marker Tracking",
+            source_epoch=epoch,
+        ),
+    ]

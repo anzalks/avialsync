@@ -116,9 +116,14 @@ parts kept as a gap, and a part without a start or overlapping the one before
 left out and named. Pass `Placement.BACK_TO_BACK` only when your format defines
 its parts that way. Nothing more is needed for the rest: each stream's Data
 Streams lane is empty between parts where it has no frame or sample, and **View
-→ Collapse Gaps Without Data** hides only the time no stream recorded. Give
-the files one camera recorded across parts the same `SessionItem.coverage_group`
-so they share one lane.
+→ Collapse Gaps Without Data** hides only the time no stream recorded. Declare a
+stream recorded in every part once, joined: a `JoinedVideoSource` item whose
+config lists `parts` (`{"path", "start"}`, `start` in seconds from the item's
+`source_epoch`) plays the files as one video in place, any codec; a
+`JoinedTimeSeriesSource` item adds `part_loader` (`"module:Class"`) and each
+part's own `config`, and reads every part with it (both in
+`avialsync.loaders.joined_parts`). One camera is then one pane and one lane,
+one tracked body one 3D object.
 
 `session_epoch` and `anchor_epoch` are commonly different, and both are useful:
 a rig whose logs are written as seconds since midnight has an `anchor_epoch` of
