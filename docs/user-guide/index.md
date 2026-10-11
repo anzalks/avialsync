@@ -20,8 +20,8 @@
   playhead there; only a drag moves the window itself.
 - **View → Collapse Gaps Without Data** (on by default; also **Preferences → Playback**) draws the
   time no loaded source recorded anything in -- between trials, or between files hours apart -- as
-  a double dashed break. The time bar, Data Streams and playback skip it, so you never scrub through
-  minutes of nothing. It is only a view: every time shown, exported or saved stays the true time.
+  a double dashed break. The time bar, Data Streams, the plots and playback skip it, so you never
+  scrub through minutes of nothing; a plot's time axis jumps across the break. It is only a view: every time shown, exported or saved stays the true time.
   Turn it off to see each gap at its real length.
 - **Shared time bar** moves every view together.
 - **Left panel** has a page rail with **Sources** (files, visibility, offsets, properties),

@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
 
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.timeline import TimeMap
+from avialsync.core.trials import TimeWarp
 from avialsync.engine.plot_page_worker import PlotPage, PlotPageWorker, PlotRowRequest
 from avialsync.ui.accessible_views import register_painted
 from avialsync.ui.annotations import AnnotationStore
@@ -178,6 +179,10 @@ class PlotPane(QWidget):
         # A taller or shorter pane moves the fold without moving any row.
         self._plot_scroll.verticalScrollBar().rangeChanged.connect(self._cull_timer.start)
 
+        #: Collapsed gaps (D-218): pages, cursor and overlays are drawn in this
+        #: view time; every time read back out of the plot is master time.
+        self._warp = TimeWarp()
+        self._master_bounds = (0.0, 0.0)
         self._sweep_control = SweepWindowControl(self)
         self._sweep_control.set_focus_target(self)
         self._sweep_control.window_changed.connect(self._on_window_changed)
@@ -383,6 +388,7 @@ class PlotPane(QWidget):
                     channel.plot_item.setXRange(0.0, self.window_duration, padding=0)
                 channel.plot_item.setXLink(self._master_plot)
             self.channels.append(channel)
+            self._label_axis(channel)
             # Laid out after it is built and moved whenever a row above it
             # changes; either way its on-screen test must be re-read.
             channel.plot_item.geometryChanged.connect(self._cull_timer.start)
@@ -465,7 +471,9 @@ class PlotPane(QWidget):
         self.graphics_layout.ci.layout.activate()
         self._configure_shared_x_range()
         self._update_axis_visibility()
-        self._set_sweep_for_time(self._sweep_control.last_master_time, force=True)
+        self._set_sweep_for_time(
+            self._warp.to_master(self._sweep_control.last_master_time), force=True
+        )
         self._apply_presentation()
         self.sources_changed.emit([ch.reader for ch in self.channels])
         self._interactions.redraw_annotations()
@@ -659,7 +667,9 @@ class PlotPane(QWidget):
             )
             for index, channel in enumerate(self._requested_rows)
         )
-        worker = PlotPageWorker(self._page_generation, t0, t0 + self.window_duration, budget, rows)
+        worker = PlotPageWorker(
+            self._page_generation, t0, t0 + self.window_duration, budget, rows, self._warp
+        )
         self._page_worker = worker
 
         def configure(thread: QThread) -> None:
@@ -856,7 +866,59 @@ class PlotPane(QWidget):
 
     def set_timeline_bounds(self, t0: float, t1: float) -> None:
         """Set the master bounds used to anchor deterministic sweep restarts."""
-        self._sweep_control.set_bounds(t0, t1)
+        self._master_bounds = (t0, t1)
+        self._sweep_control.set_bounds(self._warp.to_view(t0), self._warp.to_view(t1))
+
+    def set_time_warp(self, warp: TimeWarp) -> None:
+        """Draw with the timeline's collapsed gaps, or without (D-218).
+
+        The sweep runs in view time, so a page never spends its width on time
+        no source recorded; what a person reads or clicks is master time.
+        """
+        if warp == self._warp:
+            return
+        last = self._sweep_control.last_master_time
+        master_last = self._warp.to_master(last)
+        self._warp = warp
+        self.set_timeline_bounds(*self._master_bounds)
+        for channel in self.channels:
+            self._label_axis(channel)
+        self._set_sweep_for_time(master_last, force=True)
+
+    def x_of(self, t_master: float) -> float | None:
+        """Where master *t_master* is drawn on the page, or ``None`` with no page."""
+        start = self.sweep_start
+        return None if start is None else self._warp.to_view(t_master) - start
+
+    def master_at(self, x: float) -> float:
+        """The master time drawn at page position *x*."""
+        return self._warp.to_master((self.sweep_start or 0.0) + x)
+
+    def x_range(self, t0: float, t1: float) -> tuple[float, float] | None:
+        """Master ``[t0, t1]`` clipped to the page, as page positions."""
+        start = self.sweep_start
+        if start is None:
+            return None
+        left = max(0.0, self._warp.to_view(t0) - start)
+        right = min(self.window_duration, self._warp.to_view(t1) - start)
+        return (left, right) if right >= left else None
+
+    def _label_axis(self, channel: object) -> None:
+        """Label the time axis in master seconds from the page start, across breaks."""
+        axis = channel.plot_item.getAxis("bottom")  # type: ignore[attr-defined]
+        plain = type(axis).tickStrings.__get__(axis)
+        if not self._warp:
+            axis.tickStrings = plain
+            return
+
+        def strings(values: list[float], scale: float, spacing: float) -> list[str]:
+            origin = self.master_at(0.0)
+            shifted = [self.master_at(value) - origin for value in values]
+            return [str(text) for text in plain(shifted, scale, spacing)]
+
+        axis.tickStrings = strings
+        axis.picture = None
+        axis.update()
 
     @property
     def window_duration(self) -> float:
@@ -865,7 +927,12 @@ class PlotPane(QWidget):
 
     @property
     def sweep_start(self) -> float | None:
-        """Return the absolute start of the currently displayed sweep."""
+        """Return the start of the currently displayed sweep, in view time.
+
+        View time is master time unless gaps are collapsed (D-218); convert
+        page positions with :meth:`master_at` and :meth:`x_of`, never by adding
+        this.
+        """
         return self._sweep_control.sweep_start
 
     # Compatibility accessors retained for existing measurement integrations.
@@ -896,7 +963,9 @@ class PlotPane(QWidget):
         30 ms UI-callback ceiling; no page is queried on this thread now.
         """
         self._configure_shared_x_range()
-        self._set_sweep_for_time(self._sweep_control.last_master_time, force=True)
+        self._set_sweep_for_time(
+            self._warp.to_master(self._sweep_control.last_master_time), force=True
+        )
 
     def _refresh_after_resize(self) -> None:
         enforce_channel_visibility(self.channels)
@@ -1030,7 +1099,7 @@ class PlotPane(QWidget):
 
     def _set_sweep_for_time(self, t: float, *, force: bool = False) -> float:
         """Derive sweep position from master time and refresh only at boundaries."""
-        position = self._sweep_control.advance(t)
+        position = self._sweep_control.advance(self._warp.to_view(t))
         if position.changed or force:
             self.update_plots()
             self._redraw_sweep_overlays()
@@ -1047,7 +1116,10 @@ class PlotPane(QWidget):
                 ch.cursor_line.setValue(position.phase)
                 ch.curve.set_sweep_position(position.phase)
         self._update_page_label(position.start)
-        self.view_window_changed.emit(position.start, self.window_duration, position.phase)
+        # The strip is in master time: the page's master edges, and the playhead.
+        first = self._warp.to_master(position.start)
+        last = self._warp.to_master(position.start + self.window_duration)
+        self.view_window_changed.emit(first, last - first, t - first)
         return position.phase
 
     def _cursor_repaint_due(self) -> bool:
@@ -1072,7 +1144,8 @@ class PlotPane(QWidget):
         if start is None or self.window_duration <= 0:
             self.page_label.clear()
             return
-        end = start + self.window_duration
+        end = self._warp.to_master(start + self.window_duration)
+        start = self._warp.to_master(start)
         # The page spans a whole window, so this text is identical on almost
         # every tick; setText would still relayout the header each time.
         text = (
@@ -1088,7 +1161,7 @@ class PlotPane(QWidget):
         visible = [channel for channel in self.channels if channel.visible][:32]
         if not visible or self.sweep_start is None:
             return tr("No channels are shown.")
-        t = self.sweep_start + float(visible[0].cursor_line.value())
+        t = self.master_at(float(visible[0].cursor_line.value()))
         parts = []
         for channel in visible:
             sample = channel.reader.available_sample_at(t)
@@ -1115,9 +1188,9 @@ class PlotPane(QWidget):
         self.channel_close_requested.emit(key.source_id, key.channel_id)
 
     def _display_x(self, absolute_t: float) -> float | None:
-        if self.sweep_start is None:
+        x = self.x_of(absolute_t)
+        if x is None:
             return None
-        x = absolute_t - self.sweep_start
         if -1e-9 <= x <= self.window_duration + 1e-9:
             return max(0.0, min(self.window_duration, x))
         return None
@@ -1129,9 +1202,8 @@ class PlotPane(QWidget):
     def _redraw_coverage(self) -> None:
         if self.sweep_start is None:
             return
-        sweep_end = self.sweep_start + self.window_duration
         for ch in self.channels:
-            update_channel_coverage(ch, self.sweep_start, sweep_end)
+            update_channel_coverage(ch, self.x_range)
 
     def set_context_actions(self, actions: list[QAction]) -> None:
         """Register shared QActions, including the View menu's Reset Zoom action."""

@@ -158,22 +158,22 @@ def _update_channel_gutter(channel: ChannelPlot) -> None:
 
 def update_channel_coverage(
     channel: ChannelPlot,
-    sweep_start: float,
-    sweep_end: float,
+    x_range: Callable[[float, float], tuple[float, float] | None],
 ) -> None:
-    """Move one cached coverage region into the current sweep coordinates."""
+    """Move one cached coverage region into the current page's positions.
+
+    *x_range* clips master ``[start, end]`` to the page (``PlotPane.x_range``).
+    """
     if not channel.visible or channel.coverage_region is None:
         return
     if channel.coverage_bounds is None:
         channel.coverage_region.hide()
         return
-    coverage_start, coverage_end = channel.coverage_bounds
-    overlap_start = max(sweep_start, coverage_start)
-    overlap_end = min(sweep_end, coverage_end)
-    if overlap_end < overlap_start:
+    region = x_range(*channel.coverage_bounds)
+    if region is None:
         channel.coverage_region.hide()
         return
-    channel.coverage_region.setRegion([overlap_start - sweep_start, overlap_end - sweep_start])
+    channel.coverage_region.setRegion(list(region))
     channel.coverage_region.show()
 
 

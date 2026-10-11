@@ -386,6 +386,18 @@ class TimeWarp:
             return float(v)
         return float(v) + float(self._removed[index])
 
+    def to_view_array(self, times: np.ndarray) -> np.ndarray:
+        """:meth:`to_view` for many master times at once (a plot page's samples)."""
+        times = np.asarray(times, dtype=np.float64)
+        if not self.gaps:
+            return times
+        index = np.searchsorted(self._starts, times, side="right") - 1
+        safe = np.maximum(index, 0)
+        ends = np.asarray([b for _a, b in self.gaps], dtype=np.float64)[safe]
+        removed = self._removed[safe]
+        view = np.where(times < ends, self._breaks[safe], times - removed)
+        return np.where(index < 0, times, view)
+
     def gap_at(self, t: float) -> Span | None:
         """The collapsed gap *t* lies in, if any (its start counts, its end does not)."""
         index = int(np.searchsorted(self._starts, t, side="right")) - 1

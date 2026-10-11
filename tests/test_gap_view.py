@@ -165,3 +165,40 @@ def test_an_aol_joined_camera_stops_between_its_trials(window, qtbot, tmp_path) 
     gap_view.refresh_holes(window)
     spans = window.transport.overview.source_spans(source_id)
     assert len(spans) == 2, spans
+
+
+def test_plots_draw_the_collapsed_time_too(window, qtbot, tmp_path) -> None:
+    """D-218: a plot row does not spend its width on time no source recorded."""
+    import numpy as np
+
+    from avialsync.loaders.aol_microscope_session import AOLMicroscopeTrialSource
+    from avialsync.loaders.aol_trial_encoder import AOLTrialEncoderSource
+    from avialsync.ui.controllers import drop_controller, gap_view
+    from tests.test_aol_microscope_trial import _trial
+    from tests.test_aol_trial_encoder import _wheel
+
+    experiment = tmp_path / "experiment_1"
+    experiment.mkdir()
+    first = _trial(experiment / "12-00-00")
+    second = _trial(experiment / "12-10-00", start_ms=1_700_000_600_000)
+    for folder in (first, second):
+        _wheel(folder, np.arange(0.0, 0.02, 0.001), np.ones(20))
+    layout = AOLMicroscopeTrialSource().scan(experiment, None)
+    drop_controller.apply_session_layout(window, layout)
+    item = next(item for item in layout.items if item.loader is AOLTrialEncoderSource)
+    window._route_import_candidate(item.path, item.loader, dict(item.config))
+    qtbot.waitUntil(lambda: bool(window.plot_pane.channels), timeout=10_000)
+    qtbot.waitUntil(lambda: str(item.path) in window.transport.overview._coverage, timeout=10_000)
+    gap_view.refresh_holes(window)
+    gap_view.set_collapse(window, True)
+    pane = window.plot_pane
+    assert pane._warp.gaps, "the plots were not given the collapsed gaps"
+    pane.set_window_duration(1.0)
+    window.player.seek(0.0)
+    # Both trials fit on one page, the 10 minutes between them drawn as a break.
+    assert pane.x_of(600.0) - pane.x_of(0.0) < 0.1
+    assert pane.master_at(pane.x_of(600.005)) == pytest.approx(600.005)
+    gap_view.set_collapse(window, False)
+    assert not pane._warp
+    assert pane.x_of(600.0) is None or pane.x_of(600.0) - pane.x_of(0.0) == pytest.approx(600.0)
+    gap_view.set_collapse(window, True)

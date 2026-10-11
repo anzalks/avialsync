@@ -44,13 +44,16 @@ class ContextChoice:
 def show_context_menu(
     event: Any,
     channel: ChannelPlot,
-    sweep_start: float,
+    master_at: Callable[[float], float],
     extra_actions: Iterable[QAction],
 ) -> ContextChoice | None:
-    """Show plot actions for one row and return the selected semantic action."""
+    """Show plot actions for one row and return the selected semantic action.
+
+    *master_at* turns a page position into master time (``PlotPane.master_at``).
+    """
     scene_pos = event.scenePos()
     view_pos = channel.plot_item.vb.mapSceneToView(scene_pos)
-    time = sweep_start + float(view_pos.x())
+    time = master_at(float(view_pos.x()))
     menu = QMenu()
     annotate = menu.addAction(tr("Add marker here  ({time} s)").format(time=f"{time:.3f}"))
     menu.addSeparator()
@@ -185,8 +188,7 @@ def redraw_annotations(
     channels: list[ChannelPlot],
     annotation_store: AnnotationStore | None,
     display_x: Callable[[float], float | None],
-    sweep_start: float | None,
-    window_duration: float,
+    x_range: Callable[[float, float], tuple[float, float] | None],
     old_items: list[tuple[pg.PlotItem, object]],
 ) -> list[tuple[pg.PlotItem, object]]:
     """Replace page-local annotation graphics from the authoritative store."""
@@ -209,16 +211,13 @@ def redraw_annotations(
                 channel.plot_item.addItem(line)
                 new_items.append((channel.plot_item, line))
                 continue
-            if sweep_start is None:
-                continue
-            marker_start = max(marker.t_start, sweep_start)
-            marker_end = min(marker.t_end, sweep_start + window_duration)
-            if marker_end < marker_start:
+            span = x_range(marker.t_start, marker.t_end)
+            if span is None:
                 continue
             brush = QColor(marker.color)
             brush.setAlpha(40)
             region = pg.LinearRegionItem(
-                values=[marker_start - sweep_start, marker_end - sweep_start],
+                values=list(span),
                 movable=False,
                 brush=brush,
                 pen=pg.mkPen(color, width=1, style=Qt.PenStyle.DashLine),

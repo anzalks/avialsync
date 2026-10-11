@@ -11,6 +11,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 from avialsync.core.channel_reader import MappedChannelReader
 from avialsync.core.pyramid import PyramidReader
 from avialsync.core.timeline import TimeMap
+from avialsync.core.trials import TimeWarp
 
 
 @dataclass(frozen=True)
@@ -31,7 +32,11 @@ class PlotRowRequest:
 
 @dataclass(frozen=True)
 class PlotPage:
-    """One viewport of ready-to-draw bounded row curves."""
+    """One viewport of ready-to-draw bounded row curves.
+
+    ``t0`` is the page's start in view time: master time with any collapsed
+    gaps drawn as breaks (D-218), master time itself when none are.
+    """
 
     generation: int
     t0: float
@@ -53,11 +58,13 @@ class PlotPageWorker(QObject):
         t1: float,
         budget: int,
         rows: tuple[PlotRowRequest, ...],
+        warp: TimeWarp | None = None,
     ) -> None:
         super().__init__()
         self.generation = generation
         self.t0 = t0
         self.t1 = t1
+        self.warp = warp or TimeWarp()
         self.budget = budget
         self.rows = rows
         self._cancelled = threading.Event()
@@ -79,8 +86,11 @@ class PlotPageWorker(QObject):
                     self.cancelled.emit()
                     return
                 reader = MappedChannelReader(spec.reader, spec.time_map, spec.source_id)
-                t, lower, upper, gaps = reader.query(self.t0, self.t1, max_points=self.budget)
-                x = np.repeat(t - self.t0, 2)
+                # The master time the view page spans, collapsed gaps included:
+                # no source recorded in them, so nothing from them is drawn.
+                first, last = self.warp.to_master(self.t0), self.warp.to_master(self.t1)
+                t, lower, upper, gaps = reader.query(first, last, max_points=self.budget)
+                x = np.repeat(self.warp.to_view_array(t) - self.t0, 2)
                 y = np.empty(len(x), dtype=np.float64)
                 y[0::2] = lower
                 y[1::2] = upper

@@ -66,6 +66,7 @@ def set_collapse(window: MainWindow, collapse: bool) -> None:
     """Remember the choice and redraw the timeline with or without the gaps."""
     write_setting(_setting(), bool(collapse))
     window.transport.set_collapse_gaps(bool(collapse))
+    window.plot_pane.set_time_warp(window.transport.warp)
 
 
 def refresh_holes(window: MainWindow) -> None:
@@ -87,6 +88,8 @@ def refresh_holes(window: MainWindow) -> None:
     current = {source_id: list(overview._holes.get(source_id, ())) for source_id in holes}
     if holes != current:
         window.transport.set_coverage_holes(holes)
+    # The plots draw the same collapsed time as the timeline, in every plugin's rows.
+    window.plot_pane.set_time_warp(window.transport.warp)
 
 
 def samples_between(

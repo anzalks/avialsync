@@ -141,8 +141,7 @@ class PlotInteractionController:
             self._pane.channels,
             self._annotation_store,
             self._pane._display_x,
-            self._pane.sweep_start,
-            self._pane.window_duration,
+            self._pane.x_range,
             self._annotation_items,
         )
 
@@ -176,13 +175,13 @@ class PlotInteractionController:
             return
         if event.button() == Qt.MouseButton.LeftButton:
             view_pos = channel.plot_item.vb.mapSceneToView(scene_pos)
-            self._pane.seek_requested.emit(self._pane.sweep_start + float(view_pos.x()))
+            self._pane.seek_requested.emit(self._pane.master_at(float(view_pos.x())))
             event.accept()
             return
         if event.button() != Qt.MouseButton.RightButton:
             return
         choice = show_context_menu(
-            event, channel, self._pane.sweep_start, self._extra_context_actions
+            event, channel, self._pane.master_at, self._extra_context_actions
         )
         if choice is None:
             return

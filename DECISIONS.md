@@ -6998,7 +6998,8 @@ default) collapses the time no loaded stream has data in (`core.trials.common_ga
 second or more) to a double dashed break. The overview strip and the scrub slider are drawn in
 view time (`core.trials.TimeWarp`), a click or slider value on a break means the data after it, and
 playback that reaches a collapsed gap goes on from its end. Master time, timestamps, readouts,
-exports, saved sessions and synchronization are untouched; plots keep their own time axis.
+exports, saved sessions and synchronization are untouched. The plot rows draw the same view
+time (amended below).
 
 Vicon trials are placed by their `.xcp` `Capture` `START_TIME`/`END_TIME` (millisecond, every
 camera agreeing; on 2026-06-25 trial 02 ran 13:59:36.246-13:59:53.424, its 3436 frames at 200 Hz).
@@ -7060,3 +7061,11 @@ both. The joined markers' 2D overlay map (`vicon_projection_channels`) is built 
 trial's own, under the same rule. Lanes take the session's name for their item
 ("camera 2125010 — 17 trials") rather than a file name. Holes are asked again when a video pane
 finishes opening, so a camera that could not answer yet is not left looking continuous.
+
+**Amended: the plots collapse too.** The plot pane's sweep runs in view time (`PlotPane.set_time_warp`,
+given the timeline's warp whenever it changes): a page queries the master span behind its view
+window, every sample is placed by `TimeWarp.to_view_array`, and the time axis labels master seconds
+from the page start, so its numbers jump across a break. Everything read back out of a plot --
+a click, a context-menu time, the cursor readout, the page label -- is master time
+(`PlotPane.master_at`, `x_of`, `x_range`); nothing adds a position to the page start any more.
+Every plugin's rows get this, because it is in the pane, not in a loader.

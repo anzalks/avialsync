@@ -556,10 +556,11 @@ class TimelineOverview(QWidget):
         self.evidence_changed.emit()
         self.update()
 
-    def _coverage_label(self, source_id: str, kind: str) -> str:
-        """The lane's kind and name: the session's name for it, else the file's."""
+    @staticmethod
+    def _coverage_label(source_id: str, kind: str, name: str = "") -> str:
+        """The lane's kind and name: the session's *name* for it, else the file's."""
         kind_label = {"video": tr("Video"), "imaging": tr("Imaging")}.get(kind, tr("Data"))
-        return f"{kind_label} · {self._labels.get(source_id) or Path(source_id).name}"
+        return f"{kind_label} · {name or Path(source_id).name}"
 
     def set_source_labels(self, labels: dict[str, str]) -> None:
         """Name lanes as the session named its items ("camera 2125010 — 17 trials")."""
@@ -583,7 +584,7 @@ class TimelineOverview(QWidget):
             if not group:
                 lanes.append(
                     (
-                        self._coverage_label(source_id, kind),
+                        self._coverage_label(source_id, kind, self._labels.get(source_id, "")),
                         "coverage",
                         _CoverageLane(source_id, start, end, kind, spans=spans),
                     )
