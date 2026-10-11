@@ -150,3 +150,24 @@ def test_capture_span_reads_the_capture_element_only(tmp_path: Path) -> None:
     span = vicon_session_loader.capture_span(xcp)
     assert span is not None and span[1] - span[0] == pytest.approx(17.178)
     assert vicon_session_loader.capture_span(tmp_path / "missing.xcp") is None
+
+
+def test_the_subjects_vsk_sticks_are_the_sessions_skeleton(
+    tmp_path: Path, fake_media: None
+) -> None:
+    _trial(tmp_path, "t_02", "2026-06-25 13:59:36.246", "2026-06-25 13:59:53.424")
+    (tmp_path / "1113.vsk").write_text(
+        "<KinematicModel><MarkerSet><Sticks>"
+        '<Stick MARKER1="Back1" MARKER2="Back2"/>'
+        '<Stick MARKER1="Back1" MARKER2="Left_Hip"/>'
+        '<Stick MARKER1="Back1" MARKER2="Back2"/>'
+        "</Sticks></MarkerSet></KinematicModel>",
+        encoding="utf-8",
+    )
+    layout = ViconSessionSource().scan(tmp_path, LoaderRegistry(plugin_dirs=[]))
+    assert layout.skeleton == [("Back1", "Back2"), ("Back1", "Left_Hip")]
+
+
+def test_without_a_vsk_the_view_estimates_bones(tmp_path: Path, fake_media: None) -> None:
+    _trial(tmp_path, "t_02", "2026-06-25 13:59:36.246", "2026-06-25 13:59:53.424")
+    assert ViconSessionSource().scan(tmp_path, LoaderRegistry(plugin_dirs=[])).skeleton is None

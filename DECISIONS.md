@@ -7080,3 +7080,10 @@ lane now spans where its readers put it once its camera times it, not its frame 
 nominal rate. A source named inside a file (`a.avi/joined_parts`) keeps its sidecars beside that
 file, named after both (`a_avi_joined_parts_custom_markers.csv`, `core.sidecar_names.on_disk`):
 reading one "inside" the video raised NotADirectoryError.
+
+**Amended: the subject's skeleton.** A Vicon session declares its subject's `.vsk` sticks
+(`<Stick MARKER1 MARKER2>`, `vicon_session_loader.subject_skeleton`) as `SessionLayout.skeleton`,
+so the 3D view draws Nexus's own bones (ten on `1113`). The joined marker source had 68 points,
+past the estimator's 64-point limit, so it drew none; and an estimate across trials would join
+static props (ladder, platform), which hold perfectly still and so look perfectly rigid. Without a
+`.vsk` the estimate is unchanged.

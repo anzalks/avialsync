@@ -12,6 +12,12 @@ A camera's trials are one camera, and their markers one set of markers: they
 load as one joined video and one joined marker source
 (:mod:`~avialsync.loaders.joined_parts`, D-219) -- one pane, one Data Streams
 lane, one 3D object -- each trial still projected through its own calibration.
+
+The subject's ``.vsk`` names its skeleton: the sticks Nexus draws between
+markers (``Back1``-``Back2``, ``Left_Hip``-``Left_Knee``). They are declared as
+the session's skeleton, so the 3D view draws the subject's own bones rather
+than estimating them -- an estimate across trials would also link static props
+(a ladder, a platform), which hold perfectly still and so look perfectly rigid.
 """
 
 from __future__ import annotations
@@ -200,7 +206,7 @@ class ViconSessionSource(SessionSource):
             )
             trials.append((c3d_path, items))
 
-        layout = _placed(trials, warnings)
+        layout = replace(_placed(trials, warnings), skeleton=subject_skeleton(path) or None)
         if not layout.items:
             layout.warnings.append("No Vicon C3D trials could be paired with calibrated video.")
         logger.info("Vicon session: %d items from %s", len(layout.items), path.name)
@@ -320,3 +326,23 @@ def _prepared(marker: SessionItem) -> dict[str, Any]:
     except (SourceOpenError, OSError, ValueError, struct.error) as error:
         logger.warning("Could not read marker labels of %s: %s", marker.path.name, error)
         return dict(marker.config)
+
+
+def subject_skeleton(folder: Path) -> list[tuple[str, str]]:
+    """The sticks every ``.vsk`` subject file in *folder* declares, each once.
+
+    A file that cannot be read declares nothing; the 3D view then estimates
+    bones from the markers' geometry, as it would without one.
+    """
+    edges: dict[tuple[str, str], None] = {}
+    for vsk in sorted(folder.glob("*.vsk")):
+        try:
+            root = ET.parse(vsk).getroot()
+        except (OSError, ET.ParseError) as error:
+            logger.warning("Could not read Vicon subject %s: %s", vsk.name, error)
+            continue
+        for stick in root.iter("Stick"):
+            first, second = stick.get("MARKER1", ""), stick.get("MARKER2", "")
+            if first and second and first != second:
+                edges.setdefault((first, second), None)
+    return list(edges)
