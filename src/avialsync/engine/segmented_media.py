@@ -83,10 +83,13 @@ def _tables_path(path: Path) -> Path:
 def file_table(path: Path | str) -> tuple[np.ndarray, np.ndarray, float]:
     """A file's own ``(pts ticks, keyframe indices, seconds per tick)``, read once."""
     with PyAVReader(path) as reader:
+        base = reader.stream.time_base
+        if base is None:  # PyAVReader refuses these; said here for the type
+            raise SourceOpenError(f"{Path(path).name} has no time base.")
         return (
             np.asarray(reader._pts_ticks, dtype=np.int64),
             np.asarray(reader._keyframe_indices, dtype=np.int64),
-            float(reader.stream.time_base),
+            float(base),
         )
 
 

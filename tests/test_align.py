@@ -9,6 +9,8 @@ whether the fit rests on a handful of extremes.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 from PySide6.QtWidgets import QApplication, QWidget
@@ -508,7 +510,8 @@ def test_a_proxy_is_made_of_the_selected_camera(window: MainWindow, monkeypatch)
     window._select_video(second)
     window._generate_proxy()
 
-    assert made == [second]
+    # As paths: on Windows the worker's path prints with backslashes.
+    assert [Path(path) for path in made] == [Path(second)]
 
 
 def test_a_proxy_of_several_unselected_cameras_asks_which(window: MainWindow, monkeypatch) -> None:
