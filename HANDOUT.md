@@ -533,7 +533,9 @@ Fixture: `tools/make_fixtures.generate_sync_ground_truth`.
   otherwise the AOL rig's `DEFAULT_SKELETON_CHAIN` (toe-to-toe through `head_bar`, skipping parts
   the export lacks), and failing that are detected from pairwise rigidity by `core/skeleton.py`,
   drawn dashed and rooted on the vertical axis; the header's `Bones:` selector pins
-  Auto / Detected / Off (D-082). Names never imply topology.
+  Auto / Detected / Off (D-082). **Thickness** draws only session-declared bones as shaded
+  cylinders, with an absolute diameter in the calibration's coordinate units (normally mm); detected
+  bones remain dashed. Names never imply topology.
 - Reset Plots: `PlotPane.reset_action`, shown in View (Ctrl+0) and as the plots' own button (D-167), and shortcuts dialog; the Data Streams twin was removed (D-126)
 - Transport UX: the full-width **Data Streams** section is distinct from both plots and the
   seek/transport section with the same splitter handles used for video/plot resizing (drawn end to end, D-106). Its header owns Hide, and its font-scaled lanes show up to ten rows in Compact density before scrolling. Preferences sets the density and visible-row caps (D-171). Status is in the status bar; loop and speed sit beside playback (D-170); video tools are under the videos (`ui/view_toolbar.py`).

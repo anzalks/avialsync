@@ -336,8 +336,12 @@ in the session.
 - Drag with the left mouse button to orbit.
 - Use the mouse wheel to zoom.
 - Select **Fit View**, or double-click the view, to frame the current pose again.
+- Use **Thickness** to draw session-declared bones as shaded cylinders. Enter a diameter in the
+  calibration's 3D coordinate units—normally mm—and match the unit used for physical props.
+  Detected bones remain dashed so they cannot be mistaken for anatomy declared by the recording.
 
-On a narrow window, scroll the 3D controls sideways to reach the axis, bones, and Fit View controls.
+On a narrow window, scroll the 3D controls sideways to reach the axis, bones, thickness, and Fit
+View controls.
 
 ## Placing a 3D marker
 

@@ -24,6 +24,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QComboBox,
+    QDoubleSpinBox,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -86,6 +87,8 @@ _POINT_OUTLINE_WEIGHT = 0.55
 #: Bones. A derived skeleton sits one step further back than a declared one.
 _DECLARED_BONE_WEIGHT = 0.62
 _DERIVED_BONE_WEIGHT = 0.48
+#: Largest physically meaningful entry while still allowing unusual coordinate scales.
+_MAX_BONE_THICKNESS = 1.0e6
 
 #: The ground-plane grid: present, never competing with the pose on top of it.
 _GRID_WEIGHT = 0.30
@@ -395,6 +398,9 @@ class Tracking3DCanvas(QWidget):
         self._active_edges: list[tuple[str, str]] = []
         self._skeleton_is_derived = False
         self._depths: dict[str, int] = {}
+        #: Diameter of declared bones in the calibration's coordinate units.
+        #: Zero retains the lightweight line representation.
+        self._bone_thickness = 0.0
 
         # Which world axis renders upward. Z-up is the neutral default; loading
         # data with recognisable head/foot landmarks re-orients it.
@@ -629,6 +635,22 @@ class Tracking3DCanvas(QWidget):
         """Whether the drawn skeleton came from geometry rather than the data."""
         return self._skeleton_is_derived
 
+    @property
+    def bone_thickness(self) -> float:
+        """Diameter of declared bones in the calibration's coordinate units."""
+        return self._bone_thickness
+
+    def set_bone_thickness(self, thickness: float) -> None:
+        """Set the declared-bone diameter in the calibration's coordinate units."""
+        value = float(thickness)
+        if not np.isfinite(value):
+            raise ValueError("Bone thickness must be finite")
+        value = float(np.clip(value, 0.0, _MAX_BONE_THICKNESS))
+        if value == self._bone_thickness:
+            return
+        self._bone_thickness = value
+        self.update()
+
     def _infer_skeleton(self) -> None:
         """Derive topology per source, from the strided samples taken on load.
 
@@ -841,12 +863,17 @@ class Tracking3DCanvas(QWidget):
 
         # Build a name→screen-position map for skeleton drawing.
         screen, depth = self._project(self._positions[valid_indices], width, height)
-        name_to_screen: dict[str, tuple[float, float]] = {}
+        name_to_pose: dict[str, tuple[np.ndarray, float, np.ndarray]] = {}
         for i, vi in enumerate(valid_indices):
-            name_to_screen[self._names[int(vi)]] = (float(screen[i, 0]), float(screen[i, 1]))
+            point_index = int(vi)
+            name_to_pose[self._names[point_index]] = (
+                screen[i],
+                float(depth[i]),
+                self._positions[point_index],
+            )
 
         # Draw skeleton edges behind the points.
-        self._draw_skeleton(painter, name_to_screen, palette)
+        self._draw_skeleton(painter, name_to_pose, palette, self._pixels_per_unit(width, height))
 
         # Draw points depth-sorted (back to front).
         # Solved once rather than per point: it is the same colour for every
@@ -987,8 +1014,9 @@ class Tracking3DCanvas(QWidget):
     def _draw_skeleton(
         self,
         painter: QPainter,
-        name_to_screen: dict[str, tuple[float, float]],
+        name_to_pose: dict[str, tuple[np.ndarray, float, np.ndarray]],
         palette: QPalette,
+        pixels_per_unit: float,
     ) -> None:
         """Draw the bones in force, tapering a derived skeleton along its flow.
 
@@ -1006,22 +1034,73 @@ class Tracking3DCanvas(QWidget):
             return
         weight = _DERIVED_BONE_WEIGHT if self._skeleton_is_derived else _DECLARED_BONE_WEIGHT
         color = neutral_on_canvas(palette, weight)
+        if self._bone_thickness and not self._skeleton_is_derived:
+            self._draw_solid_bones(painter, name_to_pose, color, pixels_per_unit)
+            return
         for name_a, name_b in self._active_edges:
-            pos_a = name_to_screen.get(name_a)
-            pos_b = name_to_screen.get(name_b)
-            if pos_a is None or pos_b is None:
+            pose_a = name_to_pose.get(name_a)
+            pose_b = name_to_pose.get(name_b)
+            if pose_a is None or pose_b is None:
                 continue
-            pen = QPen(color, self._bone_width(name_a))
+            screen_a, _depth_a, _world_a = pose_a
+            screen_b, _depth_b, _world_b = pose_b
+            pen = QPen(color, self._bone_width(name_a, pixels_per_unit))
             if self._skeleton_is_derived:
                 pen.setStyle(Qt.PenStyle.DashLine)
             painter.setPen(pen)
-            painter.drawLine(QPointF(*pos_a), QPointF(*pos_b))
+            painter.drawLine(
+                QPointF(float(screen_a[0]), float(screen_a[1])),
+                QPointF(float(screen_b[0]), float(screen_b[1])),
+            )
 
-    def _bone_width(self, parent: str) -> float:
+    def _draw_solid_bones(
+        self,
+        painter: QPainter,
+        name_to_pose: dict[str, tuple[np.ndarray, float, np.ndarray]],
+        color: QColor,
+        pixels_per_unit: float,
+    ) -> None:
+        """Draw declared bones as shaded cylinders, like measured wheel bars."""
+        starts: list[np.ndarray] = []
+        ends: list[np.ndarray] = []
+        start_depths: list[float] = []
+        end_depths: list[float] = []
+        lengths: list[float] = []
+        for name_a, name_b in self._active_edges:
+            pose_a = name_to_pose.get(name_a)
+            pose_b = name_to_pose.get(name_b)
+            if pose_a is None or pose_b is None:
+                continue
+            screen_a, depth_a, world_a = pose_a
+            screen_b, depth_b, world_b = pose_b
+            starts.append(screen_a)
+            ends.append(screen_b)
+            start_depths.append(depth_a)
+            end_depths.append(depth_b)
+            lengths.append(float(np.linalg.norm(world_b - world_a)))
+        if not starts:
+            return
+        draw_cylinders(
+            painter,
+            np.asarray(starts),
+            np.asarray(ends),
+            np.asarray(start_depths),
+            np.asarray(end_depths),
+            np.asarray(lengths),
+            self._bone_thickness * pixels_per_unit,
+            color,
+        )
+
+    def _bone_width(self, parent: str, pixels_per_unit: float) -> float:
         """Thin a bone as it runs further from the root it was flowed out from."""
+        thickness = self._bone_thickness * pixels_per_unit
         if not self._skeleton_is_derived:
-            return 2.0
-        return max(1.0, 3.0 - 0.5 * self._depths.get(parent, 0))
+            return max(2.0, thickness)
+        return max(1.0, 3.0 - 0.5 * self._depths.get(parent, 0), thickness)
+
+    def _pixels_per_unit(self, width: int, height: int) -> float:
+        """Return this target's orthographic pixel scale for one scene unit."""
+        return 0.38 * min(width, height) * self._zoom / self._radius
 
     def _draw_grid(self, painter: QPainter, width: int, height: int, palette: QPalette) -> None:
         """Draw a faint ground-plane grid behind the pose.
@@ -1279,6 +1358,24 @@ class Tracking3DPane(QWidget):
         ):
             self.bone_combo.addItem(label, mode)
         self.bone_combo.activated.connect(self._on_bone_mode_selected)
+        self.bone_thickness = QDoubleSpinBox(header)
+        self.bone_thickness.setRange(0.0, _MAX_BONE_THICKNESS)
+        self.bone_thickness.setDecimals(3)
+        self.bone_thickness.setSingleStep(0.1)
+        self.bone_thickness.setKeyboardTracking(False)
+        self.bone_thickness.setPrefix(tr("Thickness "))
+        self.bone_thickness.setSuffix(tr(" calibration units"))
+        self.bone_thickness.setSpecialValueText(tr("Lines"))
+        self.bone_thickness.setAccessibleName(tr("Bone thickness"))
+        self.bone_thickness.setAccessibleDescription(
+            tr(
+                "Draw session-declared bones as shaded cylinders with this diameter in the "
+                "calibration's 3D coordinate units. Match the unit used by physical props, "
+                "usually millimetres. Detected bones stay dashed."
+            )
+        )
+        self.bone_thickness.setToolTip(self.bone_thickness.accessibleDescription())
+        self.bone_thickness.valueChanged.connect(self._on_bone_thickness_changed)
         self.fit_button = QPushButton(tr("Fit View"), header)
         self.fit_button.setToolTip(tr("Fit the 3D camera to the current tracked pose"))
         self.fit_button.clicked.connect(self._fit_view)
@@ -1291,7 +1388,8 @@ class Tracking3DPane(QWidget):
         header_layout.addLayout(title_row, 0, 0)
         header_layout.addWidget(self.up_axis_combo, 1, 0)
         header_layout.addWidget(self.bone_combo, 1, 1)
-        header_layout.addWidget(self.fit_button, 1, 2)
+        header_layout.addWidget(self.bone_thickness, 1, 2)
+        header_layout.addWidget(self.fit_button, 1, 3)
         # Filled by install_reprojection_action with the View -> Overlays
         # action, so the button and the menu entry are one command.
         # Beside the title: it is about the videos, not about this view.
@@ -1300,7 +1398,7 @@ class Tracking3DPane(QWidget):
         # Spanning the two columns the Bones and Fit View controls already hold:
         # alone in the last column, its label set that column's width and the
         # pane's minimum grew past one video column (test_ui_layout_resize).
-        header_layout.addWidget(self.reprojection_button, 0, 1, 1, 2)
+        header_layout.addWidget(self.reprojection_button, 0, 1, 1, 3)
         header_layout.setColumnStretch(0, 1)
         header_layout.setColumnStretch(1, 1)
 
@@ -1441,6 +1539,10 @@ class Tracking3DPane(QWidget):
             return
         self.canvas.set_bone_mode(mode)
         self._refresh_status()
+
+    def _on_bone_thickness_changed(self, diameter: float) -> None:
+        """Apply the visual diameter selected in the 3D-view header."""
+        self.canvas.set_bone_thickness(diameter)
 
     def set_cursor(self, t_master: float) -> None:
         """Update from the same master-clock value used by video and 2D plots."""

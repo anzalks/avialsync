@@ -7,9 +7,11 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QImage, QPainter
 from PySide6.QtWidgets import QSplitter
 
 from avialsync.core.pyramid import PyramidBuilder, PyramidReader
+from avialsync.ui import tracking_3d_pane
 from avialsync.ui.tracking_3d_pane import Tracking3DPane, prepare_tracking_3d
 from avialsync.ui.tracking_skeleton import BoneMode
 
@@ -370,6 +372,52 @@ def test_declared_topology_wins_over_detection(qtbot, tmp_path: Path) -> None:
     assert pane.canvas.skeleton_edges == [("head", "tail")]
     assert not pane.canvas.skeleton_is_derived
     assert "from session" in pane.status_label.text()
+
+
+def test_bone_thickness_draws_declared_bones_as_cylinders(
+    qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    """The header's thickness control takes declared bones through the wheel-bar painter."""
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.set_skeleton([("head", "tail")])
+    pane.set_readers(_rigid_chain_readers(tmp_path / "solid_bones_cache"))
+    pane.set_cursor(1.0)
+
+    calls: list[tuple[object, ...]] = []
+    monkeypatch.setattr(tracking_3d_pane, "draw_cylinders", lambda *args: calls.append(args))
+    pane.bone_thickness.setValue(4.0)
+
+    image = QImage(400, 400, QImage.Format.Format_ARGB32_Premultiplied)
+    painter = QPainter(image)
+    pane.canvas.render_scene(painter, 400, 400)
+    painter.end()
+
+    assert pane.canvas.bone_thickness == pytest.approx(4.0)
+    assert pane.bone_thickness.accessibleName() == "Bone thickness"
+    assert len(calls) == 1
+    assert calls[0][1].shape == (1, 2)
+    assert calls[0][2].shape == (1, 2)
+    assert calls[0][6] > 0.0
+
+
+def test_bone_thickness_keeps_detected_bones_dashed(qtbot, tmp_path: Path, monkeypatch) -> None:
+    """A thicker display must not turn inferred structure into asserted anatomy."""
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.set_readers(_rigid_chain_readers(tmp_path / "dashed_bones_cache"))
+    pane.set_cursor(1.0)
+    calls: list[tuple[object, ...]] = []
+    monkeypatch.setattr(tracking_3d_pane, "draw_cylinders", lambda *args: calls.append(args))
+    pane.bone_thickness.setValue(4.0)
+
+    image = QImage(400, 400, QImage.Format.Format_ARGB32_Premultiplied)
+    painter = QPainter(image)
+    pane.canvas.render_scene(painter, 400, 400)
+    painter.end()
+
+    assert pane.canvas.skeleton_is_derived
+    assert not calls
 
 
 def test_declared_names_resolve_through_a_loader_prefix(qtbot, tmp_path: Path) -> None:
