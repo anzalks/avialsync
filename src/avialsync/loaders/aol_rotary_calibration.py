@@ -23,6 +23,7 @@ from avialsync.core.rotary_motion import PeriodicRotaryMotion, RotaryHarmonic
 __all__ = [
     "DEFAULT_SOURCE",
     "configure_model",
+    "configured_fingerprint",
     "configured_model",
     "proposal_from_file",
     "proposal_from_payload",
@@ -82,6 +83,17 @@ def configured_model() -> RotaryCalibrationProposal:
         return dataclasses.replace(proposal_from_payload(_DEFAULT_MODEL), source=DEFAULT_SOURCE)
     proposal = proposal_from_file(_configured_model)
     return dataclasses.replace(proposal, source=f"AOL wheel model {_configured_model.name}")
+
+
+def configured_fingerprint() -> str:
+    """The geometry fingerprint the configured model (else the default) was fitted on."""
+    if _configured_model is None:
+        return str(_DEFAULT_MODEL["geometry_fingerprint"])
+    try:
+        payload = json.loads(_configured_model.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return ""
+    return str(payload.get("geometry_fingerprint", "")) if isinstance(payload, dict) else ""
 
 
 def _parameters(payload: dict[str, Any]) -> dict[str, float]:

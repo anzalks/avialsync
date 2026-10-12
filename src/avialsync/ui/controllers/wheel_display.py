@@ -134,22 +134,23 @@ def _channel_reader(window: MainWindow, channel: tuple[str, str]) -> MappedChann
 def sample(window: MainWindow, channel: tuple[str, str], t_master: float) -> float | None:
     """The encoder reading at *t_master*, or None where it has none.
 
-    Read through the plot row's own reader, exactly as the Values tab reads it
-    (the last available sample at or before the time, through the source's
-    live mapping). One path to the synced values, so the wheel can
-    never turn by a number the plots and Values tab do not show.
+    Read through the plot row's own reader and the source's live mapping,
+    interpolated between the samples either side (D-226): a frame's angle lies
+    between two encoder samples, and the wheel-calibration analysis reads it
+    that way. Coverage and gaps are refused exactly as the Values tab refuses
+    them; within a sample period the two can differ by the motion in it.
     """
     reader = _channel_reader(window, channel)
     if reader is None:
         return None
     try:
-        found = reader.available_sample_at(t_master)
+        found = reader.interpolated_sample_at(t_master)
     except (OSError, ValueError, KeyError):
         logger.warning("Could not read %s from %s", channel[1], channel[0], exc_info=True)
         return None
-    if found is None or not math.isfinite(found[1]):
+    if found is None or not math.isfinite(found):
         return None
-    return found[1]
+    return found
 
 
 def encoder_binding(
@@ -212,8 +213,19 @@ def _wrap(value: float, period: float) -> float:
     return (value + period / 2.0) % period - period / 2.0
 
 
+def _pane_frame(window: MainWindow, video: str, t_master: float) -> tuple[int, float] | None:
+    """The frame *video*'s own pane shows at *t_master*, and its master time."""
+    videos = rig_paths.open_videos(window.rig_paths)
+    panes = window.video_grid.panes
+    if video not in videos or videos.index(video) >= len(panes):
+        return None
+    pane = panes[videos.index(video)]
+    index, pts = pane.frame_record_at(t_master)
+    return int(index), float(pane.time_map.to_master(pts))
+
+
 def alignment(
-    window: MainWindow, wheel: Wheel, t_master: float
+    window: MainWindow, wheel: Wheel, t_master: float, video: str | None = None
 ) -> tuple[int, float, float, float] | None:
     """``(frame, frame time, encoder turn, visual adjustment)`` on the frame at *t_master*.
 
@@ -221,12 +233,17 @@ def alignment(
     alignment's offset from the current transfer, else zero.  It is derived
     from the saved cyclic angle rather than stored, so applying a new transfer
     leaves saved evidence drawn exactly where the user put it.
+
+    Frames are named by the reference pane; with *video*, the turn is read at
+    that camera's own frame time, since cameras expose a fraction of a
+    millisecond apart (D-226).
     """
     found = frame_and_time(window, t_master)
     if found is None:
         return None
     frame, t_frame = found
-    turn = _turn(window, wheel, frame, t_frame)
+    own = _pane_frame(window, video, t_master) if video is not None else None
+    turn = _turn(window, wheel, frame, t_frame if own is None else own[1])
     if turn is None:
         return None
     preview = window.wheel_state.rotation_preview.get(wheel.name)
@@ -238,12 +255,15 @@ def alignment(
     return frame, t_frame, turn, 0.0
 
 
-def _ends(window: MainWindow, wheel: Wheel, t_master: float) -> np.ndarray | None:
-    """*wheel*'s bars on the frame at *t_master*, generated once per frame."""
+def _ends(
+    window: MainWindow, wheel: Wheel, t_master: float, video: str | None = None
+) -> np.ndarray | None:
+    """*wheel*'s bars on the frame at *t_master*, generated once per frame and camera."""
     found = frame_and_time(window, t_master)
     if found is None:
         return None
     frame = found[0]
+    own = _pane_frame(window, video, t_master) if video is not None else None
     mapping = None
     if wheel.binding is not None:
         encoder = _encoder_map(window, wheel.binding.source_id)
@@ -252,17 +272,19 @@ def _ends(window: MainWindow, wheel: Wheel, t_master: float) -> np.ndarray | Non
     saved = saved_alignment(window, wheel, frame)
     key = (
         frame,
+        own,
         mapping,
         preview.adjustment_degrees if preview is not None and preview.frame == frame else None,
         None if saved is None else saved.angle_degrees,
     )
-    cached = window.wheel_state.cache.get(wheel.name)
+    slot = f"{wheel.name}\0{video or ''}"
+    cached = window.wheel_state.cache.get(slot)
     if cached is not None and cached[0] == key:
         hit: np.ndarray | None = cached[1]
         return hit
-    aligned = alignment(window, wheel, t_master)
+    aligned = alignment(window, wheel, t_master, video)
     ends = None if aligned is None else wheel.geometry.bar_ends(aligned[2] + aligned[3])
-    window.wheel_state.cache[wheel.name] = (key, ends)
+    window.wheel_state.cache[slot] = (key, ends)
     return ends
 
 
@@ -318,7 +340,7 @@ def pane_drawing(window: MainWindow, video: str, t_master: float) -> WheelDrawin
     for wheel in window.wheels:
         if wheel.name == replacing:
             continue
-        ends = _ends(window, wheel, t_master)
+        ends = _ends(window, wheel, t_master, video)
         if ends is not None:
             bars += _bars(wheel.geometry, ends, camera, preview=False)
     if not bars and not clicks and not projections:
@@ -370,6 +392,12 @@ def _rotation_adjustments(window: MainWindow, t_master: float) -> dict[str, floa
     return {wheel.name: None if aligned is None else aligned[3]}
 
 
+def _rig_wheel(window: MainWindow) -> str:
+    """The rig's own calibrated wheel, by name, when the session supplies one."""
+    hint = window.wheel_state.session_rotary
+    return hint.geometry_source if hint is not None and hint.geometry is not None else ""
+
+
 def show_rotation(window: MainWindow, t_master: float) -> None:
     """Keep the adjusting wheel's slider on the frame the clock moved to."""
     for name, adjustment in _rotation_adjustments(window, t_master).items():
@@ -398,6 +426,7 @@ def refresh(window: MainWindow) -> None:
         rotation_adjustments=rotation_adjustments,
         proposals=window.wheel_state.motion_proposals,
         fitting=window.wheel_state.motion_fitting,
+        rig_wheel=_rig_wheel(window),
     )
     view = (
         placement_view(placement, sorted(camera_models(window))) if placement is not None else None

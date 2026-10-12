@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from avialsync.core.source import PairingHint, PartnerSearch
+from avialsync.core.source import CameraCorrectionHint, PairingHint, PartnerSearch
 from avialsync.ui.recovery import RecoverySnapshot
 
 
@@ -29,6 +29,8 @@ class SessionRuntimeState:
     # Format-neutral declarations supplied by the session loader.
     camera_fps: float = 0.0
     anchor_epoch: float = 0.0
+    #: The rig's own camera corrections, applied to a calibration they fit (D-226).
+    camera_corrections: tuple[CameraCorrectionHint, ...] = ()
     item_labels: dict[str, str] = field(default_factory=dict)
     item_kinds: dict[str, str] = field(default_factory=dict)
     coverage_groups: dict[str, str] = field(default_factory=dict)

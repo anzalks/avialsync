@@ -208,8 +208,8 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
     # what hands the 3D view over to its own detection.
     window.tracking_3d_pane.set_skeleton(list(layout.skeleton or []))
     # Likewise the wheel: which channel turns it, and any rig model, are the rig's to say.
-    window.wheel_state.session_rotary = layout.rotary
-    wheel_rotation.offer_session_defaults(window)  # saved wheels read before the layout
+    window.session_runtime.camera_corrections = layout.camera_corrections
+    wheel_rotation.adopt_rig(window, layout.rotary)  # its wheel, model and camera corrections
 
     # A scan that left something out has to say so on screen.  The log already
     # holds the detail; what belongs here is the fact that the session in front

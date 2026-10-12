@@ -31,10 +31,25 @@ def _unreliable(issue: str) -> str:
     ).format(cause=cause)
 
 
-def describe_fit(wheel_spec: WheelSpec, fit: WheelFit, clicks: Sequence[EndClick]) -> str:
-    """The fit in one paragraph: size, click error, and anything to check."""
+def describe_fit(
+    wheel_spec: WheelSpec, fit: WheelFit, clicks: Sequence[EndClick], source: str = ""
+) -> str:
+    """The fit in one paragraph: size, click error, and anything to check.
+
+    A wheel imported from *source* has no clicks: it says where it came from.
+    """
     units = f" {wheel_spec.units}" if wheel_spec.units else ""
     geometry = fit.geometry
+    if source and not clicks:
+        return tr(
+            "From the {source}: {bars} bars, radius {radius:.1f}, width {width:.1f} "
+            "calibration units. Replace it to click your own."
+        ).format(
+            source=source,
+            bars=geometry.bar_count,
+            radius=geometry.radius,
+            width=2 * geometry.half_width,
+        )
     issue = fit_issue(fit, clicks)
     parts = [
         tr("{bars} bars, radius {radius:.1f}{units}, width {width:.1f}{units}.").format(

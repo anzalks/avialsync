@@ -16,17 +16,18 @@ import pytest
 from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
+from avialsync.core.calibration import ImageCorrection
 from avialsync.core.commands import SetWheelCommand
 from avialsync.core.pyramid import PyramidBuilder
 from avialsync.core.rotary_calibration import RotaryCalibrationProposal
 from avialsync.core.rotary_motion import PeriodicRotaryMotion, RotaryHarmonic
-from avialsync.core.source import RotaryHint
+from avialsync.core.source import CameraCorrectionHint, RotaryHint
 from avialsync.core.wheel import EncoderBinding, WheelSpec, project_bars
 from avialsync.core.wheel_file import read_wheels
 from avialsync.ui.controllers import wheel_controller, wheel_display, wheel_rotation
 from avialsync.ui.main_window import MainWindow
 from avialsync.ui.wheel_dialogs import WheelSetup
-from tests.wheel_fixture import CAMERAS, clicks_for
+from tests.wheel_fixture import CAMERAS, TRUTH, clicks_for
 from tests.wheel_window import FRAME, VIDEOS, build_window, click_point, place, start_placing
 
 
@@ -213,7 +214,11 @@ def _load_encoder(window: MainWindow, tmp_path: Path, times, values) -> None:
 def test_the_wheel_reads_the_same_synced_encoder_values_as_the_plots(
     window: MainWindow, tmp_path: Path
 ) -> None:
-    """Ground truth: 36 degrees per second, read after a 0.12 s offset from Sources."""
+    """Ground truth: 36 degrees per second, read after a 0.12 s offset from Sources.
+
+    The plots' reader and mapping, interpolated between the samples either side
+    (D-226): exact on a linear trace, where holding a sample was up to 0.036° late.
+    """
     times = np.arange(0.0, 10.0, 0.001)
     _load_encoder(window, tmp_path, times, 36.0 * times)
     window.sidebar.set_sensor_mapping("encoder.csv", 0.12, 0.0)
@@ -222,8 +227,8 @@ def test_the_wheel_reads_the_same_synced_encoder_values_as_the_plots(
 
     for t_master in (1.0, 2.3456, 7.0005):
         wheel_value = wheel_display.sample(window, ("encoder.csv", "angle"), t_master)
-        assert wheel_value == row.reader.sample_at(t_master)[1], "the value the plots show"
-        assert wheel_value == pytest.approx(36.0 * (t_master + 0.12), abs=0.037), "one sample"
+        assert wheel_value == row.reader.interpolated_sample_at(t_master), "the plots' reader"
+        assert wheel_value == pytest.approx(36.0 * (t_master + 0.12), abs=1e-6)
 
 
 def test_done_labelling_reads_the_encoder_from_its_real_cache(
@@ -257,8 +262,8 @@ def test_synced_encoder_turn_reprojects_the_same_bars_in_every_camera(
 
     frame.update(now=FRAME + 1, t=2.3456)
     reader = next(r.reader for r in window.plot_pane.channels if r.reader.channel_id == "angle")
-    turn = reader.sample_at(frame["t"])[1] - reader.sample_at(0.0)[1]
-    assert turn == pytest.approx(36.0 * frame["t"], abs=0.037)
+    turn = reader.interpolated_sample_at(frame["t"]) - reader.interpolated_sample_at(0.0)
+    assert turn == pytest.approx(36.0 * frame["t"], abs=1e-6)
     expected = wheel.geometry.bar_ends(turn)
     assert wheel_display.scene(window, frame["t"])[0][0] == pytest.approx(expected)
     for name, camera in CAMERAS.items():
@@ -528,6 +533,85 @@ def test_a_saved_wheel_is_offered_the_rig_default_but_not_given_it(
 
     wheel_rotation.offer_session_defaults(window)
     assert "wheel" not in window.wheel_state.motion_proposals, "already on the default"
+
+
+def test_the_rig_wheel_is_drawn_at_the_rig_models_absolute_angle(
+    window: MainWindow, monkeypatch, tmp_path: Path, frame: dict[str, float]
+) -> None:
+    """No clicks: the rig's geometry, turned so every frame draws at its model's angle (D-226)."""
+    times = np.arange(-10.0, 10.0, 0.001)
+    _load_encoder(window, tmp_path, times, 36.0 * times + 50.0)
+    model = PeriodicRotaryMotion(
+        gain=1.0, offset_degrees=-47.85, harmonics=(RotaryHarmonic(2, -1.56, 1.62),)
+    )
+    window.wheel_state.session_rotary = RotaryHint(
+        "angle",
+        Path("encoder.csv"),
+        motion_model=model,
+        motion_sign=-1.0,
+        motion_default=True,
+        motion_source="rig model",
+        geometry=TRUTH,
+        geometry_source="rig wheel",
+    )
+    _two_bars(window, monkeypatch, channel=("encoder.csv", "angle"))
+    window.wheel_panel._accept.click()
+    clicked = window.wheels.get("wheel")
+    row = window.wheel_panel._rows["wheel"]
+    assert not row.use_rig.isHidden()
+
+    row.use_rig.click()
+
+    wheel = window.wheels.get("wheel")
+    assert wheel.source == "rig wheel" and wheel.clicks == () and wheel.frame == 0
+    assert wheel.binding.motion_model == model and wheel.binding.motion_source == "rig model"
+    assert row.use_rig.isHidden()
+    frame.update(now=FRAME + 3, t=1.234)
+    expected = TRUTH.bar_ends(-1.0 * model.angle_degrees(36.0 * 1.234 + 50.0))
+    assert wheel_display.scene(window, 1.234)[0][0] == pytest.approx(expected, abs=1e-6)
+    assert "rig wheel" in row.fit.text()
+
+    assert window.document.undo(window._mutations)
+    assert window.wheels.get("wheel") == clicked
+
+
+def test_adopting_a_rig_corrects_the_calibration_already_in_force(
+    window: MainWindow, placed
+) -> None:
+    state = window._calibration_state
+    assert state is not None
+    video, camera = next(iter(state.cameras.items()))
+    correction = ImageCorrection(((1.0, 0.0, 5.0), (0.0, 1.0, -3.0), (0.0, 0.0, 1.0)))
+    window.session_runtime.camera_corrections = (CameraCorrectionHint(camera, correction),)
+
+    wheel_rotation.adopt_rig(window, None)
+
+    assert window._calibration_state.cameras[video].correction is correction
+
+
+def test_each_camera_draws_the_wheel_at_its_own_frame_time(
+    window: MainWindow, monkeypatch, tmp_path: Path, frame: dict[str, float]
+) -> None:
+    """Cameras expose a fraction of a millisecond apart; each pane reads its own time."""
+    times = np.arange(0.0, 10.0, 0.001)
+    _load_encoder(window, tmp_path, times, 36.0 * times)
+    _two_bars(window, monkeypatch, channel=("encoder.csv", "angle"))
+    window.wheel_panel._accept.click()
+    wheel = window.wheels.get("wheel")
+    frame.update(now=FRAME + 1, t=2.0)
+    own = {VIDEOS["Front"]: (FRAME + 1, 2.0005), VIDEOS["Right"]: (FRAME + 1, 1.9993)}
+    monkeypatch.setattr(wheel_display, "_pane_frame", lambda _w, video, _t: own.get(video))
+
+    for name in ("Front", "Right"):
+        drawing = wheel_display.pane_drawing(window, VIDEOS[name], 2.0)
+        assert drawing is not None
+        expected = wheel.geometry.bar_ends(36.0 * own[VIDEOS[name]][1])
+        pixels, in_front, _facing = project_bars(wheel.geometry, expected, CAMERAS[name])
+        first = drawing.bars[0]
+        assert in_front[0]
+        assert (first.x1, first.y1, first.x2, first.y2) == pytest.approx(
+            (*pixels[0, 0], *pixels[0, 1]), abs=1e-6
+        )
 
 
 def test_row_replace_starts_a_placement_that_swaps_the_wheel_in(

@@ -322,6 +322,13 @@ def test_a_gain_only_motion_model_round_trips(tmp_path) -> None:
     assert read_wheels(tmp_path / "pose-3d") == [wheel]
 
 
+def test_a_rig_wheel_without_clicks_round_trips_with_its_source(tmp_path) -> None:
+    wheel = dataclasses.replace(_wheel(), clicks=(), source="AOL rig wheel (geometry 7c55238f)")
+    wheel = dataclasses.replace(wheel, fit=wheel_fit.WheelFit(wheel.geometry, (), (), (), ()))
+    write_wheel(tmp_path / "pose-3d", wheel)
+    assert read_wheels(tmp_path / "pose-3d") == [wheel]
+
+
 def test_the_store_reports_only_real_changes() -> None:
     props = PropStore()
     store = WheelView(props)

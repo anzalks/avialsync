@@ -34,7 +34,7 @@ from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QFileDialog
 
 from avialsync.core import calibration_ref
-from avialsync.core.calibration import CameraModel, read_calibration
+from avialsync.core.calibration import Calibration, CameraModel, corrected, read_calibration
 from avialsync.core.errors import CalibrationError
 from avialsync.ui.controllers import rig_paths
 from avialsync.ui.custom_marker_dialogs import COMPUTE, IMPORT, ask_calibration_source
@@ -72,7 +72,7 @@ class CalibrationState:
 def _load_calibration(window: MainWindow, path: Path, sources: tuple[str, ...]) -> bool:
     """Adopt the calibration at *path*; report and return False if it is unusable."""
     try:
-        calibration = read_calibration(path)
+        calibration = _read(window, path)
     except CalibrationError as error:
         window.report_failure(error, doing=tr("The calibration could not be used"))
         return False
@@ -104,6 +104,12 @@ def _load_calibration(window: MainWindow, path: Path, sources: tuple[str, ...]) 
     return True
 
 
+def _read(window: MainWindow, path: Path) -> Calibration:
+    """Read *path*, with the rig's camera corrections on the cameras they fit (D-226)."""
+    hints = window.session_runtime.camera_corrections
+    return corrected(read_calibration(path), [(h.camera, h.correction) for h in hints])
+
+
 #: Video sets a quiet lookup has already been tried for, per window.
 _QUIET_TRIED: dict[int, tuple[str, ...]] = {}
 
@@ -132,7 +138,7 @@ def calibration_quietly(window: MainWindow) -> None:
     if path is None or not path.is_file():
         return
     try:
-        calibration = read_calibration(path)
+        calibration = _read(window, path)
     except CalibrationError:
         return
     sources = link.sources if link is not None else ()

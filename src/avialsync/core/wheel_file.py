@@ -72,6 +72,7 @@ def wheel_sections(wheel: Wheel) -> list[str]:
             ("flipped", wheel.flipped),
             ("calibration", wheel.calibration),
             ("bar_diameter", wheel.bar_diameter),
+            ("source", wheel.source or None),
             ("removed", False),
         ],
     )
@@ -319,6 +320,7 @@ def _parse(document: Mapping[str, Any]) -> Wheel | None:
         bar_diameter=None if head.get("bar_diameter") is None else float(head["bar_diameter"]),
         binding=_parse_binding(document),
         calibration=str(head.get("calibration", "")),
+        source=str(head.get("source", "")),
     )
 
 

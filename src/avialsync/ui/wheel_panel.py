@@ -206,12 +206,18 @@ class _WheelRow(QFrame):
             tr("Re-place"), tr("Click this wheel's bars again, keeping its settings"), self
         )
         self.remove = _button(tr("Remove"), tr("Remove this wheel; Undo brings it back"), self)
+        self.use_rig = _button(
+            tr("Use Rig Wheel"),
+            tr("Replace this wheel with the rig's own calibrated wheel; Undo brings it back"),
+            self,
+        )
         buttons.addWidget(self.verify, 0, 0)
         buttons.addWidget(self.collect_rotation, 0, 1)
         buttons.addWidget(self.save_rotation, 1, 0)
         buttons.addWidget(self.fit_rotation, 1, 1)
         buttons.addWidget(self.apply_rotation, 2, 0)
         buttons.addWidget(self.replace, 2, 1)
+        buttons.addWidget(self.use_rig, 3, 0)
         buttons.addWidget(self.remove, 3, 1)
         layout.addLayout(buttons)
 
@@ -221,6 +227,7 @@ class _WheelRow(QFrame):
         self.fit_rotation.clicked.connect(lambda: panel.rotation_fit_requested.emit(name))
         self.apply_rotation.clicked.connect(lambda: panel.rotation_apply_requested.emit(name))
         self.replace.clicked.connect(lambda: panel.replace_requested.emit(name))
+        self.use_rig.clicked.connect(lambda: panel.rig_wheel_requested.emit(name))
         self.remove.clicked.connect(lambda: panel.remove_requested.emit(name))
         for widget in (self.spec.bars, self.spec.radius):
             widget.valueChanged.connect(lambda _v: self._spec_edited(panel))
@@ -306,9 +313,14 @@ class _WheelRow(QFrame):
         rotation_adjustment: float | None,
         proposal: RotaryCalibrationProposal | None,
         fitting: bool,
+        rig_wheel: str = "",
     ) -> None:
         self.spec.show(wheel.spec)
-        self.fit.setText(describe_fit(wheel.spec, wheel.fit, wheel.clicks))
+        self.use_rig.setVisible(bool(rig_wheel) and wheel.source != rig_wheel)
+        self.use_rig.setToolTip(
+            tr("Replace this wheel with the {source}; Undo brings it back").format(source=rig_wheel)
+        )
+        self.fit.setText(describe_fit(wheel.spec, wheel.fit, wheel.clicks, wheel.source))
         self.encoder.setText(describe_encoder(wheel))
         binding = wheel.binding
         for widget in (
@@ -409,6 +421,8 @@ class WheelPanel(QGroupBox):
     rotation_save_requested = Signal(str)
     rotation_fit_requested = Signal(str)
     rotation_apply_requested = Signal(str)
+    #: ``(name)``: replace the wheel with the rig's own calibrated wheel.
+    rig_wheel_requested = Signal(str)
     replace_requested = Signal(str)
     remove_requested = Signal(str)
 
@@ -563,12 +577,14 @@ class WheelPanel(QGroupBox):
         rotation_adjustments: Mapping[str, float | None] | None = None,
         proposals: Mapping[str, RotaryCalibrationProposal] | None = None,
         fitting: set[str] | None = None,
+        rig_wheel: str = "",
     ) -> None:
         """Show every placed wheel, rebuilding rows only when the set of names changed.
 
         *offsets* maps a wheel's name to its encoder source's offset, when that
         source is loaded; a wheel without one has its offset field greyed.
-        *rotation_adjustments* is each wheel's visual rotation on the shown frame.
+        *rotation_adjustments* is each wheel's visual rotation on the shown frame;
+        *rig_wheel* names the rig's own calibrated wheel when the session has one.
         """
         names = [wheel.name for wheel in wheels]
         if set(names) != set(self._rows):
@@ -589,6 +605,7 @@ class WheelPanel(QGroupBox):
                 (rotation_adjustments or {}).get(wheel.name),
                 (proposals or {}).get(wheel.name),
                 wheel.name in (fitting or set()),
+                rig_wheel,
             )
         self._update_visibility()
 

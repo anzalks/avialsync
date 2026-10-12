@@ -303,6 +303,9 @@ class Wheel:
     #: lengths -- else in the calibration's; see :attr:`world_per_unit`. Drawn
     #: as cylinders in the 3D view only. The fit does not use it.
     bar_diameter: float | None = None
+    #: Where the geometry came from when it was not clicked here (a rig's own
+    #: calibrated wheel); such a wheel has no clicks to judge it by.
+    source: str = ""
 
     @property
     def name(self) -> str:

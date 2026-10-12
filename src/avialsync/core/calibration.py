@@ -27,14 +27,22 @@ only made the solution wander. ``metadata`` records that it was fitted.
 
 No OpenCV here: the model is a dozen lines of numpy, and ``pip install
 avialsync`` must not grow a native dependency for them.
+
+**A camera may carry an image correction** (:class:`ImageCorrection`, D-226):
+an affine plus a smooth residual warp applied after the lens model, as a rig's
+own camera refinement supplies it. It is part of the camera, so projecting and
+triangulating both go through it, and anipose's file never stores it.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import tomllib
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from functools import cached_property
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from scipy.optimize import least_squares
@@ -44,9 +52,13 @@ from avialsync.core.errors import CalibrationError
 from avialsync.core.toml_format import toml_value, write_atomic
 
 __all__ = [
+    "ImageCorrection",
     "CameraModel",
     "Calibration",
     "read_calibration",
+    "parse_calibration",
+    "same_native_camera",
+    "corrected",
     "write_calibration",
     "triangulate",
     "fit_camera",
@@ -61,6 +73,81 @@ _TRIM_PERCENTILE = 90.0
 _UNDISTORT_ITERATIONS = 20
 
 
+@dataclass(frozen=True, eq=False)
+class ImageCorrection:
+    """An image-space correction applied after a camera's lens model.
+
+    ``pixel = A·p + r(A·p)``: *p* is the native projection, ``A`` the 3x3
+    ``affine``, and ``r`` a thin-plate-spline displacement through
+    ``control_pixels`` (each displaced by ``displacements`` pixels, fitted with
+    ``smoothing``), evaluated on pixels divided by ``scale``. With fewer than
+    three non-collinear controls the residual is zero. This is the projection
+    the wheel-calibration analysis's ``camera_projection.ProjectionCamera``
+    defines, reproduced term for term.
+    """
+
+    affine: tuple[tuple[float, float, float], ...]
+    control_pixels: tuple[tuple[float, float], ...] = ()
+    displacements: tuple[tuple[float, float], ...] = ()
+    smoothing: float = 0.0
+    scale: float = 720.0
+    #: The image size the correction maps into, when it differs from the camera's.
+    size: tuple[int, int] | None = None
+    #: Who supplied it, for display.
+    source: str = ""
+
+    @cached_property
+    def _linear(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        affine = np.asarray(self.affine, dtype=np.float64)
+        linear = affine[:2, :2]
+        return linear, affine[:2, 2], np.linalg.inv(linear)
+
+    @cached_property
+    def _field(self) -> Any:
+        controls = np.asarray(self.control_pixels, dtype=np.float64).reshape(-1, 2)
+        if len(controls) < 3:
+            return None
+        design = np.column_stack([np.ones(len(controls)), controls])
+        if np.linalg.matrix_rank(design) != 3:
+            return None
+        from scipy.interpolate import RBFInterpolator
+
+        return RBFInterpolator(
+            controls / self.scale,
+            np.asarray(self.displacements, dtype=np.float64).reshape(-1, 2),
+            smoothing=self.smoothing,
+            kernel="thin_plate_spline",
+        )
+
+    def _residual(self, pixels: np.ndarray) -> np.ndarray:
+        function = self._field
+        if function is None:
+            return np.zeros_like(pixels)
+        out: np.ndarray = function(pixels / self.scale)
+        return out
+
+    def apply(self, pixels: np.ndarray) -> np.ndarray:
+        """Native pixels ``(N, 2)`` to corrected pixels."""
+        linear, offset, _ = self._linear
+        moved: np.ndarray = np.atleast_2d(pixels) @ linear.T + offset
+        out: np.ndarray = moved + self._residual(moved)
+        return out
+
+    def invert(self, pixels: np.ndarray) -> np.ndarray:
+        """Corrected pixels ``(N, 2)`` back to native ones.
+
+        The residual is a few pixels and smooth, so ``u = p - r(u)`` settles
+        to well under a thousandth of a pixel in a handful of steps.
+        """
+        target = np.atleast_2d(np.asarray(pixels, dtype=np.float64))
+        moved = target.copy()
+        for _ in range(_UNDISTORT_ITERATIONS):
+            moved = target - self._residual(moved)
+        linear, offset, inverse = self._linear
+        native: np.ndarray = (moved - offset) @ inverse.T
+        return native
+
+
 @dataclass(frozen=True)
 class CameraModel:
     """One camera: OpenCV intrinsics, distortion, and pose in the world frame."""
@@ -71,6 +158,8 @@ class CameraModel:
     distortions: np.ndarray = field(default_factory=lambda: np.zeros(5))
     rotation: np.ndarray = field(default_factory=lambda: np.zeros(3))
     translation: np.ndarray = field(default_factory=lambda: np.zeros(3))
+    #: Image-space refinement after the lens model, if the rig supplies one.
+    correction: ImageCorrection | None = None
 
     def rotation_matrix(self) -> np.ndarray:
         """The 3x3 rotation taking world axes to camera axes."""
@@ -86,6 +175,8 @@ class CameraModel:
         fx, fy = self.matrix[0, 0], self.matrix[1, 1]
         cx, cy = self.matrix[0, 2], self.matrix[1, 2]
         pixels: np.ndarray = np.column_stack((fx * distorted[:, 0] + cx, fy * distorted[:, 1] + cy))
+        if self.correction is not None:
+            pixels = self.correction.apply(pixels)
         return pixels
 
     def normalise(self, pixels: np.ndarray) -> np.ndarray:
@@ -96,6 +187,8 @@ class CameraModel:
         iteration settles well inside a hundredth of a pixel.
         """
         pixels = np.atleast_2d(np.asarray(pixels, dtype=np.float64))
+        if self.correction is not None:
+            pixels = self.correction.invert(pixels)
         fx, fy = self.matrix[0, 0], self.matrix[1, 1]
         cx, cy = self.matrix[0, 2], self.matrix[1, 2]
         observed = np.column_stack(((pixels[:, 0] - cx) / fx, (pixels[:, 1] - cy) / fy))
@@ -178,8 +271,18 @@ def read_calibration(path: Path | str) -> Calibration:
     """
     path = Path(path)
     try:
-        document = tomllib.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, tomllib.TOMLDecodeError) as error:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        raise CalibrationError(f"Could not read calibration {path}: {error}") from error
+    return parse_calibration(text, path)
+
+
+def parse_calibration(text: str, path: Path | str = "calibration.toml") -> Calibration:
+    """Parse anipose ``calibration.toml`` text; *path* only names it in errors."""
+    path = Path(path)
+    try:
+        document = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as error:
         raise CalibrationError(f"Could not read calibration {path}: {error}") from error
 
     cameras: list[CameraModel] = []
@@ -211,6 +314,48 @@ def read_calibration(path: Path | str) -> Calibration:
         cameras=tuple(cameras),
         metadata={str(k): v for k, v in metadata.items() if isinstance(v, (str, float, int, bool))},
     )
+
+
+def same_native_camera(a: CameraModel, b: CameraModel) -> bool:
+    """Whether *a* and *b* are one camera: name, intrinsics, distortion and pose.
+
+    The image size is not compared: a correction may map into a frame size
+    the native calibration never recorded.
+    """
+    return (
+        a.name == b.name
+        and np.allclose(a.matrix, b.matrix, rtol=1e-9, atol=1e-9)
+        and np.allclose(_padded(a.distortions), _padded(b.distortions), rtol=1e-9, atol=1e-12)
+        and np.allclose(a.rotation, b.rotation, rtol=1e-9, atol=1e-9)
+        and np.allclose(a.translation, b.translation, rtol=1e-9, atol=1e-9)
+    )
+
+
+def _padded(values: np.ndarray) -> np.ndarray:
+    out = np.zeros(5)
+    count = min(5, len(values))
+    out[:count] = np.asarray(values, dtype=np.float64)[:count]
+    return out
+
+
+def corrected(
+    calibration: Calibration, corrections: Sequence[tuple[CameraModel, ImageCorrection]]
+) -> Calibration:
+    """*calibration* with each correction applied to the native camera it was fitted on.
+
+    A camera whose parameters differ from the correction's native camera is
+    left alone, as is one that already carries a correction.
+    """
+    cameras = []
+    for camera in calibration.cameras:
+        for native, correction in corrections:
+            if camera.correction is None and same_native_camera(camera, native):
+                camera = dataclasses.replace(
+                    camera, size=correction.size or camera.size, correction=correction
+                )
+                break
+        cameras.append(camera)
+    return dataclasses.replace(calibration, cameras=tuple(cameras))
 
 
 def write_calibration(path: Path | str, calibration: Calibration) -> Path:

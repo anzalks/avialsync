@@ -9,11 +9,13 @@ from typing import Any
 
 import numpy as np
 
+from avialsync.core.calibration import CameraModel, ImageCorrection
 from avialsync.core.messages import Message
 from avialsync.core.pose import PoseSchema
 from avialsync.core.rotary_motion import PeriodicRotaryMotion
 from avialsync.core.settings_schema import Setting
 from avialsync.core.trials import FrameGaps
+from avialsync.core.wheel import WheelGeometry
 
 #: The plugin API this application implements (D-220). A plugin declares the
 #: version it was written against as ``api_version``; the registry refuses one
@@ -330,6 +332,24 @@ class RotaryHint:
     motion_sign: float = 1.0
     motion_default: bool = False
     motion_source: str = ""
+    #: The rig's own calibrated wheel, when it has one: geometry in the
+    #: calibration's world frame with ``zero`` at turn 0 of ``motion_model``'s
+    #: absolute angle, so bars are drawn at that model's angle with no clicks.
+    geometry: WheelGeometry | None = None
+    geometry_source: str = ""
+
+
+@dataclass(frozen=True)
+class CameraCorrectionHint:
+    """A rig's image correction for one camera, and the native camera it fits.
+
+    Applied to a loaded calibration's camera of the same name only when that
+    camera's intrinsics, distortion and pose are the native ones here: a
+    correction fitted on one calibration means nothing on another.
+    """
+
+    camera: CameraModel
+    correction: ImageCorrection
 
 
 @dataclass(frozen=True)
@@ -371,6 +391,9 @@ class SessionLayout:
 
     #: A running wheel and the encoder channel that turns it, if the rig has one.
     rotary: RotaryHint | None = None
+
+    #: Image corrections the rig's cameras need on top of their calibration.
+    camera_corrections: tuple[CameraCorrectionHint, ...] = ()
 
     #: Named stretches of the recording -- an experiment's trials -- as
     #: ``(start, end, label)`` in Unix-epoch seconds. Shown as a lane in Data

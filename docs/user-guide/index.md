@@ -587,6 +587,12 @@ An AOL encoder is timed by its microsecond counter, which the acquisition resets
 first frame, rather than by the logger's wall clock, which runs about 120 ms late. If you
 nudged the encoder's offset by hand to make up for that, set it back to zero.
 
+The AOL rig also has its own calibrated wheel, fitted together with that model and a SideCam
+camera correction. When a session offers it, select **Use Rig Wheel** (in the notification, or
+in the wheel's row) to replace a clicked wheel with it: no clicks are needed, Undo brings the
+clicked wheel back, and SideCam's overlays then use the rig's correction. The wheel reads the
+encoder between its samples at each camera's own frame time, as the rig's calibration does.
+
 The wheel's bars are thin lines, never points, so they are not mistaken for tracking. Bars behind
 the side plate are hidden unless you turn on **View → Overlays → Wheel bars out of sight**. The
 **Wheel model** and **Wheel bars out of sight** check boxes at the top of the Wheel page are the

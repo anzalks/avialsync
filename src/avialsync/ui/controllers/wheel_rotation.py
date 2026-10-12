@@ -5,6 +5,11 @@ frame; each save is one :class:`RotaryObservation` (encoder reading, cyclic
 wheel angle).  Nothing about the alignment is wheel- or rig-specific beyond
 drawing, so the fit stays the generic one any rotary prop can use.
 
+A rig plugin may also supply its own calibrated wheel (D-226): geometry, the
+absolute rotation model fitted on it, and the camera corrections it was fitted
+through. :func:`adopt_rig` takes those declarations; :func:`use_rig_wheel`
+builds the wheel from them, with no clicks.
+
 This controller owns the later-frame rotation-calibration interaction only.
 Wheel placement and the one-click direction check stay in
 :mod:`avialsync.ui.controllers.wheel_controller`; the numerical fit is generic
@@ -14,25 +19,29 @@ and headless in :mod:`avialsync.core.rotary_calibration`.
 from __future__ import annotations
 
 import dataclasses
+import math
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QThread
 
+from avialsync.core.calibration import Calibration, corrected
 from avialsync.core.commands import SetWheelCommand
 from avialsync.core.errors import RotaryCalibrationError
 from avialsync.core.rotary_calibration import RotaryCalibrationProposal, RotaryObservation
 from avialsync.core.source import RotaryHint
-from avialsync.core.wheel import Wheel
+from avialsync.core.wheel import EncoderBinding, Wheel, WheelFit, WheelGeometry, WheelSpec
 from avialsync.ui.controllers import wheel_display as display
 from avialsync.ui.controllers.wheel_state import RotationPreview
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import on_ui_thread
 
 if TYPE_CHECKING:
+    from avialsync.ui.controllers.calibration_controller import CalibrationState
     from avialsync.ui.main_window import MainWindow
 
 __all__ = [
     "adjust",
+    "adopt_rig",
     "apply",
     "fit",
     "offer_session_defaults",
@@ -41,6 +50,7 @@ __all__ = [
     "session_proposal",
     "start",
     "stop",
+    "use_rig_wheel",
 ]
 
 
@@ -64,7 +74,7 @@ def session_proposal(wheel: Wheel, hint: RotaryHint | None) -> RotaryCalibration
     return RotaryCalibrationProposal(hint.motion_model, hint.motion_sign, source=hint.motion_source)
 
 
-def _commit(window: MainWindow, before: Wheel, after: Wheel) -> None:
+def _commit(window: MainWindow, before: Wheel | None, after: Wheel) -> None:
     """Replace *before* by *after* as one undo step."""
     window.document.execute(SetWheelCommand(after.name, before, after), window._mutations)
 
@@ -86,6 +96,26 @@ def _with_model(wheel: Wheel, proposal: RotaryCalibrationProposal) -> Wheel:
     return dataclasses.replace(wheel, binding=binding)
 
 
+def adopt_rig(window: MainWindow, hint: RotaryHint | None) -> None:
+    """Take a session's rig declarations: its wheel and model, and camera corrections.
+
+    A calibration already in force gains the corrections now; one read later
+    gains them as it is read (``calibration_controller``).
+    """
+    window.wheel_state.session_rotary = hint
+    state = _calibration_state(window)
+    if state is not None and window.session_runtime.camera_corrections:
+        pairs = [(h.camera, h.correction) for h in window.session_runtime.camera_corrections]
+        for video, camera in list(state.cameras.items()):
+            state.cameras[video] = corrected(Calibration(cameras=(camera,)), pairs).cameras[0]
+        display.refresh(window)
+    offer_session_defaults(window)
+
+
+def _calibration_state(window: MainWindow) -> CalibrationState | None:
+    return window._calibration_state
+
+
 def offer_session_defaults(window: MainWindow) -> None:
     """Offer the rig's default model to saved wheels that turn by something else.
 
@@ -98,7 +128,7 @@ def offer_session_defaults(window: MainWindow) -> None:
     offered = []
     for wheel in window.wheels:
         proposal = session_proposal(wheel, hint)
-        if proposal is None or wheel.binding is None:
+        if proposal is None or wheel.binding is None or wheel.source:
             continue
         if wheel.binding.motion_source == hint.motion_source:
             continue
@@ -106,13 +136,108 @@ def offer_session_defaults(window: MainWindow) -> None:
             continue
         window.wheel_state.motion_proposals[wheel.name] = proposal
         offered.append(wheel.name)
-    if offered:
-        display.refresh(window)
+    display.refresh(window)
+    if hint.geometry is not None and not any(
+        w.source == hint.geometry_source for w in window.wheels
+    ):
+        window.notifications.show_success(
+            tr("This rig has a calibrated wheel: the {source}.").format(
+                source=hint.geometry_source
+            ),
+            action_label=tr("Use Rig Wheel"),
+            on_action=lambda: use_rig_wheel(window),
+        )
+    elif offered:
         window.notifications.show_success(
             tr("The {source} is ready to apply to {names}.").format(
                 source=hint.motion_source, names=", ".join(offered)
             )
         )
+
+
+def _turned(geometry: WheelGeometry, degrees: float) -> WheelGeometry:
+    """*geometry* with bar 0 moved *degrees* round the axle."""
+    x, y, _ = geometry.basis()
+    angle = math.radians(degrees)
+    zero = math.cos(angle) * x + math.sin(angle) * y
+    return dataclasses.replace(geometry, zero=(float(zero[0]), float(zero[1]), float(zero[2])))
+
+
+def use_rig_wheel(window: MainWindow, name: str | None = None) -> None:
+    """Make *name* -- else the wheel the rig's encoder turns, else a new one -- the rig's wheel.
+
+    One undo step. The rig's geometry has bar 0 at the model's absolute turn 0,
+    so it is turned to the model's angle at the wheel's frame; every frame then
+    draws at exactly that model's angle (D-226). No clicks are involved.
+    """
+    hint = window.wheel_state.session_rotary
+    model = hint.motion_model if hint is not None else None
+    if hint is None or hint.geometry is None or model is None or hint.source is None:
+        return
+    before = (
+        window.wheels.get(name)
+        if name
+        else next((w for w in window.wheels if session_proposal(w, hint) is not None), None)
+    )
+    from avialsync.ui.controllers import calibration_controller
+
+    calibration_controller.calibration_quietly(window)
+    channel = (str(hint.source), hint.channel)
+    frame = 0
+    t = display.frame_master_time(window, frame)
+    reading = display.sample(window, channel, t) if t is not None else None
+    if reading is None:
+        window.transport.set_status(
+            tr("Load {channel} first: the rig's wheel is placed by its reading.").format(
+                channel=hint.channel
+            ),
+            "warning",
+        )
+        return
+    state = _calibration_state(window)
+    after = _rig_wheel(hint, before, frame, reading, str(state.path) if state is not None else "")
+    if window.wheel_state.calibrating == after.name:
+        stop(window)
+    window.wheel_state.motion_proposals.pop(after.name, None)
+    _commit(window, before, after)
+    window.notifications.show_success(
+        tr("{name} is now the {source}. Undo restores the earlier wheel.").format(
+            name=after.name, source=hint.geometry_source
+        )
+    )
+
+
+def _rig_wheel(
+    hint: RotaryHint, before: Wheel | None, frame: int, reading: float, calibration: str
+) -> Wheel:
+    """The rig's wheel on *frame*, where the encoder reads *reading*; keeps *before*'s name."""
+    assert hint.geometry is not None and hint.motion_model is not None and hint.source is not None
+    model = hint.motion_model
+    spec = WheelSpec(
+        before.name if before is not None else "wheel",
+        hint.geometry.bar_count,
+        before.spec.radius if before is not None else (hint.radius or None),
+        before.spec.units if before is not None else hint.units,
+    )
+    turn = hint.motion_sign * model.angle_degrees(reading)
+    return Wheel(
+        spec=spec,
+        frame=frame,
+        clicks=(),
+        fit=WheelFit(_turned(hint.geometry, turn), (), (), (), ()),
+        binding=EncoderBinding(
+            str(hint.source),
+            hint.channel,
+            reading,
+            sign=hint.motion_sign,
+            ratio=model.gain,
+            motion_model=model,
+            motion_source=hint.motion_source,
+        ),
+        calibration=calibration,
+        bar_diameter=before.bar_diameter if before is not None else None,
+        source=hint.geometry_source,
+    )
 
 
 def offer_session_model(window: MainWindow, wheel: Wheel, hint: RotaryHint | None) -> None:

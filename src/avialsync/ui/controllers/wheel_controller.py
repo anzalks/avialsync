@@ -463,6 +463,7 @@ def connect_panel(window: MainWindow) -> None:
     panel.rotation_save_requested.connect(lambda n: wheel_rotation.save(window, n))
     panel.rotation_fit_requested.connect(lambda n: wheel_rotation.fit(window, n))
     panel.rotation_apply_requested.connect(lambda n: wheel_rotation.apply(window, n))
+    panel.rig_wheel_requested.connect(lambda n: wheel_rotation.use_rig_wheel(window, n))
     panel.replace_requested.connect(lambda n: replace(window, n))
     panel.remove_requested.connect(lambda n: remove(window, n))
 
@@ -483,4 +484,5 @@ def reset(window: MainWindow) -> None:
     window.wheel_state.motion_proposals.clear()
     window.wheel_state.motion_fitting.clear()
     window.wheel_state.session_rotary = None
+    window.session_runtime.camera_corrections = ()
     _refresh_marker_place_mode(window)

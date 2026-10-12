@@ -162,6 +162,28 @@ class MappedChannelReader:
             return None
         return found
 
+    def interpolated_sample_at(self, t_master: float) -> float | None:
+        """The value at *t_master*, linear between the samples either side.
+
+        Covered and refused exactly as :meth:`available_sample_at`: never before
+        acquisition, after it, or across an observed gap. A measured angle at a
+        video frame's time lies between two encoder samples; holding the earlier
+        one reads it up to a sample period late.
+        """
+        found = self.available_sample_at(t_master)
+        if found is None:
+            return None
+        index, value = found
+        times, values, _gaps = self._reader.mapped_columns()
+        source_time = self._time_map.to_source(t_master)
+        if index + 1 >= len(times) or source_time <= float(times[index]):
+            return value
+        t0, t1 = float(times[index]), float(times[index + 1])
+        after = float(values[index + 1])
+        if t1 <= t0 or not np.isfinite(after):
+            return value
+        return value + (after - value) * (source_time - t0) / (t1 - t0)
+
     def value_at(self, t_master: float) -> float:
         return self._reader.value_at(self._time_map.to_source(t_master))
 

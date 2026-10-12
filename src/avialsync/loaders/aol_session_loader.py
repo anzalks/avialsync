@@ -28,6 +28,7 @@ from avialsync.core.pose import split_channel
 from avialsync.core.rig_naming import match_label
 from avialsync.core.settings_schema import Setting
 from avialsync.core.source import (
+    CameraCorrectionHint,
     LoadedSource,
     PairingHint,
     PartnerSearch,
@@ -891,6 +892,7 @@ class AOLSessionSource(SessionSource):
             camera_fps=manifest.camera_fps,
             skeleton=manifest.skeleton,
             rotary=_rotary_hint(manifest),
+            camera_corrections=_camera_corrections(),
             pairing=PairingHint(session_epoch, AOLSessionSource) if stamped else None,
             warnings=manifest.warnings,
         )
@@ -1193,13 +1195,16 @@ def _rotary_hint(manifest: AOLManifest) -> RotaryHint | None:
 
     if manifest.encoder_file is None:
         return None
-    from avialsync.loaders.aol_rotary_calibration import configured_model
+    from avialsync.loaders import aol_rig
+    from avialsync.loaders.aol_rotary_calibration import configured_fingerprint, configured_model
 
     try:
         proposal = configured_model()
     except (OSError, UnicodeError, RotaryCalibrationError) as error:
         manifest.warnings.append(f"Wheel calibration model was ignored: {error}")
         proposal = None
+    # The rig's wheel geometry goes only with a model fitted on it (D-226).
+    rig = proposal is not None and configured_fingerprint() == aol_rig.fingerprint()
     hardware = manifest.trial_config.get("hardware", {})
     units = (
         str(hardware.get("wheel_radius_units", "")).strip().strip("'\"")
@@ -1216,7 +1221,16 @@ def _rotary_hint(manifest: AOLManifest) -> RotaryHint | None:
         motion_sign=1.0 if proposal is None else proposal.sign,
         motion_default=proposal is not None,
         motion_source="" if proposal is None else proposal.source,
+        geometry=aol_rig.rig_geometry() if rig else None,
+        geometry_source=aol_rig.GEOMETRY_SOURCE if rig else "",
     )
+
+
+def _camera_corrections() -> tuple[CameraCorrectionHint, ...]:
+    """The rig's camera corrections; a calibration they were not fitted on ignores them."""
+    from avialsync.loaders import aol_rig
+
+    return aol_rig.camera_corrections()
 
 
 def _encoder_items(manifest: AOLManifest) -> list[SessionItem]:

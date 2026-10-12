@@ -7269,3 +7269,41 @@ A saved wheel whose model is not the rig default is offered that default for rev
 session or its props load; it is never applied over a saved model. Fit Rotation now fits against
 the reference frame's reading through the encoder's current mapping, the reading the bars are
 drawn from.
+
+## 2026-10 · D-226 · The AOL rig's calibrated wheel, camera correction and interpolated encoder
+
+**Decision.** The AOL plugin embeds the wheel-calibration analysis's published geometry bundle
+byte for byte (`loaders/aol_rig_bundle.py`: `calibration.toml`, `projection_model.json`,
+`wheel_geometry.json`, base64; SHA-256 `7c55238f…`, the fingerprint the default wheel model names).
+`loaders/aol_rig.py` turns it into generic types:
+
+- **Camera correction.** `CameraModel.correction` is an optional `ImageCorrection`:
+  `pixel = A·p + r(A·p)` after the lens model, `r` a thin-plate spline through control pixels
+  (scipy's `RBFInterpolator`, pixels / 720), exactly the analysis's `ProjectionCamera`. `project()`
+  applies it and `normalise()` inverts it, so triangulation and every overlay go through it.
+  `SessionLayout.camera_corrections` carries each correction with the native camera it was fitted
+  on; a loaded calibration takes it only on a camera whose intrinsics, distortion and pose match
+  (`same_native_camera`; the image size may differ). Only SideCam is corrected.
+- **Rig wheel.** `RotaryHint.geometry`/`geometry_source` carry the published wheel when the
+  configured model was fitted on this bundle. **Use Rig Wheel** (a row button, and an offer when a
+  session loads) builds the wheel with no clicks: the geometry has bar 0 at the model's absolute
+  turn 0, so it is turned by the model's angle at frame 0 and every later frame draws at exactly
+  the analysis's `wheel_angle`. One undo step; `Wheel.source` records it and is saved.
+- **Encoder reading.** The wheel reads the encoder interpolated between the samples either side
+  (`MappedChannelReader.interpolated_sample_at`), as the analysis's `np.interp` does, refusing
+  coverage and gaps as before. This supersedes reading the held sample the Values tab shows.
+- **Per-camera time.** Each pane's bars are drawn at that camera's own frame time; the three AOL
+  cameras expose up to 0.67 ms apart.
+
+**Verified** against the analysis code itself on 2026-05-08 09-35-24 (its vendored core, its
+`load_projection`, `encoder_signal` and `wheel_angle`): all three cameras' projected bar ends
+agree to 1e-8 px on frames 1-13843. Frame 0 differs by 0.05°: the analysis clamps to the first
+counter sample, 1.1 ms later, where AvialSync interpolates from the sample before it.
+
+**Why.** The rig's wheel, camera correction and rotation model were fitted together on 3186
+clicks; reproducing them exactly is what makes AvialSync's wheel the analysis's wheel. A clicked
+wheel through the uncorrected SideCam differed by 5 % in radius and up to ~100 px in SideCam.
+
+**Alternatives rejected.** Package data files: three packaging routes and a byte-exact
+fingerprint across Git line-ending rules; a module needs none. Applying the correction to the
+wheel overlay only: markers and tracking in SideCam would disagree with the wheel they touch.

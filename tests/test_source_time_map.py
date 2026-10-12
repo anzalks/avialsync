@@ -106,6 +106,19 @@ def test_available_sample_rejects_clamped_time_and_observed_gap(tmp_path: Path) 
     assert reader.available_sample_at(17.0) is None
 
 
+def test_interpolated_sample_lies_between_its_neighbours_and_refuses_gaps(tmp_path: Path) -> None:
+    """A wheel's angle at a frame lies between two encoder samples (D-226)."""
+    times = np.asarray((0.0, 1.0, 2.0, 20.0, 21.0))
+    PyramidBuilder(tmp_path, "position").build_and_save(times, 10.0 * times)
+    reader = MappedChannelReader(PyramidReader(tmp_path, "position"), TimeMap(offset=5.0))
+    assert reader.interpolated_sample_at(-4.75) == pytest.approx(2.5)
+    assert reader.interpolated_sample_at(-5.0) == pytest.approx(0.0)
+    assert reader.interpolated_sample_at(-2.9) is None, "inside the observed gap"
+    assert reader.interpolated_sample_at(15.5) == pytest.approx(205.0)
+    assert reader.interpolated_sample_at(16.0) == pytest.approx(210.0), "the last sample"
+    assert reader.interpolated_sample_at(-6.0) is None
+
+
 def test_exact_mapping_does_not_extend_endpoint_values_into_uncovered_time(tmp_path: Path) -> None:
     times = np.array([0.0, 1.0, 2.0])
     PyramidBuilder(tmp_path, "position").build_and_save(times, times)
