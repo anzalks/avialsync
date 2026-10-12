@@ -171,7 +171,9 @@ def test_an_empty_video_area_shrinks_with_the_window(
     While it was pinned, every pixel a shorter window took came out of the plot
     area alone, so the two panes never scaled together.
     """
-    assert window.video_grid.lbl_empty.isVisible()
+    # The empty state holds the grid's empty slot; the grid's own note is hidden.
+    assert window.empty_state.isVisible()
+    assert not window.video_grid.lbl_empty.isVisible()
 
     _resize(window, qapp, 1280, 800)
     tall = window._v_splitter.sizes()[0]
