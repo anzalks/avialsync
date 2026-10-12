@@ -12,6 +12,8 @@ import pytest
 
 from avialsync.ui import recovery
 
+_CACHE_SANDBOX: str | None = None
+
 
 @pytest.hookimpl(trylast=True)
 def pytest_configure(config: pytest.Config) -> None:
@@ -71,7 +73,19 @@ def _sandbox_cache() -> None:
     """
     from avialsync.core.cache import CACHE_DIR_ENV
 
-    os.environ[CACHE_DIR_ENV] = tempfile.mkdtemp(prefix="avialsync-cache-")
+    global _CACHE_SANDBOX
+    _CACHE_SANDBOX = tempfile.mkdtemp(prefix="avialsync-cache-")
+    os.environ[CACHE_DIR_ENV] = _CACHE_SANDBOX
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_setup(item: pytest.Item) -> None:
+    """Restore the suite cache after a collection-time import changed the environment."""
+    del item
+    from avialsync.core.cache import CACHE_DIR_ENV
+
+    assert _CACHE_SANDBOX is not None, "pytest cache sandbox was not configured"
+    os.environ[CACHE_DIR_ENV] = _CACHE_SANDBOX
 
 
 def _rearm_faulthandler(config: pytest.Config) -> None:

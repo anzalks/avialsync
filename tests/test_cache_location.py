@@ -135,9 +135,10 @@ def test_linux_honours_an_absolute_xdg_cache_home_and_ignores_a_relative_one(
 
 
 def test_the_suite_never_writes_into_the_real_user_cache() -> None:
-    """conftest points the root at a temporary folder for the whole run."""
-    assert os.environ.get(CACHE_DIR_ENV)
-    assert cache_root() == Path(os.environ[CACHE_DIR_ENV])
+    """Each test starts in conftest's cache sandbox, after collection-time imports."""
+    root = cache_root()
+    assert "avialsync-cache-" in str(root)
+    assert root == Path(os.environ[CACHE_DIR_ENV])
 
 
 # ── how an entry is named ───────────────────────────────────────────
