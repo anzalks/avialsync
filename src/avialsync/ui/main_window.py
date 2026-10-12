@@ -906,9 +906,7 @@ class MainWindow(QMainWindow):
         self.empty_state = EmptyState(self)
         self.empty_state.install_open_actions(self._act_open_video, self._act_open_sensor)
         self.empty_state.demo_requested.connect(self._launch_demo)
-        grid_layout = self.video_grid.layout()
-        if grid_layout is not None:
-            grid_layout.addWidget(self.empty_state)
+        self.video_grid.set_empty_widget(self.empty_state)
         self._refresh_empty_state()
 
     # ── Action availability ──────────────────────────────────
@@ -983,6 +981,7 @@ class MainWindow(QMainWindow):
             return
         nothing_loaded = not self._anything_loaded()
         empty_state.setVisible(nothing_loaded)
+        self.video_grid.refresh_empty()
         if self._empty_layout_ready:
             self._apply_empty_layout(nothing_loaded)
         # The grid's floor stays where `VideoGrid` set it, in every state. It

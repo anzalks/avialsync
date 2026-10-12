@@ -111,6 +111,35 @@ def test_it_returns_when_everything_is_closed(window: MainWindow, tmp_path) -> N
     assert window.empty_state.isVisible() is True
 
 
+def test_a_relayout_while_loading_keeps_one_message(window: MainWindow) -> None:
+    """A load starts with a grid relayout; it must not draw a second placeholder.
+
+    The relayout emptied the grid's layout and showed the grid's own "No videos
+    loaded" note, leaving the still-visible empty state out of the layout and
+    the two texts drawn over each other.
+    """
+    grid = window.video_grid
+    grid.begin_batch_add()
+    grid.end_batch_add()
+    assert window.empty_state.isVisible() is True
+    assert grid.lbl_empty.isVisible() is False
+    assert grid.layout().indexOf(window.empty_state) >= 0
+
+
+def test_the_grid_note_shows_only_when_the_empty_state_is_hidden(
+    window: MainWindow, tmp_path
+) -> None:
+    """Sources open but no camera shown: the grid's own note, not the drop target."""
+    window._sensor_cache_dirs["/tmp/sensor.csv"] = tmp_path / "sensor_cache"
+    window._refresh_empty_state()
+    assert window.empty_state.isVisible() is False
+    assert window.video_grid.lbl_empty.isVisible() is True
+    window._sensor_cache_dirs.clear()
+    window._refresh_empty_state()
+    assert window.empty_state.isVisible() is True
+    assert window.video_grid.lbl_empty.isVisible() is False
+
+
 # ── about, and what a bug report needs ───────────────────────────────
 
 

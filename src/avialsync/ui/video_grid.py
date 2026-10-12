@@ -85,6 +85,8 @@ class VideoGrid(GridOverlayMixin, QWidget):
         self.lbl_empty.setMinimumHeight(0)
         self.lbl_empty.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Ignored)
         self._layout.addWidget(self.lbl_empty, 0, 0)
+        #: The window's own empty state, when it has one (`set_empty_widget`).
+        self._empty_widget: QWidget | None = None
         # Keep an empty grid readable as a pane and as a drop target, without
         # letting it dictate how the window's height is shared.
         self.setMinimumHeight(self.BASE_MIN_HEIGHT)
@@ -344,6 +346,36 @@ class VideoGrid(GridOverlayMixin, QWidget):
             self._update_labels()
             self.displayed_panes_changed.emit()
 
+    def set_empty_widget(self, widget: QWidget) -> None:
+        """Hold the window's empty state in the grid wherever no pane is shown.
+
+        Every relayout empties the layout. The window's empty state used to be
+        added to it once, so the first relayout -- the start of a multi-file
+        load -- dropped it out of the layout while it stayed visible, and the
+        grid's own placeholder was drawn over it.
+        """
+        self._empty_widget = widget
+        self.refresh_empty()
+
+    def refresh_empty(self) -> None:
+        """Re-place the empty state after its owner changed whether it shows."""
+        if not self.visible_panes():
+            self._relayout()
+
+    def _place_empty(self) -> None:
+        """No pane to show: the window's empty state if it shows, else the grid's note.
+
+        The note is for a grid whose cameras are all switched off while other
+        sources are open, when the window's empty state is rightly hidden.
+        """
+        empty = self._empty_widget
+        if empty is not None and not empty.isHidden():
+            self.lbl_empty.setVisible(False)
+            self._layout.addWidget(empty, 0, 0)
+        else:
+            self.lbl_empty.setVisible(True)
+            self._layout.addWidget(self.lbl_empty, 0, 0)
+
     def _relayout(self) -> None:
         """Remove all widgets from the grid and re-add them in the
         current arrangement (strip or NxN).  Widgets stay parented to
@@ -368,8 +400,7 @@ class VideoGrid(GridOverlayMixin, QWidget):
 
             # ── Empty state ──────────────────────────────────────────
             if n == 0:
-                self.lbl_empty.setVisible(True)
-                self._layout.addWidget(self.lbl_empty, 0, 0)
+                self._place_empty()
                 return
 
             self.lbl_empty.setVisible(False)
