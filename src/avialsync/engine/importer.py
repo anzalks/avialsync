@@ -55,6 +55,14 @@ def _array_fingerprint(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _array_is_unchanged(path: Path, fingerprint: object, mtimes: Any, has_mtimes: bool) -> bool:
+    """Use metadata for new entries, retaining full validation for legacy caches."""
+    if has_mtimes:
+        expected_mtime = mtimes.get(path.name)
+        return isinstance(expected_mtime, int) and path.stat().st_mtime_ns == expected_mtime
+    return isinstance(fingerprint, str) and _array_fingerprint(path) == fingerprint
+
+
 def _share_file(source: Path, target: Path) -> None:
     """Give *target* the same bytes as *source*, without a second copy if possible.
 
@@ -354,13 +362,20 @@ class ImportWorker(QObject):
                 channels,
                 manifest.get("array_sizes"),
                 manifest.get("array_fingerprints"),
+                manifest.get("array_mtimes"),
             )
         ):
             return None
         return cache_dir, channels, bounds, inspection
 
     @staticmethod
-    def _arrays_intact(cache_dir: Path, channels: list[str], sizes: Any, fingerprints: Any) -> bool:
+    def _arrays_intact(
+        cache_dir: Path,
+        channels: list[str],
+        sizes: Any,
+        fingerprints: Any,
+        mtimes: Any,
+    ) -> bool:
         """Reject missing, truncated, or structurally invalid cached columns.
 
         Columns may be arrays, grid records, or read in place from the source
@@ -371,17 +386,27 @@ class ImportWorker(QObject):
             return False
         if sizes.keys() != fingerprints.keys():
             return False
+        has_mtimes = isinstance(mtimes, dict) and mtimes.keys() == sizes.keys()
         try:
             for name, expected_size in sizes.items():
+                path = cache_dir / name
                 if (
                     not isinstance(name, str)
                     or Path(name).name != name
                     or not name.endswith(".npy")
                     or not isinstance(expected_size, int)
-                    or (cache_dir / name).stat().st_size != expected_size
-                    or _array_fingerprint(cache_dir / name) != fingerprints[name]
+                    or path.stat().st_size != expected_size
+                    or not _array_is_unchanged(path, fingerprints[name], mtimes, has_mtimes)
                 ):
                     return False
+            # The cache writer recorded each derived file's exact size and
+            # modification time after its final header was written.  A later
+            # truncate, replacement, or header edit changes one of those, so
+            # reopening a fresh cache need not reopen every NPY header merely
+            # to rediscover its shape.  Legacy manifests retain the deeper
+            # fingerprint and header path below.
+            if has_mtimes:
+                return True
             present = {entry.name for entry in os.scandir(cache_dir)}
             for channel in channels:
                 if not columns_intact(cache_dir, channel, LEVELS, present):
@@ -684,5 +709,6 @@ class ImportWorker(QObject):
             "array_fingerprints": {
                 item.name: _array_fingerprint(item) for item in temp_dir.glob("*.npy")
             },
+            "array_mtimes": {item.name: item.stat().st_mtime_ns for item in temp_dir.glob("*.npy")},
         }
         (temp_dir / _IMPORT_MANIFEST).write_text(json.dumps(payload), encoding="utf-8")

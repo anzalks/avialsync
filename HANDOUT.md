@@ -1577,7 +1577,10 @@ Open Ephys stream is pointed at its own `continuous/<stream>` directory and `Neo
 `config["root"]` for what neo should actually open (D-071).
 
 **D-199 update.** The import key also fingerprints an Open Ephys root's `structure.oebin`; the
-source path still names the entry. A warm hit checks expected array sizes and base array headers.
+source path still names the entry. A warm hit checks expected array sizes and, for new entries, the
+recorded modification time of each derived array; older entries retain the sampled-content and base
+header checks until they are rebuilt. This keeps fresh wide-channel cache hits bounded without
+accepting truncation, replacement, or header edits.
 Directory keys walk nested files, while large files sample first/middle/last content; neither is
 a whole-file cryptographic checksum. The video decoder and loader share one PTS/keyframe index.
 Cache survives a normal close; File → Cache → Trim Cache is the manual 10 GB / 30 day cleanup.

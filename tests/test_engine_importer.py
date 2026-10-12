@@ -9,6 +9,7 @@ from avialsync.core.cache import cache_dir_for
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.messages import Message
 from avialsync.core.source import ChannelInfo
+from avialsync.engine import importer
 from avialsync.engine.importer import ImportWorker
 
 
@@ -97,6 +98,22 @@ def test_import_worker_uses_one_bulk_parse_then_reuses_valid_cache(tmp_path: Pat
     assert _BulkLoader.bulk_calls == 1
     assert completed[-1][2] == ["left", "right"]
     assert completed[-1][3] == (0.0, 2.0)
+
+
+def test_new_cache_reopens_without_rereading_derived_arrays_or_headers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fresh manifests validate the cache by recorded file metadata."""
+    source = tmp_path / "signal.csv"
+    source.write_text("source bytes", encoding="utf-8")
+    ImportWorker(source, {}, _BulkLoader).run()
+
+    def reread_is_a_regression(_path: Path) -> str:
+        raise AssertionError("a fresh cache hit must not reread each derived array")
+
+    monkeypatch.setattr(importer, "_array_fingerprint", reread_is_a_regression)
+    monkeypatch.setattr(importer, "columns_intact", reread_is_a_regression)
+    ImportWorker(source, {}, _BulkLoader).run()
 
 
 def test_import_rebuilds_when_cached_array_is_truncated(tmp_path: Path) -> None:
