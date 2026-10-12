@@ -1152,7 +1152,8 @@ def test_a_declared_but_absent_event_folder_is_not_fatal(tmp_path: Path) -> None
 
     assert fmt.event_stream_defects(recording) == []
     loader = NeoLoader()
-    loader.open(recording, {"events": True})
+    with pytest.warns(UserWarning, match=r"events/MessageCenter/ is missing"):
+        loader.open(recording, {"events": True})
     assert loader.messages() == []
 
 
