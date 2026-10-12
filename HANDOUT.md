@@ -396,7 +396,8 @@ Fixture: `tools/make_fixtures.generate_sync_ground_truth`.
 - **D-200 cache and UI handoff.** Import previews read at most 64 KiB in a registered job;
   stimulus-grid overviews, pose export frame mapping, retraining labels, and launch recovery reads
   run on workers. Warm import checks every pyramid header and sampled content before reuse. A
-  running reader pin blocks replacement or
+  Legacy warm imports check every pyramid header and sampled content before reuse; new manifests
+  record exact derived-file size and mtime for the bounded fast path. A running reader pin blocks replacement or
   cache removal, which reports "in use" for retry. Separately streamed, identical long timestamp
   grids share a cache file so the 3D pane recognizes them without comparing arrays on the UI thread.
   Exact `TimeMap.copy()` snapshots share immutable evidence arrays rather than copying large mappings.
