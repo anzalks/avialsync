@@ -53,6 +53,28 @@ def test_a_cameras_parts_play_as_one_inter_frame_video_with_the_gap_kept(tmp_pat
     assert manifest.stat().st_mtime_ns == built  # reused, not rebuilt
 
 
+def test_a_joined_video_whose_first_part_starts_late_covers_its_frames(tmp_path: Path) -> None:
+    """Bounds are where the frames are, not ``(0, duration)``.
+
+    A camera that missed a session's first trials has its first part well after
+    the session zero (D-217). Bounds counted from zero ended a whole first-part
+    start early, so every later trial showed No Footage over recorded frames.
+    """
+    first, second = tmp_path / "trial_7.mp4", tmp_path / "trial_8.mp4"
+    write_video(first, frame_times=cfr_times(45), gop_size=10)
+    write_video(second, frame_times=cfr_times(45), gop_size=10)
+    loader = JoinedVideoSource()
+    loader.open(
+        first / JOINED_PARTS,
+        {"parts": [{"path": str(first), "start": 570.0}, {"path": str(second), "start": 900.0}]},
+    )
+    loader.prepare(lambda _fraction: None)
+    times = loader.frame_times()
+    start, end = loader.time_bounds()
+    assert start == pytest.approx(times[0]) == pytest.approx(570.0, abs=1e-3)
+    assert end == pytest.approx(times[-1]) == pytest.approx(900.0 + 44 / 30, abs=1e-3)
+
+
 class FakePart(TimeSeriesSource):
     """Three samples at 10 Hz, each part's value from its own config."""
 

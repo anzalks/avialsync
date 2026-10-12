@@ -344,9 +344,14 @@ class VideoStandardLoader(VideoSource):
 
         if is_segmented(path) and self._frame_times is not None and len(self._frame_times):
             # The first file's header describes one trial, not the joined video.
+            # Its parts sit at their recorded starts (D-217), so the first frame
+            # is wherever the first part began -- 570 s in, for a camera that
+            # missed a session's first trials -- and the bounds start there.
+            # Counted from zero they ended that much early, and every later
+            # trial showed No Footage over frames it had.
             self._frame_count = len(self._frame_times)
             self._duration = float(self._frame_times[-1] - self._frame_times[0])
-            self._start_time = 0.0
+            self._start_time = float(self._frame_times[0])
         if self._frame_count is None and self._frame_times is not None:
             self._frame_count = len(self._frame_times)
         self._frame_rate_statistics()
