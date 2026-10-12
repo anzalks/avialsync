@@ -171,7 +171,10 @@ def encoder_binding(
         # Re-placing keeps the ratio and the checks: they are observations of
         # the footage, still true of the new geometry, and re-settle against it.
         binding = dataclasses.replace(
-            binding, ratio=previous.binding.ratio, checks=previous.binding.checks
+            binding,
+            ratio=previous.binding.ratio,
+            checks=previous.binding.checks,
+            motion_model=previous.binding.motion_model,
         )
         binding = settle_sign(placement.fit.geometry, binding, camera_models(window))[0]
     return binding
@@ -190,9 +193,7 @@ def _turn(window: MainWindow, wheel: Wheel, frame: int, t_frame: float) -> float
         return None
     # Both readings through today's mapping, so re-aligning the encoder after
     # placing the wheel keeps the reference frame at zero turn.
-    return (
-        binding.sign * binding.ratio * (now - (binding.reference_angle if then is None else then))
-    )
+    return binding.turn(now, binding.reference_angle if then is None else then)
 
 
 def _ends(window: MainWindow, wheel: Wheel, t_master: float) -> np.ndarray | None:

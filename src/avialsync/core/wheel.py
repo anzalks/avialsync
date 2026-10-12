@@ -43,6 +43,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from avialsync.core.calibration import CameraModel
+from avialsync.core.rotary_motion import PeriodicRotaryMotion
 
 __all__ = [
     "LEFT",
@@ -265,10 +266,15 @@ class EncoderBinding:
     ratio: float = 1.0
     measured: bool = False
     checks: tuple[WheelCheck, ...] = ()
+    #: Optional instrument correction in the encoder's positive direction.
+    motion_model: PeriodicRotaryMotion | None = None
 
-    def turn(self, encoder_angle: float) -> float:
+    def turn(self, encoder_angle: float, reference_angle: float | None = None) -> float:
         """Degrees the wheel has turned since the reference frame."""
-        return self.sign * self.ratio * (float(encoder_angle) - self.reference_angle)
+        reference = self.reference_angle if reference_angle is None else float(reference_angle)
+        if self.motion_model is not None:
+            return self.sign * self.motion_model.relative_turn_degrees(encoder_angle, reference)
+        return self.sign * self.ratio * (float(encoder_angle) - reference)
 
 
 @dataclass(frozen=True)

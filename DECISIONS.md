@@ -7130,3 +7130,35 @@ its signature (the D-067 contract); a joined CSV failed before.
 search, its preferences and its state named AOL, and plugins had no way to ask for a folder. The
 check and the tutorials (`docs/plugins/`, with a tested example in `examples/plugin_tutorials/`)
 make the API learnable without reading a 1 200-line reference implementation.
+
+---
+
+## 2026-10 · D-221 · Periodic rotary calibration is generic; its source conventions are plugins'
+
+**Decision.** `core.rotary_motion.PeriodicRotaryMotion` represents a calibrated unwrapped rotary
+reading in degrees: a positive linear gain and offset plus sine/cosine correction terms for each
+integer number of cycles per revolution. It is headless and has no rig, camera, encoder-file, or
+prop name. The generic model deliberately has no direction: a prop binding owns direction because
+the visible prop's video checks establish it. `EncoderBinding.motion_model` therefore applies the
+binding's independently verified `sign` to the entire calibrated relative turn, and the wheel
+display samples both readings through its live `TimeMap` at the displayed frame as before.
+
+The optional model persists with the binding in the canonical prop sidecar as a versioned
+`[encoder.motion]` `periodic_rotary` table and `[[encoder.motion.harmonic]]` records. A model that
+cannot be understood makes only that prop record damaged, under the ordinary sidecar rule.
+
+An AOL plugin is responsible for importing its encoder file and model JSON, converting its units,
+phase and sign convention into this representation, proposing/reviewing calibration data, and all
+camera geometry correction and paw-contact analysis. Core does not parse an AOL artifact or infer
+that a source should receive this model. Other plugins may construct the same generic model from
+their own evidence.
+
+**Why.** Periodic encoder error and a video-verified direction are reusable moving-prop concepts;
+AOL's model-file schema, named cameras, contact classifier, and rig calibration workflow are not.
+Keeping that boundary lets a plugin use the handoff's encoder correction without making every
+AvialSync source look like an AOL wheel.
+
+**Alternatives rejected.** A single AOL-only calibrated-wheel class: it would duplicate the
+existing live mapping, checks and prop persistence. Putting source direction inside the generic
+transfer: a copied model could silently contradict the visible prop, while the current check flow
+would no longer be able to settle its direction.

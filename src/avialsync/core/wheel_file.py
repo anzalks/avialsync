@@ -20,6 +20,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from avialsync.core.rotary_motion import PeriodicRotaryMotion, RotaryHarmonic
 from avialsync.core.toml_format import toml_value
 from avialsync.core.wheel import (
     ClickResidual,
@@ -109,6 +110,26 @@ def wheel_sections(wheel: Wheel) -> list[str]:
                 ("measured", binding.measured),
             ],
         )
+        if binding.motion_model is not None:
+            model = binding.motion_model
+            lines += _table(
+                "[encoder.motion]",
+                [
+                    ("kind", "periodic_rotary"),
+                    ("version", 1),
+                    ("gain", model.gain),
+                    ("offset_degrees", model.offset_degrees),
+                ],
+            )
+            for harmonic in model.harmonics:
+                lines += _table(
+                    "[[encoder.motion.harmonic]]",
+                    [
+                        ("order", harmonic.order),
+                        ("sine_degrees", harmonic.sine_degrees),
+                        ("cosine_degrees", harmonic.cosine_degrees),
+                    ],
+                )
     lines += _records(wheel)
     return lines
 
@@ -185,6 +206,7 @@ def _parse_binding(document: Mapping[str, Any]) -> EncoderBinding | None:
     encoder = document.get("encoder")
     if encoder is None:
         return None
+    motion = _parse_motion(encoder.get("motion"))
     return EncoderBinding(
         source_id=str(encoder["source"]),
         channel=str(encoder["channel"]),
@@ -202,7 +224,38 @@ def _parse_binding(document: Mapping[str, Any]) -> EncoderBinding | None:
             )
             for k in document.get("check", ())
         ),
+        motion_model=motion,
     )
+
+
+def _parse_motion(value: Any) -> PeriodicRotaryMotion | None:
+    """Read an optional versioned periodic transfer from an encoder table."""
+    if value is None:
+        return None
+    model = _mapping(value)
+    if model.get("kind") != "periodic_rotary" or int(model.get("version", 0)) != 1:
+        raise ValueError("Unsupported encoder motion model.")
+    raw_harmonics = model.get("harmonic", ())
+    if not isinstance(raw_harmonics, list):
+        raise ValueError("Encoder motion harmonics must be a table array.")
+    return PeriodicRotaryMotion(
+        gain=float(model["gain"]),
+        offset_degrees=float(model["offset_degrees"]),
+        harmonics=tuple(
+            RotaryHarmonic(
+                order=int(_mapping(harmonic)["order"]),
+                sine_degrees=float(_mapping(harmonic).get("sine_degrees", 0.0)),
+                cosine_degrees=float(_mapping(harmonic).get("cosine_degrees", 0.0)),
+            )
+            for harmonic in raw_harmonics
+        ),
+    )
+
+
+def _mapping(value: Any) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ValueError("An encoder motion model must be a TOML table.")
+    return value
 
 
 def _parse(document: Mapping[str, Any]) -> Wheel | None:

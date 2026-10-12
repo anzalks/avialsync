@@ -18,6 +18,7 @@ from avialsync.core.commands import SetWheelCommand
 from avialsync.core.errors import PropModelError, WheelFitError
 from avialsync.core.physical_props import Ladder, PropStore, WheelView
 from avialsync.core.prop_file import is_prop_path, prop_path
+from avialsync.core.rotary_motion import PeriodicRotaryMotion, RotaryHarmonic
 from avialsync.core.wheel import (
     LEFT,
     RIGHT,
@@ -292,6 +293,11 @@ def _wheel() -> Wheel:
         12.0,
         sign=-1.0,
         checks=(WheelCheck(3, 40.0, "Front", 1.0, 2.0),),
+        motion_model=PeriodicRotaryMotion(
+            gain=1.02,
+            offset_degrees=3.0,
+            harmonics=(RotaryHarmonic(1, sine_degrees=0.3, cosine_degrees=-0.2),),
+        ),
     )
     return Wheel(
         spec, 7, clicks, fit_wheel(spec, clicks, CAMERAS), binding=binding, calibration="c.toml"
@@ -350,6 +356,16 @@ def test_the_binding_turns_by_sign_and_ratio() -> None:
     binding = EncoderBinding("enc", "a", reference_angle=10.0, sign=-1.0, ratio=0.5)
     assert binding.turn(30.0) == -10.0
     assert dataclasses.replace(binding, sign=1.0).turn(30.0) == 10.0
+
+
+def test_the_binding_applies_a_periodic_transfer_before_its_verified_direction() -> None:
+    model = PeriodicRotaryMotion(
+        gain=1.0,
+        harmonics=(RotaryHarmonic(1, sine_degrees=2.0),),
+    )
+    binding = EncoderBinding("enc", "a", reference_angle=0.0, sign=-1.0, motion_model=model)
+    assert binding.turn(90.0) == pytest.approx(-92.0)
+    assert binding.turn(180.0, reference_angle=90.0) == pytest.approx(-88.0)
 
 
 def test_ends_clicked_the_other_way_round_are_named() -> None:
