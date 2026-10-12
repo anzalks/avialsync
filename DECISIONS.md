@@ -7289,6 +7289,10 @@ byte for byte (`loaders/aol_rig_bundle.py`: `calibration.toml`, `projection_mode
   session loads) builds the wheel with no clicks: the geometry has bar 0 at the model's absolute
   turn 0, so it is turned by the model's angle at frame 0 and every later frame draws at exactly
   the analysis's `wheel_angle`. One undo step; `Wheel.source` records it and is saved.
+- **Re-anchoring.** As the analysis's `geometry_bundle.load_geometry` does, the published bar 0
+  is turned by the reference trial's encoder reading at the reference time (53.9225°, the first
+  sample of 09-35-24's counter window) minus the model's encoder reference (49.5058°): 4.4168°.
+  Missing it drew every bar 0.61 of a pitch off, between the rungs.
 - **Encoder reading.** The wheel reads the encoder interpolated between the samples either side
   (`MappedChannelReader.interpolated_sample_at`), as the analysis's `np.interp` does, refusing
   coverage and gaps as before. This supersedes reading the held sample the Values tab shows.

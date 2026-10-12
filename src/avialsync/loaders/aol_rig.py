@@ -14,9 +14,11 @@ generic :class:`ImageCorrection`, :class:`CameraModel` and
 from __future__ import annotations
 
 import base64
+import dataclasses
 import functools
 import hashlib
 import json
+import math
 from typing import Any
 
 from avialsync.core.calibration import ImageCorrection, parse_calibration
@@ -30,6 +32,13 @@ __all__ = ["GEOMETRY_SOURCE", "camera_corrections", "fingerprint", "rig_geometry
 GEOMETRY_SOURCE = f"AOL rig wheel (geometry {aol_rig_bundle.FINGERPRINT[:8]})"
 #: Pixels are divided by this before the residual field is evaluated.
 _RESIDUAL_SCALE = 720.0
+#: ``wheel_model.REFERENCE_RAD`` of the analysis, in degrees: the encoder angle
+#: its rotation model measures from (the AOL model's ``encoder_reference_rad``).
+_ENCODER_REFERENCE_DEG = 49.50575637817383
+#: The reference trial's encoder at the bundle's reference time (2026-05-08
+#: 09-35-24, camera frame 0, i.e. the first sample of its counter window), as
+#: the analysis's ``geometry_bundle.load_geometry`` reads it.
+_REFERENCE_READING_DEG = 53.922542572021484
 
 
 def _file(name: str) -> bytes:
@@ -48,9 +57,16 @@ def _json(name: str) -> dict[str, Any]:
 
 @functools.cache
 def rig_geometry() -> WheelGeometry:
-    """The wheel in the native calibration's world frame; bar 0 at absolute turn 0."""
+    """The wheel in the native calibration's world frame; bar 0 at absolute turn 0.
+
+    The published ``zero`` is bar 0 on the reference frame. The rotation model
+    is absolute, so -- exactly as the analysis's ``load_geometry`` does --
+    bar 0 is moved by the reference reading's distance from the model's
+    encoder reference before any model angle is added. Without it every bar
+    sits 4.42 degrees (0.61 of a bar pitch) off, between the real rungs.
+    """
     shape = _json("wheel_geometry.json")["geometry"]
-    return WheelGeometry(
+    geometry = WheelGeometry(
         centre=tuple(float(v) for v in shape["centre"]),  # type: ignore[arg-type]
         axle=tuple(float(v) for v in shape["axle"]),  # type: ignore[arg-type]
         zero=tuple(float(v) for v in shape["zero"]),  # type: ignore[arg-type]
@@ -58,6 +74,10 @@ def rig_geometry() -> WheelGeometry:
         half_width=float(shape["half_width"]),
         bar_count=int(shape["bar_count"]),
     )
+    x, y, _ = geometry.basis()
+    angle = math.radians(_REFERENCE_READING_DEG - _ENCODER_REFERENCE_DEG)
+    zero = math.cos(angle) * x + math.sin(angle) * y
+    return dataclasses.replace(geometry, zero=(float(zero[0]), float(zero[1]), float(zero[2])))
 
 
 @functools.cache

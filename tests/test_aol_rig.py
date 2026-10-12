@@ -25,6 +25,20 @@ def test_rig_geometry_is_the_published_wheel() -> None:
     assert abs(float(np.dot(geometry.axle, geometry.zero))) < 1e-6
 
 
+def test_bar_zero_is_reanchored_as_the_analysis_loads_it() -> None:
+    """``load_geometry`` turns the published bar 0 by reading minus reference: 4.4168 degrees.
+
+    Without it the model draws every bar 0.61 of a pitch off, between the rungs.
+    """
+    published = np.asarray(json.loads(aol_rig._file("wheel_geometry.json"))["geometry"]["zero"])
+    zero = np.asarray(aol_rig.rig_geometry().zero)
+    axle = np.asarray(aol_rig.rig_geometry().axle)
+    turned = math.degrees(
+        math.atan2(np.dot(np.cross(axle, published), zero), np.dot(published, zero))
+    )
+    assert turned == pytest.approx(53.922542572021484 - 49.50575637817383, abs=1e-9)
+
+
 def test_only_sidecam_carries_a_correction_and_it_inverts() -> None:
     hints = aol_rig.camera_corrections()
     assert [hint.camera.name for hint in hints] == ["SideCam"]
