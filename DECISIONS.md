@@ -7311,3 +7311,35 @@ wheel through the uncorrected SideCam differed by 5 % in radius and up to ~100 p
 **Alternatives rejected.** Package data files: three packaging routes and a byte-exact
 fingerprint across Git line-ending rules; a module needs none. Applying the correction to the
 wheel overlay only: markers and tracking in SideCam would disagree with the wheel they touch.
+
+## 2026-10 · D-227 · Every moving physical prop has explicit video-alignment evidence
+
+**Decision.** Wheel, belt, and ball are the moving built-in physical props. Each keeps raw,
+saved video evidence, builds a non-mutating correction proposal in a registered worker, reports
+its pixel residual, and changes a prop only when the user explicitly applies that proposal through
+one undoable command. This is the required shape for a new moving prop as well; static supports
+such as ladders need no motion-alignment control.
+
+For a channel-bound belt, at least three checks spanning displacement fit only its reference
+distance and distance-per-reading. The scale is bounded to ±25 % of the declared physical-unit
+conversion: a gross unit or geometry error must be corrected as such, rather than selected as an
+arbitrary fit. For a channel-bound ball, at least three informative checks fit one fixed quaternion
+sensor-axis correction by conjugating the relative orientation. Its reference pose therefore stays
+where the user bound it. Rank-deficient or insufficient evidence produces an explanation, never a
+correction. The proposal, raw checks, and its accepted correction persist in the prop sidecar;
+unaccepted proposals are discarded when their prop changes.
+
+Video alignment does not move declared geometry or alter a source TimeMap. Geometry and timing
+remain independently visible facts, and a user fixes either one explicitly. The existing visual
+only belt/ball tracks remain their own raw-click evidence adapters (D-157, D-162); they are not
+silently converted into a channel binding.
+
+**Why.** A channel that drives an otherwise correct drawing can have a phase, physical scale, or
+sensor-axis mismatch. Treating saved video checks as evidence lets the user tune it against footage
+without turning an optimisation result into an invisible source or geometry change.
+
+**Alternatives rejected.** One generic visual slider for every prop: a belt's phase/physical scale
+and a ball's coordinate axes have different identifiable parameters, and a slider could imply that
+an unconstrained direction had been measured. Automatic acceptance after a fit: it would silently
+change an apparatus from limited or ambiguous video evidence. Reusing visual-only track clicks:
+that would conflate two distinct motion authorities.

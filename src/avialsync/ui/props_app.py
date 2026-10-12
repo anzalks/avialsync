@@ -22,7 +22,7 @@ from avialsync.core.commands import (
     SetLadderStepCommand,
     SetPhysicalPropCommand,
 )
-from avialsync.core.errors import PropModelError
+from avialsync.core.errors import PropModelError, PropMotionCalibrationError
 from avialsync.core.physical_props import (
     LADDER_SUPPORTS,
     STEP_IRREGULARITIES,
@@ -47,6 +47,10 @@ from avialsync.core.physical_props import (
     WheelView,
 )
 from avialsync.core.prop_file import PropFileIssue, PropKind, PropRecord, prop_kind, prop_path
+from avialsync.core.prop_motion_calibration import (
+    BallMotionCalibrationProposal,
+    BeltMotionCalibrationProposal,
+)
 from avialsync.core.visual_prop_tracking import (
     AMBIGUOUS_CROSSING,
     INCONSISTENT_VIEWS,
@@ -207,6 +211,10 @@ class PropsApp:
         self._display_key: tuple[tuple[str, int], ...] | None = None
         self._display_ladders: tuple[Ladder, ...] = ()
         self._pending_placement: belt_placement.Placement | None = None
+        self._motion_fitting: set[str] = set()
+        self._motion_proposals: dict[
+            str, BeltMotionCalibrationProposal | BallMotionCalibrationProposal
+        ] = {}
 
     # What is collecting clicks. Properties so that the panel's Save, Next and
     # Cancel follow every one of the many places that start or end a gesture.
@@ -271,6 +279,8 @@ class PropsApp:
         panel.visual_clear_requested.connect(self.clear_visual_track)
         panel.visual_lap_requested.connect(self.set_visual_lap)
         panel.motion_check_requested.connect(self.start_check)
+        panel.motion_fit_requested.connect(self.fit_motion)
+        panel.motion_apply_requested.connect(self.apply_motion)
         panel.remove_prop_requested.connect(self.remove_prop)
         panel.prop_selected.connect(self._show_selected_prop)
         self.panel = panel
@@ -355,6 +365,8 @@ class PropsApp:
         elif kind == "ball" and isinstance(prop, BallProp):
             self.panel.set_ball_fields(prop)
         if isinstance(prop, (BeltProp, BallProp)):
+            proposal = self._motion_proposals.get(prop.name)
+            self.panel.set_motion_proposal(prop.name, self._proposal_text(prop, proposal))
             self._saved_visual_feedback(prop)
 
     def _refresh_motion_channels(self) -> None:
@@ -872,6 +884,134 @@ class PropsApp:
             tr("Click the identified moving mark on a later frame in any calibrated camera.")
         )
 
+    @staticmethod
+    def _proposal_text(
+        prop: BeltProp | BallProp,
+        proposal: BeltMotionCalibrationProposal | BallMotionCalibrationProposal | None,
+    ) -> str | None:
+        """Describe an unaccepted video-motion proposal in the prop's own terms."""
+        if proposal is None:
+            return None
+        if isinstance(prop, BeltProp) and isinstance(proposal, BeltMotionCalibrationProposal):
+            return tr(
+                "Video proposal from {count} checks: RMS {rms:.1f} px. Review and apply it."
+            ).format(count=proposal.observation_count, rms=proposal.rms_px or 0.0)
+        if isinstance(prop, BallProp) and isinstance(proposal, BallMotionCalibrationProposal):
+            return tr(
+                "Video proposal from {count} checks: RMS {rms:.1f} px. Review and apply it."
+            ).format(count=proposal.observation_count, rms=proposal.rms_px or 0.0)
+        return None
+
+    def _finish_motion_fit(
+        self,
+        name: str,
+        prop: BeltProp | BallProp,
+        proposal: BeltMotionCalibrationProposal | BallMotionCalibrationProposal | None,
+        message: str = "",
+    ) -> None:
+        """Keep a proposal only while the exact saved evidence still matches."""
+        self._motion_fitting.discard(name)
+        current = self.store.get(name)
+        if current != prop:
+            return
+        if proposal is None:
+            self.window.report_failure(
+                PropMotionCalibrationError(message), doing=tr("Fitting prop motion to video")
+            )
+            return
+        self._motion_proposals[name] = proposal
+        text = self._proposal_text(prop, proposal)
+        if self.panel is not None:
+            self.panel.set_motion_proposal(name, text)
+        if text is not None:
+            self._status(text)
+
+    def fit_motion(self, kind: str, name: str) -> None:
+        """Build a non-mutating belt or ball video-alignment proposal in a worker."""
+        from avialsync.engine.prop_motion_calibration_worker import PropMotionCalibrationWorker
+
+        prop = self.store.get(name)
+        if (
+            name in self._motion_fitting
+            or (kind == "belt" and not isinstance(prop, BeltProp))
+            or (kind == "ball" and not isinstance(prop, BallProp))
+        ):
+            return
+        if not isinstance(prop, (BeltProp, BallProp)) or prop.binding is None:
+            return
+        checks = prop.binding.checks
+        if len(checks) < 3:
+            self._status(tr("Save at least three video checks before fitting motion."))
+            return
+        worker = PropMotionCalibrationWorker(prop, wheel_display.camera_models(self.window))
+        self._motion_fitting.add(name)
+
+        def finished(
+            proposal: BeltMotionCalibrationProposal | BallMotionCalibrationProposal,
+        ) -> None:
+            self._finish_motion_fit(name, prop, proposal)
+
+        def failed(message: str) -> None:
+            self._finish_motion_fit(name, prop, None, message)
+
+        def wire(thread: QThread) -> None:
+            worker.finished.connect(on_ui_thread(finished, self.window))
+            worker.error.connect(on_ui_thread(failed, self.window))
+            worker.finished.connect(thread.quit)
+            worker.error.connect(thread.quit)
+
+        self.window._run_job(
+            worker,
+            label=tr("Fitting {kind} motion to video").format(kind=kind),
+            configure=wire,
+        )
+
+    def apply_motion(self, kind: str, name: str) -> None:
+        """Accept one explicitly reviewed video-alignment proposal through the command bus."""
+        prop = self.store.get(name)
+        proposal = self._motion_proposals.get(name)
+        if (
+            kind == "belt"
+            and isinstance(prop, BeltProp)
+            and isinstance(proposal, BeltMotionCalibrationProposal)
+            and prop.binding is not None
+        ):
+            belt_binding = dataclasses.replace(
+                prop.binding,
+                reference_distance=proposal.reference_distance,
+                units_per_reading=proposal.units_per_reading,
+            )
+            changed: BeltProp | BallProp = dataclasses.replace(prop, binding=belt_binding)
+        elif (
+            kind == "ball"
+            and isinstance(prop, BallProp)
+            and isinstance(proposal, BallMotionCalibrationProposal)
+            and prop.binding is not None
+        ):
+            correction = proposal.orientation_correction
+            ball_binding = dataclasses.replace(
+                prop.binding,
+                orientation_correction=(correction.w, correction.x, correction.y, correction.z),
+            )
+            changed = dataclasses.replace(prop, binding=ball_binding)
+        else:
+            return
+        del self._motion_proposals[name]
+        self.window.document.execute(
+            SetPhysicalPropCommand(
+                name,
+                prop,
+                changed,
+                tr("Apply {kind} video motion fit").format(kind=kind),
+            ),
+            self.window._mutations,
+        )
+        self._status(
+            tr("{kind} video motion fit applied. Undo restores the earlier binding.").format(
+                kind=kind.capitalize()
+            )
+        )
+
     def remove_prop(self, kind: str, name: str) -> None:
         """Remove a selected belt or ball through an inverse command."""
         prop = self.store.get(name)
@@ -1072,15 +1212,19 @@ class PropsApp:
                         tr("No predicted mark on this frame; check the camera and channels.")
                     )
                 else:
+                    # One camera/frame is one observation. Re-clicking it
+                    # refines evidence instead of silently giving it extra
+                    # numerical weight in a later video fit.
+                    kept = tuple(
+                        item
+                        for item in prop.binding.checks
+                        if (item.frame, item.camera) != (check.frame, check.camera)
+                    )
                     if isinstance(prop, BeltProp):
-                        belt_binding = dataclasses.replace(
-                            prop.binding, checks=(*prop.binding.checks, check)
-                        )
+                        belt_binding = dataclasses.replace(prop.binding, checks=(*kept, check))
                         changed_belt = dataclasses.replace(prop, binding=belt_binding)
                     else:
-                        ball_binding = dataclasses.replace(
-                            prop.binding, checks=(*prop.binding.checks, check)
-                        )
+                        ball_binding = dataclasses.replace(prop.binding, checks=(*kept, check))
                         changed_ball = dataclasses.replace(prop, binding=ball_binding)
                     changed: BeltProp | BallProp = (
                         changed_belt if isinstance(prop, BeltProp) else changed_ball
@@ -1266,9 +1410,13 @@ class PropsApp:
     def _changed(self, _name: str | None) -> None:
         self._display_key = None
         if _name is None:
+            self._motion_proposals.clear()
             for prop in self.store:
                 self._known_kinds[prop.name] = prop_kind(prop)
         else:
+            self._motion_proposals.pop(_name, None)
+            if self.panel is not None:
+                self.panel.set_motion_proposal(_name, None)
             changed_prop = self.store.get(_name)
             if changed_prop is not None:
                 self._known_kinds[_name] = prop_kind(changed_prop)

@@ -276,6 +276,7 @@ def _ball_sections(ball: BallProp) -> list[str]:
                     ),
                 ),
                 ("reference_values", binding.reference_values),
+                ("orientation_correction", binding.orientation_correction),
             ],
         )
         lines += _motion_check_sections("ball", binding.checks)
@@ -652,6 +653,9 @@ def _parse_ball(head: Mapping[str, Any], document: Mapping[str, Any]) -> BallPro
             _quaternion(row["reference_orientation"]),
             _motion_checks(row.get("check", [])),
             None if "reference_values" not in row else _point4(row["reference_values"]),
+            (1.0, 0.0, 0.0, 0.0)
+            if "orientation_correction" not in row
+            else _point4(row["orientation_correction"]),
         )
     visual = table.get("visual")
     visual_table = _mapping(visual) if visual is not None else None

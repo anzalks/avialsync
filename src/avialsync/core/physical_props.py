@@ -565,7 +565,9 @@ class BallProp:
             else reference_orientation
         )
         relative = orientation.composed(reference.inverse())
-        return self.surface.material_point(self.surface_marks[0], relative)
+        correction = UnitQuaternion(*self.binding.orientation_correction)
+        visual_relative = correction.composed(relative).composed(correction.inverse())
+        return self.surface.material_point(self.surface_marks[0], visual_relative)
 
 
 @dataclass(frozen=True)
@@ -622,7 +624,7 @@ class BeltBinding:
 
 @dataclass(frozen=True)
 class BallBinding:
-    """Four synchronized orientation channels and a measured reference sample."""
+    """Four synchronized orientation channels and their video-calibrated axes."""
 
     source_id: str
     channels: tuple[str, str, str, str]
@@ -630,6 +632,9 @@ class BallBinding:
     reference_orientation: UnitQuaternion
     checks: tuple[MotionCheck, ...] = ()
     reference_values: tuple[float, float, float, float] | None = None
+    #: Rotation mapping sensor axes into the ball's visual axes. Stored as a
+    #: tuple because UnitQuaternion is defined below this binding record.
+    orientation_correction: tuple[float, float, float, float] = (1.0, 0.0, 0.0, 0.0)
 
     def __post_init__(self) -> None:
         if (
@@ -643,6 +648,12 @@ class BallBinding:
             math.isfinite(value) for value in self.reference_values
         ):
             raise PropModelError("Ball reference readings must be finite.")
+        correction = UnitQuaternion(*self.orientation_correction)
+        object.__setattr__(
+            self,
+            "orientation_correction",
+            (correction.w, correction.x, correction.y, correction.z),
+        )
 
 
 PhysicalProp = Ladder | BeltProp | BallProp | Wheel

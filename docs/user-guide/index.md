@@ -485,6 +485,16 @@ Use **Check ... mark on later frame**, then click the visible mark in a calibrat
 the observed pixel and its difference from the predicted mark. Checks do not change the binding
 automatically. The camera overlay and 3D view use the frame actually displayed.
 
+For a channel-bound moving prop, those saved checks also let you align its motion to the video.
+Collect at least three checks that span the movement, then choose **Fit belt motion to video** or
+**Fit ball motion to video**. AvialSync shows a proposal with its RMS pixel residual and changes
+nothing until you choose **Apply proposed ... fit**. A belt proposal adjusts the mark's reference
+distance and distance per channel reading in the belt's declared physical units; a ball proposal
+calibrates the sensor axes while keeping its reference-frame pose fixed. The raw checks remain in
+the sidecar, the accepted fit is undoable, and neither action moves the declared belt/sphere
+geometry or changes recording time alignment. If the evidence does not independently constrain a
+fit, AvialSync explains what more movement or camera evidence is needed.
+
 For **visual-only belt tracking**, choose **Track belt mark from camera clicks** and click the same
 painted mark in two calibrated cameras at the reference frame and each later frame you want to
 measure. The path stays fixed; the mark appears only on frames with a valid stereo fit. On a

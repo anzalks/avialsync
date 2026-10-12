@@ -123,6 +123,15 @@ class PropModelError(AvialSyncError):
     """Raised when declared prop geometry or motion is mathematically invalid."""
 
 
+class PropMotionCalibrationError(AvialSyncError):
+    """Raised when video checks cannot identify a moving prop's correction.
+
+    The prop and its sensor binding remain usable. The recovery is to add
+    checks across more independent movement, or correct the declared geometry
+    or source timing; the application never fabricates a video alignment.
+    """
+
+
 class RotaryCalibrationError(AvialSyncError):
     """Raised when rotary observations cannot identify a defensible transfer.
 

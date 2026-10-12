@@ -137,12 +137,15 @@ class PropsPanel(QWidget):
     visual_clear_requested = Signal(str, str)
     visual_lap_requested = Signal(str)
     motion_check_requested = Signal(str, str)
+    motion_fit_requested = Signal(str, str)
+    motion_apply_requested = Signal(str, str)
     prop_selected = Signal(str, str)
     remove_prop_requested = Signal(str, str)
 
     def __init__(self, store: PropStore, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._store = store
+        self._motion_proposals: dict[str, str] = {}
         # Whether clicks are being collected (a step, a placement), and whether
         # anything at all is in progress that Cancel could discard.
         self._drafting = False
@@ -528,6 +531,22 @@ class PropsPanel(QWidget):
         self.check_belt.clicked.connect(
             lambda: self.motion_check_requested.emit("belt", self.current_prop())
         )
+        self.fit_belt_motion = QPushButton(tr("Fit belt motion to video"), self.belt_editor)
+        self.fit_belt_motion.setAccessibleName(self.fit_belt_motion.text())
+        self.fit_belt_motion.setAccessibleDescription(
+            tr("Propose belt displacement phase and scale from saved video checks.")
+        )
+        self.fit_belt_motion.clicked.connect(
+            lambda: self.motion_fit_requested.emit("belt", self.current_prop())
+        )
+        self.apply_belt_motion = QPushButton(tr("Apply proposed belt fit"), self.belt_editor)
+        self.apply_belt_motion.setAccessibleName(self.apply_belt_motion.text())
+        self.apply_belt_motion.setAccessibleDescription(
+            tr("Accept the reviewed belt motion correction as one undoable edit.")
+        )
+        self.apply_belt_motion.clicked.connect(
+            lambda: self.motion_apply_requested.emit("belt", self.current_prop())
+        )
         self.track_belt = QPushButton(tr("Track belt mark from camera clicks"), self.belt_editor)
         self.track_belt.setAccessibleName(self.track_belt.text())
         self.track_belt.setAccessibleDescription(
@@ -569,7 +588,14 @@ class PropsPanel(QWidget):
         )
         self.belt_steps.set_primary(self.save_belt)
         self.belt_steps.add_secondary(
-            [self.track_belt, self.bind_belt, self.check_belt, self.set_belt_lap]
+            [
+                self.track_belt,
+                self.bind_belt,
+                self.check_belt,
+                self.fit_belt_motion,
+                self.apply_belt_motion,
+                self.set_belt_lap,
+            ]
         )
         self.belt_steps.add_overflow(self.clear_belt_visual, destructive=True)
         self.belt_steps.add_overflow(self.remove_belt, destructive=True)
@@ -645,6 +671,22 @@ class PropsPanel(QWidget):
         self.check_ball.clicked.connect(
             lambda: self.motion_check_requested.emit("ball", self.current_prop())
         )
+        self.fit_ball_motion = QPushButton(tr("Fit ball motion to video"), self.ball_editor)
+        self.fit_ball_motion.setAccessibleName(self.fit_ball_motion.text())
+        self.fit_ball_motion.setAccessibleDescription(
+            tr("Propose a fixed sensor-axis correction from saved video checks.")
+        )
+        self.fit_ball_motion.clicked.connect(
+            lambda: self.motion_fit_requested.emit("ball", self.current_prop())
+        )
+        self.apply_ball_motion = QPushButton(tr("Apply proposed ball fit"), self.ball_editor)
+        self.apply_ball_motion.setAccessibleName(self.apply_ball_motion.text())
+        self.apply_ball_motion.setAccessibleDescription(
+            tr("Accept the reviewed ball motion correction as one undoable edit.")
+        )
+        self.apply_ball_motion.clicked.connect(
+            lambda: self.motion_apply_requested.emit("ball", self.current_prop())
+        )
         self.ball_visual_mark = QComboBox(self.ball_editor)
         for index, label in enumerate(("A", "B", "C")):
             self.ball_visual_mark.addItem(tr("Surface mark {label}").format(label=label), index)
@@ -679,7 +721,15 @@ class PropsPanel(QWidget):
             tr("Save the ball's geometry, then bind or track how it turns.")
         )
         self.ball_steps.set_primary(self.save_ball)
-        self.ball_steps.add_secondary([self.track_ball, self.bind_ball, self.check_ball])
+        self.ball_steps.add_secondary(
+            [
+                self.track_ball,
+                self.bind_ball,
+                self.check_ball,
+                self.fit_ball_motion,
+                self.apply_ball_motion,
+            ]
+        )
         self.ball_steps.add_overflow(self.clear_ball_visual, destructive=True)
         self.ball_steps.add_overflow(self.remove_ball, destructive=True)
         self.ball_steps.set_learn_more(docs_url("user-guide/index.html#physical-props"))
@@ -894,6 +944,20 @@ class PropsPanel(QWidget):
             self.select_channel(combo, current)
         self._update_motion_enablement()
 
+    def set_motion_proposal(self, name: str, description: str | None) -> None:
+        """Show whether the selected prop has a reviewable video-motion proposal."""
+        if description is None:
+            self._motion_proposals.pop(name, None)
+        else:
+            self._motion_proposals[name] = description
+        if name == self.current_prop():
+            selected = self._store.get(name)
+            if isinstance(selected, BeltProp):
+                self.belt_motion_status.setText(description or self.belt_motion_status.text())
+            elif isinstance(selected, BallProp):
+                self.ball_motion_status.setText(description or self.ball_motion_status.text())
+        self._update_motion_enablement()
+
     def _update_motion_enablement(self) -> None:
         """Expose missing binding inputs before an unavailable gesture."""
         selected = self._store.get(self.current_prop())
@@ -915,10 +979,23 @@ class PropsPanel(QWidget):
         self.track_belt.setToolTip(
             "" if visual_belt_ready else tr("Save a belt with a path travel direction first.")
         )
-        belt_checked = isinstance(selected, BeltProp) and selected.binding is not None
+        belt_binding = selected.binding if isinstance(selected, BeltProp) else None
+        belt_checked = belt_binding is not None
         self.check_belt.setEnabled(belt_checked)
         self.check_belt.setToolTip(
             "" if belt_checked else tr("Bind belt displacement before checking a later frame.")
+        )
+        belt_fit_ready = belt_binding is not None and len(belt_binding.checks) >= 3
+        self.fit_belt_motion.setEnabled(belt_fit_ready)
+        self.fit_belt_motion.setToolTip(
+            ""
+            if belt_fit_ready
+            else tr("Save at least three belt video checks before fitting motion.")
+        )
+        proposed = bool(self._motion_proposals.get(self.current_prop()))
+        self.apply_belt_motion.setEnabled(belt_checked and proposed)
+        self.apply_belt_motion.setToolTip(
+            "" if proposed else tr("Fit belt motion to video before applying a proposal.")
         )
         keys = [combo.currentData() for combo in self.ball_channels]
         chosen = [key for key in keys if key is not None]
@@ -933,10 +1010,22 @@ class PropsPanel(QWidget):
             "" if ball_ready else tr("Save a ball and choose four channels from one source first.")
         )
         self.track_ball.setEnabled(isinstance(selected, BallProp))
-        ball_checked = isinstance(selected, BallProp) and selected.binding is not None
+        ball_binding = selected.binding if isinstance(selected, BallProp) else None
+        ball_checked = ball_binding is not None
         self.check_ball.setEnabled(ball_checked)
         self.check_ball.setToolTip(
             "" if ball_checked else tr("Bind ball orientation before checking a later frame.")
+        )
+        ball_fit_ready = ball_binding is not None and len(ball_binding.checks) >= 3
+        self.fit_ball_motion.setEnabled(ball_fit_ready)
+        self.fit_ball_motion.setToolTip(
+            ""
+            if ball_fit_ready
+            else tr("Save at least three ball video checks before fitting motion.")
+        )
+        self.apply_ball_motion.setEnabled(ball_checked and proposed)
+        self.apply_ball_motion.setToolTip(
+            "" if proposed else tr("Fit ball motion to video before applying a proposal.")
         )
         # Decided here, from the selection, rather than only when a prop's
         # fields are loaded: with none selected they stayed enabled and did nothing.

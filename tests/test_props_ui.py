@@ -16,15 +16,18 @@ from shiboken6 import isValid
 from avialsync.core.physical_props import (
     BallProp,
     BallSurface,
+    BeltBinding,
     BeltProp,
     BeltTrack,
     Ladder,
     LadderPoint,
     LadderStep,
+    MotionCheck,
     StepClick,
     UnitQuaternion,
 )
 from avialsync.core.prop_file import read_props, write_ladder
+from avialsync.core.prop_motion_calibration import BeltMotionCalibrationProposal
 from avialsync.core.visual_prop_tracking import ball_visual_state, belt_visual_state
 from avialsync.engine import prop_file_worker
 from avialsync.engine.prop_file_worker import PropFileReadWorker, PropFileWriteWorker
@@ -169,6 +172,38 @@ def test_two_roller_belt_editor_saves_measured_geometry_and_viewer_mesh(window: 
     panel.select_prop("treadmill", "belt")
     assert panel.belt_geometry_mode.currentData() == "rollers"
     assert panel.belt_radius.value() == 10.0
+
+
+def test_belt_video_fit_is_explicitly_reviewed_then_undoably_applied(window: MainWindow) -> None:
+    """A video proposal must not touch the binding before its Apply action."""
+    panel = window.props_app.panel
+    assert panel is not None
+    checks = tuple(
+        MotionCheck(frame, "Front", 10.0, 10.0, 3.0, (float(frame),)) for frame in (10, 11, 12)
+    )
+    belt = BeltProp(
+        "video belt",
+        BeltTrack(((0.0, 0.0, 70.0), (20.0, 0.0, 70.0))),
+        travel_direction=(1.0, 0.0, 0.0),
+        binding=BeltBinding("encoder", "travel", 0, 0.0, 1.0, 1.0, checks),
+    )
+    window.props_app.store.set(belt.name, belt)
+    panel.select_prop(belt.name, "belt")
+    assert panel.fit_belt_motion.isEnabled()
+    assert not panel.apply_belt_motion.isEnabled()
+
+    proposal = BeltMotionCalibrationProposal(2.0, 1.2, (1.0, 2.0, 3.0))
+    window.props_app._motion_proposals[belt.name] = proposal
+    panel.set_motion_proposal(belt.name, "Review the belt proposal.")
+    assert panel.apply_belt_motion.isEnabled()
+
+    window.props_app.apply_motion("belt", belt.name)
+
+    changed = window.props_app.store.get(belt.name)
+    assert isinstance(changed, BeltProp) and changed.binding is not None
+    assert changed.binding.reference_distance == 2.0
+    assert changed.binding.units_per_reading == 1.2
+    assert not panel.apply_belt_motion.isEnabled()
 
 
 def test_visual_only_belt_and_ball_tracks_are_clicked_and_displayed(
