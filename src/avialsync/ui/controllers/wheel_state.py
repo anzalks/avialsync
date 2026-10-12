@@ -10,6 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from avialsync.core.rotary_calibration import RotaryCalibrationProposal
 from avialsync.core.source import RotaryHint
 from avialsync.core.wheel import WheelSpec
 from avialsync.ui.controllers.wheel_placement import WheelPlacement
@@ -23,6 +24,12 @@ class WheelState:
     refits: dict[str, WheelSpec] = field(default_factory=dict)
     diameter_preview: dict[str, float] = field(default_factory=dict)
     checking: str | None = None
+    #: Wheel whose later-frame bar-end clicks are being collected for a fit.
+    calibrating: str | None = None
+    #: Explicitly unaccepted transfer proposals, keyed by wheel name.
+    motion_proposals: dict[str, RotaryCalibrationProposal] = field(default_factory=dict)
+    #: Wheels with a background rotation fit currently running.
+    motion_fitting: set[str] = field(default_factory=set)
     cache: dict[str, tuple[object, Any]] = field(default_factory=dict)
     session_rotary: RotaryHint | None = None
     pane_source: Callable[[str, float], object] | None = None

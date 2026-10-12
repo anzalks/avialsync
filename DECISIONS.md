@@ -7162,3 +7162,40 @@ AvialSync source look like an AOL wheel.
 existing live mapping, checks and prop persistence. Putting source direction inside the generic
 transfer: a copied model could silently contradict the visible prop, while the current check flow
 would no longer be able to settle its direction.
+
+---
+
+## 2026-10 · D-222 · Later-frame bar clicks fit a generic, explicitly accepted rotary transfer
+
+**Decision.** `core.rotary_calibration` owns `RotaryObservation`,
+`RotaryCalibrationProposal`, and `fit_periodic_rotary()`. The fitter receives only unwrapped
+readings and cyclic output angles; it has no camera, wheel, source-path, or rig knowledge. It fits
+positive gain plus an evidence-supported number of periodic terms under both directions, records
+the cyclic residuals, and returns a proposal rather than changing any prop. Because identical bar
+ends expose rotation only modulo one pitch, the gain is constrained to the supplied coarse transfer
+by default (±15%); a substantially different ratio remains an explicit user declaration, rather
+than an arbitrary full-turn alias selected by an optimiser.
+
+`core.wheel_check.motion_observations()` is the wheel adapter: a later-frame bar-end click is
+resolved against the accepted wheel geometry modulo one bar pitch. The same durable `WheelCheck`
+records used to verify direction are the calibration evidence. The UI exposes **Collect Rotation
+Clicks**, **Fit Rotation**, and **Apply Proposed Fit**. Fitting is a registered worker; only the
+last action changes `EncoderBinding`, through one undoable `SetWheelCommand`. More or changed
+evidence invalidates an unaccepted proposal. The panel selects no harmonics below 7 observations,
+one with 7–10, and two with 11 or more; the generic fitter independently rejects insufficient or
+rank-deficient evidence.
+
+`RotaryHint` may carry a generic model/sign proposal from any session plugin. It follows the same
+review path and never changes a wheel at import or placement time. AOL's `wheel_rotation_v2` JSON,
+radians, sign convention, and optional model-path preference remain wholly in
+`loaders/aol_rotary_calibration.py` and the AOL settings hook. Its nonzero timing lag is refused
+as a rotation model: a timing correction belongs in the source mapping where it remains visible.
+
+**Why.** A user can correct encoder movement from visible bars across frames without an AOL-only
+workflow, while still seeing precisely what evidence was used and deciding whether to accept the
+result. The generic core stays reusable for another rotary prop or plugin; source-specific model
+contracts remain source-specific.
+
+**Alternatives rejected.** Applying a fit as soon as it converges: it would silently alter a
+visible prop on ambiguous cyclic evidence. Storing a second kind of calibration click: it would
+split identical bar-end evidence across two persistence paths and make later review less reliable.

@@ -56,6 +56,8 @@ def edit_spec(window: MainWindow, name: str, bars: int, units: str, radius: floa
     spec = spec_from(name, bars, units, radius)
     if spec == wheel.spec:
         return
+    # A proposal's clicks were interpreted against the old wheel geometry.
+    window.wheel_state.motion_proposals.pop(name, None)
     calibration.calibration_quietly(window)
     cameras = display.camera_models(window)
     window.wheel_state.refits[name] = spec
@@ -97,7 +99,19 @@ def edit_binding(window: MainWindow, name: str, sign: float, ratio: float) -> No
     binding = wheel.binding
     if (sign, ratio) == (binding.sign, binding.ratio):
         return
-    changed = dataclasses.replace(binding, sign=sign, ratio=ratio, measured=False)
+    motion_model = (
+        None
+        if binding.motion_model is None
+        else dataclasses.replace(binding.motion_model, gain=ratio)
+    )
+    changed = dataclasses.replace(
+        binding,
+        sign=sign,
+        ratio=ratio,
+        measured=False,
+        motion_model=motion_model,
+    )
+    window.wheel_state.motion_proposals.pop(name, None)
     window.document.execute(
         SetWheelCommand(name, wheel, dataclasses.replace(wheel, binding=changed)),
         window._mutations,

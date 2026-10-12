@@ -121,3 +121,12 @@ class WheelFitError(AvialSyncError):
 
 class PropModelError(AvialSyncError):
     """Raised when declared prop geometry or motion is mathematically invalid."""
+
+
+class RotaryCalibrationError(AvialSyncError):
+    """Raised when rotary observations cannot identify a defensible transfer.
+
+    The source data and prop geometry remain usable.  The recovery is to add
+    observations at more encoder positions or reduce the requested model
+    complexity; a transfer is never guessed from insufficient evidence.
+    """

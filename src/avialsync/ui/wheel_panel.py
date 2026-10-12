@@ -39,7 +39,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from avialsync.core.wheel import Wheel, WheelSpec
+from avialsync.core.rotary_calibration import RotaryCalibrationProposal
+from avialsync.core.wheel import EncoderBinding, Wheel, WheelSpec
 from avialsync.ui.about import docs_url
 from avialsync.ui.bar_diameter_field import BarDiameterField
 from avialsync.ui.design_tokens import spacing
@@ -139,8 +140,10 @@ class _WheelRow(QFrame):
         layout.addWidget(title)
         self.fit = _wrapped(self)
         self.encoder = _wrapped(self)
+        self.motion = _wrapped(self)
         layout.addWidget(self.fit)
         layout.addWidget(self.encoder)
+        layout.addWidget(self.motion)
 
         form = QFormLayout()
         self.spec = _SpecFields(self, form)
@@ -158,16 +161,37 @@ class _WheelRow(QFrame):
             tr("Click any bar end in any camera on this frame to test the encoder"),
             self,
         )
+        self.collect_rotation = _button(
+            tr("Collect Rotation Clicks"),
+            tr("Collect bar-end clicks across frames as evidence for a rotation calibration"),
+            self,
+        )
+        self.fit_rotation = _button(
+            tr("Fit Rotation"),
+            tr("Propose a rotation transfer from the collected bar-end clicks"),
+            self,
+        )
+        self.apply_rotation = _button(
+            tr("Apply Proposed Fit"),
+            tr("Apply the reviewed rotation proposal; Undo restores the earlier transfer"),
+            self,
+        )
         self.replace = _button(
             tr("Re-place"), tr("Click this wheel's bars again, keeping its settings"), self
         )
         self.remove = _button(tr("Remove"), tr("Remove this wheel; Undo brings it back"), self)
-        buttons.addWidget(self.verify, 0, 0, 1, 2)
-        buttons.addWidget(self.replace, 1, 0)
-        buttons.addWidget(self.remove, 1, 1)
+        buttons.addWidget(self.verify, 0, 0)
+        buttons.addWidget(self.collect_rotation, 0, 1)
+        buttons.addWidget(self.fit_rotation, 1, 0)
+        buttons.addWidget(self.apply_rotation, 1, 1)
+        buttons.addWidget(self.replace, 2, 0)
+        buttons.addWidget(self.remove, 2, 1)
         layout.addLayout(buttons)
 
         self.verify.clicked.connect(lambda: panel.verify_requested.emit(name))
+        self.collect_rotation.clicked.connect(lambda: panel.rotation_capture_requested.emit(name))
+        self.fit_rotation.clicked.connect(lambda: panel.rotation_fit_requested.emit(name))
+        self.apply_rotation.clicked.connect(lambda: panel.rotation_apply_requested.emit(name))
         self.replace.clicked.connect(lambda: panel.replace_requested.emit(name))
         self.remove.clicked.connect(lambda: panel.remove_requested.emit(name))
         for widget in (self.spec.bars, self.spec.radius):
@@ -225,12 +249,26 @@ class _WheelRow(QFrame):
             self.name, float(self.direction.currentData()), float(self.ratio.value())
         )
 
-    def show_wheel(self, wheel: Wheel, checking: bool, offset: float | None) -> None:
+    def show_wheel(
+        self,
+        wheel: Wheel,
+        checking: bool,
+        calibrating: bool,
+        offset: float | None,
+        proposal: RotaryCalibrationProposal | None,
+        fitting: bool,
+    ) -> None:
         self.spec.show(wheel.spec)
         self.fit.setText(describe_fit(wheel.spec, wheel.fit, wheel.clicks))
         self.encoder.setText(describe_encoder(wheel))
         binding = wheel.binding
-        for widget in (self.direction, self.ratio, self.verify):
+        for widget in (
+            self.direction,
+            self.ratio,
+            self.verify,
+            self.collect_rotation,
+            self.fit_rotation,
+        ):
             widget.setEnabled(binding is not None)
         self.verify.setToolTip(tr("Click a bar end to test the encoder direction"))
         self.offset.setEnabled(offset is not None)
@@ -240,6 +278,15 @@ class _WheelRow(QFrame):
             _set_quietly(self.direction, "setCurrentIndex", 0 if binding.sign > 0 else 1)
             _set_quietly(self.ratio, "setValue", binding.ratio)
         self.verify.setText(tr("Click a Bar End…") if checking else tr("Verify Here"))
+        self.collect_rotation.setText(
+            tr("Stop Collecting") if calibrating else tr("Collect Rotation Clicks")
+        )
+        self.fit_rotation.setEnabled(
+            binding is not None and len(binding.checks) >= 3 and not fitting
+        )
+        self.fit_rotation.setText(tr("Fitting Rotation…") if fitting else tr("Fit Rotation"))
+        self.apply_rotation.setEnabled(proposal is not None and not fitting)
+        self.motion.setText(_motion_text(binding, proposal))
         geometry = wheel.geometry
         # Up to the gap between neighbouring bar centres: bars thicker than
         # that would overlap, so no real wheel is past the end of the slider.
@@ -248,6 +295,22 @@ class _WheelRow(QFrame):
         self.diameter.show_value(
             wheel.bar_diameter, spacing / wheel.world_per_unit, wheel.spec.units
         )
+
+
+def _motion_text(binding: EncoderBinding | None, proposal: RotaryCalibrationProposal | None) -> str:
+    """One plain-language record of accepted and proposed rotation calibration."""
+    if proposal is not None:
+        if proposal.rms_degrees is None:
+            return tr("A session-provided rotation model is ready for your review.")
+        return tr(
+            "Proposed from {count} bar-end clicks: RMS {rms:.2f}°. "
+            "Review and apply it when it looks right."
+        ).format(count=proposal.observation_count, rms=proposal.rms_degrees)
+    if binding is None or binding.motion_model is None:
+        return tr(
+            "Rotation follows the encoder ratio; collect clicks to calibrate repeatable error."
+        )
+    return tr("A periodic rotation calibration is applied; collected clicks remain its evidence.")
 
 
 class WheelPanel(QGroupBox):
@@ -273,6 +336,9 @@ class WheelPanel(QGroupBox):
     #: ``(name, diameter)`` to keep; 0 is "not set".
     bar_diameter_changed = Signal(str, float)
     verify_requested = Signal(str)
+    rotation_capture_requested = Signal(str)
+    rotation_fit_requested = Signal(str)
+    rotation_apply_requested = Signal(str)
     replace_requested = Signal(str)
     remove_requested = Signal(str)
 
@@ -422,6 +488,10 @@ class WheelPanel(QGroupBox):
         wheels: list[Wheel],
         checking: str | None,
         offsets: Mapping[str, float] | None = None,
+        *,
+        calibrating: str | None = None,
+        proposals: Mapping[str, RotaryCalibrationProposal] | None = None,
+        fitting: set[str] | None = None,
     ) -> None:
         """Show every placed wheel, rebuilding rows only when the set of names changed.
 
@@ -440,7 +510,12 @@ class WheelPanel(QGroupBox):
                 self._rows[name] = row
         for wheel in wheels:
             self._rows[wheel.name].show_wheel(
-                wheel, checking == wheel.name, (offsets or {}).get(wheel.name)
+                wheel,
+                checking == wheel.name,
+                calibrating == wheel.name,
+                (offsets or {}).get(wheel.name),
+                (proposals or {}).get(wheel.name),
+                wheel.name in (fitting or set()),
             )
         self._update_visibility()
 

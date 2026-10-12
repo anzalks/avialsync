@@ -326,7 +326,12 @@ def refresh(window: MainWindow) -> None:
     window.tracking_3d_pane.set_cursor(window.clock.state.t)
     window._update_tracking_pane_visibility()
     window.wheel_panel.set_wheels(
-        list(window.wheels), window.wheel_state.checking, encoder_offsets(window)
+        list(window.wheels),
+        window.wheel_state.checking,
+        encoder_offsets(window),
+        calibrating=window.wheel_state.calibrating,
+        proposals=window.wheel_state.motion_proposals,
+        fitting=window.wheel_state.motion_fitting,
     )
     view = (
         placement_view(placement, sorted(camera_models(window))) if placement is not None else None

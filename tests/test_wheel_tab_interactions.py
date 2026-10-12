@@ -17,6 +17,9 @@ from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
 from avialsync.core.pyramid import PyramidBuilder
+from avialsync.core.rotary_calibration import RotaryCalibrationProposal
+from avialsync.core.rotary_motion import PeriodicRotaryMotion, RotaryHarmonic
+from avialsync.core.source import RotaryHint
 from avialsync.core.wheel import EncoderBinding, WheelSpec, project_bars
 from avialsync.core.wheel_file import read_wheels
 from avialsync.ui.controllers import wheel_controller, wheel_display
@@ -334,6 +337,103 @@ def test_row_verify_here_enters_and_leaves_checking(window: MainWindow, placed) 
     assert window.wheel_panel._rows["wheel"].verify.text() == "Click a Bar End…"
     window.wheel_panel._rows["wheel"].verify.click()
     assert window.wheel_state.checking is None
+
+
+def test_row_collect_rotation_keeps_accepting_bar_clicks_across_frames(
+    window: MainWindow, placed
+) -> None:
+    wheel = window.wheels.get("wheel")
+    _bind(window, wheel)
+    row = window.wheel_panel._rows["wheel"]
+
+    row.collect_rotation.click()
+
+    assert window.wheel_state.calibrating == "wheel"
+    assert row.collect_rotation.text() == "Stop Collecting"
+
+    row.collect_rotation.click()
+
+    assert window.wheel_state.calibrating is None
+
+
+def test_rotation_collection_persists_each_frame_and_offers_a_fit(
+    window: MainWindow, monkeypatch, tmp_path: Path, frame: dict[str, float]
+) -> None:
+    """The visible multi-frame workflow reaches the generic fitter as evidence."""
+    _load_encoder(window, tmp_path, np.arange(0.0, 2.0, 0.001), np.arange(0.0, 72.0, 0.036))
+    _two_bars(window, monkeypatch, channel=("encoder.csv", "angle"))
+    window.wheel_panel._accept.click()
+    row = window.wheel_panel._rows["wheel"]
+    row.collect_rotation.click()
+
+    for index, time in enumerate((0.3, 0.8, 1.3), start=1):
+        frame.update(now=FRAME + index, t=time)
+        wheel = window.wheels.get("wheel")
+        assert wheel is not None
+        pixels, in_front, facing = project_bars(
+            wheel.geometry, wheel.geometry.bar_ends(36.0 * time), CAMERAS["Front"]
+        )
+        visible = np.flatnonzero(in_front & facing)
+        assert len(visible)
+        x, y = pixels[int(visible[len(visible) // 2]), 0]
+        assert wheel_controller.on_clicked(window, VIDEOS["Front"], float(x), float(y))
+
+    binding = window.wheels.get("wheel").binding
+    assert binding is not None
+    assert [item.frame for item in binding.checks] == [FRAME + 1, FRAME + 2, FRAME + 3]
+    assert row.fit_rotation.isEnabled()
+
+    row.fit_rotation.click()
+
+    proposal = window.wheel_state.motion_proposals["wheel"]
+    assert proposal.observation_count == 3
+    assert proposal.motion_model.gain == pytest.approx(1.0, abs=1e-3)
+
+
+def test_row_applies_only_an_explicit_rotation_proposal(window: MainWindow, placed) -> None:
+    wheel = window.wheels.get("wheel")
+    _bind(window, wheel)
+    proposal = RotaryCalibrationProposal(
+        PeriodicRotaryMotion(
+            gain=1.2,
+            harmonics=(RotaryHarmonic(1, sine_degrees=0.5),),
+        ),
+        sign=-1.0,
+        observation_count=7,
+        residuals_degrees=(0.1, -0.2),
+    )
+    window.wheel_state.motion_proposals["wheel"] = proposal
+    wheel_display.refresh(window)
+    row = window.wheel_panel._rows["wheel"]
+    assert row.apply_rotation.isEnabled()
+
+    row.apply_rotation.click()
+
+    binding = window.wheels.get("wheel").binding
+    assert binding is not None
+    assert binding.sign == -1.0
+    assert binding.ratio == pytest.approx(1.2)
+    assert binding.motion_model == proposal.motion_model
+    assert not binding.measured, "applying a proposal is not a direction verification"
+    assert "wheel" not in window.wheel_state.motion_proposals
+
+
+def test_session_rotation_hint_is_reviewed_before_it_changes_a_wheel(
+    window: MainWindow, monkeypatch, tmp_path: Path
+) -> None:
+    _load_encoder(window, tmp_path, np.arange(0.0, 2.0, 0.01), np.arange(0.0, 72.0, 0.36))
+    suggested = PeriodicRotaryMotion(gain=1.1, harmonics=(RotaryHarmonic(1, 0.4),))
+    window.wheel_state.session_rotary = RotaryHint(
+        "angle", Path("encoder.csv"), motion_model=suggested, motion_sign=-1.0
+    )
+    _two_bars(window, monkeypatch, channel=("encoder.csv", "angle"))
+
+    window.wheel_panel._accept.click()
+
+    binding = window.wheels.get("wheel").binding
+    assert binding is not None and binding.motion_model is None
+    proposal = window.wheel_state.motion_proposals["wheel"]
+    assert proposal.motion_model == suggested and proposal.sign == -1.0
 
 
 def test_row_replace_starts_a_placement_that_swaps_the_wheel_in(

@@ -22,6 +22,7 @@ from avialsync.loaders.aol_camera_join import (
     trial_roots,
 )
 from avialsync.loaders.aol_microscope_trial import is_microscope_trial, place_trials, read_trial
+from avialsync.loaders.aol_rotary_calibration import configure_model
 from avialsync.loaders.aol_trial_matching import day_directory, derive_utc_offset, match_trial
 
 __all__ = [
@@ -71,6 +72,17 @@ AOL_SETTINGS: tuple[Setting, ...] = (
         help_text="Maximum camera-PC clock difference when matching a trial start.",
         legacy_key="aol/match_tolerance_seconds",
     ),
+    Setting(
+        key="wheel_calibration_model",
+        label="Wheel calibration model",
+        group=_GROUP,
+        default="",
+        kind=str,
+        help_text=(
+            "Optional wheel_rotation_v2 JSON calibration. It is offered in Props for review "
+            "and is never applied automatically."
+        ),
+    ),
 )
 
 
@@ -86,6 +98,7 @@ def configure_aol(values: dict[str, Any]) -> None:
         float(values.get("match_tolerance_seconds", 10.0)),
         _folder(values.get("saved_data_folder")),
     )
+    configure_model(values.get("wheel_calibration_model"))
 
 
 def find_aol_partner(camera_local_epoch: float) -> PartnerSearch:

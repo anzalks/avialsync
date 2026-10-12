@@ -239,7 +239,11 @@ def fit_issue(fit: WheelFit, clicks: Sequence[EndClick]) -> str | None:
 
 @dataclass(frozen=True)
 class WheelCheck:
-    """A bar end clicked on another frame, to test the encoder against the video."""
+    """A bar end clicked on another frame as durable video evidence.
+
+    Checks can settle encoder direction and, when collected across frames,
+    provide the cyclic observations for a periodic rotary calibration.
+    """
 
     frame: int
     encoder_angle: float

@@ -11,6 +11,7 @@ import numpy as np
 
 from avialsync.core.messages import Message
 from avialsync.core.pose import PoseSchema
+from avialsync.core.rotary_motion import PeriodicRotaryMotion
 from avialsync.core.settings_schema import Setting
 from avialsync.core.trials import FrameGaps
 
@@ -313,7 +314,9 @@ class RotaryHint:
     to the plugin that knows the rig, not to UI code guessing from channel names.
 
     ``source`` is the item carrying ``channel``; ``bar_count``, ``radius`` and
-    ``units`` are 0 / 0.0 / "" when the session does not say.
+    ``units`` are 0 / 0.0 / "" when the session does not say. A plugin may
+    also offer a calibrated transfer and direction. They are a proposal for
+    the Props workflow, never silently applied to a wheel.
     """
 
     channel: str
@@ -321,6 +324,8 @@ class RotaryHint:
     bar_count: int = 0
     radius: float = 0.0
     units: str = ""
+    motion_model: PeriodicRotaryMotion | None = None
+    motion_sign: float = 1.0
 
 
 @dataclass(frozen=True)

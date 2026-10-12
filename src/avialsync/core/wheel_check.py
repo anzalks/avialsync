@@ -29,9 +29,10 @@ import numpy as np
 from scipy.optimize import minimize_scalar
 
 from avialsync.core.calibration import CameraModel
+from avialsync.core.rotary_calibration import RotaryObservation
 from avialsync.core.wheel import EncoderBinding, WheelCheck, WheelGeometry, project_bars
 
-__all__ = ["CheckResult", "observed_turn", "check", "settle_sign"]
+__all__ = ["CheckResult", "observed_turn", "motion_observations", "check", "settle_sign"]
 
 #: Turns sampled across one bar gap before refining; fine enough that the
 #: refinement starts in the right basin.
@@ -103,6 +104,26 @@ def observed_turn(
     return turn, float(result.fun)
 
 
+def motion_observations(
+    geometry: WheelGeometry, cameras: Mapping[str, CameraModel], items: Sequence[WheelCheck]
+) -> tuple[RotaryObservation, ...]:
+    """Turn clicked wheel ends into cyclic angles for the generic rotary fitter.
+
+    Each click identifies the wheel rotation only modulo one bar pitch, which
+    is exactly the periodic observation the core fitter accepts.  Missing
+    cameras and unmatched clicks contribute no invented observation.
+    """
+    observations: list[RotaryObservation] = []
+    for item in items:
+        camera = cameras.get(item.camera)
+        if camera is None:
+            continue
+        turn, pixels = observed_turn(geometry, camera, item.x, item.y)
+        if math.isfinite(turn) and math.isfinite(pixels):
+            observations.append(RotaryObservation(item.encoder_angle, turn))
+    return tuple(observations)
+
+
 def _wrap(value: float, period: float) -> float:
     return (value + period / 2.0) % period - period / 2.0
 
@@ -126,7 +147,7 @@ def check(
         seen, _ = observed_turn(geometry, camera, item.x, item.y)
     pixel = np.asarray([item.x, item.y], dtype=np.float64)
     off = _distances(geometry, np.asarray([predicted]), camera, pixel)[0]
-    moved = abs(binding.ratio * (item.encoder_angle - binding.reference_angle))
+    moved = abs(binding.turn(item.encoder_angle))
     matched = math.isfinite(seen)
     return CheckResult(
         check=item,

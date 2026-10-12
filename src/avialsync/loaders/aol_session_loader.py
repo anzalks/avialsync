@@ -23,6 +23,7 @@ import h5py
 import numpy as np
 
 from avialsync.core.custom_markers import is_custom_marker_path
+from avialsync.core.errors import RotaryCalibrationError
 from avialsync.core.pose import split_channel
 from avialsync.core.rig_naming import match_label
 from avialsync.core.settings_schema import Setting
@@ -1190,6 +1191,13 @@ def _rotary_hint(manifest: AOLManifest) -> RotaryHint | None:
 
     if manifest.encoder_file is None:
         return None
+    from avialsync.loaders.aol_rotary_calibration import configured_proposal
+
+    try:
+        proposal = configured_proposal()
+    except (OSError, UnicodeError, RotaryCalibrationError) as error:
+        manifest.warnings.append(f"Wheel calibration model was ignored: {error}")
+        proposal = None
     hardware = manifest.trial_config.get("hardware", {})
     units = (
         str(hardware.get("wheel_radius_units", "")).strip().strip("'\"")
@@ -1202,6 +1210,8 @@ def _rotary_hint(manifest: AOLManifest) -> RotaryHint | None:
         bar_count=int(_hardware_number(hardware, "wheel_bar_count")),
         radius=_hardware_number(hardware, "wheel_radius"),
         units=units if units in ("mm", "cm", "m") else "",
+        motion_model=None if proposal is None else proposal.motion_model,
+        motion_sign=1.0 if proposal is None else proposal.sign,
     )
 
 

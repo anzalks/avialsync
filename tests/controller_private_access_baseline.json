@@ -272,6 +272,12 @@
       "_left_tabs": 1,
       "_mutations": 2
     },
+    "wheel_rotation.py": {
+      "_calibration_state": 1,
+      "_cancel_competing_placement": 1,
+      "_mutations": 2,
+      "_run_job": 1
+    },
     "wheel_display.py": {
       "_calibration_state": 3,
       "_sensor_cache_dirs": 2,

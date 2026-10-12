@@ -566,6 +566,16 @@ turns away, select **Verify Here** on the Wheel page, and click any bar end in a
 such checks measure the direction; the Wheel page says which it is and how far off the checks
 were.
 
+To correct repeatable encoder rotation error, select **Collect Rotation Clicks** and click a bar
+end on several well-separated frames. The clicks are saved as video evidence. Then select **Fit
+Rotation**: AvialSync calculates a proposed cyclic transfer in the background and shows its RMS
+error. Nothing changes until you select **Apply Proposed Fit**; that action is one undo step. The
+fit corrects the declared **Ratio** by up to 15%: identical bars cannot tell which extra full bar
+gaps passed between frames, so set a substantially different coarse ratio yourself first. Three
+well-spaced clicks can fit that correction, seven can also fit a first periodic correction, and
+eleven can fit two correction terms. If a plugin supplies a calibrated rotation model, it appears
+through the same review-and-apply controls rather than changing the wheel automatically.
+
 The wheel's bars are thin lines, never points, so they are not mistaken for tracking. Bars behind
 the side plate are hidden unless you turn on **View → Overlays → Wheel bars out of sight**. The
 **Wheel model** and **Wheel bars out of sight** check boxes at the top of the Wheel page are the

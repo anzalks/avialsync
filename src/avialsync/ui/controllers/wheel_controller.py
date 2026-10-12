@@ -25,6 +25,9 @@
 6. **Verify.** A click on any bar end, in one camera, on a frame a few turns
    away tests the encoder's direction; two informative checks settle it
    (:mod:`avialsync.core.wheel_check`). Until then the panel says "assumed".
+7. **Calibrate Rotation.** The user may retain bar-end clicks across frames,
+   fit a generic periodic transfer in a worker, inspect its residual, and
+   explicitly apply or discard the proposal.
 
 What each view draws, per frame, is :mod:`avialsync.ui.controllers.wheel_display`;
 changing a placed wheel's numbers is :mod:`avialsync.ui.controllers.wheel_edits`.
@@ -47,7 +50,7 @@ from avialsync.core.wheel import (
 )
 from avialsync.core.wheel_check import settle_sign
 from avialsync.ui.controllers import calibration_controller as calibration
-from avialsync.ui.controllers import rig_paths
+from avialsync.ui.controllers import rig_paths, wheel_rotation
 from avialsync.ui.controllers import wheel_display as display
 from avialsync.ui.controllers import wheel_edits as edits
 from avialsync.ui.controllers import wheel_generation as generation
@@ -68,6 +71,14 @@ def _set_checked(window: MainWindow, checked: bool) -> None:
     panel = window.props_app.panel
     if panel is not None:
         panel.set_wheel_placing(checked)
+
+
+def _refresh_marker_place_mode(window: MainWindow) -> None:
+    """Keep marker clicking live while any wheel workflow owns the panes."""
+    state = window.wheel_state
+    window.video_grid.set_marker_place_mode(
+        state.placement is not None or state.checking is not None or state.calibrating is not None
+    )
 
 
 # ── placing ──────────────────────────────────────────────────────────
@@ -103,6 +114,7 @@ def toggled(window: MainWindow, checked: bool) -> None:
 def _start(window: MainWindow, setup: WheelSetup, replacing: str | None = None) -> None:
     window._cancel_competing_placement("wheel")
     stop_checking(window)
+    wheel_rotation.stop(window)
     if window._act_fix_tracker.isChecked():
         window._act_fix_tracker.setChecked(False)
     calibration.acquire_calibration(
@@ -124,7 +136,7 @@ def _begin(window: MainWindow, setup: WheelSetup, replacing: str | None) -> None
     )
     window.props_app.show("wheel")
     _set_checked(window, True)
-    window.video_grid.set_marker_place_mode(True)
+    _refresh_marker_place_mode(window)
     display.refresh(window)
 
 
@@ -134,7 +146,7 @@ def cancel(window: MainWindow, message: str | None = None) -> None:
     window.wheel_state.placement = None
     _set_checked(window, False)
     if had:
-        window.video_grid.set_marker_place_mode(window.wheel_state.checking is not None)
+        _refresh_marker_place_mode(window)
         display.refresh(window)
         if message:
             window.transport.set_status(message, "info")
@@ -142,6 +154,9 @@ def cancel(window: MainWindow, message: str | None = None) -> None:
 
 def on_clicked(window: MainWindow, video: str, x: float, y: float) -> bool:
     """A click in a pane: a wheel end or a check. False if no wheel wanted it."""
+    if window.wheel_state.calibrating is not None:
+        wheel_rotation.on_click(window, video, x, y)
+        return True
     if window.wheel_state.checking is not None:
         _check_click(window, video, x, y)
         return True
@@ -279,6 +294,15 @@ def accept(window: MainWindow) -> None:
     )
     cancel(window)
     window.document.execute(SetWheelCommand(wheel.name, previous, wheel), window._mutations)
+    proposal = wheel_rotation.session_proposal(wheel, window.wheel_state.session_rotary)
+    if proposal is not None:
+        window.wheel_state.motion_proposals[wheel.name] = proposal
+        display.refresh(window)
+        window.notifications.show_success(
+            tr("A session-provided rotation model is ready to review for {name}.").format(
+                name=wheel.name
+            )
+        )
     _announce(window, wheel)
 
 
@@ -327,13 +351,14 @@ def start_checking(window: MainWindow, name: str) -> None:
     if wheel is None or wheel.binding is None:
         return
     cancel(window)
+    wheel_rotation.stop(window)
     window._cancel_competing_placement("wheel")
 
     def _ready() -> None:
         window.wheel_state.checking = name
         if window.clock.state.playing:
             window.transport.play_toggled.emit(False)
-        window.video_grid.set_marker_place_mode(True)
+        _refresh_marker_place_mode(window)
         display.refresh(window)
         window.transport.set_status(
             tr("Click any end of a bar of {name}, in any one camera.").format(name=name), "info"
@@ -346,8 +371,18 @@ def stop_checking(window: MainWindow) -> None:
     if window.wheel_state.checking is None:
         return
     window.wheel_state.checking = None
-    window.video_grid.set_marker_place_mode(window.wheel_state.placement is not None)
+    _refresh_marker_place_mode(window)
     display.refresh(window)
+
+
+def start_motion_calibration(window: MainWindow, name: str) -> None:
+    """Enter the multi-frame rotation-calibration flow for one placed wheel."""
+    if window.wheel_state.calibrating == name:
+        wheel_rotation.stop(window)
+        return
+    cancel(window)
+    stop_checking(window)
+    wheel_rotation.start(window, name)
 
 
 def _check_click(window: MainWindow, video: str, x: float, y: float) -> None:
@@ -367,6 +402,10 @@ def _check_click(window: MainWindow, video: str, x: float, y: float) -> None:
     settled, results = settle_sign(
         wheel.geometry, wheel.binding, cameras, [*wheel.binding.checks, item]
     )
+    # A proposed periodic transfer was fitted against the old set of click
+    # evidence.  The new observation must be included in a fresh proposal,
+    # rather than silently applying an out-of-date result later.
+    window.wheel_state.motion_proposals.pop(wheel.name, None)
     stop_checking(window)
     window.document.execute(
         SetWheelCommand(wheel.name, wheel, dataclasses.replace(wheel, binding=settled)),
@@ -393,9 +432,23 @@ def replace(window: MainWindow, name: str) -> None:
     wheel = window.wheels.get(name)
     if wheel is None:
         return
+    # The replacement geometry changes the visual interpretation of every
+    # later-frame click, so it cannot share a pending proposal with the old
+    # geometry.
+    window.wheel_state.motion_proposals.pop(name, None)
     binding = wheel.binding
     channel = (binding.source_id, binding.channel) if binding is not None else None
     _start(window, WheelSetup(wheel.spec, channel), replacing=name)
+
+
+def remove(window: MainWindow, name: str) -> None:
+    """Remove a wheel without leaving it as the owner of a click workflow."""
+    if window.wheel_state.checking == name:
+        stop_checking(window)
+    if window.wheel_state.calibrating == name:
+        wheel_rotation.stop(window)
+    window.wheel_state.motion_proposals.pop(name, None)
+    edits.remove(window, name)
 
 
 def connect_panel(window: MainWindow) -> None:
@@ -415,8 +468,11 @@ def connect_panel(window: MainWindow) -> None:
     panel.bar_diameter_previewed.connect(lambda n, d: edits.preview_bar_diameter(window, n, d))
     panel.bar_diameter_changed.connect(lambda n, d: edits.edit_bar_diameter(window, n, d))
     panel.verify_requested.connect(lambda n: start_checking(window, n))
+    panel.rotation_capture_requested.connect(lambda n: start_motion_calibration(window, n))
+    panel.rotation_fit_requested.connect(lambda n: wheel_rotation.fit(window, n))
+    panel.rotation_apply_requested.connect(lambda n: wheel_rotation.apply(window, n))
     panel.replace_requested.connect(lambda n: replace(window, n))
-    panel.remove_requested.connect(lambda n: edits.remove(window, n))
+    panel.remove_requested.connect(lambda n: remove(window, n))
 
 
 # ── a new session ────────────────────────────────────────────────────
@@ -426,8 +482,12 @@ def reset(window: MainWindow) -> None:
     """Forget every wheel and any placement (a new session)."""
     cancel(window)
     window.wheel_state.checking = None
+    window.wheel_state.calibrating = None
     window.wheels.clear()
     window.wheel_state.cache.clear()
     window.wheel_state.refits.clear()
     window.wheel_state.diameter_preview.clear()
+    window.wheel_state.motion_proposals.clear()
+    window.wheel_state.motion_fitting.clear()
     window.wheel_state.session_rotary = None
+    _refresh_marker_place_mode(window)
