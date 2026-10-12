@@ -68,6 +68,7 @@ from avialsync.ui.controllers import (
     rig_paths,
     wheel_controller,
     wheel_display,
+    wheel_rotation,
 )
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import on_ui_thread
@@ -1701,6 +1702,7 @@ class PropsApp:
             if existing:
                 calibration_controller.calibration_quietly(self.window)
                 self.refresh()
+                wheel_rotation.offer_session_defaults(self.window)
 
         def failed(error: str) -> None:
             if generation != self.window.session_runtime.generation:

@@ -357,6 +357,10 @@ def _motion_text(binding: EncoderBinding | None, proposal: RotaryCalibrationProp
     """One plain-language record of accepted and proposed rotation calibration."""
     if proposal is not None:
         if proposal.rms_degrees is None:
+            if proposal.source:
+                return tr(
+                    "The {source} is ready for your review: Apply Proposed Fit uses it."
+                ).format(source=proposal.source)
             return tr("A session-provided rotation model is ready for your review.")
         return tr(
             "Proposed from {count} saved alignments: RMS {rms:.2f}°. "

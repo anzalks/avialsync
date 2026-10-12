@@ -718,6 +718,20 @@ def test_the_encoder_is_declared_as_the_wheel_it_turns(aol_session: Path) -> Non
     assert rotary.motion_default and rotary.motion_model is not None
 
 
+def test_the_encoder_is_timed_from_the_cameras_first_frame(aol_session: Path) -> None:
+    """The session hands the encoder the cameras' start so its counter can time it (D-225)."""
+    from avialsync.core.registry import LoaderRegistry
+    from avialsync.loaders.aol_encoder_loader import CAMERA_START_KEY
+
+    encoder = aol_session / "encoder_log.txt"
+    encoder.write_text("09:35:26:312 1 10.0 0.0\n", encoding="utf-8")
+
+    layout = AOLSessionSource().scan(aol_session, LoaderRegistry())
+
+    item = next(item for item in layout.items if item.path == encoder)
+    assert item.config[CAMERA_START_KEY] == pytest.approx(9 * 3600 + 35 * 60 + 26.312)
+
+
 def test_a_wheel_the_config_does_not_describe_is_left_for_the_user(aol_session: Path) -> None:
     from avialsync.core.registry import LoaderRegistry
 

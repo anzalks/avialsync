@@ -35,6 +35,7 @@ __all__ = [
     "adjust",
     "apply",
     "fit",
+    "offer_session_defaults",
     "offer_session_model",
     "save",
     "session_proposal",
@@ -83,6 +84,35 @@ def _with_model(wheel: Wheel, proposal: RotaryCalibrationProposal) -> Wheel:
         motion_source=proposal.source,
     )
     return dataclasses.replace(wheel, binding=binding)
+
+
+def offer_session_defaults(window: MainWindow) -> None:
+    """Offer the rig's default model to saved wheels that turn by something else.
+
+    A saved wheel's model is the user's (or an older fit's), so the default is
+    only proposed for review here, never applied: Apply Proposed Fit takes it.
+    """
+    hint = window.wheel_state.session_rotary
+    if hint is None or not hint.motion_default:
+        return
+    offered = []
+    for wheel in window.wheels:
+        proposal = session_proposal(wheel, hint)
+        if proposal is None or wheel.binding is None:
+            continue
+        if wheel.binding.motion_source == hint.motion_source:
+            continue
+        if wheel.name in window.wheel_state.motion_proposals:
+            continue
+        window.wheel_state.motion_proposals[wheel.name] = proposal
+        offered.append(wheel.name)
+    if offered:
+        display.refresh(window)
+        window.notifications.show_success(
+            tr("The {source} is ready to apply to {names}.").format(
+                source=hint.motion_source, names=", ".join(offered)
+            )
+        )
 
 
 def offer_session_model(window: MainWindow, wheel: Wheel, hint: RotaryHint | None) -> None:
@@ -278,8 +308,19 @@ def fit(window: MainWindow, name: str) -> None:
         )
         return
     stop(window)
+    # The bars are drawn relative to the reference frame's reading through the
+    # encoder's current mapping (`wheel_display._turn`); fit against the same
+    # reading, or a re-aligned encoder leaves a constant bias the fit cannot hold.
+    channel = (wheel.binding.source_id, wheel.binding.channel)
+    reference_time = display.frame_master_time(window, wheel.frame)
+    reference = (
+        display.sample(window, channel, reference_time) if reference_time is not None else None
+    )
+    binding = wheel.binding
+    if reference is not None:
+        binding = dataclasses.replace(binding, reference_angle=reference)
     worker = RotaryCalibrationWorker(
-        wheel.binding,
+        binding,
         wheel.spec.bar_count,
         observations,
         _harmonic_orders(len(observations)),

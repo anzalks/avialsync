@@ -580,7 +580,12 @@ through the same review-and-apply controls rather than changing the wheel automa
 exception is a rig's own default model: an AOL session applies the AOL wheel model to a wheel
 placed on its encoder, as a separate undo step, and the wheel's row names that model. It is valid
 only while the cameras, wheel and encoder mounting are unchanged; set **Wheel calibration model**
-in the AOL settings to use a refitted model file instead.
+in the AOL settings to use a refitted model file instead. A wheel saved before the default existed keeps its
+own model; the session offers the AOL model for it, and **Apply Proposed Fit** takes it.
+
+An AOL encoder is timed by its microsecond counter, which the acquisition resets on the cameras'
+first frame, rather than by the logger's wall clock, which runs about 120 ms late. If you
+nudged the encoder's offset by hand to make up for that, set it back to zero.
 
 The wheel's bars are thin lines, never points, so they are not mistaken for tracking. Bars behind
 the side plate are hidden unless you turn on **View → Overlays → Wheel bars out of sight**. The

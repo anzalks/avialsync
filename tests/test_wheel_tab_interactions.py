@@ -16,13 +16,14 @@ import pytest
 from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
+from avialsync.core.commands import SetWheelCommand
 from avialsync.core.pyramid import PyramidBuilder
 from avialsync.core.rotary_calibration import RotaryCalibrationProposal
 from avialsync.core.rotary_motion import PeriodicRotaryMotion, RotaryHarmonic
 from avialsync.core.source import RotaryHint
 from avialsync.core.wheel import EncoderBinding, WheelSpec, project_bars
 from avialsync.core.wheel_file import read_wheels
-from avialsync.ui.controllers import wheel_controller, wheel_display
+from avialsync.ui.controllers import wheel_controller, wheel_display, wheel_rotation
 from avialsync.ui.main_window import MainWindow
 from avialsync.ui.wheel_dialogs import WheelSetup
 from tests.wheel_fixture import CAMERAS, clicks_for
@@ -485,6 +486,48 @@ def test_a_rig_default_rotation_model_is_applied_on_placement_as_its_own_undo_st
     assert window.document.undo(window._mutations)
     binding = window.wheels.get("wheel").binding
     assert binding is not None and binding.motion_model is None, "Undo keeps the wheel"
+
+
+def test_a_saved_wheel_is_offered_the_rig_default_but_not_given_it(
+    window: MainWindow, monkeypatch, tmp_path: Path
+) -> None:
+    """A saved wheel's own model is the user's: the rig default is proposed, never applied."""
+    _load_encoder(window, tmp_path, np.arange(0.0, 2.0, 0.01), np.arange(0.0, 72.0, 0.36))
+    _two_bars(window, monkeypatch, channel=("encoder.csv", "angle"))
+    window.wheel_panel._accept.click()
+    own = PeriodicRotaryMotion(gain=1.108)
+    wheel = window.wheels.get("wheel")
+    window.document.execute(
+        SetWheelCommand(
+            "wheel",
+            wheel,
+            dataclasses.replace(
+                wheel, binding=dataclasses.replace(wheel.binding, motion_model=own, ratio=1.108)
+            ),
+        ),
+        window._mutations,
+    )
+    default = PeriodicRotaryMotion(gain=1.0, harmonics=(RotaryHarmonic(2, 1.5, -1.6),))
+    window.wheel_state.session_rotary = RotaryHint(
+        "angle",
+        Path("encoder.csv"),
+        motion_model=default,
+        motion_sign=-1.0,
+        motion_default=True,
+        motion_source="rig default",
+    )
+
+    wheel_rotation.offer_session_defaults(window)
+
+    assert window.wheels.get("wheel").binding.motion_model == own
+    row = window.wheel_panel._rows["wheel"]
+    assert "rig default" in row.motion.text() and row.apply_rotation.isEnabled()
+    row.apply_rotation.click()
+    binding = window.wheels.get("wheel").binding
+    assert binding.motion_model == default and binding.motion_source == "rig default"
+
+    wheel_rotation.offer_session_defaults(window)
+    assert "wheel" not in window.wheel_state.motion_proposals, "already on the default"
 
 
 def test_row_replace_starts_a_placement_that_swaps_the_wheel_in(

@@ -7246,3 +7246,26 @@ silently stale default visible.
 
 **Alternatives rejected.** Applying it inside the placement command: Undo would remove the wheel
 rather than the model. Defaulting any plugin model: only a rig plugin knows its model is the rig's.
+
+## 2026-10 · D-225 · An AOL encoder is timed by its counter, not its wall clock
+
+**Decision.** The AOL session passes the cameras' shared first-frame time to the encoder loader
+(`camera_start_s`, seconds since the session's midnight). The loader finds the counter's camera
+window (the first reset, when the cameras start, to the second, when they stop) and times every
+sample in it as that start plus the counter in microseconds -- the definition the
+wheel-calibration analysis (`src/core/encoder_clock.py`) fits against. Samples outside the window
+keep their wall-clock spacing, shifted by the window's median wall-to-counter difference, and any
+that would step behind the counter window are dropped. A log with no reset, or a manual import,
+keeps the wall clock.
+
+**Why.** The wall-clock column is when MATLAB wrote a line. On 2026-05-08 09-35-24 it runs 120.9 ms
+behind the counter (118.8-124.8 ms, drifting 0.9 ms/min), so the wheel lagged the video by about
+43° at one turn per second, and a rotation fit absorbed part of it as an 11 % gain error. The
+same millisecond stamps several samples, so deduplication also discarded a third of them
+(41 199 of 60 668 kept); the counter keeps every sample. The AOL wheel model (D-224) reports a
+residual lag of -0.10 ± 0.15 ms on the counter clock.
+
+A saved wheel whose model is not the rig default is offered that default for review when the
+session or its props load; it is never applied over a saved model. Fit Rotation now fits against
+the reference frame's reading through the encoder's current mapping, the reading the bars are
+drawn from.

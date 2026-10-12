@@ -307,6 +307,50 @@ class TestAOLEncoderLoader:
         # The duplicate pair collapses to its LAST value, per the source contract.
         np.testing.assert_allclose(v[np.searchsorted(t, 9 * 3600 + 0.001)], 99.0)
 
+    def test_encoder_inside_the_camera_window_is_timed_by_its_counter(self, tmp_path: Path) -> None:
+        """The counter resets on the cameras' first frame; the wall clock is 120 ms late (D-225)."""
+        from avialsync.loaders.aol_encoder_loader import CAMERA_START_KEY, AOLEncoderLoader
+
+        content = (
+            "09:00:00:117 5000000 1.0 0.0\n"  # before the cameras: an unrelated counter
+            "09:00:00:118 5001000 2.0 0.0\n"
+            "09:00:00:121 1000 3.0 0.0\n"  # camera-start reset
+            "09:00:00:121 2000 4.0 0.0\n"  # same logged millisecond, a distinct sample
+            "09:00:00:123 3000 5.0 0.0\n"
+            "09:00:00:124 4000 6.0 0.0\n"
+            "09:00:00:126 10 7.0 0.0\n"  # camera-stop reset
+            "09:00:00:127 20 8.0 0.0\n"
+        )
+        path = tmp_path / "encoder_log.txt"
+        path.write_text(content, encoding="utf-8")
+        camera_start = 9 * 3600.0
+
+        loader = AOLEncoderLoader()
+        loader.open(path, {"auto_resolved": True, CAMERA_START_KEY: camera_start})
+        chunks = list(loader.read_chunks("encoder_angle"))
+        t = np.concatenate([c[0] for c in chunks])
+        v = np.concatenate([c[1] for c in chunks])
+
+        assert np.all(np.diff(t) > 0)
+        window = np.isin(v, [3.0, 4.0, 5.0, 6.0])
+        np.testing.assert_allclose(
+            t[window], camera_start + np.array([1000, 2000, 3000, 4000]) / 1e6, atol=1e-9
+        )
+        # Outside the window the wall clock keeps its spacing, moved by the window's median
+        # wall-to-counter difference (120 ms here).
+        np.testing.assert_allclose(t[v == 1.0], camera_start + 0.117 - 0.1205, atol=1e-6)
+        np.testing.assert_allclose(t[v == 8.0], camera_start + 0.127 - 0.1205, atol=1e-6)
+
+    def test_encoder_without_a_camera_start_keeps_its_wall_clock(self, tmp_path: Path) -> None:
+        from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
+
+        path = tmp_path / "encoder_log.txt"
+        path.write_text("09:00:00:117 5000 1.0 0.0\n09:00:00:121 1000 2.0 0.0\n", encoding="utf-8")
+        loader = AOLEncoderLoader()
+        loader.open(path, {"auto_resolved": True})
+        t = np.concatenate([c[0] for c in loader.read_chunks("encoder_angle")])
+        np.testing.assert_allclose(t, [32400.117, 32400.121], atol=1e-9)
+
     def test_encoder_boundary_backward_jump_is_detected(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

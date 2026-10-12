@@ -16,7 +16,7 @@ Master-time axis (deliberate; do not "fix" it):
     *subtracts* the session's anchor-date epoch from it -- putting video and
     EKS on seconds-since-midnight too.  Verified on
     2026-05-08/experiment_1/09-35-24: video [34526.312..34586.502],
-    EKS [34526.312..34586.499], encoder [34526.082..34586.964].
+    EKS [34526.312..34586.499], encoder [34525.961..34586.843] (counter clock, D-225).
 
     ``drop_worker`` marks every candidate it produces with
     ``config["auto_resolved"] = True`` -- that flag, not the presence of
@@ -33,6 +33,17 @@ Master-time axis (deliberate; do not "fix" it):
     Across midnight the axis is *unwrapped* (86400, 86401, ...) rather than
     wrapped back to 0, because video/EKS master time is epoch-derived and keeps
     increasing.  See ``_unwrap_midnight``.
+
+Counter clock (D-225):
+    The wall-clock column is when MATLAB wrote a line, not when the sample was
+    taken.  The second column is the encoder's microsecond counter, which the
+    acquisition resets when the cameras start and again when they stop.  When
+    the session supplies the cameras' first-frame time (``camera_start_s``, on
+    this loader's own axis), every sample between those two resets is timed as
+    that start plus its counter -- the definition the wheel-calibration
+    analysis fits against.  Samples outside the window keep their wall-clock
+    spacing, shifted by the window's median wall-to-counter difference.  On
+    09-35-24 the wall clock runs 120.9 ms (118.8-124.8 ms) behind the counter.
 """
 
 import logging
@@ -58,6 +69,9 @@ _VELOCITY_CHANNEL = "encoder_velocity"
 ANGLE_CHANNEL = "encoder_angle"
 #: Column holding each channel's value in a log line.
 _COLUMN = {_VELOCITY_CHANNEL: 3, ANGLE_CHANNEL: 2}
+#: Config key: the cameras' first-frame time on this loader's own axis.  With
+#: it, samples inside the counter's camera window are timed by the counter.
+CAMERA_START_KEY = "camera_start_s"
 # A backward jump larger than half a day is a date rollover, not bad data.
 _ROLLOVER_THRESHOLD_S = 43_200.0
 _SECONDS_PER_DAY = 86_400.0
@@ -105,6 +119,8 @@ class AOLEncoderLoader(TimeSeriesSource):
         """Validate the file and store config."""
         self._path = path
         self._config = config
+        self._clock: _CounterClock | None = None
+        self._clock_read = False
 
         # Validate first line
         with open(path, encoding="utf-8") as f:
@@ -204,7 +220,9 @@ class AOLEncoderLoader(TimeSeriesSource):
         # produces, whereas it also sets `anchor_date` whenever the session has
         # one, so `anchor_date` presence cannot distinguish the two paths.
         is_manual = not bool(self._config.get("auto_resolved", False))
+        counter_clock = None if is_manual else self._counter_clock()
         first_t: float | None = None
+        last_t = -np.inf
         # Carried across chunk boundaries.
         clock = _MidnightUnwrapper()
         turns = _TurnUnwrapper() if ch == ANGLE_CHANNEL else None
@@ -226,6 +244,13 @@ class AOLEncoderLoader(TimeSeriesSource):
                     if first_t is None:
                         first_t = t_sec
                     t_sec -= first_t
+                t_sec = clock.advance(t_sec)
+                if counter_clock is not None:
+                    t_sec = counter_clock.time(line_no, parts[1], t_sec)
+                    if t_sec < last_t:
+                        # A shifted wall-clock sample beside the counter window
+                        # can land a few ms behind it; the counter is the truth.
+                        continue
                 try:
                     value = float(parts[column])
                 except ValueError:
@@ -233,7 +258,22 @@ class AOLEncoderLoader(TimeSeriesSource):
                     continue
                 if turns is not None:
                     value = turns.advance(value)
-                yield clock.advance(t_sec), value
+                last_t = t_sec
+                yield t_sec, value
+
+    def _counter_clock(self) -> "_CounterClock | None":
+        """The counter's camera window in this file, read once per open."""
+        if not self._clock_read and self._path is not None:
+            self._clock_read = True
+            start = self._config.get(CAMERA_START_KEY)
+            if start is not None:
+                self._clock = _CounterClock.read(self._path, float(start))
+                if self._clock is None:
+                    logger.warning(
+                        "%s has no encoder counter reset; it is timed by its wall clock.",
+                        self._path.name,
+                    )
+        return self._clock
 
     @classmethod
     def _finish_chunk(
@@ -287,6 +327,64 @@ class AOLEncoderLoader(TimeSeriesSource):
         mask = np.ones(len(t), dtype=bool)
         mask[:-1] = dt > 0
         return t[mask], v[mask]
+
+
+class _CounterClock:
+    """Time samples by the encoder counter inside the cameras' window.
+
+    ``first`` and ``end`` are file line numbers: the first line after the
+    counter's camera-start reset, and the first after its camera-stop reset
+    (or past the end of the file when the log stops first).
+    """
+
+    def __init__(self, camera_start: float, first: int, end: float, shift: float) -> None:
+        self._camera_start = camera_start
+        self._first = first
+        self._end = end
+        self._shift = shift
+
+    @classmethod
+    def read(cls, path: Path, camera_start: float) -> "_CounterClock | None":
+        """Find the window and the wall-clock shift; None without a reset."""
+        lines: list[int] = []
+        walls: list[float] = []
+        counters: list[float] = []
+        clock = _MidnightUnwrapper()
+        with open(path, encoding="utf-8") as f:
+            for line_no, line in enumerate(f, start=1):
+                parts = line.split()
+                if len(parts) < 4:
+                    continue
+                wall = AOLEncoderLoader._parse_wall_clock(parts[0])
+                try:
+                    counter = float(parts[1])
+                except ValueError:
+                    continue
+                if np.isnan(wall) or not np.isfinite(counter):
+                    continue
+                lines.append(line_no)
+                walls.append(clock.advance(wall))
+                counters.append(counter)
+        resets = np.flatnonzero(np.diff(np.asarray(counters)) < 0) + 1
+        if resets.size == 0:
+            return None
+        a = int(resets[0])
+        b = int(resets[1]) if resets.size > 1 else len(lines)
+        if b - a < 2:
+            return None
+        times = camera_start + np.asarray(counters[a:b]) / 1e6
+        shift = float(np.median(times - np.asarray(walls[a:b])))
+        end = float(lines[b]) if b < len(lines) else np.inf
+        return cls(camera_start, lines[a], end, shift)
+
+    def time(self, line_no: int, counter: str, wall: float) -> float:
+        """The sample's time: by its counter inside the window, else shifted wall clock."""
+        if self._first <= line_no < self._end:
+            try:
+                return self._camera_start + float(counter) / 1e6
+            except ValueError:
+                pass
+        return wall + self._shift
 
 
 class _TurnUnwrapper:

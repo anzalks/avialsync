@@ -1221,13 +1221,19 @@ def _rotary_hint(manifest: AOLManifest) -> RotaryHint | None:
 
 def _encoder_items(manifest: AOLManifest) -> list[SessionItem]:
     """The rotary encoder trace, already on the session's own time axis."""
-    from avialsync.loaders.aol_encoder_loader import AOLEncoderLoader
+    from avialsync.loaders.aol_encoder_loader import CAMERA_START_KEY, AOLEncoderLoader
 
     if manifest.encoder_file is None:
         return []
     config: dict[str, Any] = {"auto_resolved": True}
     if manifest.anchor_date:
         config["anchor_date"] = manifest.anchor_date
+    starts = [epoch for epoch in manifest.camera_start_epochs.values() if epoch > 0.0]
+    anchor = _anchor_epoch(manifest)
+    if starts and anchor > 0.0:
+        # The counter resets on the cameras' first frame: time the encoder by
+        # it, on the same seconds-since-midnight axis as the video (D-225).
+        config[CAMERA_START_KEY] = _rebased(statistics.median(starts), anchor)
     return [
         SessionItem(
             manifest.encoder_file,
