@@ -386,11 +386,19 @@ def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
     window._active_cancel = None
     window.import_state.pending.clear()
 
+    # Only a DropScanWorker owns these handlers.  Calling ``disconnect`` on
+    # every job's superficially similar ``finished``/``error`` signals makes
+    # PySide warn for each worker that was never connected to a drop handler.
+    # More importantly, broad disconnects make signal ownership implicit.
+    from avialsync.engine.drop_worker import DropScanWorker
+
     for job in window._job_manager.jobs():
         worker = job.worker
-        _disconnect(getattr(worker, "finished", None), window._on_drop_scan_finished)
-        _disconnect(getattr(worker, "session_found", None), window._on_drop_session_found)
-        _disconnect(getattr(worker, "error", None), window._on_drop_scan_error)
+        if not isinstance(worker, DropScanWorker):
+            continue
+        _disconnect(worker.finished, window._on_drop_scan_finished)
+        _disconnect(worker.session_found, window._on_drop_session_found)
+        _disconnect(worker.error, window._on_drop_scan_error)
     window._job_manager.cancel_all()
 
     source_paths = set(window.video_grid.pane_paths())
