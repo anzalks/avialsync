@@ -27,6 +27,7 @@ from avialsync.core.session import (
 )
 from avialsync.core.settings_schema import setting_for
 from avialsync.core.source import source_exists
+from avialsync.engine.drop_worker import DropScanWorker
 from avialsync.ui import imaging_integration, recovery, video_levels
 from avialsync.ui.app_settings import app_settings
 from avialsync.ui.controllers import (
@@ -348,10 +349,8 @@ def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
     window.session_runtime.pending_pair = None
     window.session_runtime.generation += 1
     window.session_runtime.path = None
-    # Any snapshot on disk describes work this reset discards on purpose: keeping
-    # it would resurrect it at next launch, and the close-time write would replace
-    # it with an empty workspace. Clear it, do not overwrite it -- unless
-    # the same workspace is being put straight back, as a cache deletion does.
+    # Do not let recovery resurrect work this reset intentionally discards.
+    # Preserve it only while immediately reopening the same workspace.
     if discard_recovery:
         recovery.clear_recovery()
         forget_pending_recovery(window)
@@ -373,9 +372,6 @@ def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
         None,
     )
     if import_worker is not None:
-        # The progress dialog this used to disconnect from is gone;
-        # the activity bar takes its place and is dismissed below. Cancelling
-        # the worker on reset is the behaviour that mattered and is unchanged.
         _disconnect(getattr(import_worker, "progress", None), window.activity_bar.set_progress)
         _disconnect(getattr(import_worker, "finished", None), window._on_import_finished)
         _disconnect(getattr(import_worker, "error", None), window._on_import_error)
@@ -386,12 +382,8 @@ def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
     window._active_cancel = None
     window.import_state.pending.clear()
 
-    # Only a DropScanWorker owns these handlers.  Calling ``disconnect`` on
-    # every job's superficially similar ``finished``/``error`` signals makes
-    # PySide warn for each worker that was never connected to a drop handler.
-    # More importantly, broad disconnects make signal ownership implicit.
-    from avialsync.engine.drop_worker import DropScanWorker
-
+    # Disconnect only the worker that owns these handlers; other jobs' signals
+    # would otherwise produce PySide warnings and blur signal ownership.
     for job in window._job_manager.jobs():
         worker = job.worker
         if not isinstance(worker, DropScanWorker):
