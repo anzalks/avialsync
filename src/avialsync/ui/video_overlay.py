@@ -296,7 +296,10 @@ class PaintCanvas(MarkerOverlayMixin):
         # must not hide the wheel the animal is running on, or the reverse.
         wheel = self._wheel(self.t) if self._wheel is not None else None
         props = self._props(self.t) if self._props is not None and self._props_visible else []
-        if not draw_points and wheel is None and not props:
+        # Reprojection is its own layer too: the 3D points' crosses alone are
+        # how a triangulation is checked against the footage.
+        reproject = self._reprojection_visible and self._reprojection is not None
+        if not draw_points and not reproject and wheel is None and not props:
             return
         geometry = self._video_scale()
         if geometry is None:
@@ -340,6 +343,8 @@ class PaintCanvas(MarkerOverlayMixin):
                 show_hidden=self._wheel_hidden_visible,
             )
         if not draw_points:
+            if self._reprojection_visible:
+                self._draw_reprojection(painter, scale, offset_x, offset_y)
             if wheel is not None and (wheel.clicks or wheel.projections or wheel.prompt):
                 draw_wheel_clicks(painter, wheel, scale, offset_x, offset_y, bounds, chrome)
             return

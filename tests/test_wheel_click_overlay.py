@@ -60,3 +60,25 @@ def test_projected_end_has_a_distinct_visible_mark(qtbot) -> None:
 
     assert image.pixelColor(50, 45).alpha() > 0
     assert image.pixelColor(5, 80).alpha() == 0
+
+
+def test_reprojection_is_drawn_with_the_tracking_points_hidden(qtbot, monkeypatch) -> None:
+    """3D reprojection is its own layer: shown alone, the 2D tracking stays off."""
+    parent = QWidget()
+    parent.video_size = (100, 100)
+    qtbot.addWidget(parent)
+    canvas = PaintCanvas(parent)
+    canvas.resize(100, 100)
+    canvas.set_readers([object()])
+    tracked: list[bool] = []
+    monkeypatch.setattr(canvas, "_draw_loose_readers", lambda *_a: tracked.append(True))
+    canvas.set_reprojection_source(lambda _t: [("nose", 50.0, 50.0)])
+    canvas.set_reprojection_visible(True)
+    canvas.set_points_visible(False)
+    image = QImage(100, 100, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(0)
+
+    canvas.render(image)
+
+    assert image.pixelColor(50, 50).alpha() > 0, "the reprojected cross"
+    assert not tracked, "the 2D tracking stays hidden"
