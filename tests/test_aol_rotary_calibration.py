@@ -8,7 +8,7 @@ import math
 import pytest
 
 from avialsync.core.errors import RotaryCalibrationError
-from avialsync.loaders.aol_rotary_calibration import proposal_from_file
+from avialsync.loaders.aol_rotary_calibration import DEFAULT_SOURCE, proposal_from_file
 
 
 def _model(*, lag_s: float = 0.0) -> dict[str, object]:
@@ -62,20 +62,45 @@ def test_aol_model_refuses_a_lag_that_cannot_be_a_rotation_transfer(tmp_path) ->
         proposal_from_file(path)
 
 
-def test_aol_session_offers_its_configured_model_without_applying_it(tmp_path) -> None:
+def _hint(tmp_path, values: dict[str, object]):
     from avialsync.loaders.aol_pairing import configure_aol
     from avialsync.loaders.aol_session_loader import AOLManifest, _rotary_hint
 
-    model = tmp_path / "model.json"
-    model.write_text(json.dumps(_model()), encoding="utf-8")
     encoder = tmp_path / "encoder_log.txt"
     encoder.write_text("09:35:26:000 0 0 0\n", encoding="utf-8")
     try:
-        configure_aol({"wheel_calibration_model": str(model)})
-        hint = _rotary_hint(AOLManifest(session_dir=tmp_path, encoder_file=encoder))
+        configure_aol(values)
+        return _rotary_hint(AOLManifest(session_dir=tmp_path, encoder_file=encoder))
     finally:
         configure_aol({})
 
+
+def test_aol_session_defaults_to_the_rigs_built_in_wheel_model(tmp_path) -> None:
+    """With no file configured, the AOL wheel model is the hardware fit, marked as the default."""
+    hint = _hint(tmp_path, {})
+
+    assert hint is not None and hint.motion_model is not None
+    assert hint.motion_default and hint.motion_source == DEFAULT_SOURCE
+    assert hint.motion_sign == -1.0
+    model = hint.motion_model
+    assert model.gain == 1.0
+    first, second = model.harmonics
+    assert (first.sine_degrees, first.cosine_degrees) == pytest.approx(
+        (math.degrees(0.005922971076449978), math.degrees(0.0015272853543092419))
+    )
+    assert (second.sine_degrees, second.cosine_degrees) == pytest.approx(
+        (-math.degrees(0.02721289695333099), math.degrees(0.028215485045811815))
+    )
+
+
+def test_aol_session_configured_model_replaces_the_default(tmp_path) -> None:
+    model = tmp_path / "model.json"
+    model.write_text(json.dumps(_model()), encoding="utf-8")
+
+    hint = _hint(tmp_path, {"wheel_calibration_model": str(model)})
+
     assert hint is not None
     assert hint.motion_model is not None
+    assert hint.motion_model.gain == pytest.approx(1.1), "a configured file replaces the default"
     assert hint.motion_sign == -1.0
+    assert hint.motion_default and hint.motion_source == "AOL wheel model model.json"

@@ -43,6 +43,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from avialsync.core.calibration import CameraModel
+from avialsync.core.rotary_calibration import RotaryObservation
 from avialsync.core.rotary_motion import PeriodicRotaryMotion
 
 __all__ = [
@@ -239,11 +240,7 @@ def fit_issue(fit: WheelFit, clicks: Sequence[EndClick]) -> str | None:
 
 @dataclass(frozen=True)
 class WheelCheck:
-    """A bar end clicked on another frame as durable video evidence.
-
-    Checks can settle encoder direction and, when collected across frames,
-    provide the cyclic observations for a periodic rotary calibration.
-    """
+    """A bar end clicked on another frame to verify encoder direction."""
 
     frame: int
     encoder_angle: float
@@ -270,8 +267,15 @@ class EncoderBinding:
     ratio: float = 1.0
     measured: bool = False
     checks: tuple[WheelCheck, ...] = ()
+    #: Saved visual rotary alignments.  Each carries only an encoder reading,
+    #: a cyclic wheel angle, and an optional evidence index; the generic
+    #: rotary fitter needs nothing about this wheel, its cameras, or its rig.
+    rotation_observations: tuple[RotaryObservation, ...] = ()
     #: Optional instrument correction in the encoder's positive direction.
     motion_model: PeriodicRotaryMotion | None = None
+    #: Where ``motion_model`` came from when a plugin supplied it, e.g. a rig's
+    #: default model; empty for a fit of this wheel's own saved alignments.
+    motion_source: str = ""
 
     def turn(self, encoder_angle: float, reference_angle: float | None = None) -> float:
         """Degrees the wheel has turned since the reference frame."""

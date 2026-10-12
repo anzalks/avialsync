@@ -20,6 +20,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from avialsync.core.rotary_calibration import RotaryObservation
 from avialsync.core.rotary_motion import PeriodicRotaryMotion, RotaryHarmonic
 from avialsync.core.toml_format import toml_value
 from avialsync.core.wheel import (
@@ -119,6 +120,7 @@ def wheel_sections(wheel: Wheel) -> list[str]:
                     ("version", 1),
                     ("gain", model.gain),
                     ("offset_degrees", model.offset_degrees),
+                    ("source", binding.motion_source or None),
                 ],
             )
             for harmonic in model.harmonics:
@@ -167,6 +169,15 @@ def _records(wheel: Wheel) -> list[str]:
                 ("camera", item.camera),
                 ("x", item.x),
                 ("y", item.y),
+            ],
+        )
+    for seen in wheel.binding.rotation_observations if wheel.binding is not None else ():
+        lines += _table(
+            "[[encoder.rotation_observation]]",
+            [
+                ("frame", seen.evidence_index),
+                ("encoder_angle", seen.reading),
+                ("angle_degrees", seen.angle_degrees),
             ],
         )
     return lines
@@ -224,7 +235,16 @@ def _parse_binding(document: Mapping[str, Any]) -> EncoderBinding | None:
             )
             for k in document.get("check", ())
         ),
+        rotation_observations=tuple(
+            RotaryObservation(
+                reading=float(item["encoder_angle"]),
+                angle_degrees=float(item["angle_degrees"]),
+                evidence_index=(None if item.get("frame") is None else int(item["frame"])),
+            )
+            for item in document.get("encoder", {}).get("rotation_observation", ())
+        ),
         motion_model=motion,
+        motion_source=str(encoder.get("motion", {}).get("source", "")),
     )
 
 
@@ -235,7 +255,8 @@ def _parse_motion(value: Any) -> PeriodicRotaryMotion | None:
     model = _mapping(value)
     if model.get("kind") != "periodic_rotary" or int(model.get("version", 0)) != 1:
         raise ValueError("Unsupported encoder motion model.")
-    raw_harmonics = model.get("harmonic", ())
+    # A gain-only model writes no harmonic tables at all.
+    raw_harmonics = model.get("harmonic", [])
     if not isinstance(raw_harmonics, list):
         raise ValueError("Encoder motion harmonics must be a table array.")
     return PeriodicRotaryMotion(

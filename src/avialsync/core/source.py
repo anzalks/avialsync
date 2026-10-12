@@ -316,7 +316,9 @@ class RotaryHint:
     ``source`` is the item carrying ``channel``; ``bar_count``, ``radius`` and
     ``units`` are 0 / 0.0 / "" when the session does not say. A plugin may
     also offer a calibrated transfer and direction. They are a proposal for
-    the Props workflow, never silently applied to a wheel.
+    the Props workflow unless the plugin sets ``motion_default``: then it is
+    the rig's own model, applied when a wheel on ``channel`` is placed, as its
+    own undo step, and named by ``motion_source`` wherever the wheel is shown.
     """
 
     channel: str
@@ -326,6 +328,8 @@ class RotaryHint:
     units: str = ""
     motion_model: PeriodicRotaryMotion | None = None
     motion_sign: float = 1.0
+    motion_default: bool = False
+    motion_source: str = ""
 
 
 @dataclass(frozen=True)

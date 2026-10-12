@@ -1185,16 +1185,18 @@ def _rotary_hint(manifest: AOLManifest) -> RotaryHint | None:
     The encoder log's unwrapped angle is the channel; the wheel's bar count and
     radius come from ``hardware: wheel_bar_count / wheel_radius /
     wheel_radius_units`` in ``trial_config.yml`` when the lab has written them
-    there, and are otherwise left for the user to enter once.
+    there, and are otherwise left for the user to enter once. The rig's wheel
+    model (the built-in default, or the configured file) is the wheel's
+    default transfer: it is applied when the wheel is placed.
     """
     from avialsync.loaders.aol_encoder_loader import ANGLE_CHANNEL
 
     if manifest.encoder_file is None:
         return None
-    from avialsync.loaders.aol_rotary_calibration import configured_proposal
+    from avialsync.loaders.aol_rotary_calibration import configured_model
 
     try:
-        proposal = configured_proposal()
+        proposal = configured_model()
     except (OSError, UnicodeError, RotaryCalibrationError) as error:
         manifest.warnings.append(f"Wheel calibration model was ignored: {error}")
         proposal = None
@@ -1212,6 +1214,8 @@ def _rotary_hint(manifest: AOLManifest) -> RotaryHint | None:
         units=units if units in ("mm", "cm", "m") else "",
         motion_model=None if proposal is None else proposal.motion_model,
         motion_sign=1.0 if proposal is None else proposal.sign,
+        motion_default=proposal is not None,
+        motion_source="" if proposal is None else proposal.source,
     )
 
 

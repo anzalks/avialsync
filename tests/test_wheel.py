@@ -18,6 +18,7 @@ from avialsync.core.commands import SetWheelCommand
 from avialsync.core.errors import PropModelError, WheelFitError
 from avialsync.core.physical_props import Ladder, PropStore, WheelView
 from avialsync.core.prop_file import is_prop_path, prop_path
+from avialsync.core.rotary_calibration import RotaryObservation
 from avialsync.core.rotary_motion import PeriodicRotaryMotion, RotaryHarmonic
 from avialsync.core.wheel import (
     LEFT,
@@ -293,15 +294,32 @@ def _wheel() -> Wheel:
         12.0,
         sign=-1.0,
         checks=(WheelCheck(3, 40.0, "Front", 1.0, 2.0),),
+        rotation_observations=(
+            RotaryObservation(52.5, 4.25, evidence_index=9),
+            RotaryObservation(80.0, 7.5),
+        ),
         motion_model=PeriodicRotaryMotion(
             gain=1.02,
             offset_degrees=3.0,
             harmonics=(RotaryHarmonic(1, sine_degrees=0.3, cosine_degrees=-0.2),),
         ),
+        motion_source="AOL default wheel model (geometry 7c55238f)",
     )
     return Wheel(
         spec, 7, clicks, fit_wheel(spec, clicks, CAMERAS), binding=binding, calibration="c.toml"
     )
+
+
+def test_a_gain_only_motion_model_round_trips(tmp_path) -> None:
+    """A fit from few alignments has no periodic terms, so no harmonic tables are written."""
+    wheel = _wheel()
+    assert wheel.binding is not None
+    binding = dataclasses.replace(
+        wheel.binding, motion_model=PeriodicRotaryMotion(gain=1.1), motion_source=""
+    )
+    wheel = dataclasses.replace(wheel, binding=binding)
+    write_wheel(tmp_path / "pose-3d", wheel)
+    assert read_wheels(tmp_path / "pose-3d") == [wheel]
 
 
 def test_the_store_reports_only_real_changes() -> None:

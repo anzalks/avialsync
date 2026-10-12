@@ -79,8 +79,8 @@ AOL_SETTINGS: tuple[Setting, ...] = (
         default="",
         kind=str,
         help_text=(
-            "Optional wheel_rotation_v2 JSON calibration. It is offered in Props for review "
-            "and is never applied automatically."
+            "Optional wheel_rotation_v2 JSON calibration replacing the built-in AOL wheel "
+            "model. Either is applied to a wheel placed on the AOL encoder; Undo removes it."
         ),
     ),
 )

@@ -7199,3 +7199,50 @@ contracts remain source-specific.
 **Alternatives rejected.** Applying a fit as soon as it converges: it would silently alter a
 visible prop on ambiguous cyclic evidence. Storing a second kind of calibration click: it would
 split identical bar-end evidence across two persistence paths and make later review less reliable.
+
+## 2026-10 · D-223 · Rotation evidence is a saved visual alignment, not a bar-end click
+
+**Supersedes** D-222's evidence source (the fit, review and apply path is unchanged).
+
+**Decision.** While a wheel's **Adjust Rotation** is on, its row shows a **Visual rotation** slider
+(±½ bar pitch). Sliding turns only the drawn bars on the shown frame (`WheelState.rotation_preview`,
+presentation state, no document mutation). **Save Frame** records one
+`RotaryObservation(reading, (encoder turn + adjustment) mod pitch, evidence_index=frame)` in
+`EncoderBinding.rotation_observations` as one undoable `SetWheelCommand`; saving the same frame
+again replaces it. Saved alignments persist in the prop sidecar as
+`[[encoder.rotation_observation]]`. While adjusting, a saved frame is drawn at its saved angle and
+the slider shows its offset from the current transfer, derived rather than stored, so it stays
+correct after a fit is applied. **Fit Rotation** passes those observations straight to
+`fit_periodic_rotary()`; the worker needs no cameras or geometry. `WheelCheck` is direction
+verification only. Re-placing a wheel drops saved alignments: they are poses of the old geometry.
+
+**Why.** The user judges the whole wheel against the footage instead of hitting one bar end in one
+camera, and the evidence is already in the fitter's own terms, so any rotary prop that can draw a
+pose can reuse the flow without a prop-specific adapter.
+
+**Alternatives rejected.** Keeping bar-end clicks as evidence: a click resolves only through one
+camera's projection of one end, and cannot express "the whole wheel looks right here".
+
+## 2026-10 · D-224 · The AOL rig's wheel model is its wheels' default rotation transfer
+
+**Amends** D-222/D-223 for one case: a plugin model declared as the rig default.
+
+**Decision.** `RotaryHint` gains `motion_default` and `motion_source`. When a wheel is placed on the
+hinted channel and source, a default model is applied right after the placement as its own
+undoable `SetWheelCommand` (Undo leaves the wheel on its plain ratio); a re-placed wheel that
+already turns by a model keeps it. A non-default hint is still only a reviewable proposal. The
+binding records `motion_source`, persisted as `source` in `[encoder.motion]`, and the wheel row
+names it with a warning that it holds only while cameras, wheel and encoder are unchanged.
+
+The AOL plugin builds in the rig's `wheel_rotation_v2` model (`aol_rotary_calibration._DEFAULT_MODEL`,
+from the wheel-calibration tool's `data/encoder/model.json`: geometry `7c55238f…`, 3186 clicks,
+lag 0 and gain 1 fixed at hardware values, phase and two periodic terms fitted) and marks it as
+the default. The **Wheel calibration model** setting replaces it with a refitted file. Every other
+prop starts on its plain ratio and is calibrated by saved visual alignments (D-223).
+
+**Why.** The AOL rig's encoder correction is already measured on thousands of clicks; asking each
+user to re-derive or re-apply it per wheel adds work and error. Recording the provenance keeps a
+silently stale default visible.
+
+**Alternatives rejected.** Applying it inside the placement command: Undo would remove the wheel
+rather than the model. Defaulting any plugin model: only a rig plugin knows its model is the rig's.

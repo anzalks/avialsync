@@ -339,9 +339,7 @@ def test_row_verify_here_enters_and_leaves_checking(window: MainWindow, placed) 
     assert window.wheel_state.checking is None
 
 
-def test_row_collect_rotation_keeps_accepting_bar_clicks_across_frames(
-    window: MainWindow, placed
-) -> None:
+def test_row_adjust_rotation_shows_the_slider_until_stopped(window: MainWindow, placed) -> None:
     wheel = window.wheels.get("wheel")
     _bind(window, wheel)
     row = window.wheel_panel._rows["wheel"]
@@ -349,45 +347,69 @@ def test_row_collect_rotation_keeps_accepting_bar_clicks_across_frames(
     row.collect_rotation.click()
 
     assert window.wheel_state.calibrating == "wheel"
-    assert row.collect_rotation.text() == "Stop Collecting"
+    assert row.collect_rotation.text() == "Stop Adjusting"
+    assert not row.rotation_controls.isHidden() and not row.save_rotation.isHidden()
 
     row.collect_rotation.click()
 
     assert window.wheel_state.calibrating is None
+    assert row.rotation_controls.isHidden() and row.save_rotation.isHidden()
 
 
-def test_rotation_collection_persists_each_frame_and_offers_a_fit(
+def _slide_to(row, degrees: float, pitch: float) -> float:
+    """Move the row's slider as a person would; return the angle it lands on."""
+    step = round(degrees / (pitch / 2.0) * 720)
+    row.rotation_adjustment.setValue(step)
+    return step / 720 * pitch / 2.0
+
+
+def test_slider_alignments_persist_per_frame_and_fit_the_true_gain(
     window: MainWindow, monkeypatch, tmp_path: Path, frame: dict[str, float]
 ) -> None:
-    """The visible multi-frame workflow reaches the generic fitter as evidence."""
+    """Aligning drawn bars on several frames is evidence the generic fitter turns into a model.
+
+    The encoder reads 36 °/s while the footage turns 10 % faster, as a slipping
+    or mis-specified encoder would; only the visual alignment carries that.
+    """
     _load_encoder(window, tmp_path, np.arange(0.0, 2.0, 0.001), np.arange(0.0, 72.0, 0.036))
     _two_bars(window, monkeypatch, channel=("encoder.csv", "angle"))
     window.wheel_panel._accept.click()
     row = window.wheel_panel._rows["wheel"]
+    pitch = window.wheels.get("wheel").spec.pitch
     row.collect_rotation.click()
 
+    landed = {}
     for index, time in enumerate((0.3, 0.8, 1.3), start=1):
         frame.update(now=FRAME + index, t=time)
-        wheel = window.wheels.get("wheel")
-        assert wheel is not None
-        pixels, in_front, facing = project_bars(
-            wheel.geometry, wheel.geometry.bar_ends(36.0 * time), CAMERAS["Front"]
-        )
-        visible = np.flatnonzero(in_front & facing)
-        assert len(visible)
-        x, y = pixels[int(visible[len(visible) // 2]), 0]
-        assert wheel_controller.on_clicked(window, VIDEOS["Front"], float(x), float(y))
+        wheel_display.refresh(window)
+        encoder_turn = 36.0 * time
+        landed[FRAME + index] = _slide_to(row, 0.1 * encoder_turn, pitch)
+        assert window.wheel_state.rotation_preview["wheel"].frame == FRAME + index
+        row.save_rotation.click()
+        assert "wheel" not in window.wheel_state.rotation_preview
 
+    # Saving a frame again replaces its alignment rather than counting it twice.
+    row.save_rotation.click()
     binding = window.wheels.get("wheel").binding
     assert binding is not None
-    assert [item.frame for item in binding.checks] == [FRAME + 1, FRAME + 2, FRAME + 3]
-    assert row.fit_rotation.isEnabled()
+    assert [item.evidence_index for item in binding.rotation_observations] == [
+        FRAME + 1,
+        FRAME + 2,
+        FRAME + 3,
+    ]
+    assert not binding.checks, "aligning is not a direction verification"
 
+    # Returning to a saved frame shows its saved alignment on the slider.
+    frame.update(now=FRAME + 2, t=0.8)
+    wheel_display.show_rotation(window, 0.8)
+    assert row.rotation_value.text() == f"{landed[FRAME + 2]:+.2f}°"
+
+    assert row.fit_rotation.isEnabled()
     row.fit_rotation.click()
 
     proposal = window.wheel_state.motion_proposals["wheel"]
     assert proposal.observation_count == 3
-    assert proposal.motion_model.gain == pytest.approx(1.0, abs=1e-3)
+    assert proposal.motion_model.gain == pytest.approx(1.1, abs=5e-3)
 
 
 def test_row_applies_only_an_explicit_rotation_proposal(window: MainWindow, placed) -> None:
@@ -434,6 +456,35 @@ def test_session_rotation_hint_is_reviewed_before_it_changes_a_wheel(
     assert binding is not None and binding.motion_model is None
     proposal = window.wheel_state.motion_proposals["wheel"]
     assert proposal.motion_model == suggested and proposal.sign == -1.0
+
+
+def test_a_rig_default_rotation_model_is_applied_on_placement_as_its_own_undo_step(
+    window: MainWindow, monkeypatch, tmp_path: Path
+) -> None:
+    _load_encoder(window, tmp_path, np.arange(0.0, 2.0, 0.01), np.arange(0.0, 72.0, 0.36))
+    default = PeriodicRotaryMotion(gain=1.0, harmonics=(RotaryHarmonic(2, 1.5, -1.6),))
+    window.wheel_state.session_rotary = RotaryHint(
+        "angle",
+        Path("encoder.csv"),
+        motion_model=default,
+        motion_sign=-1.0,
+        motion_default=True,
+        motion_source="rig default",
+    )
+    _two_bars(window, monkeypatch, channel=("encoder.csv", "angle"))
+
+    window.wheel_panel._accept.click()
+
+    binding = window.wheels.get("wheel").binding
+    assert binding is not None
+    assert binding.motion_model == default and binding.sign == -1.0
+    assert binding.motion_source == "rig default"
+    assert "wheel" not in window.wheel_state.motion_proposals
+    assert "rig default" in window.wheel_panel._rows["wheel"].motion.text()
+
+    assert window.document.undo(window._mutations)
+    binding = window.wheels.get("wheel").binding
+    assert binding is not None and binding.motion_model is None, "Undo keeps the wheel"
 
 
 def test_row_replace_starts_a_placement_that_swaps_the_wheel_in(

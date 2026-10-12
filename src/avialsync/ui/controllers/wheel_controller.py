@@ -25,9 +25,10 @@
 6. **Verify.** A click on any bar end, in one camera, on a frame a few turns
    away tests the encoder's direction; two informative checks settle it
    (:mod:`avialsync.core.wheel_check`). Until then the panel says "assumed".
-7. **Calibrate Rotation.** The user may retain bar-end clicks across frames,
-   fit a generic periodic transfer in a worker, inspect its residual, and
-   explicitly apply or discard the proposal.
+7. **Calibrate Rotation.** The user slides the drawn bars onto the video on
+   several frames and saves each alignment, fits a generic periodic transfer
+   in a worker, inspects its residual, and explicitly applies or discards the
+   proposal (:mod:`avialsync.ui.controllers.wheel_rotation`).
 
 What each view draws, per frame, is :mod:`avialsync.ui.controllers.wheel_display`;
 changing a placed wheel's numbers is :mod:`avialsync.ui.controllers.wheel_edits`.
@@ -77,7 +78,7 @@ def _refresh_marker_place_mode(window: MainWindow) -> None:
     """Keep marker clicking live while any wheel workflow owns the panes."""
     state = window.wheel_state
     window.video_grid.set_marker_place_mode(
-        state.placement is not None or state.checking is not None or state.calibrating is not None
+        state.placement is not None or state.checking is not None
     )
 
 
@@ -154,9 +155,6 @@ def cancel(window: MainWindow, message: str | None = None) -> None:
 
 def on_clicked(window: MainWindow, video: str, x: float, y: float) -> bool:
     """A click in a pane: a wheel end or a check. False if no wheel wanted it."""
-    if window.wheel_state.calibrating is not None:
-        wheel_rotation.on_click(window, video, x, y)
-        return True
     if window.wheel_state.checking is not None:
         _check_click(window, video, x, y)
         return True
@@ -294,15 +292,7 @@ def accept(window: MainWindow) -> None:
     )
     cancel(window)
     window.document.execute(SetWheelCommand(wheel.name, previous, wheel), window._mutations)
-    proposal = wheel_rotation.session_proposal(wheel, window.wheel_state.session_rotary)
-    if proposal is not None:
-        window.wheel_state.motion_proposals[wheel.name] = proposal
-        display.refresh(window)
-        window.notifications.show_success(
-            tr("A session-provided rotation model is ready to review for {name}.").format(
-                name=wheel.name
-            )
-        )
+    wheel_rotation.offer_session_model(window, wheel, window.wheel_state.session_rotary)
     _announce(window, wheel)
 
 
@@ -469,6 +459,8 @@ def connect_panel(window: MainWindow) -> None:
     panel.bar_diameter_changed.connect(lambda n, d: edits.edit_bar_diameter(window, n, d))
     panel.verify_requested.connect(lambda n: start_checking(window, n))
     panel.rotation_capture_requested.connect(lambda n: start_motion_calibration(window, n))
+    panel.rotation_adjusted.connect(lambda n, d: wheel_rotation.adjust(window, n, d))
+    panel.rotation_save_requested.connect(lambda n: wheel_rotation.save(window, n))
     panel.rotation_fit_requested.connect(lambda n: wheel_rotation.fit(window, n))
     panel.rotation_apply_requested.connect(lambda n: wheel_rotation.apply(window, n))
     panel.replace_requested.connect(lambda n: replace(window, n))
@@ -483,6 +475,7 @@ def reset(window: MainWindow) -> None:
     cancel(window)
     window.wheel_state.checking = None
     window.wheel_state.calibrating = None
+    window.wheel_state.rotation_preview.clear()
     window.wheels.clear()
     window.wheel_state.cache.clear()
     window.wheel_state.refits.clear()

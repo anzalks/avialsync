@@ -29,6 +29,7 @@ import numpy as np
 
 from avialsync.core.calibration import CameraModel
 from avialsync.core.channel_reader import MappedChannelReader
+from avialsync.core.rotary_calibration import RotaryObservation
 from avialsync.core.timeline import TimeMap
 from avialsync.core.wheel import (
     EncoderBinding,
@@ -175,6 +176,7 @@ def encoder_binding(
             ratio=previous.binding.ratio,
             checks=previous.binding.checks,
             motion_model=previous.binding.motion_model,
+            motion_source=previous.binding.motion_source,
         )
         binding = settle_sign(placement.fit.geometry, binding, camera_models(window))[0]
     return binding
@@ -196,23 +198,70 @@ def _turn(window: MainWindow, wheel: Wheel, frame: int, t_frame: float) -> float
     return binding.turn(now, binding.reference_angle if then is None else then)
 
 
+def saved_alignment(window: MainWindow, wheel: Wheel, frame: int) -> RotaryObservation | None:
+    """The visual alignment saved on *frame*, shown only while *wheel* is adjusted."""
+    if window.wheel_state.calibrating != wheel.name or wheel.binding is None:
+        return None
+    return next(
+        (item for item in wheel.binding.rotation_observations if item.evidence_index == frame),
+        None,
+    )
+
+
+def _wrap(value: float, period: float) -> float:
+    return (value + period / 2.0) % period - period / 2.0
+
+
+def alignment(
+    window: MainWindow, wheel: Wheel, t_master: float
+) -> tuple[int, float, float, float] | None:
+    """``(frame, frame time, encoder turn, visual adjustment)`` on the frame at *t_master*.
+
+    The adjustment is the unsaved slider value on this frame, else the saved
+    alignment's offset from the current transfer, else zero.  It is derived
+    from the saved cyclic angle rather than stored, so applying a new transfer
+    leaves saved evidence drawn exactly where the user put it.
+    """
+    found = frame_and_time(window, t_master)
+    if found is None:
+        return None
+    frame, t_frame = found
+    turn = _turn(window, wheel, frame, t_frame)
+    if turn is None:
+        return None
+    preview = window.wheel_state.rotation_preview.get(wheel.name)
+    if preview is not None and preview.frame == frame:
+        return frame, t_frame, turn, preview.adjustment_degrees
+    saved = saved_alignment(window, wheel, frame)
+    if saved is not None:
+        return frame, t_frame, turn, _wrap(saved.angle_degrees - turn, wheel.spec.pitch)
+    return frame, t_frame, turn, 0.0
+
+
 def _ends(window: MainWindow, wheel: Wheel, t_master: float) -> np.ndarray | None:
     """*wheel*'s bars on the frame at *t_master*, generated once per frame."""
     found = frame_and_time(window, t_master)
     if found is None:
         return None
-    frame, t_frame = found
+    frame = found[0]
     mapping = None
     if wheel.binding is not None:
         encoder = _encoder_map(window, wheel.binding.source_id)
         mapping = None if encoder is None else (encoder[1].offset, encoder[1].drift_ms_per_hour)
-    key = (frame, mapping)
+    preview = window.wheel_state.rotation_preview.get(wheel.name)
+    saved = saved_alignment(window, wheel, frame)
+    key = (
+        frame,
+        mapping,
+        preview.adjustment_degrees if preview is not None and preview.frame == frame else None,
+        None if saved is None else saved.angle_degrees,
+    )
     cached = window.wheel_state.cache.get(wheel.name)
     if cached is not None and cached[0] == key:
         hit: np.ndarray | None = cached[1]
         return hit
-    turn = _turn(window, wheel, frame, t_frame)
-    ends = None if turn is None else wheel.geometry.bar_ends(turn)
+    aligned = alignment(window, wheel, t_master)
+    ends = None if aligned is None else wheel.geometry.bar_ends(aligned[2] + aligned[3])
     window.wheel_state.cache[wheel.name] = (key, ends)
     return ends
 
@@ -259,13 +308,12 @@ def pane_drawing(window: MainWindow, video: str, t_master: float) -> WheelDrawin
     bars: list[WheelBar] = []
     clicks: Marks = ()
     projections: Marks = ()
-    prompt = ""
     placement = _placement_on_screen(window, t_master)
     if placement is not None:
         if placement.fit is not None:
             geometry = placement.fit.geometry
             bars += _bars(geometry, geometry.bar_ends(), camera, preview=True)
-        clicks, projections, prompt = placement.marks(rig_paths.camera_name(video))
+        clicks, projections, _cue = placement.marks(rig_paths.camera_name(video))
     replacing = window.wheel_state.placement.replacing if window.wheel_state.placement else None
     for wheel in window.wheels:
         if wheel.name == replacing:
@@ -273,9 +321,9 @@ def pane_drawing(window: MainWindow, video: str, t_master: float) -> WheelDrawin
         ends = _ends(window, wheel, t_master)
         if ends is not None:
             bars += _bars(wheel.geometry, ends, camera, preview=False)
-    if not bars and not clicks and not projections and not prompt:
+    if not bars and not clicks and not projections:
         return None
-    return WheelDrawing(tuple(bars), clicks, projections, prompt)
+    return WheelDrawing(tuple(bars), clicks, projections)
 
 
 def diameter(window: MainWindow, wheel: Wheel) -> float | None:
@@ -312,6 +360,22 @@ def encoder_offsets(window: MainWindow) -> dict[str, float]:
     return out
 
 
+def _rotation_adjustments(window: MainWindow, t_master: float) -> dict[str, float | None]:
+    """The visual rotation slider value for the wheel being adjusted, on the shown frame."""
+    name = window.wheel_state.calibrating
+    wheel = window.wheels.get(name) if name is not None else None
+    if wheel is None:
+        return {}
+    aligned = alignment(window, wheel, t_master)
+    return {wheel.name: None if aligned is None else aligned[3]}
+
+
+def show_rotation(window: MainWindow, t_master: float) -> None:
+    """Keep the adjusting wheel's slider on the frame the clock moved to."""
+    for name, adjustment in _rotation_adjustments(window, t_master).items():
+        window.wheel_panel.show_rotation(name, adjustment)
+
+
 def refresh(window: MainWindow) -> None:
     """Push wheels, the placement, and the panel to every view."""
     window.wheel_state.cache.clear()
@@ -325,11 +389,13 @@ def refresh(window: MainWindow) -> None:
     window.video_grid.refresh_point_edits()
     window.tracking_3d_pane.set_cursor(window.clock.state.t)
     window._update_tracking_pane_visibility()
+    rotation_adjustments = _rotation_adjustments(window, window.clock.state.t)
     window.wheel_panel.set_wheels(
         list(window.wheels),
         window.wheel_state.checking,
         encoder_offsets(window),
         calibrating=window.wheel_state.calibrating,
+        rotation_adjustments=rotation_adjustments,
         proposals=window.wheel_state.motion_proposals,
         fitting=window.wheel_state.motion_fitting,
     )

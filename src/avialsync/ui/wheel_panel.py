@@ -25,7 +25,7 @@ import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
@@ -33,8 +33,10 @@ from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
     QGroupBox,
+    QHBoxLayout,
     QLabel,
     QPushButton,
+    QSlider,
     QVBoxLayout,
     QWidget,
 )
@@ -51,6 +53,9 @@ from avialsync.ui.wheel_dialogs import bar_count_spin, radius_spin, unit_items
 from avialsync.ui.wheel_text import describe_encoder, describe_fit
 
 __all__ = ["PlacementView", "WheelPanel"]
+
+
+_ROTATION_SLIDER_STEPS = 720
 
 
 @dataclass(frozen=True)
@@ -153,6 +158,22 @@ class _WheelRow(QFrame):
         form.addRow(tr("Encoder offset"), self.offset)
         self.diameter = BarDiameterField(self)
         form.addRow(tr("Bar diameter"), self.diameter)
+        self.rotation_label = QLabel(tr("Visual rotation"), self)
+        self.rotation_adjustment = QSlider(Qt.Orientation.Horizontal, self)
+        self.rotation_adjustment.setRange(-_ROTATION_SLIDER_STEPS, _ROTATION_SLIDER_STEPS)
+        self.rotation_adjustment.setTracking(True)
+        self.rotation_adjustment.setAccessibleName(tr("Visual rotation adjustment"))
+        self.rotation_adjustment.setAccessibleDescription(
+            tr("Slide until the wheel bars align with the video on this frame")
+        )
+        self.rotation_value = QLabel(self)
+        self.rotation_controls = QWidget(self)
+        rotation_layout = QHBoxLayout(self.rotation_controls)
+        rotation_layout.setContentsMargins(0, 0, 0, 0)
+        rotation_layout.addWidget(self.rotation_adjustment, 1)
+        rotation_layout.addWidget(self.rotation_value)
+        self._rotation_pitch = 1.0
+        form.addRow(self.rotation_label, self.rotation_controls)
         layout.addLayout(form)
 
         buttons = QGridLayout()
@@ -162,13 +183,18 @@ class _WheelRow(QFrame):
             self,
         )
         self.collect_rotation = _button(
-            tr("Collect Rotation Clicks"),
-            tr("Collect bar-end clicks across frames as evidence for a rotation calibration"),
+            tr("Adjust Rotation"),
+            tr("Adjust the displayed bars against the video on as many frames as needed"),
+            self,
+        )
+        self.save_rotation = _button(
+            tr("Save Frame"),
+            tr("Save this frame's visual bar alignment as rotation-calibration evidence"),
             self,
         )
         self.fit_rotation = _button(
             tr("Fit Rotation"),
-            tr("Propose a rotation transfer from the collected bar-end clicks"),
+            tr("Propose a rotation transfer from the saved visual alignments"),
             self,
         )
         self.apply_rotation = _button(
@@ -182,14 +208,16 @@ class _WheelRow(QFrame):
         self.remove = _button(tr("Remove"), tr("Remove this wheel; Undo brings it back"), self)
         buttons.addWidget(self.verify, 0, 0)
         buttons.addWidget(self.collect_rotation, 0, 1)
-        buttons.addWidget(self.fit_rotation, 1, 0)
-        buttons.addWidget(self.apply_rotation, 1, 1)
-        buttons.addWidget(self.replace, 2, 0)
-        buttons.addWidget(self.remove, 2, 1)
+        buttons.addWidget(self.save_rotation, 1, 0)
+        buttons.addWidget(self.fit_rotation, 1, 1)
+        buttons.addWidget(self.apply_rotation, 2, 0)
+        buttons.addWidget(self.replace, 2, 1)
+        buttons.addWidget(self.remove, 3, 1)
         layout.addLayout(buttons)
 
         self.verify.clicked.connect(lambda: panel.verify_requested.emit(name))
         self.collect_rotation.clicked.connect(lambda: panel.rotation_capture_requested.emit(name))
+        self.save_rotation.clicked.connect(lambda: panel.rotation_save_requested.emit(name))
         self.fit_rotation.clicked.connect(lambda: panel.rotation_fit_requested.emit(name))
         self.apply_rotation.clicked.connect(lambda: panel.rotation_apply_requested.emit(name))
         self.replace.clicked.connect(lambda: panel.replace_requested.emit(name))
@@ -204,6 +232,26 @@ class _WheelRow(QFrame):
         )
         self.diameter.previewed.connect(lambda v: panel.bar_diameter_previewed.emit(name, v))
         self.diameter.committed.connect(lambda v: panel.bar_diameter_changed.emit(name, v))
+        self.rotation_adjustment.valueChanged.connect(
+            lambda step: panel.rotation_adjusted.emit(name, self._rotation_of(step))
+        )
+
+    def _rotation_of(self, step: int) -> float:
+        return float(step) / _ROTATION_SLIDER_STEPS * self._rotation_pitch / 2.0
+
+    def _show_rotation(self, adjustment: float, pitch: float) -> None:
+        self._rotation_pitch = max(float(pitch), 1e-9)
+        step = round(adjustment / (self._rotation_pitch / 2.0) * _ROTATION_SLIDER_STEPS)
+        _set_quietly(
+            self.rotation_adjustment,
+            "setValue",
+            max(-_ROTATION_SLIDER_STEPS, min(_ROTATION_SLIDER_STEPS, step)),
+        )
+        self.rotation_value.setText(tr("{value:+.2f}°").format(value=adjustment))
+
+    def show_rotation(self, adjustment: float | None) -> None:
+        """Show the shown frame's visual rotation at the current bar pitch."""
+        self._show_rotation(adjustment or 0.0, self._rotation_pitch)
 
     def _build_encoder_fields(self) -> None:
         """Direction, ratio and offset of the encoder that turns this wheel."""
@@ -255,6 +303,7 @@ class _WheelRow(QFrame):
         checking: bool,
         calibrating: bool,
         offset: float | None,
+        rotation_adjustment: float | None,
         proposal: RotaryCalibrationProposal | None,
         fitting: bool,
     ) -> None:
@@ -279,10 +328,17 @@ class _WheelRow(QFrame):
             _set_quietly(self.ratio, "setValue", binding.ratio)
         self.verify.setText(tr("Click a Bar End…") if checking else tr("Verify Here"))
         self.collect_rotation.setText(
-            tr("Stop Collecting") if calibrating else tr("Collect Rotation Clicks")
+            tr("Stop Adjusting") if calibrating else tr("Adjust Rotation")
         )
+        self.rotation_label.setVisible(calibrating)
+        self.rotation_controls.setVisible(calibrating)
+        self.save_rotation.setVisible(calibrating)
+        self.rotation_adjustment.setEnabled(binding is not None and calibrating)
+        self.save_rotation.setEnabled(binding is not None and calibrating)
+        if calibrating:
+            self._show_rotation(rotation_adjustment or 0.0, wheel.spec.pitch)
         self.fit_rotation.setEnabled(
-            binding is not None and len(binding.checks) >= 3 and not fitting
+            binding is not None and len(binding.rotation_observations) >= 3 and not fitting
         )
         self.fit_rotation.setText(tr("Fitting Rotation…") if fitting else tr("Fit Rotation"))
         self.apply_rotation.setEnabled(proposal is not None and not fitting)
@@ -303,14 +359,20 @@ def _motion_text(binding: EncoderBinding | None, proposal: RotaryCalibrationProp
         if proposal.rms_degrees is None:
             return tr("A session-provided rotation model is ready for your review.")
         return tr(
-            "Proposed from {count} bar-end clicks: RMS {rms:.2f}°. "
+            "Proposed from {count} saved alignments: RMS {rms:.2f}°. "
             "Review and apply it when it looks right."
         ).format(count=proposal.observation_count, rms=proposal.rms_degrees)
+    if binding is not None and binding.motion_model is not None and binding.motion_source:
+        return tr(
+            "Rotation follows the {source}. It holds only while the cameras, wheel and encoder "
+            "are unchanged; Adjust Rotation to check it against the video."
+        ).format(source=binding.motion_source)
     if binding is None or binding.motion_model is None:
         return tr(
-            "Rotation follows the encoder ratio; collect clicks to calibrate repeatable error."
+            "Rotation follows the encoder ratio; "
+            "adjust and save frames to calibrate repeatable error."
         )
-    return tr("A periodic rotation calibration is applied; collected clicks remain its evidence.")
+    return tr("A periodic rotation calibration is applied; saved alignments remain its evidence.")
 
 
 class WheelPanel(QGroupBox):
@@ -337,6 +399,10 @@ class WheelPanel(QGroupBox):
     bar_diameter_changed = Signal(str, float)
     verify_requested = Signal(str)
     rotation_capture_requested = Signal(str)
+    #: ``(name, degrees)`` while the visual-rotation slider moves: draw it, record nothing.
+    rotation_adjusted = Signal(str, float)
+    #: ``(name)``: keep this frame's visual alignment as rotation evidence.
+    rotation_save_requested = Signal(str)
     rotation_fit_requested = Signal(str)
     rotation_apply_requested = Signal(str)
     replace_requested = Signal(str)
@@ -490,6 +556,7 @@ class WheelPanel(QGroupBox):
         offsets: Mapping[str, float] | None = None,
         *,
         calibrating: str | None = None,
+        rotation_adjustments: Mapping[str, float | None] | None = None,
         proposals: Mapping[str, RotaryCalibrationProposal] | None = None,
         fitting: set[str] | None = None,
     ) -> None:
@@ -497,6 +564,7 @@ class WheelPanel(QGroupBox):
 
         *offsets* maps a wheel's name to its encoder source's offset, when that
         source is loaded; a wheel without one has its offset field greyed.
+        *rotation_adjustments* is each wheel's visual rotation on the shown frame.
         """
         names = [wheel.name for wheel in wheels]
         if set(names) != set(self._rows):
@@ -514,10 +582,17 @@ class WheelPanel(QGroupBox):
                 checking == wheel.name,
                 calibrating == wheel.name,
                 (offsets or {}).get(wheel.name),
+                (rotation_adjustments or {}).get(wheel.name),
                 (proposals or {}).get(wheel.name),
                 wheel.name in (fitting or set()),
             )
         self._update_visibility()
+
+    def show_rotation(self, name: str, adjustment: float | None) -> None:
+        """Move *name*'s visual-rotation slider to the shown frame, without emitting."""
+        row = self._rows.get(name)
+        if row is not None and row.rotation_controls.isVisibleTo(row):
+            row.show_rotation(adjustment)
 
     def _update_visibility(self) -> None:
         self.setVisible(bool(self._rows) or not self._review.isHidden())

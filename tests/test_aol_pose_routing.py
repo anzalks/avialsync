@@ -694,7 +694,6 @@ def test_an_unrecognised_rig_gets_no_default_bones(aol_session: Path) -> None:
 def test_the_encoder_is_declared_as_the_wheel_it_turns(aol_session: Path) -> None:
     """Which channel turns the wheel is the rig plugin's to say, not the UI's to guess."""
     from avialsync.core.registry import LoaderRegistry
-    from avialsync.core.source import RotaryHint
 
     encoder = aol_session / "encoder_log.txt"
     encoder.write_text("09:35:26:312 1 10.0 0.0\n", encoding="utf-8")
@@ -706,7 +705,17 @@ def test_the_encoder_is_declared_as_the_wheel_it_turns(aol_session: Path) -> Non
 
     layout = AOLSessionSource().scan(aol_session, LoaderRegistry())
 
-    assert layout.rotary == RotaryHint("encoder_angle", encoder, 36, 95.5, "mm")
+    rotary = layout.rotary
+    assert rotary is not None
+    assert (rotary.channel, rotary.source, rotary.bar_count, rotary.radius, rotary.units) == (
+        "encoder_angle",
+        encoder,
+        36,
+        95.5,
+        "mm",
+    )
+    # The rig's built-in wheel model comes with it, as the default (D-224).
+    assert rotary.motion_default and rotary.motion_model is not None
 
 
 def test_a_wheel_the_config_does_not_describe_is_left_for_the_user(aol_session: Path) -> None:

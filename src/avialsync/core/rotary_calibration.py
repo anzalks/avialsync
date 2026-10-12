@@ -42,6 +42,10 @@ class RotaryObservation:
 
     reading: float
     angle_degrees: float
+    #: Optional caller-owned evidence index, such as a video frame.  The
+    #: fitter never interprets it; it is retained so a review UI can identify
+    #: the observation a person adjusted.
+    evidence_index: int | None = None
 
 
 @dataclass(frozen=True)
@@ -52,6 +56,8 @@ class RotaryCalibrationProposal:
     sign: float
     observation_count: int = 0
     residuals_degrees: tuple[float, ...] = ()
+    #: Who supplied the model when it was not fitted here, for display.
+    source: str = ""
 
     @property
     def rms_degrees(self) -> float | None:

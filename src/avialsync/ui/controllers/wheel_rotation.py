@@ -1,4 +1,9 @@
-"""Collect, fit, review, and apply a wheel's periodic rotary transfer.
+"""Align, fit, review, and apply a wheel's periodic rotary transfer.
+
+On any frame the user slides the drawn bars onto the video and saves that
+frame; each save is one :class:`RotaryObservation` (encoder reading, cyclic
+wheel angle).  Nothing about the alignment is wheel- or rig-specific beyond
+drawing, so the fit stays the generic one any rotary prop can use.
 
 This controller owns the later-frame rotation-calibration interaction only.
 Wheel placement and the one-click direction check stay in
@@ -15,25 +20,34 @@ from PySide6.QtCore import QThread
 
 from avialsync.core.commands import SetWheelCommand
 from avialsync.core.errors import RotaryCalibrationError
-from avialsync.core.rotary_calibration import RotaryCalibrationProposal
+from avialsync.core.rotary_calibration import RotaryCalibrationProposal, RotaryObservation
 from avialsync.core.source import RotaryHint
-from avialsync.core.wheel import Wheel, WheelCheck
-from avialsync.ui.controllers import rig_paths
+from avialsync.core.wheel import Wheel
 from avialsync.ui.controllers import wheel_display as display
+from avialsync.ui.controllers.wheel_state import RotationPreview
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import on_ui_thread
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
 
-__all__ = ["apply", "fit", "on_click", "session_proposal", "start", "stop"]
+__all__ = [
+    "adjust",
+    "apply",
+    "fit",
+    "offer_session_model",
+    "save",
+    "session_proposal",
+    "start",
+    "stop",
+]
 
 
 def _refresh_marker_place_mode(window: MainWindow) -> None:
     """Keep marker clicking live while a wheel interaction owns the panes."""
     state = window.wheel_state
     window.video_grid.set_marker_place_mode(
-        state.placement is not None or state.checking is not None or state.calibrating is not None
+        state.placement is not None or state.checking is not None
     )
 
 
@@ -46,11 +60,61 @@ def session_proposal(wheel: Wheel, hint: RotaryHint | None) -> RotaryCalibration
         return None
     if hint.source is not None and str(hint.source) != binding.source_id:
         return None
-    return RotaryCalibrationProposal(hint.motion_model, hint.motion_sign)
+    return RotaryCalibrationProposal(hint.motion_model, hint.motion_sign, source=hint.motion_source)
+
+
+def _commit(window: MainWindow, before: Wheel, after: Wheel) -> None:
+    """Replace *before* by *after* as one undo step."""
+    window.document.execute(SetWheelCommand(after.name, before, after), window._mutations)
+
+
+def _with_model(wheel: Wheel, proposal: RotaryCalibrationProposal) -> Wheel:
+    """*wheel* turning by *proposal*'s transfer and direction."""
+    assert wheel.binding is not None
+    binding = dataclasses.replace(
+        wheel.binding,
+        sign=proposal.sign,
+        ratio=proposal.motion_model.gain,
+        # A fit can select a direction, but `measured` means the independent
+        # Verify workflow has settled it. A plugin proposal must not claim a
+        # local video verification merely by being accepted.
+        measured=wheel.binding.measured and wheel.binding.sign == proposal.sign,
+        motion_model=proposal.motion_model,
+        motion_source=proposal.source,
+    )
+    return dataclasses.replace(wheel, binding=binding)
+
+
+def offer_session_model(window: MainWindow, wheel: Wheel, hint: RotaryHint | None) -> None:
+    """After placing *wheel*: apply the rig's default model, or offer a plugin's for review.
+
+    A default is applied as its own undo step, so Undo leaves the placed wheel
+    on its plain ratio. A wheel that already turns by a model (re-placed) keeps it.
+    """
+    proposal = session_proposal(wheel, hint)
+    if proposal is None or wheel.binding is None:
+        return
+    if hint is not None and hint.motion_default:
+        if wheel.binding.motion_model is not None:
+            return
+        _commit(window, wheel, _with_model(wheel, proposal))
+        window.notifications.show_success(
+            tr("{name} turns by the {source}. Undo returns it to the plain ratio.").format(
+                name=wheel.name, source=proposal.source
+            )
+        )
+        return
+    window.wheel_state.motion_proposals[wheel.name] = proposal
+    display.refresh(window)
+    window.notifications.show_success(
+        tr("A session-provided rotation model is ready to review for {name}.").format(
+            name=wheel.name
+        )
+    )
 
 
 def start(window: MainWindow, name: str) -> None:
-    """Collect bar-end observations over multiple frames for one wheel."""
+    """Align the drawn bars to the video over multiple frames for one wheel."""
     if window.wheel_state.calibrating == name:
         stop(window)
         return
@@ -61,14 +125,18 @@ def start(window: MainWindow, name: str) -> None:
 
     def ready() -> None:
         window.wheel_state.calibrating = name
+        if not window.wheel_state.rotation_clock_subscribed:
+            # The clock cannot unsubscribe; the observer is a no-op when idle.
+            window.clock.subscribe(lambda t: display.show_rotation(window, t))
+            window.wheel_state.rotation_clock_subscribed = True
         if window.clock.state.playing:
             window.transport.play_toggled.emit(False)
         _refresh_marker_place_mode(window)
         display.refresh(window)
         window.transport.set_status(
             tr(
-                "Click any bar end, then move to a different frame and click again. "
-                "Choose Fit Rotation when you have enough coverage."
+                "Slide Visual rotation until the bars sit on the video, then Save Frame. "
+                "Repeat on frames spread over the run, then choose Fit Rotation."
             ),
             "info",
         )
@@ -79,40 +147,55 @@ def start(window: MainWindow, name: str) -> None:
 
 
 def stop(window: MainWindow) -> None:
-    """Finish collecting rotation evidence without discarding its saved clicks."""
+    """Finish aligning without discarding the saved alignments."""
     if window.wheel_state.calibrating is None:
         return
     window.wheel_state.calibrating = None
+    window.wheel_state.rotation_preview.clear()
     _refresh_marker_place_mode(window)
     display.refresh(window)
 
 
-def on_click(window: MainWindow, video: str, x: float, y: float) -> None:
-    """Persist one later-frame bar-end observation while collection remains active."""
-    name = window.wheel_state.calibrating
-    wheel = window.wheels.get(name) if name is not None else None
-    state = window._calibration_state
-    if wheel is None or wheel.binding is None or state is None or video not in state.cameras:
+def adjust(window: MainWindow, name: str, degrees: float) -> None:
+    """Draw *name*'s bars turned by *degrees* on this frame; record nothing."""
+    wheel = window.wheels.get(name)
+    if window.wheel_state.calibrating != name or wheel is None:
         return
-    found = display.frame_and_time(window, window.clock.state.t)
+    aligned = display.alignment(window, wheel, window.clock.state.t)
+    if aligned is None:
+        return
+    window.wheel_state.rotation_preview[name] = RotationPreview(aligned[0], degrees)
+    display.refresh(window)
+
+
+def save(window: MainWindow, name: str) -> None:
+    """Keep this frame's visual alignment as one rotary observation, as one undo step.
+
+    Saving a frame again replaces its earlier alignment instead of weighting
+    that frame twice.
+    """
+    wheel = window.wheels.get(name)
+    if window.wheel_state.calibrating != name or wheel is None or wheel.binding is None:
+        return
+    aligned = display.alignment(window, wheel, window.clock.state.t)
     channel = (wheel.binding.source_id, wheel.binding.channel)
-    angle = display.sample(window, channel, found[1]) if found is not None else None
-    if found is None or angle is None:
+    reading = display.sample(window, channel, aligned[1]) if aligned is not None else None
+    if aligned is None or reading is None:
         window.transport.set_status(tr("The encoder has no reading on this frame."), "warning")
         return
-    item = WheelCheck(found[0], angle, rig_paths.camera_name(video), float(x), float(y))
-    binding = dataclasses.replace(wheel.binding, checks=(*wheel.binding.checks, item))
-    # A fit is a statement about this exact evidence collection. Retire it as
-    # soon as another click is recorded; an applied fit remains undoable.
-    window.wheel_state.motion_proposals.pop(wheel.name, None)
-    window.document.execute(
-        SetWheelCommand(wheel.name, wheel, dataclasses.replace(wheel, binding=binding)),
-        window._mutations,
-    )
+    frame, _t, turn, adjustment = aligned
+    item = RotaryObservation(reading, (turn + adjustment) % wheel.spec.pitch, frame)
+    kept = tuple(o for o in wheel.binding.rotation_observations if o.evidence_index != frame)
+    binding = dataclasses.replace(wheel.binding, rotation_observations=(*kept, item))
+    window.wheel_state.rotation_preview.pop(name, None)
+    # A fit is a statement about this exact evidence. Retire it as soon as the
+    # evidence changes; an applied fit remains undoable.
+    window.wheel_state.motion_proposals.pop(name, None)
+    _commit(window, wheel, dataclasses.replace(wheel, binding=binding))
     window.transport.set_status(
         tr(
-            "Rotation click {count} recorded. Move to another frame, or choose Fit Rotation."
-        ).format(count=len(binding.checks)),
+            "Frame {frame} saved ({count} aligned). Move to another frame, or choose Fit Rotation."
+        ).format(frame=frame, count=len(binding.rotation_observations)),
         "info",
     )
 
@@ -129,14 +212,18 @@ def _harmonic_orders(observation_count: int) -> tuple[int, ...]:
 def _finish_fit(
     window: MainWindow,
     name: str,
-    checks: tuple[WheelCheck, ...],
+    observations: tuple[RotaryObservation, ...],
     proposal: RotaryCalibrationProposal | None,
     message: str = "",
 ) -> None:
-    """Keep a result only when its exact click evidence is still current."""
+    """Keep a result only when its exact evidence is still current."""
     window.wheel_state.motion_fitting.discard(name)
     current = window.wheels.get(name)
-    if current is None or current.binding is None or current.binding.checks != checks:
+    if (
+        current is None
+        or current.binding is None
+        or current.binding.rotation_observations != observations
+    ):
         display.refresh(window)
         return
     if proposal is None:
@@ -147,7 +234,7 @@ def _finish_fit(
         window.wheel_state.motion_proposals[name] = proposal
         window.transport.set_status(
             tr(
-                "Rotation proposal from {count} bar-end clicks: RMS {rms:.2f}°. "
+                "Rotation proposal from {count} saved alignments: RMS {rms:.2f}°. "
                 "Review and apply it to use it."
             ).format(count=proposal.observation_count, rms=proposal.rms_degrees or 0.0),
             "info",
@@ -156,17 +243,21 @@ def _finish_fit(
 
 
 def _wire_fit(
-    window: MainWindow, name: str, checks: tuple[WheelCheck, ...], worker: object, thread: QThread
+    window: MainWindow,
+    name: str,
+    observations: tuple[RotaryObservation, ...],
+    worker: object,
+    thread: QThread,
 ) -> None:
     """Route worker outcomes to the UI and guarantee that its job terminates."""
     from avialsync.engine.rotary_calibration_worker import RotaryCalibrationWorker
 
     assert isinstance(worker, RotaryCalibrationWorker)
     worker.finished.connect(
-        on_ui_thread(lambda proposal: _finish_fit(window, name, checks, proposal), window)
+        on_ui_thread(lambda proposal: _finish_fit(window, name, observations, proposal), window)
     )
     worker.error.connect(
-        on_ui_thread(lambda message: _finish_fit(window, name, checks, None, message), window)
+        on_ui_thread(lambda message: _finish_fit(window, name, observations, None, message), window)
     )
     worker.finished.connect(thread.quit)
     worker.error.connect(thread.quit)
@@ -179,29 +270,26 @@ def fit(window: MainWindow, name: str) -> None:
     wheel = window.wheels.get(name)
     if wheel is None or wheel.binding is None or name in window.wheel_state.motion_fitting:
         return
-    checks = wheel.binding.checks
-    if len(checks) < 3:
+    observations = wheel.binding.rotation_observations
+    if len(observations) < 3:
         window.transport.set_status(
-            tr(
-                "Collect at least three bar-end clicks on different frames before fitting rotation."
-            ),
+            tr("Save an alignment on at least three different frames before fitting rotation."),
             "warning",
         )
         return
     stop(window)
     worker = RotaryCalibrationWorker(
-        wheel.geometry,
         wheel.binding,
-        display.camera_models(window),
-        checks,
-        _harmonic_orders(len(checks)),
+        wheel.spec.bar_count,
+        observations,
+        _harmonic_orders(len(observations)),
     )
     window.wheel_state.motion_fitting.add(name)
     display.refresh(window)
     window._run_job(
         worker,
         label=tr("Fitting rotation for {name}").format(name=name),
-        configure=lambda thread: _wire_fit(window, name, checks, worker, thread),
+        configure=lambda thread: _wire_fit(window, name, observations, worker, thread),
     )
 
 
@@ -211,20 +299,7 @@ def apply(window: MainWindow, name: str) -> None:
     wheel = window.wheels.get(name)
     if proposal is None or wheel is None or wheel.binding is None:
         return
-    binding = dataclasses.replace(
-        wheel.binding,
-        sign=proposal.sign,
-        ratio=proposal.motion_model.gain,
-        # A fit can select a direction, but `measured` means the independent
-        # Verify workflow has settled it. A plugin proposal must not claim a
-        # local video verification merely by being accepted.
-        measured=wheel.binding.measured and wheel.binding.sign == proposal.sign,
-        motion_model=proposal.motion_model,
-    )
-    window.document.execute(
-        SetWheelCommand(name, wheel, dataclasses.replace(wheel, binding=binding)),
-        window._mutations,
-    )
+    _commit(window, wheel, _with_model(wheel, proposal))
     del window.wheel_state.motion_proposals[name]
     display.refresh(window)
     window.transport.set_status(
