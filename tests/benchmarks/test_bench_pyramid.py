@@ -34,7 +34,11 @@ def large_dataset():
 
     # Inject some NaNs and gaps
     v[1000:2000] = np.nan
-    t[50000000:50000050] += 10.0
+    # A gap moves the remaining timeline forward; shifting only one bucket
+    # would introduce a backward jump and invalidate searchsorted queries.
+    t[50_000_000:] += 10.0
+    assert t[50_000_000] - t[49_999_999] > 10.0
+    assert t[50_000_050] > t[50_000_049]
 
     return t, v
 
@@ -90,67 +94,46 @@ def test_bench_pyramid_query(benchmark, tmp_path: Path, large_dataset):
     )
 
 
-def test_bench_cursor_path(benchmark, tmp_path: Path):
-    """Full per-tick cursor path: plot set_cursor + transport set_time + readout
-    set_cursor + set_camera_states for 4 cams + 4 channels (★ ≤2ms budget).
-
-    Simulates the hot path that runs every 60 Hz tick in the live UI.  All
-    I/O-heavy parts (pyramid loads) are pre-warmed so only the signalling and
-    rendering-update path is measured.
-    """
-    import os
-
-    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-
-    from PySide6.QtCore import QCoreApplication, QEvent
-    from PySide6.QtWidgets import QApplication
-
-    app = QApplication.instance() or QApplication([])
-
-    from avialsync.ui.plot_pane import PlotPane
+def test_bench_cursor_path(benchmark, qtbot, tmp_path: Path):
+    """Measure populated plots, transport, four readouts and four camera rows."""
     from avialsync.ui.readout_panel import ReadoutPanel
     from avialsync.ui.transport import Transport
+    from tests.benchmarks.test_bench_plot_pane import _populated_pane, _settled_page
 
-    N = 50_000  # 1 s of 50 kHz data — small enough to build instantly
-    N_CAMS = 4
-    N_CHANNELS = 4
-
-    # Build N_CHANNELS worth of pyramid data
-    readers = []
-    for ch_idx in range(N_CHANNELS):
-        cache_dir = tmp_path / f"ch{ch_idx}_cache"
-        cache_dir.mkdir(exist_ok=True)
-        t = np.linspace(0.0, 1.0, N, dtype=np.float64)
-        v = np.random.default_rng(ch_idx).standard_normal(N)
-        PyramidBuilder(cache_dir, f"ch{ch_idx}").build_and_save(t, v)
-        r = PyramidReader(cache_dir, f"ch{ch_idx}")
-        # Pre-warm mmap
-        r._load_level(1)
-        r._load_level(4096)
-        readers.append(r)
-
-    plot_pane = PlotPane()
-    plot_pane.set_timeline_bounds(0.0, 1.0)
-    for ch_idx in range(N_CHANNELS):
-        plot_pane.load_channels(tmp_path / f"ch{ch_idx}_cache", [f"ch{ch_idx}"])
-    plot_pane.set_cursor(0.25)
+    plot_pane = _populated_pane(qtbot, tmp_path, 4)
+    plot_pane.set_timeline_bounds(0.0, 60.0)
+    plot_pane.set_window_duration(10.0)
+    _settled_page(qtbot, plot_pane)
     transport = Transport()
-    transport.set_bounds(0.0, 1.0)
+    transport.set_bounds(0.0, 60.0)
     readout = ReadoutPanel()
-
-    # Fake camera states (label, t_pos, fps) for N_CAMS cameras
-    camera_states = [(f"cam{i}", 0.5, 30.0) for i in range(N_CAMS)]
-
-    t_cursor = 0.5
+    for widget in (transport, readout):
+        qtbot.addWidget(widget)
+        widget.show()
+    readout.update_sources([channel.reader for channel in plot_pane.channels])
+    readout.set_cursor(0.5)
+    readout.set_camera_frame_records([(f"cam{i}", 15, 0.5) for i in range(4)])
+    assert len(readout._rows) == len(plot_pane.channels) == 4
+    assert len(readout._cam_rows) == 4
+    assert readout.textual_summary().count("(sample ") == 4
+    counter = 0
 
     def tick():
+        nonlocal counter
+        counter += 1
+        t_cursor = 0.1 + (counter % 980) / 100
+        plot_pane._last_cursor_repaint = float("-inf")
         plot_pane.set_cursor(t_cursor)
         transport.set_time(t_cursor)
         readout.set_cursor(t_cursor)
-        # show_delta path exercises the camera-states loop
-        readout.show_delta(0.3, 0.7, camera_states)
+        readout.set_camera_frame_records(
+            [(f"cam{i}", int(t_cursor * 30), t_cursor) for i in range(4)]
+        )
 
     benchmark(tick)
+    expected = 0.1 + (counter % 980) / 100
+    assert plot_pane.channels[0].cursor_line.value() == pytest.approx(expected)
+    assert readout.textual_summary().count("(sample ") == 4
 
     budget = _CURSOR_UPDATE_BUDGET_S
     stats = benchmark.stats
@@ -161,14 +144,7 @@ def test_bench_cursor_path(benchmark, tmp_path: Path):
         f"budget {budget * 1000:.1f}ms."
         " See BLUEPRINT.md ★ cursor-update budget."
     )
-    plot_pane.close()
-    transport.close()
-    readout.close()
-    plot_pane.deleteLater()
-    transport.deleteLater()
-    readout.deleteLater()
-    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-    app.processEvents()
+    plot_pane.shutdown()
 
 
 def test_bench_four_channel_window_refresh(benchmark, tmp_path: Path):

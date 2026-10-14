@@ -334,7 +334,10 @@ thread-safe for that), coalesce, install whole, and hold stale rows at their tru
 one paint (`_configure_shared_x_range` runs `scene.prepareForPaint()`), rows draw two grid levels,
 hidden top/right axes have no auto SI prefix, and rows more than half a viewport off screen hide
 their ViewBox child group (`plot_row.cull_offscreen_rows`); `PlotPane.every_row_drawn()` lifts
-that for a snapshot. A sensor target is thresholded at its own midpoint unless the wizard's
+that for a snapshot. Cursor ticks defer culled graphics; the culler accepts an
+optional `phase` and restores it from the same SweepWindowControl before a
+scroll or snapshot reveals rows (D-235), including collapsed-gap time.
+A sensor target is thresholded at its own midpoint unless the wizard's
 target threshold is typed. Any evidence change discards a preview, and `SyncWizard.target_id`
 comes from the proposal; the menu and the wizard share `sync_acceptance.has_alignment_evidence`. The evidence view
 draws `prepare_display_summary` (worst residual per run, equal-rank rejects, full span).
@@ -1049,6 +1052,43 @@ Linux/3.12 in both correctness matrices produces coverage JSON and runs
 using integer counts. Every other matrix member still runs the complete
 correctness suite. Docs retain warnings-as-errors, and release distributions,
 wheel smoke, all three bundles/installers and native xcb smoke retain their gates.
+
+### Isolated local certification (D-235)
+
+`conda run -n avialsync python tools/certify_engineering.py --output /tmp/avialsync-certification`
+generates a bounded 1 GB CSV with `tools.make_fixtures.generate_certification_signal`,
+then launches separate application/test processes for cold import + warm
+three-camera/four-channel reopening, sixty painted-frame seeks and 4/32/128
+populated plot workloads. Raw benchmark JSON and the combined report retain
+distributions, maximum delivered heartbeat gaps and process high-water RSS in
+decimal MB. Generation occurs outside those measured processes. Fixture shape,
+host and offscreen scope must accompany every result; a timer gap is cumulative
+event-loop delay, not proof that a particular callback exceeded its budget.
+
+The opt-in module is `tests/benchmarks/test_bench_certification.py`; normal CI
+continues to ignore benchmarks. Small generator tests prove timestamp continuity,
+sample counts and known signals across chunks. Native-display smoke installs
+`xauth` explicitly with `xvfb`: excluding apt recommends also excludes the
+authentication helper xvfb-run requires on a clean host.
+
+Tight-loop cursor benchmarks reset only the repaint eligibility timestamp,
+so every round exercises the live pixel path and verifies the final position.
+The full four-channel tick installs readout readers and camera rows. Resize
+storms use sixty actual width changes: calibrating on an initial no-op width
+can schedule thousands of expensive resizes. No timing ceiling is increased.
+
+`PlotStackView` defers pyqtgraph link geometry while Qt lays out the complete
+row stack, then asks the existing ViewBox links to synchronize once. It restores
+pre-existing blocks even after a layout exception. This prevents intermediate
+child ranges computed against old geometry and the duplicate work they cause
+(D-236); the live links and master span remain the authorities.
+
+ViewBox absence and deleted wrappers do not participate. Guard held objects
+with `shiboken6.isValid`; do not enumerate all widgets. Restore original link
+blocks again after synchronization because pyqtgraph releases its target's
+block unconditionally. Graphics ownership still transfers through
+`QScrollArea.setWidget`: assigning an early parent changes an unshown view's
+default width, its point budget and its initial decimation level.
 
 > **Scope note (D-075).** The libmpv-specific traps that used to live here — render-context
 > teardown ordering, `mpv.terminate()` join deadlocks, property-observer threading, the

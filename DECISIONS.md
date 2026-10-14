@@ -7505,3 +7505,59 @@ but still installs and imports the built wheel in a clean virtual environment.
 **Alternatives rejected.** Freezing unrelated personal-environment packages,
 pinning only direct dependencies, weakening the supported matrix, treating
 cross-platform resolution as native execution, or globally pinning user installs.
+
+## 2026-10 · D-235 · Culled plot rows defer cursor pixels, never clock state
+
+**Decision.** Cursor ticks update only row data items currently drawn. Culling
+restores cursor and sweep pixels from the existing SweepWindowControl before
+revealing a row or capturing every row. It stores no second time and preserves
+the same phase through collapsed gaps, page boundaries and snapshots.
+
+**Why.** The isolated 128-channel interaction workload measured a 2.79 ms
+mean cursor callback despite most rows already being culled. Updating invisible
+graphics paid their geometry cost anyway. Skipping those pixels lowers the
+typical callback while scroll/capture tests protect exact restoration.
+
+The certification harness generates a bounded four-channel 50 kHz int16 CSV
+of at least one billion bytes, then measures each workload in its own process.
+It records p50/p95/p99, every delivered heartbeat gap and process peak RSS;
+fixture-generation memory is outside the application process. Painted-frame
+identity comes from widget grabs and the fixture strip, not the decoder buffer.
+The 1 GB import uses one cold measurement; five reopens and sixty interaction
+rounds supply distributions. Native compositors, a 16 GB host and private field
+recordings remain external checks; an offscreen result never claims them.
+
+Tight-loop cursor benchmarks explicitly make each tick eligible for pixel
+updates and assert the final cursor/sweep position. Otherwise the 30 Hz throttle
+makes nearly every round measure only its early return. The four-channel tick
+also installs real readout readers and camera rows. The 180 M-sample fixture
+moves the entire tail after its gap forward, preserving chronological order.
+
+**Alternatives rejected.** Raising the cursor budget, measuring empty/hidden
+panes, disabling GC during interactions, dropping hidden-row correctness, or
+presenting one cold import as a statistical distribution.
+
+## 2026-10 · D-236 · Linked plot ranges synchronize after complete resize geometry
+
+**Decision.** `PlotStackView` blocks link-geometry calculations only while Qt
+resizes the entire row stack, restores every previous block state in `finally`,
+then invokes the existing ViewBox links once against complete geometry. It
+does not replace the links, introduce another range store or suppress signals
+needed by axes. Row ownership is initialized before graphics construction.
+
+**Why.** A deterministic first-resize benchmark exceeded 30 ms. Profiling
+found 637 linked-range calculations for 128 rows: the master's resize aligned
+children against old geometry, then each child's resize undid that calculation.
+A regression test first observed a 10-second window briefly published as
+16.81 seconds. Deferring only the geometry calculation removes those transient
+ranges and duplicated work. Tests also preserve externally blocked links and
+restore them after an injected layout error.
+
+Restoration also follows the link calculations themselves: pyqtgraph releases
+its target's block unconditionally, so synchronizing an unblocked child must
+not clear an externally blocked master. A test uses live linked ViewBoxes to
+cover that library behavior, in addition to the injected-layout tests.
+
+**Alternatives rejected.** Raising the resize ceiling, calibrating on a no-op,
+warming away the first real resize, disabling all ViewBox signals, unlinking
+rows, or synchronizing through a second duration authority.

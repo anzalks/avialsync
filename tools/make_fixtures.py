@@ -310,6 +310,42 @@ def generate_video(
         json.dump(meta, f, indent=2)
 
 
+def generate_certification_signal(
+    out_path: pathlib.Path,
+    target_bytes: int = 1_000_000_000,
+    *,
+    chunk_rows: int = 500_000,
+) -> dict[str, int | float]:
+    """Write a bounded-memory four-channel 50 kHz fixture of at least target_bytes.
+
+    Fixture generation is separate from measured application processes. Values
+    are genuine int16 counts, with two periodic signals, a step at ten seconds
+    and seeded noise; timestamps remain strictly chronological across chunks.
+    """
+    if target_bytes <= 0 or chunk_rows <= 0:
+        raise ValueError("Fixture size and chunk size must be positive.")
+    rate = 50_000
+    rng = np.random.default_rng(214)
+    count = 0
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with out_path.open("wb") as output:
+        while output.tell() < target_bytes:
+            indices = np.arange(count, count + chunk_rows, dtype=np.int64)
+            times = indices / rate
+            frame = pl.DataFrame(
+                {
+                    "time": times,
+                    "ch0": (np.sin(2 * np.pi * times) * 32000).astype(np.int16),
+                    "ch1": ((indices % 2000 - 1000) * 32).astype(np.int16),
+                    "ch2": np.where(indices >= 10 * rate, 32000, 0).astype(np.int16),
+                    "ch3": rng.integers(-5000, 5001, chunk_rows, dtype=np.int16),
+                }
+            )
+            frame.write_csv(output, include_header=count == 0)
+            count += chunk_rows
+    return {"samples": count, "rate_hz": rate, "bytes": out_path.stat().st_size}
+
+
 def generate_signal(
     out_path: pathlib.Path, duration_s: float, rate: float = 50000.0, variant: str = "base"
 ) -> None:

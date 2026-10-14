@@ -92,13 +92,14 @@ thread. Video loaders provide a playable media path and frame timing metadata wh
 The P3.5 implementation audit closed on 2026-07-30. `ChannelStage` stages parser chunks to disk
 before materializing a channel, `NeoLoader` reads blocks lazily, and a content/config-validated
 manifest enables the cache fast path. These changes address the former full-channel and full-block
-materialization gaps. Representative peak-memory and warm-reopen measurements remain open; see
-[Performance verification](performance.md).
+materialization gaps. The [local measurement report](engineering-certification.md) now records
+1 GB import memory and warm reopening on a 32 GB macOS host; native, other-platform and 16 GB
+measurements remain open.
 
 Cache replacement uses a recoverable swap and a file-level fallback when the cache directory cannot
 be renamed. The previous valid entry is retained or restored on replacement failure; fault-
-injection coverage exercises recovery. Cache durability is implemented, while target-scale import
-performance remains to be measured.
+injection coverage exercises recovery. The local report measures target-scale import separately
+from these correctness and recovery tests.
 
 An export or statistics job pins each cache generation it reads. Replacement and cache removal
 check those pins under the same process lock; a replacement attempted while a reader still uses the

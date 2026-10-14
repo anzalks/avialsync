@@ -83,5 +83,19 @@ be reported as completed external certification.
   passed. Coverage gate passed; strict core/package typing and warnings-as-errors
   docs passed on both verified Python environments. Full 3.11 execution is
   included in the final supported-interpreter preflight.
-- [ ] Representative local certification.
-- [ ] Documentation and final gate.
+- [x] Representative local certification: five isolated scenarios passed with
+  a 1.014 GB/30.5 M-row CSV, warm three-camera reopening, painted-frame identity,
+  populated 4/32/128-row distributions, heartbeat and peak RSS. The report in
+  `docs/technical/engineering-certification.md` records remaining tails and the
+  32 GB/offscreen scope. Thirteen affected plot benchmarks passed; final cursor
+  and resize checks passed after lifetime/block preservation. A 180 M-sample
+  pyramid build averaged 1.984 s, with a 0.127 ms query; long-GOP seek checks passed.
+- [x] Documentation and local final gate: 4,327 Python 3.12 tests passed;
+  the full Python 3.11 suite passed 4,325 tests, followed by all 46 latest
+  geometry/props/page/golden regressions. Core remains 9,003/9,003 lines and
+  2,500/2,500 branches; overall coverage is 89.2%. Both interpreters pass
+  strict core typing (including Windows), standard package typing, dependency
+  checks and warnings-as-errors documentation. Ruff and workflow actionlint pass.
+  Wheel/sdist validation, a clean installed-wheel demo/GUI smoke, the macOS
+  PyInstaller build and frozen plugin smoke for both layouts passed. No installer
+  was published. The pushed SHA's native workflow result is reported separately.

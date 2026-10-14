@@ -27,20 +27,20 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   ├── __main__.py                   # CLI: `avialsync` / `avialsync open <path>`
 │   ├── core/                         # HEADLESS — must never import PySide6 (test-enforced)
 │   │   ├── timeline.py               # MasterClock, TimeMap(offset, drift), PlaybackState
-│   │   ├── session.py                # Session model + .avv JSON (versioned schema v6)
+│   │   ├── session.py                # Session model + .avv JSON (versioned schema v14)
 │   │   ├── source.py                 # ABCs + VideoMetadata (plugin contract, §4)
 │   │   ├── pyramid.py                # NaN/gap-aware min-max pyramid build + query (D-009)
 │   │   ├── cache.py                  # per-user cache entries, content-hash key (D-008), atomic writes (D-160)
 │   │   ├── cache_store.py            # find/remove cache entries; deletes only what carries our record (D-160)
 │   │   ├── sidecar_names.py          # sidecar naming beside a source: `pose.csv` -> `pose_csv_avialfix.csv`
 │   │   ├── registry.py               # plugin scan: `~/.avialsync/plugins/` + bundled examples/ and sys._MEIPASS
-│   │   ├── inspection.py             # ImportReport, IntegrityFlags, SourceInspection — headless, frozen dataclasses (D-020)
+│   │   ├── inspection.py             # ImportReport, IntegrityFlags, SourceInspection — headless dataclasses (D-020)
 │   │   ├── sync.py                   # SyncEvent, match evidence, affine fit/provenance dataclasses (D-026)
 │   │   ├── channel_reader.py         # MappedChannelReader (master-clock view) + ChannelKey identity (D-045)
 │   │   └── errors.py                 # typed exceptions (NonMonotonicTimeError, ...)
 │   ├── loaders/                      # built-in plugins (use ONLY the public core API)
 │   │   ├── csv_loader.py             # polars; chunked ingest (D-005); tz/anchor/sentinel config
-│   │   ├── video_standard.py         # ffprobe metadata + mmap-cached presentation timestamps
+│   │   ├── video_standard.py         # PyAV metadata + mmap-cached presentation timestamps
 │   │   ├── tracking_loader.py        # DeepLabCut CSV; multi-scorer, bodypart/coord flat-headers
 │   │   ├── neo_loader.py             # Neo electrophysiology; OpenEphys/NCS/NIX; BFS root detect
 │   │   ├── aol_session_loader.py     # AOLSessionSource: first SessionSource implementation, not a special case (D-068)
@@ -52,7 +52,7 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   ├── seeker.py                 # parallel exact seeks across panes
 │   │   ├── importer.py               # QThread worker: parse → cache → pyramid; progress + cancel signals
 │   │   ├── export.py                 # snapshot, data slice (CSV/Parquet), video clip trim
-│   │   ├── proxy.py                  # ffmpeg short-GOP proxies + prepare() conversion flow (D-006)
+│   │   ├── proxy.py                  # in-process PyAV short-GOP proxies + prepare() conversion flow (D-075)
 │   │   ├── sync_worker.py            # chunked event extraction and deterministic fitting (D-026)
 │   │   ├── drop_worker.py            # off-thread drop classification; format-neutral, defers folders to SessionSource (D-068)
 │   │   ├── session_worker.py         # off-thread .avv save/load
@@ -65,7 +65,7 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   │   ├── drop_controller.py    # drag/drop intake, drop scan, capability-resolved candidate routing
 │   │   │   ├── session_controller.py # .avv save/load/restore, QSettings geometry, autosave, recent files
 │   │   │   ├── export_controller.py  # snapshot, data slice, video clip, annotations, A/B region stats
-│   │   │   ├── video_controller.py   # bounded concurrent ffprobe probes; serialized pane build (D-040)
+│   │   │   ├── video_controller.py   # bounded concurrent PyAV probes; serialized pane build (D-040)
 │   │   │   └── import_controller.py  # time-series import queue + pose routing to overlay/3D (D-046)
 │   │   ├── video_pane.py             # decode→blit; ONE path on all OSes (D-075 removed the per-OS split)
 │   │   ├── video_timing.py           # timestamp rates, OSD text, frame lookup/step behavior
@@ -140,7 +140,7 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │
 └── .github/
     ├── workflows/
-    │   ├── ci.yml                    # PR gate: lint→type→test→docs→artifact build (3 OS)
+    │   ├── ci.yml                    # push/PR correctness: concurrent lint/types, 6 native tests, docs; pinned deps + coverage
     │   ├── release.yml               # tag → installers + PyPI, all-or-nothing (D-012)
     ├── ISSUE_TEMPLATE/  PULL_REQUEST_TEMPLATE.md   # Phase 6
     └── CONTRIBUTING.md  CODE_OF_CONDUCT.md         # Phase 6
@@ -266,7 +266,7 @@ encodings remain plugins.
 - Seeker: fans a target time out to every pane. Each pane resolves it to a frame index and serves
   it from its cache or decodes it. Render and OSD callbacks retain only the latest pending UI
   update, so a slow paint cannot create an unbounded Qt event backlog.
-- Proxy generation: QProcess (ffmpeg), non-blocking, progress parsed from stderr.
+- Proxy generation: registered worker, in-process PyAV encode, progress and cancellation.
 
 ### Background-job ownership (D-107)
 
@@ -354,16 +354,16 @@ At window close, ownership unwinds explicitly: `MainWindow.closeEvent()` calls `
 before `VideoGrid.shutdown()`. This removes the precise master-tick timer, then closes every pane
 and joins its decode thread before Qt tears down widgets.
 
-Runtime coordination uses observed `seeking=False` and target `time-pos`, without sleeps. That is
-not sufficient evidence for a scientific golden test: the test captures `screenshot-raw video`,
-decodes the fixture frame strip, and compares it with the requested exact frame. A transient raw
-screenshot-unavailable result may be retried while the exact seek is settling; a stale displayed
-image may never be accepted as proof.
+The newest seek request id clears `is_seeking` only when its decoded frame
+arrives; `time_pos` reports that frame's PTS. Golden tests decode the fixture
+strip from the surface's retained image buffer. Local certification also grabs
+the rendered widget, reverses its view transform and decodes the painted strip.
+A stale image never counts as a completed exact seek.
 
 During active playback, an unsettled or stalled decoder never stops `MasterClock`. That pane drops
-frames and rejoins through the existing drift correction while plots, transport, readout, 3D, and
+frames and rejoins at the newest requested master time while plots, transport, readout, 3D, and
 healthy videos continue from the authoritative clock. Unchecked panes remain loaded but are paused
-and excluded from seek/drift fanout; grid and fullscreen layout changes cannot override the stored
+and excluded from seek fanout; grid and fullscreen layout changes cannot override the stored
 user visibility state.
 
 Standard-video probing happens off the UI thread. Presentation timestamps are authoritative for
@@ -533,8 +533,9 @@ workspace.
 
 **Missing-file relink:** on load, any unresolved path opens a relink dialog (browse / search a
 chosen folder by filename+size); session loads with unresolved sources placeholdered, never fails
-wholesale. **Path hygiene:** all paths handed to ffmpeg/QProcess as argument lists (never
-shell strings); unicode + spaces on Windows are first-class test cases.
+wholesale. **Path hygiene:** subprocess-based fixture and packaging tools pass
+argument lists, never shell strings; unicode + spaces on Windows are first-class
+test cases. Application media operations use in-process PyAV.
 
 ## 5b. Cache invalidation key (updates D-004)
 
@@ -584,10 +585,12 @@ configuration values, verified before use. PyPI uses GitHub OIDC trusted publish
 workstation token or upload is permitted. Signing/notarization steps exist in release.yml behind
 `if: secrets present` (D-016).
 
-The pull-request CI quality gate runs lint/type checks, documentation with warnings as errors,
-fixture-backed cross-platform correctness tests, and a PyInstaller build on each OS. A successful
-artifact build proves the spec can locate project code and package its declared inputs; it does not
-prove an installer release or native-window rendering. `SPECPATH` is the `packaging/` directory, so
-the spec derives the project root from it. Optional media is included only when
-`AVIALSYNC_MEDIA_ROOT` is non-empty and names a directory; release workflows separately provide and
-verify licensed media.
+Push/PR CI runs concurrent lint/type, warnings-as-errors documentation and the
+full three-OS/two-interpreter correctness matrix. Linux/3.12 enforces 80% overall
+and complete core line/branch coverage. Release quality retains those gates,
+then builds distributions, smoke-tests the installed wheel and freezes every
+installer. Linux also smoke-tests xcb on a real virtual display. A build alone
+does not certify speed or publish a release. `SPECPATH` is `packaging/`, so the
+spec derives the project root from it. Media binaries arrive through PyAV's
+wheel and bundling hook; no separate media folder is staged. All Python installs
+use the tested interpreter-specific runtime and isolated-build constraints.

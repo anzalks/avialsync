@@ -195,7 +195,9 @@ def apply_channel_visibility(channel: ChannelPlot) -> None:
         channel.close_proxy.setMaximumHeight(maximum_height)
 
 
-def cull_offscreen_rows(channels: list[ChannelPlot], top: float, bottom: float) -> None:
+def cull_offscreen_rows(
+    channels: list[ChannelPlot], top: float, bottom: float, *, phase: float | None = None
+) -> None:
     """Draw only the rows whose geometry meets ``[top, bottom]``.
 
     The stack is one tall view inside a scroll area, so Qt treats every row as
@@ -203,12 +205,16 @@ def cull_offscreen_rows(channels: list[ChannelPlot], top: float, bottom: float) 
     recompute their bounds in Python, though most were scrolled away. Only a
     row's data items are hidden -- its ViewBox child group -- so layout, axes,
     and the user's own row visibility are untouched. A row not yet laid out is
-    drawn, never assumed off screen.
+    drawn, never assumed off screen. Restore the authoritative sweep phase
+    before revealing data whose pixel updates were deferred while culled.
     """
     for channel in channels:
         geometry = channel.plot_item.geometry()
         near = geometry.height() <= 0 or (geometry.bottom() >= top and geometry.top() <= bottom)
         group = channel.plot_item.getViewBox().childGroup
+        if phase is not None and channel.visible and near:
+            channel.cursor_line.setValue(phase)
+            channel.curve.set_sweep_position(phase)
         if group.isVisible() != near:
             group.setVisible(near)
 

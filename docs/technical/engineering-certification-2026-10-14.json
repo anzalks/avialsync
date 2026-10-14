@@ -1,0 +1,236 @@
+{
+  "software": {
+    "avialsync": "0.1.11",
+    "python": "3.12.13",
+    "PySide6": "6.11.2",
+    "numpy": "2.5.3",
+    "av": "19.0.1",
+    "polars": "1.43.0"
+  },
+  "hardware": {
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "processor": "arm",
+    "logical_cpus": 8,
+    "model": "Apple M1 Pro",
+    "ram_bytes": 34359738368,
+    "viewport": "1280x800; resize widths 1100/1280/1400/1600"
+  },
+  "fixture": {
+    "samples": 30500000,
+    "rate_hz": 50000,
+    "bytes": 1013749844
+  },
+  "cases": {
+    "import": {
+      "exit_code": 0,
+      "report": "import.json",
+      "measurements": [
+        {
+          "name": "test_certification_cold_import_and_warm_reopen",
+          "rounds": 5,
+          "mean_ms": 343.38381642010063,
+          "p50_ms": 344.4514579605311,
+          "p95_ms": 350.585783040151,
+          "p99_ms": 351.6048230510205,
+          "maximum_ms": 351.8595830537379,
+          "cold_import_seconds": 2.0866452920017764,
+          "cold_maximum_heartbeat_gap_ms": 95.83004203159362,
+          "peak_rss_mb": 1745.076224,
+          "source_bytes": 1013749844,
+          "sample_count": 30500000,
+          "progress_updates": 4
+        }
+      ]
+    },
+    "frames": {
+      "exit_code": 0,
+      "report": "frames.json",
+      "measurements": [
+        {
+          "name": "test_certification_three_camera_painted_seek",
+          "rounds": 60,
+          "mean_ms": 13.169547930980722,
+          "p50_ms": 12.769249442499131,
+          "p95_ms": 13.702592079062015,
+          "p99_ms": 20.44751626090141,
+          "maximum_ms": 29.776375042274594,
+          "maximum_heartbeat_gap_ms": 22.132958052679896,
+          "peak_rss_mb": 406.290432,
+          "evidence": "frame strip decoded from rendered widget grabs"
+        }
+      ]
+    },
+    "plots-4": {
+      "exit_code": 0,
+      "report": "plots-4.json",
+      "measurements": [
+        {
+          "name": "test_certification_populated_interactions[4]",
+          "rounds": 60,
+          "mean_ms": 94.98958131104398,
+          "p50_ms": 94.9269374832511,
+          "p95_ms": 106.63426672108471,
+          "p99_ms": 107.21025085193105,
+          "maximum_ms": 107.44775005150586,
+          "channels": 4,
+          "operations": {
+            "cursor": {
+              "p50_ms": 0.12964598136022687,
+              "p95_ms": 0.6264336523599919,
+              "p99_ms": 0.7978442520834503,
+              "mean_ms": 0.1974668159770469,
+              "maximum_ms": 0.8304170332849026
+            },
+            "zoom": {
+              "p50_ms": 1.3722915318794549,
+              "p95_ms": 1.6583020274993032,
+              "p99_ms": 1.730004665441811,
+              "mean_ms": 1.3442548690363765,
+              "maximum_ms": 1.7342090141028166
+            },
+            "resize": {
+              "p50_ms": 18.471521034371108,
+              "p95_ms": 25.620616361266002,
+              "p99_ms": 26.78788648336194,
+              "mean_ms": 19.44837846288768,
+              "maximum_ms": 27.358417049981654
+            },
+            "paint": {
+              "p50_ms": 7.504458422772586,
+              "p95_ms": 11.271856765961275,
+              "p99_ms": 11.571120208827779,
+              "mean_ms": 7.526784114694844,
+              "maximum_ms": 11.716875014826655
+            }
+          },
+          "maximum_heartbeat_gap_ms": 38.486541947349906,
+          "peak_rss_mb": 343.73632
+        }
+      ]
+    },
+    "plots-32": {
+      "exit_code": 0,
+      "report": "plots-32.json",
+      "measurements": [
+        {
+          "name": "test_certification_populated_interactions[32]",
+          "rounds": 60,
+          "mean_ms": 115.18668752202453,
+          "p50_ms": 111.70252098236233,
+          "p95_ms": 132.48852952965535,
+          "p99_ms": 133.33196858293377,
+          "maximum_ms": 133.38762510102242,
+          "channels": 32,
+          "operations": {
+            "cursor": {
+              "p50_ms": 0.2891455078497529,
+              "p95_ms": 1.2246628175489587,
+              "p99_ms": 2.1545907470863312,
+              "mean_ms": 0.4453514198151728,
+              "maximum_ms": 2.167791943065822
+            },
+            "zoom": {
+              "p50_ms": 4.856250016018748,
+              "p95_ms": 6.010439543751999,
+              "p99_ms": 6.655047704698516,
+              "mean_ms": 4.796866626323512,
+              "maximum_ms": 6.879125023260713
+            },
+            "resize": {
+              "p50_ms": 39.178437495138496,
+              "p95_ms": 65.26843722094782,
+              "p99_ms": 65.72617403580806,
+              "mean_ms": 46.80546257101621,
+              "maximum_ms": 65.9793330123648
+            },
+            "paint": {
+              "p50_ms": 11.526645452249795,
+              "p95_ms": 16.514204791747034,
+              "p99_ms": 16.670989074045792,
+              "mean_ms": 11.424924314875776,
+              "maximum_ms": 16.715583042241633
+            }
+          },
+          "maximum_heartbeat_gap_ms": 87.70404104143381,
+          "peak_rss_mb": 418.021376
+        }
+      ]
+    },
+    "plots-128": {
+      "exit_code": 0,
+      "report": "plots-128.json",
+      "measurements": [
+        {
+          "name": "test_certification_populated_interactions[128]",
+          "rounds": 60,
+          "mean_ms": 162.32256939595877,
+          "p50_ms": 154.75433348910883,
+          "p95_ms": 197.24410561611873,
+          "p99_ms": 217.42151443148026,
+          "maximum_ms": 228.6628340370953,
+          "channels": 128,
+          "operations": {
+            "cursor": {
+              "p50_ms": 0.33179199090227485,
+              "p95_ms": 2.4145000148564577,
+              "p99_ms": 5.717772778589276,
+              "mean_ms": 0.7240368441368144,
+              "maximum_ms": 6.171457935124636
+            },
+            "zoom": {
+              "p50_ms": 15.530999982729554,
+              "p95_ms": 18.92900805105455,
+              "p99_ms": 20.333036171505228,
+              "mean_ms": 15.543345862533897,
+              "maximum_ms": 20.39466705173254
+            },
+            "resize": {
+              "p50_ms": 78.6525210714899,
+              "p95_ms": 119.09307984751648,
+              "p99_ms": 142.31058651232155,
+              "mean_ms": 91.52217216712113,
+              "maximum_ms": 150.92920791357756
+            },
+            "paint": {
+              "p50_ms": 12.725979031529278,
+              "p95_ms": 18.13825213466771,
+              "p99_ms": 18.380782305030152,
+              "mean_ms": 12.548830501812821,
+              "maximum_ms": 18.45200010575354
+            }
+          },
+          "maximum_heartbeat_gap_ms": 183.7771669961512,
+          "peak_rss_mb": 701.661184
+        }
+      ]
+    }
+  },
+  "measurement_scope": "Each scenario has its own application/test process. Process peak RSS excludes fixture generation. Qt renders offscreen; no native-compositor or field-data certification is claimed. Cold import has an empty application cache; the OS file cache is not flushed.",
+  "date": "2026-10-14",
+  "component_benchmarks": [
+    {
+      "name": "test_bench_resize_storm",
+      "mean_ms": 15.755961080625033,
+      "maximum_ms": 22.31887506786734,
+      "rounds": 60
+    },
+    {
+      "name": "test_bench_populated_cursor_tick[32]",
+      "mean_ms": 0.38727844729356614,
+      "maximum_ms": 0.49754197243601084,
+      "rounds": 1461
+    },
+    {
+      "name": "test_bench_populated_cursor_tick[128]",
+      "mean_ms": 1.4815160955409876,
+      "maximum_ms": 1.6873750137165189,
+      "rounds": 520
+    },
+    {
+      "name": "test_bench_cursor_path",
+      "mean_ms": 0.10973186033329059,
+      "maximum_ms": 0.18800003454089165,
+      "rounds": 4621
+    }
+  ]
+}

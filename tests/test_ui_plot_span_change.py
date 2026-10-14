@@ -16,6 +16,7 @@ from PySide6.QtCore import QEvent, QObject
 from PySide6.QtGui import QColor
 
 from avialsync.core.pyramid import PyramidBuilder
+from avialsync.core.trials import TimeWarp
 from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.snapshot_capture import capture_plot_image
 
@@ -94,6 +95,51 @@ def test_rows_scrolled_away_are_not_drawn_until_they_come_back(qtbot, pane: Plot
 
     assert drawn[-1], "scrolling re-culls before the next paint"
     assert not drawn[0]
+
+
+@pytest.mark.parametrize("collapsed", [False, True])
+def test_culled_cursor_is_restored_before_a_scroll_reveals_it(
+    pane: PlotPane, collapsed: bool
+) -> None:
+    if collapsed:
+        pane.set_time_warp(TimeWarp(((1.0, 3.0),)))
+    first, last = pane.channels[0], pane.channels[-1]
+    before = last.cursor_line.value()
+    assert not _drawn(pane)[-1]
+    pane.set_cursor(5.0, immediate=True)
+    phase = 3.0 if collapsed else 5.0
+    assert first.cursor_line.value() == pytest.approx(phase)
+    assert last.cursor_line.value() == before
+    pane._plot_scroll.verticalScrollBar().setValue(pane._plot_scroll.verticalScrollBar().maximum())
+    assert _drawn(pane)[-1]
+    assert last.cursor_line.value() == pytest.approx(phase)
+    assert last.curve._sweep_position == pytest.approx(phase)
+
+
+def test_full_stack_capture_restores_culled_cursor_from_the_same_sweep(pane: PlotPane) -> None:
+    pane.set_cursor(5.0, immediate=True)
+    assert not _drawn(pane)[-1]
+    with pane.every_row_drawn():
+        assert all(channel.cursor_line.value() == pytest.approx(5.0) for channel in pane.channels)
+        assert all(channel.curve._sweep_position == pytest.approx(5.0) for channel in pane.channels)
+    assert not _drawn(pane)[-1]
+
+
+def test_resize_never_publishes_transient_ranges_from_partially_resized_rows(
+    pane: PlotPane,
+) -> None:
+    pane.set_window_duration(10.0)
+    pane.wait_for_pending_rows()
+    observed: list[tuple[float, float]] = []
+    for channel in pane.channels:
+        channel.plot_item.getViewBox().sigXRangeChanged.connect(
+            lambda _view, bounds: observed.append(tuple(bounds))
+        )
+    pane.resize(1400, 800)
+    for bounds in observed:
+        assert bounds == pytest.approx((0.0, 10.0))
+    for channel in pane.channels:
+        assert channel.plot_item.getViewBox().viewRange()[0] == pytest.approx((0.0, 10.0))
 
 
 def test_a_snapshot_still_draws_every_row(pane: PlotPane) -> None:

@@ -56,11 +56,16 @@ following fixture coverage remains the release-level acceptance set:
 
 ## 4. Performance benchmarks (`tests/benchmarks/`)
 
-- `bench_pyramid.py`: build 180 M samples ≤ 2.5 s; query any window ≤ 5 ms.
-- `bench_cursor.py`: playhead update ≤ 2 ms (offscreen).
-- `bench_plot.py`: pan/zoom redraw ≤ 16 ms at every pyramid level.
-- `bench_import.py`: 1 GB CSV → cache ≤ 60 s (marked slow; nightly, not per-PR).
-- `bench_seek.py`: 3-camera parallel exact seek ≤ 250 ms (requires ffmpeg; runs where available).
+- `test_bench_pyramid.py`: build 180 M chronological samples ≤2.5 s; query ≤5 ms;
+  populated plot/transport/channel/camera readout tick ≤2 ms.
+- `test_bench_plot_pane.py`: prepared 4/32/128 rows, cursor ≤2 ms, delivered resize work,
+  actual visible paints ≤16 ms, and worker preparation/installation.
+- `test_seek_backends.py`: three 1440×1080 long-GOP cameras; jump ≤250 ms, cached drag ≤50 ms.
+- `test_bench_certification.py`: opt-in 1 GB import with progress, warm three-camera/four-channel
+  reopening, rendered frame-strip verification and populated interaction distributions. Run
+  `conda run -n avialsync --no-capture-output python tools/certify_engineering.py --output /tmp/avialsync-certification`.
+  There is no nightly benchmark workflow. Fixture generation and each measured scenario run in
+  separate processes; the report includes p50/p95/p99, maxima, heartbeat and peak RSS.
 - `test_bench_sync.py`: deterministic 10,000-event fit preview ≤250 ms locally (with the standard
   CI multiplier); covers the worker's matching hot path without UI or file I/O.
 Store baselines with `--benchmark-autosave`; compare with `--benchmark-compare`.
@@ -238,6 +243,13 @@ timing number from a shared runner sharing a core with three other jobs is noise
 suite is the slowest thing in the tree. Budgets are measured locally against BLUEPRINT.md's table
 with `pytest --benchmark-only`, as §4 describes. CI answers "is it correct"; your own machine
 answers "is it fast".
+
+Both workflows apply `requirements/ci-py3.11.txt` or `ci-py3.12.txt` to runtime and isolated-build
+installs. The Linux/3.12 job collects branch coverage and runs `tools/check_coverage.py`: at least
+80% overall, with every executable core line and branch covered. Declaration stubs are excluded;
+executable functions and ellipsis slices are measured. Strict core typing runs explicitly alongside
+standard package typing. Documentation remains warnings-as-errors; release tags retain wheel smoke,
+all three installer builds and native xcb smoke. A branch push builds no installer.
 
 **Per push, on every branch — the full 3 OS × 2 Python matrix.** Six test jobs, and
 `test_ci_platform_config.py::test_ci_tests_the_interpreter_the_installers_ship` fails if an

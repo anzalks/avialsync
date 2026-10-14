@@ -13,6 +13,7 @@ enforced here without a multiplier; hosted CI does not certify speed
 
 from __future__ import annotations
 
+import gc
 from pathlib import Path
 
 import numpy as np
@@ -73,15 +74,21 @@ def test_bench_populated_cursor_tick(benchmark, qtbot, tmp_path: Path, channels:
     pane = _populated_pane(qtbot, tmp_path, channels)
     pane.set_timeline_bounds(0.0, 60.0)
     pane.set_window_duration(10.0)
-    times = np.linspace(0.0, 60.0, 601)
+    times = np.linspace(0.1, 9.9, 601)
     counter = {"index": 0}
 
     def advance() -> None:
         """Advance to a new time each call; a repeated time is not a tick."""
+        # A tight benchmark loop has no timer interval. Make each measured
+        # tick eligible to move pixels instead of measuring the throttle.
+        pane._last_cursor_repaint = float("-inf")
         pane.set_cursor(float(times[counter["index"] % len(times)]))
         counter["index"] += 1
 
     benchmark(advance)
+    expected = times[(counter["index"] - 1) % len(times)]
+    assert pane.channels[0].cursor_line.value() == pytest.approx(expected)
+    assert pane.channels[0].curve._sweep_position == pytest.approx(expected)
 
     stats = benchmark.stats
     if stats is None:
@@ -133,14 +140,21 @@ def test_bench_resize_storm(benchmark, qtbot, tmp_path: Path) -> None:
     pane = _populated_pane(qtbot, tmp_path, 128)
     pane.set_timeline_bounds(0.0, 60.0)
     pane.set_window_duration(10.0)
+    _settled_page(qtbot, pane)
+    assert not pane.grab().isNull()
     widths = (1280, 1400, 1100, 1600)
-    counter = {"index": 0}
+    counter = {"index": 1}
 
     def resize() -> None:
         pane.resize(widths[counter["index"] % len(widths)], 800)
         counter["index"] += 1
 
-    benchmark(resize)
+    # Do not charge prior tests' cyclic garbage to this workload. Collection
+    # remains enabled throughout every measured resize (D-231).
+    gc.collect()
+    # The first width can already be installed: automatic calibration then
+    # measures a no-op and schedules thousands of expensive real resizes.
+    benchmark.pedantic(resize, rounds=60, iterations=1)
 
     stats = benchmark.stats
     if stats is None:

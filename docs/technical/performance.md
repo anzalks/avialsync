@@ -1,94 +1,80 @@
 # Performance verification
 
-AvialSync separates workload correctness from speed certification because the computer running a
-test affects its result.
+Correctness runs on every supported operating system. Timing certification runs locally because
+the machine and its storage affect the result. Neither a passing component mean nor a headless
+build certifies the complete application on a scientist's computer.
 
-The engineering marks are product requirements: 2.5 seconds to build the 180-million-sample
-pyramid, 5 milliseconds to query it, 2 milliseconds for a fully populated cursor update,
-2 milliseconds to sample a 128-point 3D pose, 16 milliseconds for a plot window refresh, and
-250 milliseconds for the 10,000-event synchronization preview. No UI-thread callback may exceed
-30 milliseconds; the target is 8 milliseconds or less so the event loop retains headroom.
+## Requirements and measurements
 
-## Audit status (2026-07-30)
+The requirements in `BLUEPRINT.md` remain unchanged: 2.5 seconds to build a 180-million-sample
+pyramid, 5 milliseconds to query it, 2 milliseconds for a populated cursor update or a 128-point
+3D sample, 16 milliseconds for a plot frame, and 250 milliseconds for synchronization preview
+or a three-camera exact seek. A cached three-camera/four-channel session should open in 3 seconds;
+a 1 GB CSV should import with progress within 60 seconds. UI callbacks have a 30 millisecond
+hard ceiling and an 8 millisecond target.
 
-The following paths already have the correct ownership model:
+The [2026-10-14 local measurement report](engineering-certification.md) records a real 1 GB,
+four-channel 50 kHz import, five cached reopens, sixty painted three-camera seeks, and sixty
+mixed interactions each with 4, 32 and 128 populated channels. It includes p50/p95/p99, maxima,
+Qt heartbeat gaps and process peak RSS. Fixture generation runs outside each measured application
+process. The report also records its limits: a 32 GB macOS machine, synthetic recordings and
+offscreen rendering. Native desktop, Windows/Linux speed, private field data and a 16 GB machine
+remain external checks.
 
-- `MasterClock` advances from monotonic time and never waits for a video decoder.
-- Decode work runs on a worker thread per pane. Playback drops frames rather than allowing a stalled
-  pane to stop time, and each pane keeps only the newest requested time.
-- Scrub requests and video render/OSD callbacks retain only the latest pending value.
-- Hidden video panes are paused and excluded from synchronization work.
-- Video opening, data import, synchronization fitting, proxy generation, and diagnostics have
-  background-worker entry points.
-- Text import previews, stimulus-grid overviews, retraining-label assembly, and launch-time
-  recovery reads run in registered workers; their UI callbacks hand off bounded data or render
-  the resulting overview.
-- 3D pose setup opens XYZ cache arrays and derives orientation-specific skeletons in a registered
-  worker. Axis changes reuse those estimates, and a newer channel selection supersedes old results.
-- Plot queries select bounded mmap-backed pyramid slices, coalesce resize/window storms, and skip
-  hidden plot rows.
-- Current-pose 3D sampling shares one timestamp lookup per source and never loads a trajectory into
-  the paint path.
+Mean cursor and paint costs pass their local component budgets. Resize/event-delivery tails and
+heartbeat gaps exceed the responsiveness target, especially at 128 channels. Those observations
+remain visible in the report; this is not a certification that every UI callback or full
+pan/zoom-to-paint interaction meets its requirement.
 
-The implementation gaps recorded in the 2026-07-29 audit were closed by 2026-07-30. Session
-save/load/autosave and annotation export run on workers; import staging is chunked; cache replacement
-is recoverable; evidence and plot hot paths are indexed; and video metadata probes run in a bounded
-pool. The former P0/P1 table described work that has since shipped and is intentionally removed.
+## Work ownership
 
-The remaining release gate is measurement, not another implementation claim:
+- `MasterClock` advances from monotonic elapsed time and never waits for a decoder.
+- Each video pane has a decode worker. Playback retains only the latest request and drops frames
+  to preserve synchronization; paused seeks select the exact presentation interval.
+- Imports, cache construction, session IO, exports, synchronization and diagnostics use registered
+  background jobs. Parser staging is chunked and cache replacement is recoverable.
+- Plot workers query bounded mmap pyramid slices. UI installation is sliced, resize/window
+  requests coalesce, and offscreen rows defer graphics updates until they are revealed.
+- Culled cursor pixels are restored from the existing sweep authority before scrolling or a
+  full-stack snapshot reveals them. This creates no second clock.
+- 3D setup and skeleton estimation run in workers. Current-pose sampling shares timestamp lookups
+  and never loads a full trajectory into the paint path.
 
-- Record populated 4/32/128-channel latency, peak RSS and warm reopen for the 1 GB import workload.
-- Measure decoder settle through the frame actually painted, including p50/p95/p99 and maximum UI
-  heartbeat delay.
-- Keep checking on each supported operating system and on a mid-spec machine; existing
-  microbenchmarks are baselines, not certification.
+On macOS the first system-accent lookup can still run `defaults` synchronously with a one-second
+timeout. It is cached, but remains a startup responsiveness caveat.
 
-**Known responsiveness caveat:** On macOS, the first system-accent lookup can synchronously run
-`defaults` with a one-second timeout. The result is cached, so this does not repeat on each paint.
+## What the checks measure
 
-Correctness and throughput are co-equal. The companion data-path findings and required fixtures are
-documented in [Data handling](data-handling.md).
-
-## Benchmark coverage audit
-
-The current tests give useful component baselines, but several names/claims are broader than the
-measured work:
-
-| Existing check | What it proves | Missing before certification |
+| Check | Evidence | Limits |
 |---|---|---|
-| Pyramid build/query | One in-memory 180 M-sample build and bounded mmap query meet local mean budgets. | Cold/warm storage, peak RSS, chunked ingest, cancel/failure recovery, and p95/p99. |
-| Cursor path | Plot/transport dispatch with an empty readout is fast. | Install 4/32/128 readers, include camera/overlay state, deliver queued paints, test collapsed panels, and measure maximum heartbeat delay. |
-| Four-channel window refresh | Four bounded pyramid queries and curve updates average under the current test's 30 ms threshold. | Enforce the Blueprint's 16 ms mark, render min/max envelopes, include gaps/annotations and actual paints, and scale visible rows. |
-| 3D cursor | Sampling 128 XYZ points is below 2 ms. | Paint cost, skeleton edges, multiple sources, hidden-pane behavior, and p99. |
-| Video scrub | Three-camera long-GOP jump, drag, and re-scrub are measured end to end against their budgets in `tests/benchmarks/test_seek_backends.py`. | Proxy variants, callback delivery/OSD paint, and four simultaneous panes. |
-| Sync fit | A deterministic 10,000-event affine fit averages below 250 ms. | Exact one-million-frame mapping memory/accept/save/load, cancellation, ambiguity/outlier fixtures, and p99. |
+| `test_bench_pyramid.py` | 180 M-sample build/query; populated plot, transport, channel and camera readouts | Local mean component budgets; in-memory input |
+| `test_bench_plot_pane.py` | Prepared 4/32/128-channel rows, bounded queries, delivered resize events and actual visible paints | Component costs; synthetic data and offscreen Qt |
+| `test_seek_backends.py` | Three 1440×1080 long-GOP cameras: jump, drag, re-scrub and presentation-frame correctness | Local decoder/settle workload, separate from native compositor |
+| `test_bench_certification.py` | Isolated 1 GB import/reopen, rendered frame strips, populated interaction distributions, heartbeat and RSS | Opt-in; hardware and remaining tails recorded in the report |
+| Tracking, imaging and sync benchmarks | Current-pose, lazy plane/average, deterministic event-fitting budgets | Their own fixtures; not a whole-session certificate |
+| Exact-mapping tests and provenance benchmark | Million-frame mapping ownership, acceptance/save/load, and shared conversion for 128 channels | Separate memory and worker-path checks |
 
-Add a Qt heartbeat probe to every long-job integration test. While the job runs, post a lightweight
-event at a fixed cadence and record the largest delivery delay. A worker finishing quickly does not
-excuse a 100 ms UI-thread setup or completion slot.
-
-## GitHub workload verification
-
-Every change and release verifies the representative scientific workload across supported operating
-systems: three cameras and four dense data streams can be opened, cached, queried, and synchronized.
-This is a functional integration check, including exact decoded-frame fixtures and a build artifact
-on each platform. It deliberately does not treat a shared GitHub machine as a speed authority, a
-native-compositor test, or a release installer test.
-
-## Engineering certification
-
-Run timing certification locally on the intended engineering machine before a performance-sensitive
-release. The published marks are enforced exactly:
+## Running local certification
 
 ```shell
 QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest --benchmark-only
+conda run -n avialsync --no-capture-output python tools/certify_engineering.py --output /tmp/avialsync-certification
 ```
 
-Do not tune an individual threshold to make a slow machine pass. A changed product requirement
-needs a documented decision and a new ground-truth benchmark.
+The second command generates at least one billion bytes of deterministic input and launches a
+separate pytest process per scenario. It writes raw benchmark distributions and `certification.json`
+outside the repository. Run it without another benchmark or test suite competing for the machine.
+The opt-in scenarios are skipped by the ordinary benchmark command unless a certification fixture
+root is supplied. Keep baselines with `--benchmark-autosave` and compare with `--benchmark-compare`.
+Do not increase a threshold to accommodate a slow result; changed requirements need a decision.
 
-Pyramid sidecars keep their exact level-1 arrays and published envelope format. Their independent
-array writes use a bounded three-worker pool, and failures propagate to the import worker. The
-importer now stages parser chunks through `ChannelStage` rather than retaining the full parsed input
-before cache construction. That implementation is complete; representative peak-memory and latency
-measurements remain open before the path can be called certified.
+## GitHub verification
+
+Each branch push runs the full three-OS/two-interpreter correctness matrix, lint/typing, and
+warnings-as-errors documentation. Linux/Python 3.12 additionally enforces 80% overall coverage and
+every executable core line and branch. Benchmarks remain excluded from both workflows.
+Interpreter-specific constraints pin runtime, test, documentation and isolated-build dependencies.
+
+A release tag additionally builds and smoke-tests the wheel and all three PyInstaller installers,
+including native xcb smoke on Linux. A branch push does not build installers. Hosted correctness,
+wheel resolution and build artifacts do not certify speed or native desktop behavior.

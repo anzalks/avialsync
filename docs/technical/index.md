@@ -10,5 +10,6 @@ from the scientist-facing guides. Writing a loader or session plugin? Start with
 architecture
 data-handling
 performance
+engineering-certification
 development
 ```

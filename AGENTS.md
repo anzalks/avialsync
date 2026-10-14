@@ -222,7 +222,7 @@ conda run -n avialsync avialsync                                # run the app
 conda run -n avialsync avialsync open tests/fixtures/sample_session/
 
 # Type checking — run BOTH; strict mode applies only to core/
-conda run -n avialsync mypy src/avialsync/core    # strict (enforced)
+conda run -n avialsync mypy --strict src/avialsync/core    # strict (enforced)
 conda run -n avialsync mypy src/avialsync          # standard (ui/engine/loaders; pre-existing errors suppressed per pyproject.toml)
 
 # Lint + format
@@ -339,10 +339,11 @@ conda run -n avialsync python tools/generate_session_screenshot.py <recording fo
   one separately and records failures in `plugin_errors`, because a loader's third-party dependency
   stack belongs to the user's machine, and the registry is built inside `MainWindow.__init__` —
   one bad dependency used to be a traceback before any window existed rather than one lost format.
-- Hosted CI is headless on every OS: keep `QT_QPA_PLATFORM=offscreen` global and make
-  `VideoPane` select `vo=null` there. Never force `qwindows` or native `wid` embedding merely to
-  make a Windows job pass; interactive Windows and macOS use the Qt OpenGL render API, while Linux
-  retains native `wid` embedding.
+- Hosted correctness CI is headless on every OS: keep `QT_QPA_PLATFORM=offscreen`
+  global. VideoPane decodes through PyAV and blits a QImage on every platform,
+  including headless runs (D-075). Never restore a platform-specific video output
+  or force a native Qt platform merely to make a job pass. The Linux release
+  bundle also has its separate, explicit xcb native-display smoke gate.
 
 - pyqtgraph `setDownsampling` is not enough at 180 M points — always go through our pyramid.
 - QTimer drift: drive MasterClock from `time.monotonic()` deltas, never by accumulating timer intervals.
@@ -350,9 +351,10 @@ conda run -n avialsync python tools/generate_session_screenshot.py <recording fo
 - ffprobe start times lie for some machine-vision containers; treat metadata start time as a default,
   never as truth — the user offset always wins.
 - 12-bit video: never assume hw decode; probe once at startup (`ui/diagnostics.py`) and surface it.
-- PyInstaller evaluates `SPECPATH` as the spec directory, not the project root. Resolve the root
-  from it, and stage media only from a non-empty, validated `AVIALSYNC_MEDIA_ROOT`; an unset value
-  must never accidentally package the current working directory.
+- PyInstaller evaluates `SPECPATH` as the spec directory, not the project root.
+  Resolve the root from it. Media binaries arrive only through PyAV's wheel and
+  its bundling hook (D-075); never restore AVIALSYNC_MEDIA_ROOT or stage a folder
+  from the working directory.
 - Theme changes must not restyle sliders, splitters, scrollbars, plot interaction, or layout. A
   global QSS changes Qt's style engine and can alter those controls; use `QPalette` only for theme
   colours and verify seek/plot state survives a theme switch. `QStyleHints.setColorScheme()` is the

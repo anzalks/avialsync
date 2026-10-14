@@ -40,6 +40,7 @@ from avialsync.ui.plot_row import (
     set_channel_unit,
     update_channel_coverage,
 )
+from avialsync.ui.plot_stack_view import PlotStackView
 from avialsync.ui.plot_sweep import PlotPresentation, SweepWindowControl
 from avialsync.ui.plot_theme import apply_canvas_palette
 from avialsync.ui.time_format import TimeDisplayMode, format_time
@@ -116,6 +117,7 @@ class PlotPane(QWidget):
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
+        self.channels: list[ChannelPlot] = []
         self._page_generation = 0
         self._last_installed_generation = 0
         self._page_thread: QThread | None = None
@@ -145,7 +147,9 @@ class PlotPane(QWidget):
         self.row_height_combo = self._plot_header.row_height_combo
         self.reset_button = self._plot_header.reset_button
 
-        self.graphics_layout = pg.GraphicsLayoutWidget()
+        self.graphics_layout = PlotStackView(
+            lambda: [channel.plot_item.getViewBox() for channel in self.channels]
+        )
         self.graphics_layout.setAccessibleName(tr("Plot rows"))
         register_painted(
             self.graphics_layout,
@@ -209,7 +213,6 @@ class PlotPane(QWidget):
         self._page_label_text: str | None = None
 
         # State
-        self.channels: list[ChannelPlot] = []
         # One TimeMap per source cache dir, shared by all of that source's rows.
         self._source_time_maps: dict[Path, TimeMap] = {}
         # Units arrive once, when the import finishes, but rows are built in
@@ -1024,7 +1027,8 @@ class PlotPane(QWidget):
             height = self._plot_scroll.viewport().height()
             top = self._plot_scroll.verticalScrollBar().value() - height / 2
             bottom = top + 2 * height
-        cull_offscreen_rows(self.channels, top, bottom)
+        position = self._sweep_control.advance(self._sweep_control.last_master_time)
+        cull_offscreen_rows(self.channels, top, bottom, phase=position.phase)
 
     @contextmanager
     def every_row_drawn(self) -> Iterator[None]:
@@ -1112,7 +1116,7 @@ class PlotPane(QWidget):
         # Two items per visible row: the trace and the cursor.  This loop is the
         # 30 Hz repaint path, so anything added here is paid per row per frame.
         for ch in self.channels:
-            if ch.visible:
+            if ch.visible and ch.cursor_line.isVisible():
                 ch.cursor_line.setValue(position.phase)
                 ch.curve.set_sweep_position(position.phase)
         self._update_page_label(position.start)

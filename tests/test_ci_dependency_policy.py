@@ -78,6 +78,7 @@ def test_every_workflow_apt_install_excludes_recommends() -> None:
         for line in path.read_text().splitlines():
             if "apt-get install" in line and not line.strip().startswith("#"):
                 assert "--no-install-recommends" in line, (path, line)
+    assert "xvfb xauth" in WORKFLOWS[1].read_text()
 
 
 def test_hosted_documentation_uses_the_same_runtime_and_build_constraints() -> None:
