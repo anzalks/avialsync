@@ -57,11 +57,13 @@ def _populated_pane(qtbot, tmp_path: Path, count: int) -> PlotPane:
     pane = PlotPane()
     qtbot.addWidget(pane)
     pane.resize(1280, 800)
+    pane.show()
     pane.load_channels(cache, [f"ch{index}" for index in range(count)])
     # load_channels slices row construction across event-loop turns; drain it
     # so the benchmark measures a populated pane rather than an empty one.
     pane.wait_for_pending_rows()
     assert len(pane.channels) == count
+    assert pane.isVisible()
     return pane
 
 
@@ -183,7 +185,9 @@ def _settled_page(qtbot, pane: PlotPane) -> PlotPage:
     """Prepare the pane's current page synchronously, exactly as the worker would."""
     qtbot.waitUntil(
         lambda: (
-            pane._page_worker is None and pane._last_installed_generation == pane._page_generation
+            pane._page_worker is None
+            and not pane._resize_refresh_timer.isActive()
+            and pane._last_installed_generation == pane._page_generation
         ),
         timeout=20_000,
     )
@@ -195,7 +199,7 @@ def _settled_page(qtbot, pane: PlotPane) -> PlotPage:
             channel.reader.source_id,
             channel.reader.time_map.copy(),
         )
-        for index, channel in enumerate(pane._requested_rows)
+        for index, channel in enumerate(channel for channel in pane.channels if channel.visible)
     )
     worker = PlotPageWorker(
         pane._page_generation,
@@ -203,10 +207,12 @@ def _settled_page(qtbot, pane: PlotPane) -> PlotPage:
         pane.sweep_start + pane.window_duration,
         pane._last_point_budget,
         rows,
+        pane._warp,
     )
     pages: list[PlotPage] = []
     worker.finished.connect(pages.append)
     worker.run()
+    assert rows and len(pages) == 1 and len(pages[0].rows) == len(rows)
     return pages[0]
 
 
@@ -216,6 +222,9 @@ def test_bench_page_install(benchmark, qtbot, tmp_path: Path) -> None:
     pane.set_timeline_bounds(0.0, 60.0)
     pane.set_window_duration(10.0)
     page = _settled_page(qtbot, pane)
+    # A completed real worker releases its targets. Restore the same targets
+    # before measuring so every iteration installs curves rather than skipping.
+    pane._requested_rows = tuple(channel for channel in pane.channels if channel.visible)
 
     benchmark(pane._on_page_ready, page)
 
@@ -227,6 +236,20 @@ def test_bench_page_install(benchmark, qtbot, tmp_path: Path) -> None:
         f"against the {_UI_CALLBACK_TARGET_S * 1000:.0f} ms UI-callback target"
     )
     assert stats["max"] <= _UI_CALLBACK_CEILING_S
+
+
+@pytest.mark.parametrize("channels", [4, 32, 128])
+def test_bench_visible_page_paint(benchmark, qtbot, tmp_path: Path, channels: int) -> None:
+    """Paint the populated viewport, including the visible traces and axes."""
+    pane = _populated_pane(qtbot, tmp_path, channels)
+    pane.set_timeline_bounds(0.0, 60.0)
+    pane.set_window_duration(10.0)
+    _settled_page(qtbot, pane)
+
+    painted = benchmark(pane.grab)
+    assert not painted.isNull()
+    assert benchmark.stats is not None
+    assert benchmark.stats["mean"] <= _FRAME_BUDGET_S
 
 
 def test_bench_page_request(benchmark, qtbot, tmp_path: Path) -> None:

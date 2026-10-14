@@ -3,23 +3,19 @@
 from __future__ import annotations
 
 import sys
-from importlib.metadata import PackageNotFoundError
-from importlib.metadata import version as _installed_version
 from pathlib import Path
 
-_REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_REPOSITORY_ROOT / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from avialsync import __version__
 
 project = "AvialSync"
 author = "Anzal K Shahul"
 copyright = "2026, Anzal K Shahul"
 
-# Read from the installed package rather than repeating it here. A hardcoded
-# value said 0.0.1 through five releases, because nothing fails when it drifts.
-try:
-    release = _installed_version("avialsync")
-except PackageNotFoundError:  # building from a source tree without an install
-    release = "0.0.0+unknown"
+# Editable-install metadata can predate this checkout. The release gate keeps
+# the module and package declaration aligned; documentation describes this code.
+release = __version__
 
 # Sphinx reads any module-level `version` as its own config value, so this must
 # stay a string. Binding `importlib.metadata.version` here instead made the

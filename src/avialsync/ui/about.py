@@ -20,6 +20,8 @@ import platform
 import sys
 from importlib import metadata
 
+from avialsync import __version__
+
 __all__ = ["docs_url", "project_urls", "version_report", "citation_text"]
 
 #: Fallbacks used only when the package metadata is unavailable — a source tree
@@ -72,13 +74,8 @@ def version_report() -> str:
     PyAV carries its own FFmpeg, Qt's version decides widget behaviour, numpy
     and polars decide parsing. A report without these costs a round trip.
     """
-    try:
-        app_version = metadata.version("avialsync")
-    except metadata.PackageNotFoundError:
-        app_version = "source checkout"
-
     lines = [
-        f"AvialSync {app_version}",
+        f"AvialSync {__version__}",
         f"Python {sys.version.split()[0]}",
         f"Platform {platform.platform()}",
         f"PySide6 {_library_version('PySide6')}",

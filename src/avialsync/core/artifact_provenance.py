@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
+from avialsync import __version__
 from avialsync.core.artifact_io import publish
 from avialsync.core.artifacts import ArtifactKind, get_kind
 
@@ -22,10 +22,6 @@ def record(
 ) -> dict[str, Any]:
     """Capture one versioned write record from plain data on the worker thread."""
     definition = get_kind(kind)
-    try:
-        app_version = version("avialsync")
-    except PackageNotFoundError:
-        app_version = "unknown"
     source_records: list[dict[str, str | int | None]] = []
     for item in sources:
         path = Path(item)
@@ -35,7 +31,7 @@ def record(
             size = None
         source_records.append({"name": path.name, "size_bytes": size})
     return {
-        "software": f"avialsync {app_version}",
+        "software": f"avialsync {__version__}",
         "format": definition.schema,
         "written": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "sources": source_records,

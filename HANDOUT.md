@@ -925,6 +925,19 @@ _start_data_import(path)
 
 ## Known Traps
 
+### Running versions and populated benchmark work (D-228)
+
+The running module's `avialsync.__version__` labels About, documentation, and
+artifact provenance. An editable install can execute 0.1.11 while its installed
+metadata still says 0.1.9; reinstalling metadata is not required to report the
+code correctly. Release checks separately require package/module agreement.
+
+Plot benchmarks must show their panes and prepare rows from live channels.
+`_requested_rows` is a worker-lifetime snapshot and is empty after the worker
+finishes; using it to prepare a settled page measured zero rows. Installation
+measurements restore the matching targets, and a correctness test verifies the
+curve arrays actually change. Resize and paint measurements use visible panes.
+
 > **Scope note (D-075).** The libmpv-specific traps that used to live here — render-context
 > teardown ordering, `mpv.terminate()` join deadlocks, property-observer threading, the
 > `wid`-vs-render-API split, the locale bomb, and the missing-library first-run dialog — are gone

@@ -7343,3 +7343,18 @@ and a ball's coordinate axes have different identifiable parameters, and a slide
 an unconstrained direction had been measured. Automatic acceptance after a fit: it would silently
 change an apparatus from limited or ambiguous video evidence. Reusing visual-only track clicks:
 that would conflate two distinct motion authorities.
+
+## 2026-10 · D-228 · Running versions and benchmark work must identify what executes
+
+**Decision.** About, documentation, and export provenance use the running
+module's `__version__`; release checks still require that value to agree with
+package metadata. Editable metadata is installation history, not runtime truth.
+Plot measurements show their panes, prepare nonempty pages from live channels,
+and install every measured row. Correctness tests verify the measurement setup.
+
+**Why.** A 0.1.11 checkout reported 0.1.9 from stale editable metadata. Hidden
+resize calls and a released worker snapshot made benchmarks pass without their
+named work. No performance ceiling or golden timing assertion is relaxed.
+
+**Alternatives rejected.** Reinstalling metadata on every edit, benchmarking
+hidden widgets, or preserving a cleared worker snapshot just for measurements.

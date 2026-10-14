@@ -86,7 +86,13 @@ def test_readthedocs_builds_the_same_supported_docs_environment() -> None:
     assert 'python: "3.12"' in configuration
     assert "extra_requirements:" in configuration
     assert "- docs" in configuration
-    assert '_installed_version("avialsync")' in docs_config
+    # Metadata can be stale in an editable install. Documentation identifies
+    # the running code; the release gate separately checks package agreement.
+    import runpy
+
+    from avialsync import __version__
+
+    assert runpy.run_path(str(root / "docs/conf.py"))["release"] == __version__
     assert 'html_title = f"AvialSync {release}"' in docs_config
 
 
