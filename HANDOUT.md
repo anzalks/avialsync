@@ -1090,6 +1090,12 @@ block unconditionally. Graphics ownership still transfers through
 `QScrollArea.setWidget`: assigning an early parent changes an unshown view's
 default width, its point budget and its initial decimation level.
 
+Props tests' hidden reader rows use the actual `ChannelPlot` dataclass with
+inert graphics. A `SimpleNamespace` missing `page_t0` passed fast local runs
+but failed when macOS/3.11 delivered a queued resize refresh during teardown.
+`test_hidden_props_readers_survive_a_queued_plot_refresh` forces that event;
+never suppress the timer or reduce the inspector's assertions to hide it.
+
 > **Scope note (D-075).** The libmpv-specific traps that used to live here — render-context
 > teardown ordering, `mpv.terminate()` join deadlocks, property-observer threading, the
 > `wid`-vs-render-API split, the locale bomb, and the missing-library first-run dialog — are gone

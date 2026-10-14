@@ -99,3 +99,18 @@ be reported as completed external certification.
   Wheel/sdist validation, a clean installed-wheel demo/GUI smoke, the macOS
   PyInstaller build and frozen plugin smoke for both layouts passed. No installer
   was published. The pushed SHA's native workflow result is reported separately.
+
+## Native CI result and unpublished correction
+
+The one authorized push published `17255e7`. CI run `38621380837` passed
+lint/types and documentation but failed macOS/Python 3.11 during Props-test
+teardown; matrix fail-fast cancelled the other five test jobs. CI is not green.
+A queued resize refreshed a test-only `SimpleNamespace` row missing `page_t0`.
+The correction uses the real `ChannelPlot` dataclass with inert graphics and
+adds a deterministic queued-refresh regression; existing assertions remain.
+This follow-up is local and unpublished because the single push is exhausted.
+No workflow rerun or second push is authorized or performed.
+
+The follow-up passes the full suites locally: 4,327 tests on Python 3.11 and
+4,328 on Python 3.12, plus the unchanged complete-core coverage gate. This is
+local validation, not a green native CI result.

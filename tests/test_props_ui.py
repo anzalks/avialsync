@@ -6,13 +6,16 @@ import dataclasses
 import math
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 
 import numpy as np
+import pyqtgraph as pg
 import pytest
 from PySide6.QtCore import QThread
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QGraphicsProxyWidget, QToolButton
 from shiboken6 import isValid
 
+from avialsync.core.channel_reader import MappedChannelReader
 from avialsync.core.physical_props import (
     BallProp,
     BallSurface,
@@ -32,6 +35,8 @@ from avialsync.core.visual_prop_tracking import ball_visual_state, belt_visual_s
 from avialsync.engine import prop_file_worker
 from avialsync.engine.prop_file_worker import PropFileReadWorker, PropFileWriteWorker
 from avialsync.ui.main_window import MainWindow
+from avialsync.ui.plot_row import ChannelPlot
+from avialsync.ui.plot_sweep import SweepCurveItem
 from avialsync.ui.prop_overlay import UNNAMED
 from tests.wheel_fixture import CAMERAS
 from tests.wheel_window import VIDEOS, build_window
@@ -63,18 +68,22 @@ class _InertItem:
         return lambda *_args, **_kwargs: None
 
 
-def _hidden_row(reader: object) -> SimpleNamespace:
+def _hidden_row(reader: object) -> ChannelPlot:
     """A plot row stand-in that survives a plot-pane resize (D-182 layouts resize it).
 
     Hidden, with inert graphics items, so ``enforce_channel_visibility`` has
     nothing to do; the props code under test reads only ``reader``.
     """
-    return SimpleNamespace(
-        reader=reader,
+    return ChannelPlot(
+        name=getattr(reader, "channel_id", "sensor"),
+        reader=cast(MappedChannelReader, reader),
         visible=False,
         row_height=0,
-        plot_item=_InertItem(),
-        close_proxy=_InertItem(),
+        plot_item=cast(pg.PlotItem, _InertItem()),
+        curve=cast(SweepCurveItem, _InertItem()),
+        cursor_line=cast(pg.InfiniteLine, _InertItem()),
+        close_button=cast(QToolButton, _InertItem()),
+        close_proxy=cast(QGraphicsProxyWidget, _InertItem()),
     )
 
 
@@ -90,6 +99,30 @@ def _fake_panes(window: MainWindow, monkeypatch) -> None:
     )
     monkeypatch.setattr(window.video_grid, "pane_paths", lambda: paths)
     monkeypatch.setattr(window.video_grid, "panes", [pane for _ in paths])
+
+
+def test_hidden_props_readers_survive_a_queued_plot_refresh(
+    window: MainWindow, qtbot, monkeypatch
+) -> None:
+    pane = window.plot_pane
+    pane.set_timeline_bounds(0.0, 1.0)
+    reader = SimpleNamespace(source_id="sensor", channel_id="distance")
+    rows = [_hidden_row(reader)]
+    monkeypatch.setattr(pane, "channels", rows)
+    previous = pane._page_generation
+    pane._last_point_budget = -1
+    pane._resize_refresh_timer.start(0)
+    # This fixture runs jobs inline and returns an unstarted dummy QThread.
+    # Page installation is the completion fact; thread.finished never fires.
+    qtbot.waitUntil(
+        lambda: (
+            pane._page_generation > previous
+            and pane._last_installed_generation == pane._page_generation
+        ),
+        timeout=5000,
+    )
+    assert rows[0].reader is reader
+    assert not rows[0].visible
 
 
 def test_prop_geometry_shows_3d_pane_without_pose_source(window: MainWindow) -> None:
