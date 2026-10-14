@@ -1034,6 +1034,22 @@ failure, numerical fit failure and sparse routing. Internal guards are simplifie
 only where immutable model validation or the caller's construction proves the
 alternative impossible (D-233); failing contracts are not excluded from coverage.
 
+### Tested CI and build dependencies (D-234)
+
+`requirements/ci-py3.11.txt` and `ci-py3.12.txt` pin only the project's complete
+runtime/dev/docs/build/bundler closure, with maintenance guidance in
+`requirements/README.md`. Workflow jobs set absolute `PIP_CONSTRAINT` and
+`PIP_BUILD_CONSTRAINT` paths and bootstrap the pinned pip before installing.
+Both sets resolve binary wheels for all three OSes; those reports are preflight
+evidence, not a substitute for the native six-job matrix. Runtime users keep
+pyproject's normal installation ranges and PySide6's `<6.12` ceiling.
+
+Linux/3.12 in both correctness matrices produces coverage JSON and runs
+`tools/check_coverage.py`; it requires 80% overall and 100% core lines/branches
+using integer counts. Every other matrix member still runs the complete
+correctness suite. Docs retain warnings-as-errors, and release distributions,
+wheel smoke, all three bundles/installers and native xcb smoke retain their gates.
+
 > **Scope note (D-075).** The libmpv-specific traps that used to live here — render-context
 > teardown ordering, `mpv.terminate()` join deadlocks, property-observer threading, the
 > `wid`-vs-render-API split, the locale bomb, and the missing-library first-run dialog — are gone
@@ -1968,7 +1984,11 @@ The crash was real, committed, and silently shipping. Fix: `video_grid.frame_rec
 is the single authority for frame computation; MainWindow never reaches into pane internals.
 
 ### 20. mypy silently ignores malformed override sections
-If you use array syntax `module = ["module_a", "module_b"]` in `pyproject.toml` `[[tool.mypy.overrides]]`, mypy does not support it. It silently treats it as an invalid section. Any "unused section" warning from mypy means the configuration is completely broken and ignored, **not** that the files inside it type-check cleanly! Always use single `module = "..."` per block.
+Mypy supports either a module name or a list of names in an override. An
+"unused section" note means no checked module matched that pattern; it does
+not mean the configuration is invalid. Third-party patterns can legitimately
+be unused when checking only core. Core strict options are explicit under
+`avialsync.core.*`, and both the strict-core and whole-package checks run.
 
 ### 21. QSplitter.restoreState also restores `childrenCollapsible` (D-049)
 

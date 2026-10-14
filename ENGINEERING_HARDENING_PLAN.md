@@ -78,6 +78,10 @@ be reported as completed external certification.
   retry regression passed. All 9,003 core lines and 2,500 branches covered;
   89.2% overall. Strict core (including Windows) and package mypy passed;
   15 affected local benchmarks passed. CI enforcement is in the next increment.
-- [ ] Reproducible dependencies.
+- [x] Reproducible dependencies and enforced CI coverage: all six resolution
+  preflights, 40 workflow/packaging contract tests and 4,314 full-suite tests
+  passed. Coverage gate passed; strict core/package typing and warnings-as-errors
+  docs passed on both verified Python environments. Full 3.11 execution is
+  included in the final supported-interpreter preflight.
 - [ ] Representative local certification.
 - [ ] Documentation and final gate.

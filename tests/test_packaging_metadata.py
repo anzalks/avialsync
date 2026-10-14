@@ -84,8 +84,12 @@ def test_readthedocs_builds_the_same_supported_docs_environment() -> None:
 
     assert "os: ubuntu-24.04" in configuration
     assert 'python: "3.12"' in configuration
-    assert "extra_requirements:" in configuration
-    assert "- docs" in configuration
+    import yaml
+
+    install = yaml.safe_load(configuration)["build"]["jobs"]["install"]
+    assert any('".[docs]"' in command for command in install)
+    assert all("--constraint requirements/ci-py3.12.txt" in command for command in install)
+    assert "--build-constraint requirements/ci-py3.12.txt" in install[-1]
     # Metadata can be stale in an editable install. Documentation identifies
     # the running code; the release gate separately checks package agreement.
     import runpy

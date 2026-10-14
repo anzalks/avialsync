@@ -33,12 +33,16 @@ permissions:
 
 env:
   PYTHONUTF8: 1
+  PYTHONNOUSERSITE: 1
   QT_QPA_PLATFORM: offscreen
 
 jobs:
   lint-type:
     name: Lint & Type Check
     runs-on: ubuntu-24.04
+    env:
+      PIP_CONSTRAINT: ${{ github.workspace }}/requirements/ci-py3.11.txt
+      PIP_BUILD_CONSTRAINT: ${{ github.workspace }}/requirements/ci-py3.11.txt
     steps:
       - uses: actions/checkout@v5
       - name: Set up Python
@@ -46,7 +50,11 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: |
+            pyproject.toml
+            requirements/ci-py*.txt
+      - name: Install constrained pip
+        run: python -m pip install --upgrade pip
       - name: Install dependencies
         run: pip install -e ".[dev]"
       - name: Ruff Check
@@ -54,7 +62,7 @@ jobs:
       - name: Ruff Format Check
         run: ruff format --check .
       - name: Mypy Core
-        run: mypy src/avialsync/core
+        run: mypy --strict src/avialsync/core
       - name: Mypy All (standard mode; pre-existing errors suppressed in pyproject.toml)
         run: mypy src/avialsync
 
@@ -62,6 +70,9 @@ jobs:
     name: Test ${{ matrix.os }} - Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+    env:
+      PIP_CONSTRAINT: ${{ github.workspace }}/requirements/ci-py${{ matrix.python-version }}.txt
+      PIP_BUILD_CONSTRAINT: ${{ github.workspace }}/requirements/ci-py${{ matrix.python-version }}.txt
     strategy:
       # One red job cancels the other five. The matrix exists to say *which*
       # platforms break, and cancelling costs some of that -- but a six-job
@@ -107,7 +118,9 @@ jobs:
           # PySide6, scipy, neo, h5py and polars are most of this job's setup.
           # Cached wheels take it from minutes to seconds on a warm key.
           cache: pip
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: |
+            pyproject.toml
+            requirements/ci-py*.txt
           
       # --no-install-recommends is load-bearing, not tidiness: ffmpeg's
       # recommends pull yt-dlp, pipewire and a 27 MB pocketsphinx speech model,
@@ -136,6 +149,8 @@ jobs:
           # that used to be fetched and SHA-256 verified here is gone.
           choco install --no-progress ffmpeg --version=9.0.0
 
+      - name: Install constrained pip
+        run: python -m pip install --upgrade pip
       - name: Install Project Dependencies
         run: pip install -e ".[dev]"
 
@@ -175,16 +190,24 @@ jobs:
         # failure is the one worth reading, and four more take minutes to
         # collect. `-q` keeps the progress line, which is what located a
         # segfault that printed no test name.
-        run: pytest --maxfail=1 -q --durations=20 --timeout=60 --timeout-method=thread --ignore=tests/benchmarks
+        run: pytest --maxfail=1 -q --durations=20 --timeout=60 --timeout-method=thread --ignore=tests/benchmarks ${{ runner.os == 'Linux' && matrix.python-version == '3.12' && '--cov=avialsync --cov-report=json:coverage.json --cov-report=' || '' }}
+      - name: Enforce complete core coverage
+        if: runner.os == 'Linux' && matrix.python-version == '3.12'
+        run: python tools/check_coverage.py coverage.json
 
   docs:
     name: Read the Docs build
     runs-on: ubuntu-24.04
+    env:
+      PIP_CONSTRAINT: ${{ github.workspace }}/requirements/ci-py3.11.txt
+      PIP_BUILD_CONSTRAINT: ${{ github.workspace }}/requirements/ci-py3.11.txt
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+      - name: Install constrained pip
+        run: python -m pip install --upgrade pip
       - name: Install documentation dependencies
         run: pip install -e ".[docs]"
       - name: Build documentation with warnings as errors

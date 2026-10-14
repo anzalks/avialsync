@@ -7477,3 +7477,31 @@ and finite edges have a predecessor; a known low clears pulse uncertainty; and
 the marker writer filters immutable camera observations before grouping them.
 Private assertions retain these internal contracts. Cache retries retain the
 same five attempts and four delays in a flow the type checker can prove returns.
+
+## 2026-10 · D-234 · CI uses tested runtime and isolated-build dependency sets
+
+**Decision.** Interpreter-specific constraints pin the project's runtime,
+dev/docs extras and bundling/build dependency closure, including platform-only
+packages. CI, release quality, documentation, distributions, wheel smoke and
+bundles use both runtime and isolated-build constraints and a constrained pip.
+Cache keys include the constraint files. Hosted docs use the same 3.12 set.
+Normal package installation retains pyproject's ranges and Qt's upper bound.
+No direct dependency or system-install requirement is introduced.
+
+The full three-OS/two-interpreter correctness matrices remain. Linux/3.12
+collects coverage and enforces 80% overall plus every core line and branch;
+other jobs avoid that duplicated measurement cost. Strict core typing is
+explicit, benchmarks remain local, docs build with warnings as errors, and
+all three release artifact builds and native xcb smoke remain required.
+Every apt install excludes recommends, including the native-display smoke.
+
+**Why.** Unbounded fresh dependencies changed CI independently of source,
+including NumPy type behavior and Polars versions. All six binary-wheel
+resolution reports for the initial sets contained only pinned dependencies.
+Build constraints separately pin hatchling; pip 26.2 stopped applying runtime
+constraints inside isolated builds. The wheel smoke checks out the constraints
+but still installs and imports the built wheel in a clean virtual environment.
+
+**Alternatives rejected.** Freezing unrelated personal-environment packages,
+pinning only direct dependencies, weakening the supported matrix, treating
+cross-platform resolution as native execution, or globally pinning user installs.
