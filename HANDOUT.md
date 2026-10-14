@@ -938,6 +938,20 @@ finishes; using it to prepare a settled page measured zero rows. Installation
 measurements restore the matching targets, and a correctness test verifies the
 curve arrays actually change. Resize and paint measurements use visible panes.
 
+### Complete exported mappings (D-229)
+
+`TimeMap.to_record()` serializes the declared offset, effective base offset,
+drift reference, and all immutable exact knots. Call it on a worker: converting
+a large exact map to lists is not a UI operation. `TimeMap.from_record()`
+validates and reconstructs that record without accepting or applying it to a
+live source. Offset and drift alone cannot describe exact or anchored mappings.
+
+Provenance v2 includes each source's path and sampled content fingerprint using
+`core.cache.source_fingerprint()` and the cache's own algorithm. The sampling
+scheme is named explicitly; it is not a whole-file checksum. CSV blocks name
+their source id, and Parquet source values use that id. Data exports snapshot
+accepted synchronization records, including raw matches and precision facts.
+
 > **Scope note (D-075).** The libmpv-specific traps that used to live here — render-context
 > teardown ordering, `mpv.terminate()` join deadlocks, property-observer threading, the
 > `wid`-vs-render-API split, the locale bomb, and the missing-library first-run dialog — are gone

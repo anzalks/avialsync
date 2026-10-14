@@ -17,6 +17,7 @@ import numpy as np
 from avialsync.core.artifact_io import publish
 from avialsync.core.artifact_provenance import record
 from avialsync.core.errors import ExportError
+from avialsync.core.session import SyncProvenance
 from avialsync.engine.transcode import remux_clip
 
 
@@ -33,6 +34,7 @@ def export_data_slice_csv(
     path: Path,
     *,
     session: Path | None = None,
+    alignment_evidence: tuple[SyncProvenance, ...] = (),
 ) -> None:
     """Export the raw data for all channels in [t0, t1] to CSV.
 
@@ -50,6 +52,8 @@ def export_data_slice_csv(
                 for times, values, _ in reader.iter_raw_chunks_with_gaps(t0=t0, t1=t1):
                     if not wrote_header:
                         writer.writerow([f"# Source: {_source_label(reader)}"])
+                        if getattr(reader, "source_id", ""):
+                            writer.writerow([f"# Source ID: {reader.source_id}"])
                         writer.writerow([f"# Channel: {reader.channel_id}"])
                         writer.writerow(["time", reader.channel_id])
                         wrote_header = True
@@ -62,6 +66,7 @@ def export_data_slice_csv(
                 _source_paths(readers),
                 session=session,
                 time_maps=_time_maps(readers),
+                alignment_evidence=alignment_evidence,
             )
             writer.writerow(["# avialsync: " + json.dumps(provenance)])
 
@@ -75,6 +80,7 @@ def export_data_slice_parquet(
     path: Path,
     *,
     session: Path | None = None,
+    alignment_evidence: tuple[SyncProvenance, ...] = (),
 ) -> Path:
     """Export the raw data for all channels in [t0, t1] to Parquet.
 
@@ -85,7 +91,9 @@ def export_data_slice_parquet(
         import pyarrow.parquet as pq
     except ImportError:
         csv_path = path.with_suffix(".csv")
-        export_data_slice_csv(readers, t0, t1, csv_path, session=session)
+        export_data_slice_csv(
+            readers, t0, t1, csv_path, session=session, alignment_evidence=alignment_evidence
+        )
         return csv_path
 
     chunks = (
@@ -113,6 +121,7 @@ def export_data_slice_parquet(
             _source_paths(readers),
             session=session,
             time_maps=_time_maps(readers),
+            alignment_evidence=alignment_evidence,
         )
     ).encode("utf-8")
     schema = schema.with_metadata(metadata)
@@ -122,7 +131,11 @@ def export_data_slice_parquet(
             for reader, times, values, gaps in chain((first,), chunks):
                 table = pa.table(
                     {
-                        "source": pa.array([_source_label(reader)] * len(times), type=pa.string()),
+                        "source": pa.array(
+                            [getattr(reader, "source_id", "") or _source_label(reader)]
+                            * len(times),
+                            type=pa.string(),
+                        ),
                         "channel": pa.array([reader.channel_id] * len(times), type=pa.string()),
                         "time": times,
                         "value": values,
@@ -143,19 +156,25 @@ def export_data_slice_parquet(
 
 def _source_paths(readers: list) -> tuple[Path, ...]:
     """Return real source paths, omitting synthetic readers without one."""
-    return tuple(Path(reader.source_id) for reader in readers if getattr(reader, "source_id", ""))
+    return tuple(
+        dict.fromkeys(
+            Path(reader.source_id) for reader in readers if getattr(reader, "source_id", "")
+        )
+    )
 
 
-def _time_maps(readers: list) -> dict[str, dict[str, float]]:
+def _time_maps(readers: list) -> dict[str, dict[str, Any]]:
     """Record each exported source's accepted mapping in its original units."""
-    return {
-        str(reader.source_id): {
-            "offset_seconds": float(reader.time_map.offset),
-            "drift_ms_per_hour": float(reader.time_map.drift_ms_per_hour),
-        }
-        for reader in readers
-        if getattr(reader, "source_id", "") and getattr(reader, "time_map", None) is not None
-    }
+    mappings: dict[str, dict[str, Any]] = {}
+    for reader in readers:
+        source_id = getattr(reader, "source_id", "")
+        if (
+            source_id
+            and source_id not in mappings
+            and getattr(reader, "time_map", None) is not None
+        ):
+            mappings[str(source_id)] = reader.time_map.to_record()
+    return mappings
 
 
 def compute_region_stats(

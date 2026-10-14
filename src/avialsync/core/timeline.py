@@ -1,12 +1,15 @@
 """Master timeline and synchronization logic."""
 
 import dataclasses
+import math
 import weakref
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from typing import Any
 
 import numpy as np
 
 from avialsync.core.drift import MS_PER_HOUR
+from avialsync.core.errors import SyncEvidenceError
 
 #: Arrays :meth:`PreparedExactMapping.prepare` validated and froze, by ``id``.
 #: Weak, so a mapping nobody holds is not kept alive by having been checked.
@@ -405,3 +408,55 @@ class TimeMap:
         copied._exact_master = self._exact_master
         copied._exact_source = self._exact_source
         return copied
+
+    def to_record(self) -> dict[str, Any]:
+        """Serialize the complete evaluated mapping on an export worker.
+
+        Exact arrays can be large; this conversion must not run on the UI
+        thread. The declared offset and effective drift anchor are distinct.
+        """
+        record: dict[str, Any] = {
+            "mapping_version": 1,
+            "kind": "exact" if self.has_exact_mapping else "affine",
+            "offset_seconds": self._offset,
+            "base_offset_seconds": self._base_offset,
+            "reference_seconds": self._t_ref,
+            "drift_ms_per_hour": self._drift_ms_per_hour,
+        }
+        if self._exact_master is not None and self._exact_source is not None:
+            record["master_seconds"] = self._exact_master.tolist()
+            record["source_seconds"] = self._exact_source.tolist()
+        return record
+
+    @classmethod
+    def from_record(cls, record: Mapping[str, Any]) -> "TimeMap":
+        """Reconstruct exported mapping evidence without applying it to a source."""
+        try:
+            if record.get("mapping_version") != 1 or record.get("kind") not in {"affine", "exact"}:
+                raise ValueError("Unknown mapping record version or kind")
+            keys = (
+                "offset_seconds",
+                "drift_ms_per_hour",
+                "base_offset_seconds",
+                "reference_seconds",
+            )
+            values = [record[key] for key in keys]
+            if any(
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                for value in values
+            ):
+                raise ValueError("Mapping parameters must be finite numbers")
+            mapping = cls(float(values[0]), float(values[1]))
+            mapping._base_offset, mapping._t_ref = float(values[2]), float(values[3])
+            if record["kind"] == "exact":
+                mapping.set_exact_mapping(
+                    np.asarray(record["master_seconds"], dtype=np.float64),
+                    np.asarray(record["source_seconds"], dtype=np.float64),
+                )
+            return mapping
+        except (KeyError, TypeError, ValueError, OverflowError) as error:
+            raise SyncEvidenceError(
+                "The exported clock mapping is incomplete or invalid"
+            ) from error

@@ -7358,3 +7358,20 @@ named work. No performance ceiling or golden timing assertion is relaxed.
 
 **Alternatives rejected.** Reinstalling metadata on every edit, benchmarking
 hidden widgets, or preserving a cleared worker snapshot just for measurements.
+
+## 2026-10 · D-229 · Export provenance reconstructs the evaluated clock mapping
+
+**Decision.** Provenance v2 records source identity and explicitly sampled
+content fingerprints. Mapping records preserve declared and effective offsets,
+reference time, drift, and exact knots; their headless parser validates them.
+Conversions run on workers. Data exports retain accepted raw matches and
+precision facts from the request-time snapshot, and blocks name their source id.
+
+**Why.** Mappings differing by 100 ms exported identical offset/drift metadata;
+equal filenames also left CSV blocks indistinguishable. Playback timestamps and
+the user's acceptance flow are unchanged. The existing cache fingerprint is
+reused, with its limited sampling strength named rather than overstated.
+
+**Alternatives rejected.** Inferring a mapping from two scalar parameters,
+serializing million-frame evidence on the UI thread, or inventing confidence
+when no accepted evidence exists.

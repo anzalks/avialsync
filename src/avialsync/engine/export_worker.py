@@ -11,6 +11,7 @@ from avialsync.core.channel_reader import MappedChannelReader
 from avialsync.core.edit_cache import GenerationPin, pin_reader_directory
 from avialsync.core.errors import AvialSyncError, CacheError
 from avialsync.core.pyramid import PyramidReader
+from avialsync.core.session import SyncProvenance
 from avialsync.core.timeline import TimeMap
 from avialsync.engine.export import (
     compute_region_stats,
@@ -85,6 +86,7 @@ class DataExportWorker(QObject):
         t1: float,
         path: Path,
         session: Path | None = None,
+        alignment_evidence: tuple[SyncProvenance, ...] = (),
     ) -> None:
         super().__init__()
         self._readers = readers
@@ -92,6 +94,7 @@ class DataExportWorker(QObject):
         self._t1 = t1
         self._path = path
         self._session = session
+        self._alignment_evidence = alignment_evidence
 
     @Slot()
     def run(self) -> None:
@@ -100,11 +103,21 @@ class DataExportWorker(QObject):
             readers = [reference.open() for reference in self._readers]
             if self._path.suffix.lower() == ".parquet":
                 output = export_data_slice_parquet(
-                    readers, self._t0, self._t1, self._path, session=self._session
+                    readers,
+                    self._t0,
+                    self._t1,
+                    self._path,
+                    session=self._session,
+                    alignment_evidence=self._alignment_evidence,
                 )
             else:
                 export_data_slice_csv(
-                    readers, self._t0, self._t1, self._path, session=self._session
+                    readers,
+                    self._t0,
+                    self._t1,
+                    self._path,
+                    session=self._session,
+                    alignment_evidence=self._alignment_evidence,
                 )
                 output = self._path
             self.finished.emit(str(output))

@@ -98,7 +98,18 @@ def test_companion_has_versioned_provenance(tmp_path: Path) -> None:
     companion = write_companion(target, payload)
     assert companion == companion_path(target)
     assert payload["format"] == "avialsync-corrected-pose/1"
-    assert payload["sources"] == [{"name": "camera.mp4", "size_bytes": 6}]
+    from avialsync.core.cache import source_fingerprint
+
+    assert payload["provenance_version"] == 2
+    assert payload["sources"] == [
+        {
+            "name": "camera.mp4",
+            "path": str(source),
+            "size_bytes": 6,
+            "fingerprint_algorithm": "xxh64-first-middle-last-64KiB",
+            "fingerprint": source_fingerprint(source),
+        }
+    ]
     assert payload["written"].endswith("Z")
     assert payload["time_maps"]["camera.mp4"]["drift_ms_per_hour"] == 1.5
     assert '"corrected_points": 3' in companion.read_text(encoding="utf-8")

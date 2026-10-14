@@ -62,7 +62,8 @@ be reported as completed external certification.
 - [x] Baseline evaluation and clean branch created.
 - [x] Version reporting and benchmark validity: 3,910 correctness tests and
   12 plot benchmarks passed; strict core and standard package mypy passed.
-- [ ] Complete export provenance.
+- [x] Complete export provenance: 3,929 correctness tests passed; the shared
+  million-frame mapping conversion averaged 22.35 ms on its export worker.
 - [ ] Cross-process cache ownership.
 - [ ] Composition.
 - [ ] Enforced quality gates and core coverage.

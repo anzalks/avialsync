@@ -227,7 +227,12 @@ def start_data_export(window: MainWindow, t0: float, t1: float, path: Path) -> N
     from avialsync.engine.export_worker import DataExportWorker
 
     worker = DataExportWorker(
-        window._reader_references(), t0, t1, path, window.session_runtime.path
+        window._reader_references(),
+        t0,
+        t1,
+        path,
+        window.session_runtime.path,
+        alignment_evidence=window.accepted_alignment_records(),
     )
 
     def _wire(thread: QThread) -> None:

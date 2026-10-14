@@ -2014,6 +2014,10 @@ class MainWindow(QMainWindow):
             )
             self.refresh_alignment_badges()
 
+    def accepted_alignment_records(self) -> tuple[SyncProvenance, ...]:
+        """Snapshot accepted evidence without copying immutable mapping arrays."""
+        return tuple(dataclasses.replace(entry) for entry in self._sync_provenance)
+
     def alignment_confidence(self, path: str) -> str:
         """One line describing how this source is aligned, or that it is not.
 

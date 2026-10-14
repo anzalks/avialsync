@@ -1,5 +1,14 @@
 # Data handling
 
+Export provenance identifies the running software version and each source's
+path, size, and sampled content fingerprint. The fingerprint uses the same
+first/middle/last 64 KiB sampling as cache validation; it is not a whole-file
+checksum. Data exports retain accepted raw synchronization evidence and complete
+clock mappings, including their drift anchor or exact timestamp pairs. Those
+mapping records can be reconstructed with `TimeMap.from_record()` without
+applying them to a live session. CSV blocks and Parquet rows retain source ids,
+so equal filenames or channel names remain distinguishable.
+
 ## Source files and caches
 
 The product contract is that text and plugin data are read once and converted into a binary cache.

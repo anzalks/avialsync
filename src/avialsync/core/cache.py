@@ -129,6 +129,15 @@ def read_entry_record(directory: Path) -> str | None:
     return source if isinstance(source, str) and source else None
 
 
+def source_fingerprint(path: Path) -> str:
+    """Fingerprint source content with the cache's sampled-content algorithm.
+
+    Files sample their first, middle, and last 64 KiB. Directories also include
+    relative names and file metadata. This is not a whole-file checksum.
+    """
+    return CacheManager()._hash_file_edges(path)
+
+
 class CacheManager:
     """Manages one source's cache entry with atomic writes and hardened keys."""
 

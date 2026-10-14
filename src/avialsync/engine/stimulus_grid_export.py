@@ -169,13 +169,7 @@ def export_stimulus_grid(
             provenance = record(
                 "stimulus-grid",
                 tuple(row.path for row in videos),
-                time_maps={
-                    row.label: {
-                        "offset_seconds": row.time_map.offset,
-                        "drift_ms_per_hour": row.time_map.drift_ms_per_hour,
-                    }
-                    for row in videos
-                },
+                time_maps={str(row.path): row.time_map.to_record() for row in videos},
             )
             encode_video(
                 temporary,

@@ -101,12 +101,15 @@ def test_data_export_preserves_source_identity_and_mapping(tmp_path: Path) -> No
     assert finished == [str(output)]
     rows = list(csv.reader(output.open(encoding="utf-8", newline="")))
     provenance = json.loads(rows[-1][0].removeprefix("# avialsync: "))
-    assert provenance["sources"] == [{"name": "signal.csv", "size_bytes": 8}]
+    assert provenance["sources"][0]["name"] == "signal.csv"
+    assert provenance["sources"][0]["size_bytes"] == 8
+    assert provenance["sources"][0]["path"] == str(source)
+    assert provenance["sources"][0]["fingerprint"]
     assert provenance["session"] == str(session)
-    assert provenance["time_maps"][str(source)] == {
-        "offset_seconds": 0.25,
-        "drift_ms_per_hour": 1.5,
-    }
+    restored = TimeMap.from_record(provenance["time_maps"][str(source)])
+    assert restored.offset == 0.25
+    assert restored.drift_ms_per_hour == 1.5
+    assert restored.to_source(1000.0) == reference.open().time_map.to_source(1000.0)
 
     blocked = DataExportWorker([reference], 0.0, 2.0, source, session)
     errors: list[str] = []
@@ -153,8 +156,9 @@ def test_worker_snapshot_uses_edited_values_and_exact_mapping(tmp_path: Path) ->
     worker = DataExportWorker([reference], 99.0, 103.0, output)
     worker.run()
     rows = list(csv.reader(output.open(encoding="utf-8", newline="")))
-    np.testing.assert_array_equal([float(row[0]) for row in rows[3:6]], master_times)
-    np.testing.assert_array_equal([float(row[1]) for row in rows[3:6]], [10.0, 20.0, 30.0])
+    assert rows[1] == ["# Source ID: source.csv"]
+    np.testing.assert_array_equal([float(row[0]) for row in rows[4:7]], master_times)
+    np.testing.assert_array_equal([float(row[1]) for row in rows[4:7]], [10.0, 20.0, 30.0])
     assert reference.cache_dir == edited
 
 
