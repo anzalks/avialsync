@@ -46,7 +46,7 @@ def test_bench_streamed_timestamp_digest(benchmark, tmp_path: Path) -> None:
 
 
 def test_bench_warm_pyramid_manifest_validation(benchmark, tmp_path: Path) -> None:
-    """Measure all-level warm checks for a 32-channel cached source."""
+    """Measure warm manifest validation for a 32-channel cached source."""
     axis = np.arange(100_000, dtype=np.float64) / 1_000.0
     for index in range(32):
         PyramidBuilder(tmp_path, f"ch{index}").build_and_save(axis, np.sin(axis + index))
@@ -54,12 +54,13 @@ def test_bench_warm_pyramid_manifest_validation(benchmark, tmp_path: Path) -> No
     ImportWorker._write_manifest(tmp_path, names, (0.0, float(axis[-1])), SourceInspection(path=""))
 
     manifest = json.loads((tmp_path / "import.json").read_text(encoding="utf-8"))
-    benchmark(
+    assert benchmark(
         ImportWorker._arrays_intact,
         tmp_path,
         names,
         manifest["array_sizes"],
         manifest["array_fingerprints"],
+        manifest["array_mtimes"],
     )
 
 

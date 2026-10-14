@@ -395,10 +395,12 @@ Fixture: `tools/make_fixtures.generate_sync_ground_truth`.
   those runs on a real mid-spec machine.
 - **D-200 cache and UI handoff.** Import previews read at most 64 KiB in a registered job;
   stimulus-grid overviews, pose export frame mapping, retraining labels, and launch recovery reads
-  run on workers. Warm import checks every pyramid header and sampled content before reuse. A
-  Legacy warm imports check every pyramid header and sampled content before reuse; new manifests
-  record exact derived-file size and mtime for the bounded fast path. A running reader pin blocks replacement or
-  cache removal, which reports "in use" for retry. Separately streamed, identical long timestamp
+  run on workers. Legacy warm imports check every pyramid header and sampled content before reuse;
+  new manifests record exact derived-file size and mtime for the bounded fast path. The warm-cache
+  benchmark passes the manifest's `array_mtimes` alongside sizes and fingerprints and asserts
+  validation succeeds; keep it aligned with `ImportWorker._arrays_intact` when that signature
+  changes. A running reader pin blocks replacement or cache removal, which reports "in use" for
+  retry. Separately streamed, identical long timestamp
   grids share a cache file so the 3D pane recognizes them without comparing arrays on the UI thread.
   Exact `TimeMap.copy()` snapshots share immutable evidence arrays rather than copying large mappings.
   The 3D pose setup job opens XYZ arrays, samples trajectories, and infers skeletons for every
