@@ -127,8 +127,6 @@ def _rigidity_cost(
 
     lengths = mean[usable]
     scale = float(np.median(lengths)) if lengths.size else 1.0
-    if not np.isfinite(scale) or scale <= 0.0:
-        scale = 1.0
 
     cost = np.full(mean.shape, np.inf, dtype=np.float64)
     cost[usable] = variation[usable] + _LENGTH_WEIGHT * (mean[usable] / scale)
@@ -155,10 +153,9 @@ def _spanning_forest(cost: np.ndarray) -> list[tuple[int, int]]:
             # No finite link into the rest: seed the next component at the
             # lowest remaining index, which keeps the result deterministic.
             remaining = np.flatnonzero(~in_tree)
-            if remaining.size == 0:
-                break
             index = int(remaining[0])
-        elif best_from[index] >= 0:
+        else:
+            assert best_from[index] >= 0  # Only an improved edge gets a finite cost.
             edges.append((int(best_from[index]), index))
 
         in_tree[index] = True

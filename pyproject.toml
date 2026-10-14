@@ -171,7 +171,10 @@ exclude_also = [
     "if TYPE_CHECKING:",
     "raise NotImplementedError",
     "@abstractmethod",
-    "\\.\\.\\.",
+    # Only declaration stubs: a variadic tuple annotation or array[..., 0]
+    # is executable code and must remain in the coverage denominator.
+    "^\\s*\\.\\.\\.\\s*$",
+    "^\\s*(?:async\\s+)?def\\s+.*:\\s*\\.\\.\\.\\s*$",
 ]
 
 [tool.ruff]
@@ -188,6 +191,21 @@ warn_return_any = true
 warn_unused_configs = true
 check_untyped_defs = true
 disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = ["avialsync.core.*"]
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+warn_unused_ignores = true
+warn_return_any = true
+implicit_reexport = false
+strict_equality = true
+extra_checks = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

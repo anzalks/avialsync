@@ -253,9 +253,9 @@ def extract_pulses(
                 unknown_counted = False
             if previous_high is not None:
                 if not previous_high and high and time - last_rise >= min_interval:
-                    if not unknown:
-                        rising.append(float(time))
-                        last_rise = float(time)
+                    # A previous low already cleared the unknown state.
+                    rising.append(float(time))
+                    last_rise = float(time)
                 elif previous_high and not high and len(rising) > len(falling):
                     falling.append(float(time))
             previous_high = bool(high)

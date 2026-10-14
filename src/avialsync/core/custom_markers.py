@@ -262,8 +262,8 @@ def write_2d(
     by_frame: dict[int, dict[str, tuple[float, float]]] = {}
     for marker in placed:
         view = marker.view(camera)
-        if view is not None:
-            by_frame.setdefault(marker.frame, {})[marker.name] = view
+        assert view is not None  # placed contains only this camera's immutable observations.
+        by_frame.setdefault(marker.frame, {})[marker.name] = view
     for frame in sorted(by_frame):
         row = [str(frame)]
         for name in names:
@@ -305,7 +305,7 @@ def read_2d(source: Path | str) -> dict[tuple[str, int], tuple[float, float]]:
     for record in records[3:]:
         try:
             frame = int(float(record[0]))
-        except (IndexError, ValueError):
+        except (IndexError, ValueError, OverflowError):
             logger.warning("Skipping unreadable custom-marker row in %s", path.name)
             continue
         for name, axes in columns.items():
@@ -394,7 +394,7 @@ def read_3d(
     for record in reader:
         try:
             frame = int(float(record["fnum"]))
-        except (KeyError, TypeError, ValueError):
+        except (KeyError, TypeError, ValueError, OverflowError):
             continue
         for name in names:
             try:

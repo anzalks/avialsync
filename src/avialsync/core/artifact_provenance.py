@@ -14,6 +14,33 @@ from avialsync.core.artifact_io import publish
 from avialsync.core.artifacts import ArtifactKind, get_kind
 from avialsync.core.cache import source_fingerprint
 from avialsync.core.session import SyncProvenance
+from avialsync.core.source import container_of
+
+
+def _source_record(path: Path) -> dict[str, Any]:
+    """Identify an object inside its actual file/store without inventing file metadata."""
+    storage = container_of(path) or path
+    directory = storage.is_dir()
+    try:
+        stat = storage.stat()
+        size: int | None = None if directory else stat.st_size
+        fingerprint: str | None = source_fingerprint(storage)
+    except OSError:
+        size, fingerprint = None, None
+    result: dict[str, Any] = {
+        "name": path.name,
+        "path": str(path),
+        "size_bytes": size,
+        "fingerprint_algorithm": (
+            "xxh64-tree-metadata-and-first-middle-last-64KiB"
+            if directory
+            else "xxh64-first-middle-last-64KiB"
+        ),
+        "fingerprint": fingerprint,
+    }
+    if storage != path:
+        result["container_path"] = str(storage)
+    return result
 
 
 def record(
@@ -27,23 +54,9 @@ def record(
 ) -> dict[str, Any]:
     """Capture one versioned write record from plain data on the worker thread."""
     definition = get_kind(kind)
-    source_records: list[dict[str, Any]] = []
-    for path in dict.fromkeys(Path(item) for item in sources):
-        try:
-            size: int | None = path.stat().st_size
-            fingerprint: str | None = source_fingerprint(path)
-        except OSError:
-            size = None
-            fingerprint = None
-        source_records.append(
-            {
-                "name": path.name,
-                "path": str(path),
-                "size_bytes": size,
-                "fingerprint_algorithm": "xxh64-first-middle-last-64KiB",
-                "fingerprint": fingerprint,
-            }
-        )
+    source_records = [
+        _source_record(path) for path in dict.fromkeys(Path(item) for item in sources)
+    ]
     return {
         "provenance_version": 2,
         "software": f"avialsync {__version__}",

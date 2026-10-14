@@ -7443,3 +7443,37 @@ calls for; its under-1 000-line end target remains open.
 **Alternatives rejected.** Slot mixins, partial-bound worker callbacks, another
 action table or clock, a whole-window context under another name, and retaining
 the old size ceilings after extraction.
+
+## 2026-10 · D-233 · Quality measurement counts every executable core path
+
+**Decision.** Core strict type options are explicit in the project config.
+Coverage excludes declaration stubs, never functions with variadic tuple
+annotations or executable ellipsis slices. The coverage checker requires all
+core modules and complete integer line/branch counts, separately from the 80%
+overall requirement. Tests must cover real contracts rather than lowering
+thresholds or adding exclusions.
+
+**Why.** The previous ellipsis regex excluded real functions, class fields and
+array indexing. Validation tests also exposed silently truncated fractional
+indices and unsigned index wraparound; both now fail instead of selecting the
+wrong sample. Unknown plugin roles retain worker ownership until their fallback
+plot rows take it. Container-backed provenance names the actual container and
+directory fingerprint algorithm without presenting an inode size as data size.
+
+**Alternatives rejected.** Rounded percentages as an acceptance test, omitting
+unimported modules, broad exclusions, accepting malformed indices, or releasing
+a delivery lease based only on a nonempty role string.
+
+Validation also fixes UTF-8 and malformed-group recovery in optional sidecars,
+overflowing frame indices in marker/corrected-pose readers, rounded timestamp
+searches, inverted envelopes under negative unit conversions, and a document
+whose save point was evicted incorrectly becoming clean after undo.
+
+Redundant checks are removed only where an existing invariant proves the
+alternative impossible: immutable prop constructors own binding/mark/direction
+validation; a third valid tracking sample has two lookbacks; affected edit names
+come from the supplied schema; skeleton costs admit only finite positive lengths
+and finite edges have a predecessor; a known low clears pulse uncertainty; and
+the marker writer filters immutable camera observations before grouping them.
+Private assertions retain these internal contracts. Cache retries retain the
+same five attempts and four delays in a flow the type checker can prove returns.

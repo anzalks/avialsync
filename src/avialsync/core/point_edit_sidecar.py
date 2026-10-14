@@ -121,7 +121,7 @@ def read(source: Path | str) -> Corrections | None:
         text = read_text(path)
     except FileNotFoundError:
         return None
-    except OSError:
+    except (OSError, UnicodeError):
         logger.warning("Could not read tracking corrections at %s", path, exc_info=True)
         return None
 

@@ -365,4 +365,8 @@ def read_level(
     vmax = _values(
         np.load(directory / f"{stem}_vmax.npy", mmap_mode="r", allow_pickle=False), layout
     )
+    if sum(scale < 0 for scale in layout.scales) % 2:
+        # A decreasing unit conversion reverses the stored extrema. Swap views;
+        # the raw envelope and its source samples remain untouched.
+        vmin, vmax = vmax, vmin
     return times, vmin, vmax, _gaps(directory, stem, len(times))

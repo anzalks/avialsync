@@ -219,17 +219,19 @@ def trim_cache(
 
 def _rename_aside(directory: Path, trash: Path) -> OSError | None:
     """Rename *directory* to *trash*, retrying a refusal; the last error if it never moved."""
-    for delay in (*_RETRY_DELAYS, None):
+    for delay in _RETRY_DELAYS:
         try:
             os.rename(directory, trash)
-        except PermissionError as error:
-            if delay is None:
-                return error
+        except PermissionError:
             time.sleep(delay)
         except OSError as error:
             return error
         else:
             return None
+    try:
+        os.rename(directory, trash)
+    except OSError as error:
+        return error
     return None
 
 

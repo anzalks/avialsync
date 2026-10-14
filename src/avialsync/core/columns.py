@@ -49,10 +49,16 @@ def no_gaps(length: int) -> np.ndarray:
 def _index_array(key: Any, length: int) -> np.ndarray:
     """Positions selected by *key* (an integer array or a boolean mask)."""
     selection = np.asarray(key)
+    if isinstance(key, list) and not key:
+        return np.empty(0, dtype=np.int64)
     if selection.dtype == np.bool_:
         if selection.shape != (length,):
             raise IndexError("boolean index does not match the column length")
         return np.flatnonzero(selection)
+    if selection.dtype.kind not in "iu":
+        raise IndexError("column indices must be integers or a boolean mask")
+    if selection.dtype.kind == "u" and np.any(selection >= length):
+        raise IndexError("index out of range for column")
     positions = selection.astype(np.int64, copy=False)
     positions = np.where(positions < 0, positions + length, positions)
     if positions.size and (positions.min() < 0 or positions.max() >= length):
@@ -284,7 +290,19 @@ class RegularTimes(LazyColumn):
             guess = np.where(step_on, guess + 1, guess)
             if not (step_back.any() or step_on.any()):
                 break
-        return int(guess[0]) if scalar else guess
+        else:
+            # An epoch's float precision can put many ticks at one time. Four
+            # local corrections cannot cross that run; search it logarithmically
+            # without materialising the recording's timestamp column.
+            low = np.where(movable, 0, self.length)
+            high = np.full_like(guess, self.length)
+            while np.any(low < high):
+                middle = (low + high) // 2
+                move = (low < high) & before(middle)
+                high = np.where((low < high) & ~move, middle, high)
+                low = np.where(move, middle + 1, low)
+            guess = low
+        return guess
 
 
 class ScaledColumn(LazyColumn):

@@ -74,7 +74,10 @@ be reported as completed external certification.
   geometry extracted; MainWindow 3,893 → 3,440 lines, with tighter ceilings.
   3,961 correctness tests and 101 Python 3.11 UI checks passed. The documented
   under-1,000-line end target remains architectural debt.
-- [ ] Enforced quality gates and core coverage.
+- [x] Core typing and coverage policy: 4,308 full-suite tests plus the final
+  retry regression passed. All 9,003 core lines and 2,500 branches covered;
+  89.2% overall. Strict core (including Windows) and package mypy passed;
+  15 affected local benchmarks passed. CI enforcement is in the next increment.
 - [ ] Reproducible dependencies.
 - [ ] Representative local certification.
 - [ ] Documentation and final gate.

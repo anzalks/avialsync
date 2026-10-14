@@ -200,8 +200,6 @@ def _pair(
 
     previous, earlier = _lookbacks(valid, count)
     live = valid & (previous >= 0) & (earlier >= 0)
-    if not live.any():
-        return []
 
     indices = np.arange(count)
     here, there, before = indices[live], previous[live], earlier[live]

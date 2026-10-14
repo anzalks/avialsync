@@ -304,7 +304,7 @@ class Document:
         """
         if self._forced_dirty:
             return True
-        if self._evicted and self._clean_depth > 0:
+        if self._evicted:
             return True
         return len(self._done) != self._clean_depth
 

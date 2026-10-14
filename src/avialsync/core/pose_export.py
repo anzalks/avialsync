@@ -269,7 +269,7 @@ def _frame_of(row: list[str]) -> int | None:
         return None
     try:
         return int(float(row[0]))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
 
 

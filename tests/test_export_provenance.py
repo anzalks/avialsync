@@ -112,6 +112,33 @@ def test_unavailable_source_is_identified_without_an_invented_fingerprint(tmp_pa
     assert source["fingerprint"] is None
 
 
+def test_virtual_nwb_objects_identify_their_actual_container(tmp_path: Path) -> None:
+    container = tmp_path / "recording.nwb"
+    container.write_bytes(b"fixture-container")
+    virtual = container / "acquisition" / "voltage"
+    source = record("data-slice-csv", [virtual])["sources"][0]
+    assert source["path"] == str(virtual)
+    assert source["container_path"] == str(container)
+    assert source["size_bytes"] == len(b"fixture-container")
+    assert source["fingerprint"] == record("snapshot", [container])["sources"][0]["fingerprint"]
+
+
+def test_directory_sources_name_tree_fingerprints_and_do_not_report_inode_size(
+    tmp_path: Path,
+) -> None:
+    store = tmp_path / "recording.zarr"
+    store.mkdir()
+    (store / "zarr.json").write_text("{}", encoding="utf-8")
+    group = store / "series"
+    group.mkdir()
+    (group / "chunk").write_bytes(b"samples")
+    source = record("snapshot", [group])["sources"][0]
+    assert source["container_path"] == str(store)
+    assert source["size_bytes"] is None
+    assert source["fingerprint"]
+    assert source["fingerprint_algorithm"] == "xxh64-tree-metadata-and-first-middle-last-64KiB"
+
+
 def test_many_channels_serialize_one_source_mapping_once() -> None:
     class CountingMapping(TimeMap):
         calls = 0

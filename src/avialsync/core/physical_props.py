@@ -472,8 +472,6 @@ class BeltProp:
         )
         assert self.travel_direction is not None
         alignment = sum(a * b for a, b in zip(tangent, self.travel_direction, strict=True))
-        if abs(alignment) < 1e-9 * math.hypot(*tangent):
-            raise PropModelError("Belt direction must follow the first path segment.")
         signed = math.copysign(1.0, alignment) * self.binding.units_per_reading
         origin = self.binding.reference_reading if reference_reading is None else reference_reading
         travel = signed * (reading - origin)

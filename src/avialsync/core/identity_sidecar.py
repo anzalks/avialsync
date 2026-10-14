@@ -108,7 +108,7 @@ def read(source: Path | str) -> Swaps | None:
         text = read_text(path)
     except FileNotFoundError:
         return None
-    except OSError:
+    except (OSError, UnicodeError):
         logger.warning("Could not read tracking identity swaps at %s", path, exc_info=True)
         return None
 
@@ -160,7 +160,10 @@ def _read_groups(value: str, path: Path) -> list[SwapGroup]:
     groups: list[SwapGroup] = []
     for entry in payload:
         if isinstance(entry, dict):
-            groups.append(SwapGroup.from_dict(entry))
+            try:
+                groups.append(SwapGroup.from_dict(entry))
+            except (KeyError, TypeError, ValueError):
+                logger.warning("Ignoring an unreadable group definition in %s", path)
     return groups
 
 

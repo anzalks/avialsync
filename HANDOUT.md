@@ -994,6 +994,46 @@ enabled during every measured interaction; the 500 ms block floor, idle
 comparison, tail detector and detector regression fixtures are unchanged.
 Never disable GC during measurements or relax the thresholds to hide a stall.
 
+### Coverage includes executable ellipses and strict core types (D-233)
+
+The old coverage exclusion `\\.\\.\\.` removed variadic tuple functions and
+array slices from the denominator. Exclude only actual declaration stubs;
+`tests/test_coverage_gate.py` measures a real annotated function and ellipsis
+slice to prevent recurrence. Core strict options are explicit in pyproject,
+including when the whole package is checked in standard mode.
+`tools/check_coverage.py` requires every core module in the report and uses raw
+line/branch counts, so a rounded 100% cannot conceal uncovered work.
+
+`LazyColumn` rejects fractional indices and unsigned indices that would wrap
+into a valid negative index; empty Python-list selection remains supported.
+Import delivery pins remain held for unknown plugin roles that fall back to
+plot rows, until those rows take ownership. A role's mere truthiness never
+means pose registration has finished.
+
+Export provenance preserves virtual NWB/Zarr object paths while fingerprinting
+their real container. Directory fingerprints name their tree/metadata sampling
+algorithm and have no claimed byte size; an inode's size is not a recording's
+size.
+
+`RegularTimes.searchsorted` retains its fast local correction path and falls
+back to bounded binary search when repeated float timestamps require more than
+four corrections. It agrees with NumPy even when an epoch's precision collapses
+many high-rate ticks; NaN still sorts last. A negative stored-unit conversion
+reverses pyramid extrema, so `channel_store.read_level` swaps the converted views
+without touching raw samples or materialising the source.
+
+Optional point/identity sidecars with unreadable UTF-8 report failure and leave
+the recording usable. Malformed group metadata loses only that group; readable
+events remain. Infinite frame indices in marker and corrected-pose rows are
+skipped alongside other invalid indices. An evicted document save point keeps
+the document dirty after all retained commands are undone; only saving or
+clearing restores a known clean state.
+
+Tests cover validation, partial recovery, cross-process contention, publication
+failure, numerical fit failure and sparse routing. Internal guards are simplified
+only where immutable model validation or the caller's construction proves the
+alternative impossible (D-233); failing contracts are not excluded from coverage.
+
 > **Scope note (D-075).** The libmpv-specific traps that used to live here — render-context
 > teardown ordering, `mpv.terminate()` join deadlocks, property-observer threading, the
 > `wid`-vs-render-API split, the locale bomb, and the missing-library first-run dialog — are gone

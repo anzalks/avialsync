@@ -177,8 +177,7 @@ def materialise(
         written: list[str] = []
         for name in affected:
             point = schema.point(name)
-            if point is None:
-                continue
+            assert point is not None  # affected() received precisely this schema's names.
             written.extend(_write_point(cache_dir, staging, program, point))
 
         _write_manifest(staging, program.fingerprint, written, _base_key(cache_dir))

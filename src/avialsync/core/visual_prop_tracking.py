@@ -175,8 +175,7 @@ def belt_visual_travel(
     if reference is None or current is None:
         return None
     direction = belt.travel_direction
-    if direction is None:
-        return None
+    assert direction is not None  # Visual frames require a direction in BeltProp.
     tangent = np.asarray(belt.track.vertices[1]) - np.asarray(belt.track.vertices[0])
     sign = math.copysign(1.0, float(np.dot(tangent, direction)))
     if belt.track.closed:

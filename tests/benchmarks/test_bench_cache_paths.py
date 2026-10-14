@@ -9,6 +9,7 @@ import numpy as np
 
 from avialsync.core.cache import CacheManager
 from avialsync.core.cache_leases import GenerationPin
+from avialsync.core.columns import RegularTimes
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.pyramid import ChannelStage, PyramidBuilder, PyramidReader
 from avialsync.engine.importer import ImportWorker
@@ -114,3 +115,20 @@ def test_bench_warm_video_index_open(benchmark, tmp_path: Path) -> None:
             assert reader.frame_count == 300
 
     benchmark(open_cached)
+
+
+def test_bench_regular_epoch_scalar_search(benchmark) -> None:
+    """A cursor's regular-clock lookup stays inside the query budget."""
+    grid = RegularTimes(1.7e9, 50_000, 1_000_000)
+    target = float(grid[500_000])
+    assert benchmark(grid.searchsorted, target) == 500_000
+    assert benchmark.stats.stats.mean < 0.005
+
+
+def test_bench_regular_epoch_vector_search(benchmark) -> None:
+    """Bounded plot time queries retain their arithmetic fast path."""
+    grid = RegularTimes(1.7e9, 50_000, 1_000_000)
+    indices = np.arange(0, 1_000_000, 1_000, dtype=np.int64)
+    targets = grid[indices]
+    np.testing.assert_array_equal(benchmark(grid.searchsorted, targets), indices)
+    assert benchmark.stats.stats.mean < 0.005

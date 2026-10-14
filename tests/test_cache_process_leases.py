@@ -271,3 +271,26 @@ def test_worker_delivery_transfers_to_readers_without_filesystem_calls(
     reader.close()
     with reserve_cache_entry(Path(directory)) as reserved:
         assert reserved
+
+
+def test_unknown_plugin_role_retains_delivery_until_plot_rows_own_it(tmp_path: Path, qtbot) -> None:
+    from avialsync.engine.importer import ImportWorker
+    from avialsync.ui.main_window import MainWindow
+
+    source = tmp_path / "extension.csv"
+    source.write_text("time,value\n0,1\n1,2\n", encoding="utf-8")
+    worker = ImportWorker(
+        source, {"time_col": "time", "time_unit": "s", "separator": ",", "role": "plugin_extension"}
+    )
+    deliveries: list[tuple] = []
+    worker.finished.connect(lambda *args: deliveries.append(args))
+    worker.run()
+    assert len(deliveries) == 1
+    inspection = deliveries[0][-1]
+    window = MainWindow()
+    qtbot.addWidget(window)
+    window._on_import_finished(*deliveries[0])
+    assert inspection.cache_pin is not None
+    qtbot.waitUntil(lambda: inspection.cache_pin is None, timeout=5000)
+    assert len(window.plot_pane.channels) == 1
+    window.close()

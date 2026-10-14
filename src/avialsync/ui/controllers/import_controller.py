@@ -398,7 +398,7 @@ def on_import_finished(
 
     if isinstance(inspection, SourceInspection):
         window._inspections[path] = inspection
-        if role:
+        if tracking_state is not None:
             inspection.release_cache_pin()
         window.sidebar.set_sensor_inspection(path, inspection)
         window.refresh_alignment_badges()

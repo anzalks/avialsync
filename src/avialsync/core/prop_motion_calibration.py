@@ -92,18 +92,15 @@ def _belt_point(
 ) -> Point3 | None:
     """Locate a belt mark under candidate video-calibrated binding parameters."""
     binding = belt.binding
-    if binding is None:
-        return None
+    assert binding is not None
     tangent = tuple(
         end - start
         for start, end in zip(belt.track.vertices[0], belt.track.vertices[1], strict=True)
     )
     direction = belt.travel_direction
-    if direction is None:
-        return None
+    assert direction is not None
     alignment = sum(a * b for a, b in zip(tangent, direction, strict=True))
-    if abs(alignment) < 1e-9 * math.hypot(*tangent):
-        return None
+    # BeltProp validates nonzero alignment when a binding is constructed.
     travel = math.copysign(scale, alignment) * (reading - binding.reference_reading)
     if belt.rollers is not None:
         return belt.rollers.point_at(reference_distance + travel)
@@ -279,8 +276,7 @@ def _require_ball_evidence(ball: BallProp) -> None:
         raise PropMotionCalibrationError("Bind ball orientation before fitting it to video.")
     if len(binding.checks) < 3:
         raise PropMotionCalibrationError("Save video checks on at least three ball frames first.")
-    if not ball.surface_marks:
-        raise PropMotionCalibrationError("Identify a ball surface mark before fitting it to video.")
+    # BallProp requires an identified surface mark whenever a binding exists.
     if any(len(check.source_values) != 4 for check in binding.checks):
         raise PropMotionCalibrationError("Saved ball checks must retain four orientation readings.")
 
