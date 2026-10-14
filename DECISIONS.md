@@ -7404,3 +7404,18 @@ the existing informational "in use" outcome rather than waiting on the UI.
 **Alternatives rejected.** PID files with stale-owner guesses, deleting lock
 files during cleanup, blocking acquisition, or treating a process-local lock
 as cross-process ownership.
+
+## 2026-10 · D-231 · Workload measurements isolate preceding test garbage
+
+**Decision.** Collect prior-test cycles before constructing the representative
+workload window. Keep garbage collection active during loading and measured
+interactions, and retain every existing block and tail assertion.
+
+**Why.** The base macOS/Python 3.11 workflow reported a 1,015 ms resize stall.
+Profiling the complete local suite found generation-2 collections lasting
+0.87–1.06 s and reclaiming more than 100,000 objects from previous test windows.
+A resize's allocations could trigger that unrelated cleanup. The isolated test
+and full Python 3.11 run passed without weakening the responsiveness contract.
+
+**Alternatives rejected.** Increasing the stall budget, disabling GC while the
+workload runs, skipping the platform, or automatically rerunning a red workflow.

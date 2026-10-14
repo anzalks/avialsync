@@ -10,6 +10,7 @@ AGENTS: any UI-thread callback targets <=8 ms and must not exceed 30 ms.
 
 from __future__ import annotations
 
+import gc
 import time
 from pathlib import Path
 
@@ -41,6 +42,11 @@ def dense_source(tmp_path_factory) -> tuple[Path, list[str]]:
 @pytest.fixture
 def loaded_window(qapp: QApplication, qtbot, dense_source) -> MainWindow:
     cache, names = dense_source
+    # The shared QApplication suite leaves cycles from thousands of preceding
+    # test windows. Reclaim those before this workload exists: profiling found
+    # 100k-object collections taking >1 s. GC stays active during the measured
+    # interactions, so garbage produced by this workload still counts.
+    gc.collect()
     window = MainWindow()
     qtbot.addWidget(window)
     window.resize(1280, 800)

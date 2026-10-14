@@ -981,6 +981,16 @@ not published entries and retain their ordinary reader behavior.
 The owner may read its stage before publication. Reader/writer contention keeps
 the previous entry intact and reports the existing "in use" outcome.
 
+### Responsiveness fixtures must isolate prior-test garbage (D-231)
+
+The macOS/Python 3.11 base workflow failed during resize with a 1,015 ms stall.
+Full-suite profiling reproduced generation-2 garbage collections taking
+0.87–1.06 s to reclaim 100,000+ objects from previous test windows. The workload
+fixture now collects that garbage before constructing its own window. GC stays
+enabled during every measured interaction; the 500 ms block floor, idle
+comparison, tail detector and detector regression fixtures are unchanged.
+Never disable GC during measurements or relax the thresholds to hide a stall.
+
 > **Scope note (D-075).** The libmpv-specific traps that used to live here — render-context
 > teardown ordering, `mpv.terminate()` join deadlocks, property-observer threading, the
 > `wid`-vs-render-API split, the locale bomb, and the missing-library first-run dialog — are gone
