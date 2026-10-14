@@ -405,8 +405,10 @@ Fixture: `tools/make_fixtures.generate_sync_ground_truth`.
   Exact `TimeMap.copy()` snapshots share immutable evidence arrays rather than copying large mappings.
   The 3D pose setup job opens XYZ arrays, samples trajectories, and infers skeletons for every
   vertical-axis choice off the UI thread; only the newest selection is installed.
-- **P2 maintainability — composition still in progress.** `ui/main_window.py` is about 4 000
-  lines after the mocap and scientific UX work. File, Edit, Align, View, and Help menus now live
+- **P2 maintainability — composition still in progress.** `ui/main_window.py` is 3 440
+  lines after the engineering hardening extraction (down from 3 893). Keyboard actions/focus
+  policy, feedback presentation, and workspace geometry have bounded components with explicit
+  widget/state/callback inputs (D-232). File, Edit, Align, View, and Help menus live
   in `ui/menus/`, with labels still owned by their live actions. Wheel, video-load, import, and
   session runtime fields have typed state objects; rig path helpers take a narrow context.
   `tests/test_controller_boundaries.py` freezes private window accesses and oversized modules at
@@ -735,6 +737,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `engine/export.py` | Bounded CSV/Parquet data slices, video clip, region stats; Parquet `gap_after` marks a gap following that sample (D-199) | `export_data_slice_csv()`, `export_data_slice_parquet()`, `trim_video_clip()`, `compute_region_stats()` |
 | `engine/snapshot.py` | Snapshot figure: tiles, negotiated page width, opaque composition (D-101). Layout is planned once and both the capture and the render use that plan; cameras keep the video grid's arrangement (`plan_grid_layout`, D-209) | `SnapshotFigure`, `SnapshotTile`, `GridCell`, `plan_grid_layout()`, `plan_media_layout()`, `content_width_for()`, `figure_size()`, `render_figure()`, `save_figure()` |
 | `ui/main_window.py`, `ui/menus/` | Widget construction, Qt slot wiring, live action identity, and menu builders; `_inspections` dict. Behaviour lives in `ui/controllers/` (D-066, D-148) | `MainWindow`, `build_menus()` |
+| `ui/controllers/{window_shortcuts,window_feedback,workspace_layout}.py` | Keyboard action/focus policy, feedback presentation, and workspace geometry via narrow inputs. No application-window import or private facade; real Qt receivers and live instance hooks stay on MainWindow (D-232) | `KeyboardContext`, `KeyboardActions`, `WindowFeedback`, `WorkspaceParts`, `WorkspaceLayout` |
 | `ui/controllers/{wheel_state,video_load_state,import_state,session_state}.py` | Typed transient state for wheel gestures, bounded video probes, serial imports, and session metadata. JobManager owns worker lifetimes; these objects hold only queue/capacity state (D-148) | `WheelState`, `VideoLoadState`, `ImportState`, `SessionRuntimeState` |
 | `ui/video_pane.py` | Decodes and blits one video; ONE path on every OS (D-075). Seeks are id-tagged so `is_seeking` answers only the newest one (D-084): `DecodeWorker.request(request_id, source_time)`, `frame_ready(request_id, index, pts, rgb)`. `video_size` is a property over `VideoSurface`, not a second copy (D-101). **`chrome_rects()` is the contract overlay labels avoid** — never look chrome up by widget name; the OSD is one compact line unless `overlays/osd_detail` is full (D-174) | `VideoPane`, `chrome_rects()`, `set_osd_detail()`, `set_sync_correction()`, `video_size`, `shows_footage`, `VideoSurface.video_size` |
 | `core/video_timing.py` | **The** frame-selection authority — last frame with `pts <= t`. Headless so `engine/` can share it (D-075) | `frame_index_at()`, `adjacent_frame_time()`, `PTS_EPSILON_S` |

@@ -7419,3 +7419,27 @@ and full Python 3.11 run passed without weakening the responsiveness contract.
 
 **Alternatives rejected.** Increasing the stall budget, disabling GC while the
 workload runs, skipping the platform, or automatically rerunning a red workflow.
+
+## 2026-10 · D-232 · Window responsibilities compose through explicit inputs
+
+**Decision.** Keyboard action/focus policy, feedback presentation and workspace
+assembly each have a bounded component. They accept existing widgets, shared
+state references and named callbacks; they never import the application window
+or acquire its private facade. A built-in Qt window/widget interface is used
+only for Qt ownership and public geometry/action methods.
+
+MainWindow keeps its real event/slot receivers and instance extension points.
+Delegated calls resolve live window hooks at call time. The keyboard builder
+shares the actual action list, letter set and master clock; the workspace shares
+one proportion store and one resize timer. Compatibility handles name those same
+objects. JobManager and `_run_job` remain the sole background-work authority.
+The delayed startup diagnostic callback is also anchored to its Qt owner.
+
+**Why.** The window shrinks from 3 893 to 3 440 lines, and its constructor from
+568 to 508. Controller ceilings tighten to those sizes; the obsolete long
+shortcut-function allowance disappears. This is the bounded migration D-148
+calls for; its under-1 000-line end target remains open.
+
+**Alternatives rejected.** Slot mixins, partial-bound worker callbacks, another
+action table or clock, a whole-window context under another name, and retaining
+the old size ceilings after extraction.

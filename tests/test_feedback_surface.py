@@ -601,11 +601,11 @@ def test_the_text_dialog_names_its_body_for_a_screen_reader(qapp: QApplication, 
 
 def test_show_details_opens_the_text_dialog(window: MainWindow, monkeypatch) -> None:
     """The window's Show details route, not a message box."""
-    from avialsync.ui import main_window as main_window_module
+    from avialsync.ui.controllers import window_feedback as feedback_module
 
     shown: list[tuple[str, str]] = []
     monkeypatch.setattr(
-        main_window_module,
+        feedback_module,
         "show_text",
         lambda parent, title, body, **kwargs: shown.append((title, body)),
     )

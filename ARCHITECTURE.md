@@ -60,7 +60,7 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   └── video_worker.py           # off-thread video probe before native pane creation
 │   ├── runtime.py                    # bundled/env media-tool discovery; no_window_kwargs (V-14)
 │   ├── ui/                           # PySide6 widgets only; no business logic
-│   │   ├── main_window.py            # widget construction, menu/shortcut table, controller wiring; behaviour lives in controllers/
+│   │   ├── main_window.py            # composition, real Qt receivers and controller wiring; live actions own command identity
 │   │   ├── controllers/              # MainWindow behaviour as plain functions taking the window (D-066)
 │   │   │   ├── drop_controller.py    # drag/drop intake, drop scan, capability-resolved candidate routing
 │   │   │   ├── session_controller.py # .avv save/load/restore, QSettings geometry, autosave, recent files

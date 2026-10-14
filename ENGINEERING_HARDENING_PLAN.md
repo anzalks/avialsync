@@ -70,7 +70,10 @@ be reported as completed external certification.
 - [x] Cross-process cache ownership: 3,951 correctness tests passed; the
   Python 3.11 cache/import/identity/responsiveness checks passed. Six cache
   benchmarks passed (warm manifest validation 4.43 ms, within the 20% limit).
-- [ ] Composition.
+- [x] Bounded composition: keyboard/focus policy, feedback, and workspace
+  geometry extracted; MainWindow 3,893 → 3,440 lines, with tighter ceilings.
+  3,961 correctness tests and 101 Python 3.11 UI checks passed. The documented
+  under-1,000-line end target remains architectural debt.
 - [ ] Enforced quality gates and core coverage.
 - [ ] Reproducible dependencies.
 - [ ] Representative local certification.

@@ -15,23 +15,16 @@ from PySide6.QtGui import (
     QDragEnterEvent,
     QDropEvent,
     QGuiApplication,
-    QKeyEvent,
     QResizeEvent,
-    QValidator,
 )
 from PySide6.QtWidgets import (
-    QAbstractSpinBox,
     QApplication,
     QDialog,
     QDockWidget,
     QFileDialog,
-    QHBoxLayout,
-    QLineEdit,
     QMainWindow,
     QMenu,
-    QSizePolicy,
     QSplitter,
-    QVBoxLayout,
     QWidget,
 )
 from shiboken6 import isValid
@@ -104,39 +97,39 @@ from avialsync.ui.controllers import (
     video_controller,
     wheel_controller,
     wheel_display,
+    window_shortcuts,
+    workspace_layout,
 )
 from avialsync.ui.controllers.import_state import ImportState
 from avialsync.ui.controllers.rig_paths import RigPathsContext
 from avialsync.ui.controllers.session_state import SessionRuntimeState
 from avialsync.ui.controllers.video_load_state import VideoLoadState
 from avialsync.ui.controllers.wheel_state import WheelState
+from avialsync.ui.controllers.window_feedback import WindowFeedback
+from avialsync.ui.controllers.window_shortcuts import (
+    _editor_rejects_text as _editor_rejects_text,
+)
 from avialsync.ui.coverage_lanes import SourceCoverage
 from avialsync.ui.empty_state import EmptyState
 from avialsync.ui.export_panel import ExportPanel
 from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
-from avialsync.ui.feedback.cache_indicator import CacheIndicator
-from avialsync.ui.feedback.error_presenter import present
-from avialsync.ui.feedback.tasks_button import TasksButton
-from avialsync.ui.feedback.text_dialog import show_text
 from avialsync.ui.help_controller import HelpController
 from avialsync.ui.i18n import tr
 from avialsync.ui.identity_braid import BraidModel
 from avialsync.ui.identity_group_dialog import IdentityGroupDialog
 from avialsync.ui.identity_model_worker import BraidBuildJob, BraidBuildWorker
 from avialsync.ui.identity_panel import IdentityWindow
-from avialsync.ui.inspector_dock import default_dock_width, install_inspector_dock
+from avialsync.ui.inspector_dock import install_inspector_dock
 from avialsync.ui.inspector_nav import InspectorNav
 from avialsync.ui.job_manager import JobManager, on_ui_thread
 from avialsync.ui.levels_panel import LevelsPanel
 from avialsync.ui.mutation_target import WindowMutationTarget, marker_record
 from avialsync.ui.overlay_registry import OVERLAY_LAYERS, OverlayState, layer_for
-from avialsync.ui.pane_proportions import PaneProportions
 from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.props_app import PropsApp
 from avialsync.ui.readout_panel import ReadoutPanel
 from avialsync.ui.shortcut_overrides import apply_overrides
 from avialsync.ui.source_records import anything_loaded, source_record
-from avialsync.ui.splitter import PaneSplitter
 from avialsync.ui.time_format import TimeDisplayMode
 from avialsync.ui.tracking_3d_pane import Tracking3DPane
 from avialsync.ui.transport import Transport
@@ -146,7 +139,6 @@ from avialsync.ui.video_grid import VideoGrid
 from avialsync.ui.view_toolbar import ViewToolbar
 from avialsync.ui.wheel_panel import WheelPanel
 from avialsync.ui.wheel_tab import WheelTab
-from avialsync.ui.workspace_scroll import scroll_when_short
 
 if TYPE_CHECKING:
     from avialsync.core.registry import LoaderRegistry
@@ -158,88 +150,6 @@ _AUTOSAVE_INTERVAL_MS = 120_000  # 2 minutes
 #: Long enough to find it, short enough not to be mistaken for a state the
 #: correction is in.
 _HIGHLIGHT_MS = 4000
-
-#: How long to let window-resize events pile up before rescaling the panes.
-#: A drag-resize delivers one event per pixel of mouse travel; at this interval
-#: the panes still follow the edge continuously (~60 Hz) while the relayout runs
-#: once per frame instead of once per pixel.
-_PANE_RESIZE_COALESCE_MS = 16
-#: An empty plot stack or Data Streams lane's share while nothing is loaded:
-#: effectively its minimum, which the proportion store enforces.
-_EMPTY_PLACEHOLDER_SHARE = 0.001
-
-#: Keys that drive the playhead and must reach it from anywhere in the window.
-#: Qt offers each of these to the focused widget first, and text editors accept
-#: them, which is how one click into a spin box used to disable playback control.
-_PLAYHEAD_KEYS = frozenset(
-    {
-        Qt.Key.Key_Space,
-        Qt.Key.Key_Left,
-        Qt.Key.Key_Right,
-        Qt.Key.Key_Home,
-        Qt.Key.Key_End,
-        Qt.Key.Key_Comma,
-        Qt.Key.Key_Period,
-    }
-)
-
-
-def _validates_as_invalid(result: object) -> bool:
-    """Return whether a Qt validator refused the text outright.
-
-    ``QValidator.validate`` is typed as returning ``object`` by the PySide6
-    stubs; it is really the state, or a tuple beginning with it, depending on
-    the validator. Both shapes are read here rather than assumed, because
-    guessing wrong would silently make every letter look acceptable and quietly
-    undo the reservation this feeds.
-    """
-    state = result[0] if isinstance(result, tuple) and result else result
-    return state == QValidator.State.Invalid
-
-
-def _editor_rejects_text(widget: QWidget, text: str) -> bool:
-    """Return whether *widget* would refuse *text* as typed input.
-
-    A numeric field cannot hold a letter, so a letter arriving there is not
-    editing — it is a shortcut the field happens to be swallowing. Asking the
-    widget's own validator is what keeps this honest: a field that really does
-    accept letters (an annotation label) keeps them, and only a field that would
-    discard the character gives it up.
-    """
-    if len(text) != 1 or not text.isprintable():
-        return False
-    if isinstance(widget, QAbstractSpinBox):
-        line_edit = widget.lineEdit()
-        current = line_edit.text() if line_edit is not None else ""
-        position = line_edit.cursorPosition() if line_edit is not None else len(current)
-        candidate = current[:position] + text + current[position:]
-        return _validates_as_invalid(widget.validate(candidate, position + 1))
-    if isinstance(widget, QLineEdit):
-        validator = widget.validator()
-        if validator is None:
-            # No validator means the field accepts arbitrary text, so a letter
-            # typed into it is editing and belongs to the field.
-            return False
-        current = widget.text()
-        position = widget.cursorPosition()
-        candidate = current[:position] + text + current[position:]
-        return _validates_as_invalid(validator.validate(candidate, position + 1))
-    return False
-
-
-def _is_mid_edit(widget: QWidget) -> bool:
-    """Return whether *widget* is a text editor with an edit in progress.
-
-    Only such a widget keeps the caret keys; an editor merely holding focus has
-    no claim on them.
-    """
-    if isinstance(widget, QLineEdit):
-        return bool(widget.isModified())
-    if isinstance(widget, QAbstractSpinBox):
-        line_edit = widget.lineEdit()
-        return bool(line_edit is not None and line_edit.isModified())
-    return False
-
 
 #: Re-exported from the import controller, which owns the probe loop that
 #: enforces it.  Kept here because this is the name the bound is known by.
@@ -599,11 +509,6 @@ class MainWindow(QMainWindow):
         self.annotation_store.marker_relabelled.connect(self._record_marker_relabelled)
 
         # Layout
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        layout = QHBoxLayout(central_widget)
-        layout.setContentsMargins(0, 0, 0, 0)
-
         from avialsync.ui.sidebar import SidebarPane
 
         self.sidebar = SidebarPane(self)
@@ -685,89 +590,34 @@ class MainWindow(QMainWindow):
         self.sidebar.content_layout.addWidget(self.levels_panel)
         # A dock, not a splitter pane: either side, floating, or closed.
         self.inspector_dock = install_inspector_dock(self, self._left_tabs)
-        right_widget = QWidget()
-        right_layout = QVBoxLayout(right_widget)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-
-        self._media_splitter = PaneSplitter(Qt.Orientation.Horizontal)
-        self._media_splitter.setAccessibleName(tr("Video and 3D tracking splitter"))
-        # The video tools sit directly under the videos they act on,
-        # beside the 3D pane rather than under it: the 3D pane's own header is
-        # taller, so the row costs no height on a small display.
-        self._video_column = QWidget()
-        video_column_layout = QVBoxLayout(self._video_column)
-        video_column_layout.setContentsMargins(0, 0, 0, 0)
-        video_column_layout.setSpacing(0)
-        video_column_layout.addWidget(self.video_grid, 1)
-        video_column_layout.addWidget(self.view_toolbar)
-        self._media_splitter.addWidget(self._video_column)
-        self._media_splitter.addWidget(self.imaging_splitter)
-        self._media_splitter.setStretchFactor(0, 2)
-        self._media_splitter.setStretchFactor(1, 1)
-        v_splitter = PaneSplitter(Qt.Orientation.Vertical)
-        v_splitter.addWidget(self._media_splitter)
-        v_splitter.addWidget(self.plot_pane)
-        v_splitter.setStretchFactor(0, 3)
-        v_splitter.setStretchFactor(1, 1)
-        self._v_splitter = v_splitter
-
-        self._content_splitter = PaneSplitter(Qt.Orientation.Vertical)
-        self._content_splitter.setAccessibleName(tr("Video, plots, and Data Streams splitter"))
-        self._content_splitter.addWidget(v_splitter)
-        self._content_splitter.addWidget(self.data_streams)
-        self._content_splitter.setStretchFactor(0, 4)
-        self._content_splitter.setStretchFactor(1, 1)
-        # At the top of the column, above the video, the 3D view and the plots:
-        # inside the layout rather than floating, so a notification never covers
-        # the data it is reporting on, and in the one place a person's eyes
-        # already go when something has just happened.
-        right_layout.addWidget(self.notifications)
-        right_layout.addWidget(self._content_splitter)
-        right_layout.addWidget(self.transport)
-
-        # Every workspace surface may shrink horizontally in a compact viewport.
-        # QSplitter then distributes constrained width by the remembered
-        # proportions instead of letting a child size hint enlarge the window
-        # beyond the display. Vertical size policies stay intact: they preserve
-        # the established video/plot/Data Streams height allocation.
-        for pane in (
-            self._left_tabs,
-            self._video_column,
-            self.video_grid,
-            self.tracking_3d_pane,
-            self.imaging_pane,
-            self.plot_pane,
-            self.view_toolbar,
-            self.data_streams,
-            self.transport,
-        ):
-            pane.setSizePolicy(QSizePolicy.Policy.Ignored, pane.sizePolicy().verticalPolicy())
-
-        # Stretch factors alone let Qt hand a pane zero pixels when the sibling's
-        # size hint already fills the splitter — that is how the plot area came up
-        # fully collapsed.  Seed explicit proportions and forbid a drag from
-        # collapsing a pane to nothing: a zero-height plot area or zero-width
-        # video area has no handle affordance left to bring it back.
-        # Resizing the window must rescale the panes, not hand the whole change
-        # to whichever pane happens not to be sitting on its minimum. The
-        # inspector column is deliberately left out: a source list that widens
-        # with the monitor wastes the width the media panes want.
-        self._pane_proportions = PaneProportions(self)
-        self._pane_proportions.track(
-            self._content_splitter,
-            self._v_splitter,
-            self._media_splitter,
-            self.imaging_splitter,
+        self._workspace = workspace_layout.create_workspace(
+            self,
+            workspace_layout.WorkspaceParts(
+                inspector=self._left_tabs,
+                videos=self.video_grid,
+                tracking=self.tracking_3d_pane,
+                imaging=self.imaging_pane,
+                imaging_splitter=self.imaging_splitter,
+                plots=self.plot_pane,
+                video_tools=self.view_toolbar,
+                streams=self.data_streams,
+                transport=self.transport,
+                notifications=self.notifications,
+            ),
         )
-        self._pane_resize_timer = QTimer(self)
-        self._pane_resize_timer.setSingleShot(True)
-        self._pane_resize_timer.setInterval(_PANE_RESIZE_COALESCE_MS)
-        self._pane_resize_timer.timeout.connect(self._pane_proportions.reapply)
-
+        # Compatibility handles refer to the same objects; geometry state is
+        # owned solely by the composed workspace and its proportion store.
+        self._media_splitter = self._workspace.media
+        self._video_column = self._workspace.video_column
+        self._v_splitter = self._workspace.vertical
+        self._content_splitter = self._workspace.content
+        self._pane_proportions = self._workspace.proportions
+        self._pane_resize_timer = self._workspace.resize_timer
         self._enforce_splitter_policy()
         self._apply_default_splitter_sizes()
-
-        layout.addWidget(scroll_when_short(right_widget))
+        self._workspace.mount()
+        central_widget = self._workspace.central_widget
+        right_widget = self._workspace.right_widget
 
         # Child widgets receive drag events before QMainWindow. Forward those
         # events to the single capability-routing implementation below.
@@ -837,7 +687,7 @@ class MainWindow(QMainWindow):
         self._autosave_timer.start(_AUTOSAVE_INTERVAL_MS)
 
         # Startup diagnostics (deferred so window shows first)
-        QTimer.singleShot(500, self._run_diagnostics)
+        QTimer.singleShot(500, self, self._run_diagnostics)
 
         # Unsaved work from a previous run is read once by a worker and held, which is
         # what enables File → Recover Unsaved Work. The notification bar on top
@@ -992,31 +842,8 @@ class MainWindow(QMainWindow):
         # it survives a short video area without dictating a window minimum.
 
     def _apply_empty_layout(self, empty: bool) -> None:
-        """Give the drop target the room while nothing is loaded.
-
-        An empty plot stack and empty Data Streams lanes are placeholders, and
-        a restored layout could leave them most of the window with the drop
-        target squeezed above. Until something is open they are held at their
-        minimum; the ratios they had come back with the first recording.
-        """
-        splitters: tuple[QSplitter, ...] = (self._v_splitter, self._content_splitter)
-        if empty:
-            if self._empty_layout_saved is None:
-                self._empty_layout_saved = {
-                    splitter: self._pane_proportions.fractions(splitter) for splitter in splitters
-                }
-            for splitter in splitters:
-                # The minimum is enforced by the distribution, so a tiny share
-                # is "as small as the pane allows", on any platform's fonts.
-                self._pane_proportions.set_fractions(splitter, (1.0, _EMPTY_PLACEHOLDER_SHARE))
-        elif self._empty_layout_saved is not None:
-            saved, self._empty_layout_saved = self._empty_layout_saved, None
-            for splitter, fractions in saved.items():
-                if fractions is not None:
-                    self._pane_proportions.set_fractions(splitter, fractions)
-        else:
-            return
-        self._pane_proportions.reapply()
+        """Retain the existing window-owned saved layout for persistence."""
+        self._empty_layout_saved = self._workspace.apply_empty(empty, self._empty_layout_saved)
 
     def _launch_demo(self) -> None:
         """Generate and open the sample session.
@@ -1038,164 +865,59 @@ class MainWindow(QMainWindow):
             self.report_failure(error, doing="The demo session could not be generated")
 
     def _install_feedback_surface(self) -> None:
-        """Put the activity bar in the status bar and the strip above the transport.
-
-        The status bar is where a user already looks for "what is it doing";
-        the strip sits in the layout rather than floating so it never covers
-        the data it is reporting on.
-        """
-        self.statusBar().addWidget(self.transport.status_line, 1)
-        self.cache_indicator = CacheIndicator(self._job_manager, self._run_job, self)
-        self.cache_indicator.set_clear_action(self._act_delete_all_cache)
-        self.statusBar().addPermanentWidget(self.cache_indicator)
-        self.statusBar().addPermanentWidget(self.activity_bar)
-        self.tasks_button = TasksButton(self.jobs_panel, self)
-        self.statusBar().addPermanentWidget(self.tasks_button)
+        """Compose feedback from the existing job owner and live widgets."""
+        self._feedback = WindowFeedback(
+            self,
+            self._job_manager,
+            self.transport,
+            self.activity_bar,
+            self.notifications,
+            self.jobs_panel,
+        )
+        self.cache_indicator, self.tasks_button = self._feedback.install_status(
+            self._run_job,
+            self._act_delete_all_cache,
+        )
 
     def _cancel_active_task(self) -> None:
-        """Stop whatever the activity bar is showing.
-
-        Two registries, because the legacy import and proxy workers predate
-        JobManager and are not registered with it. Both are asked; whichever
-        owns the running work responds.
-        """
-        cancel = self._active_cancel
-        if cancel is not None:
-            try:
-                cancel()
-            except RuntimeError:
-                # The worker's C++ side is already gone; nothing left to stop.
-                pass
-        self._job_manager.cancel_all()
-        self.activity_bar.end()
+        """Retain the single active-cancel callback on the window."""
+        self._feedback.cancel_active_task(self._active_cancel)
         self._active_cancel = None
 
     def _show_task_details(self, details: str) -> None:
-        """Show the full text behind a failure, on request only.
-
-        A scrolling, copyable dialog rather than a message box: this text is a
-        traceback or a worker's stderr, which has no length limit and is only
-        useful if it can be pasted into a report.
-        """
-        show_text(self, tr("Details"), details)
+        """Keep requested details on this window's Qt receiver."""
+        self._feedback.show_task_details(details)
 
     def report_failure(self, error: BaseException, *, doing: str = "") -> None:
-        """Present a failure without taking the session away.
-
-        The single route for anything that goes wrong on a load or save path.
-        It replaces the shape this codebase used in forty places -- an exception
-        string in a modal box with an OK button -- with a title in the user's
-        terms, a plain-language cause, and the raw text behind Show details.
-
-        Non-modal by design: whatever else is open still loaded and is still
-        usable, and the application informs rather than blocks.
-        """
-        presented = present(error, doing=doing)
-        message = f"{presented.title}. {presented.cause}"
-        if presented.recoverable:
-            self.notifications.show_error(message, details=presented.details)
-        else:  # pragma: no cover - no unrecoverable presenter exists yet
-            # The one failure that has earned an interruption. It still shows
-            # its detail in the same scrolling, copyable dialog as everything
-            # else rather than a message box.
-            show_text(self, presented.title, presented.details, lead=message)
+        """Present a failure through the composed feedback surface."""
+        self._feedback.report_failure(error, doing=doing)
 
     def _refresh_jobs_panel(self) -> None:
-        running = [job.panel_row() for job in self._job_manager.announced_jobs()]
-        self.jobs_panel.refresh(running)
+        self._feedback.refresh_jobs_panel()
 
     def _on_jobs_changed(self) -> None:
-        """Mirror background-job state into the transport status area.
-
-        The panel is refreshed on *both* branches. It used to be refreshed only
-        when a job was running, because the "nothing running" branch returned
-        first — so the last job to finish stayed listed in the Tasks panel until
-        some later job happened to start, and an idle application showed work
-        in progress that had finished minutes ago.
-        """
-        # Commands that wait for idle (the cache ones) are also buttons outside
-        # any menu, so they cannot wait for a menu to open to be re-answered.
-        self._refresh_action_availability()
-        text = self._job_manager.status_text()
-        if not text:
-            self.transport.set_status("Ready")
-            self._refresh_jobs_panel()
-            return
-        kind = "error" if self._job_manager.stalled_jobs() else "busy"
-        self.transport.set_status(text, kind)
-        self._refresh_jobs_panel()
+        """Keep queued delivery and instance-level hooks on the real window."""
+        self._feedback.jobs_changed(self._refresh_action_availability, self._refresh_jobs_panel)
 
     def _on_ui_stalled(self, milliseconds: float) -> None:
-        """Tell the user when the UI thread itself was blocked."""
-        self.transport.set_status(f"Interface stalled for {milliseconds / 1000:.1f} s", "error")
+        self._feedback.ui_stalled(milliseconds)
 
     # ── Sources / units ──────────────────────────────────────────────
 
     def _splitters(self) -> tuple[QSplitter, ...]:
-        return (
-            self._content_splitter,
-            self._v_splitter,
-            self._media_splitter,
-            self.imaging_splitter,
-        )
+        return self._workspace.splitters()
 
     def _enforce_splitter_policy(self) -> None:
-        """Forbid collapsing a pane to nothing.
-
-        Must be re-applied after ``restoreState``: ``QSplitter.saveState`` stores
-        the collapsible flag, so a session arranged before this policy existed
-        would otherwise restore the old permissive behaviour.
-        """
-        for splitter in self._splitters():
-            splitter.setChildrenCollapsible(False)
+        """Reapply the workspace policy after Qt restores saved state."""
+        self._workspace.enforce_policy()
 
     def _repair_collapsed_panes(self) -> None:
-        """Re-seed any splitter a previously-saved state left with a zero pane.
-
-        A zero-height plot area or zero-width video area has no handle affordance
-        left to drag it back, so a stale saved layout must not be honoured.
-        """
-        for splitter in self._splitters():
-            sizes = splitter.sizes()
-            visible = [
-                index
-                for index in range(splitter.count())
-                if (child := splitter.widget(index)) is not None and child.isVisible()
-            ]
-            if any(sizes[index] <= 0 for index in visible):
-                self._apply_default_splitter_sizes()
-                return
+        """Keep the window's live default-layout hook available to repairs."""
+        self._workspace.repair_collapsed(self._apply_default_splitter_sizes)
 
     def _apply_default_splitter_sizes(self) -> None:
-        """Seed the first-run pane layout, as sizes now and as shares thereafter.
-
-        Called before any saved state is restored; ``_restore_geometry`` still
-        wins when the user has arranged the window before.
-
-        These pixel counts have only ever described a *ratio*: the first window
-        resize redistributes them by stretch factor and minimum size, so what a
-        new profile actually got was decided by whichever pane had the largest
-        minimum — for the vertical split, an empty drop-target placeholder.
-        Handing the same ratios to the proportion store is what makes the
-        intent below the thing the user sees.
-        """
-        self.resizeDocks(
-            [self.inspector_dock], [default_dock_width(self._left_tabs)], Qt.Orientation.Horizontal
-        )
-        defaults = (
-            (self._content_splitter, (620, 160)),
-            (self._v_splitter, (380, 240)),
-            # With three video columns, a quarter-width 3D pane is no wider
-            # than one video column in the documented session layout.
-            (self._media_splitter, (750, 250)),
-            (self.imaging_splitter, (300, 300)),
-        )
-        for splitter, sizes in defaults:
-            splitter.setSizes(list(sizes))
-        # The inspector dock is not proportion-managed: a source list that
-        # widens with the monitor only steals media width.
-        for splitter, sizes in defaults:
-            self._pane_proportions.set_fractions(splitter, sizes)
+        """Seed ratios through the workspace's single proportion owner."""
+        self._workspace.apply_defaults(self, self.inspector_dock, self._left_tabs)
 
     def source_readers(self, source_id: str) -> list[Any]:
         """Every channel reader of one source: its plot rows, then its 3D pose readers."""
@@ -1610,164 +1332,20 @@ class MainWindow(QMainWindow):
     # ── Keyboard shortcuts ───────────────────────────────────────────
 
     def _setup_shortcuts(self) -> None:
-        """Register window-scoped QActions for all keyboard-only shortcuts.
-
-        Rules:
-        - Menu QActions already carry their shortcuts — no duplicate QShortcut.
-        - Transport-button shortcuts emit the matching Transport signal.
-        - Non-transport keyboard-only shortcuts (Home/End) may call the engine directly.
-        """
-        from collections.abc import Callable
-
-        from PySide6.QtGui import QKeySequence
-
-        _wsc = Qt.ShortcutContext.WindowShortcut
-
-        def _act(
-            text: str,
-            category: str,
-            handler: Callable[[], None],
-            *keys: Any,
-            repeatable: bool = False,
-        ) -> QAction:
-            a = QAction(text, self)
-            a.setShortcuts([QKeySequence(k) for k in keys])
-            a.setShortcutContext(_wsc)
-            # Qt defaults `QAction.autoRepeat` to True, so holding a shortcut
-            # runs its handler once per OS key repeat. For a *toggle* that is a
-            # bug rather than a convenience: holding Space re-ran
-            # "Play / Pause" on every repeat, flapping playback for as long as
-            # the key was down and landing wherever the parity fell. Whether
-            # a user ever saw it depended on their keyboard repeat delay and
-            # rate, which on Windows is a per-machine Control Panel setting --
-            # hence a report of double-toggling "only on some machines".
-            #
-            # So repeat is opted into, never inherited: it stays on only where
-            # holding the key *is* the gesture (frame stepping, second jumps,
-            # plot zoom), and every toggle and one-shot action is off.
-            a.setAutoRepeat(repeatable)
-            a.triggered.connect(handler)
-            a.setProperty("av_category", category)
-            self.addAction(a)
-            self._all_actions.append(a)
-            # Remember single-character shortcuts, so a numeric field cannot
-            # silently swallow one (see `_reserve_letter_shortcut`).
-            for sequence in a.shortcuts():
-                text = sequence.toString()
-                if len(text) == 1 and text.isalpha():
-                    self._letter_shortcuts.add(text.lower())
-            return a
-
-        # ── Playback ──────────────────────────────────────────────────
-        # Space: toggle play through transport signal (duplicates Play button)
-        _act(
-            "Play / Pause",
-            "Playback",
-            lambda: self.transport.play_toggled.emit(not self.clock.state.playing),
-            Qt.Key.Key_Space,
-        )
-
-        # Frame step: emit transport signal (duplicates ◀/▶ buttons)
-        _act(
-            "Step back 1 frame",
-            "Playback",
-            lambda: self.transport.frame_step_requested.emit(-1),
-            Qt.Key.Key_Left,
-            Qt.Key.Key_Comma,
-            repeatable=True,
-        )
-        _act(
-            "Step forward 1 frame",
-            "Playback",
-            lambda: self.transport.frame_step_requested.emit(1),
-            Qt.Key.Key_Right,
-            Qt.Key.Key_Period,
-            repeatable=True,
-        )
-
-        # Jump ±1 s: emit transport signal (duplicates –1s/+1s buttons)
-        _act(
-            "Jump back 1 second",
-            "Playback",
-            lambda: self.transport.jump_requested.emit(-1.0),
-            "Shift+Left",
-            "J",
-            repeatable=True,
-        )
-        _act(
-            "Jump forward 1 second",
-            "Playback",
-            lambda: self.transport.jump_requested.emit(1.0),
-            "Shift+Right",
-            repeatable=True,
-        )
-
-        # J/K/L shuttle — J already aliased above
-        _act(
-            "Pause",
-            "Playback",
-            lambda: self.transport.play_toggled.emit(False),
-            "K",
-        )
-        _act(
-            "Step up playback rate",
-            "Playback",
-            self.transport.step_rate_up,
-            "L",
-        )
-
-        # Home/End: no transport button, call player directly
-        _act(
-            "Jump to start",
-            "Playback",
-            lambda: self.player.seek(self.clock.state.bounds[0]),
-            Qt.Key.Key_Home,
-        )
-        _act(
-            "Jump to end",
-            "Playback",
-            lambda: self.player.seek(self.clock.state.bounds[1]),
-            Qt.Key.Key_End,
-        )
-
-        # ── Marking ───────────────────────────────────────────────────
-        # A/B in/out: route through the same internal method as the transport buttons
-        # (public API — no direct call to engine privates)
-        _act(
-            "Set A/B in-point",
-            "Marking",
-            self.transport.ab_in,
-            Qt.Key.Key_BracketLeft,
-            "I",
-        )
-        _act(
-            "Set A/B out-point",
-            "Marking",
-            self.transport.ab_out,
-            Qt.Key.Key_BracketRight,
-            "O",
-        )
-        _act(
-            "Add marker at playhead",
-            "Marking",
-            self._on_annotate_requested,
-            "M",
-        )
-
-        # ── View ──────────────────────────────────────────────────────
-        # Ctrl+T: cycle theme (no menu item)
-        _act("Cycle theme", "View", self._cycle_theme, "Ctrl+T")
-
-        # Plot zoom in/out
-        _act("Plot zoom in", "View", self.plot_pane.zoom_in, "+", repeatable=True)
-        _act("Plot zoom out", "View", self.plot_pane.zoom_out, "-", repeatable=True)
-
-        # "?" as alias for F1 shortcuts dialog (StandardKey.HelpContents already on menu action)
-        _act(
-            "Keyboard shortcuts (alias)",
-            "View",
-            self._show_shortcuts,
-            "?",
+        """Build keyboard actions from explicitly supplied live components."""
+        window_shortcuts.KeyboardActions(
+            window_shortcuts.KeyboardContext(
+                owner=self,
+                actions=self._all_actions,
+                letters=self._letter_shortcuts,
+                clock=self.clock,
+                player=self.player,
+                transport=self.transport,
+                plots=self.plot_pane,
+                annotate=self._on_annotate_requested,
+                cycle_theme=self._cycle_theme,
+                show_shortcuts=self._show_shortcuts,
+            )
         )
 
     # ── Window close ─────────────────────────────────────────────────
@@ -1862,59 +1440,12 @@ class MainWindow(QMainWindow):
         return super().eventFilter(watched, event)
 
     def _reserve_playhead_key(self, event: QEvent) -> bool:
-        """Return whether this key belongs to the playhead rather than the focus widget.
-
-        Qt offers every key to the focused widget as a ShortcutOverride before
-        running a window shortcut. ``QLineEdit`` and ``QAbstractSpinBox`` accept
-        that offer for Space, the arrows, Home and End, so one click into the
-        transport's time field or the sweep-length spin box silently killed
-        every playhead binding until focus moved elsewhere.
-
-        Those keys are given back to the playhead, with one exception: a text
-        editor the user is part-way through typing into keeps its caret keys, so
-        correcting a half-entered timecode still works. Space is never returned
-        to the editor — neither a timecode nor a number contains one.
-        """
-        if not isinstance(event, QKeyEvent):
-            return False
-        key = event.key()
-        if key not in _PLAYHEAD_KEYS:
-            return False
-
-        app = QApplication.instance()
-        focus = app.focusWidget() if isinstance(app, QApplication) else None
-        if focus is None:
-            return False
-        # Never reach into a dialog: its own editors own their keys, and the
-        # window shortcuts are not active for it anyway.
-        if focus.window() is not self:
-            return False
-
-        if key != Qt.Key.Key_Space and _is_mid_edit(focus):
-            return False
-        return True
+        """Keep Qt shortcut delivery on this window's real event receiver."""
+        return window_shortcuts.reserve_playhead_key(self, event)
 
     def _reserve_letter_shortcut(self, event: QEvent) -> bool:
-        """Return whether a letter shortcut outranks the editor holding focus.
-
-        The playhead keys above are reserved unconditionally because no editor
-        we own has a use for them. Letters are different: ``J``/``K``/``L``
-        shuttle playback, but they are also perfectly ordinary text. So they are
-        only taken back from a field that would have refused them anyway — a
-        numeric spin box, or a line edit whose validator rejects the character.
-        A field that accepts letters keeps typing them.
-        """
-        if not isinstance(event, QKeyEvent):
-            return False
-        text = event.text()
-        if text.lower() not in self._letter_shortcuts:
-            return False
-
-        app = QApplication.instance()
-        focus = app.focusWidget() if isinstance(app, QApplication) else None
-        if focus is None or focus.window() is not self:
-            return False
-        return _editor_rejects_text(focus, text)
+        """Delegate focus policy with the actual registered letter shortcuts."""
+        return window_shortcuts.reserve_letter_shortcut(self, self._letter_shortcuts, event)
 
     def dropEvent(self, event: QDropEvent) -> None:
         drop_controller.drop_event(self, event)
