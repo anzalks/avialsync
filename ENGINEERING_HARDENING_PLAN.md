@@ -100,17 +100,46 @@ be reported as completed external certification.
   PyInstaller build and frozen plugin smoke for both layouts passed. No installer
   was published. The pushed SHA's native workflow result is reported separately.
 
-## Native CI result and unpublished correction
+## Native CI result
 
 The one authorized push published `17255e7`. CI run `38621380837` passed
 lint/types and documentation but failed macOS/Python 3.11 during Props-test
-teardown; matrix fail-fast cancelled the other five test jobs. CI is not green.
+teardown; matrix fail-fast cancelled the other five test jobs. That run was red.
 A queued resize refreshed a test-only `SimpleNamespace` row missing `page_t0`.
 The correction uses the real `ChannelPlot` dataclass with inert graphics and
 adds a deterministic queued-refresh regression; existing assertions remain.
-This follow-up is local and unpublished because the single push is exhausted.
-No workflow rerun or second push is authorized or performed.
+The user published correction `8f0411c`. Run `38634163208` is green: all six
+OS/interpreter test combinations, lint/types, documentation, and the Linux
+complete-core coverage gate passed. No extra workflow rerun was needed.
 
 The follow-up passes the full suites locally: 4,327 tests on Python 3.11 and
 4,328 on Python 3.12, plus the unchanged complete-core coverage gate. This is
-local validation, not a green native CI result.
+local validation; the separate native run above confirms the pushed result.
+
+## Requested UI follow-up: compact 3D controls and label visibility
+
+After CI passed, the user requested a compact, readable 3D adjustment area,
+video-style icon controls below the scene with no top band, appropriate
+reprojection/fit symbols, and an independent 3D body-part label switch.
+Files: the 3D pane and its new bounded controls component, shared glyph catalog, overlay registry,
+View action binding/application, UI/overlay regression tests, HANDOUT, this
+plan, DECISIONS, and the user guide. No dependencies or workflow changes.
+
+Validation: actual mouse/keyboard popup interaction at narrow widths and larger
+fonts, shared video glyph/style assertions, unchanged pane-resize policies,
+numeric diameter and line/tube consistency, rendering with labels hidden,
+independent undo/redo and session persistence, full supported-interpreter suites,
+strict core/package typing, lint/format, warnings-as-errors docs, and the existing
+3D workload benchmarks. Risks are clipped controls, changed navigation,
+native popup lifecycle, and divergence between menu, saved state, and pixels.
+Local verification passed: 4,343 Python 3.12 tests and 4,342 Python 3.11 tests;
+all 9,003 core lines and 2,500 branches remain covered (89.23% overall).
+Both interpreters pass strict core/package typing and warnings-as-errors docs;
+Ruff lint/format and 171 focused UI/architecture checks pass. Ten native popup
+checks and the native label/action check pass. The three existing 3D benchmarks
+pass: cursor 0.237 ms, prepared installation 0.295 ms, skeleton detection
+4.768 ms means. Native previews show all tools below the scene and complete
+popup text. No performance budget or existing assertion was weakened.
+
+The UI follow-up remains unpublished under the original one-push limit;
+the green hosted result above covers `8f0411c`, not this new local change.

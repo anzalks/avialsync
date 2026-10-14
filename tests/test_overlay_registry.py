@@ -36,6 +36,7 @@ EXPECTED_INVENTORY = {
     "tracking.wheel_hidden",
     "tracking.props",
     "tracking.reprojection",
+    "tracking.3d_point_labels",
     "tracking.edit_handles",
     "camera.name",
     "camera.osd",
@@ -308,3 +309,41 @@ def test_turning_body_part_names_on_reaches_a_pane(window: MainWindow) -> None:
 
     assert window._overlay_actions["tracking.point_labels"].isChecked() is True
     assert window.overlay_state.visibility_for("camera.mp4")["tracking.point_labels"] is True
+
+
+def test_3d_labels_follow_the_action_and_undo_independently_of_video(
+    window: MainWindow, qtbot
+) -> None:
+    """The display panel follows the registered, session-persisted command."""
+    overlay_id = "tracking.3d_point_labels"
+    canvas = window.tracking_3d_pane.canvas
+    checkbox = window.tracking_3d_pane.point_labels_checkbox
+    action = window._overlay_actions[overlay_id]
+    assert action.isChecked()
+    assert canvas.point_labels_visible
+    assert checkbox.isChecked()
+    assert checkbox.text() == action.text()
+    window.tracking_3d_pane.display_button.click()
+    qtbot.waitUntil(window.tracking_3d_pane.display_popup.isVisible)
+    assert checkbox.isVisible() and checkbox.isEnabled()
+    checkbox.click()
+    assert not canvas.point_labels_visible
+    assert not checkbox.isChecked()
+    assert not window.overlay_state.is_visible("tracking.point_labels")
+    assert window.overlay_state.to_dict()["global"][overlay_id] is False
+    assert window.document.is_dirty
+    window.document.undo(window._mutations)
+    assert canvas.point_labels_visible
+    assert checkbox.isChecked()
+    window.document.redo(window._mutations)
+    assert not canvas.point_labels_visible
+    assert not checkbox.isChecked()
+    restored = OverlayState()
+    saved = SessionState(overlays=window.overlay_state.to_dict()).to_dict()
+    restored.load(SessionState.from_dict(saved).overlays)
+    assert not restored.is_visible(overlay_id)
+    assert layer_for(overlay_id).per_camera is False
+    window.overlay_state.load(restored.to_dict())
+    window._apply_overlay_state()
+    assert not canvas.point_labels_visible
+    assert not checkbox.isChecked()

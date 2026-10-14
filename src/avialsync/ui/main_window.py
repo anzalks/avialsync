@@ -1711,12 +1711,9 @@ class MainWindow(QMainWindow):
 
     def _apply_overlay_state(self) -> None:
         """Push resolved visibility to every pane and re-check the menu."""
-        self.video_grid.set_overlay_visibility(self.overlay_state.visibility_for)
-        # Unblocked, so a button or check box following an action (the 3D pane's
-        # reprojection, the Props Wheel page's switches) hears an undo too. The
-        # echo is harmless: _on_overlay_toggled ignores a state already held.
-        for overlay_id, action in getattr(self, "_overlay_actions", {}).items():
-            action.setChecked(self.overlay_state.is_visible(overlay_id))
+        from avialsync.ui.menus.view import apply_overlay_state
+
+        apply_overlay_state(self)
 
     # ── Fix Tracker: correcting a predicted point by hand ────
 

@@ -420,6 +420,44 @@ def test_bone_thickness_keeps_detected_bones_dashed(qtbot, tmp_path: Path, monke
     assert not calls
 
 
+def test_3d_labels_can_be_hidden_without_hiding_points(qtbot, tmp_path: Path, monkeypatch) -> None:
+    """The same label choice reaches both widget and snapshot scene rendering."""
+    pane = Tracking3DPane()
+    qtbot.addWidget(pane)
+    pane.set_readers(_tracking_readers(tmp_path / "label_cache"))
+    pane.set_cursor(0.5)
+    texts: list[str] = []
+    points: list[tuple[object, ...]] = []
+    original_text = QPainter.drawText
+    original_ellipse = QPainter.drawEllipse
+
+    def draw_text(painter, *args):
+        texts.append(str(args[-1]))
+        return original_text(painter, *args)
+
+    def draw_ellipse(painter, *args):
+        points.append(args)
+        return original_ellipse(painter, *args)
+
+    monkeypatch.setattr(QPainter, "drawText", draw_text)
+    monkeypatch.setattr(QPainter, "drawEllipse", draw_ellipse)
+    for visible in (True, False, True):
+        pane.canvas.set_point_labels_visible(visible)
+        texts.clear()
+        points.clear()
+        image = QImage(400, 300, QImage.Format.Format_ARGB32_Premultiplied)
+        painter = QPainter(image)
+        try:
+            pane.canvas.render_scene(painter, 400, 300)
+        finally:
+            painter.end()
+        assert {"nose", "tail"}.issubset(texts) is visible
+        if not visible:
+            assert not {"nose", "tail"}.intersection(texts)
+        assert len(points) == 2
+        assert pane.canvas.point_count == 2
+
+
 def test_declared_names_resolve_through_a_loader_prefix(qtbot, tmp_path: Path) -> None:
     """A body part the cache kept prefixed still gets its declared bone drawn."""
     pane = Tracking3DPane()

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QEvent, QPoint, QPointF, QRect, QRectF, QSize, Qt
+from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt
 from PySide6.QtGui import (
     QAccessible,
     QAction,
@@ -23,12 +23,7 @@ from PySide6.QtGui import (
     QWheelEvent,
 )
 from PySide6.QtWidgets import (
-    QComboBox,
-    QDoubleSpinBox,
     QGridLayout,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
     QScrollArea,
     QSizePolicy,
     QVBoxLayout,
@@ -41,12 +36,12 @@ from avialsync.core.pose import split_channel
 from avialsync.core.skeleton import SkeletonEstimate, frame_budget, infer_skeleton
 from avialsync.core.timeline import TimeMap
 from avialsync.ui.accessible_views import register_painted
-from avialsync.ui.action_button import ActionButton
 from avialsync.ui.cylinder_paint import draw_cylinders
-from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 from avialsync.ui.label_layout import LabelLayout
+from avialsync.ui.overlay_registry import default_visible_for
 from avialsync.ui.theme import neutral_on_canvas
+from avialsync.ui.tracking_3d_controls import Tracking3DControls
 from avialsync.ui.tracking_colors import color_for_point, register_points
 from avialsync.ui.tracking_skeleton import (
     BoneMode,
@@ -401,6 +396,7 @@ class Tracking3DCanvas(QWidget):
         #: Diameter of declared bones in the calibration's coordinate units.
         #: Zero retains the lightweight line representation.
         self._bone_thickness = 0.0
+        self._point_labels_visible = default_visible_for("tracking.3d_point_labels")
 
         # Which world axis renders upward. Z-up is the neutral default; loading
         # data with recognisable head/foot landmarks re-orients it.
@@ -634,6 +630,17 @@ class Tracking3DCanvas(QWidget):
     def skeleton_is_derived(self) -> bool:
         """Whether the drawn skeleton came from geometry rather than the data."""
         return self._skeleton_is_derived
+
+    @property
+    def point_labels_visible(self) -> bool:
+        """Whether tracked body-part names are drawn in this scene."""
+        return self._point_labels_visible
+
+    def set_point_labels_visible(self, visible: bool) -> None:
+        """Apply the registered 3D label layer to widget and snapshot rendering."""
+        if self._point_labels_visible != visible:
+            self._point_labels_visible = visible
+            self.update()
 
     @property
     def bone_thickness(self) -> float:
@@ -888,7 +895,7 @@ class Tracking3DCanvas(QWidget):
             painter.setPen(outline)
             painter.setBrush(_qcolor(color))
             painter.drawEllipse(QPoint(round(float(x)), round(float(y))), 5, 5)
-            if len(valid_indices) <= _MAX_LABELS:
+            if self._point_labels_visible and len(valid_indices) <= _MAX_LABELS:
                 painter.setPen(label_color)
                 painter.drawText(round(float(x)) + 7, round(float(y)) - 5, self._names[point_index])
 
@@ -1287,14 +1294,36 @@ def _qcolor(rgb: tuple[int, int, int]) -> QColor:
     return QColor(*rgb)
 
 
-class _HeaderScrollArea(QScrollArea):
-    """Keep the whole control row tall enough when its horizontal bar appears."""
+class _ControlsScrollArea(QScrollArea):
+    """Track control height and reserve scrollbar space only when needed."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.horizontalScrollBar().rangeChanged.connect(self._on_scroll_range_changed)
+
+    def _on_scroll_range_changed(self, _minimum: int, _maximum: int) -> None:
+        self.updateGeometry()
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        handled = super().eventFilter(watched, event)
+        if watched is self.widget() and event.type() in (
+            QEvent.Type.LayoutRequest,
+            QEvent.Type.FontChange,
+            QEvent.Type.StyleChange,
+        ):
+            # QScrollArea observes its content but does not forward a changed
+            # height hint to the outer layout after fonts or actions change.
+            self.updateGeometry()
+        return handled
 
     def sizeHint(self) -> QSize:
         content = self.widget()
         if content is None:
             return super().sizeHint()
-        height = content.sizeHint().height() + self.horizontalScrollBar().sizeHint().height()
+        height = content.sizeHint().height()
+        scrollbar = self.horizontalScrollBar()
+        if scrollbar.maximum() > 0:
+            height += scrollbar.sizeHint().height()
         return QSize(0, height)
 
     def minimumSizeHint(self) -> QSize:
@@ -1315,97 +1344,29 @@ class Tracking3DPane(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        header = QWidget(self)
-        header_layout = QGridLayout(header)
-        header_layout.setContentsMargins(spacing("m"), spacing("s"), spacing("m"), spacing("s"))
-        header_layout.setHorizontalSpacing(spacing("s"))
-        header_layout.setVerticalSpacing(spacing("xs"))
-        self.title_label = QLabel(tr("3D Tracking"), header)
-        self.status_label = QLabel(tr("No XYZ tracking channels"), header)
-        self.status_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        self.status_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-        self.up_axis_combo = QComboBox(header)
-        self.up_axis_combo.setAccessibleName(tr("Vertical axis"))
-        self.up_axis_combo.setToolTip(
-            tr(
-                "Which source axis points up. Detected from head/foot landmarks on load; "
-                "choose one here to override it."
-            )
-        )
-        for label, axis, inverted in (
-            ("Up: X", 0, False),
-            ("Up: -X", 0, True),
-            ("Up: Y", 1, False),
-            ("Up: -Y", 1, True),
-            ("Up: Z", 2, False),
-            ("Up: -Z", 2, True),
-        ):
-            self.up_axis_combo.addItem(label, (axis, inverted))
+        header = Tracking3DControls(_MAX_BONE_THICKNESS, self)
+        self.title_label = header.title_label
+        self.status_label = header.status_label
+        self.up_axis_combo = header.up_axis_combo
+        self.bone_combo = header.bone_combo
+        self.bone_style_combo = header.bone_style_combo
+        self.bone_thickness = header.bone_thickness
+        self.display_button = header.display_button
+        self.display_popup = header.display_popup
+        self.point_labels_checkbox = header.point_labels_checkbox
+        self.fit_button = header.fit_button
+        self.reprojection_button = header.reprojection_button
         self.up_axis_combo.activated.connect(self._on_up_axis_selected)
-        self.bone_combo = QComboBox(header)
-        self.bone_combo.setAccessibleName(tr("Skeleton"))
-        self.bone_combo.setToolTip(
-            tr(
-                "Which skeleton to draw. Auto uses the one the session declared and "
-                "falls back to bones detected from how rigidly the points hold "
-                "together; Detected always uses the detected one, drawn dashed."
-            )
-        )
-        for label, mode in (
-            ("Bones: Auto", BoneMode.AUTO),
-            ("Bones: Detected", BoneMode.DETECTED),
-            ("Bones: Off", BoneMode.OFF),
-        ):
-            self.bone_combo.addItem(label, mode)
         self.bone_combo.activated.connect(self._on_bone_mode_selected)
-        self.bone_thickness = QDoubleSpinBox(header)
-        self.bone_thickness.setRange(0.0, _MAX_BONE_THICKNESS)
-        self.bone_thickness.setDecimals(3)
-        self.bone_thickness.setSingleStep(0.1)
-        self.bone_thickness.setKeyboardTracking(False)
-        self.bone_thickness.setPrefix(tr("Thickness "))
-        self.bone_thickness.setSuffix(tr(" calibration units"))
-        self.bone_thickness.setSpecialValueText(tr("Lines"))
-        self.bone_thickness.setAccessibleName(tr("Bone thickness"))
-        self.bone_thickness.setAccessibleDescription(
-            tr(
-                "Draw session-declared bones as shaded cylinders with this diameter in the "
-                "calibration's 3D coordinate units. Match the unit used by physical props, "
-                "usually millimetres. Detected bones stay dashed."
-            )
-        )
-        self.bone_thickness.setToolTip(self.bone_thickness.accessibleDescription())
         self.bone_thickness.valueChanged.connect(self._on_bone_thickness_changed)
-        self.fit_button = QPushButton(tr("Fit View"), header)
-        self.fit_button.setToolTip(tr("Fit the 3D camera to the current tracked pose"))
         self.fit_button.clicked.connect(self._fit_view)
-        # Title and status share the first row: a third header row was the
-        # height that pushed the window's minimum past a 640x480 display.
-        title_row = QHBoxLayout()
-        title_row.setSpacing(spacing("m", self))
-        title_row.addWidget(self.title_label)
-        title_row.addWidget(self.status_label, 1)
-        header_layout.addLayout(title_row, 0, 0)
-        header_layout.addWidget(self.up_axis_combo, 1, 0)
-        header_layout.addWidget(self.bone_combo, 1, 1)
-        header_layout.addWidget(self.bone_thickness, 1, 2)
-        header_layout.addWidget(self.fit_button, 1, 3)
-        # Filled by install_reprojection_action with the View -> Overlays
-        # action, so the button and the menu entry are one command.
-        # Beside the title: it is about the videos, not about this view.
-        self.reprojection_button = ActionButton(header)
-        self.reprojection_button.hide()
-        # Spanning the two columns the Bones and Fit View controls already hold:
-        # alone in the last column, its label set that column's width and the
-        # pane's minimum grew past one video column (test_ui_layout_resize).
-        header_layout.addWidget(self.reprojection_button, 0, 1, 1, 3)
-        header_layout.setColumnStretch(0, 1)
-        header_layout.setColumnStretch(1, 1)
 
-        # On a narrow display the camera controls cannot dictate the width of
+        # On a narrow display the view controls cannot dictate the width of
         # the whole media splitter. Keep them at a usable size and let the
         # header scroll sideways instead of squeezing the video pane to zero.
-        self.header_scroll = _HeaderScrollArea(self)
+        self.header_scroll = _ControlsScrollArea(self)
+        # Keep the existing attribute for callers; both name the one footer.
+        self.controls_scroll = self.header_scroll
         self.header_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.header_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.header_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -1417,16 +1378,21 @@ class Tracking3DPane(QWidget):
         )
 
         self.canvas = Tracking3DCanvas(self)
-        layout.addWidget(self.header_scroll)
         layout.addWidget(self.canvas, 1)
+        layout.addWidget(self.controls_scroll)
 
     def install_reprojection_action(self, action: QAction) -> None:
         """Show the 3D -> 2D reprojection toggle, driven by its overlay action."""
         self.reprojection_button.set_action(action)
+        self.reprojection_button.set_icon_only("reproject")
         self.reprojection_button.setAccessibleDescription(
             tr("Project the 3D points back onto every camera through the calibration")
         )
         self.reprojection_button.show()
+
+    def install_point_labels_action(self, action: QAction) -> None:
+        """Bind the 3D label switch to the existing overlay command and its undo."""
+        self.point_labels_checkbox.set_action(action)
 
     def set_readers(self, readers: list[MappedChannelReader]) -> None:
         """Use complete XYZ channel triplets from the active cached readers."""
@@ -1533,7 +1499,7 @@ class Tracking3DPane(QWidget):
         self._refresh_status()
 
     def _on_bone_mode_selected(self, index: int) -> None:
-        """Apply the skeleton mode the user chose in the header."""
+        """Apply the skeleton mode the user chose in the display panel."""
         mode = self.bone_combo.itemData(index)
         if mode is None:
             return
@@ -1541,7 +1507,7 @@ class Tracking3DPane(QWidget):
         self._refresh_status()
 
     def _on_bone_thickness_changed(self, diameter: float) -> None:
-        """Apply the visual diameter selected in the 3D-view header."""
+        """Apply the visual diameter selected in the 3D display panel."""
         self.canvas.set_bone_thickness(diameter)
 
     def set_cursor(self, t_master: float) -> None:

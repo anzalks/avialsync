@@ -7561,3 +7561,34 @@ cover that library behavior, in addition to the injected-layout tests.
 **Alternatives rejected.** Raising the resize ceiling, calibrating on a no-op,
 warming away the first real resize, disabling all ViewBox signals, unlinking
 rows, or synchronizing through a second duration authority.
+
+## 2026-10 · D-237 · 3D controls share video styling and expose a separate label layer
+
+**Decision.** All 3D controls sit below the scene, aligned with the video tools;
+there is no top header band. The bottom row uses the existing video-toolbar
+glyph helpers for Display, reprojection, and Fit View, with a cube-to-flat-frame
+reprojection symbol and inward focus arrows distinct from fullscreen. Display
+opens a native popup frame like camera levels, with separate skeleton, drawing, thickness,
+and unit fields. Thickness is numeric; zero still means lines and positive
+diameters still mean shaded tubes. The Lines/Tubes selector follows that value
+and remembers the last positive diameter for returning to tubes. Detected
+bones remain dashed. Popup widgets inherit the selected font and palette.
+
+The registered `tracking.3d_point_labels` layer controls tracked body-part
+names in both the 3D widget and snapshots. It defaults on to preserve the
+existing view, supports no per-camera override, and is independent of video
+body-part names. The Display checkbox follows its live View → Overlays action;
+the existing command bus supplies undo, dirty state, and session persistence.
+
+**Why.** A thickness spin box carrying its label, value, and unit suffix made
+the controls too wide to inspect without resizing. Its zero-value text also hid
+the drawing-mode choice in a numeric field. Moving appearance into a labeled
+popup keeps view commands visible and leaves more space for the scene. A
+QScrollArea does not forward a changed content height hint after font/layout
+changes; the footer now forwards those events and reserves scrollbar height
+only when the compact row actually needs it.
+
+**Alternatives rejected.** A different tool-button style for the 3D pane,
+restyling controls through QSS, interactive QWidgetAction menus with native
+disabled/sizing problems, top control rows, and coupling 3D labels to the
+video label preference.

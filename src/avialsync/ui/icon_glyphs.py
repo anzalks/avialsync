@@ -43,6 +43,13 @@ GLYPHS: dict[str, str] = {
     "zoom-out": '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/>'
     '<path d="M7.5 10.5h6"/>',
     "fit": '<path d="M4 9V4h5"/><path d="M15 4h5v5"/><path d="M20 15v5h-5"/><path d="M9 20H4v-5"/>',
+    # Inward arrows focus the scene; distinct from expanding to fullscreen.
+    "fit-view": '<circle cx="12" cy="12" r="2"/><path d="M12 2v5l-3-3m3 3 3-3"/>'
+    '<path d="M12 22v-5l-3 3m3-3 3 3"/><path d="M2 12h5l-3-3m3 3-3 3"/>'
+    '<path d="M22 12h-5l3-3m-3 3 3 3"/>',
+    # A spatial cube mapped into a flat frame, rather than a video camera.
+    "reproject": '<path d="M2 5l5-3 5 3v6l-5 3-5-3z"/><path d="M2 5l5 3 5-3M7 8v6"/>'
+    '<rect x="14" y="14" width="8" height="8" rx="1"/><path d="M16 5l5 6m-5 0h5V6"/>',
     "fullscreen": '<path d="M4 9V4h5"/><path d="M4 4l6 6"/><path d="M20 15v5h-5"/>'
     '<path d="M20 20l-6-6"/>',
     # Half-filled disc: the display's black-to-white range, as photo editors draw it.

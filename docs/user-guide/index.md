@@ -316,7 +316,8 @@ Accepted corrections and identity swaps are built into derived cache channels so
 
 Tracking files use the existing import path. Every complete channel triplet named `point_x`,
 `point_y`, and `point_z` becomes one point in the 3D pane; incomplete triplets remain ordinary
-time-series plots. The 3D pane does not guess connections between points.
+time-series plots. A session's declared skeleton takes precedence; detected connections are
+drawn dashed so they remain distinguishable.
 
 When importing a tracking file directly, choose **Use as → 3D pose** to load its XYZ points as
 pose data, or choose **2D pose on [camera]** to draw XY points over that video. **Data channels**
@@ -335,13 +336,21 @@ in the session.
 
 - Drag with the left mouse button to orbit.
 - Use the mouse wheel to zoom.
-- Select **Fit View**, or double-click the view, to frame the current pose again.
-- Use **Thickness** to draw session-declared bones as shaded cylinders. Enter a diameter in the
-  calibration's 3D coordinate units—normally mm—and match the unit used for physical props.
+- Select the **Fit View** inward-arrow icon, or double-click the view, to frame the current
+  pose again. All controls sit below the scene, aligned with the video tools, and use the same
+  icon style; hover for each command's name. Reprojection uses a cube-to-flat-frame icon.
+- Select the **Display** sliders icon to open the display controls. **Skeleton** chooses Auto,
+  Detected, or Off. **Drawing** chooses Lines or Tubes; tubes use the numeric **Thickness** as
+  their diameter in the calibration's 3D coordinate units. Use the same units as physical props.
   Detected bones remain dashed so they cannot be mistaken for anatomy declared by the recording.
+  Switching back to Tubes restores the last positive thickness entered.
+- Toggle **3D body-part names** in Display or **View → Overlays** to show or hide tracked point
+  labels in the 3D view and snapshots. This choice is undoable and saved in the session; video
+  body-part labels have their own independent switch.
 
-On a narrow window, scroll the 3D controls sideways to reach the axis, bones, thickness, and Fit
-View controls.
+Display opens a small floating panel, so its options do not require enlarging the 3D pane.
+On very narrow panes the compact bottom toolbar can still scroll sideways;
+clicking elsewhere or pressing Escape closes the display panel.
 
 ## Placing a 3D marker
 
@@ -378,7 +387,7 @@ calibration never takes the name of a file already there.
 
 ### Checking the 3D pose against the video
 
-**View → Overlays → 3D reprojection** (also the button in the 3D pane's header) projects every 3D
+**View → Overlays → 3D reprojection** (also the button below the 3D scene) projects every 3D
 point back into each camera as a **cross**, beside the 2D tracking's dot: the gap between the two is
 the reconstruction's error on that body part. Switching it on without a calibration does not stop
 you; a message offers **Choose Calibration…**.

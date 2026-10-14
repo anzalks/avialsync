@@ -154,6 +154,14 @@ OVERLAY_LAYERS: tuple[OverlayLayer, ...] = (
         ),
     ),
     OverlayLayer(
+        overlay_id="tracking.3d_point_labels",
+        label=tr("3D body-part names"),
+        group=tr("3D view"),
+        default_visible=True,
+        per_camera=False,
+        description=tr("Body-part names beside tracked points in the 3D view and its snapshots."),
+    ),
+    OverlayLayer(
         overlay_id="camera.name",
         label="Camera name",
         group="Camera chrome",

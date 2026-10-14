@@ -18,6 +18,18 @@ if TYPE_CHECKING:
 Register = Callable[[QAction, str], QAction]
 
 
+def apply_overlay_state(window: MainWindow) -> None:
+    """Push registered visibility to video, 3D, and live action followers."""
+    window.video_grid.set_overlay_visibility(window.overlay_state.visibility_for)
+    window.tracking_3d_pane.canvas.set_point_labels_visible(
+        window.overlay_state.is_visible("tracking.3d_point_labels")
+    )
+    # Action followers must hear undo as well as clicks. The toggled echo is
+    # harmless: _on_overlay_toggled ignores visibility already held.
+    for overlay_id, action in getattr(window, "_overlay_actions", {}).items():
+        action.setChecked(window.overlay_state.is_visible(overlay_id))
+
+
 def build_view_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMenu:
     """Create View actions without duplicating their QAction identity."""
     view_menu = menu.addMenu(tr("View"))
@@ -82,6 +94,9 @@ def _view_overlays(window: MainWindow, view_menu: QMenu, _reg: Register) -> None
     window._build_overlays_menu(_reg)
     window.tracking_3d_pane.install_reprojection_action(
         window._overlay_actions[calibration_controller.REPROJECTION_OVERLAY]
+    )
+    window.tracking_3d_pane.install_point_labels_action(
+        window._overlay_actions["tracking.3d_point_labels"]
     )
     window.wheel_tab.install_overlay_actions(
         window._overlay_actions["tracking.wheel"], window._overlay_actions["tracking.wheel_hidden"]
