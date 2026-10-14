@@ -13,8 +13,10 @@ from typing import Any
 
 import numpy as np
 
+from avialsync.core.cache_leases import GenerationPin, pin_published_reader
 from avialsync.core.channel_store import level_stem, read_level, safe_save, write_times
 from avialsync.core.columns import RegularTimes, ScaledColumn, fit_regular, no_gaps
+from avialsync.core.errors import CacheError
 from avialsync.core.trials import GAP_FACTOR
 
 LEVELS = [1, 16, 256, 4096]
@@ -475,6 +477,21 @@ class PyramidReader:
         # level loaded from a directory `reopen` has just replaced out of the
         # cache, where it would serve the old generation from then on.
         self._lock = threading.Lock()
+        self._closed = False
+        self._pin: GenerationPin | None = None
+        self._pin = pin_published_reader(cache_dir)
+
+    def close(self) -> None:
+        """Release cached arrays and their generation after consumers finish."""
+        with self._lock:
+            self._arrays.clear()
+            self._closed = True
+            pin, self._pin = self._pin, None
+        if pin is not None:
+            pin.close()
+
+    def __del__(self) -> None:
+        self.close()
 
     def reopen(self, cache_dir: Path) -> None:
         """Read this channel from *cache_dir* from now on.
@@ -490,23 +507,35 @@ class PyramidReader:
         cannot.
         """
         with self._lock:
-            if cache_dir == self.cache_dir:
+            if cache_dir == self.cache_dir and not self._closed:
                 return
+            pin = pin_published_reader(cache_dir)
+            previous, self._pin = self._pin, pin
             self.cache_dir = cache_dir
             self._arrays.clear()
+            self._closed = False
+        if previous is not None:
+            previous.close()
 
     def _load_level(self, level: int) -> tuple[Any, Any, Any, np.ndarray]:
         key = f"{self.channel_id}_{level}"
         with self._lock:
+            if self._closed:
+                raise CacheError("The cached reader is closed")
             cached = self._arrays.get(key)
             cache_dir = self.cache_dir
         if cached is not None:
             return cached
         # Opened outside the lock: a cold mmap open must not hold up a reader
         # on another thread that only wants a level already loaded.
-        loaded = read_level(cache_dir, self.channel_id, level)
+        pin = pin_published_reader(cache_dir)
+        try:
+            loaded = read_level(cache_dir, self.channel_id, level)
+        finally:
+            if pin is not None:
+                pin.close()
         with self._lock:
-            if self.cache_dir == cache_dir:
+            if not self._closed and self.cache_dir == cache_dir:
                 return self._arrays.setdefault(key, loaded)
         # Replaced while loading. This read is already obsolete -- the caller's
         # page or sample is superseded by the change that replaced it -- but it

@@ -398,6 +398,8 @@ def on_import_finished(
 
     if isinstance(inspection, SourceInspection):
         window._inspections[path] = inspection
+        if role:
+            inspection.release_cache_pin()
         window.sidebar.set_sensor_inspection(path, inspection)
         window.refresh_alignment_badges()
         # Messages arrive in source time, so the mapping goes in first: setting

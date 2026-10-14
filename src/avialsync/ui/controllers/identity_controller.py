@@ -277,13 +277,16 @@ def refresh(window: MainWindow, source_id: str) -> None:
         return
 
     program = program_for(window, source_id)
-    ready = edit_cache.load(cache, program.fingerprint)
-    if ready is not None or not program:
+    if not program:
+        # Undo to the already-owned base needs neither parsing nor discovery.
         _adopt_generation(
             window,
             source_id,
-            ready or edit_cache.EditedCache(fingerprint=program.fingerprint, directory=cache),
+            edit_cache.EditedCache(fingerprint=program.fingerprint, directory=cache),
         )
+        return
+    owned = edited_cache(window, source_id)
+    if owned is not None and owned.fingerprint == program.fingerprint:
         return
 
     worker = MaterialiseWorker(source_id, cache, program, schema)
@@ -324,6 +327,15 @@ def _adopt_generation(window: MainWindow, source_id: str, edited: edit_cache.Edi
     finish in whatever order the disk allows -- adopting each as it arrives
     would let a slow job for two edits ago decide what the overlay shows.
     """
+    try:
+        _install_generation(window, source_id, edited)
+    finally:
+        if edited.cache_pin is not None:
+            edited.cache_pin.close()
+
+
+def _install_generation(window: MainWindow, source_id: str, edited: edit_cache.EditedCache) -> None:
+    """Install a current worker result while its delivery lease is retained."""
     if edited.fingerprint != program_for(window, source_id).fingerprint:
         logger.debug(
             "Dropping a superseded edited generation for %s (%s).", source_id, edited.fingerprint

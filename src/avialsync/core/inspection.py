@@ -6,7 +6,10 @@ No PySide6 imports: ``core/`` is headless.
 from __future__ import annotations
 
 import dataclasses
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from avialsync.core.cache_leases import GenerationPin
 
 from avialsync.core.messages import Message
 from avialsync.core.pose import PoseSchema
@@ -159,6 +162,14 @@ class SourceInspection:
     #: (``ChannelInfo.trigger`` / ``trigger_for``). ``None`` when the manifest
     #: predates the field.
     channel_triggers: dict[str, tuple[str, str]] | None = None
+    #: Transient worker-to-UI ownership, omitted from manifests and sessions.
+    cache_pin: GenerationPin | None = dataclasses.field(default=None, repr=False, compare=False)
+
+    def release_cache_pin(self) -> None:
+        """Release the delivery lease once live readers own this generation."""
+        pin, self.cache_pin = self.cache_pin, None
+        if pin is not None:
+            pin.close()
 
     def units(self) -> dict[str, str]:
         """Each channel's unit: the loader's, overridden by any the import set."""

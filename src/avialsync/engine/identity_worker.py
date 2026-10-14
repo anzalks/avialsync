@@ -21,7 +21,9 @@ import numpy as np
 from PySide6.QtCore import QObject, Signal, Slot
 
 from avialsync.core import edit_cache, identity_detect
+from avialsync.core.cache_leases import pin_reader_directory
 from avialsync.core.edit_program import EditProgram
+from avialsync.core.errors import CacheError
 from avialsync.core.identity_detect import Candidate, Trajectory
 from avialsync.core.pose import PoseSchema
 from avialsync.core.pyramid import PyramidReader
@@ -57,6 +59,10 @@ class MaterialiseWorker(QObject):
     def run(self) -> None:
         try:
             edited = edit_cache.materialise(self._cache_dir, self._program, self._schema)
+            pin = pin_reader_directory(edited.directory)
+            if pin is None:
+                raise CacheError("The edited cache is in use; retry the edit")
+            edited = dataclasses.replace(edited, cache_pin=pin)
         except Exception as error:  # noqa: BLE001 - reported, never swallowed
             logger.warning("Could not build the edited tracker", exc_info=error)
             self.error.emit(str(error))

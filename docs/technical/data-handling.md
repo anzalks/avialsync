@@ -152,6 +152,13 @@ sentinel values are counted in the import report; the original input stays untou
 
 ## Sessions and provenance
 
+Published cached readers hold shared generation leases; rebuilding and eviction
+require an exclusive lease. The leases coordinate separate AvialSync processes
+and never wait for another owner. An entry still in use is kept and reported.
+Active import stages are protected until their manager commits or closes them.
+Coordination files remain in the cache root's `.leases/`; deleting those files
+while another instance runs would invalidate that coordination.
+
 A `.avv` session stores references to sources, visual layout, offsets/drift, annotations, and accepted
 synchronization provenance. It does not copy or alter the original recordings. Local window geometry
 and presentation preferences remain local to each user — named workspace layouts likewise, because a

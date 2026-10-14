@@ -44,9 +44,9 @@ from avialsync.core.cache_leases import (
     _PIN_LOCK,
     _PINNED,
     GenerationPin,
-    cache_entry_mutating,
     pin_reader_directory,
     pinned_cache_entries,
+    reserve_edited_generation,
 )
 from avialsync.core.edit_program import EditProgram
 from avialsync.core.pose import PosePoint, PoseSchema
@@ -96,6 +96,8 @@ class EditedCache:
     directory: Path
     #: The channels this generation holds.  Everything else reads the original.
     channels: frozenset[str] = frozenset()
+    #: Transient result ownership prepared by a worker, excluded from identity.
+    cache_pin: GenerationPin | None = dataclasses.field(default=None, repr=False, compare=False)
 
     def __bool__(self) -> bool:
         return bool(self.channels)
@@ -380,8 +382,8 @@ def prune(cache_dir: Path, keep: Iterable[str], generations: int = KEEP_GENERATI
     others.sort(key=lambda entry: entry.stat().st_mtime_ns, reverse=True)
     removed: list[str] = []
     for entry in others[max(0, generations - len(kept)) :]:
-        with _PIN_LOCK:
-            if entry.absolute() in _PINNED or cache_entry_mutating(cache_dir):
+        with reserve_edited_generation(entry) as reserved:
+            if not reserved:
                 continue
             renamed = root / f"{_TEMP_PREFIX}prune-{uuid.uuid4().hex}"
             try:
@@ -389,8 +391,8 @@ def prune(cache_dir: Path, keep: Iterable[str], generations: int = KEEP_GENERATI
             except OSError:
                 logger.warning("Could not retire edited generation %s", entry, exc_info=True)
                 continue
-        _remove_generation(renamed)
-        removed.append(entry.name)
+            _remove_generation(renamed)
+            removed.append(entry.name)
     return removed
 
 

@@ -7375,3 +7375,32 @@ reused, with its limited sampling strength named rather than overstated.
 **Alternatives rejected.** Inferring a mapping from two scalar parameters,
 serializing million-frame evidence on the UI thread, or inventing confidence
 when no accepted evidence exists.
+
+## 2026-10 · D-230 · Cache generations have cooperative ownership across processes
+
+**Decision.** Reader pins hold shared OS leases and replacement/eviction holds
+an exclusive lease, acquired without waiting. POSIX uses flock; Windows uses
+LockFileEx with explicit shared/exclusive and immediate flags. One process shares
+its base-entry lease across readers and edited generations. Published pyramid
+readers retain their generation, and managers retain ownership of active stages.
+Edited readers also share a generation-specific lease; pruning takes that lease
+exclusively while retaining a shared base lease. Unrelated live readers can
+therefore coexist with pruning without allowing a base replacement underneath it.
+Workers lease emitted import/materialisation results. UI readers clone that
+ownership without filesystem calls, and delivery pins are explicitly released
+after adoption or abandonment. Cached-generation discovery stays on the worker;
+undo to the original uses the base generation already owned by live readers.
+
+Coordination files remain under the cache root, outside source entries, and are
+never unlinked by cache eviction. Their stable inode/handle is the authority;
+the OS releases abandoned leases after process exit. Authored files and source
+recordings are neither locked nor written. No dependency is added.
+
+**Why.** Thread-local reservations let a second application replace or evict
+an entry the first was still reading. Active stages were also removable while
+their import ran. Nonblocking leases preserve the prior valid generation and
+the existing informational "in use" outcome rather than waiting on the UI.
+
+**Alternatives rejected.** PID files with stale-owner guesses, deleting lock
+files during cleanup, blocking acquisition, or treating a process-local lock
+as cross-process ownership.

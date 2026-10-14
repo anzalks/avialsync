@@ -952,6 +952,35 @@ scheme is named explicitly; it is not a whole-file checksum. CSV blocks name
 their source id, and Parquet source values use that id. Data exports snapshot
 accepted synchronization records, including raw matches and precision facts.
 
+### Cache leases protect other application processes (D-230)
+
+`ImportWorker` and `MaterialiseWorker` acquire delivery pins before emitting
+their result. `SourceInspection.cache_pin` and `EditedCache.cache_pin` are
+transient ownership, omitted from persisted metadata and equality. Constructing
+UI readers clones an existing pin entirely in memory. Plot completion, pose
+registration, source removal and shutdown release import delivery pins;
+generation adoption releases edited delivery pins even for a stale result.
+Cached edited generations are discovered on the materialisation worker; undo
+to the already-owned original remains immediate. Never acquire a new native
+lease from a UI reader-construction path.
+
+`core/cache_process_lock.py` uses nonblocking shared/exclusive OS locks, without
+a dependency or an OS installation step. Coordination files live in the cache
+root's `.leases/`, outside source entries. Never unlink them during eviction:
+another process could lock a new inode while a reader still holds the old one.
+
+`GenerationPin` shares one OS lease per base entry in this process; edited
+generations protect the same base. A published `PyramidReader` holds its pin
+until `close()` or collection, and a cold read borrows a pin across disk I/O.
+`reopen()` acquires the new generation before releasing the old one. A closed
+reader refuses reads until explicitly reopened. Bare fixture directories are
+not published entries and retain their ordinary reader behavior.
+
+`CacheManager` owns exclusive leases for its staging folders until commit or
+`close()`/collection, so Delete All cannot delete an import still being written.
+The owner may read its stage before publication. Reader/writer contention keeps
+the previous entry intact and reports the existing "in use" outcome.
+
 > **Scope note (D-075).** The libmpv-specific traps that used to live here — render-context
 > teardown ordering, `mpv.terminate()` join deadlocks, property-observer threading, the
 > `wid`-vs-render-API split, the locale bomb, and the missing-library first-run dialog — are gone

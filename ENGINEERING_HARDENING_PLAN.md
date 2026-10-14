@@ -45,6 +45,9 @@ session-report UI, sharing bundle, translations, or installer-signing work.
 - Relevant benchmarks measured on the local machine with real work assertions.
 - Python 3.11 checks where the verified development environment is available.
 - Wheel/packaging smoke checks supported by this host.
+- Inspect the starting branch's failed workflow, reproduce its failure locally,
+  and complete all checks before exactly one push. Monitor the pushed SHA's CI;
+  do not open a PR or trigger extra workflow runs.
 
 ## Risks and external validation
 
@@ -64,7 +67,9 @@ be reported as completed external certification.
   12 plot benchmarks passed; strict core and standard package mypy passed.
 - [x] Complete export provenance: 3,929 correctness tests passed; the shared
   million-frame mapping conversion averaged 22.35 ms on its export worker.
-- [ ] Cross-process cache ownership.
+- [x] Cross-process cache ownership: 3,951 correctness tests passed; the
+  Python 3.11 cache/import/identity/responsiveness checks passed. Six cache
+  benchmarks passed (warm manifest validation 4.43 ms, within the 20% limit).
 - [ ] Composition.
 - [ ] Enforced quality gates and core coverage.
 - [ ] Reproducible dependencies.

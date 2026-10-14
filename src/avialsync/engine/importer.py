@@ -15,9 +15,10 @@ import numpy as np
 from PySide6.QtCore import QObject, Signal
 
 from avialsync.core.cache import CacheManager
+from avialsync.core.cache_leases import pin_reader_directory
 from avialsync.core.channel_store import columns_intact, write_times
 from avialsync.core.columns import fit_regular
-from avialsync.core.errors import LoaderContractError, SourceOpenError
+from avialsync.core.errors import CacheError, LoaderContractError, SourceOpenError
 from avialsync.core.inspection import ImportReport, IntegrityFlags, SourceInspection
 from avialsync.core.messages import Message, bounded
 from avialsync.core.pyramid import LEVELS, ChannelStage, PyramidBuilder, build_gap_mask, count_nan
@@ -159,7 +160,7 @@ class ImportWorker(QObject):
                 ):
                     inspection = self._backfill_units(cache_dir, channels, bounds, inspection)
                 self.progress.emit(100)
-                self.finished.emit(str(self.path), str(cache_dir), channels, bounds, inspection)
+                self._deliver(cache_dir, channels, bounds, inspection)
                 return
 
             loader = self.loader_class()
@@ -239,7 +240,7 @@ class ImportWorker(QObject):
             cache_mgr.commit_cache(self.path, temp_dir)
             final_dir = cache_mgr.get_cache_dir(self.path)
 
-            self.finished.emit(str(self.path), str(final_dir), channel_names, (t0, t1), inspection)
+            self._deliver(final_dir, channel_names, (t0, t1), inspection)
 
         except Exception as e:
             traceback.print_exc()
@@ -247,6 +248,20 @@ class ImportWorker(QObject):
         finally:
             if temp_dir is not None and temp_dir.exists():
                 shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def _deliver(
+        self,
+        directory: Path,
+        channels: list[str],
+        bounds: tuple[float, float],
+        inspection: SourceInspection,
+    ) -> None:
+        """Lease the result on this worker until UI readers take ownership."""
+        if inspection.cache_pin is None:
+            inspection.cache_pin = pin_reader_directory(directory)
+        if inspection.cache_pin is None:
+            raise CacheError("The imported cache is in use; retry opening the source")
+        self.finished.emit(str(self.path), str(directory), channels, bounds, inspection)
 
     def _backfill_units(
         self,
@@ -346,27 +361,34 @@ class ImportWorker(QObject):
         manifest_path = cache_dir / _IMPORT_MANIFEST
         if not cache_mgr.is_cache_valid(self.path) or not manifest_path.is_file():
             return None
+        pin = pin_reader_directory(cache_dir)
+        if pin is None:
+            return None
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
             channels = [str(channel) for channel in manifest["channels"]]
             bounds_raw = manifest["bounds"]
             bounds = (float(bounds_raw[0]), float(bounds_raw[1]))
             inspection = SourceInspection.from_dict(manifest["inspection"])
+            if (
+                not channels
+                or bounds[1] < bounds[0]
+                or not self._arrays_intact(
+                    cache_dir,
+                    channels,
+                    manifest.get("array_sizes"),
+                    manifest.get("array_fingerprints"),
+                    manifest.get("array_mtimes"),
+                )
+            ):
+                return None
+            inspection.cache_pin, pin = pin, None
+            return cache_dir, channels, bounds, inspection
         except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError):
             return None
-        if (
-            not channels
-            or bounds[1] < bounds[0]
-            or not self._arrays_intact(
-                cache_dir,
-                channels,
-                manifest.get("array_sizes"),
-                manifest.get("array_fingerprints"),
-                manifest.get("array_mtimes"),
-            )
-        ):
-            return None
-        return cache_dir, channels, bounds, inspection
+        finally:
+            if pin is not None:
+                pin.close()
 
     @staticmethod
     def _arrays_intact(

@@ -7,11 +7,49 @@ from pathlib import Path
 
 import numpy as np
 
+from avialsync.core.cache import CacheManager
+from avialsync.core.cache_leases import GenerationPin
 from avialsync.core.inspection import SourceInspection
-from avialsync.core.pyramid import ChannelStage, PyramidBuilder
+from avialsync.core.pyramid import ChannelStage, PyramidBuilder, PyramidReader
 from avialsync.engine.importer import ImportWorker
 from avialsync.engine.pyav_reader import PyAVReader
 from tests.util_pyav_fixtures import cfr_times, write_video
+
+
+def _published_channel(tmp_path: Path) -> Path:
+    source = tmp_path / "source.csv"
+    source.write_text("time,signal\n0,1\n", encoding="utf-8")
+    manager = CacheManager(root=tmp_path / "cache")
+    staging = manager.get_temp_cache_dir(source)
+    PyramidBuilder(staging, "signal").build_and_save(np.array([0.0]), np.array([1.0]))
+    manager.commit_cache(source, staging)
+    return manager.get_cache_dir(source)
+
+
+def test_bench_shared_reader_pin(benchmark, tmp_path: Path) -> None:
+    """Snapshotting another channel reuses the source's one OS lease."""
+    entry = _published_channel(tmp_path)
+    held = GenerationPin(entry)
+
+    def snapshot() -> None:
+        pin = GenerationPin(entry)
+        pin.close()
+
+    try:
+        benchmark(snapshot)
+    finally:
+        held.close()
+
+
+def test_bench_published_reader_open(benchmark, tmp_path: Path) -> None:
+    """Measure actual generation ownership when a published reader opens."""
+    entry = _published_channel(tmp_path)
+
+    def open_reader() -> None:
+        reader = PyramidReader(entry, "signal")
+        reader.close()
+
+    benchmark(open_reader)
 
 
 def test_bench_streamed_stage_finalize(benchmark, tmp_path: Path) -> None:

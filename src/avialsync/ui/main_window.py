@@ -1224,6 +1224,9 @@ class MainWindow(QMainWindow):
             if span is None:
                 continue
             self._pending_bounds_sources.pop(path, None)
+            inspection = self._inspections.get(path)
+            if inspection is not None:
+                inspection.release_cache_pin()
             self.transport.set_source_coverage(
                 path, span[0], span[1], "data", self.coverage_group_for(path)
             )
@@ -1802,6 +1805,7 @@ class MainWindow(QMainWindow):
         self._close_step("saving window geometry", self._save_geometry)
         self._close_step("writing the final autosave", self._autosave_before_close)
         self._close_step("stopping background jobs", self._job_manager.shutdown)
+        self._close_step("releasing pending cache deliveries", self._release_import_deliveries)
         self._close_step("shutting down video panes", self.video_grid.shutdown)
         self._close_step("shutting down imaging pane", self.imaging_pane.shutdown)
         super().closeEvent(event)
@@ -1816,6 +1820,11 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         if isinstance(app, QApplication):
             app.removeEventFilter(self)
+
+    def _release_import_deliveries(self) -> None:
+        """Release worker handoffs whose plot rows never finished building."""
+        for inspection in self._inspections.values():
+            inspection.release_cache_pin()
 
     @staticmethod
     def _close_step(description: str, step: Callable[[], object]) -> None:
@@ -3544,6 +3553,9 @@ class MainWindow(QMainWindow):
 
     def _on_sensor_remove_requested(self, path: str) -> None:
         self._record(RemoveSourceCommand(self._source_record(path, "sensor")))
+        inspection = self._inspections.get(path)
+        if inspection is not None:
+            inspection.release_cache_pin()
         cache_dir = self._sensor_cache_dirs.pop(path, None)
         tracking_source = self._tracking_plot_sources.pop(path, None)
         self._tracking_visibility.pop(path, None)

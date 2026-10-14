@@ -37,7 +37,8 @@ from typing import Any
 
 import xxhash
 
-from avialsync.core.cache_leases import reserve_cache_entry
+from avialsync.core.cache_leases import pin_reader_directory, reserve_cache_entry
+from avialsync.core.cache_process_lock import ProcessLease
 from avialsync.core.errors import CacheError
 
 #: Overrides the platform cache location when set to a non-empty path.
@@ -150,6 +151,16 @@ class CacheManager:
         self.loader_version = loader_version
         self._cache_config = dict(cache_config or {})
         self._root = root
+        self._staging_leases: dict[Path, ProcessLease] = {}
+
+    def close(self) -> None:
+        """Release staging ownership after a cancelled or completed import."""
+        for lease in getattr(self, "_staging_leases", {}).values():
+            lease.close()
+        self._staging_leases = {}
+
+    def __del__(self) -> None:
+        self.close()
 
     def _hash_file_edges(self, path: Path) -> str:
         """Fingerprint a file's sampled contents or a directory's full tree."""
@@ -243,7 +254,11 @@ class CacheManager:
         if not cache_dir.exists() or not meta_path.exists():
             return False
 
+        pin = None
         try:
+            pin = pin_reader_directory(cache_dir)
+            if pin is None:
+                return False
             with open(meta_path) as f:
                 cached_key = f.read()
 
@@ -251,6 +266,9 @@ class CacheManager:
             return cached_key == current_key
         except Exception:
             return False
+        finally:
+            if pin is not None:
+                pin.close()
 
     def get_temp_cache_dir(self, source_path: Path) -> Path:
         """Return a fresh staging directory beside the entry, for an atomic swap.
@@ -263,6 +281,10 @@ class CacheManager:
         sources.mkdir(parents=True, exist_ok=True)
         prefix = f"{TEMP_PREFIX}{entry_name(source_path)}-"
         temp_dir = Path(tempfile.mkdtemp(prefix=prefix, dir=sources))
+        lease = ProcessLease.acquire(temp_dir, exclusive=True)
+        if lease is None:
+            raise CacheError("The new cache staging directory is in use")
+        self._staging_leases[temp_dir] = lease
         write_entry_record(temp_dir, source_path)
         return temp_dir
 
@@ -283,6 +305,9 @@ class CacheManager:
             if not reserved:
                 raise CacheError("Cache entry is in use by a running reader; retry the import")
             self._commit_cache_unpinned(source_path, cache_dir, temp_dir)
+        lease = self._staging_leases.pop(temp_dir, None)
+        if lease is not None:
+            lease.close()
 
     def _commit_cache_unpinned(self, source_path: Path, cache_dir: Path, temp_dir: Path) -> None:
         """Swap a cache entry while no reader can pin its outgoing directory."""

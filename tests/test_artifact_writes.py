@@ -9,6 +9,7 @@ SRC = Path(__file__).resolve().parents[1] / "src" / "avialsync"
 
 # Disposable cache and its builders have their own ownership/commit protocol.
 _CACHE_MODULES = {
+    "core/cache_process_lock.py",  # disposable OS coordination files, outside entry swaps
     "core/cache.py",
     "core/cache_store.py",
     "core/channel_store.py",  # a cache entry's column layout, written inside the entry
