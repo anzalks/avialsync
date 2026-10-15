@@ -17,7 +17,6 @@ from PySide6.QtWidgets import QWidget
 from avialsync.core.calibration import CameraModel
 from avialsync.core.commands import (
     MoveLadderStepCommand,
-    SetLadderCommand,
     SetLadderLayoutCommand,
     SetLadderStepCommand,
     SetPhysicalPropCommand,
@@ -64,6 +63,7 @@ from avialsync.core.visual_prop_tracking import (
     belt_visual_problem,
     belt_visual_travel,
 )
+from avialsync.core.wheel import Wheel
 from avialsync.engine.prop_file_worker import PropFileReadWorker, PropFileWriteWorker
 from avialsync.ui import belt_placement, prop_motion
 from avialsync.ui.belt_placement_controls import placement_prompt
@@ -271,6 +271,7 @@ class PropsApp:
         panel.relabel_step_requested.connect(self.relabel_step)
         panel.move_step_requested.connect(self.move_step)
         panel.remove_ladder_requested.connect(self.remove_ladder)
+        panel.save_prop_requested.connect(self.save_prop)
         panel.belt_save_requested.connect(self.save_belt)
         panel.ball_save_requested.connect(self.save_ball)
         panel.belt_bind_requested.connect(self.bind_belt)
@@ -319,10 +320,7 @@ class PropsApp:
             reason = tr("Open a recording before adding a prop.")
         panel.create_button.setEnabled(available)
         panel.create_button.setToolTip("" if available else reason)
-        panel.save_belt.setEnabled(kind == "belt" and available)
-        panel.save_ball.setEnabled(kind == "ball" and available)
-        panel.save_belt.setToolTip("" if available else reason)
-        panel.save_ball.setToolTip("" if available else reason)
+        panel.set_saving_available(rig_paths.pose3d_dir(self.window.rig_paths) is not None)
 
     def create(self, name: str, checked: bool = False) -> None:
         """Add the selected prop kind or toggle wheel placement."""
@@ -345,10 +343,7 @@ class PropsApp:
         except PropModelError:
             self._status(tr("Choose a filename-safe prop name."))
             return
-        self.window.document.execute(
-            SetLadderCommand(name, None, ladder, tr("Add ladder {name}").format(name=name)),
-            self.window._mutations,
-        )
+        self._accept_prop(ladder, tr("Add ladder {name}").format(name=name))
         if self.panel is not None:
             self.panel.select_prop(name, "ladder")
 
@@ -470,9 +465,7 @@ class PropsApp:
             if before
             else tr("Add belt {name}").format(name=name)
         )
-        self.window.document.execute(
-            SetPhysicalPropCommand(name, before, belt, label), self.window._mutations
-        )
+        self._accept_prop(belt, label)
         self._pending_placement = None
         panel.select_prop(name, "belt")
         self._status(
@@ -534,9 +527,7 @@ class PropsApp:
             if before
             else tr("Add ball {name}").format(name=name)
         )
-        self.window.document.execute(
-            SetPhysicalPropCommand(name, before, ball, label), self.window._mutations
-        )
+        self._accept_prop(ball, label)
         panel.select_prop(name, "ball")
         self._status(
             tr("Ball geometry saved; orientation binding kept.")
@@ -1013,16 +1004,20 @@ class PropsApp:
         )
 
     def remove_prop(self, kind: str, name: str) -> None:
-        """Remove a selected belt or ball through an inverse command."""
+        """Remove one saved prop, stopping only its own unfinished workflows."""
         prop = self.store.get(name)
-        if kind == "belt":
-            if not isinstance(prop, BeltProp):
-                return
-        elif kind == "ball":
-            if not isinstance(prop, BallProp):
-                return
-        else:
+        if prop is None or prop_kind(prop) != kind:
             return
+        if isinstance(prop, Wheel):
+            # Wheel verification/rotation has specialized ownership cleanup.
+            wheel_controller.remove(self.window, name)
+            return
+        if (
+            (self.draft is not None and self.draft.ladder == name)
+            or self.checking == name
+            or (self.visual_tracking is not None and self.visual_tracking[1] == name)
+        ):
+            self.cancel_step()
         self.window.document.execute(
             SetPhysicalPropCommand(
                 name, prop, None, tr("Remove {kind} {name}").format(kind=kind, name=name)
@@ -1393,14 +1388,7 @@ class PropsApp:
 
     def remove_ladder(self, name: str) -> None:
         """Remove the selected ladder with an inverse retaining its clicks."""
-        previous = self.store.get(name)
-        if isinstance(previous, Ladder):
-            self.window.document.execute(
-                SetLadderCommand(
-                    name, previous, None, tr("Remove ladder {name}").format(name=name)
-                ),
-                self.window._mutations,
-            )
+        self.remove_prop("ladder", name)
 
     def _status(self, message: str) -> None:
         if self.panel is not None:
@@ -1778,6 +1766,29 @@ class PropsApp:
         self._known_kinds.clear()
         self._edited.clear()
         self._known_sidecars.clear()
+
+    def _accept_prop(self, prop: PropRecord, label: str) -> None:
+        """Accept changed declarations once; an unchanged Save retries persistence."""
+        before = self.store.get(prop.name)
+        if before == prop:
+            self.save_prop(prop.name)
+            return
+        self.window.document.execute(
+            SetPhysicalPropCommand(prop.name, before, prop, label), self.window._mutations
+        )
+
+    def save_prop(self, name: str) -> None:
+        """Re-save an accepted prop, including retrying an earlier failed write.
+
+        Persistence alone changes no accepted evidence and records no undo step.
+        Placement drafts must still be explicitly accepted by their own workflow.
+        """
+        if self.store.get(name) is None:
+            return
+        if rig_paths.pose3d_dir(self.window.rig_paths) is None:
+            self._status(tr("Open a recording before saving a prop."))
+            return
+        self.persist(name)
 
     def persist(self, name: str) -> None:
         """Queue the latest accepted revision, serialized per recording folder."""

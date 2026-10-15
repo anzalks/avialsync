@@ -7592,3 +7592,28 @@ only when the compact row actually needs it.
 restyling controls through QSS, interactive QWidgetAction menus with native
 disabled/sizing problems, top control rows, and coupling 3D labels to the
 video label preference.
+
+## 2026-10 · D-238 · Every physical prop exposes shared Save and Remove record actions
+
+**Decision.** Wheels, ladders, belts and balls expose visible Save prop and Remove saved prop
+buttons from `PropRecordActions`. Their live actions own labels, tooltips and enablement.
+Whole-prop removal is a visible choice in these editors, rather than an overflow-only choice;
+the user explicitly requested it for every saved apparatus. Removing individual steps or
+clearing motion evidence retains its existing specialized control.
+
+`PropsApp` owns whole-record acceptance, explicit re-saving and removal. Equal declarations
+retry the sidecar write without adding an empty undo command. Changed declarations retain
+their before/after inverse command. Wheel and ladder mutation adapters delegate to the same
+typed physical-prop store and persistence funnel; wheel removal retains its verification and
+rotation cleanup. Specialized step, fitting and calibration commands stay specialized and
+still reach that shared store and background sidecar queue.
+
+**Why.** Automatic saving left accepted ladders and wheels without an explicit Save control,
+and an unchanged belt/ball Save added undo history while failing to retry an unsuccessful disk
+write. Saved apparatus removal was also harder to find for some kinds. Shared presentation
+and routing keep these operations consistent without accepting incomplete camera evidence.
+
+**Consequences.** Placement drafts still require Save step or Done Labelling. Re-saving an
+accepted record is persistence only; it does not change evidence or create an undo entry.
+Removal remains undoable and writes a removal record so reopening does not resurrect it.
+The authoritative format and recording-folder location are unchanged (D-155, D-156, D-160).

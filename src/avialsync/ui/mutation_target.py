@@ -268,20 +268,15 @@ class WindowMutationTarget:
         """
         from avialsync.core.wheel import Wheel
 
-        window = self._window
         value = wheel if isinstance(wheel, Wheel) else None
-        with self.replaying():
-            if window.wheels.set(name, value):
-                window.props_app.persist(name)
+        self.set_physical_prop(name, value)
 
     def set_ladder(self, name: str, ladder: object) -> None:
         """Accept a ladder through the same undo and persistence funnel."""
         from avialsync.core.physical_props import Ladder
 
         value = ladder if isinstance(ladder, Ladder) else None
-        with self.replaying():
-            if self._window.props_app.store.set(name, value):
-                self._window.props_app.persist(name)
+        self.set_physical_prop(name, value)
 
     def set_physical_prop(self, name: str, prop: object) -> None:
         """Accept or remove a typed prop through undo and generalized persistence."""

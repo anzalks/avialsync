@@ -402,6 +402,14 @@ Each accepted edit is one undo step, and each prop is saved as
 `pose-3d/<name>_prop.toml` in the recording folder. For ladder, belt and ball marks, solid squares
 in the camera views are your clicks; dashed marks are 3D projections.
 
+Every kind has visible **Save prop** and **Remove saved prop** buttons. For belts and balls,
+Save prop accepts the geometry fields; for ladders and placed wheels it saves the accepted
+record again, including retrying a failed write. Finish ladder clicks with **Save step** and
+wheel placement with **Done Labelling** first: Save prop does not accept unfinished clicks.
+Remove saved prop removes the selected apparatus and its saved record from future discovery;
+**Undo** restores it. Clearing a visual track keeps the apparatus itself. Prop records live
+beside the recording, separately from the `.avv` session file.
+
 ![The Props tab with the prop-kind chooser, a ladder named and selected, and the step controls](../_static/screenshots/feature_props_tab.png)
 
 For a **ladder**, each step is clicked on its own: **Click foothold** records one point, **Click rung
@@ -446,7 +454,7 @@ With two calibrated cameras, choose **Two rollers placed in 3D**, enter **Centre
 **Roller radius**, and choose **Click 4 top corners**. Click a top corner near the first roller in
 two cameras, choose **Next placement point**, click the other corner on that roller's end, then the
 two corners near the second roller (the first of them on the first corner's side). Choose **Place
-belt from clicks**, then **Save belt geometry**. The corners give the top plane (facing the
+belt from clicks**, then **Save prop**. The corners give the top plane (facing the
 cameras), the direction of travel, the width and the belt's middle; the typed centre distance and
 radius give its size. Leave **Centre distance** at **From clicks** to use the clicked span instead.
 All four corners stay marked in every camera, and the status reports how flat they are. You can also

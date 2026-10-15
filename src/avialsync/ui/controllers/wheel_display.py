@@ -427,6 +427,7 @@ def refresh(window: MainWindow) -> None:
         proposals=window.wheel_state.motion_proposals,
         fitting=window.wheel_state.motion_fitting,
         rig_wheel=_rig_wheel(window),
+        saving_available=rig_paths.pose3d_dir(window.rig_paths) is not None,
     )
     view = (
         placement_view(placement, sorted(camera_models(window))) if placement is not None else None

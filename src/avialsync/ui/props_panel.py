@@ -35,6 +35,7 @@ from avialsync.ui.about import docs_url
 from avialsync.ui.belt_placement_controls import BeltPlacementControls
 from avialsync.ui.empty_note import WRAP_WIDTH_PX, EmptyNote
 from avialsync.ui.i18n import tr
+from avialsync.ui.prop_record_controls import PropRecordActions
 from avialsync.ui.step_panel import StepPanel
 
 
@@ -129,6 +130,7 @@ class PropsPanel(QWidget):
     relabel_step_requested = Signal(str, str, str)
     move_step_requested = Signal(str, str, int)
     remove_ladder_requested = Signal(str)
+    save_prop_requested = Signal(str)
     belt_save_requested = Signal()
     ball_save_requested = Signal()
     belt_bind_requested = Signal()
@@ -150,6 +152,7 @@ class PropsPanel(QWidget):
         # anything at all is in progress that Cancel could discard.
         self._drafting = False
         self._busy = False
+        self._saving_available = False
         self.setAccessibleName(tr("Physical props inspector"))
         root_layout = QVBoxLayout(self)
         self.kind = QComboBox(self)
@@ -266,7 +269,9 @@ class PropsPanel(QWidget):
         self.relabel_step = QPushButton(tr("Rename selected step"), self)
         self.up = QPushButton(tr("Move step up"), self)
         self.down = QPushButton(tr("Move step down"), self)
-        self.remove_ladder = QPushButton(tr("Remove ladder"), self)
+        self.ladder_records = PropRecordActions(self.ladder_editor)
+        self.save_ladder = self.ladder_records.save_button
+        self.remove_ladder = self.ladder_records.remove_button
         for button in (
             self.add_point,
             self.add_rung,
@@ -281,15 +286,23 @@ class PropsPanel(QWidget):
             self.up,
             self.down,
             self.remove_ladder,
+            self.save_ladder,
         ):
             button.setAccessibleName(button.text())
         self.status = QLabel(tr("Click each point in the cameras where it is visible."), self)
-        # One primary, four ordinary choices, the rest in the overflow.
+        # Saving and removing a whole prop stay visible for every kind.
         self.ladder_steps = StepPanel(tr("Ladder steps"), self.ladder_editor)
         self.ladder_steps.use_instruction_label(self.status)
         self.ladder_steps.set_primary(self.save_next_step)
         self.ladder_steps.add_secondary(
-            [self.add_point, self.add_rung, self.next_point, self.save_step]
+            [
+                self.add_point,
+                self.add_rung,
+                self.next_point,
+                self.save_step,
+                self.save_ladder,
+                self.remove_ladder,
+            ]
         )
         for button in (
             self.cancel_step,
@@ -300,8 +313,7 @@ class PropsPanel(QWidget):
             self.down,
         ):
             self.ladder_steps.add_overflow(button)
-        for button in (self.remove_step, self.remove_ladder):
-            self.ladder_steps.add_overflow(button, destructive=True)
+        self.ladder_steps.add_overflow(self.remove_step, destructive=True)
         self.ladder_steps.add_more(legend)
         self.ladder_steps.set_learn_more(docs_url("user-guide/index.html#physical-props"))
         layout.addWidget(self.ladder_steps)
@@ -320,7 +332,10 @@ class PropsPanel(QWidget):
         self.relabel_step.clicked.connect(self._relabel_selected_step)
         self.up.clicked.connect(lambda: self._move_selected_step(-1))
         self.down.clicked.connect(lambda: self._move_selected_step(1))
-        self.remove_ladder.clicked.connect(self._remove_selected_ladder)
+        self.ladder_records.remove_requested.connect(self._remove_selected_ladder)
+        self.ladder_records.save_requested.connect(
+            lambda: self.save_prop_requested.emit(self.current_prop())
+        )
         self.editor_stack.addWidget(self.ladder_editor)
         self._build_belt_editor()
         self._build_ball_editor()
@@ -574,12 +589,11 @@ class PropsPanel(QWidget):
         self.clear_belt_visual.clicked.connect(
             lambda: self.visual_clear_requested.emit("belt", self.current_prop())
         )
-        self.save_belt = QPushButton(tr("Save belt geometry"), self.belt_editor)
-        self.save_belt.setAccessibleName(self.save_belt.text())
-        self.save_belt.clicked.connect(self.belt_save_requested)
-        self.remove_belt = QPushButton(tr("Remove belt"), self.belt_editor)
-        self.remove_belt.setAccessibleName(self.remove_belt.text())
-        self.remove_belt.clicked.connect(
+        self.belt_records = PropRecordActions(self.belt_editor)
+        self.save_belt = self.belt_records.save_button
+        self.remove_belt = self.belt_records.remove_button
+        self.belt_records.save_requested.connect(self.belt_save_requested)
+        self.belt_records.remove_requested.connect(
             lambda: self.remove_prop_requested.emit("belt", self.current_prop())
         )
         self.belt_steps = StepPanel(tr("Belt"), self.belt_editor)
@@ -595,10 +609,10 @@ class PropsPanel(QWidget):
                 self.fit_belt_motion,
                 self.apply_belt_motion,
                 self.set_belt_lap,
+                self.remove_belt,
             ]
         )
         self.belt_steps.add_overflow(self.clear_belt_visual, destructive=True)
-        self.belt_steps.add_overflow(self.remove_belt, destructive=True)
         self.belt_steps.set_learn_more(docs_url("user-guide/index.html#physical-props"))
         layout.addWidget(self.belt_steps)
         self.belt_add_vertex.clicked.connect(self._append_belt_vertex)
@@ -708,12 +722,11 @@ class PropsPanel(QWidget):
         self.clear_ball_visual.clicked.connect(
             lambda: self.visual_clear_requested.emit("ball", self.current_prop())
         )
-        self.save_ball = QPushButton(tr("Save ball geometry"), self.ball_editor)
-        self.save_ball.setAccessibleName(self.save_ball.text())
-        self.save_ball.clicked.connect(self.ball_save_requested)
-        self.remove_ball = QPushButton(tr("Remove ball"), self.ball_editor)
-        self.remove_ball.setAccessibleName(self.remove_ball.text())
-        self.remove_ball.clicked.connect(
+        self.ball_records = PropRecordActions(self.ball_editor)
+        self.save_ball = self.ball_records.save_button
+        self.remove_ball = self.ball_records.remove_button
+        self.ball_records.save_requested.connect(self.ball_save_requested)
+        self.ball_records.remove_requested.connect(
             lambda: self.remove_prop_requested.emit("ball", self.current_prop())
         )
         self.ball_steps = StepPanel(tr("Ball"), self.ball_editor)
@@ -728,10 +741,10 @@ class PropsPanel(QWidget):
                 self.check_ball,
                 self.fit_ball_motion,
                 self.apply_ball_motion,
+                self.remove_ball,
             ]
         )
         self.ball_steps.add_overflow(self.clear_ball_visual, destructive=True)
-        self.ball_steps.add_overflow(self.remove_ball, destructive=True)
         self.ball_steps.set_learn_more(docs_url("user-guide/index.html#physical-props"))
         layout.addWidget(self.ball_steps)
         # The stack is sized for the longer belt page. Keep the ball controls
@@ -1195,10 +1208,8 @@ class PropsPanel(QWidget):
         at = self.ladders.findData(selected)
         self.ladders.setCurrentIndex(at if at >= 0 else 0)
         self.ladders.blockSignals(False)
-        has_selection = bool(self.ladders.currentData())
         self._refresh_empty_note()
-        self.remove_belt.setEnabled(kind == "belt" and has_selection)
-        self.remove_ball.setEnabled(kind == "ball" and has_selection)
+        self._update_record_availability()
         self._refresh_steps()
         self._update_step_enablement()
         self._selection_changed()
@@ -1221,6 +1232,7 @@ class PropsPanel(QWidget):
         kind = str(self.kind.currentData() or "")
         name = str(self.ladders.currentData() or "")
         self.prop_selected.emit(kind, name)
+        self._update_record_availability()
 
     def set_activity(self, drafting: bool, busy: bool) -> None:
         """Say whether clicks are being collected, and whether anything is in progress.
@@ -1231,6 +1243,28 @@ class PropsPanel(QWidget):
         self._drafting = drafting
         self._busy = busy or drafting
         self._update_step_enablement()
+
+    def set_saving_available(self, available: bool) -> None:
+        """Offer explicit saving only after a recording folder is available."""
+        self._saving_available = available
+        self._update_record_availability()
+
+    def _update_record_availability(self) -> None:
+        kind = str(self.kind.currentData() or "ladder")
+        selected = self._store.get(self.current_prop())
+        for record_kind, record_type, actions in (
+            ("ladder", Ladder, self.ladder_records),
+            ("belt", BeltProp, self.belt_records),
+            ("ball", BallProp, self.ball_records),
+        ):
+            exists = kind == record_kind and isinstance(selected, record_type)
+            actions.set_available(
+                can_save=self._saving_available and (exists or record_kind != "ladder"),
+                can_remove=exists,
+                save_reason=tr("Open a recording before saving a prop.")
+                if not self._saving_available
+                else tr("Select a saved prop first."),
+            )
 
     def _update_step_enablement(self) -> None:
         """Offer each step command only when it has something to act on (D-107).
@@ -1247,7 +1281,6 @@ class PropsPanel(QWidget):
         offers = (
             (self.add_point, has_ladder, no_ladder),
             (self.add_rung, has_ladder, no_ladder),
-            (self.remove_ladder, has_ladder, no_ladder),
             (self.reclick_step, has_step, no_step),
             (self.tag_step, has_step, no_step),
             (self.remove_step, has_step, no_step),

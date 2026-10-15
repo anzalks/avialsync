@@ -138,6 +138,16 @@ with missing calibration, only the clicked 2D marks appear. A read failure offer
 discarding the recording. A new ladder cannot replace an unread sidecar of the same name while
 discovery is pending. Saved fit coordinates remain in the sidecar as inspectable history.
 
+Every prop editor now exposes the same **Save prop** and **Remove saved prop** actions
+(D-238), including explicit re-save controls for accepted ladders and wheels. Save can retry
+a failed sidecar write without recording an empty undo command. Belt/ball geometry acceptance
+shares one changed-record handler; unchanged geometry retries saving. Whole-prop removal
+routes through `PropsApp.remove_prop`, cancels that prop's active click/check workflow, and
+keeps undo and tombstone persistence. Wheel-specific verification/rotation cleanup remains in
+the wheel controller. `MutationTarget.set_wheel` and `set_ladder` delegate to the generalized
+`set_physical_prop` store/persistence path; step-level commands still retain only their inverse.
+Unfinished clicks still need Save step / Done Labelling. Sidecars remain separate from `.avv`.
+
 Two product laws govern that phase and outrank convention:
 
 - **Law 1 — never block, always inform.** Opening a file is never refused or gated. The user is
@@ -661,6 +671,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/prop_support_drawing.py`, `ui/belt_placement.py`, `ui/belt_placement_controls.py` | Dashed extrapolated rungs and support bars per camera and in 3D; belt placement clicks (solid where clicked, dashed where projected); turning four placement clicks plus typed measurements into belt fields (D-164, D-165) | `rung_pixels()`, `rung_positions()`, `placement_pixels()`, `side_view_pixels()`, `place()`, `kept()`, `BeltPlacementControls` |
 | `ui/label_layout.py` | Places every overlay label after the geometry: pill backing, inside the picture, clear of labels, marks and pane chrome, fewest crossed lines, leader line when pushed out (D-166) | `LabelLayout` |
 | `ui/prop_overlay.py`, `engine/prop_file_worker.py` | Registered physical-prop drawing distinguishes observed squares from dashed projections and leaves unknown points unjoined. Workers keep sidecar IO off the UI thread | `draw_props()`, `PropFileReadWorker`, `PropFileWriteWorker` |
+| `ui/prop_record_controls.py` | Shared live Save prop / Remove saved prop actions, button presentation, accessibility, and availability explanations for all four prop kinds; whole-record saving/removal routes through `PropsApp.save_prop()` / `remove_prop()` | `PropRecordActions` |
 | `core/wheel_fit.py` | Fits a wheel to both ends of 2–3 clicked neighbouring bars. **The bar count is an input**, and **the clicked bars are neighbours in click order**: slots are never re-derived from angles, so a wrong radius cannot scatter them (D-123). Two bars fit two mirrored wheels; a mirror starting 50× worse is refined only for Flip. `fit_labelled()` tries all bars with the typed radius, bars 1–2, then the clicks' own radius; a typed radius more than 2× off the clicks gives way even if reprojection looks plausible (D-161). Otherwise it keeps the first plausible fit, or the first that exists | `fit_wheel()`, `fit_labelled()`, `LabelledFit` |
 | `core/wheel_check.py` | Tests the encoder against the video: a click on any bar end fixes the turn modulo one bar gap; two informative checks settle the direction. The same durable checks become generic cyclic observations for rotary fitting (D-113, D-222) | `observed_turn()`, `motion_observations()`, `check()`, `settle_sign()`, `CheckResult` |
 | `core/wheel_file.py` | Wheel-specific tables inside the canonical `_prop.toml` record: clicks (the authority) + fit + binding + checks; a removed wheel keeps its prop record marked `removed = true` (D-155) | `write_wheel()`, `write_removed()`, `read_wheels()` |
