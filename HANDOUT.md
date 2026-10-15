@@ -2061,6 +2061,16 @@ whether it wins depends on machine load, which is how
 the target from `splitter.getRange(index)` rather than as a fraction (font metrics decide how much
 travel a handle has), and run `_pane_proportions.reapply()` explicitly instead of racing it.
 
+### 21b. A large point size does not prove workspace overflow
+
+After the compact 3D footer, Windows/Python 3.11 measured a 393-pixel workspace
+minimum inside a 398-pixel viewport at 24 pt (CI run `38676622270`). Fitting is
+correct; a test expecting overflow from the point size alone is not. The local
+scrolling test constrains its own viewport to one measured text row below the
+content minimum when necessary, then retains the window-size, actual-overflow,
+scrollbar, and reachable-pane assertions. Do not pad product controls or replace
+one guessed font size with another to manufacture the workload.
+
 ### 22. Presentation refresh is 20 Hz, not 60 Hz (D-047)
 
 `Player._update_timeline_views` refreshes readout labels and pose sampling at 20 Hz and skips them

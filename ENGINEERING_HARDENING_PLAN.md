@@ -141,5 +141,29 @@ pass: cursor 0.237 ms, prepared installation 0.295 ms, skeleton detection
 4.768 ms means. Native previews show all tools below the scene and complete
 popup text. No performance budget or existing assertion was weakened.
 
-The UI follow-up remains unpublished under the original one-push limit;
-the green hosted result above covers `8f0411c`, not this new local change.
+The user authorized one additional push of `8c9d087`. Run `38676622270` passed
+lint/types, documentation, Linux/3.11, and both macOS jobs, but Windows/3.11
+failed a test's fixed-font overflow assumption (393 pixels fitted in 398).
+Fail-fast cancelled Windows/3.12 and Linux/3.12 coverage. That pushed run is red.
+
+The correction changes only the test workload: when content fits, constrain
+that test's viewport to one measured text row below its required content
+height. The original overflow, scrollbar, reachable-pane, and 640x480 window
+assertions remain. Both ordinary and large fonts exercise the policy; product
+geometry is unchanged. The correction is local for the user to push.
+
+The requested release is `0.1.12`. Its guarded helper requires a clean `main`
+and makes the version commit, annotated tag, and push itself; applying the
+version commit early on the feature branch would leave that commit step with
+no changes. Validate the candidate with the helper's update/build routines,
+restore the feature branch's declarations afterward, and let the user run the
+full guarded helper after merging and checking the corrected branch's CI.
+
+The correction passes 4,344 Python 3.12 tests and 4,343 Python 3.11 tests;
+the complete-core coverage gate still passes. Both interpreters pass the 25
+focused resize/control cases. Ruff lint/format and warnings-as-errors docs
+pass. The prospective `0.1.12` declarations pass all 22 packaging/recipe/helper
+checks, and its wheel and sdist both build and pass Twine checks under the
+tested constraints. All four declarations and their timestamps are restored
+after this preflight so the guarded helper can make its version commit on
+`main`. No release ref, extra push, or workflow rerun was created.

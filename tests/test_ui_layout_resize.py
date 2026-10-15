@@ -20,6 +20,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from PySide6.QtGui import QFontMetrics
 from PySide6.QtWidgets import QApplication
 from shiboken6 import isValid
 
@@ -296,20 +297,22 @@ def test_video_keeps_the_full_media_width_without_tracking_data(
     assert window.video_grid.width() == window._media_splitter.width()
 
 
+@pytest.mark.parametrize("font_points", [12.0, 24.0])
 def test_a_large_font_scrolls_the_workspace_instead_of_outgrowing_640x480(
-    qapp: QApplication, qtbot
+    qapp: QApplication, qtbot, font_points: float
 ) -> None:
-    """D-182: a large font makes the column taller than the viewport, so it scrolls.
+    """D-182: overflowing content scrolls while the window fits the display.
 
-    At 20 pt the column can still fit on Windows, depending on font metrics.
-    At 24 pt it must overflow the viewport while the window itself stays within
-    the display, with every surface reachable by scrolling.
+    A fixed point size need not overflow: the compact 3D footer fits on Windows
+    even at 24 pt. If it fits, give this test's workspace one text row less than
+    its measured minimum. The scrolling policy is about insufficient space,
+    rather than a particular platform's font metrics.
     """
     from PySide6.QtWidgets import QScrollArea
 
     original = qapp.font()
     large = qapp.font()
-    large.setPointSizeF(24.0)
+    large.setPointSizeF(font_points)
     qapp.setFont(large)
     try:
         win = MainWindow()
@@ -322,6 +325,12 @@ def test_a_large_font_scrolls_the_workspace_instead_of_outgrowing_640x480(
         scroll = win.findChild(QScrollArea, "workspace_scroll")
         assert scroll is not None
         column = scroll.widget()
+        if column.minimumSizeHint().height() <= scroll.viewport().height():
+            scroll.setMaximumHeight(
+                max(1, column.minimumSizeHint().height() - QFontMetrics(large).height())
+            )
+            qapp.processEvents()
+        assert win.minimumSizeHint().height() <= 480
         assert column.minimumSizeHint().height() > scroll.viewport().height()
         # The area re-ranges on the column's posted LayoutRequest, which can land
         # one event pass later (seen with Linux's DejaVu Sans metrics).
