@@ -25,7 +25,7 @@ def test_blank_lines_and_unrecognized_comments_preserve_readable_records(
 
 def test_future_existing_prop_is_never_overwritten(tmp_path: Path) -> None:
     target = prop_file.prop_path(tmp_path, "ladder")
-    text = 'format="future/2"\n[prop]\nversion=1\nkind="ladder"\nname="ladder"\nremoved=false\n'
+    text = 'format="future/2"\n[prop]\nversion=2\nkind="ladder"\nname="ladder"\nremoved=false\n'
     target.write_text(text)
     with pytest.raises(PropModelError, match="unreadable"):
         prop_file.write_ladder(tmp_path, Ladder("ladder"))
@@ -55,7 +55,7 @@ def test_duplicate_case_folded_records_keep_one_and_report_the_other(
         prop_file,
         "read_text",
         lambda path: (
-            f'[prop]\nversion=1\nkind="ladder"\nname="{path.name[: -len(prop_file.PROP_SUFFIX)]}"\n'
+            f'[prop]\nversion=2\nkind="ladder"\nname="{path.name[: -len(prop_file.PROP_SUFFIX)]}"\n'
         ),
     )
     props, issues, removed = prop_file.read_prop_records(tmp_path)
@@ -64,9 +64,9 @@ def test_duplicate_case_folded_records_keep_one_and_report_the_other(
 
 def test_conflicting_wheel_and_future_tombstones_do_not_become_props(tmp_path: Path) -> None:
     bad = tmp_path / "wheel_prop.toml"
-    bad.write_text('[prop]\nversion=1\nkind="wheel"\nname="wheel"\n[wheel]\nremoved=true\n')
+    bad.write_text('[prop]\nversion=2\nkind="wheel"\nname="wheel"\n[wheel]\nremoved=true\n')
     future = tmp_path / "future_prop.toml"
-    future.write_text('[prop]\nversion=1\nkind="future"\nname="future"\nremoved=true\n')
+    future.write_text('[prop]\nversion=2\nkind="future"\nname="future"\nremoved=true\n')
     props, issues, removed = prop_file.read_prop_records(tmp_path)
     assert not props and not removed
     assert any(issue.reason == "damaged" for issue in issues)

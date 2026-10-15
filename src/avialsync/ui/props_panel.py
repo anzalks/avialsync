@@ -26,15 +26,18 @@ from avialsync.core.physical_props import (
     BallProp,
     BeltProp,
     Ladder,
+    LadderPoint,
     LadderSupport,
     Point3,
     PropStore,
     StepIrregularity,
 )
+from avialsync.core.prop_file import prop_kind
 from avialsync.ui.about import docs_url
 from avialsync.ui.belt_placement_controls import BeltPlacementControls
 from avialsync.ui.empty_note import WRAP_WIDTH_PX, EmptyNote
 from avialsync.ui.i18n import tr
+from avialsync.ui.ladder_pattern_controls import LadderPatternControls
 from avialsync.ui.prop_record_controls import PropRecordActions
 from avialsync.ui.step_panel import StepPanel
 
@@ -123,16 +126,13 @@ class PropsPanel(QWidget):
     ladder_support_requested = Signal(str, str)
     step_irregular_requested = Signal(str, str, str)
     belt_placement_requested = Signal(str)
-    rung_count_requested = Signal(str, int)
+    rung_count_requested = Signal(str, int, bool)
     cancel_step_requested = Signal()
     remove_step_requested = Signal(str, str)
     reclick_step_requested = Signal(str, str)
     relabel_step_requested = Signal(str, str, str)
     move_step_requested = Signal(str, str, int)
-    remove_ladder_requested = Signal(str)
-    save_prop_requested = Signal(str)
-    belt_save_requested = Signal()
-    ball_save_requested = Signal()
+    save_record_requested = Signal(str, str)
     belt_bind_requested = Signal()
     ball_bind_requested = Signal()
     visual_track_requested = Signal(str, str)
@@ -186,8 +186,23 @@ class PropsPanel(QWidget):
         header.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
         header.addRow(tr("Kind"), self.kind)
         header.addRow(tr("Saved"), self.ladders)
-        header.addRow(tr("New"), self.name_row)
+        header.addRow(tr("Name"), self.name_row)
         root_layout.addLayout(header)
+        self.records = PropRecordActions(self)
+        record_row = QFormLayout()
+        record_row.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        record_row.addRow(self.records.save_button, self.records.remove_button)
+        root_layout.addLayout(record_row)
+        self.records.save_requested.connect(
+            lambda: self.save_record_requested.emit(
+                str(self.kind.currentData()), self.current_prop()
+            )
+        )
+        self.records.remove_requested.connect(
+            lambda: self.remove_prop_requested.emit(
+                str(self.kind.currentData()), self.current_prop()
+            )
+        )
         self.empty_note = EmptyNote(
             tr("No props yet. Choose a kind, type a name, and press Add to place one."), self
         )
@@ -215,26 +230,17 @@ class PropsPanel(QWidget):
         )
         self.ladder_support.activated.connect(self._support_chosen)
         support_form.addRow(tr("Support"), self.ladder_support)
-        self.rung_count = QSpinBox(self)
-        self.rung_count.setRange(0, 10_000)
-        self.rung_count.setSpecialValueText(tr("Off"))
-        self.rung_count.setAccessibleName(tr("Rungs in the regular run"))
-        self.rung_count.setAccessibleDescription(
-            tr("Total rungs to extrapolate from the first two clicked rungs; Off to stop.")
-        )
-        support_form.addRow(tr("Rungs in total"), self.rung_count)
         layout.addLayout(support_form)
-        self.extrapolate = QPushButton(tr("Extrapolate from first two rungs"), self)
-        self.extrapolate.setAccessibleName(self.extrapolate.text())
-        self.extrapolate.setAccessibleDescription(
-            tr("Click two neighbouring rungs first; clicked rungs always replace estimates.")
+        self.pattern_controls = LadderPatternControls(self.ladder_editor)
+        self.rung_count = self.pattern_controls.count
+        self.rung_mode = self.pattern_controls.mode
+        self.extrapolate = self.pattern_controls.apply
+        self.pattern_controls.requested.connect(
+            lambda count, between: self.rung_count_requested.emit(
+                self.current_prop(), count, between
+            )
         )
-        self.extrapolate.clicked.connect(self._extrapolate_chosen)
-        layout.addWidget(self.extrapolate)
-        legend = QLabel(
-            tr("Solid squares are your camera clicks; dashed marks are 3D projections."), self
-        )
-        legend.setWordWrap(True)
+        layout.addWidget(self.pattern_controls)
         form = QFormLayout()
         self.step_label = QLineEdit(self)
         self.step_label.setAccessibleName(tr("Step label"))
@@ -258,7 +264,7 @@ class PropsPanel(QWidget):
         self.add_rung = QPushButton(tr("Click rung ends"), self)
         self.next_point = QPushButton(tr("Next point"), self)
         self.save_step = QPushButton(tr("Save step"), self)
-        self.save_next_step = QPushButton(tr("Save and click next step"), self)
+        self.save_next_step = QPushButton(tr("Save and next step"), self)
         self.save_next_step.setAccessibleDescription(
             tr("Save this step and start clicking the next one of the same kind.")
         )
@@ -269,9 +275,6 @@ class PropsPanel(QWidget):
         self.relabel_step = QPushButton(tr("Rename selected step"), self)
         self.up = QPushButton(tr("Move step up"), self)
         self.down = QPushButton(tr("Move step down"), self)
-        self.ladder_records = PropRecordActions(self.ladder_editor)
-        self.save_ladder = self.ladder_records.save_button
-        self.remove_ladder = self.ladder_records.remove_button
         for button in (
             self.add_point,
             self.add_rung,
@@ -285,8 +288,6 @@ class PropsPanel(QWidget):
             self.remove_step,
             self.up,
             self.down,
-            self.remove_ladder,
-            self.save_ladder,
         ):
             button.setAccessibleName(button.text())
         self.status = QLabel(tr("Click each point in the cameras where it is visible."), self)
@@ -300,8 +301,6 @@ class PropsPanel(QWidget):
                 self.add_rung,
                 self.next_point,
                 self.save_step,
-                self.save_ladder,
-                self.remove_ladder,
             ]
         )
         for button in (
@@ -314,7 +313,6 @@ class PropsPanel(QWidget):
         ):
             self.ladder_steps.add_overflow(button)
         self.ladder_steps.add_overflow(self.remove_step, destructive=True)
-        self.ladder_steps.add_more(legend)
         self.ladder_steps.set_learn_more(docs_url("user-guide/index.html#physical-props"))
         layout.addWidget(self.ladder_steps)
         self.add_point.clicked.connect(lambda: self._place(False))
@@ -332,10 +330,6 @@ class PropsPanel(QWidget):
         self.relabel_step.clicked.connect(self._relabel_selected_step)
         self.up.clicked.connect(lambda: self._move_selected_step(-1))
         self.down.clicked.connect(lambda: self._move_selected_step(1))
-        self.ladder_records.remove_requested.connect(self._remove_selected_ladder)
-        self.ladder_records.save_requested.connect(
-            lambda: self.save_prop_requested.emit(self.current_prop())
-        )
         self.editor_stack.addWidget(self.ladder_editor)
         self._build_belt_editor()
         self._build_ball_editor()
@@ -589,27 +583,18 @@ class PropsPanel(QWidget):
         self.clear_belt_visual.clicked.connect(
             lambda: self.visual_clear_requested.emit("belt", self.current_prop())
         )
-        self.belt_records = PropRecordActions(self.belt_editor)
-        self.save_belt = self.belt_records.save_button
-        self.remove_belt = self.belt_records.remove_button
-        self.belt_records.save_requested.connect(self.belt_save_requested)
-        self.belt_records.remove_requested.connect(
-            lambda: self.remove_prop_requested.emit("belt", self.current_prop())
-        )
         self.belt_steps = StepPanel(tr("Belt"), self.belt_editor)
         self.belt_steps.set_instruction(
             tr("Save the belt's path, then bind or track how its surface moves.")
         )
-        self.belt_steps.set_primary(self.save_belt)
+        self.belt_steps.set_primary(self.track_belt)
         self.belt_steps.add_secondary(
             [
-                self.track_belt,
                 self.bind_belt,
                 self.check_belt,
                 self.fit_belt_motion,
                 self.apply_belt_motion,
                 self.set_belt_lap,
-                self.remove_belt,
             ]
         )
         self.belt_steps.add_overflow(self.clear_belt_visual, destructive=True)
@@ -722,26 +707,17 @@ class PropsPanel(QWidget):
         self.clear_ball_visual.clicked.connect(
             lambda: self.visual_clear_requested.emit("ball", self.current_prop())
         )
-        self.ball_records = PropRecordActions(self.ball_editor)
-        self.save_ball = self.ball_records.save_button
-        self.remove_ball = self.ball_records.remove_button
-        self.ball_records.save_requested.connect(self.ball_save_requested)
-        self.ball_records.remove_requested.connect(
-            lambda: self.remove_prop_requested.emit("ball", self.current_prop())
-        )
         self.ball_steps = StepPanel(tr("Ball"), self.ball_editor)
         self.ball_steps.set_instruction(
             tr("Save the ball's geometry, then bind or track how it turns.")
         )
-        self.ball_steps.set_primary(self.save_ball)
+        self.ball_steps.set_primary(self.track_ball)
         self.ball_steps.add_secondary(
             [
-                self.track_ball,
                 self.bind_ball,
                 self.check_ball,
                 self.fit_ball_motion,
                 self.apply_ball_motion,
-                self.remove_ball,
             ]
         )
         self.ball_steps.add_overflow(self.clear_ball_visual, destructive=True)
@@ -1087,16 +1063,20 @@ class PropsPanel(QWidget):
     def _refresh_empty_note(self) -> None:
         """Say what fills the page while it is empty; wheels have their own page."""
         kind = str(self.kind.currentData() or "ladder")
+        self.empty_note.setText(
+            tr("Enter a name and geometry, then choose Save.")
+            if kind in ("belt", "ball")
+            else tr("Name a ladder and choose Add ladder, then click its steps.")
+        )
         self.empty_note.setVisible(kind != "wheel" and not any(True for _ in self._store))
 
     def _kind_changed(self) -> None:
         kind = str(self.kind.currentData() or "ladder")
         self.name.clear()
         self.name.setVisible(kind != "wheel")
-        self.ladders.setVisible(kind != "wheel")
-        # The whole row, label included: a "Saved" label beside nothing read as
-        # a missing control while a wheel was being placed.
-        self._header_form.setRowVisible(self.ladders, kind != "wheel")
+        name_label = self._header_form.labelForField(self.name_row)
+        if name_label is not None:
+            name_label.setVisible(kind != "wheel")
         self._refresh_empty_note()
         self.editor_stack.setVisible(kind != "wheel")
         self.create_button.setVisible(kind in {"ladder", "wheel"})
@@ -1119,13 +1099,9 @@ class PropsPanel(QWidget):
         self.refresh()
 
     def _place(self, rung: bool) -> None:
-        name = self.current_ladder()
+        name = self.current_prop()
         if name:
             self.place_requested.emit(name, self.step_label.text().strip(), rung)
-
-    def current_ladder(self) -> str:
-        """The selected ladder's stable name."""
-        return self.current_prop()
 
     def current_prop(self) -> str:
         """The selected saved prop's stable name."""
@@ -1136,30 +1112,30 @@ class PropsPanel(QWidget):
         return str(item.data(0x0100) or "") if item is not None else ""
 
     def _remove_selected_step(self) -> None:
-        if self.current_ladder() and self._selected_step():
-            self.remove_step_requested.emit(self.current_ladder(), self._selected_step())
+        if self.current_prop() and self._selected_step():
+            self.remove_step_requested.emit(self.current_prop(), self._selected_step())
 
     def _reclick_selected_step(self) -> None:
-        if self.current_ladder() and self._selected_step():
-            self.reclick_step_requested.emit(self.current_ladder(), self._selected_step())
+        if self.current_prop() and self._selected_step():
+            self.reclick_step_requested.emit(self.current_prop(), self._selected_step())
 
     def _relabel_selected_step(self) -> None:
-        if self.current_ladder() and self._selected_step() and self.step_label.text().strip():
+        if self.current_prop() and self._selected_step() and self.step_label.text().strip():
             self.relabel_step_requested.emit(
-                self.current_ladder(), self._selected_step(), self.step_label.text().strip()
+                self.current_prop(), self._selected_step(), self.step_label.text().strip()
             )
 
     def _tag_selected_step(self) -> None:
-        if self.current_ladder() and self._selected_step():
+        if self.current_prop() and self._selected_step():
             self.step_irregular_requested.emit(
-                self.current_ladder(),
+                self.current_prop(),
                 self._selected_step(),
                 str(self.step_irregular.currentData() or ""),
             )
 
     def _show_step_tag(self, _row: int) -> None:
         """Show the selected step's own tag so re-tagging starts from it."""
-        prop = self._store.get(self.current_ladder())
+        prop = self._store.get(self.current_prop())
         step_id = self._selected_step()
         if not isinstance(prop, Ladder) or not step_id:
             return
@@ -1169,41 +1145,24 @@ class PropsPanel(QWidget):
                 max(0, self.step_irregular.findData(step.irregular))
             )
 
-    def _extrapolate_chosen(self) -> None:
-        if self.current_ladder():
-            self.rung_count_requested.emit(self.current_ladder(), int(self.rung_count.value()))
-
     def _support_chosen(self, _index: int) -> None:
-        if self.current_ladder():
+        if self.current_prop():
             self.ladder_support_requested.emit(
-                self.current_ladder(), str(self.ladder_support.currentData() or "none")
+                self.current_prop(), str(self.ladder_support.currentData() or "none")
             )
 
     def _move_selected_step(self, offset: int) -> None:
-        if self.current_ladder() and self._selected_step():
-            self.move_step_requested.emit(self.current_ladder(), self._selected_step(), offset)
-
-    def _remove_selected_ladder(self) -> None:
-        if self.current_ladder():
-            self.remove_ladder_requested.emit(self.current_ladder())
+        if self.current_prop() and self._selected_step():
+            self.move_step_requested.emit(self.current_prop(), self._selected_step(), offset)
 
     def refresh(self) -> None:
         """Reflect the accepted store, preserving the current selection."""
-        selected = self.current_ladder()
+        selected = self.current_prop()
         kind = str(self.kind.currentData() or "ladder")
         self.ladders.blockSignals(True)
         self.ladders.clear()
         for prop in self._store:
-            prop_kind = (
-                "ladder"
-                if isinstance(prop, Ladder)
-                else "belt"
-                if isinstance(prop, BeltProp)
-                else "ball"
-                if isinstance(prop, BallProp)
-                else ""
-            )
-            if prop_kind == kind:
+            if prop_kind(prop) == kind:
                 self.ladders.addItem(prop.name, prop.name)
         at = self.ladders.findData(selected)
         self.ladders.setCurrentIndex(at if at >= 0 else 0)
@@ -1252,19 +1211,21 @@ class PropsPanel(QWidget):
     def _update_record_availability(self) -> None:
         kind = str(self.kind.currentData() or "ladder")
         selected = self._store.get(self.current_prop())
-        for record_kind, record_type, actions in (
-            ("ladder", Ladder, self.ladder_records),
-            ("belt", BeltProp, self.belt_records),
-            ("ball", BallProp, self.ball_records),
-        ):
-            exists = kind == record_kind and isinstance(selected, record_type)
-            actions.set_available(
-                can_save=self._saving_available and (exists or record_kind != "ladder"),
-                can_remove=exists,
-                save_reason=tr("Open a recording before saving a prop.")
-                if not self._saving_available
-                else tr("Select a saved prop first."),
-            )
+        exists = selected is not None and prop_kind(selected) == kind
+        self.records.set_available(
+            can_save=self._saving_available and (exists or kind in ("belt", "ball")),
+            can_remove=exists,
+            save_reason=tr("Open a recording before saving a prop.")
+            if not self._saving_available
+            else tr("Select a saved prop first."),
+        )
+
+    def set_pattern_draft(self, pending: tuple[LadderPoint, ...], *, blocked: bool = False) -> None:
+        """Preview complete pending clicks without adopting them as saved evidence."""
+        ladder = self._store.get(self.current_prop())
+        self.pattern_controls.set_context(
+            ladder if isinstance(ladder, Ladder) else None, pending, blocked=blocked
+        )
 
     def _update_step_enablement(self) -> None:
         """Offer each step command only when it has something to act on (D-107).
@@ -1272,7 +1233,7 @@ class PropsPanel(QWidget):
         The ladder editor is on show before any ladder exists, and each of these
         used to accept the click and then do nothing, without saying why.
         """
-        has_ladder = isinstance(self._store.get(self.current_ladder()), Ladder)
+        has_ladder = isinstance(self._store.get(self.current_prop()), Ladder)
         has_step = has_ladder and bool(self._selected_step())
         row = self.steps.currentRow()
         no_ladder = tr("Add a ladder first.")
@@ -1305,16 +1266,16 @@ class PropsPanel(QWidget):
 
     def _refresh_steps(self) -> None:
         selected = self._selected_step()
-        prop = self._store.get(self.current_ladder())
+        prop = self._store.get(self.current_prop())
         self.steps.clear()
-        for control in (self.ladder_support, self.rung_count, self.extrapolate):
+        for control in (self.ladder_support, self.pattern_controls):
             control.setEnabled(isinstance(prop, Ladder))
+        self.pattern_controls.set_context(prop if isinstance(prop, Ladder) else None)
         if not isinstance(prop, Ladder):
             return
         blocked = self.ladder_support.blockSignals(True)
         self.ladder_support.setCurrentIndex(max(0, self.ladder_support.findData(prop.support)))
         self.ladder_support.blockSignals(blocked)
-        self.rung_count.setValue(0 if prop.pattern is None else prop.pattern.count)
         for step in prop.steps:
             clicks = sum(len(point.clicks) for point in step.points)
             solved = sum(point.xyz is not None for point in step.points)

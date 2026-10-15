@@ -151,7 +151,7 @@ def test_misnamed_tombstone_reports_an_issue_without_hiding_another_prop(tmp_pat
     ladder = _ladder()
     write_ladder(tmp_path, ladder)
     (tmp_path / f"wrong{PROP_SUFFIX}").write_text(
-        '[prop]\nversion = 1\nkind = "wheel"\nname = "another"\nremoved = true\n',
+        '[prop]\nversion = 2\nkind = "wheel"\nname = "another"\nremoved = true\n',
         encoding="utf-8",
     )
     props, issues = read_props(tmp_path)
@@ -165,10 +165,10 @@ def test_future_version_and_kind_are_reported_without_hiding_good_props(tmp_path
     good = _ladder()
     write_ladder(tmp_path, good)
     (tmp_path / f"future{PROP_SUFFIX}").write_text(
-        '[prop]\nversion = 2\nkind = "ladder"\nname = "future"\n', encoding="utf-8"
+        '[prop]\nversion = 3\nkind = "ladder"\nname = "future"\n', encoding="utf-8"
     )
     (tmp_path / f"unsupported{PROP_SUFFIX}").write_text(
-        '[prop]\nversion = 1\nkind = "unknown_kind"\nname = "unsupported"\n', encoding="utf-8"
+        '[prop]\nversion = 2\nkind = "unknown_kind"\nname = "unsupported"\n', encoding="utf-8"
     )
     props, issues = read_props(tmp_path)
     assert props == [good]
@@ -181,7 +181,7 @@ def test_future_version_and_kind_are_reported_without_hiding_good_props(tmp_path
 
 def test_writing_a_ladder_never_overwrites_an_unknown_kind(tmp_path) -> None:
     target = prop_path(tmp_path, "horizontal ladder")
-    future = '[prop]\nversion = 1\nkind = "ball"\nname = "horizontal ladder"\n'
+    future = '[prop]\nversion = 2\nkind = "ball"\nname = "horizontal ladder"\n'
     target.write_text(future, encoding="utf-8")
     with pytest.raises(PropModelError):
         write_ladder(tmp_path, _ladder())
@@ -217,7 +217,7 @@ def test_typed_sidecar_fields_do_not_silently_change_evidence(tmp_path, bad_fiel
     good = _ladder()
     write_ladder(tmp_path, good)
     (tmp_path / f"bad{PROP_SUFFIX}").write_text(
-        f'[prop]\nversion = 1\nkind = "ladder"\nname = "bad"\n{bad_field}\n',
+        f'[prop]\nversion = 2\nkind = "ladder"\nname = "bad"\n{bad_field}\n',
         encoding="utf-8",
     )
     props, issues = read_props(tmp_path)

@@ -71,9 +71,9 @@ def test_unrecognized_types_and_unsupported_record_formats_do_not_load(tmp_path:
     assert prop_file.read_prop_records(tmp_path / "missing") == ([], [], set())
     for index, text in enumerate(
         [
-            'format = "future/2"\n[prop]\nversion=1\nkind="ladder"\nname="a"\n',
-            '[prop]\nversion=1\nkind="future"\nname="a"\n',
-            '[prop]\nversion=1\nkind="wheel"\nname="a"\n',
+            'format = "future/2"\n[prop]\nversion=2\nkind="ladder"\nname="a"\n',
+            '[prop]\nversion=2\nkind="future"\nname="a"\n',
+            '[prop]\nversion=2\nkind="wheel"\nname="a"\n',
         ]
     ):
         (tmp_path / f"bad{index}_prop.toml").write_text(text, encoding="utf-8")

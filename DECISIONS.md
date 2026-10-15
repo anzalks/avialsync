@@ -7595,7 +7595,7 @@ video label preference.
 
 ## 2026-10 · D-238 · Every physical prop exposes shared Save and Remove record actions
 
-**Decision.** Wheels, ladders, belts and balls expose visible Save prop and Remove saved prop
+**Decision.** Wheels, ladders, belts and balls expose visible Save and Remove
 buttons from `PropRecordActions`. Their live actions own labels, tooltips and enablement.
 Whole-prop removal is a visible choice in these editors, rather than an overflow-only choice;
 the user explicitly requested it for every saved apparatus. Removing individual steps or
@@ -7617,3 +7617,43 @@ and routing keep these operations consistent without accepting incomplete camera
 accepted record is persistence only; it does not change evidence or create an undo entry.
 Removal remains undoable and writes a removal record so reopening does not resurrect it.
 The authoritative format and recording-folder location are unchanged (D-155, D-156, D-160).
+
+## 2026-10 · D-239 · Ladder spacing supports first/last anchors and neighbouring rungs
+
+**Decision.** The current Props inspector offers two explicit spacing modes. First and last
+steps fills between the observed endpoints; the requested count includes both. Endpoints may
+be single footholds or full two-ended rungs. Two neighbouring rungs retains extension from
+adjacent full rungs. The chosen mode and count are saved in the current prop record, version 2.
+Per the user's instruction, only the current record format is supported; no legacy reader,
+migration, or compatibility aliases are introduced.
+
+One-point image anchors define equal image spacing only, shown as estimated 2D guides. Solved
+anchors define equal physical spacing, projected into each camera afterwards. Full rung ends
+determine a perspective plane in each shared view. Observed steps replace matching estimates;
+generated guides never enter the observation list or acquire invented camera clicks or depth.
+The renderer shares the same layout calculations in camera and 3D views.
+
+The spacing component and controller share seed selection and readiness. The total survives
+collecting and saving endpoint clicks. A complete pending endpoint is accepted only by an
+explicitly named Save step and fill between / Save step and extend rungs action; incomplete
+or corrected steps must be finished or cancelled first. Saving the observation and changing
+the layout retain their separate inverse commands.
+Changing the total keeps accepted anchor ids, so adding an irregular intermediate observation
+does not silently replace the far endpoint.
+
+Every kind now uses one Saved selector and one shared Save / Remove area.
+Wheel details follow that selection. Duplicate kind-specific record buttons and aliases are
+removed; geometry and motion controls remain specialized. The ladder footer keeps its guide
+link and action menu; the duplicate legend and More toggle are removed. Footer widgets are
+never relocated into another layout: a retained QWidgetItem wrapper stayed valid after Qt
+deleted its item during such a move, exposing stale binding state in long local test runs.
+
+**Why.** A user clicked the first and last footholds and expected a total of 30 steps, while
+the previous command required two neighbouring full rungs. It remained clickable with the
+wrong evidence, reset the unapplied count during edits, and did not accept the pending last
+step. Repeating Save/Remove buttons inside each editor also crowded the inspector.
+
+**Validation.** Ground-truth fixtures cover thirty-step image and 3D fills, full-rung
+perspective, observed intermediate replacements, unknown/coincident anchors, mode persistence,
+pending-click acceptance, undo/redo, selected-wheel removal, and compact layout. Both layout
+modes retain the 2 ms prop frame budget in a thirty-step microbenchmark.

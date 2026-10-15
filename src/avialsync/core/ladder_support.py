@@ -8,6 +8,10 @@ enough; in 3D by repeating their spacing. Extrapolated rungs are estimates. A
 clicked rung at the same place replaces one, and the bars then follow the rungs
 along the walkway rather than in click order.
 
+Endpoint mode fills between first and last footholds or rungs, including both
+in the requested count. Footholds have equal spacing in the supplied space:
+image-only anchors yield 2D guides, while solved anchors yield 3D spacing.
+
 The same rules serve camera pixels and solved 3D points, so a caller passes one
 position per clicked point, or None where that point is not known in its space.
 """
@@ -86,6 +90,8 @@ _SAME_RUNG = 0.3
 class _Lattice:
     """Rung coordinates (``u`` along a rung, ``t`` in spacings) to one view."""
 
+    arity = 2
+
     def __init__(self, a0: Position, b0: Position, a1: Position, b1: Position) -> None:
         self._image: PlaneView | None = None
         if len(a0) == 2:
@@ -118,16 +124,35 @@ class _Lattice:
         return float(relative @ self._pitch / (self._pitch @ self._pitch))
 
 
+class _PointLattice:
+    """Even spacing between two footholds in their supplied coordinate space."""
+
+    arity = 1
+
+    def __init__(self, first: Position, last: Position) -> None:
+        self._origin = np.asarray(first, dtype=np.float64)
+        self._pitch = np.asarray(last, dtype=np.float64) - self._origin
+        if float(self._pitch @ self._pitch) < 1e-18:
+            raise PropModelError("The first and last steps must be apart.")
+
+    def point(self, _u: float, t: float) -> Position | None:
+        return tuple(float(value) for value in self._origin + t * self._pitch)
+
+    def spacing(self, position: Position) -> float | None:
+        relative = np.asarray(position, dtype=np.float64) - self._origin
+        return float(relative @ self._pitch / (self._pitch @ self._pitch))
+
+
 @dataclass(frozen=True)
 class RungLayout:
     """Extrapolated rungs and the walkway order support bars follow.
 
     ``generated`` holds each extrapolated rung's number in the run (1 is the
-    first pattern rung) and its two ends. ``walkway`` lists every rung's points
+    first pattern step) and its one or two points. ``walkway`` lists every step's points
     in the order bars join them.
     """
 
-    generated: tuple[tuple[int, tuple[Position | None, Position | None]], ...]
+    generated: tuple[tuple[int, tuple[Position | None, ...]], ...]
     walkway: tuple[tuple[Position | None, ...], ...]
 
 
@@ -143,12 +168,21 @@ def _pair(
 
 
 def _lattice(
-    steps: Sequence[Sequence[Position | None]], pattern: tuple[int, int, int]
-) -> _Lattice | None:
+    steps: Sequence[Sequence[Position | None]],
+    pattern: tuple[int, int, int],
+    between_endpoints: bool = False,
+) -> _Lattice | _PointLattice | None:
     first, second, _count = pattern
     if not (0 <= first < len(steps) and 0 <= second < len(steps)):
         return None
     near, far = steps[first], steps[second]
+    if between_endpoints and len(near) == len(far) == 1:
+        if near[0] is None or far[0] is None:
+            return None
+        try:
+            return _PointLattice(near[0], far[0])
+        except PropModelError:
+            return None
     if len(near) != 2 or len(far) != 2 or None in (*near, *far):
         return None
     a0, b0 = near[0], near[1]
@@ -161,7 +195,7 @@ def _lattice(
         return None
 
 
-def _place(lattice: _Lattice, step: Sequence[Position | None]) -> float | None:
+def _place(lattice: _Lattice | _PointLattice, step: Sequence[Position | None]) -> float | None:
     """Where a fully known step sits along the run, in rung spacings."""
     if not step or any(point is None for point in step):
         return None
@@ -172,7 +206,10 @@ def _place(lattice: _Lattice, step: Sequence[Position | None]) -> float | None:
 
 
 def rung_places(
-    steps: Sequence[Sequence[Position | None]], pattern: tuple[int, int, int] | None
+    steps: Sequence[Sequence[Position | None]],
+    pattern: tuple[int, int, int] | None,
+    *,
+    between_endpoints: bool = False,
 ) -> tuple[float | None, ...]:
     """Each step's place along the run, from positions where it is known.
 
@@ -180,7 +217,7 @@ def rung_places(
     a raised rung's image is displaced from the plane of the pattern rungs, so
     reading its place from one image would misjudge which rung it is.
     """
-    lattice = None if pattern is None else _lattice(steps, pattern)
+    lattice = None if pattern is None else _lattice(steps, pattern, between_endpoints)
     return tuple(None if lattice is None else _place(lattice, step) for step in steps)
 
 
@@ -188,6 +225,8 @@ def lay_out_rungs(
     steps: Sequence[Sequence[Position | None]],
     pattern: tuple[int, int, int] | None,
     places: Sequence[float | None] = (),
+    *,
+    between_endpoints: bool = False,
 ) -> RungLayout:
     """Extrapolate a regular run, if one is declared and visible in this space.
 
@@ -196,9 +235,11 @@ def lay_out_rungs(
     are unknown here, nothing is extrapolated and bars follow click order.
     *places* are steps' known places along the run from 3D (see
     :func:`rung_places`); a step without one is placed from these positions.
+    With *between_endpoints*, the anchors bound the run and spacing is divided
+    into ``count - 1`` intervals; one-point footholds are also supported.
     """
     clicked = tuple(tuple(step) for step in steps)
-    lattice = None if pattern is None else _lattice(steps, pattern)
+    lattice = None if pattern is None else _lattice(steps, pattern, between_endpoints)
     if pattern is None or lattice is None:
         return RungLayout((), clicked)
     count = pattern[2]
@@ -212,13 +253,16 @@ def lay_out_rungs(
         taken.append(where)
         if all(point is not None for point in step):
             placed.append((where, clicked[index]))
-    generated: list[tuple[int, tuple[Position | None, Position | None]]] = []
-    for number in range(2, count):
-        if any(abs(where - number) < _SAME_RUNG for where in taken):
+    generated: list[tuple[int, tuple[Position | None, ...]]] = []
+    span = max(1, count - 1) if between_endpoints else 1
+    numbers = range(1, count - 1) if between_endpoints else range(2, count)
+    for number in numbers:
+        position = number / span
+        if any(abs(where - position) < _SAME_RUNG / span for where in taken):
             continue
-        ends = (lattice.point(0.0, float(number)), lattice.point(1.0, float(number)))
+        ends = tuple(lattice.point(float(u), position) for u in range(lattice.arity))
         generated.append((number + 1, ends))
         if None not in ends:
-            placed.append((float(number), ends))
+            placed.append((position, ends))
     placed.sort(key=lambda item: item[0])
     return RungLayout(tuple(generated), tuple(points for _where, points in placed))

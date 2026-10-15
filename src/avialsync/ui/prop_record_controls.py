@@ -22,8 +22,8 @@ class PropRecordActions(QObject):
 
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
-        self.save_action = QAction(tr("Save prop"), self)
-        self.remove_action = QAction(tr("Remove saved prop"), self)
+        self.save_action = QAction(tr("Save"), self)
+        self.remove_action = QAction(tr("Remove"), self)
         self.save_button = ActionButton(parent, self.save_action)
         self.remove_button = ActionButton(parent, self.remove_action)
         self.save_button.setAccessibleName(self.save_action.text())

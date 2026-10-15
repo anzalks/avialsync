@@ -212,7 +212,7 @@ def _capture_props(
         crop=window._left_tabs,
     )
     capture(window, out_dir / "feature_props_ladder_viewer.png", crop=window._media_splitter)
-    window.props_app.remove_ladder("Ladder")
+    window.props_app.remove_prop("ladder", "Ladder")
 
     panel.kind.setCurrentIndex(panel.kind.findData("belt"))
     panel.name.setText("Example belt")
@@ -229,7 +229,7 @@ def _capture_props(
     settle(app)
     capture(window, out_dir / "feature_props_belt_corners.png", crop=window._media_splitter)
     panel.belt_placement.place.click()
-    panel.save_belt.click()
+    panel.records.save_button.click()
     belt = window.props_app.store.get("Example belt")
     assert isinstance(belt, BeltProp) and belt.corners is not None and belt.rollers is not None
     assert abs(belt.rollers.width - 16.0) < 0.01 and abs(belt.rollers.run_length - 80.0) < 1e-6
@@ -283,7 +283,7 @@ def _capture_props(
         x, y = models["camera_1"].project(np.asarray((along, -8.0, 60.0 + up)))[0]
         assert window.props_app.on_clicked(paths["camera_1"], float(x), float(y))
     panel.belt_placement.place.click()
-    panel.save_belt.click()
+    panel.records.save_button.click()
     side = window.props_app.store.get("Side belt")
     assert isinstance(side, BeltProp) and side.side_view is not None
     settle(app)
@@ -295,7 +295,7 @@ def _capture_props(
     panel.ball_centre_fields[2].setValue(70.0)
     panel.ball_radius.setValue(35.0)
     panel.ball_units.setCurrentIndex(panel.ball_units.findData("mm"))
-    panel.save_ball.click()
+    panel.records.save_button.click()
     tab.verticalScrollBar().setValue(0)
     settle(app)
     capture(

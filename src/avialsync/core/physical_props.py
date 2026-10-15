@@ -255,23 +255,26 @@ class LadderStep:
 
 @dataclass(frozen=True)
 class RungPattern:
-    """A regular run of rungs extrapolated from two clicked neighbours.
+    """A regular run from clicked neighbours or its first and last steps.
 
-    ``first`` and ``second`` are the ids of two adjacent clicked rungs; their
-    four ends fix the spacing. ``count`` is the number of rungs in the run,
-    those two included. Extrapolated rungs are estimates: a clicked rung at the
-    same place replaces one, and nothing extrapolated becomes a click.
+    ``first`` and ``second`` identify adjacent rungs, or the run's endpoints
+    when ``between_endpoints`` is true. Endpoint steps may each be a foothold
+    or a full rung. ``count`` includes both anchors. Generated positions are
+    estimates: observed steps replace them and never become invented clicks.
     """
 
     first: str
     second: str
     count: int
+    between_endpoints: bool = False
 
     def __post_init__(self) -> None:
         if not self.first or not self.second or self.first == self.second:
             raise PropModelError("A rung pattern needs two different clicked rungs.")
         if type(self.count) is not int or not 2 <= self.count <= 10_000:
             raise PropModelError("A rung pattern needs between 2 and 10000 rungs.")
+        if type(self.between_endpoints) is not bool:
+            raise PropModelError("A rung pattern's endpoint mode must be true or false.")
 
 
 @dataclass(frozen=True)

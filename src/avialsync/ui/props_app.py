@@ -76,6 +76,7 @@ from avialsync.ui.controllers import (
 )
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import on_ui_thread
+from avialsync.ui.ladder_pattern_controls import pattern_readiness, seed_steps
 from avialsync.ui.prop_overlay import PropDrawing, PropPixel
 from avialsync.ui.prop_support_drawing import (
     placement_pixels,
@@ -270,10 +271,7 @@ class PropsApp:
         panel.reclick_step_requested.connect(self.reclick_step)
         panel.relabel_step_requested.connect(self.relabel_step)
         panel.move_step_requested.connect(self.move_step)
-        panel.remove_ladder_requested.connect(self.remove_ladder)
-        panel.save_prop_requested.connect(self.save_prop)
-        panel.belt_save_requested.connect(self.save_belt)
-        panel.ball_save_requested.connect(self.save_ball)
+        panel.save_record_requested.connect(self.save_record)
         panel.belt_bind_requested.connect(self.bind_belt)
         panel.ball_bind_requested.connect(self.bind_ball)
         panel.visual_track_requested.connect(self.start_visual_track)
@@ -359,6 +357,8 @@ class PropsApp:
             self.panel.set_belt_fields(prop)
         elif kind == "ball" and isinstance(prop, BallProp):
             self.panel.set_ball_fields(prop)
+        elif kind == "wheel" and isinstance(prop, Wheel):
+            self.window.wheel_panel.select_record(name)
         if isinstance(prop, (BeltProp, BallProp)):
             proposal = self._motion_proposals.get(prop.name)
             self.panel.set_motion_proposal(prop.name, self._proposal_text(prop, proposal))
@@ -381,7 +381,7 @@ class PropsApp:
         panel = self.panel
         if panel is None:
             return
-        name = panel.name.text().strip() or panel.current_ladder()
+        name = panel.name.text().strip() or panel.current_prop()
         try:
             folder = rig_paths.pose3d_dir(self.window.rig_paths)
             if folder is None:
@@ -480,7 +480,7 @@ class PropsApp:
         panel = self.panel
         if panel is None:
             return
-        name = panel.name.text().strip() or panel.current_ladder()
+        name = panel.name.text().strip() or panel.current_prop()
         try:
             folder = rig_paths.pose3d_dir(self.window.rig_paths)
             if folder is None:
@@ -1089,21 +1089,47 @@ class PropsApp:
             self.window._mutations,
         )
 
-    def set_rung_count(self, name: str, count: int) -> None:
-        """Extrapolate a regular run from the first two clicked rungs, or stop."""
+    def set_rung_count(self, name: str, count: int, between_endpoints: bool = False) -> None:
+        """Fill between endpoints, extend from neighbours, or remove the guide."""
         ladder = self.store.get(name)
         if not isinstance(ladder, Ladder):
             return
         pattern = None
         if count:
-            rungs = [step.step_id for step in ladder.steps if len(step.points) == 2]
-            if len(rungs) < 2:
-                self._status(tr("Click two neighbouring rungs' ends before extrapolating."))
+            draft = self.draft
+            pending = draft is not None and draft.ladder == name
+            preview = ladder.steps
+            if pending:
+                assert draft is not None
+                if draft.before is not None or draft.purpose != "step":
+                    self._status(tr("Finish or cancel the current step before changing spacing."))
+                    return
+                if not any(p.clicks for p in draft.points):
+                    self.cancel_step()
+                    pending = False
+                else:
+                    if len(draft.points) < draft.minimum_points or any(
+                        not p.clicks for p in draft.points
+                    ):
+                        self._status(tr("Click every point before filling the ladder."))
+                        return
+                    preview = (
+                        *preview,
+                        LadderStep("__pending__", draft.label, tuple(draft.points)),
+                    )
+            ready, reason = pattern_readiness(preview, between_endpoints, count, ladder.pattern)
+            if not ready:
+                self._status(reason)
                 return
-            if count < 2:
-                self._status(tr("A regular run needs at least two rungs."))
-                return
-            pattern = RungPattern(rungs[0], rungs[1], count)
+            if pending:
+                if not self.save_step():
+                    return
+                updated = self.store.get(name)
+                assert isinstance(updated, Ladder)
+                ladder = updated
+            seeds = seed_steps(ladder.steps, between_endpoints, ladder.pattern)
+            assert seeds is not None
+            pattern = RungPattern(seeds[0].step_id, seeds[1].step_id, count, between_endpoints)
         if pattern == ladder.pattern:
             return
         self.window.document.execute(
@@ -1111,18 +1137,16 @@ class PropsApp:
                 name,
                 ladder.layout,
                 LadderLayout(ladder.support, pattern),
-                tr("Extrapolate {count} rungs").format(count=count)
+                tr("Set ladder spacing for {count} steps").format(count=count)
                 if pattern is not None
-                else tr("Stop extrapolating rungs"),
+                else tr("Remove ladder spacing guide"),
             ),
             self.window._mutations,
         )
         self._status(
-            tr("Extrapolated to {count} rungs; clicked rungs replace estimates.").format(
-                count=count
-            )
+            tr("{count} steps including anchors; guides are estimates.").format(count=count)
             if pattern is not None
-            else tr("Only clicked rungs are shown.")
+            else tr("Only clicked steps are shown.")
         )
 
     def tag_step(self, name: str, step_id: str, tag: str) -> None:
@@ -1386,10 +1410,6 @@ class PropsApp:
             self.window._mutations,
         )
 
-    def remove_ladder(self, name: str) -> None:
-        """Remove the selected ladder with an inverse retaining its clicks."""
-        self.remove_prop("ladder", name)
-
     def _status(self, message: str) -> None:
         if self.panel is not None:
             self.panel.status.setText(message)
@@ -1446,6 +1466,26 @@ class PropsApp:
 
     def refresh(self) -> None:
         """Repaint every pane and the 3D view after a store or draft change."""
+        if self.panel is not None:
+            draft = self.draft
+            pending = (
+                tuple(draft.points)
+                if draft is not None
+                and draft.purpose == "step"
+                and draft.before is None
+                and draft.ladder == self.panel.current_prop()
+                and len(draft.points) >= draft.minimum_points
+                and all(p.clicks for p in draft.points)
+                else ()
+            )
+            blocked = (
+                draft is not None
+                and draft.purpose == "step"
+                and draft.ladder == self.panel.current_prop()
+                and not pending
+                and (draft.before is not None or any(p.clicks for p in draft.points))
+            )
+            self.panel.set_pattern_draft(pending, blocked=blocked)
         if hasattr(self.window, "video_grid"):
             for pane in self.window.video_grid.panes:
                 pane.paint_canvas.update()
@@ -1523,7 +1563,11 @@ class PropsApp:
                         pixels.append(None)
                 if any(pixel is not None for pixel in pixels):
                     drawings.append((_step_label(step), tuple(pixels), step.closed))
-            drawings.extend(rung_pixels(ladder, step_pixels))
+            drawings.extend(
+                rung_pixels(
+                    ladder, step_pixels, project=lambda xyz: self._project_declared(model, xyz)
+                )
+            )
         for prop in self.store:
             if isinstance(prop, BeltProp):
                 project = self._belt_projection(prop, camera, model)
@@ -1776,6 +1820,15 @@ class PropsApp:
         self.window.document.execute(
             SetPhysicalPropCommand(prop.name, before, prop, label), self.window._mutations
         )
+
+    def save_record(self, kind: str, name: str) -> None:
+        """The shared Save command; only declaration preparation varies by kind."""
+        if kind == "belt":
+            self.save_belt()
+        elif kind == "ball":
+            self.save_ball()
+        else:
+            self.save_prop(name)
 
     def save_prop(self, name: str) -> None:
         """Re-save an accepted prop, including retrying an earlier failed write.

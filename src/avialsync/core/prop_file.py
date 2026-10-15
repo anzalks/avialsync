@@ -65,7 +65,7 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 PROP_SUFFIX = "_prop.toml"
-_VERSION = 1
+_VERSION = 2
 _HEADER = "# AvialSync physical prop. Camera clicks are the authority."
 PropKind = Literal["ladder", "wheel", "belt", "ball"]
 PropRecord = PhysicalProp
@@ -149,6 +149,7 @@ def _ladder_sections(ladder: Ladder) -> list[str]:
                 ("pattern_first", None if pattern is None else pattern.first),
                 ("pattern_second", None if pattern is None else pattern.second),
                 ("rung_count", None if pattern is None else pattern.count),
+                ("pattern_endpoints", None if pattern is None else pattern.between_endpoints),
             ],
         )
     for step in ladder.steps:
@@ -369,7 +370,7 @@ def write_prop(folder: Path | str, prop: PropRecord, *, overwrite_existing: bool
 
 
 def write_ladder(folder: Path | str, ladder: Ladder, *, overwrite_existing: bool = True) -> Path:
-    """Compatibility wrapper for writing a ladder in the generalized format."""
+    """Write a ladder through the shared physical-prop codec."""
     return write_prop(folder, ladder, overwrite_existing=overwrite_existing)
 
 
@@ -534,6 +535,7 @@ def _parse_ladder(head: Mapping[str, Any], document: Mapping[str, Any]) -> Ladde
             _text(table["pattern_first"]),
             _text(table["pattern_second"]),
             _integer(table["rung_count"]),
+            _flag(table, "pattern_endpoints"),
         )
         if "rung_count" in table
         else None

@@ -627,7 +627,10 @@ def test_row_replace_starts_a_placement_that_swaps_the_wheel_in(
 
 
 def test_row_remove_takes_the_wheel_out_and_undo_brings_it_back(window: MainWindow, placed) -> None:
-    placed.remove.click()
+    panel = window.props_app.panel
+    assert panel is not None
+    panel.select_prop("wheel", "wheel")
+    panel.records.remove_button.click()
     assert window.wheels.get("wheel") is None
     assert window.document.undo(window._mutations)
     assert window.wheels.get("wheel") is not None

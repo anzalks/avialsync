@@ -166,7 +166,7 @@ def test_measured_belt_surface_is_saved_and_drawn_as_a_mesh(window: MainWindow) 
         panel.belt_add_vertex.click()
     panel.belt_width.setValue(8.0)
     panel.belt_normal_fields[2].setValue(1.0)
-    panel.save_belt.click()
+    panel.records.save_button.click()
 
     belt = window.props_app.store.get("mesh belt")
     assert isinstance(belt, BeltProp) and belt.surface_width == 8.0
@@ -193,7 +193,7 @@ def test_two_roller_belt_editor_saves_measured_geometry_and_viewer_mesh(window: 
     panel.belt_width.setValue(16.0)
     panel.belt_normal_fields[2].setValue(1.0)
     panel.belt_direction_fields[0].setValue(1.0)
-    panel.save_belt.click()
+    panel.records.save_button.click()
     belt = window.props_app.store.get("treadmill")
     assert isinstance(belt, BeltProp) and belt.rollers is not None, panel.status.text()
     assert belt.rollers.run_length == pytest.approx(60.0)
@@ -270,7 +270,7 @@ def test_visual_only_belt_and_ball_tracks_are_clicked_and_displayed(
             field.setValue(value)
         panel.belt_add_vertex.click()
     panel.belt_direction_fields[0].setValue(1.0)
-    panel.save_belt.click()
+    panel.records.save_button.click()
     assert panel.track_belt.isEnabled()
     panel.track_belt.click()
     moment.update(frame=-1)
@@ -286,7 +286,7 @@ def test_visual_only_belt_and_ball_tracks_are_clicked_and_displayed(
     panel.belt_vertices.setCurrentRow(1)
     panel.belt_point_fields[1].setValue(30.0)
     panel.belt_update_vertex.click()
-    panel.save_belt.click()
+    panel.records.save_button.click()
     changed_belt = window.props_app.store.get("visual belt")
     assert isinstance(changed_belt, BeltProp)
     assert changed_belt.visual_frames == belt.visual_frames
@@ -297,7 +297,7 @@ def test_visual_only_belt_and_ball_tracks_are_clicked_and_displayed(
     panel.belt_vertices.setCurrentRow(1)
     panel.belt_point_fields[1].setValue(0.0)
     panel.belt_update_vertex.click()
-    panel.save_belt.click()
+    panel.records.save_button.click()
     assert belt_visual_state(window.props_app.store.get("visual belt"), 8, CAMERAS) is not None
     assert any(
         label == "mark" and pixels[0] is not None and pixels[0][2]
@@ -315,7 +315,7 @@ def test_visual_only_belt_and_ball_tracks_are_clicked_and_displayed(
     panel.name.setText("visual ball")
     panel.ball_centre_fields[2].setValue(70.0)
     panel.ball_radius.setValue(5.0)
-    panel.save_ball.click()
+    panel.records.save_button.click()
     panel.track_ball.click()
     reference_marks = ((5.0, 0.0, 70.0), (0.0, 5.0, 70.0), (0.0, 0.0, 75.0))
     later_marks = ((0.0, 5.0, 70.0), (-5.0, 0.0, 70.0), (0.0, 0.0, 75.0))
@@ -328,7 +328,7 @@ def test_visual_only_belt_and_ball_tracks_are_clicked_and_displayed(
     assert isinstance(ball, BallProp) and ball.binding is None
     assert len(ball.visual_frames) == 2
     panel.ball_radius.setValue(50.0)
-    panel.save_ball.click()
+    panel.records.save_button.click()
     changed_ball = window.props_app.store.get("visual ball")
     assert isinstance(changed_ball, BallProp)
     assert changed_ball.visual_frames == ball.visual_frames
@@ -341,7 +341,7 @@ def test_visual_only_belt_and_ball_tracks_are_clicked_and_displayed(
     click_mark(later_marks[0])
     assert "off the declared sphere" in panel.status.text()
     panel.ball_radius.setValue(5.0)
-    panel.save_ball.click()
+    panel.records.save_button.click()
     ball = window.props_app.store.get("visual ball")
     assert isinstance(ball, BallProp) and ball_visual_state(ball, 8, CAMERAS) is not None
     assert any(
@@ -399,7 +399,7 @@ def test_belt_and_ball_bind_verify_and_persist_later_frame_evidence(
             field.setValue(value)
         panel.belt_add_vertex.click()
     panel.belt_direction_fields[0].setValue(1.0)
-    panel.save_belt.click()
+    panel.records.save_button.click()
     panel.select_channel(panel.belt_channel, ("sensor", "distance"))
     assert panel.belt_channel.currentData() == ("sensor", "distance")
     panel.belt_reference_distance.setValue(5.0)
@@ -427,7 +427,7 @@ def test_belt_and_ball_bind_verify_and_persist_later_frame_evidence(
     panel.name.setText("ball")
     panel.ball_centre_fields[2].setValue(70.0)
     panel.ball_radius.setValue(2.0)
-    panel.save_ball.click()
+    panel.records.save_button.click()
     for combo, channel in zip(panel.ball_channels, ("qw", "qx", "qy", "qz"), strict=True):
         panel.select_channel(combo, ("imu", channel))
     panel.bind_ball.click()
@@ -621,7 +621,7 @@ def test_ladder_commands_are_offered_only_when_they_can_act(
     window._act_add_prop.trigger()
     panel = window.props_app.panel
     assert panel is not None
-    needs_ladder = (panel.add_point, panel.add_rung, panel.remove_ladder)
+    needs_ladder = (panel.add_point, panel.add_rung, panel.records.remove_button)
     needs_step = (panel.reclick_step, panel.tag_step, panel.remove_step)
     needs_clicks = (panel.next_point, panel.save_step, panel.save_next_step, panel.cancel_step)
     for button in (*needs_ladder, *needs_step, *needs_clicks, panel.relabel_step):
@@ -708,14 +708,14 @@ def test_belt_and_ball_geometry_are_editable_and_reopen_from_the_props_tab(
         panel.belt_add_vertex.click()
     panel.belt_direction_fields[0].setValue(1.0)
     panel.belt_units.setCurrentIndex(panel.belt_units.findData("mm"))
-    panel.save_belt.click()
+    panel.records.save_button.click()
     belt = window.props_app.store.get("belt")
     assert isinstance(belt, BeltProp)
     assert belt.track.vertices == ((0.0, 0.0, 70.0), (10.0, 0.0, 70.0))
     assert "unknown" in panel.belt_motion_status.text().lower()
 
     panel.belt_direction_fields[1].setValue(1.0)
-    panel.save_belt.click()
+    panel.records.save_button.click()
     changed_belt = window.props_app.store.get("belt")
     assert isinstance(changed_belt, BeltProp)
     assert changed_belt.travel_direction == pytest.approx((2**-0.5, 2**-0.5, 0.0))
@@ -731,7 +731,7 @@ def test_belt_and_ball_geometry_are_editable_and_reopen_from_the_props_tab(
         field.setValue(value)
     panel.ball_radius.setValue(5.0)
     panel.ball_units.setCurrentIndex(panel.ball_units.findData("cm"))
-    panel.save_ball.click()
+    panel.records.save_button.click()
     ball = window.props_app.store.get("ball")
     assert isinstance(ball, BallProp)
     assert ball.surface.centre == (20.0, 0.0, 75.0)
@@ -762,7 +762,7 @@ def test_belt_and_ball_geometry_are_editable_and_reopen_from_the_props_tab(
     assert len(scene_rings) == 9
     assert sum(label == "ball" for label, *_ in scene_rings) == 1
 
-    panel.remove_ball.click()
+    panel.records.remove_button.click()
     assert window.props_app.store.get("ball") is None
     assert window.document.undo(window._mutations)
     assert window.props_app.store.get("ball") == ball
@@ -1024,7 +1024,7 @@ def test_belt_is_placed_in_3d_from_four_clicked_top_corners(
     labels = [label for label, _p, _c in window.props_app.camera_drawing(VIDEOS["Front"], 0.0)]
     assert {"corner 1", "corner 2", "corner 3", "corner 4"} <= set(labels)
     panel.belt_placement.place.click()
-    panel.save_belt.click()
+    panel.records.save_button.click()
 
     belt = window.props_app.store.get("treadmill")
     assert isinstance(belt, BeltProp) and belt.corners is not None, panel.status.text()
@@ -1071,7 +1071,7 @@ def test_one_camera_belt_uses_measurements_and_draws_only_in_its_view(
             panel.belt_placement.next_point.click()
         assert window.props_app.on_clicked(VIDEOS["Left"], *seen(along, up))
     panel.belt_placement.place.click()
-    panel.save_belt.click()
+    panel.records.save_button.click()
 
     belt = window.props_app.store.get("side belt")
     assert isinstance(belt, BeltProp) and belt.side_view is not None, panel.status.text()
@@ -1165,6 +1165,7 @@ def test_ladder_support_irregular_tags_and_clicking_every_rung(
 
     # A regular run of 6 from the first two rungs; the clicked third rung is
     # raised and 3 mm off-pattern, so it replaces rung 3 rather than doubling it.
+    panel.rung_mode.setCurrentIndex(panel.rung_mode.findData(False))
     panel.rung_count.setValue(6)
     panel.extrapolate.click()
     ladder = window.props_app.store.get("walkway")

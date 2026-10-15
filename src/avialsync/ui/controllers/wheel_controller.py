@@ -468,8 +468,6 @@ def connect_panel(window: MainWindow) -> None:
     panel.rotation_apply_requested.connect(lambda n: wheel_rotation.apply(window, n))
     panel.rig_wheel_requested.connect(lambda n: wheel_rotation.use_rig_wheel(window, n))
     panel.replace_requested.connect(lambda n: replace(window, n))
-    panel.remove_requested.connect(lambda n: window.props_app.remove_prop("wheel", n))
-    panel.save_requested.connect(window.props_app.save_prop)
 
 
 # ── a new session ────────────────────────────────────────────────────

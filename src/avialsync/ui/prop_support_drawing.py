@@ -55,27 +55,65 @@ def ladder_layout(ladder: Ladder, steps: Sequence[Sequence[Position | None]]) ->
     its 3D points in every camera, and a 2D-only step from this view.
     """
     pattern = _pattern(ladder)
+    between = ladder.pattern is not None and ladder.pattern.between_endpoints
     solved = [[point.xyz for point in step.points] for step in ladder.steps]
-    return lay_out_rungs(steps, pattern, rung_places(solved, pattern))
+    return lay_out_rungs(
+        steps,
+        pattern,
+        rung_places(solved, pattern, between_endpoints=between),
+        between_endpoints=between,
+    )
 
 
-def _rung_label(number: int) -> str:
-    return tr("Rung {number} (est.)").format(number=number)
+def _rung_label(number: int, arity: int = 2) -> str:
+    text = tr("Step {number} (est.)") if arity == 1 else tr("Rung {number} (est.)")
+    return text.format(number=number)
 
 
-def rung_pixels(ladder: Ladder, step_pixels: Sequence[Sequence[PropPixel]]) -> list[PropDrawing]:
+def _project_layout(
+    layout: RungLayout, project: Callable[[Point3], PropPixel | None]
+) -> RungLayout:
+    def pixel(point: Position | None) -> Position | None:
+        if point is None:
+            return None
+        found = project((point[0], point[1], point[2]))
+        return None if found is None else (found[0], found[1])
+
+    return RungLayout(
+        tuple((n, tuple(pixel(p) for p in points)) for n, points in layout.generated),
+        tuple(tuple(pixel(p) for p in points) for points in layout.walkway),
+    )
+
+
+def rung_pixels(
+    ladder: Ladder,
+    step_pixels: Sequence[Sequence[PropPixel]],
+    *,
+    project: Callable[[Point3], PropPixel | None] | None = None,
+) -> list[PropDrawing]:
     """This camera's extrapolated rungs and support bars, all dashed."""
     layout = ladder_layout(
         ladder,
         [[None if p is None else (p[0], p[1]) for p in pixels] for pixels in step_pixels],
     )
+    pattern = _pattern(ladder)
+    if (
+        project is not None
+        and pattern is not None
+        and ladder.pattern is not None
+        and ladder.pattern.between_endpoints
+        and all(p.xyz is not None for i in pattern[:2] for p in ladder.steps[i].points)
+    ):
+        layout = _project_layout(
+            ladder_layout(ladder, [[p.xyz for p in s.points] for s in ladder.steps]), project
+        )
     shown = [(number, ends) for number, ends in layout.generated if any(ends)]
     # A long run needs its extent named, not every rung: the first and last
     # estimates are captioned, the rest are dashed rungs between them.
     named = {shown[0][0], shown[-1][0]} if shown else set()
     drawings: list[PropDrawing] = [
         (
-            _rung_label(number) if number in named else UNNAMED,
+            _rung_label(number, len(ends)) if number in named else UNNAMED,
             tuple(None if p is None else (p[0], p[1], False) for p in ends),
             False,
         )
@@ -99,8 +137,8 @@ def rung_positions(ladder: Ladder) -> Scene:
     named = {solved[0][0], solved[-1][0]} if solved else set()
     scene: Scene = [
         (
-            _rung_label(number) if number in named else UNNAMED,
-            (_array(ends[0]), _array(ends[1])),
+            _rung_label(number, len(ends)) if number in named else UNNAMED,
+            tuple(_array(point) for point in ends),
             False,
         )
         for number, ends in solved

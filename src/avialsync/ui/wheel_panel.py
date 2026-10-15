@@ -47,7 +47,6 @@ from avialsync.ui.about import docs_url
 from avialsync.ui.bar_diameter_field import BarDiameterField
 from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
-from avialsync.ui.prop_record_controls import PropRecordActions
 from avialsync.ui.step_panel import StepPanel
 from avialsync.ui.theme import set_bold
 from avialsync.ui.wheel_dialogs import bar_count_spin, radius_spin, unit_items
@@ -206,9 +205,6 @@ class _WheelRow(QFrame):
         self.replace = _button(
             tr("Re-place"), tr("Click this wheel's bars again, keeping its settings"), self
         )
-        self.records = PropRecordActions(self)
-        self.remove = self.records.remove_button
-        self.save = self.records.save_button
         self.use_rig = _button(
             tr("Use Rig Wheel"),
             tr("Replace this wheel with the rig's own calibrated wheel; Undo brings it back"),
@@ -221,8 +217,6 @@ class _WheelRow(QFrame):
         buttons.addWidget(self.apply_rotation, 2, 0)
         buttons.addWidget(self.replace, 2, 1)
         buttons.addWidget(self.use_rig, 3, 0)
-        buttons.addWidget(self.save, 4, 0)
-        buttons.addWidget(self.remove, 4, 1)
         layout.addLayout(buttons)
 
         self.verify.clicked.connect(lambda: panel.verify_requested.emit(name))
@@ -232,8 +226,6 @@ class _WheelRow(QFrame):
         self.apply_rotation.clicked.connect(lambda: panel.rotation_apply_requested.emit(name))
         self.replace.clicked.connect(lambda: panel.replace_requested.emit(name))
         self.use_rig.clicked.connect(lambda: panel.rig_wheel_requested.emit(name))
-        self.records.remove_requested.connect(lambda: panel.remove_requested.emit(name))
-        self.records.save_requested.connect(lambda: panel.save_requested.emit(name))
         for widget in (self.spec.bars, self.spec.radius):
             widget.valueChanged.connect(lambda _v: self._spec_edited(panel))
         self.spec.units.currentIndexChanged.connect(lambda _i: self._spec_edited(panel))
@@ -429,13 +421,12 @@ class WheelPanel(QGroupBox):
     #: ``(name)``: replace the wheel with the rig's own calibrated wheel.
     rig_wheel_requested = Signal(str)
     replace_requested = Signal(str)
-    remove_requested = Signal(str)
-    save_requested = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(tr("Wheels"), parent)
         self.setAccessibleName(tr("Wheels"))
         self.setAccessibleDescription(tr("Wheels placed through Props, and their settings"))
+        self._selected_record: str | None = None
         layout = QVBoxLayout(self)
         layout.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
 
@@ -584,7 +575,6 @@ class WheelPanel(QGroupBox):
         proposals: Mapping[str, RotaryCalibrationProposal] | None = None,
         fitting: set[str] | None = None,
         rig_wheel: str = "",
-        saving_available: bool = True,
     ) -> None:
         """Show every placed wheel, rebuilding rows only when the set of names changed.
 
@@ -604,10 +594,8 @@ class WheelPanel(QGroupBox):
                 self._rows_layout.addWidget(row)
                 self._rows[name] = row
         for wheel in wheels:
-            self._rows[wheel.name].records.set_available(
-                can_save=saving_available,
-                can_remove=True,
-                save_reason=tr("Open a recording before saving a prop."),
+            self._rows[wheel.name].setVisible(
+                self._selected_record is None or self._selected_record == wheel.name
             )
             self._rows[wheel.name].show_wheel(
                 wheel,
@@ -620,6 +608,12 @@ class WheelPanel(QGroupBox):
                 rig_wheel,
             )
         self._update_visibility()
+
+    def select_record(self, name: str) -> None:
+        """Show the wheel chosen by the shared Props saved-record selector."""
+        self._selected_record = name
+        for key, row in self._rows.items():
+            row.setVisible(key == name)
 
     def show_rotation(self, name: str, adjustment: float | None) -> None:
         """Move *name*'s visual-rotation slider to the shown frame, without emitting."""

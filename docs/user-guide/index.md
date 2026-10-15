@@ -402,11 +402,12 @@ Each accepted edit is one undo step, and each prop is saved as
 `pose-3d/<name>_prop.toml` in the recording folder. For ladder, belt and ball marks, solid squares
 in the camera views are your clicks; dashed marks are 3D projections.
 
-Every kind has visible **Save prop** and **Remove saved prop** buttons. For belts and balls,
-Save prop accepts the geometry fields; for ladders and placed wheels it saves the accepted
+Every kind uses the same **Saved** selector and one pair of **Save** and
+**Remove** buttons above its details. For belts and balls,
+Save accepts the geometry fields; for ladders and placed wheels it saves the accepted
 record again, including retrying a failed write. Finish ladder clicks with **Save step** and
-wheel placement with **Done Labelling** first: Save prop does not accept unfinished clicks.
-Remove saved prop removes the selected apparatus and its saved record from future discovery;
+wheel placement with **Done Labelling** first: Save does not accept unfinished clicks.
+Remove removes the selected apparatus and its saved record from future discovery;
 **Undo** restores it. Clearing a visual track keeps the apparatus itself. Prop records live
 beside the recording, separately from the `.avv` session file.
 
@@ -419,14 +420,25 @@ then **Save step**. A point clicked in two calibrated cameras is placed in 3D an
 error; a point seen by one camera stays 2D and is still kept. Steps stay in the order you placed them —
 **Move step up** / **Move step down** reorder them, and **Rename selected step**, **Re-click selected
 step** and **Remove step** edit one; these are in the step panel's **⋯** menu, with the removals
-last. The panel's bold button, **Save and click next step**, is the usual next action. AvialSync never forces rungs onto one level, so an irregular
-ladder is recorded as it is. For a regular ladder, click the ends of two neighbouring rungs, set
-**Rungs in total**, and choose **Extrapolate from first two rungs**. The remaining rungs are drawn
-dashed, and the first and last estimates are labelled *(est.)*, with correct perspective in every camera where both rungs are visible;
-one camera is enough, and calibration is not needed for the camera view. Any rung you click replaces
-the estimate at that place, so click the irregular ones and let the rest be extrapolated, or click
-them all. Set **Rungs in total** to **Off** to show only clicked rungs. To click every rung in turn,
-use **Save and click next step**: it saves the step and starts the next one of the same kind. Where the ladder departs
+last. **Save and next step** saves the current observation and starts another of the same kind.
+AvialSync never forces observed steps onto one level.
+
+For a regular ladder, choose a **Spacing** mode and enter **Steps in total**:
+
+- **First and last steps:** click a foothold at each end, or both ends of the first and last
+  rungs. **Fill between first and last** places the remaining guides between them. The total
+  includes both anchors: 30 means two clicked endpoints and 28 estimated steps. If the last
+  step is still being clicked, **Save step and fill between** explicitly accepts it first.
+- **Two neighbouring rungs:** click both ends of two adjacent rungs, then **Extend from two
+  neighbours** repeats their spacing to reach the total.
+
+Full rung ends determine perspective in a shared camera. One-point footholds produce evenly
+spaced image guides when seen in one camera, or physical spacing when solved in 3D. Estimates
+remain dashed and never become observed clicks; image-only guides do not acquire invented 3D
+coordinates. Clicked steps replace their estimates. Set the total to **Off** and choose
+**Remove spacing guide** to show only observations.
+
+Where the ladder departs
 from its regular pattern, choose a **Regularity** tag — missing rung, raised, lowered, shifted
 sideways, or irregular — before saving, or select a saved step and use **Set selected step's
 regularity**. For a missing rung, click where it would be. The tag is shown beside the step's label;
@@ -454,7 +466,7 @@ With two calibrated cameras, choose **Two rollers placed in 3D**, enter **Centre
 **Roller radius**, and choose **Click 4 top corners**. Click a top corner near the first roller in
 two cameras, choose **Next placement point**, click the other corner on that roller's end, then the
 two corners near the second roller (the first of them on the first corner's side). Choose **Place
-belt from clicks**, then **Save prop**. The corners give the top plane (facing the
+belt from clicks**, then **Save**. The corners give the top plane (facing the
 cameras), the direction of travel, the width and the belt's middle; the typed centre distance and
 radius give its size. Leave **Centre distance** at **From clicks** to use the clicked span instead.
 All four corners stay marked in every camera, and the status reports how flat they are. You can also
