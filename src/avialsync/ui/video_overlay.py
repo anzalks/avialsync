@@ -536,5 +536,11 @@ class PaintCanvas(MarkerOverlayMixin):
         overlay are the common case.
         """
         self.t = t
-        if self.readers or self.tracks or self._custom or self._wheel is not None:
+        if (
+            self.readers
+            or self.tracks
+            or self._custom
+            or self._wheel is not None
+            or (self._props is not None and self._props_visible)
+        ):
             self.update()

@@ -567,6 +567,9 @@ least two cameras and their calibration (the same one Add 3D Marker uses).
    changes which end the next click places, so you can work point by point across cameras or mark
    all the points in one camera before moving to another. A camera cue names the selected point and
    whether that camera has a click.
+   Click labels remain visible in every camera where you placed them, including cameras
+   whose exposures fall slightly apart. They appear on the labeling frame; use
+   **Go to Frame** to return after seeking elsewhere.
 4. Each end needs real clicks in **at least two calibrated cameras** to locate it in 3D. In an
    unclicked view, AvialSync draws a **dashed diamond labelled “projected”** at the position
    predicted by those clicks and the calibration. Click the diamond to replace the estimate with

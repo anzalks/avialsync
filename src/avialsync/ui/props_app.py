@@ -1487,8 +1487,12 @@ class PropsApp:
             )
             self.panel.set_pattern_draft(pending, blocked=blocked)
         if hasattr(self.window, "video_grid"):
-            for pane in self.window.video_grid.panes:
-                pane.paint_canvas.update()
+            # A source callback schedules a composite on every presented frame.
+            # Keep the empty-session fast path until there is a prop or draft.
+            active = self.draft is not None or any(
+                not isinstance(prop, Wheel) for prop in self.store
+            )
+            self.window.video_grid.set_prop_source(self.camera_drawing if active else None)
         if hasattr(self.window, "tracking_3d_pane"):
             self.window.tracking_3d_pane.set_cursor(self.window.clock.state.t)
 
@@ -1574,7 +1578,7 @@ class PropsApp:
                 if project is None:
                     continue
                 camera_frame = prop_motion.frame_time(self.window, video, _time)
-                reference = wheel_display.frame_and_time(self.window, _time)
+                reference = wheel_display.frame_and_time(self.window, self.window.clock.state.t)
                 marks = self._motion_at(prop, reference[0], reference[1]) if reference else ()
                 material = marks[0] if marks else None
                 for mesh_points, closed in _belt_mesh_lines(prop):
@@ -1627,7 +1631,7 @@ class PropsApp:
                     )
             elif isinstance(prop, BallProp):
                 camera_frame = prop_motion.frame_time(self.window, video, _time)
-                reference = wheel_display.frame_and_time(self.window, _time)
+                reference = wheel_display.frame_and_time(self.window, self.window.clock.state.t)
                 marks = self._motion_at(prop, reference[0], reference[1]) if reference else ()
                 material = marks[0] if marks else None
                 for ring_index, (_plane, points) in enumerate(_ball_rings(prop)):

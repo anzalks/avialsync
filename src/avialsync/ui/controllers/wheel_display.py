@@ -234,11 +234,11 @@ def alignment(
     from the saved cyclic angle rather than stored, so applying a new transfer
     leaves saved evidence drawn exactly where the user put it.
 
-    Frames are named by the reference pane; with *video*, the turn is read at
-    that camera's own frame time, since cameras expose a fraction of a
-    millisecond apart (D-226).
+    Frames are named by the reference pane at the master cursor; with *video*,
+    *t_master* is that camera's presented frame time, used to read its turn
+    (D-226). Its earlier exposure must not rename the shared reference frame.
     """
-    found = frame_and_time(window, t_master)
+    found = frame_and_time(window, window.clock.state.t if video is not None else t_master)
     if found is None:
         return None
     frame, t_frame = found
@@ -259,7 +259,7 @@ def _ends(
     window: MainWindow, wheel: Wheel, t_master: float, video: str | None = None
 ) -> np.ndarray | None:
     """*wheel*'s bars on the frame at *t_master*, generated once per frame and camera."""
-    found = frame_and_time(window, t_master)
+    found = frame_and_time(window, window.clock.state.t if video is not None else t_master)
     if found is None:
         return None
     frame = found[0]
@@ -330,7 +330,9 @@ def pane_drawing(window: MainWindow, video: str, t_master: float) -> WheelDrawin
     bars: list[WheelBar] = []
     clicks: Marks = ()
     projections: Marks = ()
-    placement = _placement_on_screen(window, t_master)
+    # The canvas time is this camera's exposure, which can precede the
+    # reference camera's current frame even while both panes show this click.
+    placement = _placement_on_screen(window, window.clock.state.t)
     if placement is not None:
         if placement.fit is not None:
             geometry = placement.fit.geometry

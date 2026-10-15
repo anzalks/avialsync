@@ -464,7 +464,6 @@ class MainWindow(QMainWindow):
         self.video_grid.set_reprojection_source(
             lambda path, t: calibration_controller.reprojected(self, path, t)
         )
-        self.video_grid.set_prop_source(self.props_app.camera_drawing)
         self.tracking_3d_pane.canvas.set_wheel_source(lambda t: wheel_display.scene(self, t))
         self.tracking_3d_pane.canvas.set_prop_source(self.props_app.scene_steps)
         self.plot_pane = PlotPane(self)

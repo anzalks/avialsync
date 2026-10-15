@@ -1,10 +1,29 @@
 """Wheel placement clicks remain visible as labelled marks over video."""
 
+import pytest
 from PySide6.QtGui import QColor, QImage
 from PySide6.QtWidgets import QWidget
 
 from avialsync.ui.video_overlay import PaintCanvas
 from avialsync.ui.wheel_overlay import WheelDrawing
+
+
+@pytest.mark.parametrize("visible", [True, False])
+def test_prop_only_overlays_repaint_when_the_presented_frame_changes(
+    qtbot, monkeypatch, visible: bool
+) -> None:
+    parent = QWidget()
+    qtbot.addWidget(parent)
+    canvas = PaintCanvas(parent)
+    canvas.set_prop_source(lambda _t: [("mark", ((50.0, 50.0, True),), False)])
+    canvas.set_props_visible(visible)
+    updates: list[bool] = []
+    monkeypatch.setattr(canvas, "update", lambda: updates.append(True))
+
+    canvas.update_time(1.0)
+
+    assert canvas.t == 1.0
+    assert bool(updates) == visible
 
 
 def test_a_new_end_click_is_painted_on_its_camera(qtbot) -> None:

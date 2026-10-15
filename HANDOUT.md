@@ -160,6 +160,17 @@ version 2 stores the mode; only the current record format is supported, with no 
 or migration. Save/Remove now appear once in a shared header and Wheel details follow the same
 Saved selector. Removed kind-specific button aliases are not a supported UI API.
 
+**Prop labels across cameras:** a camera canvas receives its own presented frame's
+master timestamp, which may precede the reference camera's current frame. Wheel
+placement, saved wheel reference/rotation evidence, and belt/ball visual observations
+select their shared reference frame at `window.clock.state.t`; wheel motion sampling
+and belt/ball click-frame checks retain the camera's own presentation time. Never
+resolve the reference frame from another camera's exposure: it hides labels in later
+panes and can show them one frame late. Prop-only canvases also request a repaint on
+presented-frame changes, even when no tracking or wheel overlay is loaded. `PropsApp.refresh`
+installs their source only while non-wheel props or a placement draft exist, so empty
+sessions keep the no-overlay repaint fast path (D-240).
+
 Two product laws govern that phase and outrank convention:
 
 - **Law 1 — never block, always inform.** Opening a file is never refused or gated. The user is

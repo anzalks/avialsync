@@ -7657,3 +7657,29 @@ step. Repeating Save/Remove buttons inside each editor also crowded the inspecto
 perspective, observed intermediate replacements, unknown/coincident anchors, mode persistence,
 pending-click acceptance, undo/redo, selected-wheel removal, and compact layout. Both layout
 modes retain the 2 ms prop frame budget in a thirty-step microbenchmark.
+
+## 2026-10 · D-240 · Prop evidence keeps one reference frame across camera exposures
+
+**Context.** Camera canvases receive their own frame's presentation time on the master
+timeline. Looking up the reference camera at a slightly earlier camera exposure selects
+the preceding reference frame. Wheel click labels and saved belt/ball mark labels then
+disappear from those cameras, or appear one frame late; an unbound saved wheel can
+also disappear on its reference frame.
+
+**Decision.** Camera prop rendering names shared reference frames and rotation evidence
+through the existing reference-pane lookup at the live master cursor. Wheel motion
+sampling and belt/ball click-frame checks retain each camera's own presentation time. 3D
+rendering continues to use its supplied master cursor. No exposure tolerance, fabricated
+click, independent camera clock, or accepted evidence change is introduced.
+
+Prop-only canvases request repainting on presented-frame updates while their registered
+prop layer is visible, just as tracking and wheel canvases do. `PropsApp.refresh` installs
+that source only while a non-wheel prop or unfinished prop placement exists; removing
+the last prop restores the empty-session repaint fast path. Later panes inherit the
+currently installed source through the grid's existing held-overlay routing.
+
+**Validation.** A synthetic calibrated three-camera UI regression uses 5 and 10 ms
+exposure differences and real frame lookup/overlay routing. It checks painted wheel
+labels, undo/projection state, leaving and returning to the reference frame, unbound
+saved wheels, belt/ball click labels, visible/hidden prop-only repainting, and source
+activation/removal for saved props and unfinished placement.

@@ -93,6 +93,7 @@ def _fake_panes(window: MainWindow, monkeypatch) -> None:
         frame_record_at=lambda _t: (7, 0.0),
         time_map=SimpleNamespace(to_master=lambda t: t),
         paint_canvas=SimpleNamespace(update=lambda: None),
+        set_prop_source=lambda _source: None,
         set_marker_place_mode=lambda _enabled: None,
         close=lambda: None,
         deleteLater=lambda: None,
