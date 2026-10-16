@@ -1080,6 +1080,14 @@ _start_data_import(path)
 - **Match rate is over the overlap** (`SyncFit.overlap_reference_count`):
   reference events the target could have recorded. `paired_of` is the
   denominator to show. Zero means an older record: every event.
+- **Frame-step timestamps must survive the seek.** `Player.step_frame` chooses its target before
+  pausing and calls `seek(..., exact=True, snap_to_evidence=False)`: exact decoding stays on,
+  generic trigger snapping stays off because the selected frame/sample already names its instant.
+  Snapping it again to the first camera's trigger can return the current time indefinitely.
+  Normal scrub/seek calls keep their default evidence snapping. `VideoPane.activated` forwards
+  through `VideoGrid.pane_activated` to the window's source selection; picture/overlay clicks also
+  move focus out of editors. Test actual playhead movement on loaded aligned videos, not only
+  QAction emission (`tests/test_frame_step_navigation.py`, D-246).
 - **Arrow keys belong to frame step** as window shortcuts. A widget that
   wants them while focused accepts `ShortcutOverride` (Data Streams lanes), and
   takes Tab focus only, so a click to seek does not steal them.

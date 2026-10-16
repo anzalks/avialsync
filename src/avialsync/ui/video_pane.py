@@ -646,6 +646,7 @@ class VideoPane(VideoTimingMixin, QWidget):
     reconsider.
     """
 
+    activated = Signal()  # a picture interaction selects this camera and releases editor focus
     double_clicked = Signal(object)
     right_clicked = Signal(object)  # emits QPoint (global position)
     _osd_update = Signal()
@@ -731,6 +732,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.surface.view_changed.connect(self.paint_canvas.update)
         self._osd_update.connect(self._flush_osd_update)
         self.surface.installEventFilter(self)
+        self.paint_canvas.installEventFilter(self)
 
     # ── media ────────────────────────────────────────────────────────
 
@@ -1038,13 +1040,17 @@ class VideoPane(VideoTimingMixin, QWidget):
             timer.start(max(1, int(delay_s * 1000.0)))
 
     def eventFilter(self, obj, event):
-        if obj is self.surface:
+        if obj is self.surface or obj is self.paint_canvas:
             try:
+                if event.type() == QEvent.Type.MouseButtonPress:
+                    self.setFocus(Qt.FocusReason.MouseFocusReason)
+                    self.activated.emit()
                 # Compare integer values to avoid PySide6 EnumType.__call__ exceptions
                 ev_type = int(event.type())
-                if ev_type == 4:  # QEvent.Type.MouseButtonDblClick
+                if obj is self.surface and ev_type == 4:  # QEvent.Type.MouseButtonDblClick
                     self.double_clicked.emit(self)
-                elif ev_type == 82:  # QEvent.Type.ContextMenu
+                elif obj is self.surface and ev_type == 82:  # QEvent.Type.ContextMenu
+                    self.activated.emit()
                     self.right_clicked.emit(event.globalPos())
                     return True  # consume; MainWindow builds the menu
             except (AttributeError, RuntimeError, TypeError):

@@ -669,8 +669,8 @@ class MainWindow(QMainWindow):
         self.view_toolbar.flag_requested.connect(self._on_annotate_requested)
         self.transport.jump_requested.connect(self._on_jump_requested)
 
-        # Video pane right-click context menu
-        self.video_grid.pane_right_clicked.connect(lambda path, _pos: self._select_video(path))
+        # Camera selection and the picture’s context menu.
+        self.video_grid.pane_activated.connect(self._select_video)
         self.video_grid.pane_right_clicked.connect(self._on_pane_right_clicked)
 
         # Plot annotate-at

@@ -73,6 +73,11 @@
 - Sessions, proxies, the 3D view, plot navigation, shortcuts:
   [Sessions, proxies, and the 3D view](sessions-and-media.md)
 
+Click a camera picture to make it the target for **Left/Right** frame stepping and return
+keyboard control from an editor to playback. With no camera selected, stepping goes to the nearest
+neighbouring frame of any visible camera. An aligned camera steps along its own mapped frame
+timestamps, including when another camera has a different frame rate.
+
 ## Aligning recordings
 
 Three routes, in the order to try them — all covered field by field, with annotated screenshots, in

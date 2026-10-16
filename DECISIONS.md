@@ -7876,3 +7876,30 @@ queues preserve accepted edits without keeping the GUI event loop alive during s
 **Rejected.** Legacy migration (explicitly outside scope); embedding recordings in TOML; guessing
 replacement sensors or reference cameras; drawing invented motion when readings are missing;
 reusing cache storage for authored props; a second accepted prop store.
+
+
+## 2026-10-16 · D-246 · A frame step keeps its chosen timestamp and picture clicks select the camera
+
+**Context.** After the mixed-camera stepping change, Left/Right could reach their QAction and
+transport signal yet leave the playhead unchanged: `step_frame` chose a camera’s adjacent frame,
+then `seek(exact=True)` snapped it onto the first camera’s accepted trigger clock. At differing
+rates that trigger could still be the current time. Pausing before choosing a step could also
+change its starting frame. Normal picture clicks were not wired to camera selection and could
+leave an editor holding the caret keys, even though the user had clicked back onto the footage.
+
+**Decision.** `Player.seek` keeps exact decoder seeking separate from generic evidence snapping,
+with keyword-only `snap_to_evidence=True` preserving normal scrub, seek and pause behavior.
+A frame/sample step chooses its recorded target before pausing and seeks it with exact decoding
+and `snap_to_evidence=False`. The selected camera’s frame timestamps, or the nearest next camera
+frame when none is selected, remain the authority established in D-244. Never re-snap an already
+chosen frame onto a different camera’s clock. MasterClock remains the only time state.
+
+A picture or interactive overlay click moves focus to its VideoPane and emits `activated`;
+VideoGrid forwards `pane_activated(path)` to the existing source-selection handler. Right-click
+context menus retain the same selection. Editing controls/dialogs keep their existing key policy;
+no shortcut bindings, frame timestamps or accepted mappings change.
+
+**Validation.** Real generated videos reproduce the failed arrow dispatch through the main window,
+then verify forward/backward movement after exact alignment, with a clicked camera and with no
+selection, while paused and while playing. The clicked-camera cases begin with an editor holding
+modified text. Existing generic exact-scrub and golden sync assertions remain unchanged.

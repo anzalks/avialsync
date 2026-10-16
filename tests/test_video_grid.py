@@ -11,6 +11,7 @@ def test_file_loaded_callback_is_connected_before_playback(monkeypatch, qapp) ->
     events: list[str] = []
 
     class _ImmediatePane(QWidget):
+        activated = Signal()
         double_clicked = Signal(object)
         right_clicked = Signal(object)
         file_loaded = Signal()
@@ -45,6 +46,7 @@ def test_unchecked_video_stays_hidden_through_relayout(monkeypatch, qtbot) -> No
     """Grid/fullscreen layout changes must not override the sidebar checkbox."""
 
     class _Pane(QWidget):
+        activated = Signal()
         double_clicked = Signal(object)
         right_clicked = Signal(object)
         file_loaded = Signal()
@@ -80,6 +82,7 @@ def test_unchecked_video_stays_hidden_through_relayout(monkeypatch, qtbot) -> No
 class _RecordingPane(QWidget):
     """A pane that records what the grid handed it, without opening media."""
 
+    activated = Signal()
     double_clicked = Signal(object)
     right_clicked = Signal(object)
     file_loaded = Signal()
@@ -248,3 +251,17 @@ def test_leaving_edit_mode_reaches_every_pane(monkeypatch, qtbot) -> None:
 
     assert grid.point_edit_mode is False
     assert [first.point_edit_mode, second.point_edit_mode] == [False, False]
+
+
+def test_picture_activation_keeps_the_original_source_path_with_a_proxy(monkeypatch, qtbot) -> None:
+    """Camera selection uses recording identities, just as offsets and frame stepping do."""
+    monkeypatch.setattr(video_grid, "VideoPane", _RecordingPane)
+    grid = video_grid.VideoGrid()
+    qtbot.addWidget(grid)
+    selected = []
+    grid.pane_activated.connect(selected.append)
+    pane = grid.add_pane("original.mp4", media_path="proxy.mp4")
+
+    pane.activated.emit()
+
+    assert selected == ["original.mp4"]

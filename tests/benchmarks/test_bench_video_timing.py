@@ -65,3 +65,27 @@ def test_bench_four_video_callback_bursts_are_coalesced(benchmark) -> None:
     if benchmark.stats is None:
         pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
     assert benchmark.stats.stats.mean < 0.002
+
+
+def test_bench_frame_step_target_across_four_aligned_camera_clocks(benchmark) -> None:
+    """Choosing an exact neighbouring frame stays within the 2 ms command budget."""
+    from avialsync.engine.player import Player
+    from avialsync.ui.video_timing import VideoTimingMixin
+
+    class TimedPane(VideoTimingMixin):
+        def __init__(self, rate: int, shift: float) -> None:
+            self._frame_times = np.arange(3600 * rate + 1, dtype=np.float64) / rate
+            self.time_map = TimeMap()
+            self.time_map.set_exact_mapping(self._frame_times + shift, self._frame_times)
+
+    panes = [TimedPane(rate, index * 0.001) for index, rate in enumerate((30, 60, 120, 230))]
+    state = SimpleNamespace(t=1800.0)
+    player = SimpleNamespace(clock=SimpleNamespace(state=state), step_reference=None)
+    expected = min(pane.frame_step_master_target(state.t, 1) for pane in panes)
+
+    target = benchmark(Player._frame_step_target, player, panes, 1)
+
+    assert target == pytest.approx(expected) and target > state.t
+    if benchmark.stats is None:
+        pytest.skip("benchmark statistics unavailable (benchmarks disabled)")
+    assert benchmark.stats.stats.mean < 0.002

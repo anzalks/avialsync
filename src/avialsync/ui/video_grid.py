@@ -36,6 +36,8 @@ class VideoGrid(GridOverlayMixin, QWidget):
     #: by raising this floor, which is the window's minimum height by proxy.
     BASE_MIN_HEIGHT = 72
 
+    #: A picture interaction selects the source named by its original path.
+    pane_activated = Signal(str)
     # Emitted when the user right-clicks inside any video pane.
     # path = the pane's video path; pos = QPoint (global screen position).
     pane_right_clicked = Signal(str, object)
@@ -201,6 +203,7 @@ class VideoGrid(GridOverlayMixin, QWidget):
     ) -> VideoPane:
         """Add a pane identified by original *path*, playing *media_path* if supplied."""
         pane = VideoPane(self)
+        pane.activated.connect(lambda _p=path: self.pane_activated.emit(_p))
         pane.double_clicked.connect(self._on_pane_double_clicked)
         pane.point_moved.connect(self.point_moved)
         pane.marker_clicked.connect(lambda x, y, _p=path: self.marker_clicked.emit(_p, x, y))

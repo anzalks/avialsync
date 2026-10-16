@@ -180,10 +180,15 @@ class Player(QObject):
         """Start playback for programmatic callers such as the demo launcher."""
         self.set_playing(True)
 
-    def seek(self, t: float, exact: bool = True) -> None:
+    def seek(self, t: float, exact: bool = True, *, snap_to_evidence: bool = True) -> None:
+        """Seek with exact decoding and optional snapping to accepted frame evidence.
+
+        A frame/sample step already names its own evidence-backed instant; it must
+        bypass generic snapping or another camera can send it back to the same frame.
+        """
         self._is_scrubbing = not exact
         self.plot_pane.set_scrubbing(not exact)
-        if exact:
+        if exact and snap_to_evidence:
             t = self._snap_to_frame_evidence(t)
         self.clock.seek(t)
 
@@ -231,19 +236,18 @@ class Player(QObject):
         for: the timestamp table already says where the next frame is, so the
         step is one ordinary seek.
         """
+        # Choose from the frame currently shown. Pausing may snap to another
+        # camera's trigger, so it must not redefine the step's starting point.
+        panes = self._update_pane_footage(self.clock.state.t)
+        target = (
+            self._frame_step_target(panes, direction)
+            if panes
+            else self._data_step_target(direction)
+        )
         if self.clock.state.playing:
             self.set_playing(False)
-
-        panes = self._update_pane_footage(self.clock.state.t)
-        if not panes:
-            target = self._data_step_target(direction)
-            if target is not None:
-                self.seek(target, exact=True)
-            return
-        target = self._frame_step_target(panes, direction)
-        if target is None:
-            return
-        self.seek(target, exact=True)
+        if target is not None:
+            self.seek(target, exact=True, snap_to_evidence=False)
 
     def _frame_step_target(self, panes: list[VideoPane], direction: int) -> float | None:
         """Where one frame step goes: the chosen camera's next frame, else the nearest.

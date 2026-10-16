@@ -297,7 +297,7 @@ def test_frame_step_uses_timestamp_target_without_fixed_delay(player_with_mocks)
     player.step_frame(1)
 
     pane.frame_step_master_target.assert_called_once()
-    player.seek.assert_called_once_with(1.133, exact=True)
+    player.seek.assert_called_once_with(1.133, exact=True, snap_to_evidence=False)
 
 
 def test_frame_step_does_not_skip_reference_frames_for_mixed_rate_video(player_with_mocks):
@@ -314,7 +314,7 @@ def test_frame_step_does_not_skip_reference_frames_for_mixed_rate_video(player_w
 
     player.step_frame(1)
 
-    player.seek.assert_called_once_with(0.025, exact=True)
+    player.seek.assert_called_once_with(0.025, exact=True, snap_to_evidence=False)
 
 
 def test_frame_step_lands_on_the_nearest_frame_of_any_camera(player_with_mocks):
@@ -331,7 +331,7 @@ def test_frame_step_lands_on_the_nearest_frame_of_any_camera(player_with_mocks):
 
     player.step_frame(1)
 
-    player.seek.assert_called_once_with(pytest.approx(1 / 230), exact=True)
+    player.seek.assert_called_once_with(pytest.approx(1 / 230), exact=True, snap_to_evidence=False)
 
 
 def test_frame_step_follows_the_camera_the_user_chose(player_with_mocks):
@@ -348,7 +348,7 @@ def test_frame_step_follows_the_camera_the_user_chose(player_with_mocks):
 
     player.step_frame(1)
 
-    player.seek.assert_called_once_with(pytest.approx(1 / 30), exact=True)
+    player.seek.assert_called_once_with(pytest.approx(1 / 30), exact=True, snap_to_evidence=False)
     fast.frame_step_master_target.assert_not_called()
 
 
