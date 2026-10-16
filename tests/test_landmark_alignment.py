@@ -38,6 +38,26 @@ def test_extra_pairs_expose_observation_resolution_even_with_perfect_residuals()
     assert not proposal.fit.precision_verified
 
 
+@pytest.mark.parametrize(
+    ("count", "phrase"), [(1, "only 1 visual pair,"), (2, "only 2 visual pairs,")]
+)
+def test_too_few_pairs_explain_why_precision_cannot_be_checked(count: int, phrase: str) -> None:
+    # Keep the gap small so that missing independent evidence is the only shortfall.
+    reference = [0.0, 1.0][:count]
+    proposal = fit(reference, [t + 1.0 for t in reference], observation_resolution=0.0001)
+
+    assert proposal.applicable
+    assert not proposal.fit.precision_verified
+    assert phrase in proposal.fit.precision_shortfall
+
+
+def test_three_precise_pairs_leave_an_independent_precision_check() -> None:
+    proposal = fit([0.0, 1.0, 2.0], [1.0, 2.0, 3.0], observation_resolution=0.0001)
+
+    assert proposal.fit.precision_verified
+    assert proposal.fit.precision_shortfall == ""
+
+
 def test_reversed_correspondences_are_refused() -> None:
     with pytest.raises(SyncEvidenceError, match="chronological"):
         fit([1.0, 2.0], [2.0, 1.0])

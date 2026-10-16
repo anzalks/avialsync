@@ -101,6 +101,40 @@ def test_coarse_sampled_ttl_cannot_claim_finer_precision(tmp_path: Path) -> None
     assert results and results[0].applicable
     assert results[0].fit.measurement_resolution >= 0.0099
     assert not results[0].fit.precision_verified
+    assert "timestamp resolution" in results[0].fit.precision_shortfall
+    assert "10.000 ms" in results[0].fit.precision_shortfall
+
+
+@pytest.mark.parametrize("sample_period", [0.001, 0.00101])
+def test_sampled_epoch_clock_checks_precision_at_the_requested_boundary(
+    tmp_path: Path, sample_period: float
+) -> None:
+    """Real 1 kHz timestamps pass; a measurably coarser clock remains unverified."""
+    from avialsync.core.pyramid import PyramidBuilder
+
+    local = np.arange(1000, dtype=np.float64) * sample_period
+    times = 1_789_000_000.0 + local
+    high = np.zeros(len(times))
+    for index in (100, 240, 430, 670, 860):
+        high[index : index + 10] = 1.0
+    PyramidBuilder(tmp_path, "ttl").build_and_save(times, high)
+    reference = SignalEvidenceSpec(
+        "daq", tmp_path, "ttl", kind=TriggerKind.FRAME_STROBE, strobe_for="camera"
+    )
+    midpoints = (times[[99, 239, 429, 669, 859]] + times[[109, 249, 439, 679, 869]]) / 2
+    target = EventEvidenceSpec(
+        "camera", midpoints - times[0], clock_id="camera", is_video_time_axis=True
+    )
+    worker = SyncWorker(reference, target, precision_requirement=0.001)
+    results = []
+    worker.finished.connect(results.append)
+    worker.run()
+
+    assert results and results[0].applicable
+    fit = results[0].fit
+    assert fit.measurement_resolution == pytest.approx(sample_period, abs=3e-7)
+    assert fit.precision_verified == (sample_period == 0.001)
+    assert bool(fit.precision_shortfall) == (sample_period > 0.001)
 
 
 def test_landmark_pairs_preview_without_accepting_or_changing_the_recording(qtbot: QtBot) -> None:

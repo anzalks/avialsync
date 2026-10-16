@@ -46,6 +46,7 @@ def _common_formats() -> list[tuple[str, str]]:
         (tr("Unix epoch (milliseconds)"), "epoch_ms"),
         (tr("Unix epoch (microseconds)"), "epoch_us"),
         (tr("Unix epoch (nanoseconds)"), "epoch_ns"),
+        (tr("ISO 8601 with time zone (Z or +02:00)"), "iso8601"),
         (tr("ISO 8601 (2024-01-15T10:30:00)"), "%Y-%m-%dT%H:%M:%S"),
         (tr("ISO 8601 with ms"), "%Y-%m-%dT%H:%M:%S.%f"),
         (tr("Date + time (2024-01-15 10:30:00)"), "%Y-%m-%d %H:%M:%S"),

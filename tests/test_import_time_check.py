@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import datetime
 from pathlib import Path
 
 import pytest
 from PySide6.QtWidgets import QApplication
+from pytestqt.qtbot import QtBot
 
+from avialsync.loaders.csv_loader import CSVLoader
 from avialsync.ui.import_time_check import (
     ELAPSED_FORMAT,
     guess_format,
@@ -169,3 +172,64 @@ def test_a_new_time_column_reguesses_the_format(qapp: QApplication, qtbot, tmp_p
     wizard._time_col_combo.setCurrentIndex(0)
 
     assert wizard.config()["time_format"] == ELAPSED_FORMAT
+
+
+@pytest.mark.parametrize("offset", ["Z", "+02:00", "-0530"])
+def test_zoned_iso_preview_and_loader_agree(
+    qapp: QApplication, qtbot: QtBot, tmp_path: Path, offset: str
+) -> None:
+    """Autodetection must keep the suffix that fixes these rows' absolute time."""
+    texts = [f"2026-01-15T10:30:0{second}.125{offset}" for second in (0, 1)]
+    wizard = _wizard(tmp_path, f"time,v\n{texts[0]},1\n{texts[1]},2\n")
+    qtbot.addWidget(wizard)
+    config = wizard.config()
+    expected = [datetime.datetime.fromisoformat(text).timestamp() for text in texts]
+
+    assert config["time_format"] == "iso8601"
+    assert not wizard._tz_combo.isEnabled()
+    assert wizard._ok_button.isEnabled()
+    assert "Reads as:" in wizard._time_check.text()
+    assert parse_sample_times(texts, "iso8601", "s", "UTC") == expected
+
+    loader = CSVLoader()
+    loader.open(tmp_path / "rec.csv", config)
+    times = [float(t) for chunk, _ in loader.read_chunks("v") for t in chunk]
+    assert times == pytest.approx(expected, abs=1e-6, rel=0)
+
+
+@pytest.mark.parametrize("value", ["NaN", "inf", "-inf", "1e300"])
+def test_invalid_numeric_dates_do_not_crash_the_preview(
+    qapp: QApplication, qtbot: QtBot, tmp_path: Path, value: str
+) -> None:
+    wizard = _wizard(tmp_path, f"time,v\n{value},1\n")
+    qtbot.addWidget(wizard)
+
+    assert "does not parse" in wizard._time_check.text()
+
+
+def test_explicit_time_formats_control_how_the_summary_is_named() -> None:
+    elapsed = summarize_times([1789000000.0], ELAPSED_FORMAT)
+    epoch = summarize_times([1.0], "epoch_s")
+
+    assert elapsed is not None and elapsed.start == "1.789e+09 s"
+    assert epoch is not None and epoch.start.startswith("1970-01-01")
+
+
+def test_clock_preview_uses_the_anchor_and_rollover(
+    qapp: QApplication, qtbot: QtBot, tmp_path: Path
+) -> None:
+    texts = ["23:59:59", "00:00:00"]
+    wizard = _wizard(tmp_path, f"time,v\n{texts[0]},1\n{texts[1]},2\n")
+    qtbot.addWidget(wizard)
+    wizard._tz_combo.setCurrentIndex(wizard._tz_combo.findData("Europe/Berlin"))
+    wizard._anchor_chk.setChecked(True)
+    wizard._anchor_date.setText("2026-01-15")
+    loader = CSVLoader()
+    loader.open(tmp_path / "rec.csv", wizard.config())
+
+    loaded = [float(t) for chunk, _ in loader.read_chunks("v") for t in chunk]
+    preview = parse_sample_times(texts, "%H:%M:%S", "s", "Europe/Berlin", anchor_date="2026-01-15")
+    assert loaded == pytest.approx(preview, abs=1e-6, rel=0)
+    assert loaded[1] - loaded[0] == 1.0
+    assert "2026-01-15 22:59:59" in wizard._time_check.text()
+    assert "2 rows span 1 s" in wizard._time_check.text()

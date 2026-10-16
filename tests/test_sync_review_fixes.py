@@ -265,3 +265,15 @@ def test_reopening_after_apply_offers_the_next_camera(qtbot: QtBot) -> None:
     qtbot.addWidget(second)
 
     assert second.target_id == "b"
+
+
+def test_manual_mode_shows_coverage_not_an_empty_fit_panel(wizard: SyncWizard) -> None:
+    wizard._mode_combo.setCurrentIndex(wizard._mode_combo.findData("manual"))
+
+    assert not wizard._evidence.isHidden()
+    assert wizard._fit_details.isHidden()
+    panels = wizard._evidence._panels
+    assert panels.currentIndex() == panels.count() - 1
+
+    wizard._mode_combo.setCurrentIndex(wizard._mode_combo.findData("events"))
+    assert not wizard._fit_details.isHidden()

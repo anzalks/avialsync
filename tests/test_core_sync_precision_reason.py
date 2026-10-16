@@ -65,3 +65,16 @@ def test_the_denominator_is_described_only_when_it_differs() -> None:
 
     assert "overlap" not in whole.describe()
     assert "in the overlap (50 in the whole reference)" in part.describe()
+
+
+def test_resolution_equal_to_the_requirement_passes_despite_float_noise() -> None:
+    """1 kHz spacing measures as 0.0010000000000002 s; it is not coarser than 1 ms."""
+    from avialsync.core.sync import exceeds
+
+    # The float spacing of a 1.789e9 s epoch is ~0.24 us.
+    noisy = 0.001 + float(np.spacing(1.789e9))
+    assert not exceeds(noisy, 0.001)
+    assert exceeds(0.0011, 0.001)
+    assert exceeds(0.0000021, 0.000002)
+    fit = with_precision(_fit(measurement_resolution=noisy), _EVENTS, _EVENTS, (0.0, 9.0), 0.001)
+    assert fit.precision_verified

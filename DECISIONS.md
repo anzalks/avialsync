@@ -7817,3 +7817,18 @@ from closing the session (D-215), and Generate Proxy writing into the recording'
 **Validation.** `test_import_time_check.py`, `test_scrubbing.py` (nearest/chosen camera),
 `test_theme_accent_inherit.py`, `test_overlay_label_halo.py`, `test_timeline_keys.py`,
 `test_preference_choice_labels.py`, `test_relink_bulk.py`, `test_cache_menu.py`, `test_align.py`.
+
+### D-243 / D-244 follow-through: boundary precision and import preview parity
+
+Sampled-clock precision uses the same resolution comparison in the core and worker: a bounded
+floating-point allowance of min(1 µs, 0.1% of the requirement), only for resolution, prevents
+1 kHz epoch timestamps from failing the 1 ms boundary through subtraction noise. Coarser clocks
+still fail and name their resolution; one or two visual pairs also name their lack of an
+independent check when no other precision check already failed. Manual mode shows Coverage
+instead of a blank evidence area and hides unused Fit details.
+
+The import preview and CSV loader agree on zoned ISO instants, explicit epoch units, anchor dates
+and midnight rollover. Autodetection selects the ISO parser for timestamps ending in `Z` or a UTC
+offset; elapsed and epoch summaries honour the selected format. Invalid numeric dates are
+reported without crashing the dialog. Regression tests exercise wizard → config → loader using
+known absolute timestamps, and precision tests use actual sampled epoch clocks.

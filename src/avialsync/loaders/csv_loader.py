@@ -202,6 +202,8 @@ class CSVLoader(TimeSeriesSource):
 
     def _epoch_unit_from_format(self, fmt: str) -> str:
         """Extract epoch unit from wizard format like 'epoch_ms'."""
+        if fmt == "epoch_s":
+            return "s"
         if fmt == "epoch_ms":
             return "ms"
         if fmt == "epoch_us":

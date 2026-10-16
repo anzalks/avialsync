@@ -625,6 +625,18 @@ def with_precision(
     )
 
 
+def exceeds(value: float, limit: float) -> bool:
+    """Whether *value* is past *limit* by more than floating-point noise.
+
+    A resolution measured from the spacing of 1 kHz epoch timestamps carries
+    the float spacing of a 1.8e9 s value (about 0.24 µs), so an exact
+    comparison judged every sampled clock "coarser than 1.000 ms" against the
+    default 1 ms requirement. The slack is 1 µs, or a thousandth of *limit*
+    when that is smaller.
+    """
+    return value > limit + min(1e-6, 1e-3 * limit)
+
+
 def _precision_shortfall(
     worst: float,
     resolution: float,
@@ -642,7 +654,7 @@ def _precision_shortfall(
     ms = 1000.0
     if worst > requirement:
         return f"worst residual {worst * ms:.3f} ms exceeds {requirement * ms:.3f} ms"
-    if resolution > requirement:
+    if exceeds(resolution, requirement):
         return (
             f"timestamp resolution {resolution * ms:.3f} ms is coarser than "
             f"{requirement * ms:.3f} ms"

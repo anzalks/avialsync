@@ -14,6 +14,7 @@ from avialsync.core.pyramid import RAW_CHUNK_SAMPLES, PyramidReader
 from avialsync.core.sync import (
     SyncMatch,
     SyncProposal,
+    exceeds,
     fit_exact_index_mapping,
     fit_sync_events,
     prepare_display_summary,
@@ -349,15 +350,21 @@ class SyncWorker(QObject):
         self, proposal: SyncProposal, mapping: TimeMap | None
     ) -> SyncProposal:
         """Keep raw reference event times beside the master-clock fit."""
+        coarse = exceeds(self._measurement_resolution, proposal.fit.precision_requirement)
         fit = dataclasses.replace(
             proposal.fit,
             excluded_incomplete_count=self._reference_incomplete_count,
             measurement_resolution=max(
                 proposal.fit.measurement_resolution, self._measurement_resolution
             ),
-            precision_verified=(
-                proposal.fit.precision_verified
-                and self._measurement_resolution <= proposal.fit.precision_requirement
+            precision_verified=proposal.fit.precision_verified and not coarse,
+            # Name the reason here too, or the result said only "unverified".
+            precision_shortfall=proposal.fit.precision_shortfall
+            or (
+                f"recorded timestamp resolution {self._measurement_resolution * 1000:.3f} ms "
+                f"is coarser than {proposal.fit.precision_requirement * 1000:.3f} ms"
+                if coarse
+                else ""
             ),
         )
         if mapping is None:

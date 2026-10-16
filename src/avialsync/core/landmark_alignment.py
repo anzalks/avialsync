@@ -62,7 +62,13 @@ def fit_landmarks(
         precision_requirement,
     )
     if count < 3:
-        fit = dataclasses.replace(fit, precision_verified=False)
+        fit = dataclasses.replace(
+            fit,
+            precision_verified=False,
+            precision_shortfall=fit.precision_shortfall
+            or f"only {count} visual {'pair' if count == 1 else 'pairs'}, "
+            "too few to check the fit against",
+        )
     return SyncProposal(
         reference_id,
         target_id,

@@ -1055,6 +1055,19 @@ _start_data_import(path)
 - **The import wizard's numeric guess is by decade**: under 1e8 is elapsed
   time, then seconds/ms/µs/ns epochs from 1e8/1e11/1e14/1e17
   (`ui/import_time_check.py`). An epoch format writes its own `time_unit`.
+- **Preview and ingest must agree about absolute time.** Zoned ISO text uses
+  the `iso8601` parser, not a date/time prefix pattern that leaves `Z` or an
+  offset unparsed. `parse_sample_times(..., anchor_date=...)` uses the loader's
+  midnight anchor and rollover convention. Non-finite or out-of-range dates
+  produce an explanatory preview line. An explicit `epoch_s` overrides a
+  conflicting saved `time_unit`, just as the other epoch formats do.
+- **A 1 kHz epoch clock is not coarser than 1 ms.** Float subtraction makes its
+  largest measured sample interval slightly greater than 0.001 s.
+  `core.sync.exceeds` allows at most 1 µs or 0.1% of the requirement (whichever
+  is smaller) in the resolution comparison only. Residual, gap and
+  extrapolation checks keep their limits. Sampled-clock and visual-pair
+  failures carry a `precision_shortfall`, so a result never merely says
+  unverified. Manual mode keeps Coverage visible and hides unused Fit details.
 
 ### Running versions and populated benchmark work (D-228)
 

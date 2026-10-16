@@ -167,6 +167,8 @@ trend measured elsewhere, which may well be right and is a different statement.
 
 Choose **Align using → Adjust timing manually**. The fields start from the selected recording's
 current correction. If you already know the numbers, enter them directly instead of fitting.
+The result area keeps **Coverage** visible to show where the recordings sit; evidence-only
+**Fit details** are hidden in this mode.
 
 1. **Manual offset**, in seconds.
 2. **Adjust clock drift** reveals the rate correction, in milliseconds gained per hour (ms/h).

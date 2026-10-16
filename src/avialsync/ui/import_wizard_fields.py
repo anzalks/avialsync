@@ -109,6 +109,9 @@ def refresh_time_check(wizard: ImportWizard) -> None:
             str(wizard._unit_combo.currentData()),
             zone,
             euro_decimal=wizard._euro_chk.isChecked(),
+            anchor_date=(
+                wizard._anchor_date.text().strip() if wizard._anchor_chk.isChecked() else ""
+            ),
         ),
         fmt,
     )

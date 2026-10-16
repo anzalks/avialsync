@@ -8,6 +8,7 @@ export downstream inherits it.
 from __future__ import annotations
 
 import datetime
+import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -91,6 +92,16 @@ def guess_format(sample_values: Sequence[str]) -> str:
     except ValueError:
         pass
 
+    # A strptime pattern for the date/time prefix drops a trailing Z or UTC
+    # offset. Use the loader's ISO parser so the declared instant survives.
+    if _OFFSET_SUFFIX.search(v):
+        try:
+            datetime.datetime.fromisoformat(v)
+        except ValueError:
+            pass
+        else:
+            return "iso8601"
+
     patterns = (
         (r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+", "%Y-%m-%dT%H:%M:%S.%f"),
         (r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", "%Y-%m-%dT%H:%M:%S"),
@@ -156,6 +167,28 @@ def _epoch_seconds(fmt: str, unit: str) -> float:
     return _UNIT_SECONDS.get(unit, 1.0)
 
 
+def _clock_sample_times(
+    texts: Sequence[str], fmt: str, zone: datetime.tzinfo, anchor_date: str
+) -> list[float]:
+    """Use the loader's midnight anchor and midnight-rollover convention."""
+    anchor = datetime.date.fromisoformat(anchor_date or "1970-01-01")
+    midnight = datetime.datetime.combine(anchor, datetime.time(), tzinfo=zone).timestamp()
+    seconds: list[float] = []
+    previous = 0.0
+    days = 0
+    for text in texts:
+        pattern = (
+            ("%H:%M:%S.%f" if "." in text else "%H:%M:%S") if fmt in ("", "time_of_day") else fmt
+        )
+        clock = datetime.datetime.strptime(text, pattern).time()
+        current = clock.hour * 3600 + clock.minute * 60 + clock.second + clock.microsecond / 1e6
+        if seconds and current - previous < -43200:
+            days += 1
+        seconds.append(midnight + current + days * 86400)
+        previous = current
+    return seconds
+
+
 def parse_sample_times(
     values: Sequence[str],
     fmt: str,
@@ -163,6 +196,7 @@ def parse_sample_times(
     timezone: str,
     *,
     euro_decimal: bool = False,
+    anchor_date: str = "",
 ) -> list[float] | None:
     """Seconds for the preview rows as the loader would read them, or None.
 
@@ -178,29 +212,28 @@ def parse_sample_times(
             scale = _epoch_seconds(fmt, unit)
             if euro_decimal:
                 texts = [text.replace(",", ".") for text in texts]
-            return [float(text) * scale for text in texts]
+            seconds = [float(text) * scale for text in texts]
+            return seconds if all(math.isfinite(value) for value in seconds) else None
         zone: datetime.tzinfo = datetime.UTC
         if timezone:
             try:
                 zone = ZoneInfo(timezone)
             except (ZoneInfoNotFoundError, ValueError):
                 zone = datetime.UTC
+        if category == "time_of_day":
+            return _clock_sample_times(texts, fmt, zone, anchor_date)
         out: list[float] = []
         for text in texts:
-            if category == "datetime":
-                stamp = (
-                    datetime.datetime.fromisoformat(text)
-                    if fmt in ("", "iso8601", "datetime")
-                    else datetime.datetime.strptime(text, fmt)
-                )
-            else:
-                clock = datetime.datetime.strptime(text, fmt or "%H:%M:%S.%f")
-                stamp = datetime.datetime.combine(datetime.date(1970, 1, 1), clock.time())
+            stamp = (
+                datetime.datetime.fromisoformat(text)
+                if fmt in ("", "iso8601", "datetime")
+                else datetime.datetime.strptime(text, fmt)
+            )
             if stamp.tzinfo is None:
                 stamp = stamp.replace(tzinfo=zone)
             out.append(stamp.timestamp())
         return out
-    except ValueError:
+    except (ValueError, OverflowError):
         return None
 
 
@@ -220,17 +253,20 @@ def summarize_times(seconds: Sequence[float] | None, fmt: str) -> TimeSummary | 
     `start` is elapsed seconds for an elapsed column and a UTC date-time
     otherwise; the wizard owns the translated sentence around it.
     """
-    if not seconds:
+    if not seconds or not all(math.isfinite(value) for value in seconds):
         return None
     first, last = seconds[0], seconds[-1]
     steps = sorted(b - a for a, b in zip(seconds, seconds[1:], strict=False))
     step = steps[len(steps) // 2] if steps else 0.0
-    if format_category(fmt) == "numeric" and guess_numeric_format(first) == ELAPSED_FORMAT:
+    if fmt == ELAPSED_FORMAT or (not fmt and guess_numeric_format(first) == ELAPSED_FORMAT):
         start = f"{first:.6g} s"
     else:
-        start = (
-            datetime.datetime.fromtimestamp(first, tz=datetime.UTC)
-            .isoformat(sep=" ", timespec="milliseconds")
-            .replace("+00:00", " UTC")
-        )
+        try:
+            start = (
+                datetime.datetime.fromtimestamp(first, tz=datetime.UTC)
+                .isoformat(sep=" ", timespec="milliseconds")
+                .replace("+00:00", " UTC")
+            )
+        except (ValueError, OverflowError, OSError):
+            return None
     return TimeSummary(start=start, rows=len(seconds), span_s=last - first, step_s=step)

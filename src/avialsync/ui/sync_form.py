@@ -230,7 +230,12 @@ def update_fields(wizard: SyncWizard) -> None:
         if wizard._manual_drift.value()
         else tr("Clock drift: unchanged at zero")
     )
-    wizard._evidence.setVisible(not manual)
+    # Manual timing has no evidence to fit, so its results side shows where
+    # the recordings sit (Coverage) and no empty Fit details panel.
+    wizard._evidence.setVisible(True)
+    if manual:
+        wizard._evidence.show_coverage()
+    wizard._fit_details.setVisible(not manual)
     wizard.steps.setVisible(not manual)
     reference = (
         wizard._references[wizard._reference_combo.currentIndex()] if wizard._references else None

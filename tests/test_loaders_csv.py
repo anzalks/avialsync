@@ -10,6 +10,19 @@ from avialsync.loaders.csv_loader import CSVLoader
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "signals"
 
 
+@pytest.mark.parametrize("fmt", ["epoch_s", "epoch_ms", "epoch_us", "epoch_ns"])
+def test_explicit_epoch_format_owns_its_unit(tmp_path: Path, fmt: str) -> None:
+    """Saved/programmatic configs use the same unit as the wizard's preview."""
+    scale = {"epoch_s": 1, "epoch_ms": 1000, "epoch_us": 1000000, "epoch_ns": 1000000000}[fmt]
+    path = tmp_path / "epoch.csv"
+    path.write_text(f"time,v\n{1789000000 * scale},1\n{1789000001 * scale},2\n")
+    loader = CSVLoader()
+    loader.open(path, {"time_col": "time", "time_format": fmt, "time_unit": "ms"})
+
+    times = np.concatenate([t for t, _ in loader.read_chunks("v")])
+    assert times == pytest.approx([1789000000.0, 1789000001.0], abs=1e-6, rel=0)
+
+
 def test_csv_loader_basic():
     path = FIXTURE_DIR / "signal_epoch_ns.csv"
     if not path.exists():

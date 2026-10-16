@@ -304,6 +304,15 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path, session: 
         wizard.steps.more_toggle.setChecked(True)
         settle(app)
         capture(wizard, out_dir / "guide_sync_small_screen.png", [wizard._pages, wizard._buttons])
+        wizard.close()
+        settle(app)
+        # Introduce visual pairs in a fresh dialog: changing the method after
+        # a TTL preview correctly retains a marked stale plot, which distracts
+        # from the controls this tutorial step is explaining.
+        window._open_sync_wizard()
+        wizard = window._sync_wizard
+        if wizard is None:
+            raise RuntimeError("The visual-event alignment dialog did not open.")
         wizard.resize(1060, 720)
         wizard._mode_combo.setCurrentIndex(wizard._mode_combo.findData("landmarks"))
         wizard.steps.more_toggle.setChecked(False)

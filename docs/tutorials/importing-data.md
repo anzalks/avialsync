@@ -29,7 +29,7 @@ cached.
 
 1. **Format** — how to read the timestamp text. **Auto-detect** handles most files. The list covers
    **Elapsed time** (a number counted from the start of the recording), Unix epoch in seconds,
-   milliseconds, microseconds or nanoseconds, ISO 8601 (with and without milliseconds),
+   milliseconds, microseconds or nanoseconds, ISO 8601 (including `Z` and UTC offsets),
    date-and-time in US and European order, and time-only. There is also a custom field for a
    `strftime` pattern of your own. A number is guessed from its size: below about three years'
    worth of seconds it is elapsed time, and a current date written in seconds, milliseconds,
@@ -53,6 +53,10 @@ unit is wrong.
    comparable tools, so AvialSync makes it an explicit decision rather than a default.
 2. **Use anchor date** — for time-only columns (`10:30:00.000`) that carry no date at all. Supply
    the recording's date so the times land on the right day.
+
+The **Reads as** line uses that anchor date and accounts for a clock crossing midnight. Invalid
+or out-of-range timestamps show a parsing message; the original preview rows remain available
+while you adjust the format.
 
 ## Missing values and decimal commas
 
