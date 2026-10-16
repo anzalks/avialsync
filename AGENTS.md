@@ -268,6 +268,11 @@ conda run -n avialsync python tools/generate_session_screenshot.py <recording fo
     unless the user asks. The conda env's editable install points at this tree, so the app the
     user launches only runs edits made here. If the checked-out branch is not the one the task
     needs, stop and ask.
+13. Branch deletion: never delete a branch that exists on the remote, and never delete a branch
+    another collaborator works on (Antoine Valera, e.g. `feat/physical-props`), locally or
+    remotely. A branch that exists only locally may be deleted, but only when the user asks.
+    Confirm it is local-only with `git ls-remote --heads origin`, not stale remote-tracking refs.
+    Do not run `git fetch --prune` or `git remote prune`. If in doubt, do not delete; ask.
 
 ## Known traps (learned the hard way — do not rediscover)
 
