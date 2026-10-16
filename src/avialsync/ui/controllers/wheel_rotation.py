@@ -196,6 +196,9 @@ def use_rig_wheel(window: MainWindow, name: str | None = None) -> None:
         return
     state = _calibration_state(window)
     after = _rig_wheel(hint, before, frame, reading, str(state.path) if state is not None else "")
+    from avialsync.ui.prop_context import capture
+
+    after = dataclasses.replace(after, context=capture(window, frame))
     if window.wheel_state.calibrating == after.name:
         stop(window)
     window.wheel_state.motion_proposals.pop(after.name, None)
@@ -298,7 +301,10 @@ def start(window: MainWindow, name: str) -> None:
 
     from avialsync.ui.controllers import calibration_controller as calibration
 
-    calibration.acquire_calibration(window, ready, lambda: None)
+    if wheel.context.cameras:
+        ready()
+    else:
+        calibration.acquire_calibration(window, ready, lambda: None)
 
 
 def stop(window: MainWindow) -> None:
@@ -437,7 +443,9 @@ def fit(window: MainWindow, name: str) -> None:
     # encoder's current mapping (`wheel_display._turn`); fit against the same
     # reading, or a re-aligned encoder leaves a constant bias the fit cannot hold.
     channel = (wheel.binding.source_id, wheel.binding.channel)
-    reference_time = display.frame_master_time(window, wheel.frame)
+    from avialsync.ui import prop_context
+
+    reference_time = prop_context.reference_time(window, wheel)
     reference = (
         display.sample(window, channel, reference_time) if reference_time is not None else None
     )

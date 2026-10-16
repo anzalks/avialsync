@@ -20,7 +20,7 @@ from avialsync.core.wheel import WheelSpec
 from avialsync.core.wheel_check import settle_sign
 from avialsync.core.wheel_fit import LabelledFit
 from avialsync.engine.wheel_fit_worker import WheelFitWorker
-from avialsync.ui.controllers import calibration_controller as calibration
+from avialsync.ui import prop_context
 from avialsync.ui.controllers import wheel_display as display
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import on_ui_thread
@@ -58,8 +58,7 @@ def edit_spec(window: MainWindow, name: str, bars: int, units: str, radius: floa
         return
     # A proposal's clicks were interpreted against the old wheel geometry.
     window.wheel_state.motion_proposals.pop(name, None)
-    calibration.calibration_quietly(window)
-    cameras = display.camera_models(window)
+    cameras = prop_context.models(window, wheel)
     window.wheel_state.refits[name] = spec
     worker = WheelFitWorker(spec, wheel.clicks, cameras, wheel.flipped)
 

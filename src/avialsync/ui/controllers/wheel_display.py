@@ -39,6 +39,7 @@ from avialsync.core.wheel import (
     project_bars,
 )
 from avialsync.core.wheel_check import settle_sign
+from avialsync.ui import prop_context
 from avialsync.ui.controllers import rig_paths
 from avialsync.ui.controllers.wheel_placement import Marks, WheelPlacement, placement_view
 from avialsync.ui.i18n import tr
@@ -190,10 +191,10 @@ def _turn(window: MainWindow, wheel: Wheel, frame: int, t_frame: float) -> float
         return 0.0 if frame == wheel.frame else None
     channel = (binding.source_id, binding.channel)
     now = sample(window, channel, t_frame)
-    reference_time = frame_master_time(window, wheel.frame)
+    reference_time = prop_context.reference_time(window, wheel)
     then = sample(window, channel, reference_time) if reference_time is not None else None
     if now is None:
-        return None
+        return 0.0 if frame == wheel.frame else None
     # Both readings through today's mapping, so re-aligning the encoder after
     # placing the wheel keeps the reference frame at zero turn.
     return binding.turn(now, binding.reference_angle if then is None else then)
@@ -238,7 +239,9 @@ def alignment(
     *t_master* is that camera's presented frame time, used to read its turn
     (D-226). Its earlier exposure must not rename the shared reference frame.
     """
-    found = frame_and_time(window, window.clock.state.t if video is not None else t_master)
+    found = prop_context.frame_and_time(
+        window, wheel, window.clock.state.t if video is not None else t_master
+    )
     if found is None:
         return None
     frame, t_frame = found
@@ -259,7 +262,9 @@ def _ends(
     window: MainWindow, wheel: Wheel, t_master: float, video: str | None = None
 ) -> np.ndarray | None:
     """*wheel*'s bars on the frame at *t_master*, generated once per frame and camera."""
-    found = frame_and_time(window, window.clock.state.t if video is not None else t_master)
+    found = prop_context.frame_and_time(
+        window, wheel, window.clock.state.t if video is not None else t_master
+    )
     if found is None:
         return None
     frame = found[0]
@@ -325,15 +330,13 @@ def pane_drawing(window: MainWindow, video: str, t_master: float) -> WheelDrawin
     """Every wheel -- and the one being placed -- projected into *video*'s camera."""
     state = window._calibration_state
     camera = state.cameras.get(video) if state is not None else None
-    if camera is None:
-        return None
     bars: list[WheelBar] = []
     clicks: Marks = ()
     projections: Marks = ()
     # The canvas time is this camera's exposure, which can precede the
     # reference camera's current frame even while both panes show this click.
     placement = _placement_on_screen(window, window.clock.state.t)
-    if placement is not None:
+    if placement is not None and camera is not None:
         if placement.fit is not None:
             geometry = placement.fit.geometry
             bars += _bars(geometry, geometry.bar_ends(), camera, preview=True)
@@ -342,9 +345,12 @@ def pane_drawing(window: MainWindow, video: str, t_master: float) -> WheelDrawin
     for wheel in window.wheels:
         if wheel.name == replacing:
             continue
+        own_camera = prop_context.camera_for(wheel, video) if wheel.context.cameras else camera
+        if own_camera is None:
+            continue
         ends = _ends(window, wheel, t_master, video)
         if ends is not None:
-            bars += _bars(wheel.geometry, ends, camera, preview=False)
+            bars += _bars(wheel.geometry, ends, own_camera, preview=False)
     if not bars and not clicks and not projections:
         return None
     return WheelDrawing(tuple(bars), clicks, projections)
@@ -429,6 +435,9 @@ def refresh(window: MainWindow) -> None:
         proposals=window.wheel_state.motion_proposals,
         fitting=window.wheel_state.motion_fitting,
         rig_wheel=_rig_wheel(window),
+    )
+    window.wheel_panel.set_dependencies(
+        {wheel.name: prop_context.wheel_status(window, wheel) for wheel in window.wheels}
     )
     view = (
         placement_view(placement, sorted(camera_models(window))) if placement is not None else None

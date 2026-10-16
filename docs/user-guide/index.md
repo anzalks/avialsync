@@ -409,7 +409,23 @@ record again, including retrying a failed write. Finish ladder clicks with **Sav
 wheel placement with **Done Labelling** first: Save does not accept unfinished clicks.
 Remove removes the selected apparatus and its saved record from future discovery;
 **Undo** restores it. Clearing a visual track keeps the apparatus itself. Prop records live
-beside the recording, separately from the `.avv` session file.
+beside the recording, separately from the `.avv` session file. A save is complete when the
+background task reports that the prop was saved; a failed write offers **Retry**.
+
+Current prop records include their camera projections and image corrections, geometry and motion
+settings. A prop created with calibrated cameras needs no separate calibration file when reopened.
+An uncalibrated prop keeps its 2D clicks and declared geometry; it gains no invented projection. Camera and sensor paths are relative
+to the prop file when possible: move the whole recording folder together. Videos and dense sensor
+samples remain separate files. Only the current prop format is read; unsupported versions are
+named in Messages and are left unchanged. After repairing a current file, use its **Retry** action
+to rescan.
+
+The Wheel page names the saved reference camera and any missing encoder. Open that reference
+camera to display rotation; camera pane order does not change which frames name its evidence.
+With no bound encoder, or with unavailable readings, bars appear only at the known placement
+frame. Load the recorded sensor channel for motion on other frames; gaps remain unknown. Also
+check **Wheel model** on the Wheel page (the same action as **View → Overlays → Wheel model**)
+if the model is hidden.
 
 ![The Props tab with the prop-kind chooser, a ladder named and selected, and the step controls](../_static/screenshots/feature_props_tab.png)
 

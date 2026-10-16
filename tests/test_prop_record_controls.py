@@ -290,3 +290,30 @@ def test_changing_total_keeps_accepted_endpoints_after_a_middle_step_is_added(
     assert isinstance(changed, Ladder)
     assert changed.pattern == RungPattern("first", "last", 11, True)
     assert changed.steps == ladder.steps
+
+
+def test_first_calibrated_step_captures_context_in_the_same_undo_command(
+    window: MainWindow, monkeypatch
+) -> None:
+    state = window._calibration_state
+    window._calibration_state = None
+    window.props_app._accept_prop(Ladder("late"), "Add ladder")
+    window._calibration_state = state
+    _fake_panes(window, monkeypatch)
+    window.props_app.draft = StepDraft("late", "step")
+    import numpy as np
+
+    from tests.wheel_fixture import CAMERAS
+
+    for camera in ("Front", "Left"):
+        x, y = CAMERAS[camera].project(np.array([[0.0, 0.0, 70.0]]))[0]
+        window.props_app.on_clicked(VIDEOS[camera], float(x), float(y))
+    assert window.props_app.save_step()
+    accepted = window.props_app.store.get("late")
+    assert accepted.context.cameras and accepted.steps[0].points[0].xyz is not None
+    assert len(window.document) == 2
+    assert window.document.undo(window._mutations)
+    assert window.props_app.store.get("late") == Ladder("late")
+    window._calibration_state = None
+    assert window.document.redo(window._mutations)
+    assert window.props_app.store.get("late") == accepted

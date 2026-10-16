@@ -47,14 +47,14 @@ def test_invalid_ball_channels_and_visual_landmark_identity_are_rejected() -> No
     head = {"name": "ball"}
     table = {"centre": [0, 0, 0], "radius": 1, "binding": {"channels": ["x", "y", "z"]}}
     with pytest.raises(PropModelError, match="four channel"):
-        prop_file._parse_ball(head, {"ball": table})
+        prop_file._parse_ball(head, {"ball": table}, Path("."))
     table = {
         "centre": [0, 0, 0],
         "radius": 1,
         "visual": {"reference_frame": 0, "frame": [{"frame": 0, "mark": []}]},
     }
     with pytest.raises(PropModelError, match="three named marks"):
-        prop_file._parse_ball(head, {"ball": table})
+        prop_file._parse_ball(head, {"ball": table}, Path("."))
 
 
 def test_belt_corner_records_must_describe_four_observations() -> None:
@@ -62,7 +62,7 @@ def test_belt_corner_records_must_describe_four_observations() -> None:
         "belt": {"vertex": [{"xyz": [0, 0, 0]}, {"xyz": [10, 0, 0]}], "corner": [{"click": []}]}
     }
     with pytest.raises(PropModelError, match="four clicked corners"):
-        prop_file._parse_belt({"name": "belt"}, document)
+        prop_file._parse_belt({"name": "belt"}, document, Path("."))
 
 
 def test_unrecognized_types_and_unsupported_record_formats_do_not_load(tmp_path: Path) -> None:
@@ -71,9 +71,9 @@ def test_unrecognized_types_and_unsupported_record_formats_do_not_load(tmp_path:
     assert prop_file.read_prop_records(tmp_path / "missing") == ([], [], set())
     for index, text in enumerate(
         [
-            'format = "future/2"\n[prop]\nversion=2\nkind="ladder"\nname="a"\n',
-            '[prop]\nversion=2\nkind="future"\nname="a"\n',
-            '[prop]\nversion=2\nkind="wheel"\nname="a"\n',
+            'format = "future/2"\n[prop]\nversion=3\nkind="ladder"\nname="a"\n',
+            '[prop]\nversion=3\nkind="future"\nname="a"\n',
+            '[prop]\nversion=3\nkind="wheel"\nname="a"\n',
         ]
     ):
         (tmp_path / f"bad{index}_prop.toml").write_text(text, encoding="utf-8")
@@ -121,4 +121,4 @@ def test_wheel_motion_tables_are_structurally_validated(document: object) -> Non
     with pytest.raises(ValueError):
         wheel_file._parse_motion(document)
     assert wheel_file._parse_motion(None) is None
-    assert wheel_file._parse({"wheel": {"removed": True}}) is None
+    assert wheel_file._parse({"wheel": {"removed": True}}, Path(".")) is None

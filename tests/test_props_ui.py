@@ -366,6 +366,7 @@ def test_belt_and_ball_bind_verify_and_persist_later_frame_evidence(
     _fake_panes(window, monkeypatch)
     pane = window.video_grid.panes[0]
     moment = {"frame": 7, "time": 0.0}
+    window._video_frame_times[VIDEOS["Front"]] = np.arange(-7.0, 20.0)
     pane.frame_record_at = lambda _t: (moment["frame"], moment["time"])
     monkeypatch.setattr(
         "avialsync.ui.props_app.wheel_display.frame_and_time",
@@ -844,10 +845,23 @@ def test_third_camera_projection_does_not_become_an_observed_click(
             VIDEOS["Right"]: behind,
         }
     )
+    # Accepted geometry keeps its saved projection when a separate calibration changes.
+    assert window.props_app.camera_drawing(VIDEOS["Right"], 0.0)[0][1][0] == right
+    from avialsync.core.prop_context import PropCamera
+
+    ladder = window.props_app.store.get("projection")
+    cameras = tuple(
+        PropCamera.capture(camera.source, behind) if camera.name == "Right" else camera
+        for camera in ladder.context.cameras
+    )
+    window.props_app.store.set(
+        ladder.name,
+        dataclasses.replace(ladder, context=dataclasses.replace(ladder.context, cameras=cameras)),
+    )
     assert window.props_app.camera_drawing(VIDEOS["Right"], 0.0) == []
 
     window._calibration_state = None
-    assert window.props_app.scene_steps(0.0) == []
+    assert window.props_app.scene_steps(0.0)[0][1][0] == pytest.approx(world[0])
     assert window.props_app.camera_drawing(VIDEOS["Front"], 0.0)[0][1][0] == front
     assert window.props_app.camera_drawing(VIDEOS["Right"], 0.0) == []
 
@@ -884,8 +898,7 @@ def test_rapid_edits_write_the_latest_accepted_revision_in_order(
         panel.save_step.click()
     assert len(queued) == 1
     queued[0].run()
-    qtbot.waitUntil(lambda: len(queued) == 2, timeout=3000)
-    queued[1].run()
+    assert len(queued) == 1, "the registered worker drains the latest revision without UI callbacks"
     folder = tmp_path / "pose-3d"
     qtbot.waitUntil(lambda: len(read_props(folder)[0][0].steps) == 2, timeout=3000)
     assert read_props(folder)[0] == [window.props_app.store.get("rapid")]
@@ -923,9 +936,12 @@ def test_creation_during_discovery_keeps_the_unread_sidecar_intact(
     panel.create_button.click()
     qtbot.waitUntil(lambda: window.props_app.store.get("occupied") is not None, timeout=3000)
     assert target.read_bytes() == original
+    created = window.props_app.store.get("occupied")
+    assert created is not None and not created.steps
+    assert {camera.name for camera in created.context.cameras} == set(CAMERAS)
     held_reads[0].run()
     assert target.read_bytes() == original
-    assert window.props_app.store.get("occupied") == Ladder("occupied")
+    assert window.props_app.store.get("occupied") is created
     with monkeypatch.context() as patches:
         _fake_panes(window, patches)
         panel.add_point.click()

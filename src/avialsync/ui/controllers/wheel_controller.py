@@ -277,6 +277,8 @@ def accept(window: MainWindow) -> None:
             "warning",
         )
         return
+    from avialsync.ui.prop_context import capture
+
     previous = window.wheels.get(placement.replacing or placement.spec.name)
     state = window._calibration_state
     wheel = Wheel(
@@ -289,6 +291,7 @@ def accept(window: MainWindow) -> None:
         calibration=str(state.path) if state is not None else "",
         # Re-placing re-fits the centre lines; the bars' thickness is unchanged.
         bar_diameter=previous.bar_diameter if previous is not None else None,
+        context=capture(window, placement.frame),
     )
     cancel(window)
     window.document.execute(SetWheelCommand(wheel.name, previous, wheel), window._mutations)
@@ -354,7 +357,10 @@ def start_checking(window: MainWindow, name: str) -> None:
             tr("Click any end of a bar of {name}, in any one camera.").format(name=name), "info"
         )
 
-    calibration.acquire_calibration(window, _ready, lambda: None)
+    if wheel.context.cameras:
+        _ready()
+    else:
+        calibration.acquire_calibration(window, _ready, lambda: None)
 
 
 def stop_checking(window: MainWindow) -> None:
@@ -378,17 +384,20 @@ def start_motion_calibration(window: MainWindow, name: str) -> None:
 def _check_click(window: MainWindow, video: str, x: float, y: float) -> None:
     name = window.wheel_state.checking
     wheel = window.wheels.get(name) if name is not None else None
-    state = window._calibration_state
-    if wheel is None or wheel.binding is None or state is None or video not in state.cameras:
+    if wheel is None or wheel.binding is None:
         return
-    found = display.frame_and_time(window, window.clock.state.t)
+    from avialsync.ui import prop_context
+
+    cameras = prop_context.models(window, wheel)
+    if rig_paths.camera_name(video) not in cameras:
+        return
+    found = prop_context.frame_and_time(window, wheel, window.clock.state.t)
     channel = (wheel.binding.source_id, wheel.binding.channel)
     angle = display.sample(window, channel, found[1]) if found is not None else None
     if found is None or angle is None:
         window.transport.set_status(tr("The encoder has no reading on this frame."), "warning")
         return
     item = WheelCheck(found[0], angle, rig_paths.camera_name(video), float(x), float(y))
-    cameras = display.camera_models(window)
     settled, results = settle_sign(
         wheel.geometry, wheel.binding, cameras, [*wheel.binding.checks, item]
     )

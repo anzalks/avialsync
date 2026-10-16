@@ -21,6 +21,7 @@ from typing import Any
 from avialsync.core.custom_markers import CustomMarker
 from avialsync.core.document import MarkerRecord, MutationTarget, SourceRecord
 from avialsync.core.physical_props import Ladder, LadderLayout, LadderStep, PhysicalProp
+from avialsync.core.prop_context import PropContext
 from avialsync.core.wheel import Wheel
 
 __all__ = [
@@ -683,7 +684,7 @@ class SetPhysicalPropCommand:
 
 @dataclasses.dataclass
 class SetLadderStepCommand:
-    """Change one clicked step; other steps are not copied into undo history."""
+    """Change one step and optional first projection; share all neighbouring steps."""
 
     ladder_name: str
     step_id: str
@@ -692,12 +693,23 @@ class SetLadderStepCommand:
     label: str
     position: int | None = None
     command_id: str = "props.ladder_step"
+    contexts: tuple[PropContext, PropContext] | None = None
 
     def apply(self, target: MutationTarget) -> None:
-        target.set_ladder_step(self.ladder_name, self.step_id, self.after, self.position)
+        if self.contexts is None:
+            target.set_ladder_step(self.ladder_name, self.step_id, self.after, self.position)
+        else:
+            target.set_ladder_step(
+                self.ladder_name, self.step_id, self.after, self.position, context=self.contexts[1]
+            )
 
     def revert(self, target: MutationTarget) -> None:
-        target.set_ladder_step(self.ladder_name, self.step_id, self.before, self.position)
+        if self.contexts is None:
+            target.set_ladder_step(self.ladder_name, self.step_id, self.before, self.position)
+        else:
+            target.set_ladder_step(
+                self.ladder_name, self.step_id, self.before, self.position, context=self.contexts[0]
+            )
 
 
 @dataclasses.dataclass

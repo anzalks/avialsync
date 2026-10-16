@@ -85,7 +85,8 @@ def _ladder(*, solved: bool = False) -> Ladder:
 def test_endpoint_mode_round_trips_in_the_current_prop_format(tmp_path) -> None:
     ladder = _ladder()
     target = write_prop(tmp_path, ladder)
-    assert "version = 2" in target.read_text()
+    assert "version = 3" in target.read_text()
+    assert "[context]" in target.read_text()
     assert "pattern_endpoints = true" in target.read_text()
     assert read_props(tmp_path) == ([ladder], [])
     adjacent = dataclasses.replace(ladder, pattern=RungPattern("0", "1", 6))

@@ -7,6 +7,7 @@ import math
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -45,11 +46,19 @@ from avialsync.core.physical_props import (
     UnitQuaternion,
     WheelView,
 )
-from avialsync.core.prop_file import PropFileIssue, PropKind, PropRecord, prop_kind, prop_path
+from avialsync.core.prop_file import (
+    PROP_VERSION,
+    PropFileIssue,
+    PropKind,
+    PropRecord,
+    prop_kind,
+    prop_path,
+)
 from avialsync.core.prop_motion_calibration import (
     BallMotionCalibrationProposal,
     BeltMotionCalibrationProposal,
 )
+from avialsync.core.prop_write_queue import PropWriteQueue
 from avialsync.core.visual_prop_tracking import (
     AMBIGUOUS_CROSSING,
     INCONSISTENT_VIEWS,
@@ -64,8 +73,12 @@ from avialsync.core.visual_prop_tracking import (
     belt_visual_travel,
 )
 from avialsync.core.wheel import Wheel
-from avialsync.engine.prop_file_worker import PropFileReadWorker, PropFileWriteWorker
-from avialsync.ui import belt_placement, prop_motion
+from avialsync.engine.prop_file_worker import (
+    PropFileReadWorker,
+    PropFileWriteWorker,
+    PropWriteResult,
+)
+from avialsync.ui import belt_placement, prop_context, prop_motion
 from avialsync.ui.belt_placement_controls import placement_prompt
 from avialsync.ui.controllers import (
     calibration_controller,
@@ -204,10 +217,11 @@ class PropsApp:
         self._checking: str | None = None
         self._visual_tracking: tuple[str, str] | None = None
         self._adopted: set[Path] = set()
+        self._discovery_sources: dict[Path, tuple[str, ...]] = {}
         self._known_kinds: dict[str, PropKind] = {}
         self._edited: set[str] = set()
-        self._writing: set[Path] = set()
-        self._pending: dict[Path, dict[str, tuple[PropRecord | None, PropKind]]] = {}
+        self._write_queues: dict[Path, PropWriteQueue] = {}
+        self._folders: dict[str, Path] = {}
         self._known_sidecars: set[tuple[Path, str]] = set()
         self._display_key: tuple[tuple[str, int], ...] | None = None
         self._display_ladders: tuple[Ladder, ...] = ()
@@ -287,9 +301,15 @@ class PropsApp:
         panel.kind.currentIndexChanged.connect(self._update_create_availability)
         self.window.video_grid.pane_attached.connect(self._update_create_availability)
         self.window.video_grid.pane_detached.connect(self._update_create_availability)
+        self.window.plot_pane.sources_changed.connect(self.dependencies_changed)
         self.tab = PropsTab(panel, wheel_tab, self.window)
         self._update_create_availability()
         return self.tab
+
+    def dependencies_changed(self) -> None:
+        """Refresh cached wheel motion when imported channel readers become available."""
+        if self.wheels:
+            wheel_display.refresh(self.window)
 
     def show(self, kind: str | None = None) -> None:
         """Show the inspector from the live Edit action."""
@@ -538,16 +558,19 @@ class PropsApp:
 
     def _saved_visual_feedback(self, prop: BeltProp | BallProp) -> None:
         """Recheck kept camera evidence after declared geometry changes."""
+        accepted = self.store.get(prop.name)
+        if isinstance(accepted, (BeltProp, BallProp)):
+            prop = accepted
         if not prop.visual_frames:
             return
-        displayed = wheel_display.frame_and_time(self.window, self.window.clock.state.t)
+        displayed = prop_context.frame_and_time(self.window, prop, self.window.clock.state.t)
         frames = {item.frame for item in prop.visual_frames}
         frame = (
             displayed[0]
             if displayed is not None and displayed[0] in frames
             else prop.visual_frames[0].frame
         )
-        self._visual_feedback(prop, frame, wheel_display.camera_models(self.window))
+        self._visual_feedback(prop, frame, prop_context.models(self.window, prop))
 
     def bind_belt(self) -> None:
         """Bind a measured displacement channel at the currently displayed frame."""
@@ -556,7 +579,7 @@ class PropsApp:
         if panel is None or not isinstance(belt, BeltProp):
             return
         channel = panel.belt_channel.currentData()
-        found = wheel_display.frame_and_time(self.window, self.window.clock.state.t)
+        found = prop_context.frame_and_time(self.window, belt, self.window.clock.state.t)
         reading = (
             prop_motion.scalar_reading(self.window, channel[0], channel[1], found[1])
             if channel and found
@@ -602,7 +625,7 @@ class PropsApp:
             self._status(tr("Choose four orientation channels from one source."))
             return
         typed_keys = [key for key in keys if key is not None]
-        found = wheel_display.frame_and_time(self.window, self.window.clock.state.t)
+        found = prop_context.frame_and_time(self.window, ball, self.window.clock.state.t)
         mark = tuple(float(field.value()) for field in panel.ball_mark_fields)
         norm = math.hypot(*mark)
         if found is None or norm < 1e-12:
@@ -713,8 +736,10 @@ class PropsApp:
         """Accept the user's explicit winding for one observed closed-path frame."""
         belt = self.store.get(name)
         panel = self.panel
-        reference = wheel_display.frame_and_time(self.window, self.window.clock.state.t)
-        if not isinstance(belt, BeltProp) or panel is None or reference is None:
+        if not isinstance(belt, BeltProp) or panel is None:
+            return
+        reference = prop_context.frame_and_time(self.window, belt, self.window.clock.state.t)
+        if reference is None:
             return
         if not belt.track.closed:
             return
@@ -744,7 +769,9 @@ class PropsApp:
             return
         _kind, name = tracking
         prop = self.store.get(name)
-        reference = wheel_display.frame_and_time(self.window, self.window.clock.state.t)
+        if not isinstance(prop, (BeltProp, BallProp)):
+            return
+        reference = prop_context.frame_and_time(self.window, prop, self.window.clock.state.t)
         camera_frame = prop_motion.frame_time(self.window, video, self.window.clock.state.t)
         if (
             reference is None
@@ -757,7 +784,7 @@ class PropsApp:
             return
         frame = reference[0]
         click = StepClick(rig_paths.camera_name(video), camera_frame[0], float(x), float(y))
-        cameras = wheel_display.camera_models(self.window)
+        cameras = prop_context.models(self.window, prop)
         changed: BeltProp | BallProp = (
             self._visual_belt_click(prop, frame, click, cameras)
             if isinstance(prop, BeltProp)
@@ -934,7 +961,7 @@ class PropsApp:
         if len(checks) < 3:
             self._status(tr("Save at least three video checks before fitting motion."))
             return
-        worker = PropMotionCalibrationWorker(prop, wheel_display.camera_models(self.window))
+        worker = PropMotionCalibrationWorker(prop, prop_context.models(self.window, prop))
         self._motion_fitting.add(name)
 
         def finished(
@@ -1054,11 +1081,17 @@ class PropsApp:
         if len(draft.points) < 4 or any(not point.clicks for point in draft.points[:4]):
             self._status(tr("Click all four placement points before placing the belt."))
             return False
+        saved = self.store.get(draft.ladder)
+        cameras = (
+            prop_context.models(self.window, saved)
+            if saved is not None
+            else wheel_display.camera_models(self.window)
+        )
         placed = belt_placement.place(
             mode,
             draft.points[:4],
             panel,
-            wheel_display.camera_models(self.window),
+            cameras,
         )
         if isinstance(placed, str):
             self._status(placed)
@@ -1269,7 +1302,13 @@ class PropsApp:
         frame = int(pane.frame_record_at(self.window.clock.state.t)[0])
         click = StepClick(rig_paths.camera_name(video), frame, float(x), float(y))
         point = draft.points[draft.active].with_click(click)
-        draft.points[draft.active] = point.resolved(wheel_display.camera_models(self.window))
+        prop = self.store.get(draft.ladder)
+        cameras = (
+            prop_context.models(self.window, prop)
+            if prop is not None
+            else wheel_display.camera_models(self.window)
+        )
+        draft.points[draft.active] = point.resolved(cameras)
         if draft.points[draft.active].xyz is not None:
             detail = tr("3D fit error {error:.1f} px.").format(
                 error=draft.points[draft.active].error_px or 0.0
@@ -1306,6 +1345,17 @@ class PropsApp:
             closed,
             next((item for item in STEP_IRREGULARITIES if item == tag), ""),
         )
+        ladder = self.store.get(draft.ladder)
+        context = (
+            prop_context.capture(self.window)
+            if isinstance(ladder, Ladder) and not ladder.context.cameras
+            else None
+        )
+        contexts = (
+            (ladder.context, context)
+            if isinstance(ladder, Ladder) and context is not None and context.cameras
+            else None
+        )
         self.window.document.execute(
             SetLadderStepCommand(
                 draft.ladder,
@@ -1315,6 +1365,7 @@ class PropsApp:
                 tr("Edit step {label}").format(label=step.label)
                 if draft.before is not None
                 else tr("Add step {label}").format(label=step.label),
+                contexts=contexts,
             ),
             self.window._mutations,
         )
@@ -1441,7 +1492,10 @@ class PropsApp:
             self._display_ladders = tuple(
                 dataclasses.replace(
                     ladder,
-                    steps=tuple(step.resolved(cameras) for step in ladder.steps),
+                    steps=tuple(
+                        step.resolved(prop_context.models(self.window, ladder))
+                        for step in ladder.steps
+                    ),
                 )
                 for ladder in self.store
                 if isinstance(ladder, Ladder)
@@ -1543,6 +1597,12 @@ class PropsApp:
         depth_axis = model.rotation_matrix()[2] if model is not None else None
         drawings: list[PropDrawing] = []
         for ladder in self._resolved_for_display(cameras):
+            model = (
+                prop_context.camera_for(ladder, video)
+                if ladder.context.cameras
+                else cameras.get(camera)
+            )
+            depth_axis = model.rotation_matrix()[2] if model is not None else None
             step_pixels: list[list[PropPixel]] = []
             for step in ladder.steps:
                 pixels: list[PropPixel] = []
@@ -1569,16 +1629,25 @@ class PropsApp:
                     drawings.append((_step_label(step), tuple(pixels), step.closed))
             drawings.extend(
                 rung_pixels(
-                    ladder, step_pixels, project=lambda xyz: self._project_declared(model, xyz)
+                    ladder,
+                    step_pixels,
+                    project=partial(self._project_declared, model),
                 )
             )
         for prop in self.store:
             if isinstance(prop, BeltProp):
+                model = (
+                    prop_context.camera_for(prop, video)
+                    if prop.context.cameras
+                    else cameras.get(camera)
+                )
                 project = self._belt_projection(prop, camera, model)
                 if project is None:
                     continue
                 camera_frame = prop_motion.frame_time(self.window, video, _time)
-                reference = wheel_display.frame_and_time(self.window, self.window.clock.state.t)
+                reference = prop_context.frame_and_time(
+                    self.window, prop, self.window.clock.state.t
+                )
                 marks = self._motion_at(prop, reference[0], reference[1]) if reference else ()
                 material = marks[0] if marks else None
                 for mesh_points, closed in _belt_mesh_lines(prop):
@@ -1631,7 +1700,14 @@ class PropsApp:
                     )
             elif isinstance(prop, BallProp):
                 camera_frame = prop_motion.frame_time(self.window, video, _time)
-                reference = wheel_display.frame_and_time(self.window, self.window.clock.state.t)
+                model = (
+                    prop_context.camera_for(prop, video)
+                    if prop.context.cameras
+                    else cameras.get(camera)
+                )
+                reference = prop_context.frame_and_time(
+                    self.window, prop, self.window.clock.state.t
+                )
                 marks = self._motion_at(prop, reference[0], reference[1]) if reference else ()
                 material = marks[0] if marks else None
                 for ring_index, (_plane, points) in enumerate(_ball_rings(prop)):
@@ -1708,11 +1784,10 @@ class PropsApp:
                 if any(position is not None for position in positions):
                     steps.append((_step_label(step), positions, step.closed))
             steps.extend(rung_positions(ladder))
-        cameras = wheel_display.camera_models(self.window)
         for prop in self.store:
             if isinstance(prop, BeltProp) and prop.side_view is None:
                 reference = (
-                    wheel_display.frame_and_time(self.window, _time)
+                    prop_context.frame_and_time(self.window, prop, _time)
                     if prop.binding or prop.visual_frames
                     else None
                 )
@@ -1726,7 +1801,7 @@ class PropsApp:
                     )
                     for mesh_points, closed in _belt_mesh_lines(prop)
                 )
-                steps.extend(placement_positions(prop, cameras))
+                steps.extend(placement_positions(prop, prop_context.models(self.window, prop)))
                 steps.append(
                     (
                         _short_prop_name(prop.name),
@@ -1744,7 +1819,7 @@ class PropsApp:
                     )
             elif isinstance(prop, BallProp):
                 reference = (
-                    wheel_display.frame_and_time(self.window, _time)
+                    prop_context.frame_and_time(self.window, prop, _time)
                     if prop.binding or prop.visual_frames
                     else None
                 )
@@ -1811,13 +1886,25 @@ class PropsApp:
         self.cancel_step()
         self.store.clear()
         self._adopted.clear()
+        self._discovery_sources.clear()
         self._known_kinds.clear()
         self._edited.clear()
         self._known_sidecars.clear()
+        self._folders.clear()
 
     def _accept_prop(self, prop: PropRecord, label: str) -> None:
         """Accept changed declarations once; an unchanged Save retries persistence."""
         before = self.store.get(prop.name)
+        if before == prop:
+            self.save_prop(prop.name)
+            return
+        if not prop.context.cameras:
+            context = (
+                before.context
+                if before is not None and before.context.cameras
+                else prop_context.capture(self.window)
+            )
+            prop = dataclasses.replace(prop, context=context)
         if before == prop:
             self.save_prop(prop.name)
             return
@@ -1850,70 +1937,100 @@ class PropsApp:
     def persist(self, name: str) -> None:
         """Queue the latest accepted revision, serialized per recording folder."""
         self._edited.add(name)
-        folder = rig_paths.pose3d_dir(self.window.rig_paths)
+        folder = self._folders.get(name) or rig_paths.pose3d_dir(self.window.rig_paths)
         if folder is None:
             return
+        self._folders[name] = folder
         prop = self.store.get(name)
         kind = prop_kind(prop) if prop is not None else self._known_kinds.get(name, "ladder")
-        self._pending.setdefault(folder, {})[name] = (prop, kind)
-        self._write_next(folder)
-
-    def _write_next(self, folder: Path) -> None:
-        if folder in self._writing or not self._pending.get(folder):
+        queue = self._write_queues.setdefault(folder, PropWriteQueue())
+        if not queue.enqueue(
+            folder,
+            name,
+            prop,
+            kind,
+            (folder, name) in self._known_sidecars,
+            self.window.session_runtime.generation,
+        ):
             return
-        name, (prop, kind) = self._pending[folder].popitem()
-        self._writing.add(folder)
         worker = PropFileWriteWorker(
             folder,
             name,
             prop,
             kind=kind,
             overwrite_existing=(folder, name) in self._known_sidecars,
+            queue=queue,
         )
 
-        def complete(path: Path | None = None, error: str = "") -> None:
-            self._writing.discard(folder)
-            if error:
+        def complete(result: PropWriteResult) -> None:
+            request = result.request
+            if request.generation != self.window.session_runtime.generation:
+                return
+            if not queue.is_current(request):
+                return
+            if result.error:
                 self.window.notifications.show_warning(
-                    tr("Prop {name} could not be saved beside the data.").format(name=name),
-                    details=error,
+                    tr("Prop {name} could not be saved beside the data.").format(name=request.name),
+                    details=result.error,
+                    action_label=tr("Retry"),
+                    on_action=lambda: self.save_prop(request.name),
                 )
-            elif path is not None:
-                self._known_sidecars.add((folder, name))
+            elif result.path is not None:
+                self._known_sidecars.add((folder, request.name))
                 self.window.notifications.show_success(
-                    tr("Prop {name} saved as {file}.").format(name=name, file=path.name)
+                    tr("Prop {name} saved as {file}.").format(
+                        name=request.name, file=result.path.name
+                    )
                 )
-            self._write_next(folder)
 
         def wire(_thread: QThread) -> None:
-            worker.finished.connect(on_ui_thread(lambda path: complete(path), self.window))
-            worker.error.connect(on_ui_thread(lambda error: complete(error=error), self.window))
+            worker.revision_finished.connect(on_ui_thread(complete, self.window))
 
         self.window._run_job(worker, label=tr("Saving physical prop"), configure=wire)
 
-    def adopt(self) -> None:
+    def adopt(self, *, force: bool = False) -> None:
         """Load sidecars after the recording folder becomes known."""
         self._update_create_availability()
         folder = rig_paths.pose3d_dir(self.window.rig_paths)
-        if folder is None or folder in self._adopted:
+        sources = tuple(rig_paths.open_videos(self.window.rig_paths))
+        if folder is None or (
+            not force and folder in self._adopted and self._discovery_sources.get(folder) == sources
+        ):
             return
         self._adopted.add(folder)
+        self._discovery_sources[folder] = sources
         generation = self.window.session_runtime.generation
-        worker = PropFileReadWorker(folder)
+        worker = PropFileReadWorker(folder, sources, queues=dict(self._write_queues))
 
         def finished(props: list[PropRecord], issues: list[PropFileIssue]) -> None:
-            if generation != self.window.session_runtime.generation:
+            if (
+                generation != self.window.session_runtime.generation
+                or self._discovery_sources.get(folder) != sources
+            ):
                 return
             for issue in issues:
+                message = (
+                    tr(
+                        "Saved prop {file} uses format {found}; this build reads format {expected}."
+                    ).format(file=issue.filename, found=issue.detail, expected=PROP_VERSION)
+                    if issue.reason == "unsupported_version"
+                    else tr(
+                        "Saved prop {file} could not be loaded. Check the file and retry."
+                    ).format(file=issue.filename)
+                )
                 self.window.notifications.show_warning(
-                    tr("Saved prop {file} could not be shown.").format(file=issue.filename),
+                    message,
                     details=issue.reason,
+                    action_label=tr("Retry"),
+                    on_action=lambda: self.adopt(force=True),
                 )
             existing = {prop.name: prop for prop in self.store}
             for prop in props:
                 if prop.name not in self._edited and prop.name not in existing:
                     existing[prop.name] = prop
-                    self._known_sidecars.add((folder, prop.name))
+                    owner = worker.locations.get(prop.name, folder)
+                    self._known_sidecars.add((owner, prop.name))
+                    self._folders[prop.name] = owner
             self.store.load(existing.values())
             if existing:
                 calibration_controller.calibration_quietly(self.window)

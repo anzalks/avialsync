@@ -163,7 +163,9 @@ class CameraModel:
 
     def rotation_matrix(self) -> np.ndarray:
         """The 3x3 rotation taking world axes to camera axes."""
-        matrix: np.ndarray = Rotation.from_rotvec(self.rotation).as_matrix()
+        # SciPy 1.17 still requests a writable buffer, even though it only reads it.
+        # Saved prop cameras share frozen arrays; copy these three coefficients only.
+        matrix: np.ndarray = Rotation.from_rotvec(self.rotation.copy()).as_matrix()
         return matrix
 
     def project(self, points: np.ndarray) -> np.ndarray:

@@ -20,6 +20,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from avialsync.core.prop_context import read_source, source_fields
 from avialsync.core.rotary_calibration import RotaryObservation
 from avialsync.core.rotary_motion import PeriodicRotaryMotion, RotaryHarmonic
 from avialsync.core.toml_format import toml_value
@@ -57,7 +58,7 @@ def write_wheel(folder: Path | str, wheel: Wheel) -> Path:
     return write_prop(folder, wheel)
 
 
-def wheel_sections(wheel: Wheel) -> list[str]:
+def wheel_sections(wheel: Wheel, folder: Path) -> list[str]:
     """Serialize wheel-specific tables for a generalized prop record."""
     spec, geometry, fit, binding = wheel.spec, wheel.geometry, wheel.fit, wheel.binding
     lines: list[str] = []
@@ -104,7 +105,7 @@ def wheel_sections(wheel: Wheel) -> list[str]:
         lines += _table(
             "[encoder]",
             [
-                ("source", binding.source_id),
+                *source_fields("source", binding.source_id, folder),
                 ("channel", binding.channel),
                 ("reference_angle", binding.reference_angle),
                 ("sign", binding.sign),
@@ -214,13 +215,13 @@ def _parse_fit(document: Mapping[str, Any], geometry: WheelGeometry) -> WheelFit
     )
 
 
-def _parse_binding(document: Mapping[str, Any]) -> EncoderBinding | None:
+def _parse_binding(document: Mapping[str, Any], folder: Path) -> EncoderBinding | None:
     encoder = document.get("encoder")
     if encoder is None:
         return None
     motion = _parse_motion(encoder.get("motion"))
     return EncoderBinding(
-        source_id=str(encoder["source"]),
+        source_id=read_source(encoder, "source", folder),
         channel=str(encoder["channel"]),
         reference_angle=float(encoder["reference_angle"]),
         sign=float(encoder.get("sign", 1.0)),
@@ -280,7 +281,7 @@ def _mapping(value: Any) -> Mapping[str, Any]:
     return value
 
 
-def _parse(document: Mapping[str, Any]) -> Wheel | None:
+def _parse(document: Mapping[str, Any], folder: Path) -> Wheel | None:
     head = document["wheel"]
     if head.get("removed", False):
         return None
@@ -318,15 +319,15 @@ def _parse(document: Mapping[str, Any]) -> Wheel | None:
         fit=_parse_fit(document, geometry),
         flipped=bool(head.get("flipped", False)),
         bar_diameter=None if head.get("bar_diameter") is None else float(head["bar_diameter"]),
-        binding=_parse_binding(document),
+        binding=_parse_binding(document, folder),
         calibration=str(head.get("calibration", "")),
         source=str(head.get("source", "")),
     )
 
 
-def parse_wheel_document(document: Mapping[str, Any]) -> Wheel | None:
+def parse_wheel_document(document: Mapping[str, Any], folder: Path) -> Wheel | None:
     """Parse wheel-specific tables embedded in one generalized prop record."""
-    return _parse(document)
+    return _parse(document, folder)
 
 
 def read_wheels(folder: Path | str) -> list[Wheel]:

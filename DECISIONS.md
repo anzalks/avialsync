@@ -7832,3 +7832,47 @@ and midnight rollover. Autodetection selects the ISO parser for timestamps endin
 offset; elapsed and epoch summaries honour the selected format. Invalid numeric dates are
 reported without crashing the dialog. Regression tests exercise wizard → config → loader using
 known absolute timestamps, and precision tests use actual sampled epoch clocks.
+
+
+## 2026-10-16 · D-245 · Current prop TOML owns its projection and recording references
+
+**Context.** A readable prop could be adopted yet disappear after reopening a recording because
+its camera projection lived only in a separately rediscovered calibration. Quiet calibration
+required two cameras, pane order renamed the wheel’s reference frames, and absolute sensor paths
+broke when the recording moved. Save destinations followed newly arriving sources, and a pending
+revision depended on a GUI completion callback to become a registered write.
+
+**Decision.** The single current `*_prop.toml` record version is **3**, defined by `PROP_VERSION`.
+It embeds immutable effective camera models (intrinsics, distortion, extrinsics and affine/TPS
+image correction), source identities, and reference camera/raw placement time. It also retains all
+existing geometry, observations and accepted motion parameters. Native file references are
+explicitly relative to the TOML where possible; logical source ids and cross-drive references are
+preserved. Raw videos/dense sensor samples remain external recordings. No old-format reader,
+conversion, migration or automatic rewrite is added; versions 1/2 and future versions report a
+per-file unsupported-format issue and remain untouched. This advances D-239’s current version.
+
+Capture occurs before command construction. Accepted geometry displays, refits and checks through
+its saved camera context, independently of live calibration and pane order. Edits and undo keep
+that context. A first calibrated ladder step may carry the small before/after context in its
+existing inverse step command; neighbouring steps are never copied into history. An uncalibrated
+record may have an empty camera context, preserving 2D evidence without inventing a projection.
+A wheel’s reference camera must be present to name its frame evidence. Missing sensor samples
+leave motion unknown; the known placement pose remains drawable at its placement frame. The
+inspector explains these dependencies; existing overlay actions remain the visibility authority.
+
+Each prop keeps its accepted/adopted owner folder. Nested-camera discovery may adopt an ancestor’s
+record only when saved camera source identities prove ownership. Explicit Retry rescans current
+files after a per-file failure. Obsolete discovery source sets/session generations cannot update
+the live store. Accepted writes enter a thread-safe coalescing queue drained by the registered
+worker itself, including edits accepted during a write and ordinary shutdown. Recording discovery
+waits for pending writes on its worker. Publication remains atomic and ownership checked; only a
+completed latest revision in the current session announces success. The job manager’s bounded
+shutdown still applies to stalled filesystems.
+
+**Why.** A calibration filename is provenance, not enough information to reproduce a projection.
+A saved source/reference identity is evidence; the first pane at reopening is not. Worker-owned
+queues preserve accepted edits without keeping the GUI event loop alive during shutdown.
+
+**Rejected.** Legacy migration (explicitly outside scope); embedding recordings in TOML; guessing
+replacement sensors or reference cameras; drawing invented motion when readings are missing;
+reusing cache storage for authored props; a second accepted prop store.

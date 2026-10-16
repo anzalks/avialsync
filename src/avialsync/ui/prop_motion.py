@@ -14,6 +14,7 @@ from avialsync.core.visual_prop_tracking import (
     ball_visual_state,
     belt_visual_state,
 )
+from avialsync.ui import prop_context
 from avialsync.ui.controllers import rig_paths, wheel_display
 
 if TYPE_CHECKING:
@@ -93,7 +94,7 @@ def sampled_point(
     """Locate a mark using both current and reference readings on the live TimeMap."""
     if prop.binding is None:
         return None
-    reference_time = wheel_display.frame_master_time(window, prop.binding.reference_frame)
+    reference_time = prop_context.frame_master_time(window, prop, prop.binding.reference_frame)
     if reference_time is None:
         return None
     if isinstance(prop, BeltProp):
@@ -123,7 +124,7 @@ def visual_state(
     window: MainWindow, prop: BeltProp | BallProp, frame: int
 ) -> BeltVisualState | BallVisualState | None:
     """Solve only the observed frame against the current camera calibration."""
-    cameras = wheel_display.camera_models(window)
+    cameras = prop_context.models(window, prop)
     if isinstance(prop, BeltProp):
         return belt_visual_state(prop, frame, cameras)
     return ball_visual_state(prop, frame, cameras)
@@ -154,7 +155,11 @@ def check_click(
             return None
         predicted = np.asarray(pixel, dtype=np.float64)
     else:
-        model = wheel_display.camera_models(window).get(camera)
+        model = (
+            prop_context.camera_for(prop, video)
+            if prop.context.cameras
+            else wheel_display.camera_models(window).get(camera)
+        )
         if model is None:
             return None
         xyz = np.asarray(point, dtype=np.float64)

@@ -146,9 +146,13 @@ class _WheelRow(QFrame):
         self.fit = _wrapped(self)
         self.encoder = _wrapped(self)
         self.motion = _wrapped(self)
+        self.dependencies = _wrapped(self)
+        self.dependencies.setAccessibleName(tr("Wheel visibility"))
+        self.dependencies.setAccessibleDescription(tr("Saved projection and motion dependencies"))
         layout.addWidget(self.fit)
         layout.addWidget(self.encoder)
         layout.addWidget(self.motion)
+        layout.addWidget(self.dependencies)
 
         form = QFormLayout()
         self.spec = _SpecFields(self, form)
@@ -608,6 +612,13 @@ class WheelPanel(QGroupBox):
                 rig_wheel,
             )
         self._update_visibility()
+
+    def set_dependencies(self, statuses: Mapping[str, str]) -> None:
+        """Show why accepted geometry may be hidden without changing the saved record."""
+        for name, row in self._rows.items():
+            text = statuses.get(name, "")
+            row.dependencies.setText(text)
+            row.dependencies.setVisible(bool(text))
 
     def select_record(self, name: str) -> None:
         """Show the wheel chosen by the shared Props saved-record selector."""

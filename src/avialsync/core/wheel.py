@@ -43,6 +43,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from avialsync.core.calibration import CameraModel
+from avialsync.core.prop_context import PropContext
 from avialsync.core.rotary_calibration import RotaryObservation
 from avialsync.core.rotary_motion import PeriodicRotaryMotion
 
@@ -306,6 +307,7 @@ class Wheel:
     #: Where the geometry came from when it was not clicked here (a rig's own
     #: calibrated wheel); such a wheel has no clicks to judge it by.
     source: str = ""
+    context: PropContext = PropContext()
 
     @property
     def name(self) -> str:

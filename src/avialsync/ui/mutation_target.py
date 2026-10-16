@@ -31,6 +31,7 @@ import numpy as np
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.document import MarkerRecord, SourceRecord
 from avialsync.core.point_edits import PointKey
+from avialsync.core.prop_context import PropContext
 from avialsync.ui import imaging_integration, sync_lifecycle, video_levels
 from avialsync.ui.annotations import Marker
 from avialsync.ui.sync_acceptance import install_sync_mapping
@@ -294,14 +295,22 @@ class WindowMutationTarget:
                 self._window.props_app.persist(name)
 
     def set_ladder_step(
-        self, name: str, step_id: str, step: object, position: int | None = None
+        self,
+        name: str,
+        step_id: str,
+        step: object,
+        position: int | None = None,
+        *,
+        context: PropContext | None = None,
     ) -> None:
         """Edit one step; its neighbours remain untouched."""
         from avialsync.core.physical_props import LadderStep
 
         value = step if isinstance(step, LadderStep) else None
         with self.replaying():
-            if self._window.props_app.store.set_step(name, step_id, value, position):
+            if self._window.props_app.store.set_step(
+                name, step_id, value, position, context=context
+            ):
                 self._window.props_app.persist(name)
 
     def move_ladder_step(self, name: str, step_id: str, position: int) -> None:

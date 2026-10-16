@@ -25,6 +25,7 @@ import numpy as np
 from avialsync.core.belt_rollers import BeltRollers, BeltSideView
 from avialsync.core.calibration import CameraModel, triangulate
 from avialsync.core.errors import PropModelError
+from avialsync.core.prop_context import PropContext
 from avialsync.core.wheel import Wheel, WheelGeometry
 
 __all__ = [
@@ -299,6 +300,7 @@ class Ladder:
     units: str = ""
     support: LadderSupport = "none"
     pattern: RungPattern | None = None
+    context: PropContext = PropContext()
 
     @property
     def layout(self) -> LadderLayout:
@@ -385,6 +387,7 @@ class BeltProp:
     """Raw clicks on the top run's four corners that placed the rollers in 3D."""
     side_view: BeltSideView | None = None
     """One camera's clicks that place the belt in that view's side plane instead."""
+    context: PropContext = PropContext()
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -531,6 +534,7 @@ class BallProp:
     binding: BallBinding | None = None
     visual_reference_frame: int | None = None
     visual_frames: tuple[BallVisualFrame, ...] = ()
+    context: PropContext = PropContext()
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -715,7 +719,13 @@ class PropStore:
         )
 
     def set_step(
-        self, name: str, step_id: str, step: LadderStep | None, position: int | None = None
+        self,
+        name: str,
+        step_id: str,
+        step: LadderStep | None,
+        position: int | None = None,
+        *,
+        context: PropContext | None = None,
     ) -> bool:
         """Edit one step, retaining every other step by identity and value."""
         prop = self.get(name)
@@ -724,6 +734,8 @@ class PropStore:
         if step is not None and step.step_id != step_id:
             raise PropModelError("A step's stored key must match its id.")
         changed = prop.without_step(step_id) if step is None else prop.with_step(step, position)
+        if context is not None:
+            changed = dataclasses.replace(changed, context=context)
         return self.set(name, changed)
 
     def move_step(self, name: str, step_id: str, position: int) -> bool:

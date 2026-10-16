@@ -8,6 +8,7 @@ records cost only that prop and are reported individually.
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import math
 import tomllib
@@ -41,12 +42,14 @@ from avialsync.core.physical_props import (
     StepClick,
     UnitQuaternion,
 )
+from avialsync.core.prop_context import context_sections, parse_context, read_source, source_fields
 from avialsync.core.toml_format import toml_value, write_atomic
 from avialsync.core.wheel import Wheel
 from avialsync.core.wheel_file import parse_wheel_document, wheel_sections
 
 __all__ = [
     "PROP_SUFFIX",
+    "PROP_VERSION",
     "PropRecord",
     "PropFileIssueCode",
     "PropFileIssue",
@@ -65,7 +68,7 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 PROP_SUFFIX = "_prop.toml"
-_VERSION = 2
+PROP_VERSION = 3
 _HEADER = "# AvialSync physical prop. Camera clicks are the authority."
 PropKind = Literal["ladder", "wheel", "belt", "ball"]
 PropRecord = PhysicalProp
@@ -123,7 +126,7 @@ def _assert_owned(target: Path, name: str, kind: PropKind) -> bool:
         document = tomllib.loads(read_text(target))
         head = _mapping(document["prop"])
         if (
-            _integer(head["version"]) != _VERSION
+            _integer(head["version"]) != PROP_VERSION
             or head.get("kind") != kind
             or _text(head["name"]) != name
         ):
@@ -184,7 +187,7 @@ def _ladder_sections(ladder: Ladder) -> list[str]:
     return lines
 
 
-def _belt_sections(belt: BeltProp) -> list[str]:
+def _belt_sections(belt: BeltProp, folder: Path) -> list[str]:
     lines = _table(
         "[belt]",
         [
@@ -229,7 +232,7 @@ def _belt_sections(belt: BeltProp) -> list[str]:
         lines += _table(
             "[belt.binding]",
             [
-                ("source_id", binding.source_id),
+                *source_fields("source_id", binding.source_id, folder),
                 ("channel", binding.channel),
                 ("reference_frame", binding.reference_frame),
                 ("reference_reading", binding.reference_reading),
@@ -248,7 +251,7 @@ def _belt_sections(belt: BeltProp) -> list[str]:
     return lines
 
 
-def _ball_sections(ball: BallProp) -> list[str]:
+def _ball_sections(ball: BallProp, folder: Path) -> list[str]:
     lines = _table(
         "[ball]",
         [
@@ -264,7 +267,7 @@ def _ball_sections(ball: BallProp) -> list[str]:
         lines += _table(
             "[ball.binding]",
             [
-                ("source_id", binding.source_id),
+                *source_fields("source_id", binding.source_id, folder),
                 ("channels", binding.channels),
                 ("reference_frame", binding.reference_frame),
                 (
@@ -350,7 +353,7 @@ def write_prop(folder: Path | str, prop: PropRecord, *, overwrite_existing: bool
     lines += _table(
         "[prop]",
         [
-            ("version", _VERSION),
+            ("version", PROP_VERSION),
             ("kind", kind),
             ("name", name),
             ("calibration", prop.calibration if isinstance(prop, Ladder) else None),
@@ -361,11 +364,12 @@ def write_prop(folder: Path | str, prop: PropRecord, *, overwrite_existing: bool
     if isinstance(prop, Ladder):
         lines += _ladder_sections(prop)
     elif isinstance(prop, BeltProp):
-        lines += _belt_sections(prop)
+        lines += _belt_sections(prop, folder)
     elif isinstance(prop, BallProp):
-        lines += _ball_sections(prop)
+        lines += _ball_sections(prop, folder)
     else:
-        lines += wheel_sections(prop)
+        lines += wheel_sections(prop, folder)
+    lines += context_sections(prop.context, folder)
     return write_atomic(target, lines)
 
 
@@ -408,7 +412,7 @@ def write_removed(
         _HEADER,
         *_table(
             "[prop]",
-            [("version", _VERSION), ("kind", kind), ("name", name), ("removed", True)],
+            [("version", PROP_VERSION), ("kind", kind), ("name", name), ("removed", True)],
         ),
     ]
     return write_atomic(target, lines)
@@ -558,7 +562,7 @@ def _choice(value: object, choices: tuple[_Choice, ...]) -> _Choice:
     raise PropModelError("A prop field has an unknown value.")
 
 
-def _parse_belt(head: Mapping[str, Any], document: Mapping[str, Any]) -> BeltProp:
+def _parse_belt(head: Mapping[str, Any], document: Mapping[str, Any], folder: Path) -> BeltProp:
     table = _mapping(document["belt"])
     vertices = tuple(_point3(row["xyz"]) for row in _records(table.get("vertex", [])))
     direction = table.get("travel_direction")
@@ -567,7 +571,7 @@ def _parse_belt(head: Mapping[str, Any], document: Mapping[str, Any]) -> BeltPro
     if binding_table is not None:
         row = _mapping(binding_table)
         binding = BeltBinding(
-            _text(row["source_id"]),
+            read_source(row, "source_id", folder),
             _text(row["channel"]),
             _integer(row["reference_frame"]),
             _number(row["reference_reading"]),
@@ -638,7 +642,7 @@ def _parse_belt(head: Mapping[str, Any], document: Mapping[str, Any]) -> BeltPro
     )
 
 
-def _parse_ball(head: Mapping[str, Any], document: Mapping[str, Any]) -> BallProp:
+def _parse_ball(head: Mapping[str, Any], document: Mapping[str, Any], folder: Path) -> BallProp:
     table = _mapping(document["ball"])
     marks = tuple(_point3(row["direction"]) for row in _records(table.get("surface_mark", [])))
     binding_table = table.get("binding")
@@ -649,7 +653,7 @@ def _parse_ball(head: Mapping[str, Any], document: Mapping[str, Any]) -> BallPro
         if not isinstance(channels, list) or len(channels) != 4:
             raise PropModelError("A ball orientation needs four channel names.")
         binding = BallBinding(
-            _text(row["source_id"]),
+            read_source(row, "source_id", folder),
             (_text(channels[0]), _text(channels[1]), _text(channels[2]), _text(channels[3])),
             _integer(row["reference_frame"]),
             _quaternion(row["reference_orientation"]),
@@ -700,7 +704,7 @@ def _parse(
         return None, PropFileIssue(path.name, "unsupported_version", str(document["format"]))
     head = _mapping(document["prop"])
     version = _integer(head["version"])
-    if version != _VERSION:
+    if version != PROP_VERSION:
         return None, PropFileIssue(path.name, "unsupported_version", str(version))
     if _flag(head, "removed"):
         return None, None
@@ -711,17 +715,17 @@ def _parse(
     if kind == "ladder":
         prop = _parse_ladder(head, document)
     elif kind == "wheel":
-        wheel = parse_wheel_document(document)
+        wheel = parse_wheel_document(document, path.parent)
         if wheel is None:
             return None, PropFileIssue(path.name, "damaged")
         prop = wheel
     elif kind == "belt":
-        prop = _parse_belt(head, document)
+        prop = _parse_belt(head, document, path.parent)
     else:
-        prop = _parse_ball(head, document)
+        prop = _parse_ball(head, document, path.parent)
     if prop.name != _text(head["name"]) or prop_path(path.parent, prop.name) != path:
         return None, PropFileIssue(path.name, "name_mismatch", prop.name)
-    return prop, None
+    return dataclasses.replace(prop, context=parse_context(document, path.parent)), None
 
 
 def read_prop_records(
@@ -740,7 +744,7 @@ def read_prop_records(
             document = tomllib.loads(read_text(path))
             head = _mapping(document["prop"])
             if (
-                _integer(head["version"]) == _VERSION
+                _integer(head["version"]) == PROP_VERSION
                 and head.get("kind") in ("ladder", "wheel", "belt", "ball")
                 and _flag(head, "removed")
             ):

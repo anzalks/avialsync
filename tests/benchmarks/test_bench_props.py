@@ -9,13 +9,15 @@ import pytest
 
 from avialsync.core.ladder_support import lay_out_rungs
 from avialsync.core.physical_props import Ladder, LadderPoint, LadderStep, StepClick
+from avialsync.core.prop_context import PropCamera, PropContext
 from avialsync.ui.props_app import PropsApp
 from tests.wheel_fixture import CAMERAS
 from tests.wheel_window import VIDEOS
 
 
 @pytest.mark.benchmark(group="physical-props-frame")
-def test_many_ladder_steps_project_within_frame_budget(benchmark) -> None:
+@pytest.mark.parametrize("saved_context", [False, True])
+def test_many_ladder_steps_project_within_frame_budget(benchmark, saved_context) -> None:
     """A long irregular ladder must not monopolize a 60 Hz paint tick."""
     window = SimpleNamespace(
         _calibration_state=SimpleNamespace(
@@ -37,7 +39,14 @@ def test_many_ladder_steps_project_within_frame_budget(benchmark) -> None:
         )
 
     steps = tuple(clicked_step(index) for index in range(64))
-    props.store.set("ladder", Ladder("ladder", steps))
+    context = (
+        PropContext(
+            tuple(PropCamera.capture(VIDEOS[name], camera) for name, camera in CAMERAS.items())
+        )
+        if saved_context
+        else PropContext()
+    )
+    props.store.set("ladder", Ladder("ladder", steps, context=context))
     drawn = benchmark(props.camera_drawing, VIDEOS["Front"], 0.0)
     assert len(drawn) == 64
     assert benchmark.stats["mean"] < 0.002

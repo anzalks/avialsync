@@ -41,6 +41,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 if TYPE_CHECKING:
     from avialsync.core.custom_markers import CustomMarker
     from avialsync.core.physical_props import Ladder, LadderLayout, LadderStep, PhysicalProp
+    from avialsync.core.prop_context import PropContext
     from avialsync.core.wheel import Wheel
 
 __all__ = [
@@ -185,7 +186,13 @@ class MutationTarget(Protocol):
         """Set or remove one typed physical prop through the shared mutation funnel."""
 
     def set_ladder_step(
-        self, name: str, step_id: str, step: LadderStep | None, position: int | None = None
+        self,
+        name: str,
+        step_id: str,
+        step: LadderStep | None,
+        position: int | None = None,
+        *,
+        context: PropContext | None = None,
     ) -> None:
         """Change one ladder step without copying the other steps into history."""
 

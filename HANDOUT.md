@@ -133,8 +133,11 @@ two clicked rungs and a rung count, with perspective from one view; clicked rung
 dashed estimates. A belt is placed from four clicks — top corners in two calibrated cameras for
 3D, or both hubs and the top above each in one camera — sized by the typed centre distance and
 radius. A one-camera belt lives in that view's side plane only (D-165).
-The inspector derives displayed 3D points from the current calibration and the original clicks;
-with missing calibration, only the clicked 2D marks appear. A read failure offers Retry without
+The inspector derives displayed 3D points from the prop’s saved effective camera projection and
+the original clicks. Newly accepted calibrated props carry that projection in their own TOML,
+including affine/TPS image corrections; reopening does not need the external calibration file
+or two open cameras. A record made without calibrated cameras keeps its 2D clicks and declared
+geometry; no camera projection is invented. A read failure offers Retry without
 discarding the recording. A new ladder cannot replace an unread sidecar of the same name while
 discovery is pending. Saved fit coordinates remain in the sidecar as inspectable history.
 
@@ -156,9 +159,36 @@ an unapplied count while clicks are collected, and names pending-step acceptance
 Changing a total preserves the accepted anchor ids after intermediate steps are added.
 Generated guides stay outside the observed step list. With 3D anchors, camera guides project
 evenly spaced 3D positions; image-only footholds remain evenly spaced 2D estimates. Prop record
-version 2 stores the mode; only the current record format is supported, with no legacy reader
+version 3 stores the mode and self-contained projection context (D-245); only the current record format is supported, with no legacy reader
 or migration. Save/Remove now appear once in a shared header and Wheel details follow the same
 Saved selector. Removed kind-specific button aliases are not a supported UI API.
+
+**Prop persistence and reload (D-245):** `PROP_VERSION` in `core/prop_file.py` is the only
+current-format version authority. Versions 1/2, earlier extensions and future formats are
+unsupported, reported per file and never migrated or rewritten. `core/prop_context.py` freezes
+camera intrinsics, extrinsics, distortion, image corrections, source identities and the reference
+camera’s raw placement time. SciPy 1.17 rejects a read-only rotvec buffer, so
+`CameraModel.rotation_matrix()` copies only its three rotation coefficients before the SciPy
+conversion; do not thaw the shared camera snapshot arrays. Camera and encoder paths use explicit TOML-relative references;
+logical source ids stay logical. Moving the whole recording preserves those references. Dense
+sensor samples and videos remain external recordings, not embedded in a prop TOML.
+
+`ui/prop_context.py` captures accepted context before constructing an undo command and resolves
+saved cameras independently of pane order. Geometry edits retain it; a first calibrated ladder
+step can capture missing context in the same inverse command, without copying neighbouring steps.
+A saved wheel needs its named reference camera open to name motion evidence; another camera’s
+frame number is not substituted. With missing encoder data only the known placement frame is
+drawn; the Wheel page explains its camera/channel dependencies. Overlay visibility remains an
+explicit View → Overlays choice. Refitting/checking accepted geometry uses its saved cameras.
+
+`PropsApp` pins each prop’s owner folder when accepted/adopted. A nested camera can find an
+ancestor recording’s sidecar only when the saved source identity proves ownership. Discovery can
+be retried after per-file errors and ignores obsolete source-set/session completions. A registered
+`PropFileWriteWorker` drains `PropWriteQueue` itself, coalescing pending revisions and preserving
+ownership without UI callbacks; closing cannot strand an ordinary pending edit behind a completed
+write. Discovery waits for that folder’s pending writes on its worker. Shutdown retains the jobs
+manager’s bounded wait for stalled filesystems. Only completed latest revisions report success;
+old-session completions stay silent. Never advance this queue from a GUI callback again.
 
 **Prop labels across cameras:** a camera canvas receives its own presented frame's
 master timestamp, which may precede the reference camera's current frame. Wheel
@@ -747,6 +777,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/controllers/custom_marker_controller.py` | Add 3D Marker end to end: name → calibration (`calibration_controller`) → one click per camera → triangulate → `SetCustomMarkerCommand`. Also drag re-triangulation, delete, persistence and adoption. A camera with no 2D pose file keeps its markers in `pose-3d/`, never beside the video (D-112, D-114) | `toggled()`, `on_clicked()`, `on_moved()`, `delete()`, `persist()`, `adopt()`, `points_at()` |
 | `core/wheel.py`, `core/rotary_motion.py`, `core/rotary_calibration.py` | A running wheel as a model: what was declared (`WheelSpec`: bar count, units, radius), clicked (`EndClick`), fitted (`WheelGeometry`, `WheelFit`), and what turns it (`EncoderBinding`, `WheelCheck`). `PeriodicRotaryMotion` corrects an unwrapped degree encoder reading with positive gain and repeatable periodic harmonics; `EncoderBinding` applies its independently video-verified direction to the whole transfer. `fit_periodic_rotary()` turns generic cyclic observations into an explicitly unaccepted `RotaryCalibrationProposal`, with residuals; it knows no rig, camera or file schema. `bar_ends(turn)` generates every bar; `project_bars()` into a camera; `Wheel.bar_diameter` is the display-only value set by eye, in the measured radius's units, converted to calibration units by `Wheel.world_per_unit` (fitted ÷ measured radius), drawn as cylinders in the 3D view only (D-128, D-129, D-130, D-221, D-222). `fit_issue()` is the one quality rule; it words a "Poor fit" warning and never hides a wheel (D-121, D-123). HEADLESS (D-113) | `Wheel`, `EncoderBinding.turn()`, `PeriodicRotaryMotion`, `RotaryHarmonic`, `RotaryObservation`, `RotaryCalibrationProposal`, `fit_periodic_rotary()`, `WheelGeometry.bar_ends()`, `project_bars()`, `fit_issue()`, `facing()`, `camera_centre()` |
 | `core/belt_rollers.py`, `core/physical_props.py`, `core/ladder_support.py`, `core/plane_view.py`, `core/visual_prop_tracking.py`, `core/prop_motion_calibration.py` | Headless prop foundation (D-149, D-154, D-157, D-162–D-165, D-227): ladder clicks resolve independently; a ladder declares side-rail or centre-beam support (`support_bars()`) and an optional `RungPattern` extrapolated per view (`lay_out_rungs()`, homography in `PlaneView`); a step may carry an irregularity tag; a belt is placed from four clicked top corners (`rollers_from_corners()`) or one camera's `BeltSideView`, sized by measurements; measured two-roller belts have analytic loop motion and tessellated surfaces, while legacy point paths remain; ball quaternion channels and visual frames retain evidence. Saved channel checks fit non-mutating belt phase/physical-scale and ball sensor-axis proposals with pixel residuals. `belt_visual_problem()` and `ball_visual_problem()` distinguish geometry mismatch and ambiguous evidence. Fixed support never follows material motion. `PropStore` holds all four kinds; `WheelView` filters it. Observers never write files | `BeltRollers`, `BeltSideView`, `rollers_from_corners()`, `side_rollers()`, `PlaneView`, `BeltProp`, `support_bars()`, `lay_out_rungs()`, `RungPattern`, `LadderLayout`, `StepIrregularity`, `BallProp`, `BeltMotionCalibrationProposal`, `BallMotionCalibrationProposal`, `fit_belt_motion()`, `fit_ball_motion()`, `BeltVisualFrame`, `BallVisualFrame`, `belt_visual_state()`, `belt_visual_problem()`, `belt_visual_travel()`, `ball_visual_state()`, `ball_visual_problem()`, `PropStore`, `WheelView` |
+| `core/prop_context.py`, `core/prop_write_queue.py`, `ui/prop_context.py` | Immutable portable projection snapshots and explicit source references; one worker-drained latest-revision queue; saved reference-camera and projection resolution without calibration-file IO (D-245) | `PropCamera`, `PropContext`, `PROP_VERSION`, `PropWriteQueue`, `capture()`, `models()`, `frame_and_time()`, `frame_master_time()` |
 | `core/prop_file.py`, `core/wheel_file.py` | Canonical versioned `pose-3d/<name>_prop.toml` records for all four kinds, preserving wheel fit/click/binding evidence, optional versioned periodic encoder transfer, and kind-specific geometry. No legacy wheel-sidecar reader; damaged/future records report per-file issues without hiding good props | `write_prop()`, `write_ladder()`, `write_belt()`, `write_ball()`, `write_wheel()`, `read_props()`, `read_wheels()`, `prop_path()`, `PropFileIssue` |
 | `ui/props_app.py`, `ui/props_panel.py`, `ui/prop_motion.py`, `ui/wheel_tab.py`, `engine/prop_motion_calibration_worker.py` | One Props inspector switches among ladder clicks, wheel placement/review, and belt/ball geometry, channel binding, visual tracking, checks, and explicit video-fit review/apply. Belt/ball geometry edits retain visual clicks and immediately report whether the declaration matches them (D-162). The registered camera/3D overlay draws fixed support and observed moving marks separately; `prop_motion` reads gap-aware mapped channels at presentation time or solves exact visual frames. The calibration worker produces a proposal off the UI thread; applying it is one document command. Sidecar IO uses registered jobs | `PropsApp`, `PropsPanel`, `PropsTab`, `WheelTab`, `PropMotionCalibrationWorker`, `frame_time()`, `material_point()`, `visual_state()`, `check_click()`, `fit_motion()`, `apply_motion()` |
 | `ui/prop_support_drawing.py`, `ui/belt_placement.py`, `ui/belt_placement_controls.py` | Dashed extrapolated rungs and support bars per camera and in 3D; belt placement clicks (solid where clicked, dashed where projected); turning four placement clicks plus typed measurements into belt fields (D-164, D-165) | `rung_pixels()`, `rung_positions()`, `placement_pixels()`, `side_view_pixels()`, `place()`, `kept()`, `BeltPlacementControls` |
