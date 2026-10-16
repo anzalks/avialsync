@@ -116,9 +116,26 @@ def test_larger_text_and_expanded_options_still_fit_without_horizontal_scrolling
     wizard.show()
     wizard.resize(760, 560)
     wizard.steps.more_toggle.setChecked(True)
-    qtbot.waitUntil(lambda: wizard._scroll.verticalScrollBar().maximum() > 0)
-    assert wizard._scroll.widget().width() <= wizard._scroll.viewport().width()
+    # Laid out once the expanded options are on screen. Whether the column
+    # then also needs to scroll vertically depends on the platform's fonts;
+    # that it never needs to scroll sideways does not.
+    qtbot.waitUntil(lambda: wizard._strategy_combo.isVisible())
+    # Eventually, not at once: a vertical bar appearing narrows the viewport
+    # one layout pass before the content follows it.
+    qtbot.waitUntil(lambda: wizard._scroll.widget().width() <= wizard._scroll.viewport().width())
     assert wizard.rect().contains(wizard._buttons.geometry())
+
+
+def test_focus_never_scrolls_the_settings_sideways(wizard: SyncWizard, qtbot: QtBot) -> None:
+    """With no horizontal bar, a sideways scroll clipped labels with no way back."""
+    wizard.show()
+    wizard.resize(420, 560)
+    wizard.steps.more_toggle.setChecked(True)
+    qtbot.waitUntil(lambda: wizard._precision_requirement.isVisible())
+    wizard._precision_requirement.setFocus()
+    qtbot.waitUntil(lambda: wizard._precision_requirement.hasFocus())
+
+    assert wizard._scroll.horizontalScrollBar().value() == 0
 
 
 def test_many_recordings_scroll_within_the_coverage_tab(wizard: SyncWizard, qtbot: QtBot) -> None:

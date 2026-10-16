@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 from avialsync.engine.sync_worker import SignalEvidenceSpec
 from avialsync.ui.drift_spin import DriftSpinBox
 from avialsync.ui.i18n import tr
+from avialsync.ui.ms_spin import MillisecondSpinBox
 
 if TYPE_CHECKING:
     from avialsync.ui.sync_wizard import SyncWizard
@@ -27,6 +28,12 @@ def initialize_fields(self: SyncWizard) -> None:
     """Build existing field identities once, before their contextual placement."""
     self._evidence_form = QFormLayout()
     self._advanced_form = QFormLayout()
+    # Long rows wrap rather than widen the column past its viewport: the
+    # settings column never scrolls sideways, so a wider form was clipped at
+    # its left edge as soon as focus scrolled it ("ecording:").
+    for form in (self._evidence_form, self._advanced_form):
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
     _signals(self)
     _event_options(self)
     _strategy(self)
@@ -42,11 +49,20 @@ def _signals(self: SyncWizard) -> None:
         self._reference_combo.addItem(spec.display_name or spec.source_id)
     for spec in self._targets:
         self._target_combo.addItem(spec.display_name or spec.source_id)
+    # The line's own midpoint unless typed, like the target's: a fixed 0.5
+    # suited a 0-1 line and found nothing on a 3.3 V, 5 V or mV-scaled one.
     self._threshold = QDoubleSpinBox(self)
     self._threshold.setRange(-1e12, 1e12)
     self._threshold.setDecimals(3)
-    self._threshold.setValue(0.5)
-    self._threshold.setToolTip(tr("Logical high threshold for a signal-channel TTL reference"))
+    self._threshold.setSpecialValueText(tr("Midpoint of the signal"))
+    self._threshold.setValue(self._threshold.minimum())
+    self._threshold.setToolTip(
+        tr(
+            "Logical high threshold for a signal-channel TTL reference, in the "
+            "channel's own units. At its lowest value it is halfway between the "
+            "channel's lowest and highest samples."
+        )
+    )
     form.addRow(tr("TTL high threshold:"), self._threshold)
     # A sensor chosen as the target is thresholded too, and its levels need
     # not be the reference's: a fixed 0.5 found no pulses on a line that
@@ -121,6 +137,10 @@ def _strategy(self: SyncWizard) -> None:
             "and an offset alone where it is not."
         )
     )
+    self._strategy_combo.setSizeAdjustPolicy(
+        QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+    )
+    self._strategy_combo.setMinimumContentsLength(12)
     advanced.addRow(tr("Alignment strategy:"), self._strategy_combo)
 
     self._index_offset = QSpinBox(self)
@@ -141,10 +161,8 @@ def _strategy(self: SyncWizard) -> None:
 
 def _precision(self: SyncWizard) -> None:
     advanced = self._advanced_form
-    self._tolerance = QDoubleSpinBox(self)
+    self._tolerance = MillisecondSpinBox(self)
     self._tolerance.setRange(0.0, 1e6)
-    self._tolerance.setDecimals(6)
-    self._tolerance.setSuffix(" s")
     self._tolerance.setSpecialValueText(tr("from the pulse rate"))
     self._tolerance.setToolTip(
         tr(
@@ -156,11 +174,9 @@ def _precision(self: SyncWizard) -> None:
     advanced.addRow(tr("Match tolerance:"), self._tolerance)
     self._effective_tolerance = QLabel(tr("Calculated when you preview the evidence."), self)
     advanced.addRow(tr("Effective match tolerance:"), self._effective_tolerance)
-    self._precision_requirement = QDoubleSpinBox(self)
+    self._precision_requirement = MillisecondSpinBox(self)
     self._precision_requirement.setRange(0.000001, 1.0)
-    self._precision_requirement.setDecimals(6)
     self._precision_requirement.setValue(0.001)
-    self._precision_requirement.setSuffix(" s")
     self._precision_requirement.setToolTip(
         tr(
             "Required timing precision. Matching may search a wider window, "

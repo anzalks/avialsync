@@ -209,24 +209,37 @@ class TestResidualsCannotSeeTheirOwnMatching:
         assert proposal.acceptable
 
     def test_a_minority_match_is_refused_however_exact(self) -> None:
-        """Most of the reference finding no partner is a different hypothesis.
+        """Most of the overlap finding no partner is a different hypothesis.
 
         A non-uniform train on purpose: a uniform one is refused a step earlier
-        for ambiguity, and this gate has to be shown failing on its own.
+        for ambiguity, and this gate has to be shown failing on its own. The
+        camera spans the first 160 reference pulses but recorded only 70 of
+        them (a long dropout), so the rate is judged over what it *could* have
+        recorded -- not over the whole session, which refused a camera that ran
+        for a fifth of it and matched everything it saw (D-243).
         """
         reference = _irregular_train(500, seed=11)
-        # The camera only ran for the first fifth of the session, so four out of
-        # five reference pulses have nothing to pair with. A contiguous slice
-        # keeps the pulse *rate* the same on both sides -- `_initial_scale`
-        # seeds itself from the median interval, and a decimated slice would be
-        # testing that heuristic rather than this gate.
+        target = np.concatenate((reference[:60], reference[150:160])) + 1.0
+
+        proposal = fit_sync_events(reference, target, reference_id="sensor", target_id="camera")
+
+        assert proposal.fit.overlap_reference_count == 160
+        assert proposal.fit.match_rate < 0.5
+        assert not proposal.acceptable
+        assert "found a partner" in proposal.refusal
+
+    def test_a_camera_covering_part_of_the_session_is_judged_on_its_overlap(self) -> None:
+        """A camera that ran for a fifth of the session matched all it recorded."""
+        reference = _irregular_train(500, seed=11)
         target = reference[:100] + 1.0
 
         proposal = fit_sync_events(reference, target, reference_id="sensor", target_id="camera")
 
-        assert proposal.fit.match_rate < 0.5
-        assert not proposal.acceptable
-        assert "found a partner" in proposal.refusal
+        assert proposal.fit.reference_count == 500
+        assert proposal.fit.overlap_reference_count == 100
+        assert proposal.fit.match_rate == pytest.approx(1.0)
+        assert proposal.acceptable
+        assert "in the overlap (500 in the whole reference)" in proposal.fit.describe()
 
     def test_a_tie_at_another_lag_scores_zero_margin(self) -> None:
         """A uniform train fits at every period, and no residual says so."""
@@ -266,7 +279,9 @@ class TestResidualsCannotSeeTheirOwnMatching:
 
         assert proposal.fit.reference_count == 50
         assert proposal.fit.target_count == 40
-        assert proposal.fit.match_rate == pytest.approx(40 / 50)
+        # The rate is over the overlap: all 40 the camera could pair did.
+        assert proposal.fit.overlap_reference_count == 40
+        assert proposal.fit.match_rate == pytest.approx(1.0)
         assert proposal.acceptable
 
     def test_an_irregular_train_is_not_ambiguous(self) -> None:

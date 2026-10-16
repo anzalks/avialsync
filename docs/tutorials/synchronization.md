@@ -40,8 +40,9 @@ Scrub to your shared event, adjust **Offset** until the views agree, then check 
 the *end* of the recording. If the two events need different offsets, the clocks are drifting and
 you want **Drift** as well, or better still the evidence-based route below, which measures both.
 
-For the last fraction of a frame, select the source and use **Align → Nudge selected source
-earlier** / **later** (`Ctrl+Shift+Left` / `Ctrl+Shift+Right`). It steps the offset of the source
+To step a source one frame at a time, select it and use **Align → Nudge selected source
+earlier** / **later** (`Ctrl+Shift+Left` / `Ctrl+Shift+Right`). Each press moves its offset by one
+frame of that source; for less than a frame, type the offset. It steps the offset of the source
 you selected — not whichever camera happens to be first — so you can keep your eyes on the video
 while you adjust it.
 
@@ -56,13 +57,22 @@ and the master clock seeks there, so you can look at the footage before deciding
 It stays inside the available screen. A narrow window uses full-height **Settings / Results** tabs;
 a wider window shows both beside each other. Each page scrolls when needed, while the footer stays
 visible. Increasing the font or opening **More…** does not push the actions off-screen. Keyboard
-focus scrolls the selected control into view.
+focus scrolls the selected control into view, and long rows wrap rather than widen the column, so
+no label is ever cut off at the edge. Widening a narrowed window brings both pages back side by
+side; narrowing it after a preview keeps **Results** in view.
 
 ![Settings scroll while review actions remain visible on a small screen](../_static/screenshots/guide_sync_small_screen.png)
 
 Choose the reference and the recording to move first. Their session labels appear in the selectors;
-duplicate filenames include folder context, and full paths are available in tooltips. **Align using**
-suggests a method from the loaded sources; it never declares exposure wiring for you.
+duplicate filenames include up to three folders of context (or a number when the folders are the
+same), and full paths are available in tooltips. The first reference offered is the one most likely
+to carry sync pulses — a declared trigger file, then a channel named like `TTL`, `sync`, `strobe` or
+`trigger` — rather than whichever channel is listed first. **Align using** starts on a method suited
+to the loaded sources and names a different one only when it would suit them better; it never
+declares exposure wiring for you.
+
+Reopening the dialog after **Apply** offers the next recording that has no accepted alignment, so
+a rig's cameras can be aligned one after another.
 
 Choose **Align using → Recorded sync signals** for the following steps. **Correspondence**,
 **Residuals**, and **Coverage** are separate evidence tabs; changing tabs does not change the fit.
@@ -83,9 +93,11 @@ physical starts. Record a shared event or camera exposure strobe to align them.
 
 ![The TTL threshold and the all-samples checkbox](../_static/screenshots/guide_sync_ttl_threshold.png)
 
-1. **TTL high threshold** — the voltage above which a sample counts as a logical high. Set it
-   between your line's low and high levels. This is how a continuous analogue trace becomes a list
-   of pulse edges.
+1. **TTL high threshold** — the level, in the channel's own units, above which a sample counts as
+   a logical high. Left at *Midpoint of the signal*, it sits halfway between the channel's lowest
+   and highest samples, which suits a 0–1, 3.3 V, 5 V or millivolt-scaled line alike; type a value
+   if a spike or a fault skews that. This is how a continuous analogue trace becomes a list of
+   pulse edges.
 2. **Event timestamps** — check this when your reference is *already* a list of event
    times, such as a CSV of frame triggers, rather than a voltage to be thresholded. It disables the
    threshold, because there is nothing to threshold.
@@ -130,9 +142,12 @@ blank it is derived from your pulse rate — a quarter of the interval between e
 rule about telling one pulse from the next, not about the precision your work needs. On a 1 Hz sync
 pulse that is 250 ms, and it will accept a 100 ms misalignment without complaint.
 
-Set **Required precision** separately. The search tolerance finds candidate pairs; the precision
+Both are entered and shown in milliseconds, like the residuals they are compared with. Set
+**Required precision** separately. The search tolerance finds candidate pairs; the precision
 requirement checks their residuals, coverage, the largest interval without a match, and any
-extrapolation. Sparse evidence remains usable with a visible **precision unverified** state.
+extrapolation. Sparse evidence remains usable with a visible **precision unverified** state, and the
+result names the check that failed — for example that 40 s of the recording lies beyond the matched
+events, where clock wander could exceed the requirement.
 For sampled signals it also checks the observed sample spacing: a 100 Hz TTL recording cannot
 establish 1 ms precision from small fit residuals. These checks describe recorded timestamps;
 unmeasured camera latency, exposure timing, and visual observation error are not certified.
@@ -170,19 +185,27 @@ uncertainty, and the session says so rather than quoting zeros that would read a
 ![The preview and accept buttons](../_static/screenshots/guide_sync_preview_accept.png)
 
 1. **Preview alignment** in the footer extracts the evidence, matches events, and fits the mapping.
-  On narrow screens it opens Results. A sentence names the recording, movement direction and amount,
-  and whether precision is verified. The wizard
-  shows the effective match tolerance and whether it was derived from pulse spacing or set by you;
-  check it against the timing precision your experiment needs. Changing the tolerance invalidates
-  the preview, so run it again before accepting. Three panels show what it found; read them in
-  order, because they answer different questions.
+  On narrow screens it opens Results. The first line names the recording and how far and which way
+  it moves — at the start and at the end, when drift makes them differ. The second line gives the
+  numbers it is judged by without expanding anything: events matched out of those the recording
+  could have captured, RMS and worst residual, drift, coverage, and whether precision is verified
+  (and if not, why). The effective match tolerance, and whether it was derived from pulse spacing
+  or set by you, is under **Advanced matching → More…**; an exact per-frame mapping uses none.
+  Changing the tolerance invalidates the preview, so run it again before accepting. Three panels
+  show what it found; read them in order, because they answer different questions. Before the
+  first preview, **Coverage** is shown, since it is the one view with content already.
 2. **Apply alignment** replaces Preview when a current proposal is ready. Until you activate it,
    nothing has changed. A proposal is never applied silently. When the evidence cannot support a
-   proposal, Preview remains available with guidance on what to change. Return only activates the
-   focused Preview/Apply button; an arriving result cannot turn a repeated Return into acceptance.
+   proposal, the result says **Cannot apply** and why, and opens **Fit details** at the reason;
+   Preview remains available. Return only activates the focused Preview/Apply button; an arriving
+   result cannot turn a repeated Return into acceptance, and a double-click on Preview does not
+   apply the result it produced. A manual preview that leaves the recording where it already is
+   cannot be applied. After Apply, the status bar says what was aligned and that **Edit → Undo**
+   reverts it.
 
 Changing settings or source timing invalidates the preview; an older background result cannot
-become the current proposal. Changing a reference also flags accepted downstream alignments for
+become the current proposal. The plots stay so a fit window can still be chosen from them, marked
+**Previous preview — out of date** until you preview again. Changing a reference also flags accepted downstream alignments for
 review. The source cards distinguish recorded timestamps, manual timing, shared or visual events,
 verified/unverified precision, and alignments needing review.
 
@@ -196,6 +219,10 @@ is the one to read first.
   which happens with uniform pulse trains, and which no residual can reveal.
 - Ink along the margins is rejected evidence, drawn where it sits in time. A margin that is mostly
   solid means most of your events found no partner.
+
+The match rate counts only the reference events that fall inside the recording being moved once
+mapped: a camera that ran for a fifth of a long DAQ session is judged on the pulses it could have
+recorded, not refused for the four fifths it never saw.
 
 **Residuals.** How tightly the matched pairs agree, against the search-tolerance
 band. Residuals do not prove physical precision between sparse events. The summary reports the

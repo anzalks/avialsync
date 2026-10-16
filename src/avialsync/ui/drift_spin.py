@@ -46,5 +46,8 @@ class DriftSpinBox(QDoubleSpinBox):
 
     def _refresh_tip(self, *_args: object) -> None:
         drift = describe_drift(self.value(), sample_rate_hz=self._rate_hz, samples=self._samples)
-        tip = tr("Current drift: {drift}").format(drift=drift)
+        # Clock specifications are quoted in ppm; 1 ppm is 3.6 ms per hour.
+        tip = tr("Current drift: {drift} ({ppm} ppm)").format(
+            drift=drift, ppm=f"{self.value() / 3.6:+.3g}"
+        )
         self.setToolTip(f"{self._base_tip}\n{tip}" if self._base_tip else tip)

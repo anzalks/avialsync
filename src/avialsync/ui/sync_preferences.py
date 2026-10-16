@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from avialsync.core.settings_schema import setting_for
 from avialsync.ui.preferences_dialog import read_setting, write_setting
-from avialsync.ui.sync_choices import suggested_mode
+from avialsync.ui.sync_choices import preferred_reference, suggested_mode
 from avialsync.ui.sync_lifecycle import as_window
 
 if TYPE_CHECKING:
@@ -35,6 +35,10 @@ def restore(wizard: SyncWizard) -> None:
         wizard._mode_changed(index)
     else:
         wizard._mode_combo.setCurrentIndex(index)
+    if not saved and wizard._mode_combo.currentData() == "events":
+        preferred = preferred_reference(wizard)
+        if preferred >= 0:
+            wizard._reference_combo.setCurrentIndex(preferred)
     if saved:
         for specs, combo, source_id in (
             (wizard._references, wizard._reference_combo, saved[2]),
@@ -43,9 +47,45 @@ def restore(wizard: SyncWizard) -> None:
             index = next((i for i, spec in enumerate(specs) if spec.source_id == source_id), -1)
             if index >= 0:
                 combo.setCurrentIndex(index)
+        _advance_past_aligned(wizard, parent)
     wizard.steps.more_toggle.setChecked(bool(preference("advanced")))
     wizard._fit_details.more_toggle.setChecked(bool(preference("fit_details")))
     wizard._drift_toggle.setChecked(bool(preference("manual_drift")))
+
+
+def _advance_past_aligned(wizard: SyncWizard, parent: object) -> None:
+    """Reopening after Apply offers the next camera, not the one just aligned.
+
+    Aligning a rig's cameras one after another is the ordinary case, and the
+    remembered target was the camera the last Apply had already placed.
+    """
+    records = getattr(parent, "accepted_alignment_records", None)
+    if not callable(records) or not wizard._targets:
+        return
+    aligned = {record.target_id for record in records() if not record.superseded_by}
+
+    def done(index: int) -> bool:
+        spec = wizard._targets[index]
+        return spec.source_id in aligned or (spec.clock_id or spec.source_id) in aligned
+
+    if not done(wizard._target_combo.currentIndex()):
+        return
+    reference = (
+        wizard._references[wizard._reference_combo.currentIndex()]
+        if wizard._references and wizard._reference_combo.currentIndex() >= 0
+        else None
+    )
+    reference_clock = (reference.clock_id or reference.source_id) if reference else ""
+    following = next(
+        (
+            i
+            for i, spec in enumerate(wizard._targets)
+            if not done(i) and (spec.clock_id or spec.source_id) != reference_clock
+        ),
+        -1,
+    )
+    if following >= 0:
+        wizard._target_combo.setCurrentIndex(following)
 
 
 def save(wizard: SyncWizard) -> None:

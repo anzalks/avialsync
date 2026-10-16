@@ -156,6 +156,9 @@ class SyncProvenance:
     extrapolated_after: float = 0.0
     excluded_incomplete_count: int = 0
     measurement_resolution: float = 0.0
+    #: Reference events inside the target's recording once mapped: the match
+    #: rate's denominator. Zero for records saved before it was measured.
+    overlap_reference_count: int = 0
     exact_offset_anchor: float | None = None
     exact_drift_anchor: float | None = None
     settings: dict[str, Any] = dataclasses.field(default_factory=dict)
@@ -352,6 +355,7 @@ class SessionState:
                 extrapolated_after=float(item.get("extrapolated_after", 0.0)),
                 excluded_incomplete_count=int(item.get("excluded_incomplete_count", 0)),
                 measurement_resolution=float(item.get("measurement_resolution", 0.0)),
+                overlap_reference_count=int(item.get("overlap_reference_count", 0)),
                 exact_offset_anchor=(
                     float(item["exact_offset_anchor"])
                     if item.get("exact_offset_anchor") is not None

@@ -38,6 +38,10 @@ def responsive_layout(wizard: SyncWizard) -> None:
         for page in (wizard._scroll, wizard._result_scroll):
             wizard._pages.removeTab(wizard._pages.indexOf(page))
             wizard._body.addWidget(page)
+            # A tab page that was not current is left explicitly hidden, and a
+            # splitter does not show it again: widening a narrowed dialog left
+            # nothing but its footer.
+            page.show()
         wizard._pages.hide()
         wizard._body.show()
         wizard._body.setSizes([380, 620])
@@ -46,6 +50,10 @@ def responsive_layout(wizard: SyncWizard) -> None:
         wizard._pages.addTab(wizard._result_scroll, tr("Results"))
         wizard._body.hide()
         wizard._pages.show()
+        if wizard.proposal is not None:
+            # Narrowing after a preview keeps the result, not the form, in view:
+            # Apply sits in the footer and should not appear beside settings.
+            wizard._pages.setCurrentWidget(wizard._result_scroll)
 
 
 def show_results(wizard: SyncWizard) -> None:

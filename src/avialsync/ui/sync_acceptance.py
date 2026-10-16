@@ -368,6 +368,7 @@ def _provenance(
         extrapolated_after=fit.extrapolated_after,
         excluded_incomplete_count=fit.excluded_incomplete_count,
         measurement_resolution=fit.measurement_resolution,
+        overlap_reference_count=fit.overlap_reference_count,
         settings=dict(proposal.settings),
         exact_offset_anchor=(fit.offset if offset_anchor is None else offset_anchor)
         if prepared is not None
@@ -414,7 +415,12 @@ def _show_accepted(window: MainWindow, target_path: str, proposal: SyncProposal)
         rejected = proposal.unmatched_references
         unmatched = [rejected[i] for i in _spread(len(rejected), _OVERVIEW_EVENT_LIMIT)]
     name = Path(target_path).name
-    window.transport.set_status(f"Aligned · {fit.describe()}", "info")
+    window.transport.set_status(
+        tr("Aligned {name} · {details} · Edit → Undo reverts it").format(
+            name=name, details=fit.describe()
+        ),
+        "info",
+    )
     window.transport.set_ttl_events(
         [(time, f"Target: {name} · residual: {residual * 1000:.3f} ms") for time, residual in shown]
     )

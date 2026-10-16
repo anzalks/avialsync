@@ -91,7 +91,13 @@ class StepPanel(QFrame):
         self.more_toggle.toggled.connect(self._show_more)
         self.learn_more = QLabel(self)
         self.learn_more.setOpenExternalLinks(False)
-        self.learn_more.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse)
+        # Keyboard too: a mouse-only link left every guided flow's help
+        # unreachable for someone who navigates with Tab.
+        self.learn_more.setTextInteractionFlags(
+            Qt.TextInteractionFlag.LinksAccessibleByMouse
+            | Qt.TextInteractionFlag.LinksAccessibleByKeyboard
+        )
+        self.learn_more.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.learn_more.setAccessibleName(tr("Learn more in the user guide"))
         self.learn_more.linkActivated.connect(self._open_link)
         self.learn_more.hide()
@@ -230,6 +236,14 @@ class StepPanel(QFrame):
     def _show_more(self, opened: bool) -> None:
         self.more.setVisible(opened)
         set_svg_icon(self.more_toggle, "chevron-down" if opened else "chevron-right")
+        # The label says what a press will do, and the description says the
+        # state, since "checked" is not how a disclosure reads aloud.
+        self.more_toggle.setText(tr("Less") if opened else tr("More…"))
+        self.more_toggle.setAccessibleDescription(
+            tr("Expanded. Press to hide the details for this step.")
+            if opened
+            else tr("Collapsed. Press to show the details for this step.")
+        )
 
     def _open_link(self, url: str) -> None:
         self.learn_more_requested.emit(url)

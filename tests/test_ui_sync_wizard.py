@@ -144,7 +144,7 @@ def test_the_tolerance_that_judged_the_fit_is_visible(qtbot) -> None:
     # A quarter of the smaller median interval, which for this train is ~1 s.
     assert wizard.proposal.tolerance == pytest.approx(0.25, rel=0.25)
     assert f"{wizard.proposal.tolerance:.6f}" in wizard._tolerance.toolTip()
-    assert f"{wizard.proposal.tolerance:.6g} s (derived from pulse spacing)" == (
+    assert f"{wizard.proposal.tolerance * 1000:.6g} ms (derived from pulse spacing)" == (
         wizard._effective_tolerance.text()
     )
 
@@ -160,7 +160,7 @@ def test_a_user_set_tolerance_is_visible_with_its_provenance(qtbot) -> None:
     qtbot.waitUntil(lambda: wizard._thread is None, timeout=3000)
 
     assert wizard.proposal is not None
-    assert wizard._effective_tolerance.text() == "0.005 s (set by you)"
+    assert wizard._effective_tolerance.text() == "5 ms (set by you)"
 
 
 def test_changing_tolerance_invalidates_the_preview(qtbot) -> None:

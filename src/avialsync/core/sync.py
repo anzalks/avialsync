@@ -148,13 +148,27 @@ class SyncFit:
     #: Reference pulses that crossed missing data and were left out.
     excluded_incomplete_count: int = 0
     measurement_resolution: float = 0.0
+    #: Reference events that fall inside the target recording once mapped, so
+    #: could have been matched. Zero means not measured (a hand-made record or
+    #: one saved before the field existed), and the match rate then uses every
+    #: reference event. A camera covering a third of a long DAQ train used to
+    #: be refused for "only 33% matched" when it had matched all it recorded.
+    overlap_reference_count: int = 0
+    #: Which precision check failed, in plain words, when one did.
+    precision_shortfall: str = ""
 
     @property
     def match_rate(self) -> float:
-        """Fraction of the reference events that found a partner."""
-        if self.reference_count <= 0:
+        """Fraction of the reference events the target could record that found a partner."""
+        count = self.overlap_reference_count or self.reference_count
+        if count <= 0:
             return 1.0
-        return self.matched_count / self.reference_count
+        return min(1.0, self.matched_count / count)
+
+    @property
+    def paired_of(self) -> int:
+        """The denominator `match_rate` uses."""
+        return self.overlap_reference_count or self.reference_count
 
     def describe(self) -> str:
         """One line a person can judge, in the terms its method supports.
@@ -196,8 +210,8 @@ class SyncFit:
         if self.method is AlignmentMethod.SHIFT:
             return (
                 f"offset {self.offset:+.6f} s ± {self.offset_stderr * 1000:.3f} ms from "
-                f"{self.matched_count} of {self.reference_count} events, no rate fitted"
-                + self._precision_description()
+                f"{self.matched_count} of {self.paired_of} events{self._overlap_note()}, "
+                "no rate fitted" + self._precision_description()
             )
         return self._describe_fit() + self._precision_description()
 
@@ -219,12 +233,18 @@ class SyncFit:
             f"{self.extrapolated_before:.3f}/{self.extrapolated_after:.3f} s{excluded}"
         )
 
+    def _overlap_note(self) -> str:
+        """Say when the denominator is the overlap rather than every event."""
+        if self.overlap_reference_count and self.overlap_reference_count < self.reference_count:
+            return f" in the overlap ({self.reference_count} in the whole reference)"
+        return ""
+
     def _describe_fit(self) -> str:
         """The affine wording, shared with the restricted-window sentence."""
         return (
             f"offset {self.offset:+.6f} s ± {self.offset_stderr * 1000:.3f} ms and "
             f"drift {describe_drift(self.drift_ms_per_hour)}, fitted from {self.matched_count} of "
-            f"{self.reference_count} events, worst residual "
+            f"{self.paired_of} events{self._overlap_note()}, worst residual "
             f"{self.max_residual * 1000:.3f} ms"
         )
 
@@ -390,7 +410,8 @@ class SyncProposal:
             )
         if fit.match_rate < MIN_MATCH_RATE:
             return (
-                f"Only {fit.match_rate * 100:.0f}% of the reference events found a partner. "
+                f"Only {fit.match_rate * 100:.0f}% of the reference events the target "
+                "could have recorded found a partner. "
                 "A minority matching exactly is the signature of two regular grids meeting "
                 "at a wrong rate, not of a noisy alignment."
             )
@@ -584,21 +605,72 @@ def with_precision(
     supported = float(matched_target[-1] - matched_target[0])
     coverage = min(1.0, supported / span) if span > 0 else 1.0
     worst = fit.max_residual if worst_residual is None else worst_residual
-    verified = (
-        worst <= precision_requirement
-        and fit.measurement_resolution <= precision_requirement
-        and largest_gap * wander <= precision_requirement
-        and max(before, after) * wander <= precision_requirement
+    shortfall = _precision_shortfall(
+        worst,
+        fit.measurement_resolution,
+        largest_gap,
+        max(before, after),
+        wander,
+        precision_requirement,
     )
     return replace(
         fit,
         precision_requirement=float(precision_requirement),
-        precision_verified=bool(verified),
+        precision_verified=not shortfall,
+        precision_shortfall=shortfall,
         coverage_fraction=float(coverage),
         largest_unsupported_interval=largest_gap,
         extrapolated_before=before,
         extrapolated_after=after,
     )
+
+
+def _precision_shortfall(
+    worst: float,
+    resolution: float,
+    largest_gap: float,
+    extrapolation: float,
+    wander: float,
+    requirement: float,
+) -> str:
+    """The first check a fit misses its required precision by, or "" when none.
+
+    In the order a user can act on: the residual is the evidence itself, the
+    resolution is the recorder, and the gap and extrapolation say where more
+    evidence (or a fit window) would help.
+    """
+    ms = 1000.0
+    if worst > requirement:
+        return f"worst residual {worst * ms:.3f} ms exceeds {requirement * ms:.3f} ms"
+    if resolution > requirement:
+        return (
+            f"timestamp resolution {resolution * ms:.3f} ms is coarser than "
+            f"{requirement * ms:.3f} ms"
+        )
+    if largest_gap * wander > requirement:
+        return (
+            f"a {largest_gap:.3f} s gap between matched events could hide "
+            f"{largest_gap * wander * ms:.3f} ms of clock wander"
+        )
+    if extrapolation * wander > requirement:
+        return (
+            f"{extrapolation:.3f} s of the recording lies beyond the matched events, "
+            f"where clock wander could reach {extrapolation * wander * ms:.3f} ms"
+        )
+    return ""
+
+
+def overlap_count(
+    reference: np.ndarray,
+    scale: float,
+    offset: float,
+    target_span: tuple[float, float],
+    tolerance: float,
+) -> int:
+    """Reference events that, mapped into the target clock, land in its recording."""
+    mapped = scale * reference + offset
+    first, last = target_span
+    return int(np.count_nonzero((mapped >= first - tolerance) & (mapped <= last + tolerance)))
 
 
 def _evidence_indices(length: int) -> np.ndarray:
@@ -737,11 +809,18 @@ def fit_sync_events(
         offset_stderr=rms / np.sqrt(len(matches)) if len(matches) else 0.0,
         ambiguity_margin=margin,
     )
+    span = target_span or (float(target[0]), float(target[-1]))
+    fit = replace(
+        fit,
+        overlap_reference_count=max(
+            len(matches), overlap_count(reference, best_scale, best_offset, span, tolerance)
+        ),
+    )
     fit = with_precision(
         fit,
         reference[best_pairs[:, 0]],
         target[best_pairs[:, 1]],
-        target_span or (float(target[0]), float(target[-1])),
+        span,
         precision_requirement,
     )
     matched_indices = set(best_pairs[:, 0])

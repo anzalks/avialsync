@@ -245,7 +245,7 @@ class SyncWizard(QDialog):
         if isinstance(reference, SignalEvidenceSpec):
             reference = dataclasses.replace(
                 reference,
-                threshold=self._threshold.value(),
+                threshold=self._chosen_reference_threshold(),
                 use_all_times=self._use_all_times_chk.isChecked(),
                 kind=TriggerKind.FRAME_STROBE
                 if self._recorded_strobe.isChecked()
@@ -331,8 +331,19 @@ class SyncWizard(QDialog):
             )
         )
         sync_review.set_review_enabled(self, True)
-        self._status.setText(sync_review.headline(self, self._proposal))
         self._effective_tolerance.setText(tr("Not used for a manual mapping."))
+        if sync_review.changes_nothing(self, self._proposal):
+            # Applying the current timing again records a hand-made mapping
+            # that moved nothing; say so instead of offering it.
+            self._proposal = None
+            sync_review.set_review_enabled(self, False)
+            self._status.setText(
+                tr("This is the current timing. Change the offset or drift to make a correction.")
+            )
+            self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
+            sync_review.update_primary(self)
+            return
+        self._status.setText(sync_review.headline(self, self._proposal))
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
         sync_review.update_primary(self)
         sync_layout.show_results(self)
@@ -358,24 +369,31 @@ class SyncWizard(QDialog):
         # Say what the tolerance was, whoever chose it: a fit judged by a
         # quarter-second band is a different claim from one judged by a
         # millisecond, and the number was previously nowhere on the dialog.
-        self._show_tolerance(proposal.tolerance)
-        provenance = (
-            tr("derived from pulse spacing") if self._tolerance.value() == 0 else tr("set by you")
-        )
-        self._effective_tolerance.setText(
-            tr("{value:.6g} s ({provenance})").format(
-                value=proposal.tolerance,
-                provenance=provenance,
+        if proposal.tolerance > 0:
+            self._show_tolerance(proposal.tolerance)
+            provenance = (
+                tr("derived from pulse spacing")
+                if self._tolerance.value() == 0
+                else tr("set by you")
             )
-        )
+            self._effective_tolerance.setText(
+                tr("{value} ms ({provenance})").format(
+                    value=f"{proposal.tolerance * 1000:.6g}",
+                    provenance=provenance,
+                )
+            )
+        else:
+            # An exact mapping pairs frame i with pulse i; no search band was used.
+            self._effective_tolerance.setText(tr("Not used: frames are paired one to one."))
         summary = fit.describe()
         refusal = proposal.refusal
         if refusal:
             # Why, beside the disabled button, rather than a greyed control the
             # user has to guess at. The next move is to change the
-            # evidence, and this says which part of it.
+            # evidence, and this says which part of it -- so the reason opens
+            # where it is written, in Fit details.
             summary = f"{summary}\n\nCannot accept: {refusal}"
-            self.steps.more_toggle.setChecked(True)
+            self._fit_details.more_toggle.setChecked(True)
         self._summary.setText(summary)
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(proposal.applicable)
         self._status.setText(sync_review.headline(self, proposal))
@@ -409,18 +427,30 @@ class SyncWizard(QDialog):
         )
 
     def _discard_preview(self, reason: str) -> None:
+        # Only a result that existed can be out of date. Every setting change,
+        # including the dialog restoring its own selection, comes through
+        # here, and a fresh dialog used to open saying "the previous result
+        # is out of date" about a preview nobody had run.
+        had_result = self._proposal is not None or self._evidence._proposal is not None
         self._revision += 1
         if self._worker is not None:
             self._worker.cancel()
         self._proposal = None
         sync_review.set_review_enabled(self, False)
-        if self._evidence._proposal is not None:
-            self._evidence._headline.setText(tr("Previous preview — out of date"))
-        # Keep the plot and restriction available for choosing a different fit window.
+        # Keep the plot and restriction available for choosing a different fit window,
+        # marked as the previous preview rather than left looking current.
+        self._evidence.mark_out_of_date()
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
-        self._summary.setText(reason)
-        self._status.setText(tr("Preview needed: the previous result is out of date."))
-        self._effective_tolerance.setText(tr("Preview is out of date; preview again."))
+        if had_result:
+            self._summary.setText(reason)
+            self._status.setText(
+                tr("Out of date: the plots show the previous preview. Preview again to apply.")
+            )
+            self._effective_tolerance.setText(tr("Preview is out of date; preview again."))
+        else:
+            self._summary.setText(tr("Choose evidence and preview the proposed fit."))
+            self._status.setText(tr("Choose recordings, then preview an alignment."))
+            self._effective_tolerance.setText(tr("Calculated when you preview the evidence."))
         sync_review.update_primary(self)
 
     def _mode_changed(self, _index: int) -> None:
@@ -509,6 +539,15 @@ class SyncWizard(QDialog):
             content = area.widget()
             if content is not None and content.isAncestorOf(current):
                 area.ensureWidgetVisible(current)
+                if area.horizontalScrollBarPolicy() == Qt.ScrollBarPolicy.ScrollBarAlwaysOff:
+                    # Scroll vertically only: with no horizontal bar there is
+                    # no way back from a sideways scroll, which cut labels off.
+                    area.horizontalScrollBar().setValue(0)
+
+    def _chosen_reference_threshold(self) -> float | None:
+        """The typed reference threshold, or None for the signal's own midpoint."""
+        value = self._threshold.value()
+        return None if value == self._threshold.minimum() else value
 
     def _chosen_target_threshold(self) -> float | None:
         """The typed target threshold, or None for the signal's own midpoint."""

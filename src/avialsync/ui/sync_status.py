@@ -90,4 +90,5 @@ def describe_provenance(entry: SyncProvenance) -> str:
         extrapolated_after=entry.extrapolated_after,
         excluded_incomplete_count=entry.excluded_incomplete_count,
         measurement_resolution=entry.measurement_resolution,
+        overlap_reference_count=entry.overlap_reference_count,
     ).describe()

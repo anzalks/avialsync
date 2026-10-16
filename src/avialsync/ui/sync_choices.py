@@ -43,16 +43,77 @@ def refresh_labels(wizard: SyncWizard) -> None:
             if len(indices) < 2:
                 continue
             peers = [Path(specs[i].clock_id or specs[i].source_id) for i in indices]
-            for depth in range(1, max(1, max(len(peer.parts) for peer in peers)) + 1):
+            # At most the last three folders: a full path (a lab share, or a
+            # temp folder) is not a name, and the tooltip carries it anyway.
+            distinct: list[str] | None = None
+            for depth in range(1, 4):
                 contexts = [str(Path(*peer.parent.parts[-depth:])) for peer in peers]
                 if len(set(contexts)) == len(peers):
+                    distinct = contexts
                     break
-            for index, context in zip(indices, contexts, strict=True):
-                names[index] = tr("{name} — {folder}").format(name=name, folder=context)
+            for number, index in enumerate(indices, start=1):
+                names[index] = (
+                    tr("{name} — {folder}").format(name=name, folder=distinct[number - 1])
+                    if distinct is not None
+                    else tr("{name} ({number})").format(name=name, number=number)
+                )
         for index, (name, spec) in enumerate(zip(names, specs, strict=True)):
             path = Path(spec.clock_id or spec.source_id)
             combo.setItemText(index, name)
             combo.setItemData(index, f"{path}\n{spec.source_id}", Qt.ItemDataRole.ToolTipRole)
+
+
+_SYNC_WORDS = frozenset(
+    (
+        "ttl",
+        "sync",
+        "strobe",
+        "trigger",
+        "trig",
+        "frame",
+        "frames",
+        "camera",
+        "cam",
+        "pulse",
+        "pulses",
+        "din",
+        "digital",
+        "event",
+        "events",
+        "exposure",
+    )
+)
+
+
+def _sync_rank(spec: EvidenceSpec) -> int:
+    """Lower is likelier a sync line: declared triggers, then sync-named channels."""
+    if not isinstance(spec, SignalEvidenceSpec):
+        return 0 if not spec.is_frame_time_axis else 2
+    from avialsync.ui.import_time_check import header_tokens
+
+    words = set(header_tokens(spec.channel_id or spec.source_id))
+    return 1 if words & _SYNC_WORDS else 3
+
+
+def preferred_reference(wizard: SyncWizard) -> int:
+    """The reference most likely to carry sync pulses, on another clock than the target.
+
+    The first listed channel was the default, which on a typical rig is an
+    analogue trace (a sine `ch0`) rather than the TTL line two rows below.
+    """
+    if not wizard._references:
+        return -1
+    target = wizard._targets[wizard._target_combo.currentIndex()] if wizard._targets else None
+    target_clock = (target.clock_id or target.source_id) if target else ""
+    ranked = sorted(
+        range(len(wizard._references)),
+        key=lambda i: (
+            (wizard._references[i].clock_id or wizard._references[i].source_id) == target_clock,
+            _sync_rank(wizard._references[i]),
+            i,
+        ),
+    )
+    return ranked[0]
 
 
 def suggested_mode(wizard: SyncWizard) -> str:
@@ -115,4 +176,4 @@ def setup_guidance(wizard: SyncWizard) -> tuple[str, bool]:
         if not wizard._landmarks.pairs():
             return tr("Add at least one corresponding event pair, then preview."), False
         return tr("Preview the paired events. Separated events help check clock drift."), True
-    return tr("Choose a sync signal recorded by both systems, then preview."), True
+    return tr("Preview to see how well the selected sync signals match."), True

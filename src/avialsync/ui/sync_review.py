@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QThread
+from PySide6.QtCore import QEvent, QObject, QThread
 from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFileDialog,
@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.core.drift import describe_drift
 from avialsync.core.errors import ExportError
 from avialsync.core.sync import AlignmentMethod, ExactSyncFit, SyncFit, SyncProposal
 from avialsync.core.timeline import PreparedExactMapping, TimeMap
@@ -65,6 +66,7 @@ def install_review(wizard: SyncWizard) -> None:
     outer = wizard._results.layout()
     assert isinstance(outer, QVBoxLayout)
     outer.insertWidget(1, wizard._review_controls)
+    guard_apply(wizard)
     set_review_enabled(wizard, False)
 
 
@@ -76,6 +78,26 @@ def set_review_enabled(wizard: SyncWizard, enabled: bool) -> None:
             button.setEnabled(
                 enabled and (index == 3 or bool(wizard.proposal and wizard.proposal.matches))
             )
+
+
+class _IgnoreDoubleClick(QObject):
+    """Swallow the second press of a double-click on Apply.
+
+    Apply takes Preview's place in the footer (D-242). A manual preview is
+    immediate, so the second click of a double-click on Preview landed on
+    Apply and applied a mapping nobody had read. A deliberate single click,
+    Return on the focused button and programmatic clicks are unaffected.
+    """
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        return event.type() == QEvent.Type.MouseButtonDblClick
+
+
+def guard_apply(wizard: SyncWizard) -> None:
+    """Install the double-click guard on Apply once."""
+    apply = wizard._buttons.button(QDialogButtonBox.StandardButton.Ok)
+    guard = _IgnoreDoubleClick(apply)
+    apply.installEventFilter(guard)
 
 
 def update_primary(wizard: SyncWizard) -> None:
@@ -147,29 +169,93 @@ def prefill_manual(wizard: SyncWizard) -> None:
     sync_form.update_fields(wizard)
 
 
-def headline(wizard: SyncWizard, proposal: SyncProposal) -> str:
-    """Describe the proposal's actual effect rather than the internal offset sign."""
+def _movement(wizard: SyncWizard, proposal: SyncProposal, at: float) -> float:
+    """How far the proposal moves the target at target time *at*, in seconds."""
     from avialsync.ui.sync_lifecycle import as_window, source_mapping
 
     parent = as_window(wizard.parentWidget())
     current = source_mapping(parent, proposal.target_id) if parent else None
     current = current or TimeMap()
+    return float(proposal.fit.to_time_map().to_master(at) - current.to_master(at))
+
+
+def changes_nothing(wizard: SyncWizard, proposal: SyncProposal) -> bool:
+    """Whether applying *proposal* would leave the target where it already is."""
     anchor = proposal.matches[0].target_time if proposal.matches else 0.0
-    delta = proposal.fit.to_time_map().to_master(anchor) - current.to_master(anchor)
-    direction = tr("later") if delta >= 0 else tr("earlier")
+    return all(abs(_movement(wizard, proposal, at)) < 1e-9 for at in (anchor, anchor + 3600.0))
+
+
+def headline(wizard: SyncWizard, proposal: SyncProposal) -> str:
+    """Describe the proposal's actual effect, then the numbers that judge it.
+
+    The movement is stated at the first and last matched event when drift
+    makes them differ, since a single number then holds only at one instant.
+    """
+    if not proposal.applicable:
+        return tr("Cannot apply: {reason}").format(
+            reason=proposal.refusal or tr("this evidence does not support a mapping.")
+        )
     index = next(
         (i for i, spec in enumerate(wizard._targets) if spec.source_id == proposal.target_id), -1
     )
     name = wizard._target_combo.itemText(index) if index >= 0 else Path(proposal.target_id).name
+    first = proposal.matches[0].target_time if proposal.matches else 0.0
+    delta = _movement(wizard, proposal, first)
     movement = tr("{recording} moves {seconds:.3f} s {direction}").format(
-        recording=name, seconds=abs(delta), direction=direction
+        recording=name,
+        seconds=abs(delta),
+        direction=tr("later") if delta >= 0 else tr("earlier"),
     )
-    precision = (
-        tr("precision verified") if proposal.fit.precision_verified else tr("precision unverified")
-    )
-    if not proposal.applicable:
-        return tr("Choose different evidence before applying this alignment.")
-    return tr("{movement} · {precision}").format(movement=movement, precision=precision)
+    if len(proposal.matches) > 1:
+        end = _movement(wizard, proposal, proposal.matches[-1].target_time)
+        if abs(end - delta) >= 0.0005:
+            movement = tr("{movement} at the start, {seconds:.3f} s {direction} at the end").format(
+                movement=movement,
+                seconds=abs(end),
+                direction=tr("later") if end >= 0 else tr("earlier"),
+            )
+    return movement + "\n" + quality_line(proposal)
+
+
+def quality_line(proposal: SyncProposal) -> str:
+    """The numbers a fit is judged by, visible without expanding anything."""
+    fit = proposal.fit
+    if fit.method is AlignmentMethod.MANUAL:
+        return tr("Set by hand: no evidence checks this mapping.")
+    parts = [
+        tr("{matched} of {total} events matched ({rate}%)").format(
+            matched=fit.matched_count,
+            total=fit.paired_of,
+            rate=f"{fit.match_rate * 100:.0f}",
+        )
+    ]
+    if fit.method is AlignmentMethod.EXACT:
+        parts.append(tr("exact per-frame mapping"))
+    elif fit.matched_count:
+        parts.append(
+            tr("RMS {rms} ms, worst {worst} ms").format(
+                rms=f"{fit.rms_residual * 1000:.3f}", worst=f"{fit.max_residual * 1000:.3f}"
+            )
+        )
+    if fit.drift_ms_per_hour:
+        parts.append(tr("drift {drift}").format(drift=describe_drift(fit.drift_ms_per_hour)))
+    if fit.coverage_fraction:
+        parts.append(
+            tr("covers {percent}% of the recording").format(
+                percent=f"{fit.coverage_fraction * 100:.0f}"
+            )
+        )
+    if fit.precision_requirement > 0:
+        required = f"{fit.precision_requirement * 1000:.3g}"
+        if fit.precision_verified:
+            parts.append(tr("precision verified at {ms} ms").format(ms=required))
+        else:
+            parts.append(
+                tr("precision unverified at {ms} ms: {reason}").format(
+                    ms=required, reason=fit.precision_shortfall or tr("see Fit details")
+                )
+            )
+    return " · ".join(parts)
 
 
 def seek_check(wizard: SyncWizard, fraction: float) -> None:

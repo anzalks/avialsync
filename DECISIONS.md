@@ -7754,3 +7754,37 @@ selecting methods by filename or treating an availability suggestion as measured
 **Validation.** Qt regressions cover page ownership, fonts, primary actions, keyboard acceptance,
 duplicate names, session labels, hidden drift, UI preference isolation and generation changes.
 Existing sync and golden assertions remain in place; no fitting or timeline algorithm changes.
+
+## 2026-10-16 · D-243 · Alignment results are judged over the overlap and say why
+
+**Context.** A UI/UX review against the D-242 dialog found it misreporting its own state: a fresh
+dialog said "the previous result is out of date" before any preview, stale plots stayed drawn as if
+current, a refusal opened Advanced matching instead of the reason, an exact fit read "0 s (derived
+from pulse spacing)", widening a narrowed dialog left only its footer, and focus scrolled the
+settings sideways with no bar to scroll back. The match rate counted every reference event, so a
+camera that ran for a fifth of a DAQ session and matched all it recorded was refused.
+
+**Decision.** `SyncFit.overlap_reference_count` counts reference events that land inside the target
+recording once mapped (`core.sync.overlap_count`, with the search tolerance as margin), and
+`match_rate` divides by it when measured. A wrong-rate commensuration still maps most reference
+events into the recording and still fails `MIN_MATCH_RATE`; only events the target could never have
+recorded leave the denominator. Records gain the field additively (zero = not measured, the old
+denominator). `with_precision` stores `precision_shortfall`, the first failed check in plain words.
+
+The result shows a quality line (matched/possible, RMS and worst residual, drift, coverage,
+precision and its shortfall) without expansion; movement is stated at both ends when drift makes
+them differ. Stale state is reported only when a result existed; stale plots are marked, not
+erased. Tolerance and precision are shown in milliseconds (`ui/ms_spin.py`, value still seconds).
+The reference threshold defaults to the signal midpoint like the target's. The default reference
+prefers declared triggers and sync-named channels; reopening after Apply offers the next unaligned
+target. Apply ignores the second press of a double-click, which preserves D-242's single footer
+slot. A manual preview that moves nothing is not applicable.
+
+**Alternatives rejected.** Lowering `MIN_MATCH_RATE` (weakens the D-108 commensuration guard for
+everyone); keeping Preview beside Apply (reverses D-242); a time-based Apply lockout (breaks
+programmatic and quick deliberate clicks).
+
+**Validation.** `test_core_sync_guards.py` now proves the minority gate inside the overlap (a
+camera spanning 160 pulses that recorded 70) and that a partial-session camera is accepted;
+`test_core_sync_precision_reason.py` covers every shortfall branch; `test_sync_review_fixes.py`
+covers each dialog state above. Golden sync tests are untouched.

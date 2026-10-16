@@ -241,6 +241,7 @@ class SyncEvidenceView(QWidget):
         self._origin: float = 0.0
 
         self.setAccessibleName(tr("Alignment evidence"))
+        self._headline_shown = True
         self._proposal: SyncProposal | None = None
         self._residuals: np.ndarray = np.empty(0)
         self._display_indices: np.ndarray = np.empty(0, dtype=np.int64)
@@ -294,8 +295,39 @@ class SyncEvidenceView(QWidget):
         """
         self._lanes.show_sources(sources)
 
+    def show_coverage(self) -> None:
+        """Lead with coverage, the one view that has content before any fit."""
+        self._panels.setCurrentIndex(self._panels.count() - 1)
+
+    def set_headline_shown(self, shown: bool) -> None:
+        """Whether the statistics headline shows for a current proposal.
+
+        A host that leads with its own result sentence hides it; it is still
+        shown to mark drawn evidence as out of date.
+        """
+        self._headline_shown = shown
+        self._headline.setVisible(shown)
+
+    def mark_out_of_date(self) -> None:
+        """Say the drawn evidence belongs to a previous preview, without erasing it.
+
+        The plot stays so a fit window can still be chosen from it; its reading
+        is withdrawn, because it describes a fit that no longer applies.
+        """
+        if self._proposal is None:
+            return
+        self._headline.setText(
+            tr("Previous preview — out of date. Preview again to judge the fit.")
+        )
+        self._headline.show()
+        self._reading.setText("")
+
     def show_proposal(self, proposal: SyncProposal | None) -> None:
         """Draw the evidence behind *proposal*, or clear."""
+        if proposal is not None and self._proposal is None:
+            # The first result replaces the coverage shown while waiting.
+            self._panels.setCurrentIndex(0)
+        self._headline.setVisible(self._headline_shown)
         self._plot.clear()
         self._pairing.clear()
         # `clear()` removes every item including the restriction, which is the
@@ -630,13 +662,19 @@ class SyncEvidenceView(QWidget):
             else:
                 notes.append("Residuals are scattered evenly, with no remaining trend.")
 
-        rejected = len(proposal.unmatched_references)
+        # From the counts, not the presented list: that is capped at a few
+        # hundred evidence points and understated a large rejection.
+        fit = proposal.fit
+        total = fit.paired_of or (len(proposal.unmatched_references) + fit.matched_count)
+        rejected = max(0, total - fit.matched_count)
         if rejected:
-            total = rejected + proposal.fit.matched_count
             notes.append(
                 f"{rejected} of {total} reference events found no partner "
                 f"({100.0 * rejected / max(total, 1):.0f}%)."
             )
+        outside = fit.reference_count - total if fit.overlap_reference_count else 0
+        if outside > 0:
+            notes.append(f"{outside} more fall outside this recording and were not expected to.")
 
         if proposal.fit.matched_count < 10:
             notes.append(

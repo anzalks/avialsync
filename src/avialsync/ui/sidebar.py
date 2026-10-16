@@ -276,7 +276,8 @@ class SensorInfoWidget(QFrame):
             tr("Time offset for {name}").format(name=Path(path).name)
         )
         self._offset_tip = tr(
-            "Shift this source against the master clock. Cached samples are never rewritten."
+            "Shift this source against the master clock: a positive offset shows it "
+            "earlier, a negative one later. Cached samples are never rewritten."
         )
         self.offset_spin.setToolTip(self._offset_tip)
         commit_on_edit(self.offset_spin)

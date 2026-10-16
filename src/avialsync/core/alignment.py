@@ -222,6 +222,7 @@ def fit_piecewise(
         rejected_count=affine.fit.rejected_count,
         reference_count=affine.fit.reference_count,
         target_count=affine.fit.target_count,
+        overlap_reference_count=affine.fit.overlap_reference_count,
         offset_stderr=affine.fit.offset_stderr,
         ambiguity_margin=affine.fit.ambiguity_margin,
         method=AlignmentMethod.PIECEWISE,

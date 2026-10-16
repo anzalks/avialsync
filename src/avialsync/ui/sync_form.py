@@ -163,7 +163,8 @@ def _results(wizard: SyncWizard) -> None:
     # (manual mode) the spacer, not Fit details, absorbs the empty height.
     layout.addStretch(0)
     # The result sentence leads; the same statistics remain in Fit details.
-    wizard._evidence._headline.hide()
+    wizard._evidence.set_headline_shown(False)
+    wizard._evidence.show_coverage()
 
 
 def _accessibility(wizard: SyncWizard) -> None:
@@ -255,11 +256,15 @@ def update_fields(wizard: SyncWizard) -> None:
     wizard._threshold.setEnabled(not wizard._use_all_times_chk.isChecked())
     wizard._index_offset.setEnabled(False)
     wizard._advanced_form.setRowVisible(wizard._index_offset, False)
+    # A suggestion is news only when it differs from what is chosen; repeated
+    # under its own choice it read as a second instruction.
     suggested = sync_choices.suggested_mode(wizard)
     label = wizard._mode_combo.itemText(wizard._mode_combo.findData(suggested))
+    differs = suggested != wizard._mode_combo.currentData()
     wizard._suggestion.setText(
-        tr("Suggested: {method}. Confirm the evidence before previewing.").format(method=label)
+        tr("Suggested for these recordings: {method}.").format(method=label) if differs else ""
     )
+    wizard._selection_form.setRowVisible(wizard._suggestion, differs)
     from avialsync.ui.sync_review import update_primary
 
     update_primary(wizard)
