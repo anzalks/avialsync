@@ -5,8 +5,8 @@ from __future__ import annotations
 import dataclasses
 from collections.abc import Sequence
 
-from PySide6.QtCore import QThread, Signal, Slot
-from PySide6.QtGui import QResizeEvent, QShowEvent
+from PySide6.QtCore import QEvent, Qt, QThread, Signal, Slot
+from PySide6.QtGui import QAction, QKeyEvent, QResizeEvent, QShowEvent
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSpinBox,
     QSplitter,
+    QTabWidget,
     QWidget,
 )
 
@@ -33,7 +34,7 @@ from avialsync.engine.sync_worker import (
     SignalEvidenceSpec,
     SyncWorker,
 )
-from avialsync.ui import sync_form, sync_review
+from avialsync.ui import sync_choices, sync_form, sync_layout, sync_preferences, sync_review
 from avialsync.ui.coverage_lanes import SourceCoverage
 from avialsync.ui.drift_spin import DriftSpinBox
 from avialsync.ui.i18n import tr
@@ -72,11 +73,23 @@ class SyncWizard(QDialog):
     _body: QSplitter
     _scroll: QScrollArea
     _manual_fields: QGroupBox
+    _manual_form: QFormLayout
+    _drift_toggle: QPushButton
+    _drift_summary: QLabel
+    _guidance: QLabel
+    _suggestion: QLabel
+    _results: QWidget
+    _result_scroll: QScrollArea
+    _pages: QTabWidget
+    _fit_details: StepPanel
+    _review_controls: QWidget
+    _check_button: QPushButton
+    _session_generation: int | None
     _event_fields: QWidget
     _status: QLabel
     steps: StepPanel
     _landmarks: LandmarkPanel
-    _review_buttons: list[QWidget | None]
+    _review_buttons: list[QAction]
     _context: tuple[object, ...]
 
     #: A point on the evidence was clicked, in the reference source's clock.
@@ -91,7 +104,7 @@ class SyncWizard(QDialog):
         visual_references: Sequence[EvidenceSpec] = (),
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle(tr("Synchronize TTL / events"))
+        self.setWindowTitle(tr("Align recordings"))
         self._event_references = list(references)
         self._visual_references = list(visual_references) or list(references)
         self._references = list(references)
@@ -129,8 +142,7 @@ class SyncWizard(QDialog):
         self._reference_combo.currentIndexChanged.connect(self._configure_reference)
         self._landmarks.changed.connect(self._on_evidence_changed)
         self._evidence.restriction_changed.connect(self._restriction_changed)
-        if not references:
-            self._mode_combo.setCurrentIndex(2 if len(self._visual_references) > 1 else 1)
+        sync_preferences.restore(self)
         sync_form.update_fields(self)
         self._configure_reference()
         app = QApplication.instance()
@@ -159,6 +171,9 @@ class SyncWizard(QDialog):
         return self._targets[self._target_combo.currentIndex()].source_id
 
     def _preview(self) -> None:
+        if self._mode_combo.currentData() == "manual":
+            self._use_manual_mapping()
+            return
         if self._thread is not None:
             return
         self._refresh_sources()
@@ -174,6 +189,8 @@ class SyncWizard(QDialog):
         reference, target = self._selected_evidence()
         self._running_revision = self._revision
         self._proposal = None
+        sync_review.set_review_enabled(self, False)
+        sync_review.update_primary(self)
         self._preview_button.setEnabled(False)
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
         self._summary.setText(tr("Extracting event evidence and fitting alignment…"))
@@ -317,6 +334,8 @@ class SyncWizard(QDialog):
         self._status.setText(sync_review.headline(self, self._proposal))
         self._effective_tolerance.setText(tr("Not used for a manual mapping."))
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
+        sync_review.update_primary(self)
+        sync_layout.show_results(self)
 
     @Slot(object)
     def _on_finished(self, proposal: object) -> None:
@@ -360,6 +379,8 @@ class SyncWizard(QDialog):
         self._summary.setText(summary)
         self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(proposal.applicable)
         self._status.setText(sync_review.headline(self, proposal))
+        sync_review.update_primary(self)
+        sync_layout.show_results(self)
 
     def _show_tolerance(self, tolerance: float) -> None:
         """Reflect the tolerance a fit was actually judged by, without re-firing."""
@@ -400,30 +421,10 @@ class SyncWizard(QDialog):
         self._summary.setText(reason)
         self._status.setText(tr("Preview needed: the previous result is out of date."))
         self._effective_tolerance.setText(tr("Preview is out of date; preview again."))
+        sync_review.update_primary(self)
 
     def _mode_changed(self, _index: int) -> None:
-        self._references = list(
-            self._event_references
-            if self._mode_combo.currentData() == "events"
-            else self._visual_references
-        )
-        blocked = self._reference_combo.blockSignals(True)
-        self._reference_combo.clear()
-        for spec in self._references:
-            self._reference_combo.addItem(spec.display_name or spec.source_id)
-        self._reference_combo.blockSignals(blocked)
-        if self._references and self._targets and self._mode_combo.currentData() != "manual":
-            clock = self._references[0].clock_id or self._references[0].source_id
-            index = next(
-                (
-                    i
-                    for i, spec in enumerate(self._targets)
-                    if (spec.clock_id or spec.source_id) != clock
-                ),
-                0,
-            )
-            self._target_combo.setCurrentIndex(index)
-        self._landmarks.clear()
+        sync_choices.change_mode(self)
         sync_review.prefill_manual(self)
         self._on_evidence_changed()
 
@@ -437,6 +438,23 @@ class SyncWizard(QDialog):
             self.invalidate_sources()
             return
         super().accept()
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        """An asynchronous result must not turn a repeated Return into acceptance."""
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            button = self.focusWidget()
+            if (
+                not event.isAutoRepeat()
+                and button
+                in (self._preview_button, self._buttons.button(QDialogButtonBox.StandardButton.Ok))
+                and isinstance(button, QPushButton)
+                and button.isVisible()
+                and button.isEnabled()
+            ):
+                button.click()
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     def invalidate_sources(self) -> None:
         """Reject a preview made before a source's timing or availability changed."""
@@ -459,6 +477,7 @@ class SyncWizard(QDialog):
         self._references = [current.get(spec.source_id, spec) for spec in self._references]
         current = {spec.source_id: spec for spec in targets}
         self._targets = [current.get(spec.source_id, spec) for spec in self._targets]
+        sync_choices.refresh_labels(self)
 
     def _restriction_changed(self, _window: object) -> None:
         self._discard_preview(tr("Fit window changed. Preview again before accepting."))
@@ -468,11 +487,18 @@ class SyncWizard(QDialog):
         super().showEvent(event)
         sync_form.fit_screen(self, initial=not self.property("alignment_shown"))
         self.setProperty("alignment_shown", True)
+        sync_form.responsive_layout(self)
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         """Keep settings readable on narrow displays."""
         super().resizeEvent(event)
-        if hasattr(self, "_body"):
+        if hasattr(self, "_pages"):
+            sync_form.responsive_layout(self)
+
+    def changeEvent(self, event: QEvent) -> None:
+        """Reconsider page layout when the application font changes in place."""
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.FontChange and hasattr(self, "_pages"):
             sync_form.responsive_layout(self)
 
     @Slot(QWidget, QWidget)
@@ -496,10 +522,21 @@ class SyncWizard(QDialog):
             self._running_revision is not None and self._running_revision != self._revision
         ):
             return
-        self._status.setText(tr("No mapping proposed. Change the evidence and preview again."))
+        mode = self._mode_combo.currentData()
+        if mode == "manual":
+            guidance = tr("Choose a loaded recording to adjust, then preview again.")
+        elif mode == "landmarks":
+            guidance = tr("Check the corresponding events and their order, then preview again.")
+        else:
+            guidance = tr(
+                "Check the selected sync signals and their thresholds, then preview again."
+            )
+        self._status.setText(guidance)
+        self._guidance.setText(guidance)
         self._summary.setText(tr("No mapping proposed: {reason}").format(reason=message))
-        self.steps.more_toggle.setChecked(True)
-        self._scroll.ensureWidgetVisible(self._summary)
+        self._fit_details.more_toggle.setChecked(True)
+        sync_layout.show_results(self)
+        self._result_scroll.ensureWidgetVisible(self._summary)
         self._effective_tolerance.setText(tr("Unavailable because preview did not produce a fit."))
 
     @Slot()
@@ -516,6 +553,7 @@ class SyncWizard(QDialog):
 
     def done(self, result: int) -> None:
         """Cancel a preview still running when the wizard closes: nothing reads it."""
+        sync_preferences.save(self)
         self._closed = True
         if self._worker is not None:
             self._worker.cancel()

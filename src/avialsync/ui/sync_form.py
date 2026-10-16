@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
+    QDialogButtonBox,
     QDoubleSpinBox,
     QFormLayout,
     QGroupBox,
@@ -22,9 +22,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.core.drift import describe_drift
 from avialsync.engine.sync_worker import EventEvidenceSpec, SignalEvidenceSpec
+from avialsync.ui import sync_choices
 from avialsync.ui.about import docs_url
 from avialsync.ui.i18n import tr
+from avialsync.ui.icons import set_svg_icon
 from avialsync.ui.step_panel import StepPanel
 
 if TYPE_CHECKING:
@@ -60,18 +63,15 @@ def build_form(wizard: SyncWizard) -> None:
     wizard._event_fields = QWidget(setup)
     wizard._event_fields.setLayout(wizard._evidence_form)
     settings.addWidget(wizard._event_fields)
-    wizard._manual_fields = QGroupBox(tr("Manual adjustment"), setup)
-    manual = QFormLayout(wizard._manual_fields)
-    manual.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
-    manual.addRow(tr("Offset (positive moves earlier):"), wizard._manual_offset)
-    manual.addRow(tr("Clock drift:"), wizard._manual_drift)
+    _manual_controls(wizard, setup)
     settings.addWidget(wizard._manual_fields)
     settings.addWidget(wizard._landmarks)
-    settings.addWidget(wizard._preview_button)
-    settings.addWidget(wizard._manual_button)
-    wizard.steps = StepPanel(tr("Fit settings and details"), setup)
-    wizard.steps.set_instruction(tr("Advanced matching settings and detailed fit results."))
-    wizard._advanced_form.addRow(wizard._summary)
+    wizard._guidance = QLabel(setup)
+    wizard._guidance.setWordWrap(True)
+    wizard._guidance.setAccessibleName(tr("Next alignment step"))
+    settings.addWidget(wizard._guidance)
+    wizard.steps = StepPanel(tr("Advanced matching"), setup)
+    wizard.steps.set_instruction(tr("Override matching only when the recorded evidence needs it."))
     advanced = QWidget(setup)
     advanced.setLayout(wizard._advanced_form)
     wizard.steps.add_more(advanced)
@@ -79,24 +79,45 @@ def build_form(wizard: SyncWizard) -> None:
     settings.addWidget(wizard.steps)
     settings.addStretch(1)
     wizard._scroll.setWidget(setup)
-    wizard._body.addWidget(wizard._scroll)
-    # A short screen must scroll the evidence instead of cropping its axis labels.
-    evidence_scroll = QScrollArea(wizard._body)
-    evidence_scroll.setWidgetResizable(True)
-    evidence_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-    describe(
-        evidence_scroll, tr("Alignment evidence"), tr("Scroll to see the complete evidence view.")
-    )
-    evidence_scroll.setWidget(wizard._evidence)
-    wizard._body.addWidget(evidence_scroll)
-    wizard._body.setSizes([380, 620])
-    layout.addWidget(wizard._body, 1)
-    wizard._status = QLabel(tr("Choose recordings, then preview an alignment."), wizard)
-    wizard._status.setWordWrap(True)
-    wizard._status.setAccessibleName(tr("Alignment status"))
-    layout.addWidget(wizard._status)
+    _results(wizard)
+    from avialsync.ui.sync_layout import install_pages
+
+    install_pages(wizard, layout)
+    wizard._buttons.addButton(wizard._preview_button, QDialogButtonBox.ButtonRole.AcceptRole)
     layout.addWidget(wizard._buttons)
     _accessibility(wizard)
+
+
+def _manual_controls(wizard: SyncWizard, setup: QWidget) -> None:
+    wizard._manual_fields = QGroupBox(tr("Manual adjustment"), setup)
+    manual = QFormLayout(wizard._manual_fields)
+    manual.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+    manual.addRow(tr("Offset (positive moves earlier):"), wizard._manual_offset)
+    wizard._drift_toggle = QPushButton(tr("Adjust clock drift"), wizard._manual_fields)
+    wizard._drift_toggle.setCheckable(True)
+    # A disclosure, like StepPanel's More…: a checked push button would read as a
+    # second primary action beside the footer's Preview.
+    wizard._drift_toggle.setFlat(True)
+    set_svg_icon(wizard._drift_toggle, "chevron-right")
+    wizard._drift_toggle.toggled.connect(
+        lambda checked: set_svg_icon(
+            wizard._drift_toggle, "chevron-down" if checked else "chevron-right"
+        )
+    )
+    describe(
+        wizard._drift_toggle,
+        tr("Adjust clock drift"),
+        tr("Show clock drift without resetting its current value."),
+    )
+    wizard._drift_summary = QLabel(wizard._manual_fields)
+    wizard._drift_summary.setWordWrap(True)
+    manual.addRow(wizard._drift_summary)
+    manual.addRow(wizard._drift_toggle)
+    manual.addRow(tr("Clock drift:"), wizard._manual_drift)
+    wizard._manual_form = manual
+    wizard._drift_toggle.toggled.connect(
+        lambda checked: manual.setRowVisible(wizard._manual_drift, checked)
+    )
 
 
 def _selection(wizard: SyncWizard, setup: QWidget) -> QFormLayout:
@@ -109,16 +130,40 @@ def _selection(wizard: SyncWizard, setup: QWidget) -> QFormLayout:
     )
     wizard._mode_combo.setMinimumContentsLength(12)
     for label, value in (
-        (tr("Shared TTL / events"), "events"),
-        (tr("Manual offset and drift"), "manual"),
-        (tr("Corresponding visual events"), "landmarks"),
+        (tr("Recorded sync signals"), "events"),
+        (tr("Adjust timing manually"), "manual"),
+        (tr("Match visible events"), "landmarks"),
     ):
         wizard._mode_combo.addItem(label, value)
-    selection.addRow(tr("Align using:"), wizard._mode_combo)
     selection.addRow(tr("Reference recording:"), wizard._reference_combo)
     selection.addRow(tr("Recording to move:"), wizard._target_combo)
+    selection.addRow(tr("Align using:"), wizard._mode_combo)
+    wizard._suggestion = QLabel(setup)
+    wizard._suggestion.setWordWrap(True)
+    selection.addRow(wizard._suggestion)
     _source_choices(wizard)
     return selection
+
+
+def _results(wizard: SyncWizard) -> None:
+    wizard._results = QWidget(wizard)
+    layout = QVBoxLayout(wizard._results)
+    wizard._status = QLabel(tr("Choose recordings, then preview an alignment."), wizard._results)
+    wizard._status.setWordWrap(True)
+    wizard._status.setAccessibleName(tr("Alignment result"))
+    layout.addWidget(wizard._status)
+    wizard._fit_details = StepPanel(tr("Fit details"), wizard._results)
+    wizard._fit_details.set_instruction(
+        tr("Inspect fitted values, evidence limits and diagnostics.")
+    )
+    wizard._fit_details.add_more(wizard._summary)
+    layout.addWidget(wizard._evidence, 1)
+    layout.addWidget(wizard._fit_details)
+    # Zero stretch: the evidence keeps the space while shown; with it hidden
+    # (manual mode) the spacer, not Fit details, absorbs the empty height.
+    layout.addStretch(0)
+    # The result sentence leads; the same statistics remain in Fit details.
+    wizard._evidence._headline.hide()
 
 
 def _accessibility(wizard: SyncWizard) -> None:
@@ -176,26 +221,27 @@ def update_fields(wizard: SyncWizard) -> None:
     wizard._advanced_form.setRowVisible(wizard._precision_requirement, not manual)
     wizard._landmarks.setVisible(wizard._mode_combo.currentData() == "landmarks")
     wizard._manual_fields.setVisible(manual)
-    wizard._manual_button.setVisible(manual)
-    wizard._event_fields.setVisible(events)
-    wizard._preview_button.setVisible(not manual)
+    wizard._manual_form.setRowVisible(wizard._manual_drift, wizard._drift_toggle.isChecked())
+    wizard._drift_summary.setText(
+        tr("Current clock drift: {drift}").format(
+            drift=describe_drift(wizard._manual_drift.value())
+        )
+        if wizard._manual_drift.value()
+        else tr("Clock drift: unchanged at zero")
+    )
+    wizard._evidence.setVisible(not manual)
+    wizard.steps.setVisible(not manual)
     reference = (
         wizard._references[wizard._reference_combo.currentIndex()] if wizard._references else None
     )
     target = wizard._targets[wizard._target_combo.currentIndex()] if wizard._targets else None
     signal = isinstance(reference, SignalEvidenceSpec)
-    different = bool(
-        reference
-        and target
-        and (reference.clock_id or reference.source_id) != (target.clock_id or target.source_id)
-    )
-    wizard._preview_button.setEnabled(different and wizard._thread is None)
-    wizard._preview_button.setToolTip(
-        tr("Preview timing from the selected evidence.")
-        if different
-        else tr("Choose recordings on different clocks before previewing.")
-    )
-    wizard._manual_button.setEnabled(target is not None)
+    # Event lists need no threshold questions; an empty form would leave a blank band.
+    wizard._event_fields.setVisible(events and (signal or isinstance(target, SignalEvidenceSpec)))
+    guidance, ready = sync_choices.setup_guidance(wizard)
+    wizard._guidance.setText(guidance)
+    wizard._preview_button.setEnabled(ready and wizard._thread is None)
+    wizard._preview_button.setToolTip(guidance)
     wizard._evidence_form.setRowVisible(wizard._threshold, events and signal)
     wizard._evidence_form.setRowVisible(
         wizard._target_threshold, events and isinstance(target, SignalEvidenceSpec)
@@ -209,12 +255,14 @@ def update_fields(wizard: SyncWizard) -> None:
     wizard._threshold.setEnabled(not wizard._use_all_times_chk.isChecked())
     wizard._index_offset.setEnabled(False)
     wizard._advanced_form.setRowVisible(wizard._index_offset, False)
-    wizard._index_offset.setToolTip(
-        tr(
-            "Exact mapping starts at the first stored frame; "
-            "a shifted index cannot prove frame identity."
-        )
+    suggested = sync_choices.suggested_mode(wizard)
+    label = wizard._mode_combo.itemText(wizard._mode_combo.findData(suggested))
+    wizard._suggestion.setText(
+        tr("Suggested: {method}. Confirm the evidence before previewing.").format(method=label)
     )
+    from avialsync.ui.sync_review import update_primary
+
+    update_primary(wizard)
 
 
 def fit_screen(wizard: SyncWizard, *, initial: bool = False) -> None:
@@ -222,7 +270,12 @@ def fit_screen(wizard: SyncWizard, *, initial: bool = False) -> None:
     available = wizard.screen().availableGeometry().adjusted(16, 32, -16, -32)
     wizard.setMaximumSize(available.size())
     if initial:
-        wizard.resize(min(1060, available.width()), min(720, available.height()))
+        from avialsync.ui.sync_preferences import preference
+
+        wizard.resize(
+            max(320, min(int(preference("window_width")), available.width())),
+            max(320, min(int(preference("window_height")), available.height())),
+        )
     frame = wizard.frameGeometry()
     wizard.move(
         max(available.left(), min(wizard.x(), available.right() - frame.width() + 1)),
@@ -231,13 +284,10 @@ def fit_screen(wizard: SyncWizard, *, initial: bool = False) -> None:
 
 
 def responsive_layout(wizard: SyncWizard) -> None:
-    """Stack setup and evidence when side-by-side text would be cramped."""
-    wide = wizard.width() >= max(900, wizard.fontMetrics().horizontalAdvance("M") * 70)
-    wizard._scroll.setMinimumHeight(0 if wide else min(180, wizard.height() // 3))
-    orientation = Qt.Orientation.Horizontal if wide else Qt.Orientation.Vertical
-    if wizard._body.orientation() != orientation:
-        wizard._body.setOrientation(orientation)
-        wizard._body.setSizes([380, 620] if wide else [250, 300])
+    """Delegate responsive page ownership without rebuilding controls."""
+    from avialsync.ui.sync_layout import responsive_layout as arrange
+
+    arrange(wizard)
 
 
 def _source_choices(wizard: SyncWizard) -> None:
@@ -245,7 +295,4 @@ def _source_choices(wizard: SyncWizard) -> None:
         combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         combo.setMinimumContentsLength(12)
         combo.setMinimumWidth(0)
-        for index in range(combo.count()):
-            full = combo.itemText(index)
-            combo.setItemData(index, full, Qt.ItemDataRole.ToolTipRole)
-            combo.setItemText(index, Path(full).name)
+    sync_choices.refresh_labels(wizard)

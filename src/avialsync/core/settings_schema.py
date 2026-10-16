@@ -64,6 +64,54 @@ GROUP_ORDER = (
 SETTINGS: tuple[Setting, ...] = (
     *(
         Setting(
+            key=f"alignment/{key}",
+            label=label,
+            group="Appearance",
+            default=default,
+            kind=kind,
+            help_text=help_text,
+            visible=False,
+        )
+        for key, label, default, kind, help_text in (
+            (
+                "window_width",
+                "Alignment window width",
+                1060,
+                int,
+                "Remembered alignment window width.",
+            ),
+            (
+                "window_height",
+                "Alignment window height",
+                720,
+                int,
+                "Remembered alignment window height.",
+            ),
+            (
+                "advanced",
+                "Alignment advanced controls",
+                False,
+                bool,
+                "Remember expanded matching options.",
+            ),
+            (
+                "fit_details",
+                "Alignment fit details",
+                False,
+                bool,
+                "Remember expanded result diagnostics.",
+            ),
+            (
+                "manual_drift",
+                "Alignment drift controls",
+                False,
+                bool,
+                "Remember expanded manual drift controls.",
+            ),
+        )
+    ),
+    *(
+        Setting(
             key=f"export/last_folder/{kind}",
             label=f"Last {kind.replace('-', ' ')} export folder",
             group="Storage",

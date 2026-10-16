@@ -126,7 +126,12 @@ def _strategy(self: SyncWizard) -> None:
     self._index_offset = QSpinBox(self)
     self._index_offset.setRange(-1000000, 1000000)
     self._index_offset.setValue(0)
-    self._index_offset.setToolTip(tr("Video Frame 0 maps to CSV Index N. Default is 0."))
+    self._index_offset.setToolTip(
+        tr(
+            "Exact mapping starts at the first stored frame; "
+            "a shifted index cannot prove frame identity."
+        )
+    )
     self._index_offset.setEnabled(False)
     self._strategy_combo.currentIndexChanged.connect(
         lambda: self._index_offset.setEnabled(self._strategy_combo.currentData() == "exact_index")
@@ -187,13 +192,21 @@ def _manual(self: SyncWizard) -> None:
     self._summary.setWordWrap(True)
     self._preview_button = QPushButton(tr("Preview alignment"), self)
     self._preview_button.clicked.connect(self._preview)
-    self._manual_button = QPushButton(tr("Preview manual adjustment"), self)
-    self._manual_button.clicked.connect(self._use_manual_mapping)
+    # Both routes use the one visible Preview command in the fixed footer.
+    self._manual_button = self._preview_button
     self._buttons = QDialogButtonBox(
         QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok,
         self,
     )
-    self._buttons.button(QDialogButtonBox.StandardButton.Ok).setText(tr("Accept mapping"))
+    self._buttons.button(QDialogButtonBox.StandardButton.Ok).setText(tr("Apply alignment"))
     self._buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
-    self._buttons.accepted.connect(self.accept)
+    for button in (
+        self._preview_button,
+        self._buttons.button(QDialogButtonBox.StandardButton.Ok),
+        self._buttons.button(QDialogButtonBox.StandardButton.Cancel),
+    ):
+        button.setAutoDefault(False)
+    # Wired to Apply itself: Preview shares the accept slot in the footer (so it
+    # sits where Apply appears on every platform) and must never emit accepted.
+    self._buttons.button(QDialogButtonBox.StandardButton.Ok).clicked.connect(self.accept)
     self._buttons.rejected.connect(self.reject)

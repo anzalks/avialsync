@@ -7724,3 +7724,33 @@ edit, and presenting one/two observations or perfect sampled residuals as verifi
 stale results, explicit pairs, sample resolution, forced exact extraction, dependency undo,
 imaging acceptance, nonlinear save/reopen, and report serialization. Golden sync assertions
 remain untouched; alignment preview and adjusted exact-lookup benchmarks retain timing budgets.
+
+## 2026-10-16 · D-242 · Alignment has one next action and session-scoped setup memory
+
+**Context.** A screen-bounded popup still asked users to manage two stacked scrolling regions,
+multiple equally visible actions, technical method names, and ambiguous recording filenames.
+
+**Decision.** Choose recordings before the method. Availability may suggest recorded signals,
+visual events or manual adjustment, but never establishes exposure wiring or shared events.
+Session labels and shortest distinct parent context name recordings; persistent ids do not change.
+Narrow windows use full-height Settings/Results tabs; wide windows show those same widgets side
+by side. Resizing and font changes reparent the pages without refitting or recreating evidence.
+
+Preview is the primary footer action until a current proposal can be applied; Apply then takes
+its place. The result leads with recording, movement and precision. Detailed diagnostics have
+their own expansion; verification and export are secondary menus. Return on the dialog never
+implicitly accepts an asynchronous result. Focused Preview/Apply and ordinary button activation
+remain available. Manual drift is expandable, with its current value stated while collapsed.
+
+Window size and expansions belong to hidden entries in the settings schema. Method/source
+selection belongs to the current SessionRuntimeState generation. Neither restores proposals,
+paired observations, thresholds, manual values or exposure declarations. A different session
+generation invalidates an old dialog even if source paths and scalar mappings happen to match.
+
+**Alternatives rejected.** Two stacked scroll regions on narrow screens; duplicating controls
+between layouts; restoring a last-used fit or strobe checkbox; hiding a nonzero drift correction;
+selecting methods by filename or treating an availability suggestion as measured evidence.
+
+**Validation.** Qt regressions cover page ownership, fonts, primary actions, keyboard acceptance,
+duplicate names, session labels, hidden drift, UI preference isolation and generation changes.
+Existing sync and golden assertions remain in place; no fitting or timeline algorithm changes.

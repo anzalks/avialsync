@@ -59,7 +59,7 @@ def test_every_way_in_is_one_visible_button_and_reset_stands_apart(qtbot) -> Non
     open_sensor = QAction("Open Sensor/Ephys Data…", pane)
     open_imaging = QAction("Open Imaging…", pane)
     open_session = QAction("Open Session…", pane)
-    sync = QAction("Synchronize TTL / events…", pane)
+    sync = QAction("Align recordings…", pane)
     reset = QAction("Reset Session", pane)
     pane.install_open_actions(open_video, open_sensor, reset)
     pane.install_open_imaging_action(open_imaging)

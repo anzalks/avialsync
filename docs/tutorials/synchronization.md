@@ -49,18 +49,22 @@ while you adjust it.
 
 When a recording carries repeated pulses — a TTL line, a camera exposure trigger, a frame-timestamp
 log — AvialSync can fit the alignment from that evidence instead of you eyeballing it. Open
-**Align → Synchronize TTL / events…**.
+**Align → Align recordings…**.
 
 The dialog does not block the window behind it. When a point on the evidence looks wrong, click it
 and the master clock seeks there, so you can look at the footage before deciding whether to accept.
-It stays inside the available screen. Settings scroll vertically while the status and Accept/Cancel
-buttons remain visible. On a narrower window settings stack above the evidence; on a wider window
-they sit beside it. Increasing the application font or opening **More…** does not push the footer
-off-screen. Keyboard focus scrolls the selected control into view.
+It stays inside the available screen. A narrow window uses full-height **Settings / Results** tabs;
+a wider window shows both beside each other. Each page scrolls when needed, while the footer stays
+visible. Increasing the font or opening **More…** does not push the actions off-screen. Keyboard
+focus scrolls the selected control into view.
 
 ![Settings scroll while review actions remain visible on a small screen](../_static/screenshots/guide_sync_small_screen.png)
 
-Choose **Align using → Shared TTL / events** for the following steps. **Correspondence**,
+Choose the reference and the recording to move first. Their session labels appear in the selectors;
+duplicate filenames include folder context, and full paths are available in tooltips. **Align using**
+suggests a method from the loaded sources; it never declares exposure wiring for you.
+
+Choose **Align using → Recorded sync signals** for the following steps. **Correspondence**,
 **Residuals**, and **Coverage** are separate evidence tabs; changing tabs does not change the fit.
 
 ### Choose what to compare
@@ -100,8 +104,9 @@ finds either no edges or every sample.
 
 ### Choose the strategy — or let the evidence choose
 
-The strategy, match tolerance, required precision, fit window, and detailed result are behind
-**More…**. Manual values have their own mode, with their fields visible directly.
+The strategy, match tolerance, required precision, and fit window are under **Advanced matching →
+More…** in Settings. Numerical results and evidence limits are under **Fit details → More…** in
+Results. Manual values have their own mode.
 
 ![Advanced alignment strategy and required precision](../_static/screenshots/guide_sync_strategy.png)
 
@@ -145,12 +150,13 @@ trend measured elsewhere, which may well be right and is a different statement.
 
 ![The manual offset and drift fields](../_static/screenshots/guide_sync_manual.png)
 
-Choose **Align using → Manual offset and drift**. The fields start from the selected recording's
+Choose **Align using → Adjust timing manually**. The fields start from the selected recording's
 current correction. If you already know the numbers, enter them directly instead of fitting.
 
 1. **Manual offset**, in seconds.
-2. **Manual drift**, in milliseconds gained per hour (ms/h).
-3. **Preview manual adjustment** creates a proposal, which you still accept explicitly.
+2. **Adjust clock drift** reveals the rate correction, in milliseconds gained per hour (ms/h).
+   Its existing value is always stated; collapsing the control preserves it.
+3. **Preview alignment** creates a proposal, which you still apply explicitly.
 
 Manual corrections preserve an existing exact or interpolated timing relationship. Only its
 position/rate correction changes; Undo restores both the previous timing and its evidence status.
@@ -163,14 +169,17 @@ uncertainty, and the session says so rather than quoting zeros that would read a
 
 ![The preview and accept buttons](../_static/screenshots/guide_sync_preview_accept.png)
 
-1. **Preview alignment** extracts the evidence, matches events, and fits the mapping. The wizard
+1. **Preview alignment** in the footer extracts the evidence, matches events, and fits the mapping.
+  On narrow screens it opens Results. A sentence names the recording, movement direction and amount,
+  and whether precision is verified. The wizard
   shows the effective match tolerance and whether it was derived from pulse spacing or set by you;
   check it against the timing precision your experiment needs. Changing the tolerance invalidates
   the preview, so run it again before accepting. Three panels show what it found; read them in
   order, because they answer different questions.
-2. **Accept mapping** applies it. Until you press this, nothing has changed. A proposal is never
-   applied silently, and it never becomes your data on its own. If Accept is greyed out, the
-  summary says which part of the evidence to change.
+2. **Apply alignment** replaces Preview when a current proposal is ready. Until you activate it,
+   nothing has changed. A proposal is never applied silently. When the evidence cannot support a
+   proposal, Preview remains available with guidance on what to change. Return only activates the
+   focused Preview/Apply button; an arriving result cannot turn a repeated Return into acceptance.
 
 Changing settings or source timing invalidates the preview; an older background result cannot
 become the current proposal. Changing a reference also flags accepted downstream alignments for
@@ -223,7 +232,7 @@ evidence.
 
 ![Explicit visual event pairs and observation resolution](../_static/screenshots/guide_sync_landmarks.png)
 
-Choose **Align using → Corresponding visual events** when both recordings show a recognizable
+Choose **Align using → Match visible events** when both recordings show a recognizable
 event and no shared TTL evidence is available. This mode also works between two independent videos;
 their local frame timestamps alone are never treated as evidence of a shared start.
 
@@ -296,12 +305,17 @@ doubled pulse, give the alignment a single unambiguous answer.
 
 Alignment that looks right at the event you used to align it proves very little.
 
-**Beginning**, **Middle**, and **End** seek to actual paired evidence while
-leaving the recording window available. **Export report…** writes the current proposal and mapping
+**Check alignment → Beginning / Middle / End** seeks to actual paired evidence while
+leaving the recording window available. The result's **More choices (⋯) → Export report…** writes the current proposal and mapping
 as JSON. After acceptance, **Align → Export Alignment Report…** exports accepted records and their
 current evaluated mappings, including manual corrections. Reports identify whether they describe
 a proposal or an accepted result; saved sessions retain a bounded match sample, and the report
 explicitly says whether that sample is complete.
+
+Window size and expanded sections are remembered. Recording and method choices are retained only
+within the current session; resetting the session starts fresh. Reopening alignment always needs a
+new preview: event pairs, thresholds, exposure declarations, manual values and proposals are never
+restored from these UI preferences. Accepted timing still comes from the session document.
 
 - Move to several events **across the whole recording**, especially near the beginning and end.
   Drift shows up at the edges.

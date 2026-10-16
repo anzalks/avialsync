@@ -1,6 +1,6 @@
 # Trigger lines
 
-A TTL line recorded with your data is already offered to **Align → Synchronize TTL / events** as
+A TTL line recorded with your data is already offered to **Align → Align recordings** as
 evidence. What the file cannot say is what the pulses *are*, and that decides how they may be used:
 
 | Kind | Meaning | What the wizard may do |

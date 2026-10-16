@@ -91,7 +91,7 @@ def test_an_empty_window_disables_what_needs_a_recording(window: MainWindow) -> 
         "Export Trimmed Video Clip…",
         "Generate Proxy…",
         "Export Changes…",
-        "Synchronize TTL / events…",
+        "Align recordings…",
     ):
         assert _action(window, name).isEnabled() is False, f"{name} claims it can run"
 
@@ -175,7 +175,7 @@ def test_a_marker_enables_the_changes_export(window: MainWindow) -> None:
 
 
 def test_alignment_needs_evidence_on_both_sides(window: MainWindow) -> None:
-    action = _action(window, "Synchronize TTL / events…")
+    action = _action(window, "Align recordings…")
 
     window.plot_pane.channels.append(SimpleNamespace(reader=SimpleNamespace(source_id="sensor")))
     window._refresh_action_availability()
@@ -196,10 +196,10 @@ def test_alignment_needs_evidence_on_both_sides(window: MainWindow) -> None:
 def test_becoming_available_restores_the_original_tooltip(window: MainWindow) -> None:
     """The reason is borrowed while greyed, never kept.
 
-    ``Synchronize TTL / events…`` is the one with a tooltip of its own, so it is
+    ``Align recordings…`` is the one with a tooltip of its own, so it is
     the one that proves the reason does not permanently replace it.
     """
-    action = _action(window, "Synchronize TTL / events…")
+    action = _action(window, "Align recordings…")
     assert "load" in action.toolTip().lower(), "greyed, so it should be explaining itself"
 
     window.plot_pane.channels.append(SimpleNamespace(reader=SimpleNamespace(source_id="sensor")))
@@ -208,7 +208,9 @@ def test_becoming_available_restores_the_original_tooltip(window: MainWindow) ->
     window._refresh_action_availability()
 
     assert action.isEnabled() is True
-    assert action.toolTip() == "Fit an offset from events both recordings share"
+    assert action.toolTip() == (
+        "Preview timing from recorded signals, visible events or manual corrections"
+    )
 
 
 # ── availability is refreshed where state changes ────────────────────

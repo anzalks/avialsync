@@ -54,3 +54,17 @@ def test_bench_adjusted_exact_lookup(benchmark) -> None:
     benchmark(mapping.to_source, 1234.5)
     assert benchmark.stats is not None
     assert benchmark.stats["mean"] <= 0.00002
+
+
+def test_bench_sync_popup_settings_update(benchmark, qtbot) -> None:
+    """Updating controls among 300 recording clocks fits the UI callback target."""
+    from avialsync.engine.sync_worker import EventEvidenceSpec
+    from avialsync.ui.sync_wizard import SyncWizard
+
+    times = np.arange(10.0)
+    sources = [EventEvidenceSpec(f"/rig_{i}/camera.mp4", times) for i in range(300)]
+    wizard = SyncWizard(sources[:1], sources)
+    qtbot.addWidget(wizard)
+    benchmark(wizard._on_evidence_changed)
+    assert benchmark.stats is not None
+    assert benchmark.stats["mean"] <= 0.008

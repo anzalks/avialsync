@@ -271,6 +271,7 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path, session: 
             numbered=True,
         )
         wizard._mode_combo.setCurrentIndex(wizard._mode_combo.findData("manual"))
+        wizard._drift_toggle.setChecked(True)
         wizard._scroll.ensureWidgetVisible(wizard._manual_fields)
         settle(app)
         capture(
@@ -296,13 +297,13 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path, session: 
         capture(
             wizard,
             out_dir / "guide_sync_preview_accept.png",
-            [wizard._preview_button, wizard._buttons],
+            [wizard._status, wizard._buttons],
             numbered=True,
         )
         wizard.resize(760, 560)
         wizard.steps.more_toggle.setChecked(True)
         settle(app)
-        capture(wizard, out_dir / "guide_sync_small_screen.png", [wizard._scroll, wizard._buttons])
+        capture(wizard, out_dir / "guide_sync_small_screen.png", [wizard._pages, wizard._buttons])
         wizard.resize(1060, 720)
         wizard._mode_combo.setCurrentIndex(wizard._mode_combo.findData("landmarks"))
         wizard.steps.more_toggle.setChecked(False)

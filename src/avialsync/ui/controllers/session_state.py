@@ -43,6 +43,8 @@ class SessionRuntimeState:
     pending_pair: PartnerSearch | None = None
     #: ``(generation, choices)``: the stimulus grid's last rows, for this session only.
     stimulus_grid_rows: tuple[int, Any] | None = None
+    #: Generation, mode, reference id and target id; never a fitted proposal.
+    alignment_selection: tuple[int, str, str, str] | None = None
 
     def take_dirty_after_restore(self) -> bool:
         """Whether the restore that just drained put back unsaved work; clears it."""

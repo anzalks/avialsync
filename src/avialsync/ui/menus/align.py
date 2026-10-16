@@ -42,9 +42,9 @@ def build_align_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMen
     # and Save Session.
     window._align_menu = menu.addMenu(tr("Align"))
 
-    window._act_synchronize = window._align_menu.addAction(tr("Synchronize TTL / events…"))
+    window._act_synchronize = window._align_menu.addAction(tr("Align recordings…"))
     act = window._act_synchronize
-    act.setToolTip(tr("Fit an offset from events both recordings share"))
+    act.setToolTip(tr("Preview timing from recorded signals, visible events or manual corrections"))
     act.triggered.connect(window._open_sync_wizard)
     _reg(act, "Align")
     window.sidebar.install_align_action(act)

@@ -31,7 +31,7 @@
   **View → Inspector** or the command palette opens any of them. The last page used is restored
   next time.
 - **Open Files** at the top of the Sources page lists every way in, one button each: **Open
-  Videos…**, **Open Sensor/Ephys Data…**, **Open Session…**, **Synchronize TTL / events…**, and,
+  Videos…**, **Open Sensor/Ephys Data…**, **Open Session…**, **Align recordings…**, and,
   set apart, **Reset Session**.
 - **Tasks** opens from the status bar and lists what is loading, with a cancel where the work
   supports one.
@@ -88,12 +88,12 @@ Three routes, in the order to try them — all covered field by field, with anno
 - **Tracking sources** take an offset and drift like any other source, and the overlay and 3D view
   move with them as you type. A 2D overlay whose frame numbers fit its camera is timed by that
   camera's own frames instead: its fields are greyed out, and the tooltip names the camera to move.
-- **Align → Synchronize TTL / events…** fits the mapping from TTL pulses or frame triggers. Choose reference and target
+- **Align → Align recordings…** fits the mapping from TTL pulses or frame triggers. Choose reference and target
   evidence, set the **TTL high threshold** (or tick **Use all samples as events** when the reference
   is already a list of event times), then leave **Alignment strategy** (under **More…**) on **Automatic** unless you
   have a specific reason to override what the evidence supports. **Exact index** is valid only when
   each recorded frame has a corresponding event, not merely when an exposure was requested. Choose
-  **Preview alignment**, inspect the matches and residuals, then **Accept mapping**. Nothing is
+  **Preview alignment**, inspect the matches and residuals, then **Apply alignment**. Nothing is
   applied until you accept it.
 
 ## Messages the recording carries

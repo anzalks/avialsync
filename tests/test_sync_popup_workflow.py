@@ -51,8 +51,23 @@ def test_expansion_and_results_do_not_move_the_footer_off_screen(
     wizard.show()
     wizard.resize(760, 560)
     preview(wizard, qtbot)
+    # Preview now opens Results; expand controls on the Settings page itself.
+    wizard._pages.setCurrentWidget(wizard._scroll)
     wizard.steps.more_toggle.setChecked(True)
-    qtbot.waitUntil(lambda: wizard._scroll.verticalScrollBar().maximum() > 0)
+    wizard._scroll.ensureWidgetVisible(wizard._restrict)
+    qtbot.waitUntil(
+        lambda: (
+            wizard._scroll.viewport()
+            .rect()
+            .contains(
+                wizard._restrict.rect().translated(
+                    wizard._restrict.mapTo(
+                        wizard._scroll.viewport(), wizard._restrict.rect().topLeft()
+                    )
+                )
+            )
+        )
+    )
     footer = wizard._buttons
     assert wizard.rect().contains(footer.geometry())
     assert wizard.height() <= wizard.screen().availableGeometry().height()

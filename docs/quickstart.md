@@ -57,7 +57,7 @@ old frame.
 ## Align recordings
 
 Begin with the visible event that is easiest to recognize, and adjust that camera's offset in the
-left panel. For recordings with TTL pulses or frame triggers, **Align → Synchronize TTL / events…**
+left panel. For recordings with TTL pulses or frame triggers, **Align → Align recordings…**
 fits the mapping from that evidence and shows you the proposed match count, the residual error, and
 a plot of the residuals themselves before you accept it. Acceptance is always explicit, and your
 original timestamps are never changed.

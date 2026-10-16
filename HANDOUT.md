@@ -364,6 +364,28 @@ saved in a session, includes evaluated mappings, and never certifies unmeasured 
 Tests: `test_sync_popup_workflow`, `test_alignment_adjustment`, `test_sync_lifecycle`,
 `test_landmark_alignment`, `test_sync_workflow_integration`; benchmarks in `test_bench_sync`.
 
+**Simplified alignment setup (D-242, 2026-10-16).** Recording choices precede the input method.
+`ui/sync_choices.py` owns display labels, duplicate-filename context, method suggestions and
+setup guidance; identities and evidence semantics are unchanged. `ui/sync_layout.py` reparents
+the same setup/result pages into full-height Settings/Results tabs on narrow displays or a
+horizontal splitter on wide displays. Font changes reconsider the layout without rebuilding
+plots. Preview and Apply share the fixed footer; only one is primary/visible. Result text names
+the recording and movement, detailed diagnostics have their own expansion, verification is a
+Check alignment menu and report export is in the result overflow.
+
+Manual setup begins with offset; a collapsed drift control retains its value and displays a
+summary. `ui/sync_preferences.py` uses hidden schema entries for window size and expansions;
+`SessionRuntimeState.alignment_selection` holds generation-scoped source/method choices only.
+Neither store holds a proposal, event pairs, thresholds or strobe declarations. A session
+generation change rejects the old dialog too, even when the same paths return. Return on the
+dialog cannot accept an arriving result; Preview/Apply require focused activation or a click.
+Trap: Preview is added to the button box with `AcceptRole` so it occupies Apply's slot on every
+platform layout, so Apply's own `clicked` (not `QDialogButtonBox.accepted`) calls `accept()`.
+Reconnecting `accepted` would make Preview apply. Threshold rows hide their container when no row
+applies, and the drift control is a flat chevron disclosure, not a second primary-looking button.
+`tests/test_sync_simplification.py` covers these behaviors. The earlier scroll regression now
+asserts reachability rather than requiring overflow when full-height settings already fit.
+
 - Scope: visual alignment of independently-clocked cameras, sensors, electrodes, and tracking
   data. Acquisition and built-in scientific analysis are out of scope; lab-specific semantics are
   plugin-owned.
