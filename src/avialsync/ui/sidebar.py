@@ -48,6 +48,7 @@ from avialsync.ui.source_card import (
 from avialsync.ui.source_properties import VideoPropertiesPanel
 from avialsync.ui.theme import follow_palette, separator_color, set_bold
 from avialsync.ui.time_format import format_rate
+from avialsync.ui.video_timing import human_file_size
 
 _W = TypeVar("_W", bound=QWidget)
 
@@ -782,7 +783,7 @@ class VideoInfoWidget(QFrame):
             if is_vfr
             else f"CFR {format_rate(fps)}"
         )
-        size = f" | {file_size / 1_048_576:.1f} MB" if file_size else ""
+        size = f" | {human_file_size(int(file_size))}" if file_size else ""
         self._meta_text = f"{codec.upper()} | {timing} | {duration:.1f}s{size}"
         meta_lbl = QLabel(self._meta_text)
         # Wrapped: unwrapped it wants 432 px on one line -- the widest thing in

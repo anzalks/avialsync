@@ -449,6 +449,9 @@ class PropsPanel(QWidget):
         for axis, field in zip(("X", "Y", "Z"), self.belt_point_fields, strict=True):
             point_form.addRow(tr("Point {axis}").format(axis=axis), field)
         layout.addLayout(point_form)
+        # Rows, not fields, are what geometry mode hides: hiding the fields alone
+        # left "Point X / Y / Z" labels standing beside nothing.
+        self._belt_point_form = point_form
         # One per line, as every other action in this panel: three of these
         # side by side needed 435 px in a 280 px sidebar.
         point_buttons = QVBoxLayout()
@@ -743,6 +746,8 @@ class PropsPanel(QWidget):
         self.belt_normal_controls.setVisible(mode != "side")
         for widget in self.belt_path_controls:
             widget.setVisible(mode == "path")
+        for field in self.belt_point_fields:
+            self._belt_point_form.setRowVisible(field, mode == "path")
 
     def _replace_belt_vertex(self) -> None:
         row = self.belt_vertices.currentRow()

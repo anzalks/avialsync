@@ -223,11 +223,16 @@ class PreferencesDialog(QDialog):
 
         if setting.choices:
             combo = QComboBox()
-            combo.addItems(list(setting.choices))
-            if str(value) in setting.choices:
-                combo.setCurrentText(str(value))
+            labels = setting.choice_labels or setting.choices
+            for choice, label in zip(setting.choices, labels, strict=True):
+                combo.addItem(tr(label), choice)
+            index = combo.findData(str(value))
+            if index >= 0:
+                combo.setCurrentIndex(index)
             combo.setAccessibleName(tr(setting.label))
-            combo.currentTextChanged.connect(lambda text, s=setting: self._store_value(s, text))
+            combo.currentIndexChanged.connect(
+                lambda _index, s=setting, editor=combo: self._store_value(s, editor.currentData())
+            )
             return combo
 
         if setting.kind is str:
@@ -286,7 +291,9 @@ class PreferencesDialog(QDialog):
             if isinstance(editor, QCheckBox):
                 editor.setChecked(bool(value))
             elif isinstance(editor, QComboBox):
-                editor.setCurrentText(str(value))
+                index = editor.findData(str(value))
+                if index >= 0:
+                    editor.setCurrentIndex(index)
             elif isinstance(editor, QDoubleSpinBox):
                 editor.setValue(float(value))
             elif isinstance(editor, QSpinBox):

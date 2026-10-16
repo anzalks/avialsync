@@ -871,7 +871,7 @@ def test_play_original_sits_with_the_other_video_controls(qtbot, window, pose_so
     """One QAction drives the menu item and the checkbox (rule 15)."""
     source = str(pose_source[0])
     box = window.view_toolbar.original_tracker_box
-    assert box.text() == "Play original"
+    assert box.text() == "Show Original Tracking"
     assert not box.isChecked()
 
     _accept(window, source)

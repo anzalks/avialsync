@@ -33,6 +33,16 @@ FONT_SYSTEM = "system"
 FONT_SMALL = "small"
 FONT_MEDIUM = "medium"
 FONT_LARGE = "large"
+FONT_EXTRA_LARGE = "extra_large"
+#: Relative to the platform font. Medium used to equal System and Large was
+#: only 1.15, which is no help to a low-vision reader.
+FONT_FACTORS = {
+    FONT_SYSTEM: 1.0,
+    FONT_SMALL: 0.9,
+    FONT_MEDIUM: 1.15,
+    FONT_LARGE: 1.3,
+    FONT_EXTRA_LARGE: 1.5,
+}
 
 _system_palettes: dict[int, QPalette] = {}
 _palette_listeners_installed: set[int] = set()
@@ -1148,7 +1158,7 @@ def apply_theme(app: QApplication, pref: str = THEME_SYSTEM) -> None:
 
 def apply_font_size(app: QApplication, pref: str = FONT_SYSTEM) -> None:
     """Apply and persist a system-relative font preference to live and future widgets."""
-    factors = {FONT_SYSTEM: 1.0, FONT_SMALL: 0.9, FONT_MEDIUM: 1.0, FONT_LARGE: 1.15}
+    factors = FONT_FACTORS
     if pref not in factors:
         pref = FONT_SYSTEM
     font = _system_font(app)
@@ -1200,7 +1210,7 @@ def current_preference() -> str:
 def current_font_preference() -> str:
     """Return the persisted font-size preference."""
     raw = app_settings().value("font/preference", FONT_SYSTEM)
-    return raw if raw in (FONT_SYSTEM, FONT_SMALL, FONT_MEDIUM, FONT_LARGE) else FONT_SYSTEM
+    return raw if raw in FONT_FACTORS else FONT_SYSTEM
 
 
 def is_dark() -> bool:

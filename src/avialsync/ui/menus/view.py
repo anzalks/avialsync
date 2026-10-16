@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtWidgets import QMenu, QMenuBar
 
+from avialsync.core.settings_schema import setting_for
 from avialsync.ui.controllers import calibration_controller, gap_view
 from avialsync.ui.i18n import tr
 from avialsync.ui.time_format import TimeDisplayMode
@@ -55,13 +56,11 @@ def _view_modes(window: MainWindow, view_menu: QMenu, _reg: Register) -> None:
 
     font_menu = view_menu.addMenu(tr("Font Size"))
     window._font_size_group = QActionGroup(window)
-    for label, key in [
-        ("System", "system"),
-        ("Small", "small"),
-        ("Medium", "medium"),
-        ("Large", "large"),
-    ]:
-        fa = font_menu.addAction(label)
+    # The same choices and names as Preferences: one authority (rule 15).
+    font_setting = setting_for("font/preference")
+    assert font_setting is not None
+    for key, label in zip(font_setting.choices, font_setting.choice_labels, strict=True):
+        fa = font_menu.addAction(tr(label))
         fa.setCheckable(True)
         fa.setData(key)
         window._font_size_group.addAction(fa)
@@ -101,7 +100,7 @@ def _view_overlays(window: MainWindow, view_menu: QMenu, _reg: Register) -> None
     window.wheel_tab.install_overlay_actions(
         window._overlay_actions["tracking.wheel"], window._overlay_actions["tracking.wheel_hidden"]
     )
-    window._act_show_original_tracker = view_menu.addAction(tr("Play original"))
+    window._act_show_original_tracker = view_menu.addAction(tr("Show Original Tracking"))
     window._act_show_original_tracker.setCheckable(True)
     window._act_show_original_tracker.triggered.connect(window._set_show_original_tracker)
     _reg(window._act_show_original_tracker, "View")

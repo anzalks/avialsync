@@ -201,24 +201,34 @@ def _one_track():
 
 def _draw_and_capture_text(canvas, track) -> list[str]:
     """Draw one track onto an off-screen image, recording every string written."""
-    from PySide6.QtGui import QImage, QPainter
+    from PySide6.QtGui import QImage, QPainter, QPainterPath
 
     written: list[str] = []
     original = QPainter.drawText
+    original_path = QPainterPath.addText
 
     def record(self, *args):
         if args and isinstance(args[-1], str):
             written.append(args[-1])
         return original(self, *args)
 
+    # Labels are outlined as a stroked text path (a pen-width `drawText` draws
+    # no outline), so a string reaches the canvas through either call.
+    def record_path(self, *args):
+        if args and isinstance(args[-1], str):
+            written.append(args[-1])
+        return original_path(self, *args)
+
     image = QImage(320, 240, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(0)
     painter = QPainter(image)
     QPainter.drawText = record
+    QPainterPath.addText = record_path
     try:
         canvas._draw_track(painter, track, scale=1.0, offset_x=0.0, offset_y=0.0)
     finally:
         QPainter.drawText = original
+        QPainterPath.addText = original_path
         painter.end()
     return written
 
@@ -264,12 +274,17 @@ def test_overlay_point_labels_can_be_hidden(qapp: QApplication) -> None:
     assert written == []
 
 
-def test_overlay_draws_each_label_twice_for_legibility(qapp: QApplication) -> None:
-    """An outline pass sits under the coloured text so it survives pale footage."""
+def test_overlay_writes_each_label_once_as_an_outlined_path(qapp: QApplication) -> None:
+    """One text path, stroked dark then filled, so it survives pale footage.
+
+    This used to assert two `drawText` calls, the second over the first with
+    a wide pen. `drawText` ignores pen width, so that outline was never drawn;
+    `test_overlay_label_halo.py` checks the halo reaches the pixels.
+    """
     written = _draw_and_capture_text(_canvas_with_labels_on(), _one_track())
 
-    assert written.count("nose") == 2
-    assert written.count("left_toe") == 2
+    assert written.count("nose") == 1
+    assert written.count("left_toe") == 1
 
 
 def test_overlay_skips_labels_for_points_with_no_coordinate(qapp: QApplication) -> None:
@@ -311,24 +326,34 @@ def _loose_readers() -> list:
 
 
 def _draw_loose_and_capture_text(canvas) -> list[str]:
-    from PySide6.QtGui import QImage, QPainter
+    from PySide6.QtGui import QImage, QPainter, QPainterPath
 
     written: list[str] = []
     original = QPainter.drawText
+    original_path = QPainterPath.addText
 
     def record(self, *args):
         if args and isinstance(args[-1], str):
             written.append(args[-1])
         return original(self, *args)
 
+    # Labels are outlined as a stroked text path (a pen-width `drawText` draws
+    # no outline), so a string reaches the canvas through either call.
+    def record_path(self, *args):
+        if args and isinstance(args[-1], str):
+            written.append(args[-1])
+        return original_path(self, *args)
+
     image = QImage(320, 240, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(0)
     painter = QPainter(image)
     QPainter.drawText = record
+    QPainterPath.addText = record_path
     try:
         canvas._draw_loose_readers(painter, 1.0, 0.0, 0.0)
     finally:
         QPainter.drawText = original
+        QPainterPath.addText = original_path
         painter.end()
     return written
 

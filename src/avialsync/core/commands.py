@@ -422,7 +422,7 @@ class SetOriginalTrackerVisibleCommand:
 
     @property
     def label(self) -> str:
-        return "Play original tracking" if self.visible else "Play edited tracking"
+        return "Show original tracking" if self.visible else "Show edited tracking"
 
     def apply(self, target: MutationTarget) -> None:
         target.set_original_tracker_visible(self.visible)

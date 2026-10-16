@@ -79,10 +79,11 @@ and any scan still running. Accepted swaps stay.
    recording.
 
 The line of text under the buttons is the evidence for the selected proposal, for example *came within
-13.0 px, and swapping them costs 0.08x of keeping them.* Each animal's motion is carried forward to
-this frame and compared with where each label was actually observed. **Costs 0.08x** means the
-observations fit the *other* label's motion, leaving 8 % of the prediction error that keeping the
-labels leaves. AvialSync only proposes a swap at half or less. If the points were missing across the
+13.0 px, and swapped labels follow their motion 12.5 times better than the current ones.* Each
+animal's motion is carried forward to this frame and compared with where each label was actually
+observed. **12.5 times better** means the observations fit the *other* label's motion, leaving 8 %
+of the prediction error that keeping the labels leaves. AvialSync only proposes a swap at two times
+better or more. If the points were missing across the
 crossing, the text also says how many frames had no position. That is a reason to look more carefully,
 not less.
 
@@ -137,7 +138,7 @@ Both removals are in the review panel's **⋯** menu, apart from **Apply swap**.
   part on screen.
 - **Edit → Undo** (`Ctrl+Z`) reverses the last swap. Dragging an accepted crossing back off its
   lane does the same.
-- **Play original** (**View → Play original**, also a checkbox under the video) temporarily draws
+- **Show Original Tracking** (**View → Show Original Tracking**, also a checkbox under the video) temporarily draws
   what the model predicted so you can compare. Turn it off to return to your edited view. The choice
   is saved with the session.
 

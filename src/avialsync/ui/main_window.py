@@ -143,9 +143,9 @@ from avialsync.ui.wheel_tab import WheelTab
 if TYPE_CHECKING:
     from avialsync.core.registry import LoaderRegistry
     from avialsync.ui.sync_wizard import SyncWizard
-    from avialsync.ui.video_pane import VideoPane
 
 logger = logging.getLogger(__name__)
+
 
 _AUTOSAVE_INTERVAL_MS = 120_000  # 2 minutes
 #: How long the revisit ring stays on a point the Changes panel navigated to.
@@ -220,7 +220,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.resize(1280, 800)
+        self.resize(*workspace_layout.first_window_size())
         self._detached_plot_window: QDialog | None = None
         self._plots_detached = False
 
@@ -2859,8 +2859,12 @@ class MainWindow(QMainWindow):
 
         restore_adjustment(self, path)
         drops = sum(len(getattr(train, "drops", ())) for train in results)
-        summary = tr("{count} trigger train(s) from {name}").format(
-            count=len(results), name=Path(path).name
+        summary = (
+            tr("1 trigger train from {name}").format(name=Path(path).name)
+            if len(results) == 1
+            else tr("{count} trigger trains from {name}").format(
+                count=len(results), name=Path(path).name
+            )
         )
         if drops:
             # Said on arrival rather than discovered later: a train that skips
@@ -3237,6 +3241,11 @@ class MainWindow(QMainWindow):
 
         return paths[0] if len(paths) == 1 else None
 
+    def _step_reference_pane(self) -> Any:
+        """The camera frame steps follow: the focused one, when there is one."""
+        path = self._focused_video_path()
+        return self._pane_for(path) if path is not None else None
+
     def _select_video(self, path: str) -> None:
         """Remember the camera the user just interacted with.
 
@@ -3248,14 +3257,6 @@ class MainWindow(QMainWindow):
             self._selected_video_path = path
             # The panel shows this camera's levels, not the last camera's.
             video_levels.show_focused(self)
-
-    def _step_reference_pane(self) -> "VideoPane | None":
-        """The camera frame steps follow: the focused one, when there is one."""
-        path = self._focused_video_path()
-        from avialsync.ui.video_pane import VideoPane
-
-        pane = self._pane_for(path) if path is not None else None
-        return pane if isinstance(pane, VideoPane) else None
 
     def _pane_for(self, path: str) -> object | None:
         try:

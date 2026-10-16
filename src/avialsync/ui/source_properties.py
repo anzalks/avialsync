@@ -30,7 +30,7 @@ from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 from avialsync.ui.theme import follow_palette
 from avialsync.ui.time_format import format_rate
-from avialsync.ui.video_timing import bit_depth_of
+from avialsync.ui.video_timing import bit_depth_of, human_file_size
 
 if TYPE_CHECKING:
     pass
@@ -206,7 +206,7 @@ class VideoPropertiesPanel(_PropertiesBase):
         st = metadata.start_time
         self._add_row("Metadata start", f"{st:.3f} s" if st is not None else "—")
         sz = metadata.file_size_bytes
-        self._add_row("File size", f"{sz / 1_048_576:.1f} MB" if sz else "—")
+        self._add_row("File size", human_file_size(int(sz)) if sz else "—")
         self._add_row("Clock drift", "—")
 
     def set_pane(self, pane: Any) -> None:

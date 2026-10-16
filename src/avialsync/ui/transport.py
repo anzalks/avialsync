@@ -14,7 +14,9 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import (
     QAccessible,
+    QAccessibleValueChangeEvent,
     QColor,
+    QFocusEvent,
     QFontDatabase,
     QKeyEvent,
     QMouseEvent,
@@ -247,8 +249,18 @@ class TimelineOverview(QWidget):
         self._density = Density.COMPACT
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setMouseTracking(True)
-        self.setToolTip(tr("Data Streams. Click to seek."))
+        # Tab only: a click seeks and must not take the arrow keys away from
+        # frame stepping; reaching the lanes is a keyboard user's choice.
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        self.setToolTip(
+            tr(
+                "Data Streams. Click to seek. With focus: Up/Down choose a lane, "
+                "Left/Right go to its previous/next event."
+            )
+        )
         self.setAccessibleName(tr("Data Streams lanes"))
+        #: The lane the keyboard reads and steps along.
+        self._focus_lane = 0
         register_painted(
             self, QAccessible.Role.Chart, self.accessible_value, self.accessible_detail
         )
@@ -521,8 +533,77 @@ class TimelineOverview(QWidget):
         self._on_evidence_changed()
 
     def accessible_value(self) -> str:
-        """The playhead, read when assistive technology asks."""
-        return tr("Playhead at {time} s").format(time=f"{self._cursor:.3f}")
+        """The playhead, and what the focused lane holds there."""
+        value = tr("Playhead at {time} s").format(time=f"{self._cursor:.3f}")
+        lanes = self._lanes()
+        if not lanes or not self.hasFocus():
+            return value
+        lane = min(self._focus_lane, len(lanes) - 1)
+        detail = self._event_detail(
+            float(self._content_x(self._cursor)), (lane + 0.5) * self.lane_height()
+        )
+        return f"{value}; {detail.replace(chr(10), ', ')}" if detail else value
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        """Choose a lane and step along it without a mouse."""
+        from avialsync.ui.timeline_keys import lane_times, step_target
+
+        lanes = self._lanes()
+        key = event.key()
+        if key in (Qt.Key.Key_Up, Qt.Key.Key_Down) and lanes:
+            step = -1 if key == Qt.Key.Key_Up else 1
+            self._focus_lane = min(max(0, self._focus_lane + step), len(lanes) - 1)
+            self._announce()
+            event.accept()
+            return
+        if key in (Qt.Key.Key_Left, Qt.Key.Key_Right) and lanes:
+            lane = min(self._focus_lane, len(lanes) - 1)
+            target = step_target(
+                lane_times(lanes[lane][2]), self._cursor, 1 if key == Qt.Key.Key_Right else -1
+            )
+            if target is not None:
+                self.seek_requested.emit(target)
+                self._cursor = target
+                self._announce()
+            event.accept()
+            return
+        if key in (Qt.Key.Key_Home, Qt.Key.Key_End) and self._bounds[1] > self._bounds[0]:
+            self.seek_requested.emit(self._bounds[0 if key == Qt.Key.Key_Home else 1])
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+    def event(self, event: QEvent) -> bool:
+        """Keep the arrow keys for the lanes while they have focus.
+
+        Frame step and seek own Left/Right as window shortcuts; without this
+        a focused Data Streams strip could never receive them.
+        """
+        if event.type() == QEvent.Type.ShortcutOverride and isinstance(event, QKeyEvent):
+            if event.modifiers() == Qt.KeyboardModifier.NoModifier and event.key() in (
+                Qt.Key.Key_Up,
+                Qt.Key.Key_Down,
+                Qt.Key.Key_Left,
+                Qt.Key.Key_Right,
+                Qt.Key.Key_Home,
+                Qt.Key.Key_End,
+            ):
+                event.accept()
+                return True
+        return super().event(event)
+
+    def _announce(self) -> None:
+        """Repaint the focus and tell assistive technology the value changed."""
+        self.update()
+        QAccessible.updateAccessibility(QAccessibleValueChangeEvent(self, self.accessible_value()))
+
+    def focusInEvent(self, event: QFocusEvent) -> None:
+        super().focusInEvent(event)
+        self.update()
+
+    def focusOutEvent(self, event: QFocusEvent) -> None:
+        super().focusOutEvent(event)
+        self.update()
 
     def accessible_detail(self) -> str:
         """Each lane: a source's span, or how many events or markers it carries."""
@@ -904,6 +985,12 @@ class TimelineOverview(QWidget):
         painter.setPen(palette.color(palette.ColorRole.BrightText))
         cursor_x = min(self.width() - 1, max(self._LABEL_WIDTH, self._content_x(self._cursor)))
         painter.drawLine(cursor_x, 0, cursor_x, self.height() - 1)
+        if self.hasFocus() and lanes:
+            # Which lane the arrow keys read; without it, focus was invisible.
+            lane = min(self._focus_lane, len(lanes) - 1)
+            painter.setPen(QPen(system_accent(palette), 2))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRect(1, lane * lane_height + 1, self.width() - 3, lane_height - 2)
 
     def _paint_breaks(self, painter: QPainter) -> None:
         """A collapsed gap is a double dashed line, so a break never reads as a seam (D-218)."""
@@ -1117,7 +1204,9 @@ class Transport(QWidget):
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
-        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        # Tab only: a click seeks and must not take the arrow keys away from
+        # frame stepping; reaching the lanes is a keyboard user's choice.
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
         self._root_layout = QVBoxLayout(self)
         self._root_layout.setContentsMargins(
             spacing("s"), spacing("xs"), spacing("s"), spacing("s")

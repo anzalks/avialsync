@@ -7,7 +7,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
     QHBoxLayout,
-    QLabel,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -33,14 +32,15 @@ class PlotHeader(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(spacing("m"), spacing("xs"), spacing("m"), spacing("xs"))
         layout.setSpacing(spacing("s"))
-        layout.addWidget(QLabel(tr("Live"), self))
-
+        # Scope is the only live presentation (D-057). The state stays on this
+        # combo, which the pane reads, but a one-item selector is not shown: it
+        # looked like a choice and did nothing.
         self.presentation_combo = QComboBox(self)
         self.presentation_combo.addItem(tr("Scope"), PlotPresentation.SCOPE)
         self.presentation_combo.setAccessibleName(tr("Live plot presentation"))
         self.presentation_combo.setToolTip(tr("Live plots clear and restart at each page"))
         self.presentation_combo.currentIndexChanged.connect(self._emit_presentation)
-        layout.addWidget(self.presentation_combo)
+        self.presentation_combo.hide()
 
         self.page_label = ElidedLabel("", self)
         self.page_label.setAccessibleName(tr("Visible plot page"))

@@ -109,8 +109,9 @@ frame to decode from.
 Run `avialsync demo` for four generated cameras and a channel named **TTL**, or open your own
 aligned videos and stimulus channel. Choose **File → Export Stimulus Grid…**. In the dialog, select
 the stimulus channel, set a rising threshold and minimum event spacing, then choose **Scan events**.
-Select up to twelve events and set the time before and after each one. **Cursor update rate**
-defaults to 10 fps and caps the composite output rate. Each camera is sampled at emitted output
+Select up to twelve events and set the time before and after each one. **Output frame rate**
+defaults to 10 fps and caps the composite output rate; raise it (up to 120 fps) to keep more of a
+fast camera's frames. Each camera is sampled at emitted output
 times; source transitions between them are skipped. **Playback speed** stretches or compresses
 the mapped timestamps for the whole grid. The dialog shows the resulting video length before you
 export.

@@ -34,6 +34,7 @@ from avialsync.ui.controllers import (
     corrections_controller,
     custom_marker_controller,
     identity_controller,
+    relink_controller,
     wheel_controller,
 )
 from avialsync.ui.i18n import tr
@@ -518,35 +519,9 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     # holds the count to check it against as the source imports.
     window.identity_swaps.clear()
     identity_controller.restore_manifest(window, state.identity_swaps)
-    # Collect missing files for relink
-    missing: list[str] = []
-    kind_labels: dict[str, str] = {}
-
-    for ve in state.videos:
-        if not source_exists(Path(ve.path)):
-            missing.append(ve.path)
-            kind_labels[ve.path] = "video"
-
-    for se in state.sensors:
-        if not source_exists(Path(se.path)):
-            missing.append(se.path)
-            kind_labels[se.path] = "sensor"
-    imaging_integration.collect_missing(state.imaging, missing, kind_labels)
-
-    relink_map: dict[str, str] = {}
-    if missing:
-        from avialsync.ui.relink_dialog import RelinkDialog
-
-        dlg = RelinkDialog(missing, kind_labels, window)
-        if dlg.exec() == RelinkDialog.DialogCode.Rejected:
-            return
-        relink_map = dlg.resolved_mapping()
-
-    for old_path, new_path in relink_map.items():
-        # Corrections are keyed by the pose file's path; without this a session
-        # whose CSV moved would open with every correction silently inactive,
-        # and its expected count would be checked against a file that is gone.
-        corrections_controller.remap(window, str(old_path), str(new_path))
+    relink_map = relink_controller.relink_missing(window, state)
+    if relink_map is None:
+        return
 
     # Before any source loads: the reference is declared once, and a restored
     # session already declared it. Adopting it here stops the first file to

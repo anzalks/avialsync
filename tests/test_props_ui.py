@@ -1191,3 +1191,15 @@ def test_ladder_support_irregular_tags_and_clicking_every_rung(
     panel.extrapolate.click()
     ladder = window.props_app.store.get("walkway")
     assert isinstance(ladder, Ladder) and ladder.pattern is None
+
+
+def test_belt_point_labels_hide_with_their_fields(window: MainWindow) -> None:
+    """Hiding the fields alone left "Point X / Y / Z" labels beside nothing."""
+    panel = window.props_app.panel
+    assert panel is not None
+    window.props_app.show("belt")
+    form = panel._belt_point_form
+    for mode, shown in (("rollers", False), ("path", True)):
+        panel.belt_geometry_mode.setCurrentIndex(panel.belt_geometry_mode.findData(mode))
+        for field in panel.belt_point_fields:
+            assert form.isRowVisible(field) is shown, mode

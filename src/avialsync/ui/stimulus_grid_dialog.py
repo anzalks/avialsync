@@ -165,7 +165,7 @@ class StimulusGridDialog(QDialog):
         self.fps_spin.setRange(1, 120)
         self.fps_spin.setValue(10)
         self.fps_spin.setSuffix(tr(" fps"))
-        self.fps_spin.setAccessibleName(tr("Cursor update rate"))
+        self.fps_spin.setAccessibleName(tr("Output frame rate"))
         self.fps_spin.setAccessibleDescription(
             tr("Maximum output frame rate; each camera is sampled at every output timestamp")
         )
@@ -204,7 +204,7 @@ class StimulusGridDialog(QDialog):
         speed_layout.addWidget(self.custom_speed_spin)
         window_form.addRow(tr("Before"), self.before_spin)
         window_form.addRow(tr("After"), self.after_spin)
-        window_form.addRow(tr("Cursor update rate"), self.fps_spin)
+        window_form.addRow(tr("Output frame rate"), self.fps_spin)
         window_form.addRow(tr("Playback speed"), speed_controls)
         window_form.addRow(tr("Output detail"), self.output_detail_combo)
         layout.addLayout(window_form)

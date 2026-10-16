@@ -204,3 +204,17 @@ def create_workspace(owner: QMainWindow, parts: WorkspaceParts) -> WorkspaceLayo
         timer,
     )
     return result
+
+
+def first_window_size() -> tuple[int, int]:
+    """1280 x 800, shrunk to the screen: on a 1366 x 768 laptop the bottom of
+    the window, transport included, opened off-screen."""
+    from PySide6.QtGui import QGuiApplication
+
+    width, height = 1280, 800
+    screen = QGuiApplication.primaryScreen()
+    if screen is not None:
+        area = screen.availableGeometry()
+        width = min(width, max(640, area.width() - 32))
+        height = min(height, max(480, area.height() - 32))
+    return width, height

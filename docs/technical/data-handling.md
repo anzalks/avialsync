@@ -199,7 +199,7 @@ entry, in `edited/`; the imported arrays and original recording remain unchanged
 The corrected pose CSV streams each row, substitutes raw-column corrections, then permutes all
 fields of routed points. A swap-only source also produces this single edited copy; the export
 path must differ from the recording path.
-View → Play original switches the readers back to the imported arrays without altering the
+View → Show Original Tracking switches the readers back to the imported arrays without altering the
 edit program or the corrected export, and the choice is persisted in the session.
 
 ## Required ground-truth workloads

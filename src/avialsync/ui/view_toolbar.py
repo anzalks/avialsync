@@ -91,7 +91,7 @@ class ViewToolbar(QWidget):
         )
 
     def install_original_tracker_action(self, action: QAction) -> None:
-        """Show the Play original toggle, driven by the View menu's own QAction."""
+        """Show the Show Original Tracking toggle, driven by the View menu's own QAction."""
         # No text of its own: the QAction's label is the one authority for what
         # this command is called, here and in the View menu.
         self.original_tracker_box.set_action(action)

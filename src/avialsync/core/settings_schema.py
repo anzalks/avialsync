@@ -38,6 +38,10 @@ class Setting:
     help_text: str = ""
     #: For a str setting the user picks from, rather than types.
     choices: tuple[str, ...] = ()
+    #: What each choice is called on screen, in `choices` order. The stored
+    #: keys ("system", "compact", "") are identifiers, and Preferences used to
+    #: show them raw, including a blank item for "no unit".
+    choice_labels: tuple[str, ...] = ()
     #: Bounds for a numeric setting.
     minimum: float | None = None
     maximum: float | None = None
@@ -130,6 +134,7 @@ SETTINGS: tuple[Setting, ...] = (
         default="system",
         kind=str,
         choices=("system", "light", "dark"),
+        choice_labels=("System", "Light", "Dark"),
         help_text=(
             "System follows the platform, including its accent colour and any "
             "later change while AvialSync is open."
@@ -141,8 +146,12 @@ SETTINGS: tuple[Setting, ...] = (
         group="Appearance",
         default="system",
         kind=str,
-        choices=("system", "small", "medium", "large"),
-        help_text="Scales every control relative to the platform's own font.",
+        choices=("system", "small", "medium", "large", "extra_large"),
+        choice_labels=("System", "Small", "Medium", "Large", "Extra large"),
+        help_text=(
+            "Scales every control relative to the platform's own font: Small 90%, "
+            "Medium 115%, Large 130%, Extra large 150%."
+        ),
     ),
     Setting(
         key="interface/density",
@@ -151,6 +160,7 @@ SETTINGS: tuple[Setting, ...] = (
         default="compact",
         kind=str,
         choices=("compact", "comfortable"),
+        choice_labels=("Compact", "Comfortable"),
         help_text="Choose the vertical spacing of data lanes and other compact surfaces.",
     ),
     Setting(
@@ -184,6 +194,7 @@ SETTINGS: tuple[Setting, ...] = (
         default="sources",
         kind=str,
         choices=("sources", "values", "messages", "changes", "props", "exports"),
+        choice_labels=("Sources", "Values", "Messages", "Changes", "Props", "Exports"),
         help_text="The inspector page shown when AvialSync opens; the last one used is kept.",
     ),
     Setting(
@@ -223,13 +234,15 @@ SETTINGS: tuple[Setting, ...] = (
         key="plot/live_presentation",
         label="Live plot presentation",
         group="Plots",
-        default="sweep",
+        # Scope is the only live presentation since D-057; offering Sweep here
+        # (and a one-item combo above the plots) presented a choice that did
+        # nothing. Kept, hidden, so the stored key stays owned by the schema.
+        default="scope",
         kind=str,
-        choices=("sweep", "scope"),
-        help_text=(
-            "Sweep retains the previous page under an eraser; Scope clears and "
-            "restarts at each page boundary."
-        ),
+        choices=("scope",),
+        choice_labels=("Scope",),
+        help_text="Live plots clear and restart at each page boundary.",
+        visible=False,
     ),
     # ── Overlays ─────────────────────────────────────────────────────
     Setting(
@@ -239,6 +252,7 @@ SETTINGS: tuple[Setting, ...] = (
         default="compact",
         kind=str,
         choices=("compact", "full"),
+        choice_labels=("Compact", "Full"),
         help_text=(
             "Compact shows time and frame, then resolution and bit depth; full adds rate, "
             "codec, pixel format and size. "
@@ -288,6 +302,7 @@ SETTINGS: tuple[Setting, ...] = (
         default="",
         kind=str,
         choices=("", "mm", "cm", "m"),
+        choice_labels=("(none)", "mm", "cm", "m"),
         help_text="3D calibration units for the next wheel; check them against each recording.",
     ),
     Setting(

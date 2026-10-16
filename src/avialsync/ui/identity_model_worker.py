@@ -145,15 +145,18 @@ def _nodes(job: BraidBuildJob, source_times: np.ndarray, times: np.ndarray) -> l
     for candidate in job.candidates:
         if (candidate.index, frozenset(candidate.lanes)) in accepted_at:
             continue
+        # Said as how much better the swap fits, not as a cost ratio: "costs
+        # 0.08x of keeping them" asked the reader to invert it to understand it.
         detail = tr(
             "Candidate at frame {frame}: {a} and {b} came within {apart:.1f} px, "
-            "and swapping them costs {ratio:.2f}x of keeping them."
+            "and swapped labels follow their motion {better} times better than the "
+            "current ones."
         ).format(
             frame=_frame(source_times, job.frame_rate, candidate.index),
             a=candidate.lanes[0],
             b=candidate.lanes[1],
             apart=candidate.separation,
-            ratio=candidate.cost_ratio,
+            better=f"{1.0 / candidate.cost_ratio:.1f}" if candidate.cost_ratio > 0 else "∞",
         )
         if candidate.gap:
             detail += " " + tr("{n} frame(s) had no position across it.").format(n=candidate.gap)

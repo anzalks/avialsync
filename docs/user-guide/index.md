@@ -143,8 +143,8 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
 ## Useful controls
 
 Controls sit with what they act on. Under the videos: **Flag Frame**, **Fix Tracker**, **Add 3D
-Marker**, **Play original**, **Snapshot**, **Fit All Videos** and **Fullscreen**, all glyph buttons
-except **Play original**; hover for the name and shortcut. One row
+Marker**, **Show Original Tracking**, **Snapshot**, **Fit All Videos** and **Fullscreen**, all glyph buttons
+except **Show Original Tracking**; hover for the name and shortcut. One row
 under the plots holds **Live**, **Time span** and its slider, **Fit Y**, row density (Compact,
 Comfortable or Large), and **Reset Plots**. Data Streams has a **Hide** control above its lanes.
 Its lane labels shorten when space is tight; hover to read the full name. Compact density shows
@@ -257,7 +257,7 @@ Use **Edit → Fix Identities…** when the tracker starts following the wrong a
 
 ![The Fix Identities panel with a crossing selected](../_static/screenshots/identity_crossing.png)
 
-Drag a line after a crossing into the other lane to accept a swap from that frame onward. The drag snaps to the evidence node. Drag an accepted crossing back to remove that event, or use **Edit → Undo**. The viewer reads an edited cache generation after acceptance; the original pose file and imported cache stay untouched. **View → Play original** temporarily shows the model's imported prediction for comparison; turn it off to return to the edited view. This view choice is saved with the session. Accepted swaps also appear in the Data Streams identity lane and the Changes tab.
+Drag a line after a crossing into the other lane to accept a swap from that frame onward. The drag snaps to the evidence node. Drag an accepted crossing back to remove that event, or use **Edit → Undo**. The viewer reads an edited cache generation after acceptance; the original pose file and imported cache stay untouched. **View → Show Original Tracking** temporarily shows the model's imported prediction for comparison; turn it off to return to the edited view. This view choice is saved with the session. Accepted swaps also appear in the Data Streams identity lane and the Changes tab.
 
 ### Reviewing and exporting what you changed
 

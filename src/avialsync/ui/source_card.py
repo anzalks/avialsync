@@ -65,6 +65,9 @@ def kind_glyph(name: str, accessible_name: str, parent: QWidget | None = None) -
     glyph.setFocusPolicy(Qt.FocusPolicy.NoFocus)
     glyph.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
     glyph.setIconSize(QSize(16, 16))
+    # Fixed, like the issues button: an unsized push button took the platform's
+    # minimum button width on macOS and left the file name "ca…p4".
+    glyph.setFixedSize(24, 24)
     glyph.setAccessibleName(accessible_name)
     glyph.setToolTip(accessible_name)
     set_svg_icon(glyph, name)
@@ -82,6 +85,7 @@ def overflow_button(
     well as their label, so they are told apart by shape and place, not hue.
     """
     button = MenuGlyphButton("more", accessible_name, parent)
+    button.setFixedSize(24, 24)
     menu = button.menu()
     ordinary = [item for item in items if not item[2]]
     destructive = [item for item in items if item[2]]
