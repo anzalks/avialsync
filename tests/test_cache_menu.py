@@ -265,13 +265,18 @@ def test_unsaved_marking_belongs_to_one_restore_only() -> None:
     assert not runtime.take_dirty_after_restore()
 
 
-def test_the_status_bar_shows_the_cache_size_beside_delete_all(
+def test_the_status_bar_shows_the_cache_size_beside_its_commands(
     window: MainWindow, qtbot, tmp_path: Path
 ) -> None:
-    """Measured once shown, and again after a job that may have changed it."""
+    """Measured once shown, and again after a job that may have changed it.
+
+    The commands are the File menu's own actions behind a ``⋯``, not a Delete
+    All Cache button one stray click from closing the session (D-244).
+    """
     indicator = window.cache_indicator
-    assert indicator.clear_button.action is _action(window, "Delete All Cache")
-    assert indicator.clear_button.text() == "Delete All Cache", "one name, the command's"
+    commands = indicator.commands_button.menu().actions()
+    assert _action(window, "Delete All Cache") in commands, "one name, the command's"
+    assert indicator.commands_button.text() == ""
 
     window.show()
     qtbot.waitUntil(lambda: indicator.label.text() != "Cache: …", timeout=10_000)
@@ -318,8 +323,7 @@ def test_delete_all_comes_back_after_a_job_too_brief_to_be_shown(window: MainWin
     window._job_manager.start("brief", _BriefWorker(release), announce_after_s=60.0)
     window._refresh_action_availability()  # as an import's end would
     assert not action.isEnabled()
-    assert not window.cache_indicator.clear_button.isEnabled()
+    assert action in window.cache_indicator.commands_button.menu().actions()
 
     release.set()
     qtbot.waitUntil(action.isEnabled, timeout=5000)
-    assert window.cache_indicator.clear_button.isEnabled()

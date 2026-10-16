@@ -124,7 +124,7 @@ SETTINGS: tuple[Setting, ...] = (
             help_text="Folder last chosen for this kind of export.",
             visible=False,
         )
-        for kind in ("changes", "snapshot", "clip", "stimulus-grid", "data-slice")
+        for kind in ("changes", "snapshot", "clip", "stimulus-grid", "data-slice", "proxy")
     ),
     # ── Appearance ───────────────────────────────────────────────────
     Setting(

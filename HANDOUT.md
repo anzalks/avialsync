@@ -819,7 +819,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `loaders/neo_in_place.py` | Open Ephys (neo raw buffers) offered in place; clock checked against every sample number (D-216) | `in_place_channels()` |
 | `loaders/nwb_in_place.py` | Contiguous, uncompressed, local NWB series offered in place (D-216) | `in_place_series()` |
 | `engine/cache_size_worker.py` | Off-thread measurement of the cache folder for the status-bar readout (D-215) | `CacheSizeWorker` |
-| `ui/feedback/cache_indicator.py` | Status-bar `Cache: 1.2 GB` beside the Delete All Cache action; re-measured when every other job has finished, never polled (D-215) | `CacheIndicator`, `format_size()`, `is_measuring()` |
+| `ui/feedback/cache_indicator.py` | Status-bar `Cache: 1.2 GB` beside a `⋯` holding the File → Cache actions (no one-click delete, D-244); re-measured when every other job has finished, never polled (D-215) | `CacheIndicator`, `format_size()`, `is_measuring()` |
 | `engine/export_worker.py` | Off-thread region stats / data slice / clip / snapshot | `RegionStatsWorker`, `DataExportWorker`, `SnapshotWorker` (takes a `SnapshotFigure`), `ReaderReference` |
 | `engine/video_worker.py` | Off-thread video probe before native pane creation | `VideoOpenWorker` |
 | `loaders/aol_session_loader.py` | AOL MP4/AVI folder detection + manifest (pose, encoder, per-frame times). Uses exact stems and shared median camera start; cross-checks the timing report without blocking partial loads (D-202) | `is_aol_session()`, `build_manifest()`, `AOLManifest`, `AOL2DTrack` |

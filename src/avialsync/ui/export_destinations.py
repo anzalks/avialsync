@@ -58,3 +58,17 @@ def choose_folder(parent: QWidget, kind: str, title: str, default: Path) -> Path
     folder = Path(chosen)
     remember(kind, folder / "export")
     return folder
+
+
+def choose_proxy(parent: QWidget, video_path: Path) -> Path | None:
+    """Ask where a scrubbing proxy of *video_path* goes; None when cancelled.
+
+    Asked, not assumed: the proxy used to be written into the recording's own
+    folder unannounced (D-244). Beside the video is only the first suggestion.
+    """
+    from avialsync.engine.proxy import proxy_path_for
+    from avialsync.ui.i18n import tr
+
+    return choose_file(
+        parent, "proxy", tr("Save Proxy As"), proxy_path_for(video_path), tr("MP4 video (*.mp4)")
+    )

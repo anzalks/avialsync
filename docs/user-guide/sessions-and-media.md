@@ -43,8 +43,8 @@ themselves, so the cache holds little more than zoomed-out views and frame lists
 - **Delete All Cache** deletes the cached imports of every recording you have opened.
 - **Show Cache Folder** opens the folder in your file manager.
 
-The status bar always shows how much disk the cache holds, as **Cache: 1.2 GB**, with
-**Delete All Cache** beside it. The figure is measured again whenever background work such as an
+The status bar always shows how much disk the cache holds, as **Cache: 1.2 GB**, with a **⋯**
+beside it holding the same File → Cache commands, so no single click there deletes anything. The figure is measured again whenever background work such as an
 import or a deletion finishes.
 
 ![The File → Cache submenu with its three commands](../_static/screenshots/feature_menu_file_cache.png)

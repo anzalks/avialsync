@@ -1,8 +1,10 @@
-"""The status bar's cache readout: how much disk the cache holds, and Delete All Cache.
+"""The status bar's cache readout: how much disk the cache holds, and its commands.
 
 The cache was visible only as File → Cache, which says nothing about its size
-until something is deleted. The readout keeps the size in view, beside the
-command that frees it.
+until something is deleted. The readout keeps the size in view, beside a ``⋯``
+holding the File → Cache commands themselves. It used to be a Delete All Cache
+button beside Tasks: one stray click closed the session and queued a re-import
+of everything, with nothing in between (D-244).
 
 Measured on a background job, because a large cache is thousands of files. It
 is measured once the window first shows, and again whenever every other
@@ -18,14 +20,14 @@ from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QAction, QShowEvent
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QMenu, QWidget
 
 from avialsync.core.cache import cache_root
 from avialsync.engine.cache_size_worker import CacheSizeWorker
-from avialsync.ui.action_button import ActionButton
 from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import on_ui_thread
+from avialsync.ui.menu_button import MenuGlyphButton
 
 if TYPE_CHECKING:
     from avialsync.ui.job_manager import JobManager
@@ -57,7 +59,7 @@ def is_measuring(job: Any) -> bool:
 
 
 class CacheIndicator(QWidget):
-    """``Cache: 1.2 GB`` and the Delete All Cache button, in the status bar."""
+    """``Cache: 1.2 GB`` and the cache commands, in the status bar."""
 
     def __init__(
         self,
@@ -78,10 +80,12 @@ class CacheIndicator(QWidget):
         self.label.setAccessibleName(tr("Cache size"))
         self.label.setToolTip(self._where())
         layout.addWidget(self.label)
-        # Hidden until the File menu's own command is adopted: the button's
-        # name, enablement and reason come from that action (rule 15).
-        self.clear_button = ActionButton(self)
-        layout.addWidget(self.clear_button)
+        # The File menu's own actions, not copies: names, enablement and
+        # reasons come from them (rule 15). Empty until they are adopted.
+        self.commands_button = MenuGlyphButton("more", tr("Cache commands"), self)
+        self.commands_button.setFixedSize(24, 24)
+        self.commands_button.hide()
+        layout.addWidget(self.commands_button)
         self._settle = QTimer(self)
         self._settle.setSingleShot(True)
         self._settle.setInterval(_SETTLE_MS)
@@ -90,8 +94,12 @@ class CacheIndicator(QWidget):
         jobs.membership_changed.connect(self._on_membership_changed)
 
     def set_clear_action(self, action: QAction) -> None:
-        """Offer *action* (File → Cache → Delete All Cache) beside the size."""
-        self.clear_button.set_action(action)
+        """Offer the File → Cache commands *action* belongs to beside the size."""
+        menu = next((m for m in action.associatedObjects() if isinstance(m, QMenu)), None)
+        actions = [a for a in (menu.actions() if menu else [action]) if not a.isSeparator()]
+        for command in actions:
+            self.commands_button.menu().addAction(command)
+        self.commands_button.show()
 
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802
         """Measure when first on screen, not at construction."""

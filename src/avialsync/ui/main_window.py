@@ -2628,6 +2628,7 @@ class MainWindow(QMainWindow):
             return
 
         from avialsync.engine.proxy import ProxyWorker
+        from avialsync.ui import export_destinations
 
         # The selected camera, as a nudge moves it. This was the first camera
         # whatever was selected, so with three loaded only one could be proxied.
@@ -2638,8 +2639,10 @@ class MainWindow(QMainWindow):
             )
             return
         video_path = Path(path)
-
-        self._proxy_worker = ProxyWorker(video_path)
+        chosen = export_destinations.choose_proxy(self, video_path)  # D-244
+        if chosen is None:
+            return
+        self._proxy_worker = ProxyWorker(video_path, chosen)
 
         # Proxy generation is minutes of transcoding. Behind a modal that was
         # minutes of unusable application, for work the user started so they
@@ -2668,7 +2671,12 @@ class MainWindow(QMainWindow):
     def _on_proxy_finished(self, orig: str, proxy: str) -> None:
         self.activity_bar.end()
         self._active_cancel = None
-        self.notifications.show_success(tr("Proxy ready: {name}").format(name=Path(proxy).name))
+        # Offered, not just announced: it used to be left on disk unmentioned.
+        self.notifications.show_success(
+            tr("Proxy ready: {name} (720p 8-bit, for scrubbing)").format(name=Path(proxy).name),
+            action_label=tr("Open Proxy"),
+            on_action=lambda: self._load_video(Path(proxy)),
+        )
 
     def _on_proxy_error(self, err: str) -> None:
         self.activity_bar.end()
@@ -2859,12 +2867,8 @@ class MainWindow(QMainWindow):
 
         restore_adjustment(self, path)
         drops = sum(len(getattr(train, "drops", ())) for train in results)
-        summary = (
-            tr("1 trigger train from {name}").format(name=Path(path).name)
-            if len(results) == 1
-            else tr("{count} trigger trains from {name}").format(
-                count=len(results), name=Path(path).name
-            )
+        summary = tr("Trigger trains from {name}: {count}").format(
+            count=len(results), name=Path(path).name
         )
         if drops:
             # Said on arrival rather than discovered later: a train that skips

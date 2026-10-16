@@ -13,10 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 def proxy_path_for(video_path: Path) -> Path:
-    """Return where the proxy for *video_path* is written: beside it, as a video.
+    """Return where a proxy for *video_path* is offered: beside it, as a video.
 
     Not in the cache, although it is derived: a proxy is a file the user asked
     for and opens as a recording of its own, so it has to be where they look.
+    It is only the *suggestion* in a Save dialog: nothing is written into a
+    recording's folder without the user choosing that place (D-244).
     """
     return video_path.parent / f"{video_path.stem}_proxy.mp4"
 
@@ -45,9 +47,10 @@ class ProxyWorker(QObject):
     finished = Signal(str, str)  # original_path, proxy_path
     error = Signal(str)
 
-    def __init__(self, video_path: Path) -> None:
+    def __init__(self, video_path: Path, destination: Path | None = None) -> None:
         super().__init__()
         self._video_path = video_path
+        self._destination = destination
         self._cancel = False
 
     def cancel(self) -> None:
@@ -55,7 +58,7 @@ class ProxyWorker(QObject):
 
     def run(self) -> None:
         src = self._video_path
-        dst = proxy_path_for(src)
+        dst = self._destination or proxy_path_for(src)
         tmp = dst.with_suffix(".tmp.mp4")
 
         try:

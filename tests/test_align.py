@@ -504,8 +504,15 @@ def test_a_proxy_is_made_of_the_selected_camera(window: MainWindow, monkeypatch)
     _fake_video(window, "/tmp/cam1.mp4")
     second = _fake_video(window, "/tmp/cam2.mp4")
     made: list[str] = []
-    monkeypatch.setattr(proxy.ProxyWorker, "__init__", lambda self, path: made.append(str(path)))
+    monkeypatch.setattr(
+        proxy.ProxyWorker, "__init__", lambda self, path, *_rest: made.append(str(path))
+    )
     monkeypatch.setattr(window, "_run_job", lambda *_args, **_kwargs: None)
+    from PySide6.QtWidgets import QFileDialog
+
+    monkeypatch.setattr(
+        QFileDialog, "getSaveFileName", lambda *_a, **_k: ("/tmp/out_proxy.mp4", "")
+    )
 
     window._select_video(second)
     window._generate_proxy()
@@ -520,9 +527,33 @@ def test_a_proxy_of_several_unselected_cameras_asks_which(window: MainWindow, mo
     _fake_video(window, "/tmp/cam1.mp4")
     _fake_video(window, "/tmp/cam2.mp4")
     made: list[str] = []
-    monkeypatch.setattr(proxy.ProxyWorker, "__init__", lambda self, path: made.append(str(path)))
+    monkeypatch.setattr(
+        proxy.ProxyWorker, "__init__", lambda self, path, *_rest: made.append(str(path))
+    )
 
     window._generate_proxy()
 
     assert made == []
     assert "click the camera" in window.notifications.message.lower()
+
+
+def test_a_proxy_is_written_only_where_the_user_chose(window: MainWindow, monkeypatch) -> None:
+    """Nothing is written beside a recording without the user choosing that place."""
+    from PySide6.QtWidgets import QFileDialog
+
+    from avialsync.engine import proxy
+
+    cam = _fake_video(window, "/tmp/cam1.mp4")
+    made: list[tuple[str, object]] = []
+    monkeypatch.setattr(
+        proxy.ProxyWorker,
+        "__init__",
+        lambda self, path, destination=None: made.append((str(path), destination)),
+    )
+    monkeypatch.setattr(window, "_run_job", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *_a, **_k: ("", ""))
+    window._select_video(cam)
+
+    window._generate_proxy()
+
+    assert made == [], "cancelling the Save dialog writes nothing"
