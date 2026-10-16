@@ -308,13 +308,48 @@ def test_frame_step_does_not_skip_reference_frames_for_mixed_rate_video(player_w
     reference.frame_step_master_target.return_value = 0.025
     other_camera = MagicMock()
     other_camera.has_footage_at_master.return_value = True
+    other_camera.frame_step_master_target.return_value = 0.040
     player.video_grid.panes = [reference, other_camera]
     player.seek = MagicMock()
 
     player.step_frame(1)
 
     player.seek.assert_called_once_with(0.025, exact=True)
-    other_camera.frame_step_master_target.assert_not_called()
+
+
+def test_frame_step_lands_on_the_nearest_frame_of_any_camera(player_with_mocks):
+    """It followed the first pane, so a 230 fps camera second skipped ~7 frames."""
+    player, _clock = player_with_mocks
+    slow = MagicMock()
+    slow.has_footage_at_master.return_value = True
+    slow.frame_step_master_target.return_value = 1 / 30
+    fast = MagicMock()
+    fast.has_footage_at_master.return_value = True
+    fast.frame_step_master_target.return_value = 1 / 230
+    player.video_grid.panes = [slow, fast]
+    player.seek = MagicMock()
+
+    player.step_frame(1)
+
+    player.seek.assert_called_once_with(pytest.approx(1 / 230), exact=True)
+
+
+def test_frame_step_follows_the_camera_the_user_chose(player_with_mocks):
+    player, _clock = player_with_mocks
+    slow = MagicMock()
+    slow.has_footage_at_master.return_value = True
+    slow.frame_step_master_target.return_value = 1 / 30
+    fast = MagicMock()
+    fast.has_footage_at_master.return_value = True
+    fast.frame_step_master_target.return_value = 1 / 230
+    player.video_grid.panes = [slow, fast]
+    player.step_reference = lambda: slow
+    player.seek = MagicMock()
+
+    player.step_frame(1)
+
+    player.seek.assert_called_once_with(pytest.approx(1 / 30), exact=True)
+    fast.frame_step_master_target.assert_not_called()
 
 
 def test_frame_step_does_nothing_without_a_timestamp_table(player_with_mocks):

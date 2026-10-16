@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -83,6 +84,8 @@ class Player(QObject):
         self.tracking_3d_pane = tracking_3d_pane
         self.imaging_pane = imaging_pane
         self._readout_panel: ReadoutPanel | None = None
+        #: The camera a frame step follows when the user has chosen one.
+        self.step_reference: Callable[[], VideoPane | None] | None = None
         self.seeker = SeekGroup(self.video_grid.panes)
 
         self._timer = QTimer(self)
@@ -237,10 +240,31 @@ class Player(QObject):
             if target is not None:
                 self.seek(target, exact=True)
             return
-        target = panes[0].frame_step_master_target(self.clock.state.t, direction)
+        target = self._frame_step_target(panes, direction)
         if target is None:
             return
         self.seek(target, exact=True)
+
+    def _frame_step_target(self, panes: list[VideoPane], direction: int) -> float | None:
+        """Where one frame step goes: the chosen camera's next frame, else the nearest.
+
+        It followed the first pane, so on a 30 fps + 230 fps rig every step
+        skipped about seven frames of the fast camera. A camera the user chose
+        (``step_reference``) decides; with none chosen, the step lands on the
+        nearest next frame of any camera, so no camera's frame is skipped.
+        """
+        t = self.clock.state.t
+        chosen = self.step_reference() if self.step_reference is not None else None
+        if chosen is not None and any(chosen is pane for pane in panes):
+            return chosen.frame_step_master_target(t, direction)
+        targets = [
+            target
+            for target in (pane.frame_step_master_target(t, direction) for pane in panes)
+            if target is not None and (target - t) * direction > 0
+        ]
+        if not targets:
+            return None
+        return min(targets, key=lambda target: abs(target - t))
 
     def _data_step_target(self, direction: int) -> float | None:
         """Where a frame step goes with no video: the next imaging frame, else sample.

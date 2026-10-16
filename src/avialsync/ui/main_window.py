@@ -143,6 +143,7 @@ from avialsync.ui.wheel_tab import WheelTab
 if TYPE_CHECKING:
     from avialsync.core.registry import LoaderRegistry
     from avialsync.ui.sync_wizard import SyncWizard
+    from avialsync.ui.video_pane import VideoPane
 
 logger = logging.getLogger(__name__)
 
@@ -496,6 +497,7 @@ class MainWindow(QMainWindow):
             tracking_3d_pane=self.tracking_3d_pane,
             imaging_pane=self.imaging_pane,
         )
+        self.player.step_reference = self._step_reference_pane
         gap_view.install(self)  # D-218
 
         # Annotations
@@ -3246,6 +3248,14 @@ class MainWindow(QMainWindow):
             self._selected_video_path = path
             # The panel shows this camera's levels, not the last camera's.
             video_levels.show_focused(self)
+
+    def _step_reference_pane(self) -> "VideoPane | None":
+        """The camera frame steps follow: the focused one, when there is one."""
+        path = self._focused_video_path()
+        from avialsync.ui.video_pane import VideoPane
+
+        pane = self._pane_for(path) if path is not None else None
+        return pane if isinstance(pane, VideoPane) else None
 
     def _pane_for(self, path: str) -> object | None:
         try:
