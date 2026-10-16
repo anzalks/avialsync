@@ -35,7 +35,19 @@ LEVEL = "level"
 TIMESTAMPS = "timestamps"
 
 #: Column names that are a time axis, in the spellings labs actually use.
-_TIME_NAMES = ("time", "t", "timestamp", "timestamps", "time_s", "seconds", "sec")
+_TIME_NAMES = (
+    "time",
+    "t",
+    "timestamp",
+    "timestamps",
+    "time_s",
+    "time_ms",
+    "time_us",
+    "timestamp_ms",
+    "timestamp_us",
+    "seconds",
+    "sec",
+)
 
 #: Column names that look like a logical line worth offering as a train.
 _TRIGGER_HINTS = ("ttl", "trigger", "strobe", "sync", "pulse", "exposure", "frame", "event")
@@ -87,6 +99,8 @@ class TriggerCSVSource(TriggerSource):
         self._path: Path | None = None
         self._config: dict[str, Any] = {}
         self._frame: pl.DataFrame | None = None
+        self._resolutions: dict[str, float] = {}
+        self._incomplete: dict[str, int] = {}
 
     # ── discovery ────────────────────────────────────────────────────
 
@@ -134,7 +148,23 @@ class TriggerCSVSource(TriggerSource):
             for index, name in enumerate(lowered)
             if name not in _TIME_NAMES and any(hint in name for hint in _TRIGGER_HINTS)
         ]
-        return [{"time_column": time_column, "trains": trains}] if trains else []
+        if not trains and time_column and len(header) == 1:
+            trains = [
+                {
+                    "id": "events",
+                    "column": time_column,
+                    "kind": str(TriggerKind.SPARSE_EVENTS),
+                    "mode": TIMESTAMPS,
+                }
+            ]
+        unit = (
+            "ms"
+            if time_column.lower().endswith("_ms")
+            else "us"
+            if time_column.lower().endswith("_us")
+            else "s"
+        )
+        return [{"time_column": time_column, "time_unit": unit, "trains": trains}] if trains else []
 
     # ── the contract ─────────────────────────────────────────────────
 
@@ -152,6 +182,8 @@ class TriggerCSVSource(TriggerSource):
         self._path = path
         self._config = dict(config)
         self._frame = frame
+        self._resolutions.clear()
+        self._incomplete.clear()
         self._validate()
 
     def trains(self) -> list[str]:
@@ -164,9 +196,15 @@ class TriggerCSVSource(TriggerSource):
         train = self._train(train_id)
         column = str(train["column"])
         values = self._column(column)
+        unit = str(self._config.get("time_unit", "s"))
+        if unit not in {"s", "ms", "us"}:
+            raise FileUnreadableError(
+                "Choose seconds, milliseconds, or microseconds for trigger timestamps."
+            )
+        scale = {"s": 1.0, "ms": 0.001, "us": 0.000001}[unit]
 
         if str(train.get("mode", LEVEL)) == TIMESTAMPS:
-            times = np.asarray(values, dtype=np.float64)
+            times = np.asarray(values, dtype=np.float64) * scale
             times = times[np.isfinite(times)]
             if len(times) and np.any(np.diff(times) <= 0):
                 times = np.unique(times)
@@ -175,7 +213,7 @@ class TriggerCSVSource(TriggerSource):
             return times, None
 
         time_column = str(self._config.get("time_column", ""))
-        times = np.asarray(self._column(time_column), dtype=np.float64)
+        times = np.asarray(self._column(time_column), dtype=np.float64) * scale
         pulses = extract_pulses(
             [(times, np.asarray(values, dtype=np.float64))],
             source_id=f"{self._name()}:{train_id}",
@@ -183,7 +221,19 @@ class TriggerCSVSource(TriggerSource):
             threshold=float(train.get("threshold", 0.5)),
             min_interval=float(train.get("min_interval", 0.0)),
         )
+        intervals = np.diff(times)
+        intervals = intervals[np.isfinite(intervals) & (intervals > 0.0)]
+        self._resolutions[train_id] = float(intervals.max()) if len(intervals) else 0.0
+        self._incomplete[train_id] = pulses.incomplete_count
         return pulses.times, pulses.durations
+
+    def time_resolution(self, train_id: str) -> float:
+        """Return the observed timestamp quantization for a sampled train, in seconds."""
+        return self._resolutions.get(train_id, 0.0)
+
+    def incomplete_count(self, train_id: str) -> int:
+        """Return sampled pulses excluded because an edge crossed unavailable data."""
+        return self._incomplete.get(train_id, 0)
 
     def target_hint(self, train_id: str) -> str:
         return str(self._train(train_id).get("target", ""))

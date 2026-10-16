@@ -40,6 +40,7 @@ _KNOWN_WRITERS: dict[str, str] = {
     "core/session.py:save": "Writes publish's temporary JSON and NPZ paths.",
     "engine/export.py:export_data_slice_csv": "Writes publish's temporary CSV path.",
     "engine/export.py:export_data_slice_parquet": "Writes publish's temporary Parquet path.",
+    "engine/sync_report.py:run": "Writes only publish's temporary alignment-report JSON path.",
     "ui/annotations.py:write_marker_rows": "Writes publish's temporary CSV path.",
     "engine/snapshot.py:save_figure": "Saves publish's temporary PNG path.",
     "engine/changes_export_worker.py:_save_png": "Saves publish's temporary frame PNG path.",

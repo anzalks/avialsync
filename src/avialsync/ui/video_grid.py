@@ -289,9 +289,15 @@ class VideoGrid(GridOverlayMixin, QWidget):
         """Update the time offset for a specific video."""
         try:
             idx = self._paths.index(path)
-            self.panes[idx].time_map.offset = offset
+            mapping = self.panes[idx].time_map
+            mapping.adjust_mapping(offset, mapping.drift_ms_per_hour)
         except ValueError:
             pass
+
+    def adjust_mapping(self, path: str, offset: float, drift_ms_per_hour: float) -> None:
+        """Adjust manual values without replacing accepted per-frame evidence."""
+        if path in self._paths:
+            self.panes[self._paths.index(path)].time_map.adjust_mapping(offset, drift_ms_per_hour)
 
     def set_sync_mapping(
         self,

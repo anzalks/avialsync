@@ -309,12 +309,12 @@ def create_video_pane(
     if residual or effective_drift:
         window.sidebar.set_video_mapping(original_path, residual, effective_drift)
     window._recorded_mappings[original_path] = (residual, effective_drift)
-    # The rate this recording actually ran at, not the rate its container
-    # claims. They differ on exactly the files where it matters: the container
-    # declares one constant rate whatever the camera achieved, and a
-    # frame-indexed tracking file placed against that claim drifts by the
-    # difference, accumulating to the end of the recording. `nominal_fps` stays
-    # available on the metadata for readouts that mean the claim.
+    from avialsync.ui.sync_lifecycle import refresh_coverage, restore_adjustment
+
+    restore_adjustment(window, original_path)
+    refresh_coverage(window, original_path)
+    # Frame-indexed tracking must use the measured rate; the container's
+    # nominal rate can accumulate drift over the recording.
     window._video_fps[original_path] = video_metadata.measured_fps or loader.fps()
     frame_times = loader.frame_times()
     pane.set_frame_times(frame_times)

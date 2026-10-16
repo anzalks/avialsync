@@ -75,6 +75,10 @@ class FakeTarget:
     def source_mapping(self, source_id: str) -> tuple[float, float]:
         return self.mappings.get(source_id, (0.0, 0.0))
 
+    def restore_alignment_records(self, records: tuple[Any, ...]) -> None:
+        for record in records:
+            self.sync_evidence[record.target_id] = record
+
     def add_marker(self, marker: MarkerRecord) -> None:
         self.markers.append(marker)
 

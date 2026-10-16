@@ -142,6 +142,7 @@ from avialsync.ui.wheel_tab import WheelTab
 
 if TYPE_CHECKING:
     from avialsync.core.registry import LoaderRegistry
+    from avialsync.ui.sync_wizard import SyncWizard
 
 logger = logging.getLogger(__name__)
 
@@ -368,7 +369,7 @@ class MainWindow(QMainWindow):
         self._trigger_configs: dict[str, dict[str, Any]] = {}
         #: The alignment wizard while it is open. Non-modal, so the window has
         #: to own it -- see `_open_sync_wizard`.
-        self._sync_wizard: QDialog | None = None
+        self._sync_wizard: SyncWizard | None = None
         self._pending_exact_mappings: dict[str, tuple[np.ndarray, np.ndarray]] = {}
         self._overview_gaps: dict[float, str] = {}
         # DLC/frame-indexed sources loaded without a video present (path, provisional_fps)
@@ -1520,6 +1521,21 @@ class MainWindow(QMainWindow):
 
         fps = self._video_fps.get(path, 0.0)
         step = (1.0 / fps) if fps > 0 else 0.001
+        frames = self._video_frame_times.get(path)
+        if frames is not None and len(frames) > 1:
+            from avialsync.core.video_timing import frame_index_at
+            from avialsync.ui.sync_lifecycle import source_mapping
+
+            mapping = source_mapping(self, path)
+            if mapping is not None:
+                index = frame_index_at(frames, mapping.to_source(self.clock.state.t))
+                other = max(0, min(index + direction, len(frames) - 1))
+                if other == index:
+                    other = max(0, min(index - direction, len(frames) - 1))
+                step = abs(
+                    mapping.to_master(float(frames[other]))
+                    - mapping.to_master(float(frames[index]))
+                ) * (1.0 + mapping.drift_ms_per_hour / 3_600_000.0)
         offset, drift = self._recorded_mappings.get(path, (0.0, 0.0))
         new_offset = offset + direction * step
 
@@ -1532,43 +1548,21 @@ class MainWindow(QMainWindow):
     def _supersede_alignment(
         self, source_id: str, before: tuple[float, float], after: tuple[float, float]
     ) -> None:
-        """Mark accepted evidence as no longer describing this source.
+        """Annotate changed evidence and every dependent clock for review."""
+        from avialsync.ui.sync_lifecycle import invalidate
 
-        A fit accepted at two milliseconds and then nudged five frames is no
-        longer that fit, but nothing used to connect the two: the session kept
-        reporting the residual of a mapping it was no longer using. The record
-        is annotated rather than dropped, so the user can still see what the
-        alignment was and that it has been moved off it by hand.
-        """
-        moved = after[0] - before[0]
-        for index, entry in enumerate(self._sync_provenance):
-            if entry.target_id != source_id or entry.superseded_by:
-                continue
-            self._sync_provenance[index] = dataclasses.replace(
-                entry,
-                superseded_by=(
-                    f"moved {moved:+.4f} s by hand after it was accepted "
-                    f"({self._describe_provenance(entry)})"
-                ),
-            )
-            self.refresh_alignment_badges()
+        invalidate(self, source_id, after[0] - before[0])
 
     def accepted_alignment_records(self) -> tuple[SyncProvenance, ...]:
         """Snapshot accepted evidence without copying immutable mapping arrays."""
         return tuple(dataclasses.replace(entry) for entry in self._sync_provenance)
 
+    def has_alignment_records(self) -> bool:
+        """Check report availability without preparing export snapshots."""
+        return bool(self._sync_provenance)
+
     def alignment_confidence(self, path: str) -> str:
-        """One line describing how this source is aligned, or that it is not.
-
-        Derived from the accepted provenance, which is the record of what was
-        actually agreed to. Event-driven: never sampled on the clock tick.
-
-        Every method is described in the terms it supports, and no others.
-        This used to print `max_residual` as a "±" for every record alike,
-        which turned a hand-typed offset into "± 0.0 ms from 3 events" -- the
-        most confident thing the sentence could say, about the one kind of
-        mapping that measured nothing.
-        """
+        """Describe current accepted evidence without overstating its method."""
         for entry in self._sync_provenance:
             if entry.target_id != path:
                 continue
@@ -1596,6 +1590,11 @@ class MainWindow(QMainWindow):
                 path, summary, accepted=self._has_live_alignment(path)
             )
 
+        from avialsync.ui.sync_status import refresh_cards
+
+        refresh_cards(self)
+        self._refresh_action_availability()
+
     def _has_live_alignment(self, path: str) -> bool:
         """Whether accepted evidence still describes this source.
 
@@ -1610,33 +1609,9 @@ class MainWindow(QMainWindow):
     @staticmethod
     def _describe_provenance(entry: SyncProvenance) -> str:
         """Render a persisted record through the same words a live fit uses."""
-        from avialsync.core.sync import AlignmentMethod, SyncFit
+        from avialsync.ui.sync_status import describe_provenance
 
-        return SyncFit(
-            offset=entry.offset,
-            drift_ms_per_hour=entry.drift_ms_per_hour,
-            rms_residual=entry.rms_residual,
-            max_residual=entry.max_residual,
-            matched_count=entry.matched_count,
-            rejected_count=entry.rejected_count,
-            reference_count=entry.reference_count,
-            target_count=entry.target_count,
-            offset_stderr=entry.offset_stderr,
-            ambiguity_margin=entry.ambiguity_margin,
-            method=AlignmentMethod(entry.method),
-            restricted_to=(
-                (entry.restricted_to[0], entry.restricted_to[1])
-                if len(entry.restricted_to) == 2
-                else None
-            ),
-            precision_requirement=entry.precision_requirement,
-            precision_verified=entry.precision_verified,
-            coverage_fraction=entry.coverage_fraction,
-            largest_unsupported_interval=entry.largest_unsupported_interval,
-            extrapolated_before=entry.extrapolated_before,
-            extrapolated_after=entry.extrapolated_after,
-            excluded_incomplete_count=entry.excluded_incomplete_count,
-        ).describe()
+        return describe_provenance(entry)
 
     # ── Overlays ─────────────────────────────────────────────
 
@@ -2289,8 +2264,13 @@ class MainWindow(QMainWindow):
         after = (offset, drift)
         if before == after:
             return
+        prior_records = tuple(self._sync_provenance)
         self._recorded_mappings[source_id] = after
         self._supersede_alignment(source_id, before, after)
+        changed = {entry.target_id: entry for entry in self._sync_provenance}
+        before_evidence = tuple(
+            entry for entry in prior_records if changed.get(entry.target_id) is not entry
+        )
         if self._recording_suspended:
             return
         self._record(
@@ -2299,6 +2279,7 @@ class MainWindow(QMainWindow):
                 before=before,
                 after=after,
                 display_name=Path(source_id).name,
+                before_evidence=before_evidence,
             )
         )
 
@@ -2776,6 +2757,10 @@ class MainWindow(QMainWindow):
         # notifies no subscriber and left the pane showing that stale frame
         # until the user happened to scrub -- the change looked like it had not
         # taken.
+        from avialsync.ui.sync_lifecycle import refresh_coverage
+
+        refresh_coverage(self, path)
+        tracking_timing.calibrate_overlay_timing(self, path)
         self.player.seek(self.clock.state.t, exact=True)
 
     # ── Trigger evidence (WP-D) ──────────────────────────────────────
@@ -2868,6 +2853,9 @@ class MainWindow(QMainWindow):
         if not isinstance(results, list):
             return
         self._trigger_trains[path] = list(results)
+        from avialsync.ui.sync_lifecycle import restore_adjustment
+
+        restore_adjustment(self, path)
         drops = sum(len(getattr(train, "drops", ())) for train in results)
         summary = tr("{count} trigger train(s) from {name}").format(
             count=len(results), name=Path(path).name
@@ -2881,6 +2869,8 @@ class MainWindow(QMainWindow):
             )
         self.notifications.show_success(summary)
         self._refresh_action_availability()
+        if self._sync_wizard is not None:
+            self._sync_wizard.invalidate_sources()
 
     def _source_coverage(self) -> list[SourceCoverage]:
         """Every loaded source's span, and how much of it evidence reaches.
@@ -2888,29 +2878,9 @@ class MainWindow(QMainWindow):
         Answering "do these recordings overlap at all" before anything is
         fitted, which no residual can answer afterwards.
         """
-        coverage: list[SourceCoverage] = []
-        for path, bounds in self._video_source_bounds.items():
-            offset, drift_ms_per_hour = self._video_time_mappings.get(path, (0.0, 0.0))
-            mapping = TimeMap(offset, drift_ms_per_hour)
-            coverage.append(
-                SourceCoverage(
-                    label=Path(path).name,
-                    data=(mapping.to_master(bounds[0]), mapping.to_master(bounds[1])),
-                    evidence=self._evidence_span(path),
-                )
-            )
-        for path, cache_dir in self._sensor_cache_dirs.items():
-            span = self.plot_pane.source_bounds(cache_dir)
-            if span is None:
-                continue
-            coverage.append(
-                SourceCoverage(
-                    label=Path(path).name,
-                    data=span,
-                    evidence=self._evidence_span(path),
-                )
-            )
-        return coverage
+        from avialsync.ui.sync_lifecycle import coverage_sources
+
+        return coverage_sources(self)
 
     def _evidence_span(self, path: str) -> tuple[float, float] | None:
         """First and last accepted sync point for *path*, or None.
@@ -2941,9 +2911,13 @@ class MainWindow(QMainWindow):
             return  # `_on_video_offset_changed` already handled the position.
         self._record_mapping_change(path, offset, drift)
         effective = self.effective_offset(path, offset)
-        self.video_grid.set_sync_mapping(path, effective, drift, None, None)
+        self.video_grid.adjust_mapping(path, effective, drift)
         if path in self._video_source_bounds:
             self._set_video_coverage(path, self._video_source_bounds[path], effective, drift)
+        from avialsync.ui.sync_lifecycle import refresh_coverage
+
+        refresh_coverage(self, path)
+        tracking_timing.calibrate_overlay_timing(self, path)
         self.player.seek(self.clock.state.t, exact=True)
 
     def restore_trigger_sources(self, entries: list[TriggerEntry]) -> None:
@@ -2964,6 +2938,9 @@ class MainWindow(QMainWindow):
                     np.asarray(provenance.exact_source, dtype=np.float64),
                 )
             self._trigger_time_maps[entry.path] = mapping
+            from avialsync.ui.sync_lifecycle import restore_adjustment
+
+            restore_adjustment(self, entry.path)
             self._recorded_mappings[entry.path] = (entry.offset, entry.drift_ms_per_hour)
             path = Path(entry.path)
             if not path.exists():
@@ -3005,7 +2982,7 @@ class MainWindow(QMainWindow):
         from avialsync.ui.sync_wizard import SyncWizard
 
         references, targets = collect_sync_evidence(self)
-        if not references or not targets:
+        if not targets:
             self.notifications.show_warning(
                 tr(
                     "Load reference evidence -- a TTL-bearing sensor or a declared "
@@ -3014,7 +2991,13 @@ class MainWindow(QMainWindow):
             )
             return
 
-        wizard = SyncWizard(references, targets, self)
+        from avialsync.ui.sync_landmarks import visual_evidence
+
+        if self._sync_wizard is not None:
+            self._sync_wizard.show()
+            self._sync_wizard.raise_()
+            return
+        wizard = SyncWizard(references, targets, self, visual_references=visual_evidence(self))
         wizard.set_coverage(self._source_coverage())
         # Held on the window, not on this frame: a non-modal dialog whose only
         # reference is a local dies the moment the function returns.
@@ -3056,6 +3039,9 @@ class MainWindow(QMainWindow):
         accept_sync_proposal(self, target_path, proposal)
 
     def _on_video_remove_requested(self, path: str) -> None:
+        from avialsync.ui.sync_lifecycle import invalidate
+
+        invalidate(self, path)
         self._record(RemoveSourceCommand(self._source_record(path, "video")))
         # Everything this window knows about the source is dropped before the
         # grid tears the pane down, because `remove_pane` writes the session on
@@ -3079,6 +3065,9 @@ class MainWindow(QMainWindow):
         self._refresh_empty_state()
 
     def _on_sensor_remove_requested(self, path: str) -> None:
+        from avialsync.ui.sync_lifecycle import invalidate
+
+        invalidate(self, path)
         self._record(RemoveSourceCommand(self._source_record(path, "sensor")))
         inspection = self._inspections.get(path)
         if inspection is not None:

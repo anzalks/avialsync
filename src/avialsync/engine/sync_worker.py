@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import threading
-from dataclasses import dataclass
-from pathlib import Path
-from typing import TypeAlias
+from collections.abc import Iterator
 
 import numpy as np
 from PySide6.QtCore import QObject, Signal, Slot
@@ -22,70 +20,19 @@ from avialsync.core.sync import (
 )
 from avialsync.core.timeline import TimeMap
 from avialsync.core.triggers import Reconciliation, TriggerKind, extract_pulses
-
-
-@dataclass(frozen=True)
-class SignalEvidenceSpec:
-    """A cached signal channel from which TTL transitions are extracted."""
-
-    source_id: str
-    cache_dir: Path
-    channel_id: str
-    #: Logical-high level. None means halfway between the channel's lowest and
-    #: highest samples, which is what a sensor target with levels of its own needs.
-    threshold: float | None = 0.5
-    use_all_times: bool = False
-    #: What this train is evidence *of*, which is what lets the ladder choose a
-    #: model. Defaults to the weakest kind: an unlabelled channel is a handful
-    #: of landmarks until someone says otherwise.
-    kind: TriggerKind = TriggerKind.SPARSE_EVENTS
-    clock_id: str = ""
-    accepted_mapping: TimeMap | None = None
-    strobe_for: str = ""
-    display_name: str = ""
-
-
-@dataclass(frozen=True)
-class EventEvidenceSpec:
-    """Native timestamp evidence, such as camera-frame trigger timestamps."""
-
-    source_id: str
-    times: np.ndarray
-    #: As above. Carried on the spec rather than asked for separately, because
-    #: it travels with the evidence and every other route loses it -- which is
-    #: what left `EXACT` and `PIECEWISE` unreachable even though both worked.
-    kind: TriggerKind = TriggerKind.SPARSE_EVENTS
-    clock_id: str = ""
-    accepted_mapping: TimeMap | None = None
-    is_video_time_axis: bool = False
-    strobe_for: str = ""
-    display_name: str = ""
-    #: Pulses in :attr:`times` whose fall was never seen, so whose exposure
-    #: midpoint is unknown. Left out of the fit and counted, as for a channel.
-    incomplete_indices: tuple[int, ...] = ()
-
-
-EvidenceSpec: TypeAlias = SignalEvidenceSpec | EventEvidenceSpec
-
-
-def _midpoint(reader: PyramidReader, spec: SignalEvidenceSpec) -> float:
-    """Halfway between a line's lowest and highest samples.
-
-    Read from the coarsest pyramid level that still holds the extremes, so it
-    costs a bounded read whatever the recording's length.
-    """
-    coverage = reader.coverage()
-    if coverage is None:
-        raise SyncEvidenceError(f"{spec.source_id} has no samples to find pulses in.")
-    _, lows, highs, _ = reader.query(coverage[0], coverage[1], max_points=256)
-    lows = lows[np.isfinite(lows)]
-    highs = highs[np.isfinite(highs)]
-    if not len(lows) or not len(highs) or float(highs.max()) <= float(lows.min()):
-        raise SyncEvidenceError(
-            f"{spec.source_id} never changes level, so it carries no pulses to align. "
-            "Type a threshold, or choose the channel that carries the sync line."
-        )
-    return (float(lows.min()) + float(highs.max())) / 2.0
+from avialsync.engine.sync_evidence import (
+    EventEvidenceSpec as EventEvidenceSpec,
+)
+from avialsync.engine.sync_evidence import (
+    EvidenceSpec as EvidenceSpec,
+)
+from avialsync.engine.sync_evidence import (
+    SignalEvidenceSpec as SignalEvidenceSpec,
+)
+from avialsync.engine.sync_evidence import (
+    _midpoint,
+    fit_landmark_evidence,
+)
 
 
 class SyncWorker(QObject):
@@ -105,6 +52,8 @@ class SyncWorker(QObject):
         tolerance: float | None = None,
         precision_requirement: float = 0.001,
         restrict_to: tuple[float, float] | None = None,
+        landmarks: tuple[tuple[float, float], ...] | None = None,
+        observation_resolution: float = 0.033333,
     ) -> None:
         super().__init__()
         self._reference = reference
@@ -121,6 +70,9 @@ class SyncWorker(QObject):
         #: scientific control, and it changes what the result claims.
         self._restrict_to = restrict_to
         self._reference_incomplete_count = 0
+        self._measurement_resolution = 0.0
+        self._landmarks = landmarks
+        self._observation_resolution = observation_resolution
         self._cancel_requested = threading.Event()
 
     def cancel(self) -> None:
@@ -151,11 +103,14 @@ class SyncWorker(QObject):
         """Extract raw evidence and emit one deterministic fit proposal."""
         try:
             self.progress.emit(5)
+            if self._landmarks is not None:
+                self._fit_landmarks()
+                return
             self._require_shared_evidence()
             is_exact = self._mode == "exact_index"
-            reference_raw = self._event_times(self._reference, use_all_times=is_exact)
+            reference_raw = self._event_times(self._reference)
             self._check_cancel()
-            target_times = self._event_times(self._target, use_all_times=is_exact)
+            target_times = self._event_times(self._target)
             self.progress.emit(35)
             mapping = self._reference.accepted_mapping
             reference_times = (
@@ -312,7 +267,18 @@ class SyncWorker(QObject):
         reference, target = self._reference, self._target
         if reference.clock_id and reference.clock_id == target.clock_id:
             raise SyncEvidenceError("Reference and target use the same source clock.")
-        if isinstance(reference, EventEvidenceSpec) and reference.is_video_time_axis:
+        if (
+            reference.kind is TriggerKind.FRAME_STROBE
+            and reference.strobe_for
+            and isinstance(target, EventEvidenceSpec)
+            and target.is_frame_time_axis
+            and reference.strobe_for != target.clock_id
+        ):
+            raise SyncEvidenceError(
+                "This exposure strobe belongs to a different recording; "
+                "it must be declared for this video or imaging stack. Choose its declared target."
+            )
+        if isinstance(reference, EventEvidenceSpec) and reference.is_frame_time_axis:
             raise SyncEvidenceError(
                 "A video's own frame timestamps cannot place another source: they "
                 "describe only that video's clock. Use a recorded TTL, exposure "
@@ -328,6 +294,8 @@ class SyncWorker(QObject):
         and a trigger train's are the train, so those need nothing more.
         """
         target = self._target
+        if isinstance(target, EventEvidenceSpec) and len(target.times):
+            return float(target.times[0]), float(target.times[-1])
         if not isinstance(target, SignalEvidenceSpec):
             return None
         times, _, _ = PyramidReader(target.cache_dir, target.channel_id).mapped_columns()
@@ -340,7 +308,7 @@ class SyncWorker(QObject):
         if (
             self._reference.kind is not TriggerKind.FRAME_STROBE
             or not isinstance(self._target, EventEvidenceSpec)
-            or not self._target.is_video_time_axis
+            or not self._target.is_frame_time_axis
             or self._reference.strobe_for != self._target.clock_id
         ):
             raise SyncEvidenceError(
@@ -382,13 +350,22 @@ class SyncWorker(QObject):
     ) -> SyncProposal:
         """Keep raw reference event times beside the master-clock fit."""
         fit = dataclasses.replace(
-            proposal.fit, excluded_incomplete_count=self._reference_incomplete_count
+            proposal.fit,
+            excluded_incomplete_count=self._reference_incomplete_count,
+            measurement_resolution=max(
+                proposal.fit.measurement_resolution, self._measurement_resolution
+            ),
+            precision_verified=(
+                proposal.fit.precision_verified
+                and self._measurement_resolution <= proposal.fit.precision_requirement
+            ),
         )
         if mapping is None:
             return dataclasses.replace(
                 proposal,
                 fit=fit,
                 reference_clock_id=self._reference.clock_id or self._reference.source_id,
+                settings=self._settings(),
             )
         # One vectorised inverse rather than a dataclass copy per match: a
         # ten-thousand-event preview has a 250 ms budget.
@@ -408,7 +385,22 @@ class SyncWorker(QObject):
             fit=fit,
             matches=matches,
             reference_clock_id=self._reference.clock_id or self._reference.source_id,
+            settings=self._settings(),
         )
+
+    def _settings(self) -> dict[str, object]:
+        return {
+            "strategy": "landmarks" if self._landmarks is not None else self._mode,
+            "reference_kind": str(self._reference.kind),
+            "strobe_for": self._reference.strobe_for,
+            "reference_threshold": getattr(self._reference, "threshold", None),
+            "target_threshold": getattr(self._target, "threshold", None),
+            "reference_all_samples": getattr(self._reference, "use_all_times", False),
+            "required_precision_seconds": self._precision_requirement,
+            "observation_resolution_seconds": self._observation_resolution
+            if self._landmarks is not None
+            else None,
+        }
 
     def _restricted(self, times: np.ndarray) -> np.ndarray:
         """Keep only the reference events inside the requested window.
@@ -465,9 +457,15 @@ class SyncWorker(QObject):
 
     def _event_times(self, spec: EvidenceSpec, use_all_times: bool = False) -> np.ndarray:
         if isinstance(spec, EventEvidenceSpec):
+            scale = spec.accepted_mapping.rate_scale if spec.accepted_mapping else 1.0
+            self._measurement_resolution = max(
+                self._measurement_resolution, spec.measurement_resolution / scale
+            )
             times = np.asarray(spec.times, dtype=np.float64)
             if spec is self._reference:
-                self._reference_incomplete_count = len(spec.incomplete_indices)
+                self._reference_incomplete_count = max(
+                    len(spec.incomplete_indices), spec.excluded_incomplete_count
+                )
             if spec.incomplete_indices:
                 return np.delete(times, spec.incomplete_indices)
             return times
@@ -483,7 +481,7 @@ class SyncWorker(QObject):
             kept: np.ndarray = times[valid]
             return kept
 
-        chunks = reader.iter_raw_chunks_with_gaps(RAW_CHUNK_SAMPLES)
+        chunks = self._observed_chunks(reader, spec)
         # Both edges, not one. `extract_ttl_edges` returns rising edges alone,
         # which throws away exposure duration and timestamps a frame at the
         # instant the shutter opened rather than at the middle of the interval
@@ -504,3 +502,35 @@ class SyncWorker(QObject):
         if train.incomplete_indices:
             return np.delete(train.times, train.incomplete_indices)
         return np.asarray(train.times, dtype=np.float64)
+
+    def _observed_chunks(
+        self, reader: PyramidReader, spec: SignalEvidenceSpec
+    ) -> Iterator[tuple[np.ndarray, np.ndarray, np.ndarray]]:
+        """Record quantization while reading pulses, without a second data scan."""
+        for times, values, gaps in reader.iter_raw_chunks_with_gaps(RAW_CHUNK_SAMPLES):
+            self._check_cancel()
+            if len(times) > 1:
+                valid = np.isfinite(values)
+                intervals = np.diff(times)
+                kept = intervals[valid[1:] & valid[:-1] & ~gaps[1:]]
+                if len(kept):
+                    scale = spec.accepted_mapping.rate_scale if spec.accepted_mapping else 1.0
+                    self._measurement_resolution = max(
+                        self._measurement_resolution, float(kept.max()) / scale
+                    )
+            yield times, values, gaps
+
+    def _fit_landmarks(self) -> None:
+        """Explicitly paired events can relate videos whose local axes alone cannot."""
+        mapping = self._reference.accepted_mapping
+        proposal = fit_landmark_evidence(
+            self._reference,
+            self._target,
+            self._landmarks,
+            self._precision_requirement,
+            self._observation_resolution,
+            self._target_span(),
+        )
+        proposal = self._record_reference_clock(proposal, mapping)
+        self._check_cancel()
+        self.finished.emit(dataclasses.replace(proposal, display=prepare_display_summary(proposal)))

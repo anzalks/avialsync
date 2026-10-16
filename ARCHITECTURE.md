@@ -256,6 +256,14 @@ the local piecewise mapping slope and a half-frame drift tolerance. The workflow
 periodic clock, camera frame triggers, or sparse experimental pulses, while lab-specific event
 encodings remain plugins.
 
+The D-241 review uses scrollable contextual controls with a fixed acceptance footer and tabbed
+evidence. Explicit visual correspondence is fitted separately from automatic event matching;
+one/two pairs are applicable but unvalidated. Imaging shares the same acceptance path. Manual
+`TimeMap.adjust_mapping` composes scalar corrections before immutable exact evidence, while
+explicit calibration replacement retains `set_mapping`. Dependency invalidation, revision checks
+and live-clock checks prevent stale claims and stale acceptance. Atomic JSON reports run on
+registered workers and distinguish timestamp checks from unmeasured physical latency.
+
 ## 3. Threading model
 
 - UI thread: Qt event loop only.

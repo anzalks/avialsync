@@ -22,6 +22,7 @@ from avialsync.core.pose import PoseSchema
 from avialsync.core.source import TimeSeriesSource
 from avialsync.ui.controllers import identity_controller
 from avialsync.ui.i18n import tr
+from avialsync.ui.sync_lifecycle import restore_adjustment
 from avialsync.ui.tracking_timing import calibrate_overlay_timing
 
 if TYPE_CHECKING:
@@ -356,12 +357,12 @@ def on_import_finished(
         window._sensor_cache_dirs[path] = Path(cache_dir)
         exact = window.take_pending_exact_mapping(path)
         if exact is not None:
-            # A piecewise fit accepted for this sensor is its mapping. Offset
-            # and drift alone would reopen it on a straight line instead.
+            # Preserve the accepted curve and any later scalar correction.
             window.plot_pane.set_source_exact_mapping(Path(cache_dir), *exact)
+            restore_adjustment(window, path)
         # Rows are built across several event-loop turns so the window stays
-        # usable during a large selection, so reader-derived bounds
-        # may not exist yet. The worker's bounds are the correct stand-in
+        # usable during a large selection; reader bounds may not exist yet.
+        # The worker's bounds are the correct stand-in
         # until they do; `_refine_source_bounds` re-applies the exact span
         # once every row exists.
         mapped = window.plot_pane.source_bounds(Path(cache_dir)) or bounds

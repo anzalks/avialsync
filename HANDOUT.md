@@ -328,6 +328,42 @@ Two product laws govern that phase and outrank convention:
   non-zero drift on camera_3; launch_demo.py loads them in D-019 rebind-triggering order.
 
 ### Implemented — TTL/event synchronization baseline (D-026)
+
+**Alignment workflow and small-screen review (D-241, 2026-10-16).** The non-modal
+`SyncWizard` delegates field construction to `ui/sync_fields.py`, contextual scrollable
+layout to `ui/sync_form.py`, observation capture to `ui/sync_landmarks.py`, and verification,
+live-context validation and report export to `ui/sync_review.py`. Settings scroll; status and
+accept/cancel remain outside the scroll area. Evidence views are tabs with numerical X-domain
+sharing (never pyqtgraph's screen-coordinate X link across hidden tabs). Source status text is
+derived by `ui/sync_status.py`, including imaging cards.
+
+`core/landmark_alignment.py::fit_landmarks` fits explicit correspondences: one pair is a shift,
+two a rate without validation, additional pairs provide residuals. Only these explicitly paired
+observations can relate independent video axes; ordinary PTS still cannot be reference evidence.
+`SyncProposal.applicable` permits explicitly unvalidated sparse observations without making
+them `acceptable` on fitted evidence. `SyncWorker` honors sampled/event input in forced exact
+mode and records source settings and timestamp resolution; immutable specs and explicit-pair
+preparation live in `engine/sync_evidence.py` (re-exported by `sync_worker` for compatibility).
+Sampled 100 Hz TTL cannot claim 1 ms
+precision. Native trigger CSV also carries resolution/incomplete-pulse facts through
+`TriggerTrainResult`; optional reader methods preserve other providers' compatibility.
+
+Manual correction uses `TimeMap.adjust_mapping`; setters and `set_mapping` retain their explicit
+replacement behavior. Two scalar corrections compose before immutable exact-array lookup, so
+nudging never copies a million frame pairs per undo step. Copy/export/session restore preserve
+the original offset/rate anchors. `ui/sync_lifecycle.py` owns live mapping lookup, restoration,
+coverage and recursive dependency invalidation. Undo carries only changed evidence annotations,
+sharing their arrays. Clock lookup also recognizes live plot readers before their source cards
+register. Accepted replacements invalidate dependents too. Source-card offset is
+positive for earlier placement; menu nudge directions agree, and measured local frame intervals
+take precedence over average fps.
+
+`engine/sync_report.py` exports proposals or accepted records on registered jobs through atomic
+artifact publication. It distinguishes complete proposal evidence from the bounded match sample
+saved in a session, includes evaluated mappings, and never certifies unmeasured hardware latency.
+Tests: `test_sync_popup_workflow`, `test_alignment_adjustment`, `test_sync_lifecycle`,
+`test_landmark_alignment`, `test_sync_workflow_integration`; benchmarks in `test_bench_sync`.
+
 - Scope: visual alignment of independently-clocked cameras, sensors, electrodes, and tracking
   data. Acquisition and built-in scientific analysis are out of scope; lab-specific semantics are
   plugin-owned.
@@ -344,7 +380,7 @@ Two product laws govern that phase and outrank convention:
   available in the Sync Wizard.
 
 **Sync evidence hardening (D-201).** Video PTS are local time axes, never a frame strobe, and
-`SyncWorker` refuses a video as the *reference* in every mode: two equal-rate cameras have
+Without explicit visual pairs, `SyncWorker` refuses a video as the *reference*: two equal-rate cameras have
 identical timestamps whatever their true starts. Exact mapping needs a recorded exposure strobe
 declared for that camera, with complete pulses, no index offset, equal counts and agreeing
 intervals (a drop hidden by an extra pulse fails the intervals); `auto` tries it first, because

@@ -34,6 +34,8 @@ class TriggerTrainResult:
     target: str = ""
     #: Where the train skips a beat, from `triggers.locate_drops`.
     drops: tuple[int, ...] = field(default_factory=tuple)
+    measurement_resolution: float = 0.0
+    excluded_incomplete_count: int = 0
 
     @property
     def count(self) -> int:
@@ -81,6 +83,12 @@ class TriggerReadWorker(QObject):
                         durations=durations,
                         target=self._source.target_hint(train_id),
                         drops=locate_drops(times),
+                        measurement_resolution=(
+                            getattr(self._source, "time_resolution", lambda _id: 0.0)(train_id)
+                        ),
+                        excluded_incomplete_count=(
+                            getattr(self._source, "incomplete_count", lambda _id: 0)(train_id)
+                        ),
                     )
                 )
         except Exception as error:  # noqa: BLE001 - a provider is third-party code

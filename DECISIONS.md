@@ -7683,3 +7683,44 @@ exposure differences and real frame lookup/overlay routing. It checks painted wh
 labels, undo/projection state, leaving and returning to the reference frame, unbound
 saved wheels, belt/ball click labels, visible/hidden prop-only repainting, and source
 activation/removal for saved props and unfinished placement.
+
+## 2026-10-16 · D-241 · Alignment review fits the screen and preserves its evidence
+
+**Context.** The alignment popup needed more height than a laptop screen; More and result
+text expanded it further. Setting changes could leave an old proposal acceptable, manual
+edits discarded nonlinear timing, and reference edits left dependent confidence claims live.
+
+**Decision.** Settings scroll within a screen-bounded, responsive non-modal dialog. Status
+and acceptance stay visible. Manual values, recorded events and explicitly paired visual
+observations have separate contextual controls; correspondence, residual and coverage views
+share space as tabs. Their X ranges share numeric time, since Qt hides inactive tabs and
+pyqtgraph's geometry-based link otherwise stretches their domain. Every parameter change,
+worker revision mismatch or live-clock mismatch invalidates acceptance.
+
+Explicit visual correspondence is an additive evidence route: one pair places a source, two
+determine a rate without checking it, and extra observations expose residuals. Sparse explicit
+pairs remain unvalidated but applicable. This does not weaken D-201: local video/image axes
+alone remain invalid references for automatic matching, and exact frame identity still needs
+declared measured exposures. Imaging targets use the same install/accept/undo path as video.
+
+`TimeMap.adjust_mapping` composes scalar corrections before immutable nonlinear evidence;
+ordinary setters and `set_mapping` retain their replacement contract. Original adjustment
+anchors survive copies, exports and session reload. Commands retain inverse values and only
+the changed evidence annotations, sharing arrays rather than taking document snapshots.
+Reference changes recursively mark dependent records for review; acceptance of a replacement
+mapping does the same. Positive offset means earlier placement, and nudge labels agree.
+
+Timestamp resolution joins residual, unsupported-gap and extrapolation checks; no result
+certifies unmeasured hardware latency. Trigger files expose time units, sampled/event mode,
+threshold and debounce, including timestamp-only CSVs. Reports are atomic exports on registered
+workers and say whether saved match evidence is complete. New session fields are additive with
+defaults for older records; no plugin dependency or required provider hook is added.
+
+**Alternatives rejected.** Growing the window to its content, hiding Accept inside the
+scroll area, a modal review, replacing an exact mapping for a nudge, copying exact arrays per
+edit, and presenting one/two observations or perfect sampled residuals as verified precision.
+
+**Validation.** Ground-truth core and Qt regressions cover small screens and expanded controls,
+stale results, explicit pairs, sample resolution, forced exact extraction, dependency undo,
+imaging acceptance, nonlinear save/reopen, and report serialization. Golden sync assertions
+remain untouched; alignment preview and adjusted exact-lookup benchmarks retain timing budgets.

@@ -496,7 +496,9 @@ class PlotPane(QWidget):
         # that asked to wait needs it applied before it continues.
         self._finish_loading()
 
-    def set_source_mapping(self, cache_dir: Path, offset: float, drift_ms_per_hour: float) -> None:
+    def set_source_mapping(
+        self, cache_dir: Path, offset: float, drift_ms_per_hour: float, *, replace: bool = False
+    ) -> None:
         """Re-align one time-series source against the master clock.
 
         The rows keep their readers; only the shared ``TimeMap`` changes, so this
@@ -505,8 +507,10 @@ class PlotPane(QWidget):
         time_map = self._source_time_maps.get(cache_dir)
         if time_map is None:
             return
-        time_map.offset = float(offset)
-        time_map.drift_ms_per_hour = float(drift_ms_per_hour)
+        if replace:
+            time_map.set_mapping(offset, drift_ms_per_hour)
+        else:
+            time_map.adjust_mapping(offset, drift_ms_per_hour)
         for channel in self.channels:
             if channel.reader.cache_dir == cache_dir:
                 channel.coverage_bounds = channel.reader.coverage()

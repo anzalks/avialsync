@@ -105,6 +105,7 @@ behaviour, traps), git history, and `archive/plans/` (the executable plans, kept
 | Identity repair | Accepted identity flips over declared lanes, one edit program, braid UI, single corrected pose export | D-141 – D-145 |
 | Physical props | Wheel, belt, ball, ladder in one Props inspector and `_prop.toml` sidecar; on `feat/physical-props` | D-149, D-154 – D-157, D-162 – D-166 |
 | 9 Interface design | Inspector rail and dock, status-bar Tasks, three bottom strips, density-sized Data Streams, compact video headers with a label contract, compact source cards, one Open Files list, shared step panels and empty states, minimal plot gutters, one decimal separator, accessible painted surfaces, First Session Tutorial, scrolling workspace; on `feat/interface-design` | D-167 – D-182 |
+| Alignment workflow | Screen-bounded scrolling review, contextual modes and tabbed evidence; visual pairs and imaging targets; stale-preview/dependency guards; reversible nonlinear adjustments; explicit trigger inputs, precision resolution and reports | D-241 |
 
 ### Standing requirements carried forward from delivered phases
 

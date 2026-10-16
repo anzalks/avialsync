@@ -29,7 +29,7 @@ import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.GraphicsScene.mouseEvents import MouseClickEvent
 from PySide6.QtCore import QEvent, Qt, Signal, Slot
-from PySide6.QtWidgets import QLabel, QSplitter, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QScrollArea, QTabWidget, QVBoxLayout, QWidget
 
 from avialsync.core.drift import describe_drift
 from avialsync.core.sync import SyncProposal
@@ -56,6 +56,18 @@ _TREND_FLOOR_MS = 0.001
 #: residuals are zero by construction -- still gets a readable axis instead of a
 #: degenerate one the view box fills in for itself.
 _MIN_RESIDUAL_EXTENT_MS = 0.01
+
+
+class _EvidenceTabs(QTabWidget):
+    """Keep hidden coverage labels from dictating the visible plot's height."""
+
+    def hasHeightForWidth(self) -> bool:
+        # QTabWidget consults every hidden page. A narrow, unlaid-out coverage
+        # key can otherwise demand hundreds of lines even on another tab.
+        return True
+
+    def heightForWidth(self, _width: int) -> int:
+        return self.minimumSizeHint().height()
 
 
 def _export(plot: pg.PlotWidget) -> None:
@@ -139,7 +151,7 @@ class SyncEvidenceView(QWidget):
         self._pairing = pg.PlotWidget(viewBox=NavigableViewBox())
         self._pairing.setLabel("left", "Target time (s)")
         self._pairing.showGrid(x=True, y=True, alpha=0.2)
-        self._pairing.setMinimumHeight(110)
+        self._pairing.setMinimumHeight(180)
         self._pairing.setMenuEnabled(False)
 
         # A navigable view box, not a bare one: the wheel means time unless a
@@ -153,7 +165,7 @@ class SyncEvidenceView(QWidget):
         # label instead, and `show_proposal` states the origin it is relative to.
         self._plot.setLabel("left", "Residual (ms)")
         self._plot.showGrid(x=True, y=True, alpha=0.2)
-        self._plot.setMinimumHeight(110)
+        self._plot.setMinimumHeight(180)
         # A managed menu replaces pyqtgraph's own, which offers Downsample and
         # Average -- changes to the evidence, made while it is being judged,
         # with no record that anything changed. Installed below, once
@@ -165,16 +177,14 @@ class SyncEvidenceView(QWidget):
         # group stands against the axis it moves.
         self._nav = AxisNav(self._plot, self)
 
-        # A splitter, not a stack of fixed minimums. Three panels plus a key and
-        # two prose lines do not fit a laptop dialog at any set of heights that
-        # suits every reading -- the first attempt clipped the residual panel's
-        # own time axis behind the lanes below it. Sized so all three are usable
-        # on opening, and draggable because which panel matters depends on what
-        # the reader is checking.
-        self._panels = QSplitter(Qt.Orientation.Vertical, self)
-        self._panels.setChildrenCollapsible(False)
-        self._panels.addWidget(self._pairing)
-        self._panels.addWidget(self._nav)
+        # Tabs let each evidence view use the available height independently.
+        self._panels = _EvidenceTabs(self)
+        self._panels.setAccessibleName(tr("Alignment evidence views"))
+        self._panels.setAccessibleDescription(
+            tr("Review correspondence, residual timing errors, and recording coverage.")
+        )
+        self._panels.addTab(self._pairing, tr("Correspondence"))
+        self._panels.addTab(self._nav, tr("Residuals"))
         layout.addWidget(self._panels, 1)
 
         # Where each recording has data, and where the alignment is measured
@@ -183,12 +193,21 @@ class SyncEvidenceView(QWidget):
         # master clock, and tying them would mean one of the two axes lying
         # about what it shows.
         self._lanes = CoverageLanes(self)
-        self._panels.addWidget(self._lanes)
-        self._panels.setSizes([200, 240, 180])
+        coverage_scroll = QScrollArea(self._panels)
+        coverage_scroll.setWidgetResizable(True)
+        coverage_scroll.setAccessibleName(tr("Recording coverage"))
+        coverage_scroll.setAccessibleDescription(tr("Scroll to review coverage for every source."))
+        coverage_scroll.setWidget(self._lanes)
+        self._panels.addTab(coverage_scroll, tr("Coverage"))
 
         # One time axis across the two evidence panels. Moving either moves
         # both, so a point picked out above is the same instant below it.
-        self._pairing.setXLink(self._plot)
+        # Hidden tab geometries differ. pyqtgraph's screen-aligned X link uses
+        # those geometries and stretches the range when a tab is resized.
+        # Share the domain numerically so one second means the same in both.
+        self._sharing_range = False
+        self._pairing.getViewBox().sigXRangeChanged.connect(self._share_x_range)
+        self._plot.getViewBox().sigXRangeChanged.connect(self._share_x_range)
 
         for plot in (self._plot, self._pairing):
             self._nav.install_menu(plot, exporter=functools.partial(_export, plot))
@@ -227,6 +246,19 @@ class SyncEvidenceView(QWidget):
         self._display_indices: np.ndarray = np.empty(0, dtype=np.int64)
 
     # ── following the appearance ─────────────────────────────────────
+
+    def _share_x_range(self, source: object, span: tuple[float, float]) -> None:
+        """Retain a shared evidence domain across hidden and resized tabs."""
+        if self._sharing_range:
+            return
+        self._sharing_range = True
+        try:
+            for plot in (self._pairing, self._plot):
+                view = plot.getViewBox()
+                if view is not source:
+                    view.setXRange(float(span[0]), float(span[1]), padding=0.0)
+        finally:
+            self._sharing_range = False
 
     def changeEvent(self, event: QEvent) -> None:
         """Re-theme the canvas, and redraw the evidence already drawn on it."""
@@ -288,6 +320,7 @@ class SyncEvidenceView(QWidget):
                 drift=describe_drift(fit.drift_ms_per_hour),
                 rms=f"{fit.rms_residual * 1000:.3f}",
                 worst=f"{fit.max_residual * 1000:.3f}",
+                method=str(fit.method),
             )
         )
 
@@ -496,6 +529,7 @@ class SyncEvidenceView(QWidget):
         finally:
             self._restriction.blockSignals(blocked)
         self._restriction.show()
+        self._panels.setCurrentIndex(1)
 
     def evidence_span(self) -> tuple[float, float] | None:
         """First and last plotted reference event, in that source's own clock."""

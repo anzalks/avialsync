@@ -31,7 +31,7 @@ import numpy as np
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.document import MarkerRecord, SourceRecord
 from avialsync.core.point_edits import PointKey
-from avialsync.ui import imaging_integration, video_levels
+from avialsync.ui import imaging_integration, sync_lifecycle, video_levels
 from avialsync.ui.annotations import Marker
 from avialsync.ui.sync_acceptance import install_sync_mapping
 
@@ -94,13 +94,18 @@ class WindowMutationTarget:
         window = self._window
         with self.replaying():
             if source_id in window.video_grid.pane_paths():
-                window.sidebar.set_video_offset(source_id, offset)
+                window.sidebar.set_video_mapping(source_id, offset, drift_ms_per_hour)
                 window._on_video_offset_changed(source_id, offset)
+                window._on_video_mapping_changed(source_id, offset, drift_ms_per_hour)
             elif source_id in window.imaging_pane.source_paths():
                 window._on_imaging_mapping_changed(source_id, offset, drift_ms_per_hour)
             else:
                 window.sidebar.set_sensor_mapping(source_id, offset, drift_ms_per_hour)
                 window._on_sensor_mapping_changed(source_id, offset, drift_ms_per_hour)
+
+    def restore_alignment_records(self, records: tuple[Any, ...]) -> None:
+        """Restore only the evidence annotations carried by the inverse edit."""
+        sync_lifecycle.restore_records(self._window, records)
 
     def source_mapping(self, source_id: str) -> tuple[float, float]:
         """The mapping in the domain :meth:`set_source_mapping` replays into.
@@ -370,6 +375,7 @@ class WindowMutationTarget:
         """
         window = self._window
         with self.replaying():
+            sync_lifecycle.invalidate(window, source_id)
             # The command carries the residual the sidebar shows; the pane and
             # the coverage registry want the whole mapping. Exact arrays come
             # back as the frozen buffers the accepted fit made, so restoring a
@@ -386,6 +392,12 @@ class WindowMutationTarget:
                 raw_master if len(raw_master) else None,
                 raw_source if len(raw_source) else None,
                 strict=False,
+                anchor_offset=getattr(evidence, "exact_offset_anchor", None)
+                if getattr(evidence, "exact_offset_anchor", None) is not None
+                else getattr(evidence, "offset", None),
+                anchor_drift=getattr(evidence, "exact_drift_anchor", None)
+                if getattr(evidence, "exact_drift_anchor", None) is not None
+                else getattr(evidence, "drift_ms_per_hour", None),
             )
             window._sync_provenance = [
                 entry for entry in window._sync_provenance if entry.target_id != source_id

@@ -305,8 +305,7 @@ class ImagingPane(QWidget):
         if path not in self._sources:
             return
         mapping = self._sources[path].mapping
-        mapping.offset = offset
-        mapping.drift_ms_per_hour = drift_ms_per_hour
+        mapping.adjust_mapping(offset, drift_ms_per_hour)
         if self.source_choice.currentData() == path:
             self._last_index = None
             self.set_cursor(self._last_time)
@@ -382,7 +381,8 @@ class ImagingPane(QWidget):
         info = stack.info
         source_time = stack.mapping.to_source(t_master)
         if (
-            source_time < info.frame_times[0]
+            not stack.mapping.contains_master_time(t_master)
+            or source_time < info.frame_times[0]
             or source_time > info.frame_times[-1] + info.tail_duration
             or info.frame_gaps.in_gap(source_time)
         ):

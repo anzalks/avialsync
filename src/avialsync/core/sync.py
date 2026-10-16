@@ -8,9 +8,9 @@ responsible for showing the evidence and obtaining user acceptance.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
-from typing import Literal, TypeVar
+from typing import Any, Literal, TypeVar
 
 import numpy as np
 
@@ -52,6 +52,7 @@ class AlignmentMethod(StrEnum):
     UNVALIDATED = "unvalidated"
     #: Typed or dragged by a person. Carries no evidence and never claims any.
     MANUAL = "manual"
+    LANDMARKS = "landmarks"
 
     @property
     def is_evidence_based(self) -> bool:
@@ -61,6 +62,7 @@ class AlignmentMethod(StrEnum):
             AlignmentMethod.PIECEWISE,
             AlignmentMethod.AFFINE,
             AlignmentMethod.SHIFT,
+            AlignmentMethod.LANDMARKS,
         )
 
 
@@ -145,6 +147,7 @@ class SyncFit:
     extrapolated_after: float = 0.0
     #: Reference pulses that crossed missing data and were left out.
     excluded_incomplete_count: int = 0
+    measurement_resolution: float = 0.0
 
     @property
     def match_rate(self) -> float:
@@ -167,12 +170,17 @@ class SyncFit:
             return (
                 f"exact per-frame mapping over {self.matched_count} frames "
                 f"({self.match_rate * 100:.0f}% of the reference paired)"
+                + self._precision_description()
             )
         if self.method is AlignmentMethod.PIECEWISE:
             return (
                 f"interpolated between {self.matched_count} matched sync edges, "
                 f"{self.match_rate * 100:.0f}% of the reference paired -- no single rate "
                 "assumed across the recording" + self._precision_description()
+            )
+        if self.method is AlignmentMethod.LANDMARKS:
+            return (
+                "visually paired landmarks: " + self._describe_fit() + self._precision_description()
             )
         if self.method is AlignmentMethod.UNVALIDATED:
             return (
@@ -205,6 +213,7 @@ class SyncFit:
         state = "precision verified" if self.precision_verified else "precision unverified"
         return (
             f"; {state} at {self.precision_requirement * 1000:.3f} ms, "
+            f"timestamp resolution {self.measurement_resolution * 1000:.3f} ms, "
             f"coverage {self.coverage_fraction * 100:.0f}%, largest unsupported "
             f"interval {self.largest_unsupported_interval:.3f} s, extrapolation "
             f"{self.extrapolated_before:.3f}/{self.extrapolated_after:.3f} s{excluded}"
@@ -231,6 +240,8 @@ class ExactSyncFit(SyncFit):
     exact_master: np.ndarray | None = None
     exact_source: np.ndarray | None = None
     prepared_mapping: PreparedExactMapping | None = None
+    exact_offset_anchor: float | None = None
+    exact_drift_anchor: float | None = None
 
     def to_time_map(self) -> TimeMap:
         tm = super().to_time_map()
@@ -238,6 +249,10 @@ class ExactSyncFit(SyncFit):
             tm.install_prepared_exact_mapping(self.prepared_mapping)
         elif self.exact_master is not None and self.exact_source is not None:
             tm.set_exact_mapping(self.exact_master, self.exact_source)
+        if self.exact_offset_anchor is not None:
+            tm._exact_offset_anchor = self.exact_offset_anchor
+        if self.exact_drift_anchor is not None:
+            tm._exact_drift_anchor = self.exact_drift_anchor
         return tm
 
 
@@ -317,6 +332,7 @@ class SyncProposal:
     unmatched_references: tuple[float, ...] = ()
     reference_clock_id: str = ""
     display: SyncDisplaySummary | None = None
+    settings: dict[str, Any] = field(default_factory=dict)
 
     @property
     def acceptable(self) -> bool:
@@ -346,7 +362,11 @@ class SyncProposal:
         them is exactly how `matched_count=3` came to be written by a dialog
         with no events in it at all.
         """
-        return self.acceptable or self.fit.method is AlignmentMethod.MANUAL
+        return (
+            self.acceptable
+            or self.fit.method is AlignmentMethod.MANUAL
+            or (self.fit.method is AlignmentMethod.UNVALIDATED and self.fit.matched_count >= 1)
+        )
 
     @property
     def refusal(self) -> str:
@@ -356,7 +376,7 @@ class SyncProposal:
         rather than as a greyed button with no reason attached.
         """
         fit = self.fit
-        if fit.method is AlignmentMethod.MANUAL:
+        if fit.method in (AlignmentMethod.MANUAL, AlignmentMethod.UNVALIDATED):
             return ""
         if fit.matched_count < 3:
             return (
@@ -566,6 +586,7 @@ def with_precision(
     worst = fit.max_residual if worst_residual is None else worst_residual
     verified = (
         worst <= precision_requirement
+        and fit.measurement_resolution <= precision_requirement
         and largest_gap * wander <= precision_requirement
         and max(before, after) * wander <= precision_requirement
     )

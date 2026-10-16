@@ -25,8 +25,9 @@ Every source carries its own **Offset** and **Drift** in the left panel, behind 
 
 ![The per-source offset and drift fields in the left panel](../_static/screenshots/guide_offset_fields.png)
 
-1. **Offset** shifts the whole recording along the shared timeline, in seconds. Positive moves it
-   later. Use this when a camera started before or after the others.
+1. **Offset** adds seconds to the source time read at a given master time. Positive moves the
+   recording **earlier**; negative moves it later. The alignment popup describes the actual
+   direction of movement before acceptance. Use this when a camera started before or after the others.
 2. **Drift** corrects a clock that runs fast or slow, as milliseconds gained per hour of
    recording (ms/h). A clock that gains 54 ms every hour has a drift of +54 ms/h; hovering the
    field also gives it in frames per hour for a camera. Use it when the
@@ -52,14 +53,23 @@ log — AvialSync can fit the alignment from that evidence instead of you eyebal
 
 The dialog does not block the window behind it. When a point on the evidence looks wrong, click it
 and the master clock seeks there, so you can look at the footage before deciding whether to accept.
+It stays inside the available screen. Settings scroll vertically while the status and Accept/Cancel
+buttons remain visible. On a narrower window settings stack above the evidence; on a wider window
+they sit beside it. Increasing the application font or opening **More…** does not push the footer
+off-screen. Keyboard focus scrolls the selected control into view.
+
+![Settings scroll while review actions remain visible on a small screen](../_static/screenshots/guide_sync_small_screen.png)
+
+Choose **Align using → Shared TTL / events** for the following steps. **Correspondence**,
+**Residuals**, and **Coverage** are separate evidence tabs; changing tabs does not change the fit.
 
 ### Choose what to compare
 
 ![Selecting reference and target evidence in the synchronization wizard](../_static/screenshots/guide_sync_evidence.png)
 
-1. **Reference evidence** — a recorded TTL channel or declared trigger train whose clock is already
+1. **Reference recording** — a recorded TTL channel or declared trigger train whose clock is already
    placed on the master timeline when it has an accepted mapping.
-2. **Target evidence** — the video, sensor channel, or trigger file being aligned to that reference.
+2. **Recording to move** — the video, imaging stack, sensor channel, or trigger file being aligned.
 
 A video's presentation timestamps describe its own frames, but cannot establish when another
 camera or the DAQ started. Two equal-rate videos can have identical timestamps and unrelated
@@ -72,7 +82,7 @@ physical starts. Record a shared event or camera exposure strobe to align them.
 1. **TTL high threshold** — the voltage above which a sample counts as a logical high. Set it
    between your line's low and high levels. This is how a continuous analogue trace becomes a list
    of pulse edges.
-2. **Use all samples as events** — check this when your reference is *already* a list of event
+2. **Event timestamps** — check this when your reference is *already* a list of event
    times, such as a CSV of frame triggers, rather than a voltage to be thresholded. It disables the
    threshold, because there is nothing to threshold.
 3. **Recorded exposure strobe** — check only if this channel contains pulses emitted by the
@@ -90,10 +100,10 @@ finds either no edges or every sample.
 
 ### Choose the strategy — or let the evidence choose
 
-The strategy, match tolerance, partial fit and manual mapping fields are behind **More…** in the
-dialog; most alignments never need them.
+The strategy, match tolerance, required precision, fit window, and detailed result are behind
+**More…**. Manual values have their own mode, with their fields visible directly.
 
-![The alignment strategy and index offset](../_static/screenshots/guide_sync_strategy.png)
+![Advanced alignment strategy and required precision](../_static/screenshots/guide_sync_strategy.png)
 
 1. **Alignment strategy**
    - **Automatic (from the evidence)** — the default, and the one to use. It picks the strongest
@@ -104,8 +114,9 @@ dialog; most alignments never need them.
    - **Exact index (1:1 frame mapping)** — forces mapping video frame *n* to reference event *n*.
      Only correct when the reference genuinely records each exposure that *happened*; if it records
      each exposure that was *requested*, a dropped frame shifts everything after it.
-2. **Index Offset** — exact index pairing requires zero offset and matching frame and strobe
-   counts. A nonzero offset leaves frame identity unproved; use a shared event fit instead.
+
+Exact index pairing starts at the first stored frame. A shifted index cannot prove frame identity,
+so the popup does not offer an index-offset control. Use explicit corresponding events instead.
 
 ### Set the tolerance, if the default is not good enough
 
@@ -117,10 +128,13 @@ pulse that is 250 ms, and it will accept a 100 ms misalignment without complaint
 Set **Required precision** separately. The search tolerance finds candidate pairs; the precision
 requirement checks their residuals, coverage, the largest interval without a match, and any
 extrapolation. Sparse evidence remains usable with a visible **precision unverified** state.
+For sampled signals it also checks the observed sample spacing: a 100 Hz TTL recording cannot
+establish 1 ms precision from small fit residuals. These checks describe recorded timestamps;
+unmeasured camera latency, exposure timing, and visual observation error are not certified.
 
 ### Fit only part of a recording
 
-Tick **Fit only part of the recording** and drag the shaded window on the residual plot. Use it when
+Tick **Limit fit window** and drag the shaded window on the Residuals tab. Use it when
 the start or end of a recording is unusable — a settling period, a cable knocked mid-session.
 
 A fit over part of a recording claims nothing about the rest, so the window is written into the
@@ -131,12 +145,15 @@ trend measured elsewhere, which may well be right and is a different statement.
 
 ![The manual offset and drift fields](../_static/screenshots/guide_sync_manual.png)
 
-If you already know the numbers — from the rig's documentation, or a previous session — enter them
-directly instead of fitting.
+Choose **Align using → Manual offset and drift**. The fields start from the selected recording's
+current correction. If you already know the numbers, enter them directly instead of fitting.
 
 1. **Manual offset**, in seconds.
 2. **Manual drift**, in milliseconds gained per hour (ms/h).
-3. **Use manual mapping** applies them as a proposal, which you still accept explicitly.
+3. **Preview manual adjustment** creates a proposal, which you still accept explicitly.
+
+Manual corrections preserve an existing exact or interpolated timing relationship. Only its
+position/rate correction changes; Undo restores both the previous timing and its evidence status.
 
 A manual mapping is recorded as set by hand, and reported that way everywhere afterwards. It is
 never dressed up as a measurement: a number you typed has no residual, no matched events, and no
@@ -153,9 +170,14 @@ uncertainty, and the session says so rather than quoting zeros that would read a
   order, because they answer different questions.
 2. **Accept mapping** applies it. Until you press this, nothing has changed. A proposal is never
    applied silently, and it never becomes your data on its own. If Accept is greyed out, the
-   summary says which part of the evidence to change.
+  summary says which part of the evidence to change.
 
-**The top panel — correspondence.** Reference time against the target time each event was matched
+Changing settings or source timing invalidates the preview; an older background result cannot
+become the current proposal. Changing a reference also flags accepted downstream alignments for
+review. The source cards distinguish recorded timestamps, manual timing, shared or visual events,
+verified/unverified precision, and alignments needing review.
+
+**Correspondence.** Reference time against the target time each event was matched
 to, with a dashed one-to-one guide behind it. A correct alignment is a dense diagonal lying along
 the guide, with clean margins. This is the panel that shows whether the *pairing* is right, and it
 is the one to read first.
@@ -166,11 +188,11 @@ is the one to read first.
 - Ink along the margins is rejected evidence, drawn where it sits in time. A margin that is mostly
   solid means most of your events found no partner.
 
-**The middle panel — residuals.** How tightly the matched pairs agree, against the search-tolerance
+**Residuals.** How tightly the matched pairs agree, against the search-tolerance
 band. Residuals do not prove physical precision between sparse events. The summary reports the
 separate precision check and the largest unsupported interval.
 
-**The bottom panel — coverage.** Where each recording has data, where its alignment was actually
+**Coverage.** Where each recording has data, where its alignment was actually
 measured, and where the recording stops and resumes. The distinction that matters: between the
 first and last sync point the alignment is measured, and outside them it is extended. Both may be
 right; they are different claims, and a source with no accepted evidence is marked as extended
@@ -190,11 +212,37 @@ In descending order of strength, whichever the evidence supports:
   measurable at all.
 - **Offset alone** — where it is not. A drift fitted over a span too short to show it is not a
   measurement of a clock; it is noise in a parameter, and AvialSync declines to quote it.
-- **Unvalidated** — two matched events. They determine the offset and leave nothing over to check
-  it with, which is a different state from a good fit and is recorded as one.
+Automatic event matching needs at least three events on both sides. To place a recording from
+one or two events, explicitly pair the corresponding observations using the visual-event mode below;
+those sparse placements are recorded as unvalidated.
 
 Accepted mappings are saved with the session, so a colleague can see what was applied and on what
 evidence.
+
+## Align from corresponding visual events
+
+![Explicit visual event pairs and observation resolution](../_static/screenshots/guide_sync_landmarks.png)
+
+Choose **Align using → Corresponding visual events** when both recordings show a recognizable
+event and no shared TTL evidence is available. This mode also works between two independent videos;
+their local frame timestamps alone are never treated as evidence of a shared start.
+
+1. Choose the reference recording and the recording to move.
+2. Scrub to the event in the reference and choose **Capture reference**.
+3. Scrub to the same observed event in the target and choose **Capture target**.
+4. Choose **Add pair**. Capture uses the actual stored frame time for video or imaging. You can
+   also enter times explicitly in each recording's original clock.
+5. Repeat at separated points. Set **Observation resolution** to reflect how precisely the event
+   can actually be identified, then preview and inspect the proposal before accepting.
+
+One pair establishes an offset. Two separated pairs determine an offset and rate but leave no
+independent check, so both sparse cases remain **unvalidated**. Additional pairs expose residuals;
+observation resolution still limits any precision claim. Remove a mistaken pair explicitly rather
+than asking the matcher to silently discard it. Changing either recording clears its pairs.
+
+Imaging stacks appear alongside videos and sensors as targets. Their accepted mapping follows the
+same session, undo/redo and precision rules. Frame-indexed tracking attached to a camera retains
+that camera's frame timing rather than creating another independent alignment.
 
 ## 3. Load a trigger file, and say what its lines are
 
@@ -227,6 +275,11 @@ evidence about, and it will be offered on the right side of the wizard. What you
 with the session; the pulses themselves are re-read from the file, so a file corrected on disk is
 read as it now is.
 
+The trigger-file dialog lets you choose sampled signals or event timestamps per column, the time
+column and units (seconds, milliseconds, microseconds), logical-high threshold, and minimum pulse
+interval in seconds. A one-column timestamp CSV is offered as an event list. Suggested units and
+declarations remain visible for review; nothing is declared an exposure strobe automatically.
+
 If a train skips beats, AvialSync says so when it loads. That gap is the evidence frames were lost,
 and the reason an index-paired mapping would be wrong.
 
@@ -242,6 +295,13 @@ doubled pulse, give the alignment a single unambiguous answer.
 ## 4. Check the result
 
 Alignment that looks right at the event you used to align it proves very little.
+
+**Beginning**, **Middle**, and **End** seek to actual paired evidence while
+leaving the recording window available. **Export report…** writes the current proposal and mapping
+as JSON. After acceptance, **Align → Export Alignment Report…** exports accepted records and their
+current evaluated mappings, including manual corrections. Reports identify whether they describe
+a proposal or an accepted result; saved sessions retain a bounded match sample, and the report
+explicitly says whether that sample is complete.
 
 - Move to several events **across the whole recording**, especially near the beginning and end.
   Drift shows up at the edges.

@@ -75,6 +75,7 @@ class SetSourceMappingCommand:
     after: tuple[float, float]
     display_name: str = ""
     command_id: str = "source.mapping"
+    before_evidence: tuple[Any, ...] = ()
 
     @property
     def label(self) -> str:
@@ -86,6 +87,8 @@ class SetSourceMappingCommand:
 
     def revert(self, target: MutationTarget) -> None:
         target.set_source_mapping(self.source_id, self.before[0], self.before[1])
+        if self.before_evidence:
+            target.restore_alignment_records(self.before_evidence)
 
     def merge_with(self, other: object) -> SetSourceMappingCommand | None:
         if not isinstance(other, SetSourceMappingCommand):
@@ -747,6 +750,7 @@ class AcceptSyncCommand:
     evidence: Any = None
     before_evidence: Any = None
     command_id: str = "sync.accept"
+    dependent_before: tuple[Any, ...] = ()
 
     @property
     def label(self) -> str:
@@ -757,6 +761,8 @@ class AcceptSyncCommand:
 
     def revert(self, target: MutationTarget) -> None:
         target.apply_sync(self.source_id, self.before[0], self.before[1], self.before_evidence)
+        if self.dependent_before:
+            target.restore_alignment_records(self.dependent_before)
 
 
 @dataclasses.dataclass

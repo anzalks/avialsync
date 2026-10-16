@@ -243,6 +243,9 @@ def remove(window: MainWindow, path: str) -> None:
     """Remove one stack and its coverage after the document records it."""
     if path not in window.imaging_pane.source_paths():
         return
+    from avialsync.ui.sync_lifecycle import invalidate
+
+    invalidate(window, path)
     window._record(RemoveSourceCommand(window._source_record(path, "imaging")))
     window.imaging_pane.remove_source(path)
     window.sidebar.remove_imaging(path)
@@ -260,8 +263,9 @@ def change_mapping(window: MainWindow, path: str, offset: float, drift_ms_per_ho
     effective = window.effective_offset(path, offset)
     window.imaging_pane.set_mapping(path, effective, drift_ms_per_hour)
     window.sidebar.set_imaging_mapping(path, offset, drift_ms_per_hour)
-    info = window.imaging_pane.metadata_for(path)
-    _show_coverage(window, path, info, TimeMap(effective, drift_ms_per_hour))
+    from avialsync.ui.sync_lifecycle import refresh_coverage
+
+    refresh_coverage(window, path)
 
 
 def restore_entry(window: MainWindow, entry: ImagingEntry, path: Path) -> None:
@@ -379,11 +383,15 @@ def load_imaging(
         )
         window.sidebar.add_imaging(source_id, metadata, residual, drift_ms_per_hour, label=label)
         window._recorded_mappings[source_id] = (residual, drift_ms_per_hour)
+        from avialsync.ui.sync_lifecycle import restore_adjustment
+
+        restore_adjustment(window, source_id)
         _reveal(window)
-        _show_coverage(window, source_id, metadata, TimeMap(effective_offset, drift_ms_per_hour))
+        _show_coverage(window, source_id, metadata, window.imaging_pane.source_config(source_id)[2])
         if not reloading:
             window._note_source_loaded(source_id, "imaging")
         window._refresh_empty_state()
+        window.refresh_alignment_badges()
         window.imaging_pane.set_cursor(window.clock.state.t)
         from avialsync.ui.controllers.pairing_controller import partner_source_loaded
 

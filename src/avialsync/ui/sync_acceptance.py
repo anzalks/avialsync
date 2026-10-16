@@ -17,6 +17,7 @@ from avialsync.core.commands import AcceptSyncCommand
 from avialsync.core.session import SyncProvenance
 from avialsync.core.timeline import PreparedExactMapping, TimeMap
 from avialsync.core.triggers import TriggerKind
+from avialsync.ui.i18n import tr
 
 if TYPE_CHECKING:
     from avialsync.core.sync import SyncProposal
@@ -25,7 +26,7 @@ if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
 
 #: Accepted matches and unmatched events drawn in the overview strip. The
-#: complete evidence stays on the proposal and in provenance; the strip is a
+#: complete evidence stays on the proposal; session provenance retains a sample. The strip is a
 #: few hundred pixels wide and a hundred thousand ticks would only stall it.
 _OVERVIEW_EVENT_LIMIT = 800
 
@@ -54,7 +55,7 @@ def collect_sync_evidence(
             ),
             cache_dir=channel.reader.cache_dir,
             channel_id=channel.reader.channel_id,
-            clock_id=channel.reader.source_id,
+            clock_id=channel.reader.source_id or str(channel.reader.cache_dir),
             accepted_mapping=channel.reader.time_map.copy(),
             **_declared_trigger(window, channel.reader.source_id, channel.reader.channel_id, panes),
         )
@@ -63,6 +64,16 @@ def collect_sync_evidence(
     targets: list[EvidenceSpec] = [
         EventEvidenceSpec(path, frame_times, clock_id=path, is_video_time_axis=True)
         for path, frame_times in window._video_frame_times.items()
+        if path in placeable
+    ]
+    targets += [
+        EventEvidenceSpec(
+            path,
+            np.asarray(window.imaging_pane.metadata_for(path).frame_times),
+            clock_id=path,
+            is_imaging_time_axis=True,
+        )
+        for path in window.imaging_pane.source_paths()
         if path in placeable
     ]
     targets += [
@@ -121,7 +132,9 @@ def has_alignment_evidence(window: MainWindow) -> bool:
     references = {channel.reader.source_id for channel in window.plot_pane.channels}
     references.update(window._trigger_trains)
     targets = _placeable(window)
-    return any(reference != target for reference in references for target in targets)
+    return len(targets) > 1 or any(
+        reference != target for reference in references for target in targets
+    )
 
 
 def _placeable(window: MainWindow) -> set[str]:
@@ -138,6 +151,11 @@ def _placeable(window: MainWindow) -> set[str]:
         if channel.reader.source_id in window._sensor_cache_dirs
     )
     placeable.update(window._trigger_trains)
+    placeable.update(
+        path
+        for path in window.imaging_pane.source_paths()
+        if window.imaging_pane.metadata_for(path).frame_count >= 2
+    )
     return placeable
 
 
@@ -163,6 +181,8 @@ def _trigger_spec(
             (path for path in panes if target and target in (path, Path(path).name)), ""
         ),
         incomplete_indices=tuple(unfinished),
+        measurement_resolution=train.measurement_resolution,
+        excluded_incomplete_count=train.excluded_incomplete_count,
     )
 
 
@@ -176,6 +196,8 @@ def install_sync_mapping(
     prepared: PreparedExactMapping | None = None,
     *,
     strict: bool = True,
+    anchor_offset: float | None = None,
+    anchor_drift: float | None = None,
 ) -> None:
     """Place one video, sensor, or trigger file by an absolute mapping.
 
@@ -202,9 +224,19 @@ def install_sync_mapping(
                 prepared.master if prepared else None,
                 prepared.source if prepared else None,
             )
+    elif source_id in window.imaging_pane.source_paths():
+        mapping = window.imaging_pane.source_config(source_id)[2]
+        mapping.set_mapping(offset, drift_ms_per_hour)
+        if prepared is not None:
+            mapping.install_prepared_exact_mapping(prepared)
+        window.imaging_pane.set_mapping(source_id, offset, drift_ms_per_hour)
+        window.sidebar.set_imaging_mapping(source_id, residual, drift_ms_per_hour)
+        from avialsync.ui.sync_lifecycle import refresh_coverage
+
+        refresh_coverage(window, source_id)
     elif source_id in window._sensor_cache_dirs:
         cache_dir = window._sensor_cache_dirs[source_id]
-        window.plot_pane.set_source_mapping(cache_dir, offset, drift_ms_per_hour)
+        window.plot_pane.set_source_mapping(cache_dir, offset, drift_ms_per_hour, replace=True)
         if prepared is not None:
             window.plot_pane.set_source_exact_mapping(cache_dir, prepared.master, prepared.source)
         window.sidebar.set_sensor_mapping(source_id, residual, drift_ms_per_hour)
@@ -222,6 +254,20 @@ def install_sync_mapping(
         window.set_trigger_mapping(source_id, mapping)
     elif strict:
         raise ValueError(f"Synchronization target is not loaded: {source_id}")
+    if prepared is not None and (anchor_offset is not None or anchor_drift is not None):
+        from avialsync.ui.sync_lifecycle import refresh_coverage, source_mapping
+
+        adjusted = source_mapping(window, source_id)
+        if adjusted is not None:
+            if anchor_offset is not None:
+                adjusted._exact_offset_anchor = anchor_offset
+            if anchor_drift is not None:
+                adjusted._exact_drift_anchor = anchor_drift
+            refresh_coverage(window, source_id)
+            if source_id in window._sensor_cache_dirs:
+                window.plot_pane.set_source_mapping(
+                    window._sensor_cache_dirs[source_id], offset, drift_ms_per_hour
+                )
     window._recorded_mappings[source_id] = (residual, drift_ms_per_hour)
 
 
@@ -245,12 +291,30 @@ def accept_sync_proposal(window: MainWindow, target_path: str, proposal: object)
                 "Preview the evidence again before accepting."
             )
 
-    before = window._recorded_mappings.get(target_path, (0.0, 0.0))
-    install_sync_mapping(window, target_path, fit.offset, fit.drift_ms_per_hour, prepared=prepared)
-    provenance = _provenance(proposal, target_path, prepared)
     previous = next(
         (item for item in window._sync_provenance if item.target_id == target_path), None
     )
+    prior_records = tuple(window._sync_provenance)
+    from avialsync.ui.sync_lifecycle import invalidate
+
+    invalidate(window, target_path)
+    changed = {entry.target_id: entry for entry in window._sync_provenance}
+    dependent_before = tuple(
+        entry
+        for entry in prior_records
+        if entry.target_id != target_path and changed.get(entry.target_id) is not entry
+    )
+    before = window._recorded_mappings.get(target_path, (0.0, 0.0))
+    install_sync_mapping(
+        window,
+        target_path,
+        fit.offset,
+        fit.drift_ms_per_hour,
+        prepared=prepared,
+        anchor_offset=getattr(fit, "exact_offset_anchor", None),
+        anchor_drift=getattr(fit, "exact_drift_anchor", None),
+    )
+    provenance = _provenance(proposal, target_path, prepared)
     window._sync_provenance = [
         item for item in window._sync_provenance if item.target_id != target_path
     ]
@@ -265,9 +329,11 @@ def accept_sync_proposal(window: MainWindow, target_path: str, proposal: object)
             after=window._recorded_mappings[target_path],
             evidence=provenance,
             before_evidence=previous,
+            dependent_before=dependent_before,
         )
     )
     window.refresh_alignment_badges()
+    window._refresh_action_availability()
     _show_accepted(window, target_path, proposal)
 
 
@@ -276,6 +342,8 @@ def _provenance(
 ) -> SyncProvenance:
     """The reproducible record: raw reference times, clock, and precision state."""
     fit = proposal.fit
+    offset_anchor = getattr(fit, "exact_offset_anchor", None)
+    drift_anchor = getattr(fit, "exact_drift_anchor", None)
     return SyncProvenance(
         reference_id=proposal.reference_id,
         reference_clock_id=proposal.reference_clock_id,
@@ -299,6 +367,14 @@ def _provenance(
         extrapolated_before=fit.extrapolated_before,
         extrapolated_after=fit.extrapolated_after,
         excluded_incomplete_count=fit.excluded_incomplete_count,
+        measurement_resolution=fit.measurement_resolution,
+        settings=dict(proposal.settings),
+        exact_offset_anchor=(fit.offset if offset_anchor is None else offset_anchor)
+        if prepared is not None
+        else None,
+        exact_drift_anchor=(fit.drift_ms_per_hour if drift_anchor is None else drift_anchor)
+        if prepared is not None
+        else None,
         restricted_to=list(fit.restricted_to) if fit.restricted_to else [],
         matches=[
             {
@@ -311,7 +387,7 @@ def _provenance(
                 "target_time": match.target_time,
                 "residual": match.residual,
             }
-            for match in proposal.matches[:500]
+            for match in (proposal.matches[i] for i in _spread(len(proposal.matches), 500))
         ],
         # The same frozen buffers the TimeMap holds: shared, never copied.
         exact_master=prepared.master if prepared is not None else [],
@@ -349,8 +425,9 @@ def _show_accepted(window: MainWindow, target_path: str, proposal: SyncProposal)
     if target_path in window.video_grid.pane_paths():
         window.player.seek(window.clock.state.t, exact=True)
     window.statusBar().showMessage(
-        f"Accepted TTL/event alignment for {name}: "
-        f"{fit.max_residual * 1000:.3f} ms maximum residual.",
+        tr("Accepted alignment for {name}: {description}").format(
+            name=name, description=fit.describe()
+        ),
         5000,
     )
 

@@ -51,10 +51,7 @@ def build_align_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMen
     window._require(
         act,
         window._has_alignment_evidence,
-        tr(
-            "Load a video with frame timestamps, and either a TTL-bearing sensor "
-            "channel or declared trigger train, to have shared evidence to fit."
-        ),
+        tr("Load two recordings to compare shared or visual events."),
     )
 
     window._act_find_partner = _add_partner_action(window, window._align_menu, _reg)
@@ -64,10 +61,12 @@ def build_align_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMen
     act.triggered.connect(window._open_trigger_evidence)
     _reg(act, "Align")
 
+    _add_report_action(window, window._align_menu, _reg)
+
     window._align_menu.addSeparator()
     act = window._align_menu.addAction(tr("Nudge selected source earlier"))
     act.setShortcut(QKeySequence("Ctrl+Shift+Left"))
-    act.triggered.connect(lambda: window._nudge_alignment(-1))
+    act.triggered.connect(lambda: window._nudge_alignment(+1))
     _reg(act, "Align")
     window._require(
         act,
@@ -77,7 +76,7 @@ def build_align_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMen
 
     act = window._align_menu.addAction(tr("Nudge selected source later"))
     act.setShortcut(QKeySequence("Ctrl+Shift+Right"))
-    act.triggered.connect(lambda: window._nudge_alignment(+1))
+    act.triggered.connect(lambda: window._nudge_alignment(-1))
     _reg(act, "Align")
     window._require(
         act,
@@ -86,3 +85,18 @@ def build_align_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMen
     )
 
     return window._align_menu
+
+
+def _add_report_action(window: MainWindow, menu: QMenu, register: Register) -> None:
+    """Use the same live accepted records for report availability and export."""
+    from avialsync.ui.sync_review import export_report
+
+    action = menu.addAction(tr("Export Alignment Report…"))
+    action.setToolTip(tr("Save accepted alignment evidence and evaluated clock mappings as JSON"))
+    action.triggered.connect(lambda: export_report(window))
+    register(action, "Align")
+    window._require(
+        action,
+        window.has_alignment_records,
+        tr("Accept an alignment before exporting its report."),
+    )

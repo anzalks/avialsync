@@ -199,7 +199,10 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path, session: 
     )
 
     # --- The import wizard, field by field -----------------------------
-    wizard = ImportWizard(session / "signal_base.csv")
+    import_path = session / "signal_base.csv"
+    with import_path.open("rb") as handle:
+        preview = handle.read(64 * 1024)
+    wizard = ImportWizard(import_path, preview)
     wizard.show()
     settle(app)
     capture(
@@ -259,18 +262,28 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path, session: 
         wizard.steps.more_toggle.setChecked(True)
         settle(app)
         wizard._strategy_combo.setCurrentIndex(wizard._strategy_combo.findData("auto"))
+        wizard._scroll.ensureWidgetVisible(wizard._strategy_combo)
+        settle(app)
         capture(
             wizard,
             out_dir / "guide_sync_strategy.png",
-            [wizard._strategy_combo, wizard._index_offset],
+            [wizard._strategy_combo, wizard._precision_requirement],
             numbered=True,
         )
+        wizard._mode_combo.setCurrentIndex(wizard._mode_combo.findData("manual"))
+        wizard._scroll.ensureWidgetVisible(wizard._manual_fields)
+        settle(app)
         capture(
             wizard,
             out_dir / "guide_sync_manual.png",
             [wizard._manual_offset, wizard._manual_drift, wizard._manual_button],
             numbered=True,
         )
+        wizard._mode_combo.setCurrentIndex(wizard._mode_combo.findData("events"))
+        _select_by_text(wizard._reference_combo, "cam_strobe")
+        wizard.steps.more_toggle.setChecked(False)
+        wizard._scroll.verticalScrollBar().setValue(0)
+        settle(app)
         wizard._preview_button.click()
         wait_until(
             app,
@@ -286,6 +299,16 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path, session: 
             [wizard._preview_button, wizard._buttons],
             numbered=True,
         )
+        wizard.resize(760, 560)
+        wizard.steps.more_toggle.setChecked(True)
+        settle(app)
+        capture(wizard, out_dir / "guide_sync_small_screen.png", [wizard._scroll, wizard._buttons])
+        wizard.resize(1060, 720)
+        wizard._mode_combo.setCurrentIndex(wizard._mode_combo.findData("landmarks"))
+        wizard.steps.more_toggle.setChecked(False)
+        wizard._scroll.ensureWidgetVisible(wizard._landmarks)
+        settle(app)
+        capture(wizard, out_dir / "guide_sync_landmarks.png", [wizard._landmarks])
         wizard.close()
         settle(app)
 

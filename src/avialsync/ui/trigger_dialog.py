@@ -17,11 +17,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
+    QFormLayout,
     QHeaderView,
     QLabel,
     QTableWidgetItem,
@@ -61,7 +64,16 @@ _KIND_HELP = {
     ),
 }
 
-_COLUMNS = ("Use", "Train", "Column", "What it is", "Evidence about")
+_COLUMNS = (
+    "Use",
+    "Train",
+    "Column",
+    "What it is",
+    "Evidence about",
+    "Input",
+    "High threshold",
+    "Minimum interval (s)",
+)
 
 
 @dataclass(frozen=True)
@@ -100,6 +112,34 @@ class TriggerEvidenceDialog(QDialog):
         heading.setWordWrap(True)
         set_bold(heading)
         layout.addWidget(heading)
+        form = QFormLayout()
+        self._time_column = QComboBox(self)
+        columns = list(
+            dict.fromkeys(
+                [str(suggestion.get("time_column", ""))]
+                + [str(t.get("column", "")) for t in suggestion.get("trains", [])]
+            )
+        )
+        self._time_column.addItems([c for c in columns if c])
+        self._time_column.setAccessibleName(tr("Trigger time column"))
+        self._time_column.setAccessibleDescription(
+            tr("Column containing timestamps for sampled logical lines.")
+        )
+        self._units = QComboBox(self)
+        for label, value in (
+            (tr("Seconds"), "s"),
+            (tr("Milliseconds"), "ms"),
+            (tr("Microseconds"), "us"),
+        ):
+            self._units.addItem(label, value)
+        self._units.setCurrentIndex(max(0, self._units.findData(suggestion.get("time_unit", "s"))))
+        self._units.setAccessibleName(tr("Trigger timestamp units"))
+        self._units.setAccessibleDescription(
+            tr("Convert the file's timestamps to seconds without modifying the file.")
+        )
+        form.addRow(tr("Time column:"), self._time_column)
+        form.addRow(tr("Timestamp units:"), self._units)
+        layout.addLayout(form)
 
         trains = list(suggestion.get("trains", []))
         self._table = ThemedTable(len(trains), len(_COLUMNS), self)
@@ -165,6 +205,31 @@ class TriggerEvidenceDialog(QDialog):
             tr("What {name} is evidence about").format(name=train.get("id", ""))
         )
         self._table.setCellWidget(row, 4, targets)
+        mode = QComboBox(self)
+        mode.addItem(tr("Sampled signal"), "level")
+        mode.addItem(tr("Event timestamps"), "timestamps")
+        mode.setCurrentIndex(max(0, mode.findData(train.get("mode", "level"))))
+        mode.setAccessibleName(tr("Input type for {name}").format(name=train.get("id", "")))
+        mode.setAccessibleDescription(tr("Use transitions in a signal or one timestamp per event."))
+        self._table.setCellWidget(row, 5, mode)
+        for column, key, default in ((6, "threshold", 0.5), (7, "min_interval", 0.0)):
+            spin = QDoubleSpinBox(self)
+            spin.setRange(-1e12 if column == 6 else 0.0, 1e12)
+            spin.setDecimals(6)
+            spin.setValue(float(train.get(key, default)))
+            spin.setAccessibleName(
+                tr("Pulse threshold") if column == 6 else tr("Minimum pulse interval")
+            )
+            spin.setAccessibleDescription(
+                tr("Applied only to a sampled logical signal; interval is in seconds.")
+            )
+            spin.setEnabled(mode.currentData() == "level")
+            mode.currentIndexChanged.connect(
+                lambda _i, choice=mode, control=spin: control.setEnabled(
+                    choice.currentData() == "level"
+                )
+            )
+            self._table.setCellWidget(row, column, spin)
 
     def _explain(self, combo: QComboBox) -> None:
         """Put the chosen kind's consequences under the table, not in a tooltip only."""
@@ -175,7 +240,6 @@ class TriggerEvidenceDialog(QDialog):
     def choices(self) -> list[TrainChoice]:
         """The trains the user kept, with what they said each one is."""
         kept: list[TrainChoice] = []
-        declared = list(self._suggestion.get("trains", []))
         for row in range(self._table.rowCount()):
             use = self._table.cellWidget(row, 0)
             if not isinstance(use, QCheckBox) or not use.isChecked():
@@ -184,6 +248,9 @@ class TriggerEvidenceDialog(QDialog):
             targets = self._table.cellWidget(row, 4)
             train_item = self._table.item(row, 1)
             column_item = self._table.item(row, 2)
+            mode = self._table.cellWidget(row, 5)
+            if not isinstance(mode, QComboBox):
+                continue
             if not isinstance(kinds, QComboBox) or not isinstance(targets, QComboBox):
                 continue
             kept.append(
@@ -192,9 +259,7 @@ class TriggerEvidenceDialog(QDialog):
                     column=column_item.text() if column_item else "",
                     kind=TriggerKind(str(kinds.currentData())),
                     target=str(targets.currentData()),
-                    mode=str(declared[row].get("mode", "level"))
-                    if row < len(declared)
-                    else "level",
+                    mode=str(mode.currentData()),
                 )
             )
         return kept
@@ -202,7 +267,8 @@ class TriggerEvidenceDialog(QDialog):
     def config(self) -> dict[str, Any]:
         """The provider configuration these choices amount to."""
         return {
-            "time_column": self._suggestion.get("time_column", ""),
+            "time_column": self._time_column.currentText(),
+            "time_unit": self._units.currentData(),
             "trains": [
                 {
                     "id": choice.train_id,
@@ -210,10 +276,27 @@ class TriggerEvidenceDialog(QDialog):
                     "kind": str(choice.kind),
                     "mode": choice.mode,
                     "target": choice.target,
+                    "threshold": self._parameter(choice.train_id, 6),
+                    "min_interval": self._parameter(choice.train_id, 7),
                 }
                 for choice in self.choices()
             ],
         }
+
+    def _parameter(self, train_id: str, column: int) -> float:
+        for row in range(self._table.rowCount()):
+            item = self._table.item(row, 1)
+            control = self._table.cellWidget(row, column)
+            if item is not None and item.text() == train_id and isinstance(control, QDoubleSpinBox):
+                return control.value()
+        return 0.0
+
+    def showEvent(self, event: QShowEvent) -> None:
+        """Keep the table's own scrollbars usable on a small display."""
+        super().showEvent(event)
+        area = self.screen().availableGeometry().adjusted(16, 32, -16, -32)
+        self.setMaximumSize(area.size())
+        self.resize(min(1100, area.width()), min(580, area.height()))
 
 
 def _kind_label(kind: TriggerKind) -> str:

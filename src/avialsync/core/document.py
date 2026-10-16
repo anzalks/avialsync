@@ -222,6 +222,9 @@ class MutationTarget(Protocol):
     ) -> None:
         """Apply an accepted synchronization proposal, retaining its evidence."""
 
+    def restore_alignment_records(self, records: tuple[Any, ...]) -> None:
+        """Restore the evidence annotations contradicted by one reversed edit."""
+
     def capture_workspace(self) -> Any:
         """Return an opaque snapshot sufficient to restore the whole workspace.
 

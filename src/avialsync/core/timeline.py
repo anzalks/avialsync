@@ -225,6 +225,8 @@ class TimeMap:
         self._base_offset: float = self._offset  # The effective offset at t_ref
         self._exact_master: np.ndarray | None = None
         self._exact_source: np.ndarray | None = None
+        self._exact_offset_anchor = self._offset
+        self._exact_drift_anchor = self._drift_ms_per_hour
 
     @property
     def offset(self) -> float:
@@ -252,7 +254,10 @@ class TimeMap:
         """Return the source-time rate relative to master time."""
         if self._exact_master is not None and self._exact_source is not None:
             master_span = self._exact_master[-1] - self._exact_master[0]
-            return float((self._exact_source[-1] - self._exact_source[0]) / master_span)
+            return (
+                float((self._exact_source[-1] - self._exact_source[0]) / master_span)
+                * self._exact_adjustment()[0]
+            )
         return 1.0 + self._drift_ms_per_hour / MS_PER_HOUR
 
     @property
@@ -268,26 +273,58 @@ class TimeMap:
         """
         if self._exact_master is None or self._exact_source is None:
             return 1.0 + self._drift_ms_per_hour / MS_PER_HOUR
-        index = int(np.searchsorted(self._exact_master, float(t_master), side="right")) - 1
+        scale, shift = self._exact_adjustment()
+        index = (
+            int(np.searchsorted(self._exact_master, float(t_master) * scale + shift, side="right"))
+            - 1
+        )
         index = max(0, min(index, len(self._exact_master) - 2))
         master_delta = self._exact_master[index + 1] - self._exact_master[index]
         source_delta = self._exact_source[index + 1] - self._exact_source[index]
-        return float(source_delta / master_delta)
+        return float(source_delta / master_delta) * scale
+
+    def adjust_mapping(self, offset: float, drift_ms_per_hour: float) -> None:
+        """Apply a manual correction while retaining immutable nonlinear evidence.
+
+        Explicit calibration replacement still uses :meth:`set_mapping`.
+        Manual changes compose two scalar parameters before the evidence lookup.
+        """
+        self._offset = float(offset)
+        self._base_offset = float(offset)
+        self._drift_ms_per_hour = float(drift_ms_per_hour)
+
+    def _exact_adjustment(self) -> tuple[float, float]:
+        """Affine correction before immutable evidence, using two scalar parameters.
+
+        Nudging a million-frame mapping must neither discard its nonlinear timing
+        nor allocate an edited copy of the frame arrays for every undo step.
+        """
+        anchor_rate = 1.0 + self._exact_drift_anchor / MS_PER_HOUR
+        return (
+            (1.0 + self._drift_ms_per_hour / MS_PER_HOUR) / anchor_rate,
+            (self._offset - self._exact_offset_anchor) / anchor_rate,
+        )
 
     def snap_master_time(self, t_master: float) -> float:
-        """Snap to the nearest accepted frame-trigger timestamp, if available."""
+        """Snap to the nearest adjusted accepted frame timestamp, if available."""
         if self._exact_master is None:
             return float(t_master)
-        value = float(t_master)
+        scale, shift = self._exact_adjustment()
+        value = float(t_master) * scale + shift
         right = int(np.searchsorted(self._exact_master, value, side="left"))
         if right <= 0:
-            return float(self._exact_master[0])
-        if right >= len(self._exact_master):
-            return float(self._exact_master[-1])
-        left = right - 1
-        if value - self._exact_master[left] <= self._exact_master[right] - value:
-            return float(self._exact_master[left])
-        return float(self._exact_master[right])
+            chosen = float(self._exact_master[0])
+        elif right >= len(self._exact_master):
+            chosen = float(self._exact_master[-1])
+        else:
+            left = right - 1
+            index = (
+                left
+                if value - self._exact_master[left] <= self._exact_master[right] - value
+                else right
+            )
+            chosen = float(self._exact_master[index])
+        return (chosen - shift) / scale
 
     def contains_master_time(self, t_master: float) -> bool:
         """Return whether exact evidence covers ``t_master``.
@@ -297,13 +334,15 @@ class TimeMap:
         """
         if self._exact_master is None:
             return True
-        value = float(t_master)
+        scale, shift = self._exact_adjustment()
+        value = float(t_master) * scale + shift
         return bool(self._exact_master[0] <= value <= self._exact_master[-1])
 
     def to_source(self, t_master: float) -> float:
         t_master = float(t_master)
         if self._exact_master is not None and self._exact_source is not None:
-            return _interp_scalar(t_master, self._exact_master, self._exact_source)
+            scale, shift = self._exact_adjustment()
+            return _interp_scalar(t_master * scale + shift, self._exact_master, self._exact_source)
         return (
             t_master
             + self._base_offset
@@ -313,7 +352,10 @@ class TimeMap:
     def to_master(self, t_source: float) -> float:
         t_source = float(t_source)
         if self._exact_master is not None and self._exact_source is not None:
-            return _interp_scalar(t_source, self._exact_source, self._exact_master)
+            scale, shift = self._exact_adjustment()
+            return (
+                _interp_scalar(t_source, self._exact_source, self._exact_master) - shift
+            ) / scale
         # to_source: ts = tm + offset + drift*(tm - t_ref)
         # ts = tm*(1 + drift) + offset - drift*t_ref
         # tm*(1 + drift) = ts - offset + drift*t_ref
@@ -329,7 +371,8 @@ class TimeMap:
         """
         source = np.asarray(t_source, dtype=np.float64)
         if self._exact_master is not None and self._exact_source is not None:
-            return _interp(source, self._exact_source, self._exact_master)
+            scale, shift = self._exact_adjustment()
+            return (_interp(source, self._exact_source, self._exact_master) - shift) / scale
         drift_coeff = self._drift_ms_per_hour / MS_PER_HOUR
         return (source - self._base_offset + drift_coeff * self._t_ref) / (1.0 + drift_coeff)
 
@@ -337,7 +380,8 @@ class TimeMap:
         """Vectorised :meth:`to_source` for an already-bounded array."""
         master = np.asarray(t_master, dtype=np.float64)
         if self._exact_master is not None and self._exact_source is not None:
-            return _interp(master, self._exact_master, self._exact_source)
+            scale, shift = self._exact_adjustment()
+            return _interp(master * scale + shift, self._exact_master, self._exact_source)
         return (
             master
             + self._base_offset
@@ -396,6 +440,8 @@ class TimeMap:
         """Install worker-prepared frame pairs without scanning or copying them."""
         self._exact_master = mapping.master
         self._exact_source = mapping.source
+        self._exact_offset_anchor = self._offset
+        self._exact_drift_anchor = self._drift_ms_per_hour
 
     def copy(self) -> "TimeMap":
         """Snapshot settings while sharing immutable exact-evidence arrays."""
@@ -407,6 +453,8 @@ class TimeMap:
         # worker reference buys no isolation and can stall the UI.
         copied._exact_master = self._exact_master
         copied._exact_source = self._exact_source
+        copied._exact_offset_anchor = self._exact_offset_anchor
+        copied._exact_drift_anchor = self._exact_drift_anchor
         return copied
 
     def to_record(self) -> dict[str, Any]:
@@ -426,6 +474,8 @@ class TimeMap:
         if self._exact_master is not None and self._exact_source is not None:
             record["master_seconds"] = self._exact_master.tolist()
             record["source_seconds"] = self._exact_source.tolist()
+            record["exact_offset_anchor"] = self._exact_offset_anchor
+            record["exact_drift_anchor"] = self._exact_drift_anchor
         return record
 
     @classmethod
@@ -455,6 +505,16 @@ class TimeMap:
                     np.asarray(record["master_seconds"], dtype=np.float64),
                     np.asarray(record["source_seconds"], dtype=np.float64),
                 )
+            mapping._exact_offset_anchor = float(record.get("exact_offset_anchor", mapping.offset))
+            mapping._exact_drift_anchor = float(
+                record.get("exact_drift_anchor", mapping.drift_ms_per_hour)
+            )
+            if (
+                not math.isfinite(mapping._exact_offset_anchor)
+                or not math.isfinite(mapping._exact_drift_anchor)
+                or mapping._exact_drift_anchor <= -MS_PER_HOUR
+            ):
+                raise ValueError("Exact adjustment anchors must be finite with a positive rate")
             return mapping
         except (KeyError, TypeError, ValueError, OverflowError) as error:
             raise SyncEvidenceError(
