@@ -15,12 +15,16 @@ from typing import Any, cast
 
 import numpy as np
 from PySide6.QtCore import QPointF, QRectF, QSizeF, Qt
-from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPen
+from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
 from avialsync.core.point_edits import PointKey
 from avialsync.core.pose import split_channel
-from avialsync.ui.marker_overlay import MarkerOverlayMixin, ResolvedPoint
+from avialsync.ui.marker_overlay import (
+    MarkerOverlayMixin,
+    ResolvedPoint,
+    overlay_label_point_size,
+)
 from avialsync.ui.overlay_registry import default_visible_for
 from avialsync.ui.prop_overlay import PropDrawing, draw_props
 from avialsync.ui.tracking_colors import color_for_point
@@ -38,9 +42,9 @@ _MODEL_COLORS = (
 )
 _ENSEMBLE_RADIUS = 4
 _MODEL_RADIUS = 2
-#: Point-label text. Small and offset off the marker so it never hides the very
-#: coordinate it is naming.
-_LABEL_POINT_SIZE = 8
+#: Point-label text is sized by `marker_overlay.overlay_label_point_size`: small
+#: and offset off the marker so it never hides the very coordinate it is naming.
+
 _LABEL_DX = 6
 _LABEL_DY = -6
 #: How far outside a pose source's coverage a time may fall and still show its
@@ -411,7 +415,7 @@ class PaintCanvas(MarkerOverlayMixin):
         radius = _ENSEMBLE_RADIUS if track.is_ensemble else _MODEL_RADIUS
 
         label_font = painter.font()
-        label_font.setPointSize(_LABEL_POINT_SIZE)
+        label_font.setPointSizeF(overlay_label_point_size())
         label_font.setBold(track.is_ensemble)
 
         any_drawn = False
@@ -451,13 +455,25 @@ class PaintCanvas(MarkerOverlayMixin):
         of arbitrary video: plain coloured text vanishes over pale fur or a lit
         background.
         """
-        painter.setFont(font)
-        text_x = int(x) + _LABEL_DX
-        text_y = int(y) + _LABEL_DY
-        painter.setPen(QPen(QColor(0, 0, 0, 200), 3))
-        painter.drawText(text_x, text_y, name)
-        painter.setPen(QPen(color, 1))
-        painter.drawText(text_x, text_y, name)
+        # A stroked path, not two `drawText` calls: `drawText` fills glyphs and
+        # ignores pen width, so the "outline" sat exactly under the coloured
+        # text and a cyan label on a cyan blob was unreadable.
+        path = QPainterPath()
+        path.addText(QPointF(int(x) + _LABEL_DX, int(y) + _LABEL_DY), font, name)
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.strokePath(
+            path,
+            QPen(
+                QColor(0, 0, 0, 200),
+                3,
+                Qt.PenStyle.SolidLine,
+                Qt.PenCapStyle.RoundCap,
+                Qt.PenJoinStyle.RoundJoin,
+            ),
+        )
+        painter.fillPath(path, color)
+        painter.restore()
 
     def _draw_loose_readers(
         self, painter: QPainter, scale: float, offset_x: float, offset_y: float
@@ -473,7 +489,7 @@ class PaintCanvas(MarkerOverlayMixin):
                 points.setdefault(split[0], {})[split[1]] = value
 
         label_font = painter.font()
-        label_font.setPointSize(_LABEL_POINT_SIZE)
+        label_font.setPointSizeF(overlay_label_point_size())
         for name, point in sorted(points.items()):
             if "x" not in point or "y" not in point:
                 continue

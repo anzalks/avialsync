@@ -18,11 +18,13 @@ from dataclasses import dataclass
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
+from PySide6.QtWidgets import QApplication
 
 from avialsync.core.point_edits import PointKey
 from avialsync.ui.overlay_registry import default_visible_for
 from avialsync.ui.point_edit_tool import CUSTOM_MARKER_SOURCE, PointEditMixin
 from avialsync.ui.prop_overlay import PropDrawing
+from avialsync.ui.theme import font_scale
 from avialsync.ui.tracking_colors import color_for_point
 from avialsync.ui.wheel_overlay import WheelDrawing
 
@@ -37,6 +39,13 @@ _CUSTOM_RADIUS = 6
 _REPROJECTION_ARM = 5
 #: Marker-label text, as the tracking's own labels are drawn.
 _LABEL_POINT_SIZE = 8
+
+
+def overlay_label_point_size() -> float:
+    """Marker label size, following the Preferences font scale like other text."""
+    app = QApplication.instance()
+    scale = font_scale(app) if isinstance(app, QApplication) else 1.0
+    return _LABEL_POINT_SIZE * scale
 
 
 @dataclass(frozen=True)
@@ -190,7 +199,7 @@ class MarkerOverlayMixin(PointEditMixin):
     ) -> None:
         """Draw hand-placed 3D markers as hollow rings, on top of predictions."""
         label_font = painter.font()
-        label_font.setPointSize(_LABEL_POINT_SIZE)
+        label_font.setPointSizeF(overlay_label_point_size())
         label_font.setBold(True)
         painter.setBrush(Qt.BrushStyle.NoBrush)
         for point in self._resolve_custom():

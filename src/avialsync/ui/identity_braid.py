@@ -31,7 +31,7 @@ from PySide6.QtGui import QColor, QPalette
 
 from avialsync.core.identity_detect import Trajectory
 from avialsync.ui.i18n import tr
-from avialsync.ui.theme import evidence_color, system_accent
+from avialsync.ui.theme import accent_hue, evidence_color, on_surface
 
 __all__ = ["BraidNode", "BraidModel", "build_model", "draw_braid", "draw_separation"]
 
@@ -209,12 +209,15 @@ def draw_braid(
 
     low, high = model.span()
     crossing = max((high - low) * _CROSSING, 1e-6)
-    accent = system_accent(palette)
+    hue = accent_hue(palette)
 
     for position, lane in enumerate(model.lanes):
         xs, ys = _lane_path(model, lane, crossing)
+        # Both lanes solved against the plot surface: the accent and `Link`
+        # differed in lightness alone, and one of them read at 1.5:1 in Dark.
+        # Dash style still carries the identity; colour only supports it.
         pen = pg.mkPen(
-            accent if position % 2 == 0 else palette.color(QPalette.ColorRole.Link),
+            on_surface(palette, hue if position % 2 == 0 else (hue + 0.5) % 1.0),
             width=2,
             style=_style(position),
         )

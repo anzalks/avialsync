@@ -54,10 +54,12 @@ from avialsync.ui.playback_rates import PLAYBACK_RATE_STEPS, rate_label
 from avialsync.ui.preferences_dialog import read_setting
 from avialsync.ui.scrub_bar import ScrubBar
 from avialsync.ui.theme import (
+    accent_hue,
     evidence_color,
     follow_palette,
     loop_pin_color,
     neutral_on_canvas,
+    on_surface,
     separator_color,
     set_font_family,
     surface_color,
@@ -771,6 +773,7 @@ class TimelineOverview(QWidget):
         lane_height = self.lane_height()
         accent = system_accent(palette)
         data_color = evidence_color(palette, "data")
+        video_color = on_surface(palette, accent_hue(palette))
         label_width = min(self._LABEL_WIDTH, max(1, self.width() - 1))
         for lane_index, (label, lane_kind, payload) in enumerate(lanes):
             top = lane_index * lane_height
@@ -798,7 +801,10 @@ class TimelineOverview(QWidget):
             band_top = top + _LANE_INSET
             band_height = max(3, lane_height - 2 * _LANE_INSET)
             if isinstance(payload, _CoverageLane):
-                color = accent if payload.kind == "video" else data_color
+                # The accent's hue at a lightness solved against this surface,
+                # like data coverage: the raw accent tinted to a span fill read
+                # at about 1.4:1 on the lane in Dark.
+                color = video_color if payload.kind == "video" else data_color
                 for first, last in payload.spans or ((payload.start, payload.end),):
                     span = self._visible_span_x(first, last)
                     if span is not None:

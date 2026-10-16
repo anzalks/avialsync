@@ -314,8 +314,32 @@ def _accent(palette: QPalette, *, platform: bool = False) -> QColor:
         accent = palette.color(role)
         if accent.isValid():
             return accent
+    # A widget's palette never carries the application's resolve mask, so the
+    # check above failed for every custom painter under Dark and Light: they
+    # drew the dimmed selection colour (1.07:1 on the coverage lane) beside
+    # native controls in the real accent. A widget palette that inherited the
+    # application's Highlight inherited its explicit Accent too.
+    inherited = _application_accent(palette)
+    if inherited is not None:
+        return inherited
     accent = palette.color(QPalette.ColorRole.Highlight)
     return accent if accent.isValid() else QColor("#0078d4")
+
+
+def _application_accent(palette: QPalette) -> QColor | None:
+    """The application palette's explicit Accent, when *palette* inherits it."""
+    app = QApplication.instance()
+    if not isinstance(app, QApplication):
+        return None
+    app_palette = app.palette()
+    role = QPalette.ColorRole.Accent
+    if not app_palette.isBrushSet(QPalette.ColorGroup.Active, role):
+        return None
+    highlight = QPalette.ColorRole.Highlight
+    if palette.color(highlight) != app_palette.color(highlight):
+        return None
+    accent = app_palette.color(role)
+    return accent if accent.isValid() else None
 
 
 def _platform_owns_palette() -> bool:
