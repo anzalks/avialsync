@@ -4,8 +4,10 @@ Video mostly describes itself. A table does not — a column of numbers could be
 recording started, milliseconds since midnight, or a Unix epoch in microseconds, and nothing in the
 file says which. Guessing wrong shifts your data by hours without any visible sign that it happened.
 
-The import wizard exists to make you state it. It shows the first twenty rows as it will read them,
-so you can see the parse before anything is cached.
+The import wizard exists to make you state it. It shows the first twenty rows, and under the
+settings a **Reads as** line says what those rows become with the current choices — the first time,
+how long the preview spans, and the step and rate — so you can see the parse before anything is
+cached.
 
 ## Structure: how to split the file
 
@@ -16,27 +18,38 @@ so you can see the parse before anything is cached.
 2. **Separator** — comma, semicolon, tab, space, or pipe. A guess is made from the file and shown
    selected; change it if the preview columns look wrong.
 3. **Time column** — which column carries the timestamps. Everything else becomes a data channel.
+   The guess looks for whole words such as `time`, `timestamp` or `t`, so `tail_x` is never taken
+   for a clock.
+4. **Channel units** — beside the preview, one row per channel. A header such as `force (N)` fills
+   its own unit; type the rest (`mV`, `deg`). Units appear in the plot gutter and the Values panel.
 
 ## Time: what the numbers mean
 
 ![Format and numeric unit](../_static/screenshots/guide_import_time_format.png)
 
 1. **Format** — how to read the timestamp text. **Auto-detect** handles most files. The list covers
-   ISO 8601 (with and without milliseconds), date-and-time in US and European order, time-only, and
-   Unix epoch in seconds, milliseconds, or microseconds. There is also a custom field for a
-   `strftime` pattern of your own.
-2. **Numeric unit** — only meaningful when the column is a plain number rather than a date:
-   seconds, milliseconds, microseconds, or nanoseconds.
+   **Elapsed time** (a number counted from the start of the recording), Unix epoch in seconds,
+   milliseconds, microseconds or nanoseconds, ISO 8601 (with and without milliseconds),
+   date-and-time in US and European order, and time-only. There is also a custom field for a
+   `strftime` pattern of your own. A number is guessed from its size: below about three years'
+   worth of seconds it is elapsed time, and a current date written in seconds, milliseconds,
+   microseconds or nanoseconds is told apart by its digits.
+2. **Numeric unit** — the unit an elapsed-time number counts in: seconds, milliseconds,
+   microseconds, or nanoseconds. It is greyed for an epoch format, which names its own unit, and
+   for date text.
 
-This pair is where a silent hours-long error comes from. If the preview's first and last times do
-not look like the duration you recorded, the unit is wrong.
+This pair is where a silent hours-long error comes from. Read the **Reads as** line: if the start
+is not the date you recorded on, or the step and rate are not your sampling rate, the format or
+unit is wrong.
 
 ## Timezone: state it, never assume it
 
 ![Timezone and anchor date](../_static/screenshots/guide_import_timezone.png)
 
-1. **Timezone** — UTC, local system time, or a named zone. **You must choose.** A timezone-naive
-   timestamp silently treated as UTC is the cause of real 1–2 hour "data corruption" reports in
+1. **Timezone** — UTC, local system time, or a named zone. **You must choose** whenever the
+   timestamps are clock text that does not state its own offset: Import stays unavailable until you
+   do. Numbers and text ending in `Z` or `+02:00` already fix the instant, so the field is greyed
+   for them. A timezone-naive timestamp silently treated as UTC is the cause of real 1–2 hour "data corruption" reports in
    comparable tools, so AvialSync makes it an explicit decision rather than a default.
 2. **Use anchor date** — for time-only columns (`10:30:00.000`) that carry no date at all. Supply
    the recording's date so the times land on the right day.
@@ -46,7 +59,7 @@ not look like the duration you recorded, the unit is wrong.
 ![Sentinel value and European decimals](../_static/screenshots/guide_import_sentinels.png)
 
 1. **Sentinel → NaN** — the value your logger writes to mean "no reading": `-9999`, `NaN`, `NA`,
-   `#N/A`, or one you type. It becomes NaN, which plots as a break in the trace instead of a real
+   `#N/A`, or one you type. The default is **None**. It becomes NaN, which plots as a break in the trace instead of a real
    measurement. Nothing is converted unless you ask: AvialSync will not invent data the
    logger did not record, and will not silently turn a real `-9999` into a gap.
 2. **European decimals** — tick when the file writes `1,5` for one-and-a-half. This also changes

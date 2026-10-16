@@ -5,7 +5,6 @@ from __future__ import annotations
 import codecs
 import csv
 import io
-import re
 from pathlib import Path
 from typing import Any, cast
 
@@ -27,25 +26,37 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from avialsync.ui import import_wizard_fields
 from avialsync.ui.i18n import tr
+from avialsync.ui.import_time_check import (
+    ELAPSED_FORMAT,
+    guess_format,
+    guess_time_column,
+    needs_timezone,
+)
 from avialsync.ui.tables import ThemedTable
 
-_COMMON_FORMATS = [
-    ("Auto-detect", ""),
-    ("ISO 8601 (2024-01-15T10:30:00)", "%Y-%m-%dT%H:%M:%S"),
-    ("ISO 8601 with ms", "%Y-%m-%dT%H:%M:%S.%f"),
-    ("Date + time (2024-01-15 10:30:00)", "%Y-%m-%d %H:%M:%S"),
-    ("Date + time with ms", "%Y-%m-%d %H:%M:%S.%f"),
-    ("US date (01/15/2024 10:30:00)", "%m/%d/%Y %H:%M:%S"),
-    ("EU date (15.01.2024 10:30:00)", "%d.%m.%Y %H:%M:%S"),
-    ("Time only (10:30:00.000)", "%H:%M:%S.%f"),
-    ("Time only no ms (10:30:00)", "%H:%M:%S"),
-    ("Unix epoch (seconds)", "epoch_s"),
-    ("Unix epoch (milliseconds)", "epoch_ms"),
-    ("Unix epoch (microseconds)", "epoch_us"),
-    ("Unix epoch (nanoseconds)", "epoch_ns"),
-    ("Custom…", "custom"),
-]
+
+def _common_formats() -> list[tuple[str, str]]:
+    """Format choices, translated where they are read."""
+    return [
+        (tr("Auto-detect"), ""),
+        (tr("Elapsed time (number counted from the start)"), ELAPSED_FORMAT),
+        (tr("Unix epoch (seconds)"), "epoch_s"),
+        (tr("Unix epoch (milliseconds)"), "epoch_ms"),
+        (tr("Unix epoch (microseconds)"), "epoch_us"),
+        (tr("Unix epoch (nanoseconds)"), "epoch_ns"),
+        (tr("ISO 8601 (2024-01-15T10:30:00)"), "%Y-%m-%dT%H:%M:%S"),
+        (tr("ISO 8601 with ms"), "%Y-%m-%dT%H:%M:%S.%f"),
+        (tr("Date + time (2024-01-15 10:30:00)"), "%Y-%m-%d %H:%M:%S"),
+        (tr("Date + time with ms"), "%Y-%m-%d %H:%M:%S.%f"),
+        (tr("US date (01/15/2024 10:30:00)"), "%m/%d/%Y %H:%M:%S"),
+        (tr("EU date (15.01.2024 10:30:00)"), "%d.%m.%Y %H:%M:%S"),
+        (tr("Time only (10:30:00.000)"), "%H:%M:%S.%f"),
+        (tr("Time only no ms (10:30:00)"), "%H:%M:%S"),
+        (tr("Custom…"), "custom"),
+    ]
+
 
 _SEPARATORS = [
     ("Comma (,)", ","),
@@ -75,15 +86,17 @@ _TIMEZONES = [
     ("Australia/Sydney (AEST)", "Australia/Sydney"),
 ]
 
-# Sentinel values commonly used in logger data
-_SENTINEL_PRESETS = [
-    ("-9999", "-9999"),
-    ("NaN", "NaN"),
-    ("NA", "NA"),
-    ("#N/A", "#N/A"),
-    ("", ""),
-    ("Custom…", "custom"),
-]
+
+def _sentinel_presets() -> list[tuple[str, str]]:
+    """Sentinel choices; the first is none, because nothing converts unasked."""
+    return [
+        (tr("None (keep every value)"), ""),
+        ("-9999", "-9999"),
+        ("NaN", "NaN"),
+        ("NA", "NA"),
+        ("#N/A", "#N/A"),
+        (tr("Custom…"), "custom"),
+    ]
 
 
 def _sniff_separator(lines: list[str]) -> str:
@@ -106,58 +119,12 @@ def _sniff_encoding(raw: bytes) -> str:
 
 def _guess_time_column(headers: list[str]) -> int:
     """Return the index of the most likely timestamp column."""
-    time_patterns = re.compile(r"(time|timestamp|date|t|epoch|unix|seconds|elapsed)", re.IGNORECASE)
-    for i, h in enumerate(headers):
-        if time_patterns.search(h.strip()):
-            return i
-    return 0
+    return guess_time_column(headers)
 
 
 def _guess_format(sample_values: list[str]) -> str:
     """Heuristic: guess the timestamp format from sample values."""
-    if not sample_values:
-        return ""
-
-    v = sample_values[0].strip()
-
-    # Epoch-like: purely numeric (possibly with decimal)
-    try:
-        val = float(v)
-        if val > 1e15:
-            return "epoch_ns"
-        if val > 1e12:
-            return "epoch_us"
-        if val > 1e9:
-            return "epoch_ms"
-        return "epoch_s"
-    except ValueError:
-        pass
-
-    # ISO-ish patterns
-    if re.match(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+", v):
-        return "%Y-%m-%dT%H:%M:%S.%f"
-    if re.match(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", v):
-        return "%Y-%m-%dT%H:%M:%S"
-    if re.match(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+", v):
-        return "%Y-%m-%d %H:%M:%S.%f"
-    if re.match(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", v):
-        return "%Y-%m-%d %H:%M:%S"
-
-    # EU date: dd.mm.yyyy
-    if re.match(r"\d{1,2}\.\d{1,2}\.\d{4}", v):
-        return "%d.%m.%Y %H:%M:%S"
-
-    # US date: mm/dd/yyyy
-    if re.match(r"\d{1,2}/\d{1,2}/\d{4}", v):
-        return "%m/%d/%Y %H:%M:%S"
-
-    # Time only
-    if re.match(r"\d{1,2}:\d{2}:\d{2}\.\d+", v):
-        return "%H:%M:%S.%f"
-    if re.match(r"\d{1,2}:\d{2}:\d{2}", v):
-        return "%H:%M:%S"
-
-    return ""
+    return guess_format(sample_values)
 
 
 class ImportWizard(QDialog):
@@ -167,6 +134,8 @@ class ImportWizard(QDialog):
     separator, timezone, sentinel values, and unit. Returns a config
     dict usable by the import pipeline.
     """
+
+    _units_table: ThemedTable
 
     def __init__(self, path: Path, preview: bytes, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -208,7 +177,12 @@ class ImportWizard(QDialog):
         self._preview_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self._preview_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         preview_layout.addWidget(self._preview_table)
-        main_layout.addWidget(preview_group)
+
+        units_group = import_wizard_fields.build_units_group(self)
+        top_row = QHBoxLayout()
+        top_row.addWidget(preview_group, 3)
+        top_row.addWidget(units_group, 1)
+        main_layout.addLayout(top_row)
 
         # Config form
         config_group = QGroupBox(tr("Import Settings"))
@@ -231,29 +205,37 @@ class ImportWizard(QDialog):
 
         # Timestamp format
         self._fmt_combo = QComboBox()
-        for label, val in _COMMON_FORMATS:
+        for label, val in _common_formats():
             self._fmt_combo.addItem(label, val)
-        self._select_format(guessed_fmt)
+        self._format_chosen_by_user = False
         self._form.addRow(tr("Format:"), self._fmt_combo)
 
         # Custom format input
         self._custom_fmt = QLineEdit()
         self._custom_fmt.setPlaceholderText(tr("e.g. %Y-%m-%d %H:%M:%S.%f"))
         self._custom_fmt.setVisible(False)
-        self._fmt_combo.currentIndexChanged.connect(self._on_format_changed)
         self._form.addRow("", self._custom_fmt)
+        self._select_format(guessed_fmt)
+        self._fmt_combo.currentIndexChanged.connect(self._on_format_changed)
+        self._fmt_combo.activated.connect(self._on_format_chosen)
+        self._custom_fmt.textChanged.connect(lambda _text: self._refresh_time_check())
 
-        # Time unit
+        # Time unit: only an elapsed number needs one. An epoch format names
+        # its own unit, and offering a second control that silently lost to it
+        # (or silently won, for seconds) let the two disagree.
         self._unit_combo = QComboBox()
         for label, val in _TIME_UNITS:
-            self._unit_combo.addItem(label, val)
-
+            self._unit_combo.addItem(tr(label), val)
+        self._unit_combo.currentIndexChanged.connect(lambda _i: self._refresh_time_check())
         self._form.addRow(tr("Numeric unit:"), self._unit_combo)
 
-        # Timezone
+        # Timezone: an explicit choice whenever it decides the instant, never
+        # a silent UTC (AGENTS trap: 1-2 h "corruption" reports).
         self._tz_combo = QComboBox()
+        self._tz_combo.addItem(tr("Choose a time zone…"), "")
         for label, val in _TIMEZONES:
-            self._tz_combo.addItem(label, val)
+            self._tz_combo.addItem(tr(label), val)
+        self._tz_combo.currentIndexChanged.connect(lambda _i: self._refresh_validity())
         self._form.addRow(tr("Timezone:"), self._tz_combo)
 
         # Anchor date (for time-only formats)
@@ -270,7 +252,7 @@ class ImportWizard(QDialog):
         # Sentinel → NaN mapping
         sentinel_row = QHBoxLayout()
         self._sentinel_combo = QComboBox()
-        for label, val in _SENTINEL_PRESETS:
+        for label, val in _sentinel_presets():
             self._sentinel_combo.addItem(label, val)
         self._sentinel_custom = QLineEdit()
         self._sentinel_custom.setPlaceholderText(tr("value to treat as NaN"))
@@ -282,9 +264,18 @@ class ImportWizard(QDialog):
 
         # Euro decimal (comma as decimal separator)
         self._euro_chk = QCheckBox(tr("European decimals (comma = decimal separator)"))
+        self._euro_chk.toggled.connect(lambda _checked: self._refresh_time_check())
         self._form.addRow("", self._euro_chk)
 
         main_layout.addWidget(config_group)
+
+        # What the preview rows become with these settings, read before Import
+        # rather than discovered on the timeline. A 1000x epoch error or a
+        # wrong zone is obvious in a date; it is invisible in a raw number.
+        self._time_check = QLabel("")
+        self._time_check.setWordWrap(True)
+        self._time_check.setAccessibleName(tr("How the time column will be read"))
+        main_layout.addWidget(self._time_check)
 
         # What is missing, said in place rather than in a modal on top of a
         # modal. The three "Import Error" message boxes this replaces
@@ -310,9 +301,10 @@ class ImportWizard(QDialog):
 
         # Re-check whenever any of the three inputs the check reads changes, so
         # the button state is always an answer about the current form.
-        self._time_col_combo.currentTextChanged.connect(lambda _text: self._refresh_validity())
+        self._time_col_combo.currentTextChanged.connect(self._on_time_column_changed)
         self._anchor_chk.toggled.connect(lambda _checked: self._refresh_validity())
         self._anchor_date.textChanged.connect(lambda _text: self._refresh_validity())
+        self._fill_units()
         self._refresh_validity()
 
     def _select_format(self, fmt: str) -> None:
@@ -333,6 +325,40 @@ class ImportWizard(QDialog):
     def _on_format_changed(self, idx: int) -> None:
         val = self._fmt_combo.currentData()
         self._custom_fmt.setVisible(val == "custom")
+        self._refresh_validity()
+
+    def _on_format_chosen(self, _idx: int) -> None:
+        """A format the user picked is theirs; a new time column keeps it."""
+        self._format_chosen_by_user = True
+
+    def _on_time_column_changed(self, _text: str) -> None:
+        if not self._format_chosen_by_user:
+            self._select_format(_guess_format(self._time_values()))
+        self._fill_units()
+        self._refresh_validity()
+
+    def _time_values(self) -> list[str]:
+        """The preview's values in the chosen time column."""
+        index = self._time_col_combo.currentIndex()
+        if index < 0:
+            return []
+        return [row[index] for row in self._sample_rows if len(row) > index]
+
+    def _format_value(self) -> str:
+        value = str(self._fmt_combo.currentData() or "")
+        return self._custom_fmt.text().strip() if value == "custom" else value
+
+    def _fill_units(self) -> None:
+        import_wizard_fields.fill_units(self)
+
+    def _units(self) -> dict[str, str]:
+        return import_wizard_fields.units(self)
+
+    def _timezone_needed(self) -> bool:
+        return needs_timezone(self._format_value(), self._time_values())
+
+    def _refresh_time_check(self) -> None:
+        import_wizard_fields.refresh_time_check(self)
 
     def _on_separator_changed(self, _idx: int) -> None:
         sep = self._sep_combo.currentData()
@@ -384,10 +410,18 @@ class ImportWizard(QDialog):
             return tr("Choose which column holds the timestamps.")
         if self._anchor_chk.isChecked() and not self._anchor_date.text().strip():
             return tr("Enter the anchor date, or turn off “Use anchor date”.")
+        if self._timezone_needed() and not self._tz_combo.currentData():
+            return tr(
+                "Choose the time zone these clock times were written in: "
+                "the timestamps do not state one."
+            )
         return ""
 
     def _refresh_validity(self) -> None:
         """Show what is missing, and let Import run only when nothing is."""
+        if not hasattr(self, "_validation_label"):
+            return
+        self._refresh_time_check()
         reason = self._blocking_reason()
         self._validation_label.setText(reason)
         self._validation_label.setVisible(bool(reason))
@@ -404,27 +438,37 @@ class ImportWizard(QDialog):
 
     def config(self) -> dict[str, Any]:
         """Return the import configuration dict for the pipeline."""
-        fmt_val = self._fmt_combo.currentData()
-        if fmt_val == "custom":
-            fmt_val = self._custom_fmt.text().strip()
+        fmt_val = self._format_value()
+        # An epoch format names its own unit; say so in the config too, so the
+        # loader's unit and the format can never disagree.
+        time_unit = str(self._unit_combo.currentData())
+        if fmt_val.startswith("epoch_"):
+            time_unit = fmt_val.removeprefix("epoch_")
 
         sentinel = self._sentinel_combo.currentData()
         if sentinel == "custom":
             sentinel = self._sentinel_custom.text().strip()
 
-        timezone = str(self._tz_combo.currentData())
+        # A numeric clock does not depend on a zone; UTC is recorded only so
+        # the config always names a concrete one.
+        timezone = str(self._tz_combo.currentData() or "") or "UTC"
         if timezone == "local":
             system_id = cast(bytes, QTimeZone.systemTimeZoneId()).decode("utf-8")
             timezone = system_id or "UTC"
 
-        return {
+        config: dict[str, Any] = {
             "separator": self._sep_combo.currentData(),
             "has_headers": self._has_headers,
             "time_col": self._time_col_combo.currentText(),
             "time_format": fmt_val,
-            "time_unit": self._unit_combo.currentData(),
+            "time_unit": time_unit,
             "timezone": timezone,
             "anchor_date": self._anchor_date.text().strip() if self._anchor_chk.isChecked() else "",
             "sentinel": sentinel if sentinel else None,
             "euro_decimal": self._euro_chk.isChecked(),
         }
+        # Only when one was typed, so an unchanged import keeps its cache key.
+        units = self._units()
+        if units:
+            config["units"] = units
+        return config
