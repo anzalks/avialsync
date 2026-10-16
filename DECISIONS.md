@@ -7788,3 +7788,32 @@ programmatic and quick deliberate clicks).
 camera spanning 160 pulses that recorded 70) and that a partial-session camera is accepted;
 `test_core_sync_precision_reason.py` covers every shortfall branch; `test_sync_review_fixes.py`
 covers each dialog state above. Golden sync tests are untouched.
+
+## 2026-10-16 · D-244 · Review fixes outside alignment: imports state their timebase, nothing writes or deletes on one click
+
+**Context.** The same UI/UX review found the import wizard reading a modern seconds epoch as
+milliseconds and taking `tail_x` for a clock, frame-step following the first camera, custom
+painters drawing the dimmed selection colour, overlay "halos" that were never drawn, lanes and
+links unreachable by keyboard, and two file hazards: a status-bar Delete All Cache one stray click
+from closing the session (D-215), and Generate Proxy writing into the recording's folder unasked.
+
+**Decision.**
+- Import: numeric formats are guessed by magnitude decade, with an **Elapsed time** format; an
+  epoch format fixes `time_unit`; a timezone is required only for clock text without an offset
+  (the AGENTS trap, now enforced); the sentinel defaults to none; per-channel units are entered
+  (`import_config["units"]`, only when typed, so cache keys are unchanged otherwise); a
+  **Reads as** line states the parsed start, span, step and rate.
+- Frame step follows the focused camera, else the nearest next frame of any camera.
+- The status bar keeps the cache size beside a `⋯` of the File → Cache actions (D-215's button
+  is withdrawn; the commands remain one authority). A proxy is saved where the user chooses
+  (suggested beside the video, kind `proxy` remembers the folder) and offered for opening.
+- Preferences show `Setting.choice_labels`; the font scale is 0.9/1.15/1.3/1.5. The one-option
+  Live selector and the Sweep preference (D-057 removed Sweep) are hidden.
+- Relink resolves siblings from the move the user located, flags renamed files, and carries
+  trigger files, identity swaps and alignment records to the new paths.
+- Not done: collapsing Open Files into one button (rejected by the user, D-181); clip export
+  still starts at the keyframe at or before A, as documented.
+
+**Validation.** `test_import_time_check.py`, `test_scrubbing.py` (nearest/chosen camera),
+`test_theme_accent_inherit.py`, `test_overlay_label_halo.py`, `test_timeline_keys.py`,
+`test_preference_choice_labels.py`, `test_relink_bulk.py`, `test_cache_menu.py`, `test_align.py`.

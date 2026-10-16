@@ -1026,6 +1026,36 @@ _start_data_import(path)
 
 ## Known Traps
 
+### UI/UX review fixes (D-243, D-244)
+
+- **`QPainter.drawText` ignores pen width.** Drawing a label twice, the first
+  with a 3 px black pen, draws no outline at all: both copies are filled
+  glyphs. A halo is `QPainterPath.addText` → `strokePath` → `fillPath`
+  (`video_overlay.PaintCanvas._draw_point_label`). Tests that capture
+  `drawText` calls must also capture `QPainterPath.addText`.
+- **A widget's palette has no resolve mask.** `palette.isBrushSet(Accent)`
+  is false through `QWidget().palette()` even when the application palette set
+  it, so custom painters fell back to the dimmed `Highlight`.
+  `theme._application_accent` reads the application's Accent when the widget
+  inherited its Highlight; test colours through a widget, not the app palette.
+- **`QTabWidget.removeTab` leaves non-current pages hidden**, and a
+  `QSplitter` does not show a hidden child it is given; `sync_layout` shows
+  each page after moving it back. A test that only checks `count()` passes
+  over a blank dialog.
+- **A settings column with the horizontal bar `AlwaysOff` must never be
+  scrolled sideways.** `ensureWidgetVisible` does so when the content is wider
+  than the viewport; the alignment dialog resets the horizontal value and its
+  forms wrap long rows.
+- **Match rate is over the overlap** (`SyncFit.overlap_reference_count`):
+  reference events the target could have recorded. `paired_of` is the
+  denominator to show. Zero means an older record: every event.
+- **Arrow keys belong to frame step** as window shortcuts. A widget that
+  wants them while focused accepts `ShortcutOverride` (Data Streams lanes), and
+  takes Tab focus only, so a click to seek does not steal them.
+- **The import wizard's numeric guess is by decade**: under 1e8 is elapsed
+  time, then seconds/ms/µs/ns epochs from 1e8/1e11/1e14/1e17
+  (`ui/import_time_check.py`). An epoch format writes its own `time_unit`.
+
 ### Running versions and populated benchmark work (D-228)
 
 The running module's `avialsync.__version__` labels About, documentation, and

@@ -67,8 +67,10 @@ Worth doing for long-GOP or heavily compressed footage. Not worth doing for all-
 which are already every-frame-keyframe and where a proxy would only cost disk. The lab's own
 high-speed footage is usually already all-intra.
 
-The proxy is written beside the source with a `_proxy` suffix, generation runs in the background
-with progress, and it can be cancelled — a cancelled proxy deletes its partial file, so
+A Save dialog asks where to write the proxy, suggesting `<name>_proxy.mp4` beside the source;
+nothing is written until you choose. When it is ready, **Open Proxy** in the notification opens it
+like any other video. It is 720p 8-bit, for scrubbing: measure on the original. Generation runs in
+the background with progress, and it can be cancelled — a cancelled proxy deletes its partial file, so
 nothing is left behind that looks finished.
 
 ## The 3D tracking view
