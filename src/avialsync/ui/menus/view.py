@@ -8,9 +8,11 @@ from typing import TYPE_CHECKING
 from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtWidgets import QMenu, QMenuBar
 
+from avialsync.core.commands import SetOverlayVisibleCommand
 from avialsync.core.settings_schema import setting_for
 from avialsync.ui.controllers import calibration_controller, gap_view
 from avialsync.ui.i18n import tr
+from avialsync.ui.overlay_registry import OVERLAY_LAYERS, layer_for
 from avialsync.ui.time_format import TimeDisplayMode
 
 if TYPE_CHECKING:
@@ -29,6 +31,78 @@ def apply_overlay_state(window: MainWindow) -> None:
     # harmless: _on_overlay_toggled ignores visibility already held.
     for overlay_id, action in getattr(window, "_overlay_actions", {}).items():
         action.setChecked(window.overlay_state.is_visible(overlay_id))
+
+
+def build_overlays_menu(window: MainWindow, register: Register) -> None:
+    """Generate View -> Overlays from the registry, grouped.
+
+    Generated rather than hand-written: a hand-written menu is how the next
+    overlay ships without a switch, and every overlay must have one.
+    """
+    window._overlay_actions = {}
+    current_group = ""
+    for layer in OVERLAY_LAYERS:
+        if current_group and layer.group != current_group:
+            window._overlays_menu.addSeparator()
+        current_group = layer.group
+
+        action = window._overlays_menu.addAction(layer.label)
+        action.setCheckable(True)
+        action.setChecked(window.overlay_state.is_visible(layer.overlay_id))
+        action.setToolTip(layer.description)
+        if layer.locked:
+            # Registered and shown, but not switchable. Greyed with the
+            # reason in the tooltip, so the exception stays visible rather
+            # than becoming folklore.
+            action.setEnabled(False)
+        else:
+            action.toggled.connect(
+                lambda checked, oid=layer.overlay_id: window._on_overlay_toggled(oid, checked)
+            )
+        register(action, "View")
+        window._overlay_actions[layer.overlay_id] = action
+
+    window._overlays_menu.addSeparator()
+    show_all = window._overlays_menu.addAction(tr("Show All"))
+    show_all.triggered.connect(lambda: window._set_all_overlays(True))
+    hide_all = window._overlays_menu.addAction(tr("Hide All"))
+    hide_all.triggered.connect(lambda: window._set_all_overlays(False))
+
+    # Install the resolver now, not on the first toggle. `apply_overlays_to`
+    # is what a newly built pane goes through, and it returns early while
+    # there is no resolver -- so before this, the first camera of a fresh
+    # session kept whatever the canvas happened to construct itself with,
+    # and only a session restore or a toggle ever corrected it.
+    window._apply_overlay_state()
+
+
+def overlay_toggled(
+    window: MainWindow, overlay_id: str, visible: bool, camera: str | None = None
+) -> None:
+    """Apply an overlay change and record it as undoable."""
+    if not window.overlay_state.set_visible(overlay_id, visible, camera):
+        return
+    layer = layer_for(overlay_id)
+    window._record(
+        SetOverlayVisibleCommand(
+            overlay_id=overlay_id,
+            visible=visible,
+            camera=camera,
+            display_name=layer.label if layer else overlay_id,
+        )
+    )
+    window._apply_overlay_state()
+    if overlay_id == calibration_controller.REPROJECTION_OVERLAY:
+        # Draws with the calibration in force, or offers to find one; never
+        # a dialog in front of a checkbox or Show All.
+        calibration_controller.reprojection_toggled(window, visible)
+
+
+def set_all_overlays(window: MainWindow, visible: bool) -> None:
+    """Show or hide every overlay that is not locked."""
+    for layer in OVERLAY_LAYERS:
+        if not layer.locked:
+            window._on_overlay_toggled(layer.overlay_id, visible)
 
 
 def build_view_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMenu:

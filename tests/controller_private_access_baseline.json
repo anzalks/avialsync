@@ -26,7 +26,7 @@
       "create_video_pane": 129
     }
   },
-  "main_window_lines": 3235,
+  "main_window_lines": 3176,
   "oversized_controller_lines": {
     "import_controller.py": 722,
     "session_controller.py": 850

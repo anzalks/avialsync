@@ -179,4 +179,7 @@ has reviewed them.
   `_proxy_worker`/`_proxy_thread` handles are gone (JobManager owns the worker). 3,286 → 3,235
   lines. Baseline gains the moved code's 8 private accesses under D-248. Exports were already
   delegators.
+- [x] A4 overlays menu (2026-10-19): `build_overlays_menu`, `overlay_toggled` and
+  `set_all_overlays` join `apply_overlay_state` in `ui/menus/view.py`. 3,235 → 3,176 lines.
+  Full suites: 4,585 passed on both 3.12 and 3.11.
 

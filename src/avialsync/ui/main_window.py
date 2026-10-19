@@ -41,7 +41,6 @@ from avialsync.core.commands import (
     SetChannelVisibleCommand,
     SetIdentityGroupCommand,
     SetOriginalTrackerVisibleCommand,
-    SetOverlayVisibleCommand,
     SetSourceMappingCommand,
     SetSourceVisibleCommand,
     SetTrackedPointCommand,
@@ -121,8 +120,9 @@ from avialsync.ui.inspector_dock import install_inspector_dock
 from avialsync.ui.inspector_nav import InspectorNav
 from avialsync.ui.job_manager import JobManager, on_ui_thread
 from avialsync.ui.levels_panel import LevelsPanel
+from avialsync.ui.menus import view as view_menu
 from avialsync.ui.mutation_target import WindowMutationTarget, marker_record
-from avialsync.ui.overlay_registry import OVERLAY_LAYERS, OverlayState, layer_for
+from avialsync.ui.overlay_registry import OVERLAY_LAYERS, OverlayState
 from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.props_app import PropsApp
 from avialsync.ui.readout_panel import ReadoutPanel
@@ -210,6 +210,7 @@ class MainWindow(QMainWindow):
     _overlays_menu: QMenu
     _workspace_menu: QMenu
     _undo_actions: UndoActions
+    _overlay_actions: dict[str, QAction]
     _theme_group: QActionGroup
     _font_size_group: QActionGroup
     _time_mode_group: QActionGroup
@@ -1519,78 +1520,18 @@ class MainWindow(QMainWindow):
     # ── Overlays ─────────────────────────────────────────────
 
     def _build_overlays_menu(self, register) -> None:
-        """Generate View -> Overlays from the registry, grouped.
-
-        Generated rather than hand-written: a hand-written menu is how the next
-        overlay ships without a switch, and every overlay must have one.
-        """
-        self._overlay_actions: dict[str, QAction] = {}
-        current_group = ""
-        for layer in OVERLAY_LAYERS:
-            if current_group and layer.group != current_group:
-                self._overlays_menu.addSeparator()
-            current_group = layer.group
-
-            action = self._overlays_menu.addAction(layer.label)
-            action.setCheckable(True)
-            action.setChecked(self.overlay_state.is_visible(layer.overlay_id))
-            action.setToolTip(layer.description)
-            if layer.locked:
-                # Registered and shown, but not switchable. Greyed with the
-                # reason in the tooltip, so the exception stays visible rather
-                # than becoming folklore.
-                action.setEnabled(False)
-            else:
-                action.toggled.connect(
-                    lambda checked, oid=layer.overlay_id: self._on_overlay_toggled(oid, checked)
-                )
-            register(action, "View")
-            self._overlay_actions[layer.overlay_id] = action
-
-        self._overlays_menu.addSeparator()
-        show_all = self._overlays_menu.addAction(tr("Show All"))
-        show_all.triggered.connect(lambda: self._set_all_overlays(True))
-        hide_all = self._overlays_menu.addAction(tr("Hide All"))
-        hide_all.triggered.connect(lambda: self._set_all_overlays(False))
-
-        # Install the resolver now, not on the first toggle. `apply_overlays_to`
-        # is what a newly built pane goes through, and it returns early while
-        # there is no resolver -- so before this, the first camera of a fresh
-        # session kept whatever the canvas happened to construct itself with,
-        # and only a session restore or a toggle ever corrected it.
-        self._apply_overlay_state()
+        view_menu.build_overlays_menu(self, register)
 
     def _on_overlay_toggled(
         self, overlay_id: str, visible: bool, camera: str | None = None
     ) -> None:
-        """Apply an overlay change and record it as undoable."""
-        if not self.overlay_state.set_visible(overlay_id, visible, camera):
-            return
-        layer = layer_for(overlay_id)
-        self._record(
-            SetOverlayVisibleCommand(
-                overlay_id=overlay_id,
-                visible=visible,
-                camera=camera,
-                display_name=layer.label if layer else overlay_id,
-            )
-        )
-        self._apply_overlay_state()
-        if overlay_id == calibration_controller.REPROJECTION_OVERLAY:
-            # Draws with the calibration in force, or offers to find one; never
-            # a dialog in front of a checkbox or Show All.
-            calibration_controller.reprojection_toggled(self, visible)
+        view_menu.overlay_toggled(self, overlay_id, visible, camera)
 
     def _set_all_overlays(self, visible: bool) -> None:
-        for layer in OVERLAY_LAYERS:
-            if not layer.locked:
-                self._on_overlay_toggled(layer.overlay_id, visible)
+        view_menu.set_all_overlays(self, visible)
 
     def _apply_overlay_state(self) -> None:
-        """Push resolved visibility to every pane and re-check the menu."""
-        from avialsync.ui.menus.view import apply_overlay_state
-
-        apply_overlay_state(self)
+        view_menu.apply_overlay_state(self)
 
     # ── Fix Tracker: correcting a predicted point by hand ────
 
