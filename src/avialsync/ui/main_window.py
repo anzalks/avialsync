@@ -76,6 +76,7 @@ from avialsync.ui.accessibility import apply_accessibility, install_show_time_sw
 from avialsync.ui.annotations import AnnotationStore, Marker
 from avialsync.ui.changes_panel import ChangeRow, ChangesPanel
 from avialsync.ui.controllers import (
+    appearance,
     artifact_write_controller,
     calibration_controller,
     changes_export_controller,
@@ -2226,20 +2227,7 @@ class MainWindow(QMainWindow):
     # ── Session identity and dirty state ─────────────────────────────
 
     def _update_window_title(self) -> None:
-        """Name the open session in the title bar, with Qt's modified marker.
-
-        The title used to be the constant string "AvialSync", so two windows
-        were indistinguishable in the taskbar and nothing showed that a session
-        had unsaved changes. ``[*]`` is Qt's placeholder: it renders as the
-        platform's own modified indicator when ``setWindowModified(True)`` and
-        disappears otherwise, so this stays native on each OS rather than
-        hardcoding an asterisk.
-        """
-        name = (
-            self.session_runtime.path.stem if self.session_runtime.path is not None else "Untitled"
-        )
-        self.setWindowTitle(tr("{name}[*] — AvialSync").format(name=name))
-        self.setWindowModified(self.document.is_dirty)
+        appearance.update_window_title(self)
 
     def _on_dirty_changed(self, dirty: bool) -> None:
         """Reflect a dirty transition in the title.
@@ -2252,12 +2240,7 @@ class MainWindow(QMainWindow):
         self.setWindowModified(dirty)
 
     def _mark_session_saved(self) -> None:
-        """Record that the session on disk now matches the workspace."""
-        self.document.session_path = (
-            str(self.session_runtime.path) if self.session_runtime.path else None
-        )
-        self.document.mark_saved()
-        self._update_window_title()
+        appearance.mark_session_saved(self)
 
     def _rebuild_recent_menu(self) -> None:
         session_controller.rebuild_recent_menu(self)
@@ -2268,55 +2251,19 @@ class MainWindow(QMainWindow):
     # ── Theme selection ─────────────────────────────────────────────
 
     def _on_theme_selected(self, action: QAction) -> None:
-        from PySide6.QtWidgets import QApplication
-
-        from avialsync.ui.theme import apply_theme
-
-        app = QApplication.instance()
-        if isinstance(app, QApplication):
-            apply_theme(app, action.data())
+        appearance.on_theme_selected(action)
 
     def _sync_theme_menu(self) -> None:
-        from avialsync.ui.theme import current_preference
-
-        pref = current_preference()
-        for act in self._theme_group.actions():
-            if act.data() == pref:
-                act.setChecked(True)
-                break
+        appearance.sync_theme_menu(self._theme_group)
 
     def _cycle_theme(self) -> None:
-        from PySide6.QtWidgets import QApplication
-
-        from avialsync.ui.theme import apply_theme, current_preference
-
-        order = ["system", "dark", "light"]
-        pref = current_preference()
-        idx = order.index(pref) if pref in order else 0
-        new_pref = order[(idx + 1) % len(order)]
-        app = QApplication.instance()
-        if isinstance(app, QApplication):
-            apply_theme(app, new_pref)
-        self._sync_theme_menu()
+        appearance.cycle_theme(self._theme_group)
 
     def _on_font_size_selected(self, action: QAction) -> None:
-        """Apply the selected system-relative application font scale."""
-        from PySide6.QtWidgets import QApplication
-
-        from avialsync.ui.theme import apply_font_size
-
-        app = QApplication.instance()
-        if isinstance(app, QApplication):
-            apply_font_size(app, action.data())
+        appearance.on_font_size_selected(action)
 
     def _sync_font_size_menu(self) -> None:
-        from avialsync.ui.theme import current_font_preference
-
-        pref = current_font_preference()
-        for act in self._font_size_group.actions():
-            if act.data() == pref:
-                act.setChecked(True)
-                break
+        appearance.sync_font_size_menu(self._font_size_group)
 
     # ── Fullscreen / jump / pane context menu ───────────────────────
 

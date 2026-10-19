@@ -171,4 +171,8 @@ has reviewed them.
   functions; MainWindow keeps delegators. 3,440 → 3,339 lines. Three controller private accesses
   removed from the baseline; three test accesses retargeted to `window.timebase` with unchanged
   assertions. Full suites: 4,583 passed (3.12), 4,582 passed (3.11).
+- [x] A2 appearance (2026-10-19): `ui/controllers/appearance.py` holds the title, saved marker and
+  theme/font handlers; action groups are passed in. 3,339 → 3,286 lines; no baseline allowance
+  added. Full suites: 4,584 passed (3.12); 3.11 passed apart from the boundary test tripping on the
+  uncommitted A3 file, which passed on re-run without it.
 
