@@ -23,7 +23,7 @@
       "create_video_pane": 129
     }
   },
-  "main_window_lines": 2507,
+  "main_window_lines": 2303,
   "oversized_controller_lines": {
     "import_controller.py": 722,
     "session_controller.py": 850
@@ -292,6 +292,30 @@
       "_trigger_trains": 1,
       "_v_splitter": 2,
       "_video_fps": 1,
+      "_video_frame_times": 1,
+      "_video_source_bounds": 1,
+      "_video_time_mappings": 1
+    },
+    "sources_controller.py": {
+      "_apply_tracking_visibility": 1,
+      "_inspections": 1,
+      "_overlay_sources": 4,
+      "_pending_tracking_visibility": 1,
+      "_pose_3d_sources": 1,
+      "_recompute_bounds": 3,
+      "_record": 6,
+      "_record_mapping_change": 2,
+      "_refresh_empty_state": 1,
+      "_refresh_overlays": 2,
+      "_refresh_pose_3d": 2,
+      "_refresh_tracking_visuals": 2,
+      "_selected_video_path": 3,
+      "_sensor_cache_dirs": 2,
+      "_source_record": 2,
+      "_sync_provenance": 2,
+      "_sync_tracking_plot": 2,
+      "_tracking_plot_sources": 4,
+      "_tracking_visibility": 5,
       "_video_frame_times": 1,
       "_video_source_bounds": 1,
       "_video_time_mappings": 1

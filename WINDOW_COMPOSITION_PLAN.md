@@ -197,4 +197,8 @@ has reviewed them.
   public queries stay on the window. 2,766 → 2,507 lines; 39 moved private accesses under D-248.
   The stale `_accept_sync_proposal`/`_open_sync_wizard` long-function exceptions are removed and
   `__init__`'s ceiling lowered to 493. Full suites: 4,595 passed (3.12) and 3.11 passed.
+- [x] A9 sources (2026-10-19): `ui/controllers/sources_controller.py` (video/sensor removal,
+  sensor re-mapping, channel/group/tracking/video visibility, focused and selected camera). Shared
+  tracking-row routing is one helper instead of two copies. 2,507 → 2,303 lines; 49 moved private
+  accesses under D-248. 363 targeted tests and the full 3.12 suite (4,595) passed.
 

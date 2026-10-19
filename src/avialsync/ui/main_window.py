@@ -35,14 +35,9 @@ from avialsync.core.commands import (
     AddSourceCommand,
     RelabelMarkerCommand,
     RemoveMarkerCommand,
-    RemoveSourceCommand,
     ResetSessionCommand,
-    SetChannelGroupVisibleCommand,
-    SetChannelVisibleCommand,
     SetOriginalTrackerVisibleCommand,
     SetSourceMappingCommand,
-    SetSourceVisibleCommand,
-    SetTrackingVisibleCommand,
 )
 from avialsync.core.custom_markers import CustomMarkerStore
 from avialsync.core.document import Document
@@ -90,6 +85,7 @@ from avialsync.ui.controllers import (
     point_edit_controller,
     proxy_controller,
     session_controller,
+    sources_controller,
     timebase,
     video_controller,
     wheel_controller,
@@ -2116,201 +2112,37 @@ class MainWindow(QMainWindow):
         accept_sync_proposal(self, target_path, proposal)
 
     def _on_video_remove_requested(self, path: str) -> None:
-        from avialsync.ui.sync_lifecycle import invalidate
-
-        invalidate(self, path)
-        self._record(RemoveSourceCommand(self._source_record(path, "video")))
-        # Everything this window knows about the source is dropped before the
-        # grid tears the pane down, because `remove_pane` writes the session on
-        # the way past and that snapshot must describe the session the user
-        # just asked for, not the one with this video still in it.
-        self.sidebar.remove_video(path)
-        self._video_frame_times.pop(path, None)
-        self._overlay_sources.pop(path, None)
-        self.overlay_state.forget_camera(path)
-        self._sync_provenance = [
-            entry for entry in self._sync_provenance if entry.target_id != path
-        ]
-        self.video_grid.remove_pane(path)
-        # The master timeline is the union of the loaded sources, so a camera
-        # that is gone must stop claiming a span -- otherwise removing the one
-        # source that reached out to 400 s leaves the timeline 400 s long.
-        self._video_source_bounds.pop(path, None)
-        self._video_time_mappings.pop(path, None)
-        self.transport.set_source_coverage(path, 0.0, 0.0, "video")
-        self._recompute_bounds()
-        self._refresh_empty_state()
+        sources_controller.on_video_remove_requested(self, path)
 
     def _on_sensor_remove_requested(self, path: str) -> None:
-        from avialsync.ui.sync_lifecycle import invalidate
-
-        invalidate(self, path)
-        self._record(RemoveSourceCommand(self._source_record(path, "sensor")))
-        inspection = self._inspections.get(path)
-        if inspection is not None:
-            inspection.release_cache_pin()
-        cache_dir = self._sensor_cache_dirs.pop(path, None)
-        tracking_source = self._tracking_plot_sources.pop(path, None)
-        self._tracking_visibility.pop(path, None)
-        self._pending_tracking_visibility.pop(path, None)
-        self._pose_3d_sources.pop(path, None)
-        for sources in self._overlay_sources.values():
-            sources.pop(path, None)
-        for video in self._overlay_sources:
-            self._refresh_overlays(video)
-        self._refresh_pose_3d()
-        if tracking_source is not None:
-            cache_dir = tracking_source[0]
-        if cache_dir is None:
-            # Pre-import removal: fall back to the manager's derived location.
-            from avialsync.core.cache import CacheManager
-
-            cache_dir = CacheManager().get_cache_dir(Path(path))
-        self.plot_pane.remove_channels(cache_dir)
-        self.sidebar.remove_sensor(path)
-        self.message_store.remove_source(path)
-        self.transport.set_source_coverage(path, 0.0, 0.0, "data")
-        self._recompute_bounds()
+        sources_controller.on_sensor_remove_requested(self, path)
 
     def _on_sensor_mapping_changed(self, path: str, offset: float, drift: float) -> None:
-        """Re-align one time-series source against the master clock.
-
-        This only changes the source's ``TimeMap`` — cached samples are never
-        rewritten and no channel is re-imported (P3.5, mirrors video offsets).
-        """
-        if path in self._tracking_plot_sources:
-            # A pose source has no plot rows to carry the mapping; its readers do.
-            self._record_mapping_change(path, offset, drift)
-            tracking_timing.apply_mapping(self, path, self.effective_offset(path, offset), drift)
-            return
-        cache_dir = self._sensor_cache_dirs.get(path)
-        if cache_dir is None:
-            return
-        self._record_mapping_change(path, offset, drift)
-        # *offset* is the sidebar residual; the readers need the whole mapping,
-        # session placement included, or a wall-clock source jumps back to its
-        # raw epoch the moment the user touches the control.
-        effective = self.effective_offset(path, offset)
-        self.plot_pane.set_source_mapping(cache_dir, effective, drift)
-        # A note moves with the samples it describes; leaving it behind would
-        # put an experimenter's "stimulus on" beside the wrong trace.
-        self.message_store.set_source_mapping(path, effective, drift)
-        bounds = self.plot_pane.source_bounds(cache_dir)
-        if bounds is not None:
-            # Coverage first, then bounds: the timeline is derived from the
-            # registered spans, so it has to see this source's new one rather
-            # than the span it had before the user moved it.
-            self.transport.set_source_coverage(
-                path, bounds[0], bounds[1], "data", self.coverage_group_for(path)
-            )
-            self._recompute_bounds()
-        self.readout_panel.set_cursor(self.clock.state.t)
-        if any(w.binding is not None and w.binding.source_id == path for w in self.wheels):
-            # The wheel turns by this encoder: redraw it, and show the new
-            # offset on its Props Wheel page row as well as in Sources.
-            wheel_display.refresh(self)
+        sources_controller.on_sensor_mapping_changed(self, path, offset, drift)
 
     def _on_channel_remove_requested(self, path: str, channel: str) -> None:
         """Remove only this source's row — another file may use the same name."""
         self.plot_pane.remove_channel(ChannelKey(path, channel))
 
     def _on_channel_visibility_changed(self, path: str, channel: str, is_visible: bool) -> None:
-        self._record(SetChannelVisibleCommand(source_id=path, channel=channel, visible=is_visible))
-        if path in self._tracking_plot_sources:
-            self._refresh_tracking_visuals(path)
-            if self._tracking_visibility.get(path, {}).get("plot", False):
-                self._sync_tracking_plot(path)
-            return
-        self.plot_pane.set_channel_visible(ChannelKey(path, channel), is_visible)
+        sources_controller.on_channel_visibility_changed(self, path, channel, is_visible)
 
     def _on_tracking_visibility_changed(self, path: str, surface: str, visible: bool) -> None:
-        """Record a per-tracker presentation choice from its sidebar card."""
-        state = self._tracking_visibility.get(path)
-        if state is None or state.get(surface) == visible:
-            return
-        self._record(
-            SetTrackingVisibleCommand(
-                source_id=path,
-                surface=surface,
-                visible=visible,
-                display_name=Path(path).name,
-            )
-        )
-        self._apply_tracking_visibility(path, surface, visible)
+        sources_controller.on_tracking_visibility_changed(self, path, surface, visible)
 
     def _apply_tracking_visibility(self, path: str, surface: str, visible: bool) -> None:
-        """Apply one tracking presentation choice to its real rendering path."""
-        if surface not in {"overlay", "plot"}:
-            return
-        state = self._tracking_visibility.setdefault(path, {"overlay": True, "plot": False})
-        state[surface] = visible
-        self.sidebar.set_tracking_visible(path, surface, visible)
-        if surface == "overlay":
-            self._refresh_tracking_visuals(path)
-            return
-        self._sync_tracking_plot(path)
+        sources_controller.apply_tracking_visibility(self, path, surface, visible)
 
     def _refresh_tracking_visuals(self, path: str) -> None:
-        """Rebuild only the visual routes that a tracking source can feed."""
-        for video, sources in self._overlay_sources.items():
-            if path in sources:
-                self._refresh_overlays(video)
-        self._refresh_pose_3d()
+        sources_controller.refresh_tracking_visuals(self, path)
 
     def _sync_tracking_plot(self, path: str) -> None:
-        """Build or hide a tracking source's plot rows without re-importing it."""
-        source = self._tracking_plot_sources.get(path)
-        if source is None:
-            return
-        cache_dir, channels, offset, drift_ms_per_hour = source
-        visible = self._tracking_visibility.get(path, {}).get("plot", False)
-        card = self.sidebar.sensor_widget(path)
-        selected = set(card.checked_channels()) if card is not None else set(channels)
-        if visible:
-            existing = {
-                channel.reader.channel_id
-                for channel in self.plot_pane.channels
-                if channel.reader.source_id == path
-            }
-            missing = [
-                channel for channel in channels if channel in selected and channel not in existing
-            ]
-            if missing:
-                self.plot_pane.load_channels(
-                    cache_dir, missing, offset, drift_ms_per_hour, source_id=path
-                )
-        for channel in channels:
-            self.plot_pane.set_channel_visible(
-                ChannelKey(path, channel), visible and channel in selected
-            )
+        sources_controller.sync_tracking_plot(self, path)
 
     # ── Display levels ───────────────────────────────────────
 
     def _focused_video_path(self) -> str | None:
-        """The camera an action without an explicit target should act on.
-
-        In order: the one shown fullscreen, then the one the user last touched,
-        then -- only when there is exactly one -- that one.
-
-        It deliberately does **not** fall back to the first of several. It used
-        to, and with three cameras loaded that meant every nudge moved FaceCam
-        whichever camera the user had in mind, silently. Returning None instead
-        lets the caller say what it needs rather than acting on a guess.
-        """
-        paths = self.video_grid.pane_paths()
-        if not paths:
-            return None
-
-        fullscreen = getattr(self.video_grid, "_fullscreen_pane", None)
-        if fullscreen is not None:
-            for path, pane in zip(paths, self.video_grid.panes, strict=False):
-                if pane is fullscreen:
-                    return path
-
-        if self._selected_video_path in paths:
-            return self._selected_video_path
-
-        return paths[0] if len(paths) == 1 else None
+        return sources_controller.focused_video_path(self)
 
     def _step_reference_pane(self) -> Any:
         """The camera frame steps follow: the focused one, when there is one."""
@@ -2318,16 +2150,7 @@ class MainWindow(QMainWindow):
         return self._pane_for(path) if path is not None else None
 
     def _select_video(self, path: str) -> None:
-        """Remember the camera the user just interacted with.
-
-        Any interaction counts -- a click on the pane, its context menu, or a
-        change to its offset -- because all of them mean "this one" as clearly
-        as a selection gesture would, and none of them needed inventing.
-        """
-        if path in self.video_grid.pane_paths():
-            self._selected_video_path = path
-            # The panel shows this camera's levels, not the last camera's.
-            video_levels.show_focused(self)
+        sources_controller.select_video(self, path)
 
     def _pane_for(self, path: str) -> object | None:
         try:
@@ -2353,43 +2176,16 @@ class MainWindow(QMainWindow):
     def _on_channel_group_visibility_changed(
         self, path: str, group_label: str, channels: list, visible: bool
     ) -> None:
-        """Show or hide a whole group of channels as one undoable action.
-
-        One command, not one per channel: hiding a group of forty is a single
-        decision, and an undo history needing forty presses to reverse one
-        click would be worse than no undo for it.
-        """
-        before = {
-            str(channel): self.plot_pane.is_channel_visible(ChannelKey(path, str(channel)))
-            for channel in channels
-        }
-        self._record(
-            SetChannelGroupVisibleCommand(
-                source_id=path,
-                group_label=group_label,
-                before=before,
-                visible=visible,
-            )
+        sources_controller.on_channel_group_visibility_changed(
+            self, path, group_label, channels, visible
         )
-        if path in self._tracking_plot_sources:
-            self._refresh_tracking_visuals(path)
-            if self._tracking_visibility.get(path, {}).get("plot", False):
-                self._sync_tracking_plot(path)
-            return
-        for channel in channels:
-            self.plot_pane.set_channel_visible(ChannelKey(path, str(channel)), visible)
 
     def _on_plot_channel_close_requested(self, source_id: str, channel: str) -> None:
         """Route a plot-row close through the owning source's visibility checkbox."""
         self.sidebar.set_channel_visible(channel, False, source_id)
 
     def _on_video_visibility_changed(self, path: str, is_visible: bool) -> None:
-        self._record(
-            SetSourceVisibleCommand(
-                source_id=path, visible=is_visible, display_name=Path(path).name
-            )
-        )
-        self.video_grid.set_pane_visible(path, is_visible)
+        sources_controller.on_video_visibility_changed(self, path, is_visible)
 
     # No file filters: a plugin may claim any extension. Titles are
     # the actions' own text.
