@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
 
 import numpy as np
-from PySide6.QtCore import QEvent, QObject, Qt, QThread, QTimer, Signal, Slot
+from PySide6.QtCore import QEvent, QObject, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
@@ -39,7 +39,6 @@ from avialsync.core.commands import (
     ResetSessionCommand,
     SetChannelGroupVisibleCommand,
     SetChannelVisibleCommand,
-    SetIdentityGroupCommand,
     SetOriginalTrackerVisibleCommand,
     SetSourceMappingCommand,
     SetSourceVisibleCommand,
@@ -84,6 +83,7 @@ from avialsync.ui.controllers import (
     export_controller,
     gap_view,
     identity_controller,
+    identity_review,
     identity_view,
     import_controller,
     point_edit_controller,
@@ -113,8 +113,7 @@ from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
 from avialsync.ui.help_controller import HelpController
 from avialsync.ui.i18n import tr
 from avialsync.ui.identity_braid import BraidModel
-from avialsync.ui.identity_group_dialog import IdentityGroupDialog
-from avialsync.ui.identity_model_worker import BraidBuildJob, BraidBuildWorker
+from avialsync.ui.identity_model_worker import BraidBuildJob
 from avialsync.ui.identity_panel import IdentityWindow
 from avialsync.ui.inspector_dock import install_inspector_dock
 from avialsync.ui.inspector_nav import InspectorNav
@@ -1601,112 +1600,19 @@ class MainWindow(QMainWindow):
         corrections_controller.adopt(self, source_id)
 
     def _open_identity_panel(self) -> None:
-        """Dock the braid beside the video so the crossing can be reviewed."""
-        source_id = identity_view.current_source(self)
-        if not source_id:
-            return
-        if self._identity_window is None:
-            panel = IdentityWindow(self)
-            self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, panel)
-            panel.hide()
-            panel.panel.swap_requested.connect(
-                lambda event: identity_view.swap(self, panel.panel.source_id(), event)
-            )
-            panel.panel.undo_requested.connect(
-                lambda event: identity_view.undo(self, panel.panel.source_id(), event)
-            )
-            panel.panel.seek_requested.connect(lambda at: self.player.seek(at, exact=True))
-            panel.panel.play_region_requested.connect(self._play_identity_region)
-            panel.panel.apply_requested.connect(self._apply_identity_swap)
-            panel.panel.remove_requested.connect(self._remove_identity_swap)
-            panel.panel.remove_all_requested.connect(
-                lambda: identity_view.remove_all(self, panel.panel.source_id())
-            )
-            panel.panel.detect_requested.connect(
-                lambda group, part: identity_view.detect(self, panel.panel.source_id(), group, part)
-            )
-            panel.panel.new_group_requested.connect(self._new_identity_group)
-            panel.panel.selection_changed.connect(
-                lambda _group, _part: self._refresh_identity_panel()
-            )
-            panel.visibilityChanged.connect(self._identity_dock_visibility_changed)
-            self._identity_window = panel
-        self._identity_window.show()
-        if self._identity_window.isFloating():
-            self._bring_onto_screen(self._identity_window)
-        self._identity_window.raise_()
-        if not self._identity_window.isFloating():
-            self.resizeDocks(
-                [self._identity_window],
-                [min(480, max(340, self.width() // 3))],
-                Qt.Orientation.Horizontal,
-            )
-        self._refresh_identity_panel(source_id)
+        identity_review.open_identity_panel(self)
 
     def _play_identity_region(self, start: float, end: float) -> None:
-        """Review a crossing in the existing video and master-clock A/B loop."""
-        self.transport.set_ab_region(start, end)
-        self.player.seek(max(self.transport.bounds[0], start), exact=True)
-        self.player.set_playing(True)
+        identity_review.play_identity_region(self, start, end)
 
     def _identity_dock_visibility_changed(self, visible: bool) -> None:
-        """A closed editor leaves neither stale proposals nor a pending scan."""
-        if visible:
-            return
-        self._identity_request_serial += 1
-        self._identity_model_timer.stop()
-        self._pending_identity_model = None
-        self.transport.set_identity_candidates([])
+        identity_review.identity_dock_visibility_changed(self, visible)
 
     def _new_identity_group(self) -> None:
-        """Ask for pose-column pairs, then record their group through the bus."""
-        panel_window = self._identity_window
-        if panel_window is None:
-            return
-        source_id = panel_window.panel.source_id()
-        schema = self._pose_schemas.get(source_id)
-        if schema is None:
-            return
-        dialog = IdentityGroupDialog(schema, self.identity_swaps.groups_for(source_id), self)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        group = dialog.group()
-        if group is None:
-            return
-        self.document.execute(SetIdentityGroupCommand(source_id, group), self._mutations)
-        panel_window.panel.select_group(group.name)
+        identity_review.new_identity_group(self)
 
     def _apply_identity_swap(self) -> None:
-        """Accept a swap where the review is.
-
-        One button, because there is one gesture: choosing a crossing seeks the
-        video to it, so "apply the selected crossing" and "apply where the
-        video is" name the same frame. When nothing is selected -- a flip the
-        person spotted by watching, which nothing proposed -- the clock is the
-        answer, and it works while playing, because that is when they see one.
-        """
-        panel_window = self._identity_window
-        if panel_window is None or not isValid(panel_window):
-            return
-        panel = panel_window.panel
-        # The clock, and nothing else. Every way of choosing a crossing seeks
-        # the video to it, so the playhead already *is* the frame under review
-        # -- and when nothing was proposed, it is the frame the person watched
-        # the flip happen on.
-        index = identity_view.index_at_time(self, panel.source_id(), self.clock.state.t)
-        if index is None:
-            return
-        event = panel.event_at(index)
-        if event is None:
-            return
-        identity_view.swap(self, panel.source_id(), event)
-        self.notifications.show_success(
-            tr("{a} and {b} swapped from frame {frame}. Undo reverses it.").format(
-                a=event.lanes[0],
-                b=event.lanes[1],
-                frame=corrections_controller.frame_for(self, panel.source_id(), event.index),
-            )
-        )
+        identity_review.apply_identity_swap(self)
 
     def _bring_panels_back(self) -> None:
         """Re-dock and re-centre every panel this window owns.
@@ -1791,122 +1697,19 @@ class MainWindow(QMainWindow):
         widget.move(frame.topLeft())
 
     def _remove_identity_swap(self) -> None:
-        """Reverse the swap in force where the video is.
-
-        The mirror of applying one, and deliberately as simple: the playhead
-        says which swap is meant, so removing never reaches back and changes
-        identities in a part of the recording the person is not looking at.
-        """
-        panel_window = self._identity_window
-        if panel_window is None or not isValid(panel_window):
-            return
-        panel = panel_window.panel
-        source_id = panel.source_id()
-        index = identity_view.index_at_time(self, source_id, self.clock.state.t)
-        if index is None:
-            return
-        event = identity_view.accepted_at(
-            self, source_id, panel.group_id(), panel.part(), index, panel.pair()
-        )
-        if event is None:
-            self.notifications.show_warning(
-                tr("No accepted swap is in force here, so there is nothing to reverse.")
-            )
-            return
-        identity_view.undo(self, source_id, event)
+        identity_review.remove_identity_swap(self)
 
     def _refresh_identity_panel(self, source_id: str = "") -> None:
-        """Start a registered braid job for the selected source, group and part."""
-        panel_window = self._identity_window
-        if panel_window is None or not isValid(panel_window) or panel_window.isHidden():
-            return
-        panel = panel_window.panel
-        source_id = source_id or panel.source_id() or identity_view.current_source(self)
-        if not source_id:
-            return
-        groups = identity_view.groups_for(self, source_id)
-        counts: dict[tuple[str, str], tuple[int, int]] = {}
-        for group in groups:
-            counts.update(identity_view.counts_for(self, source_id, group))
-        if (
-            panel.source_id() != source_id
-            or panel.group() is None
-            or panel.group_ids() != tuple(group.name for group in groups)
-        ):
-            panel.set_groups(source_id, groups, counts)
-        else:
-            panel.set_counts(counts)
-        panel_window.setWindowTitle(
-            tr("Fix Identities — {source}").format(source=Path(source_id).name)
-        )
-        panel.set_video_available(bool(self.video_grid._paths))
-        panel.set_swap_count(self.identity_swaps.count_for(source_id))
-        self._identity_request_serial += 1
-        serial = self._identity_request_serial
-        job = identity_view.job_for(self, source_id, panel.group_id(), panel.part(), panel.pair())
-        if job is None:
-            # No group to draw. "Loading" would replace the panel's own
-            # explanation -- that this recording needs New group -- with a
-            # spinner for work that is never going to start.
-            if groups:
-                panel.set_loading()
-            return
-        panel.set_loading()
-        self.transport.set_identity_candidates([])
-        self._pending_identity_model = (serial, job)
-        # A rapid walk through the Part menu should start one read for the
-        # final selection, not one full-channel job for every transient item.
-        self._identity_model_timer.start(75)
+        identity_review.refresh_identity_panel(self, source_id)
 
     def _start_identity_model_job(self) -> None:
-        pending = self._pending_identity_model
-        self._pending_identity_model = None
-        panel_window = self._identity_window
-        if pending is None or panel_window is None or panel_window.isHidden():
-            return
-        serial, job = pending
-        worker = BraidBuildWorker(job)
-
-        def _wire(_thread: QThread) -> None:
-            worker.finished.connect(
-                on_ui_thread(
-                    lambda result_job, model: self._show_identity_model(serial, result_job, model),
-                    self,
-                )
-            )
-            worker.error.connect(
-                on_ui_thread(lambda message: self._identity_model_failed(serial, message), self)
-            )
-
-        self._run_job(worker, label=tr("Reading identity evidence"), configure=_wire)
+        identity_review.start_identity_model_job(self)
 
     def _show_identity_model(self, serial: int, job: BraidBuildJob, model: BraidModel) -> None:
-        """Ignore a completed selection the reviewer has already changed."""
-        panel_window = self._identity_window
-        if (
-            serial != self._identity_request_serial
-            or panel_window is None
-            or not isValid(panel_window)
-        ):
-            return
-        panel = panel_window.panel
-        if (panel.source_id(), panel.group_id(), panel.part()) != (
-            job.source_id,
-            job.group.name,
-            job.part,
-        ):
-            return
-        panel.show_model(model)
-        self.transport.set_identity_candidates(
-            [(node.at, node.detail) for node in model.nodes if not node.accepted]
-        )
+        identity_review.show_identity_model(self, serial, job, model)
 
     def _identity_model_failed(self, serial: int, message: str) -> None:
-        """Report only the failure of the current requested evidence slice."""
-        if serial == self._identity_request_serial:
-            self.notifications.show_warning(
-                tr("Identity evidence could not be read."), details=message
-            )
+        identity_review.identity_model_failed(self, serial, message)
 
     def _on_identity_swaps_changed(self, _source_id: str | None) -> None:
         """Refresh what reports accepted flips after one is accepted or undone.
@@ -1933,29 +1736,7 @@ class MainWindow(QMainWindow):
         self.document.execute(SetOriginalTrackerVisibleCommand(visible), self._mutations)
 
     def _refresh_identity_lane(self) -> None:
-        """Show every accepted flip in the Data Streams lanes, in master time."""
-        events: list[tuple[float, str]] = []
-        by_source: dict[str, list[tuple[float, str]]] = {}
-        for source_id, event in self.identity_swaps:
-            when = self._master_time_of_sample(source_id, event.index)
-            if when is None:
-                continue
-            named = (
-                when,
-                tr("{a} and {b} swap from frame {frame}").format(
-                    a=event.lanes[0],
-                    b=event.lanes[1],
-                    frame=corrections_controller.frame_for(self, source_id, event.index),
-                ),
-            )
-            events.append(named)
-            by_source.setdefault(source_id, []).append(named)
-        self.transport.set_identity_events(sorted(events))
-        for source_id in self._pose_schemas:
-            self.sidebar.set_sensor_identity_count(
-                source_id, self.identity_swaps.count_for(source_id)
-            )
-            self.plot_pane.set_identity_events(source_id, by_source.get(source_id, []))
+        identity_review.refresh_identity_lane(self)
 
     def _master_time_of_sample(self, source_id: str, index: int) -> float | None:
         """When one sample of a pose source is shown on the master clock."""

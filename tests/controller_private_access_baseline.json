@@ -25,7 +25,7 @@
       "create_video_pane": 129
     }
   },
-  "main_window_lines": 2985,
+  "main_window_lines": 2766,
   "oversized_controller_lines": {
     "import_controller.py": 722,
     "session_controller.py": 850
@@ -109,6 +109,25 @@
       "_run_job": 1,
       "_show_original_tracker": 2,
       "_swap_storage": 9
+    },
+    "identity_review.py": {
+      "_apply_identity_swap": 1,
+      "_bring_onto_screen": 1,
+      "_identity_dock_visibility_changed": 1,
+      "_identity_model_failed": 1,
+      "_identity_model_timer": 2,
+      "_identity_request_serial": 5,
+      "_identity_window": 9,
+      "_master_time_of_sample": 1,
+      "_mutations": 1,
+      "_new_identity_group": 1,
+      "_pending_identity_model": 4,
+      "_play_identity_region": 1,
+      "_pose_schemas": 2,
+      "_refresh_identity_panel": 2,
+      "_remove_identity_swap": 1,
+      "_run_job": 1,
+      "_show_identity_model": 1
     },
     "identity_view.py": {
       "_mutations": 3,

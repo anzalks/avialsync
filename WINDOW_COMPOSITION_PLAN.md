@@ -189,4 +189,7 @@ has reviewed them.
   drag-to-command, correction lookup, revisit, restore); persistence stays in
   `corrections_controller`. 3,105 → 2,985 lines; 7 moved private accesses under D-248. Full
   suites: 4,593 passed (3.12), 4,592 passed (3.11).
+- [x] A7 identity review (2026-10-19): `ui/controllers/identity_review.py` (dock creation and
+  wiring, apply/remove/new group, braid jobs, identity lane). 2,985 → 2,766 lines; 35 moved
+  private accesses under D-248. 1,099 identity tests and the full 3.12 suite passed.
 
