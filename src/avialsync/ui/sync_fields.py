@@ -173,6 +173,10 @@ def _precision(self: SyncWizard) -> None:
     self._tolerance.valueChanged.connect(self._on_tolerance_changed)
     advanced.addRow(tr("Match tolerance:"), self._tolerance)
     self._effective_tolerance = QLabel(tr("Calculated when you preview the evidence."), self)
+    # A sentence, not a number, until the first preview: unwrapped it set the
+    # column's minimum width, and at larger text on Windows the whole column
+    # needed a sideways scrollbar.
+    self._effective_tolerance.setWordWrap(True)
     advanced.addRow(tr("Effective match tolerance:"), self._effective_tolerance)
     self._precision_requirement = MillisecondSpinBox(self)
     self._precision_requirement.setRange(0.000001, 1.0)

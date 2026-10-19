@@ -30,6 +30,8 @@ full history is in git. Versions follow the tags in the repository.
 - At the Extra large font size the Sources sidebar widens to fit its own controls instead of
   showing a permanent horizontal scrollbar.
 - Quitting no longer prints a cache-lock traceback.
+- The alignment window's expanded options fit without a sideways scrollbar at larger text sizes
+  on Windows.
 
 ## 0.1.13 — 2026-10-15
 
