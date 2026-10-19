@@ -180,6 +180,7 @@ Do not invent alternative spellings. A rename is never "improved" by an agent (D
       artifact builds. A build artifact is not a release or a speed certification.
 - [ ] No performance budget regressed (> 20 % on touched benchmarks).
 - [ ] Docs updated if public API or user-visible behavior changed.
+- [ ] A user-visible change adds a line under **Unreleased** in `CHANGELOG.md`, citing its decision.
 - [ ] Conventional commit message: `feat(scope): …` / `fix:` / `perf:` / `test:` / `docs:` / `chore:`.
 - [ ] **No agent attribution anywhere git can see it.** Never write a
       `Co-Authored-By:` / `Assisted-by:` / `Generated-by:` trailer, a

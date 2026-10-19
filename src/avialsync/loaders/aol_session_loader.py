@@ -106,7 +106,7 @@ class AOLMetricFile:
     """One (ROI, metric) extraction result under a `data_root`-style export.
 
     Layout is fixed by the optical-flow/MI toolbox's own contract
-    (``avialsync_data_schema.md`` §2): ``<video_type>/<roi_id>__<metric>.mat``,
+    (``docs/formats/avialsync_data_schema.md`` §2): ``<video_type>/<roi_id>__<metric>.mat``,
     with ``video_type`` the same camera name AOL's own videos and timing files
     use, sanitized. ``camera`` here is already resolved back to AOL's own
     camera label where possible -- see ``_collect_extracted_metrics``.

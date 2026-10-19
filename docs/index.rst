@@ -44,6 +44,8 @@ Every page also carries an "Edit this page" link to its source in the repository
    tutorials/annotating-and-exporting
    tutorials/fixing-identities
    formats
+   formats/avialsync_data_schema
+   formats/video_extraction_output_schema
    troubleshooting
 
 .. toctree::
@@ -60,6 +62,7 @@ Every page also carries an "Edit this page" link to its source in the repository
    plugin-guide
    technical/index
    licensing
+   changelog
 
 .. Badge definitions. These mirror README.md exactly, so the project state a
    reader sees on GitHub and the state they see here cannot disagree. Every

@@ -2,7 +2,7 @@
 
 Reads the per-(ROI, metric) `-v6` MAT files an optical-flow/motion-index
 toolbox externalizes next to an AOL session's primary `.mat` -- see
-``avialsync_data_schema.md`` for the full contract this loader implements.
+``docs/formats/avialsync_data_schema.md`` for the full contract this loader implements.
 Each file holds one plain numeric array under the variable
 ``roi_metric_data``: no time column, no header, one row per extracted frame.
 
@@ -112,7 +112,7 @@ class AOLMetricLoader(TimeSeriesSource):
 
     Format: single-variable `-v6` MAT file, filename
     ``<roi_id>__<metric>.mat``. Columns follow §3 of
-    ``avialsync_data_schema.md``. No time axis is stored; frame index (row
+    ``docs/formats/avialsync_data_schema.md``. No time axis is stored; frame index (row
     order) combines with the camera's fps and start epoch, supplied by the
     AOL session manifest exactly as it does for EKS tracking.
     """

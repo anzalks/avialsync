@@ -282,3 +282,8 @@ session; the pulses are re-read from the file each time it loads.
 
 Ask your lab for its AvialSync plugin, or see the [plugin guide](plugin-guide.md) to write one.
 Plugins describe how to recognise, read, and label a format; they do not need to change the core app.
+
+Two analysis toolboxes publish their output for AvialSync to read, and their contracts are kept
+here: the [optical-flow and motion-index ROI metrics](formats/avialsync_data_schema.md) an AOL
+session carries beside it, and the
+[video-extraction toolbox's per-camera exports](formats/video_extraction_output_schema.md).

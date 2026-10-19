@@ -2391,7 +2391,7 @@ frozen amber sit unnoticed.
 
 ### Context
 
-`avialsync_data_schema.md` documents a separate optical-flow/motion-index extraction toolbox that
+`docs/formats/avialsync_data_schema.md` documents a separate optical-flow/motion-index extraction toolbox that
 externalizes each `(ROI, metric)` result as a plain single-variable `-v6` MAT file —
 `<roi_id>__<metric>.mat`, holding `roi_metric_data`, no time column, no header — under a
 `data_root` folder placed next to that toolbox's own primary `.mat` (the `-v7.3` `Analysis_Set`

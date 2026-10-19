@@ -861,7 +861,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `loaders/aol_session_loader.py` | AOL MP4/AVI folder detection + manifest (pose, encoder, per-frame times). Uses exact stems and shared median camera start; cross-checks the timing report without blocking partial loads (D-202) | `is_aol_session()`, `build_manifest()`, `AOLManifest`, `AOL2DTrack` |
 | `loaders/aol_eks_loader.py` | AOL 3D EKS CSV; frame-indexed x/y/z triplets | `AOLEksLoader` (`read_all_chunks` is the bulk API) |
 | `loaders/aol_encoder_loader.py` | AOL encoder log; seconds-since-midnight, midnight-unwrapped (D-045). `encoder_velocity` is shown; `encoder_angle` stays loaded but hidden by default for the wheel prop (D-112, D-202) | `AOLEncoderLoader`, `ANGLE_CHANNEL` |
-| `loaders/aol_metric_loader.py` | Extracted per-frame optical-flow/MI MAT files (`avialsync_data_schema.md`); frame-indexed, no `role` — plots like any sensor | `AOLMetricLoader`, `ROI_METRIC_FILENAME_RE` |
+| `loaders/aol_metric_loader.py` | Extracted per-frame optical-flow/MI MAT files (`docs/formats/avialsync_data_schema.md`); frame-indexed, no `role` — plots like any sensor | `AOLMetricLoader`, `ROI_METRIC_FILENAME_RE` |
 | `loaders/aol_video_extraction_loader.py` | Video-extraction-toolbox per-camera export: v7.3/HDF5 + JSON sidecar, one channel per (ROI, column). Carries its own time axis, so NOT frame-indexed (D-081). In a session it is timed from the camera start, not from `absolute_times`, which is an hour out against the session's wall-clock axis (D-083) | `AOLVideoExtractionLoader`, `TIME_BASE_CAMERA_START`, `read_sidecar()`, `sidecar_path()` |
 | `engine/importer.py` | Background import worker (QThread); emits SourceInspection | `ImportWorker` — signals: `finished(path, cache_dir, channels, bounds, inspection)`, `progress`, `error` |
 | `engine/proxy.py` | ffmpeg proxy generation (cancelable poll loop) | `ProxyWorker` |
@@ -2307,7 +2307,7 @@ never reaches a plot row: `overlay2d`/`pose3d` roles route through
 
 ### 26b. AOL extracted-metric MAT files are found by filename, never a fixed folder name
 
-`avialsync_data_schema.md` documents an optical-flow/MI toolbox that externalizes each
+`docs/formats/avialsync_data_schema.md` documents an optical-flow/MI toolbox that externalizes each
 `(ROI, metric)` result as a plain `-v6` MAT file, `<roi_id>__<metric>.mat`, under a `data_root`
 folder whose *name* is user-configurable (default `<export_filename stem>_data/`, e.g.
 `optical_flow_and_MI_data/`). `_collect_extracted_metrics` therefore does not look for a fixed folder

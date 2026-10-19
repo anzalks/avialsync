@@ -1,6 +1,6 @@
 """Tests for AOLMetricLoader (extracted optical-flow/MI per-ROI MAT files).
 
-Fixture layout follows avialsync_data_schema.md §2-3: a plain single-variable
+Fixture layout follows docs/formats/avialsync_data_schema.md §2-3: a plain single-variable
 '-v6' MAT file named '<roi_id>__<metric>.mat', holding 'roi_metric_data' as a
 T-frame x C-column numeric array, no time axis, no header.
 """
