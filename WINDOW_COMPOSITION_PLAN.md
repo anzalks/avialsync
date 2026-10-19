@@ -192,4 +192,9 @@ has reviewed them.
 - [x] A7 identity review (2026-10-19): `ui/controllers/identity_review.py` (dock creation and
   wiring, apply/remove/new group, braid jobs, identity lane). 2,985 → 2,766 lines; 35 moved
   private accesses under D-248. 1,099 identity tests and the full 3.12 suite passed.
+- [x] A8 alignment (2026-10-19): `ui/controllers/alignment_controller.py` (frame nudges, badges,
+  trigger evidence and its read job, camera re-mapping, trigger restore, the wizard); the small
+  public queries stay on the window. 2,766 → 2,507 lines; 39 moved private accesses under D-248.
+  The stale `_accept_sync_proposal`/`_open_sync_wizard` long-function exceptions are removed and
+  `__init__`'s ceiling lowered to 493. Full suites: 4,595 passed (3.12) and 3.11 passed.
 
