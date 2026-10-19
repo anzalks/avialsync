@@ -120,9 +120,10 @@ from avialsync.ui.inspector_dock import install_inspector_dock
 from avialsync.ui.inspector_nav import InspectorNav
 from avialsync.ui.job_manager import JobManager, on_ui_thread
 from avialsync.ui.levels_panel import LevelsPanel
+from avialsync.ui.menus import pane_menu
 from avialsync.ui.menus import view as view_menu
 from avialsync.ui.mutation_target import WindowMutationTarget, marker_record
-from avialsync.ui.overlay_registry import OVERLAY_LAYERS, OverlayState
+from avialsync.ui.overlay_registry import OverlayState
 from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.props_app import PropsApp
 from avialsync.ui.readout_panel import ReadoutPanel
@@ -2228,79 +2229,7 @@ class MainWindow(QMainWindow):
         self.player.seek(max(bounds[0], min(bounds[1], t)), exact=True)
 
     def _on_pane_right_clicked(self, path: str, pos: Any) -> None:
-        """Show a per-pane context menu on video right-click."""
-        from PySide6.QtWidgets import QApplication, QMenu
-
-        menu = QMenu(self)
-
-        # Delete a hand-placed 3D marker under the pointer. Only outside Fix
-        # Tracker, which owns the gesture on points, and only for markers the
-        # user placed: a model's prediction is not theirs to delete.
-        act_delete_marker = None
-        marker_hit = None
-        if not self.video_grid.point_edit_mode:
-            marker_hit = self.video_grid.custom_marker_at(path, pos)
-        if marker_hit is not None:
-            act_delete_marker = menu.addAction(
-                tr("Delete 3D marker {name}").format(name=marker_hit[0])
-            )
-            menu.addSeparator()
-
-        act_fs = menu.addAction(tr("Fullscreen this camera"))
-        act_snap = menu.addAction(tr("Snapshot this camera"))
-
-        # Per-camera overrides, same labels as View -> Overlays. The menu sets
-        # the default for every camera; this overrides one.
-        menu.addSeparator()
-        overlays_menu = menu.addMenu(tr("Overlays on this camera"))
-        camera_actions: dict[QAction, str] = {}
-        for layer in OVERLAY_LAYERS:
-            if layer.locked or not layer.per_camera:
-                continue
-            act = overlays_menu.addAction(layer.label)
-            act.setCheckable(True)
-            act.setChecked(self.overlay_state.is_visible(layer.overlay_id, path))
-            camera_actions[act] = layer.overlay_id
-        overlays_menu.addSeparator()
-        act_follow = overlays_menu.addAction(tr("Follow the View menu"))
-
-        menu.addSeparator()
-        act_props = menu.addAction(tr("Properties…"))
-        act_copy = menu.addAction(tr("Copy frame info"))
-
-        chosen = menu.exec(pos)
-        if act_delete_marker is not None and chosen == act_delete_marker and marker_hit:
-            custom_marker_controller.delete(self, marker_hit[0], marker_hit[1])
-            return
-        if chosen in camera_actions:
-            overlay_id = camera_actions[chosen]
-            self._on_overlay_toggled(overlay_id, chosen.isChecked(), camera=path)
-            return
-        if chosen == act_follow:
-            for layer in OVERLAY_LAYERS:
-                self.overlay_state.clear_override(layer.overlay_id, path)
-            self._apply_overlay_state()
-            return
-        if chosen == act_fs:
-            self.video_grid.toggle_fullscreen(path)
-        elif chosen == act_snap:
-            self._export_snapshot_for_pane(path)
-        elif chosen == act_props:
-            self._show_video_properties(path)
-        elif chosen == act_copy:
-            records = self.video_grid.frame_records_at(self.clock.state.t)
-            info_lines = []
-            for r in records:
-                if r["path"] == path:
-                    info_lines.append(
-                        f"path={r['path']}\n"
-                        f"frame={r['frame_index']}\n"
-                        f"media_t={r['media_timestamp']:.6f}"
-                    )
-            text = "\n".join(info_lines) if info_lines else f"path={path}"
-            cb = QApplication.clipboard()
-            if cb:
-                cb.setText(text)
+        pane_menu.show_pane_menu(self, path, pos)
 
     def _export_snapshot_for_pane(self, path: str) -> None:
         export_controller.export_snapshot_for_pane(self, path)

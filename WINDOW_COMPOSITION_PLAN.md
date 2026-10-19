@@ -182,4 +182,7 @@ has reviewed them.
 - [x] A4 overlays menu (2026-10-19): `build_overlays_menu`, `overlay_toggled` and
   `set_all_overlays` join `apply_overlay_state` in `ui/menus/view.py`. 3,235 → 3,176 lines.
   Full suites: 4,585 passed on both 3.12 and 3.11.
+- [x] A5 pane menu (2026-10-19): `ui/menus/pane_menu.py`, split under the 60-line cap; the
+  `_on_pane_right_clicked` long-function exception is gone. It had no test; `test_pane_menu.py`
+  now drives every choice through a scripted menu. 3,176 → 3,105 lines. Full 3.12 suite passed.
 

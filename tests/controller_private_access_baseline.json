@@ -13,7 +13,6 @@
     "main_window.py": {
       "__init__": 508,
       "_accept_sync_proposal": 110,
-      "_on_pane_right_clicked": 74,
       "_open_sync_wizard": 68
     },
     "session_controller.py": {
@@ -26,7 +25,7 @@
       "create_video_pane": 129
     }
   },
-  "main_window_lines": 3176,
+  "main_window_lines": 3105,
   "oversized_controller_lines": {
     "import_controller.py": 722,
     "session_controller.py": 850
