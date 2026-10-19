@@ -12,9 +12,13 @@ a name, and nothing would say so.
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
+from xml.etree import ElementTree
 
 import pytest
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QLineEdit, QPushButton, QSlider, QWidget
 from shiboken6 import isValid
 
@@ -271,6 +275,60 @@ def test_installing_with_no_catalogue_is_not_an_error(qapp: QApplication) -> Non
     from PySide6.QtCore import QLocale
 
     assert install_translator(qapp, QLocale("xx_XX")) is False
+
+
+def _qt_tool(tool: str, *args: str) -> None:
+    """Run PySide6's own ``lupdate``/``lrelease``, resolved as its console scripts do."""
+    script = f"from PySide6.scripts.pyside_tool import {tool}; {tool}()"
+    subprocess.run([sys.executable, "-c", script, *args], check=True, capture_output=True)
+
+
+def _translate_one(ts_file: Path, source: str, translation: str) -> None:
+    tree = ElementTree.parse(ts_file)
+    message = next(m for m in tree.iter("message") if m.findtext("source") == source)
+    element = message.find("translation")
+    assert element is not None
+    element.text = translation
+    element.attrib.pop("type", None)
+    tree.write(ts_file, encoding="utf-8", xml_declaration=True)
+
+
+def test_a_catalogue_built_from_the_source_translates_the_menu(
+    qapp: QApplication, qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    """Extracted by ``lupdate`` from real source, compiled, installed: the menu reads it.
+
+    A catalogue built the documented way used to load and match nothing --
+    ``lupdate`` files a bare ``tr()`` under the empty context while ``tr()``
+    looked under ``"avialsync"`` -- and the only translation test covered having
+    no catalogue at all, so every string stayed English and nothing said so
+    (D-247). This also fails if a PySide6 upgrade changes the extracted context.
+    """
+    from PySide6.QtCore import QLocale
+
+    import avialsync.ui.menus.help as help_menu
+
+    ts_file = tmp_path / "avialsync_de.ts"
+    _qt_tool("lupdate", help_menu.__file__, "-ts", str(ts_file))
+    _translate_one(ts_file, "Commands…", "Befehle…")
+    _qt_tool("lrelease", str(ts_file), "-qm", str(tmp_path / "avialsync_de.qm"))
+    monkeypatch.setattr("avialsync.ui.i18n.catalogue_dir", lambda: tmp_path)
+
+    try:
+        assert install_translator(qapp, QLocale("de_DE")) is True
+        win = MainWindow()
+        qtbot.addWidget(win)
+        labels = {action.text() for action in win.findChildren(QAction)}
+        assert "Befehle…" in labels
+        assert "Commands…" not in labels
+    finally:
+        # Translators are application-wide; leaving one would translate later tests.
+        for name in ("_avialsync_translator", "_avialsync_qt_translator"):
+            translator = qapp.property(name)
+            if translator is not None:
+                qapp.removeTranslator(translator)
+                qapp.setProperty(name, None)
+    assert tr("Commands…") == "Commands…"
 
 
 def test_the_catalogue_directory_ships_with_the_package() -> None:

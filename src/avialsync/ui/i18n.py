@@ -36,11 +36,12 @@ __all__ = [
     "untranslated_calls",
 ]
 
-#: One context for the whole application's own strings. Qt groups by context so
-#: a translator can see where a phrase appears; per-class contexts would be
-#: finer, but they also mean the same word is translated once per class, and
-#: this application's vocabulary is small and consistent.
-_CONTEXT = "avialsync"
+#: One context for the whole application's own strings, and it must be the one
+#: ``lupdate`` writes: a bare ``tr("...")`` call is extracted under the empty
+#: context. This was ``"avialsync"``, so a catalogue built the documented way
+#: loaded, matched nothing, and left every string English with no error (D-247).
+#: One shared context also means a word is translated once, not once per class.
+_CONTEXT = ""
 
 
 def tr(text: str, disambiguation: str | None = None) -> str:
@@ -51,8 +52,9 @@ def tr(text: str, disambiguation: str | None = None) -> str:
     ``self`` -- ``session_controller`` and the drop handlers especially. One
     mechanism that works everywhere beats two that each work half the time.
 
-    ``lupdate`` extracts ``QCoreApplication.translate`` calls, so this is
-    visible to the tooling as well as to Qt.
+    ``lupdate`` extracts the ``tr("...")`` call sites themselves, so the text
+    must be a literal at the call: ``tr(variable)`` looks up a string the
+    catalogue never received.
     """
     return QCoreApplication.translate(_CONTEXT, text, disambiguation)
 

@@ -553,7 +553,11 @@ Fixture: `tools/make_fixtures.generate_sync_ground_truth`.
   needs the field checklist to settle.
 - Physical props: merge `feat/physical-props` and run its release gate
   (`archive/plans/PHYSICAL_PROPS_PLAN.md` §4 slice 6).
-- Shipped translations: the machinery and 100 % wrapping exist; no `.qm` catalogue ships yet.
+- Shipped translations: the machinery and 100 % wrapping of direct literals exist, and since D-247
+  a catalogue built with `lupdate` actually applies. No `.qm` catalogue ships yet; the remaining
+  gaps (indirect keys, plurals, language-independent shortcut ids, packaging) are
+  `TRANSLATIONS_PLAN.md` T2–T7. Trap: `tr()` must look up the context `lupdate` writes for a bare
+  `tr("...")` -- the empty one -- or every catalogue silently matches nothing.
 - Native synchronization plugin API (D-026).
 
 ### Done (P3.5 performance/accurate-streaming hardening — audit 2026-07-29, closed 2026-07-30)

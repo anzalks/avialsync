@@ -7903,3 +7903,26 @@ no shortcut bindings, frame timestamps or accepted mappings change.
 then verify forward/backward movement after exact alignment, with a clicked camera and with no
 selection, while paused and while playing. The clicked-camera cases begin with an editor holding
 modified text. Existing generic exact-scrub and golden sync assertions remain unchanged.
+
+## 2026-10-19 · D-247 · `tr()` looks strings up under the context `lupdate` writes
+
+**Context.** `ui/i18n.tr()` called `QCoreApplication.translate("avialsync", text)`. PySide6 6.11's
+`lupdate` extracts every bare `tr("...")` call under the empty context, so a catalogue built with
+the command in `resources/i18n/README.md` loaded without complaint, matched nothing, and left the
+interface English. Reproduced: one message translated and installed returned the English source for
+context `"avialsync"` and the translation for `""`. The only test covered having no catalogue, and
+`translatable_ratio` measures wrapping, not whether a wrapped string can ever be found.
+
+**Decision.** `tr()` uses the empty context, the one the extraction tool writes for its call sites.
+All 2,009 call sites stay as they are, and one shared context still means a word is translated once.
+`test_a_catalogue_built_from_the_source_translates_the_menu` runs `lupdate` on the real Help menu
+source, compiles one translated message with `lrelease`, installs it, and asserts the constructed
+window's action reads the translation. A PySide6 upgrade that changes the extracted context fails
+it.
+
+**Alternatives rejected.** Rewriting the `.ts` context after extraction (a second step every
+translator must remember, and one more place the context is named); calling
+`QCoreApplication.translate("avialsync", ...)` at every site (2,009 edits, for no gain).
+
+**Not changed.** Indirect keys (`tr(variable)`), f-strings outside known setters, plurals, the
+language-independence of shortcut ids, and shipping catalogues are TRANSLATIONS_PLAN.md T2–T7.

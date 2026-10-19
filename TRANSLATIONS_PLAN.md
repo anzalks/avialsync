@@ -70,7 +70,7 @@ stay English for bug reports; anything written to a file.
 
 ## Proposed decisions (record in DECISIONS.md before the dependent slice)
 
-- **D-next-a · Translation context.** `tr()` uses the context that `lupdate` writes for its calls.
+- **D-next-a · Translation context.** *Recorded as D-247 and done (T1), 2026-10-19.* `tr()` uses the context that `lupdate` writes for its calls.
   This is preferred to post-processing the `.ts` file or rewriting 2,009 call sites. A round-trip
   test pins the context, so a PySide6 upgrade that changes it fails loudly.
 - **D-next-b · Action ids are language-independent.** `action_id()` derives from the untranslated
@@ -141,6 +141,12 @@ at the next launch, and say so beside the control. The order of precedence is
 **T8 · First real language (human).** This needs a fluent speaker who knows the field.
 Machine-translated catalogues are not shipped unreviewed. Agents prepare the `.ts` file and
 review layout under it; the translation itself is not agent work.
+
+## Progress
+
+- [x] T1 (2026-10-19, D-247): `tr()` uses the empty context `lupdate` writes. The new round-trip
+  test failed on the old context — the catalogue loaded and the Help menu stayed English — and
+  passes on the fix.
 
 ## Validation
 
