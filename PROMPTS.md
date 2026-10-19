@@ -30,19 +30,9 @@ Work in small increments and run `pytest -x -q` + `ruff check .` after each incr
 
 ## Phase prompts
 
-Proposed work (not started): translations and window composition, on branch
-`feat/translations-window-composition`. Run one slice per session, in the order given in
-`WINDOW_COMPOSITION_PLAN.md` §Sequencing.
-
-### Translations slice (T1–T7)
-
-```
-Task: TRANSLATIONS_PLAN.md slice <T#>. Read the plan's Findings and Constraints first.
-If the slice depends on a proposed decision (D-next-a … d), confirm it is recorded in
-DECISIONS.md; if not, stop and ask. Files are language-neutral: nothing translated may reach a
-session, sidecar, export, cache key or id. Keep translatable_ratio at 100 % and lower the new
-baselines only by doing the work. Never ship a machine-translated catalogue.
-```
+Open work: window composition, on branch `feat/window-composition`. Run one slice per session,
+in the order given in `WINDOW_COMPOSITION_PLAN.md`. (Translation is parked; its plan is in
+`archive/plans/` and is not to be worked from.)
 
 ### Window composition slice (A1–A10, B1–B4)
 

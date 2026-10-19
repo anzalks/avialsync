@@ -1,11 +1,13 @@
 # Translations plan
 
-Branch: `feat/translations-window-composition`, based on `fix/prop-persistence` at `c144a78`
-(unmerged; rebase onto `main` once that branch lands). Shared with `WINDOW_COMPOSITION_PLAN.md`;
-the order of the two is in §Sequencing.
+> **Parked 2026-10-19 — not scheduled. Do not work from this plan unless the user reopens it.**
+> Only T1 shipped (D-247): `tr()` looks strings up under the context `lupdate` writes, so a
+> catalogue built from the source applies. T2–T8 were not started. Nothing extra is needed to
+> install or run AvialSync: with no catalogue, `tr()` returns the English text. The findings
+> below are the starting point if translation is ever picked up again.
 
-Status: proposed, 2026-10-19. No code has changed. The decisions marked *proposed* below need the
-user's agreement before the slice that depends on them starts.
+Written on the branch now named `feat/window-composition`, based on `fix/prop-persistence` at
+`c144a78`.
 
 ## Goal
 

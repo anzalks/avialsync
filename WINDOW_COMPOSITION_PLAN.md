@@ -1,11 +1,9 @@
 # Window composition plan
 
-Branch: `feat/translations-window-composition`, based on `fix/prop-persistence` at `c144a78`
-(unmerged; rebase onto `main` once that branch lands). Shared with `TRANSLATIONS_PLAN.md`; the
-order of the two is in §Sequencing.
+Branch: `feat/window-composition`, based on `fix/prop-persistence` at `c144a78` (unmerged;
+rebase onto `main` once that branch lands).
 
-Status: proposed, 2026-10-19. No code has changed. Stage B depends on a decision that only the
-user can approve.
+Status: Stage A started 2026-10-19. Stage B depends on a decision that only the user can approve.
 
 ## Goal
 
@@ -158,14 +156,13 @@ state under D-066, and revise D-148's target.
 - **Merge conflicts.** Any other branch touching `main_window.py` conflicts. Today nothing open
   does; `fix/prop-persistence` must merge to `main` first.
 
-## Sequencing (both plans on this branch)
+## Sequencing
 
-1. Translations T1–T4: make catalogues work, add tooling, gates and stable action ids. These
-   barely touch `main_window.py`.
-2. Window composition Stage A (A1–A10), then the D-next-e decision, then Stage B.
-3. Translations T5–T7: the string sweep runs over the moved code once, then the language
-   setting and shipping.
-4. Translations T8 needs a human translator.
+Stage A (A1–A10), then the D-next-e decision, then Stage B. Moved code keeps its `tr()` wrapping
+(AGENTS rule 17); translation itself is parked.
 
-Commits are local and conventional (`refactor(ui): …`, `feat(i18n): …`, `test: …`), with no push
-until the user has reviewed them.
+Commits are local and conventional (`refactor(ui): …`, `test: …`), with no push until the user
+has reviewed them.
+
+## Progress
+

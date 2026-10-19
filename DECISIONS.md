@@ -7925,4 +7925,5 @@ translator must remember, and one more place the context is named); calling
 `QCoreApplication.translate("avialsync", ...)` at every site (2,009 edits, for no gain).
 
 **Not changed.** Indirect keys (`tr(variable)`), f-strings outside known setters, plurals, the
-language-independence of shortcut ids, and shipping catalogues are TRANSLATIONS_PLAN.md T2–T7.
+language-independence of shortcut ids, and shipping catalogues were TRANSLATIONS_PLAN.md T2–T7,
+parked on 2026-10-19 (`archive/plans/`).

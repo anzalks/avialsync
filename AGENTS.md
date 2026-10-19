@@ -15,9 +15,10 @@ formats, TTL/event semantics, and optional analysis through plugins. Open-source
 `DECISIONS.md` for settled choices. Do not re-litigate settled decisions; propose changes as a
 DECISIONS.md entry in the PR description instead of silently diverging.
 
-**No phase is open.** Two plans are proposed but not started: `TRANSLATIONS_PLAN.md` and
-`WINDOW_COMPOSITION_PLAN.md` (branch `feat/translations-window-composition`); see BLUEPRINT
-"Next phase". Phase 9 (interface design, branch `feat/interface-design`) is delivered;
+**Open work: window composition** (`WINDOW_COMPOSITION_PLAN.md`, branch
+`feat/window-composition`); see BLUEPRINT "Next phase". Translation is parked
+(`archive/plans/TRANSLATIONS_PLAN.md`): keep wrapping new strings per rule 17, but do not start
+its remaining slices. Phase 9 (interface design, branch `feat/interface-design`) is delivered;
 its plan is archived with the others. BLUEPRINT.md lists what is open. Completed plans live in
 `archive/plans/` as record only; do not work from them. Rules 10–17 below came from Phase 7 and are binding everywhere.
 

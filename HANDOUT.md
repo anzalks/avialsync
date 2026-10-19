@@ -556,7 +556,7 @@ Fixture: `tools/make_fixtures.generate_sync_ground_truth`.
 - Shipped translations: the machinery and 100 % wrapping of direct literals exist, and since D-247
   a catalogue built with `lupdate` actually applies. No `.qm` catalogue ships yet; the remaining
   gaps (indirect keys, plurals, language-independent shortcut ids, packaging) are
-  `TRANSLATIONS_PLAN.md` T2–T7. Trap: `tr()` must look up the context `lupdate` writes for a bare
+  `archive/plans/TRANSLATIONS_PLAN.md` (parked, not scheduled). Trap: `tr()` must look up the context `lupdate` writes for a bare
   `tr("...")` -- the empty one -- or every catalogue silently matches nothing.
 - Native synchronization plugin API (D-026).
 

@@ -135,7 +135,7 @@ capability you do not have.
 | P4.6 slice 9 certification | The `TESTING.md` manual field-data checklist on all three platforms and the populated plot benchmarks (`archive/plans/PLOT_UX_PLAN.md` §14–§15). |
 | `ui/main_window.py` size (D-148) | 3 440 lines; target under 1 000 through composition only (D-051). Planned in `WINDOW_COMPOSITION_PLAN.md`. |
 | Physical props merge | Merge `feat/physical-props` and run its release gate (archived plan §4 slice 6). |
-| Shipped translations | Machinery and 100 % wrapping of direct literals exist, but a catalogue would not apply yet and indirect text is uncounted. Planned in `TRANSLATIONS_PLAN.md`; a real language still needs a translator. |
+| Shipped translations | Parked, not scheduled. Strings are wrapped and a catalogue built with `lupdate` applies (D-247); no catalogue ships and nothing extra is needed to run the app. Findings for any future pickup: `archive/plans/TRANSLATIONS_PLAN.md`. |
 | Native synchronization plugin API (D-026) | Native plugin event providers remain unfrozen. |
 | Phase 9 manual check | Run the TESTING.md §6 smoke checklist on real field data with `feat/interface-design` before merging; agents cannot. |
 | Docking beyond the inspector (D-180) | Only the inspector is a dock; the workspace column keeps its splitters by decision. Revisit only with a dock-aware form of `PaneProportions` and D-127. |
@@ -144,19 +144,12 @@ capability you do not have.
 
 ## Next phase
 
-**Proposed, not started (2026-10-19): translations and window composition**, on branch
-`feat/translations-window-composition`. Two executable plans share the branch:
+**Window composition (started 2026-10-19)**, on branch `feat/window-composition`, plan
+`WINDOW_COMPOSITION_PLAN.md`. Stage A moves bodies out under D-066 (floor about 1,450 lines);
+Stage B reaches the D-148 target of under 1,000 only with proposed decision D-next-e
+(window-owned coordinator objects), which needs the user's agreement first.
 
-- `TRANSLATIONS_PLAN.md` — make a catalogue actually apply (today `lupdate` writes the empty
-  context while `tr()` looks up `"avialsync"`), a pseudo-locale, gates for indirect and
-  runtime-built text, language-independent action ids, the string sweep, a language setting,
-  and shipping catalogues. Real-language translation is human work (T8).
-- `WINDOW_COMPOSITION_PLAN.md` — Stage A moves bodies out under D-066 (floor about 1,450 lines);
-  Stage B reaches the D-148 target of under 1,000 only with proposed decision D-next-e
-  (window-owned coordinator objects).
-
-Order: translations T1–T4, composition Stage A then B, translations T5–T7. Proposed decisions in
-both plans need the user's agreement before the slice that depends on them.
+Translation is **parked**, not scheduled: `archive/plans/TRANSLATIONS_PLAN.md`.
 
 ---
 
