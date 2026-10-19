@@ -30,7 +30,7 @@ Work in small increments and run `pytest -x -q` + `ruff check .` after each incr
 
 ## Phase prompts
 
-Open work: window composition, on branch `feat/window-composition`. Run one slice per session,
+Open work: window composition (Stage A merged into `main`). Run one slice per session,
 in the order given in `WINDOW_COMPOSITION_PLAN.md`. (Translation is parked; its plan is in
 `archive/plans/` and is not to be worked from.)
 

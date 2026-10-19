@@ -15,8 +15,8 @@ formats, TTL/event semantics, and optional analysis through plugins. Open-source
 `DECISIONS.md` for settled choices. Do not re-litigate settled decisions; propose changes as a
 DECISIONS.md entry in the PR description instead of silently diverging.
 
-**Open work: window composition** (`WINDOW_COMPOSITION_PLAN.md`, branch
-`feat/window-composition`); see BLUEPRINT "Next phase". Translation is parked
+**Window composition** (`WINDOW_COMPOSITION_PLAN.md`): Stage A is merged into `main` locally;
+Stage B awaits the user's decision; see BLUEPRINT "Next phase". Translation is parked
 (`archive/plans/TRANSLATIONS_PLAN.md`): keep wrapping new strings per rule 17, but do not start
 its remaining slices. Phase 9 (interface design, branch `feat/interface-design`) is delivered;
 its plan is archived with the others. BLUEPRINT.md lists what is open. Completed plans live in
@@ -266,7 +266,7 @@ conda run -n avialsync python tools/generate_session_screenshot.py <recording fo
     the installed version's docs/signatures when behavior surprises you; don't force remembered APIs.
 11. Test and scratch script locations: NEVER create temporary test scripts, scratch files, or ad-hoc tests in the repository root or inside `src/`. All formal tests must be placed in `tests/` and appropriately named (e.g., `test_*.py`). If you need temporary scratch files, use the designated artifact scratch folder or `/tmp/`, and clean them up afterward.
 12. Work location: edit, test and commit only in this repository's own working tree, on the
-    branch already checked out (AOL work: `feat/aol-microscope-trials`). Do not create git
+    branch already checked out. Do not create git
     worktrees, sibling checkouts, new branches or copies of the repo, and do not switch branches,
     unless the user asks. The conda env's editable install points at this tree, so the app the
     user launches only runs edits made here. If the checked-out branch is not the one the task

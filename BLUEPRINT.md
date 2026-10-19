@@ -144,7 +144,7 @@ capability you do not have.
 
 ## Next phase
 
-**Window composition (started 2026-10-19)**, on branch `feat/window-composition`, plan
+**Window composition (started 2026-10-19)**, Stage A merged into local `main` on 2026-10-19, plan
 `WINDOW_COMPOSITION_PLAN.md`. **Stage A is done** (3,440 → 2,302 lines, A1–A10 committed). Stage B
 (proposed D-next-e, window-owned coordinator objects) needs the user's agreement first; the
 plan's Stage A outcome records what it would and would not reach.

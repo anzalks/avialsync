@@ -1,7 +1,7 @@
 # Window composition plan
 
-Branch: `feat/window-composition`, based on `fix/prop-persistence` at `c144a78` (unmerged;
-rebase onto `main` once that branch lands).
+Written on `feat/window-composition` (based on `fix/prop-persistence` at `c144a78`); Stage A was
+fast-forwarded into local `main` on 2026-10-19 and both branches were deleted locally.
 
 Status: Stage A started 2026-10-19. Stage B depends on a decision that only the user can approve.
 
@@ -153,8 +153,8 @@ state under D-066, and revise D-148's target.
   use `@Slot`. Mitigation: check thread affinity in the job tests.
 - **Test churn.** Stage B retargets up to a few hundred accesses mechanically, one slice per
   commit, never mixed with behaviour changes.
-- **Merge conflicts.** Any other branch touching `main_window.py` conflicts. Today nothing open
-  does; `fix/prop-persistence` must merge to `main` first.
+- **Merge conflicts.** Any other branch touching `main_window.py` conflicts. None is open; Stage A
+  and the work it was based on are in `main`.
 
 ## Sequencing
 
