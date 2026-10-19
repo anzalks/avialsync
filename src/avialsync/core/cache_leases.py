@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -79,6 +80,11 @@ class GenerationPin:
                 _READ_LEASES.pop(base).close()
 
     def __del__(self) -> None:
+        # At interpreter exit the operating system releases this process's
+        # locks itself; unlocking explicitly then imports the platform module
+        # after the import system is gone and prints a traceback on quit.
+        if sys.is_finalizing():
+            return
         self.close()
 
 

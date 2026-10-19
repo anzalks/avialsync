@@ -62,3 +62,22 @@ def test_directory_fingerprint_records_link_targets_and_broken_links(
     monkeypatch.setattr(os, "walk", lambda root: iter([(str(source), ["link"], [])]))
     broken = manager._hash_file_edges(source)
     assert valid != broken
+
+
+def test_a_pin_collected_at_interpreter_exit_leaves_the_unlock_to_the_os(
+    tmp_path, monkeypatch
+) -> None:
+    """Unlocking during finalisation imports a module after imports stop working."""
+    import sys
+
+    from avialsync.core.cache_leases import cache_entry_pinned
+
+    entry = tmp_path / "entry"
+    entry.mkdir()
+    pin = GenerationPin(entry)
+    with monkeypatch.context() as finalizing:
+        finalizing.setattr(sys, "is_finalizing", lambda: True)
+        pin.__del__()
+        assert cache_entry_pinned(entry.absolute())
+    pin.__del__()
+    assert not cache_entry_pinned(entry.absolute())
