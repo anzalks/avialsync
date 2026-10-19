@@ -30,8 +30,32 @@ Work in small increments and run `pytest -x -q` + `ruff check .` after each incr
 
 ## Phase prompts
 
-No phase is open. Phase 9's prompts were removed when it shipped; they are in git history, and its
-plan is `archive/plans/INTERFACE_DESIGN_PLAN.md`.
+Proposed work (not started): translations and window composition, on branch
+`feat/translations-window-composition`. Run one slice per session, in the order given in
+`WINDOW_COMPOSITION_PLAN.md` §Sequencing.
+
+### Translations slice (T1–T7)
+
+```
+Task: TRANSLATIONS_PLAN.md slice <T#>. Read the plan's Findings and Constraints first.
+If the slice depends on a proposed decision (D-next-a … d), confirm it is recorded in
+DECISIONS.md; if not, stop and ask. Files are language-neutral: nothing translated may reach a
+session, sidecar, export, cache key or id. Keep translatable_ratio at 100 % and lower the new
+baselines only by doing the work. Never ship a machine-translated catalogue.
+```
+
+### Window composition slice (A1–A10, B1–B4)
+
+```
+Task: WINDOW_COMPOSITION_PLAN.md slice <A#/B#>. Behaviour, connections, job ownership, undo
+and shutdown order must be identical. Stage A follows D-066 exactly (delegators stay; moved code
+calls window methods). Stage B requires D-next-e recorded in DECISIONS.md; if it is not, stop.
+Lower the controller boundary baselines in the same commit. Retarget tests only to the new
+owner of the same behaviour, with unchanged assertions, and name each retarget in the commit.
+```
+
+Phase 9's prompts were removed when it shipped; they are in git history, and its plan is
+`archive/plans/INTERFACE_DESIGN_PLAN.md`.
 
 ## Debugging prompt template (any phase)
 
