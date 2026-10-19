@@ -175,4 +175,8 @@ has reviewed them.
   theme/font handlers; action groups are passed in. 3,339 → 3,286 lines; no baseline allowance
   added. Full suites: 4,584 passed (3.12); 3.11 passed apart from the boundary test tripping on the
   uncommitted A3 file, which passed on re-run without it.
+- [x] A3 proxy (2026-10-19, D-248): `ui/controllers/proxy_controller.py`; the duplicate
+  `_proxy_worker`/`_proxy_thread` handles are gone (JobManager owns the worker). 3,286 → 3,235
+  lines. Baseline gains the moved code's 8 private accesses under D-248. Exports were already
+  delegators.
 

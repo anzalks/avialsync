@@ -7927,3 +7927,27 @@ translator must remember, and one more place the context is named); calling
 **Not changed.** Indirect keys (`tr(variable)`), f-strings outside known setters, plurals, the
 language-independence of shortcut ids, and shipping catalogues were TRANSLATIONS_PLAN.md T2–T7,
 parked on 2026-10-19 (`archive/plans/`).
+
+## 2026-10-19 · D-248 · Code moved out of MainWindow may carry its private accesses into the baseline
+
+**Context.** D-148 freezes every `window._*` access in controller modules and lets the baseline only
+shrink. D-066 requires moved code to keep calling the window's own methods, because tests patch
+instance attributes such as `window._run_job`. Moving a body out of `main_window.py` therefore makes
+its existing private accesses visible to the boundary test for the first time; inside the window
+they were `self._x` and uncounted. Under the zero-allowance rule, most of WINDOW_COMPOSITION_PLAN
+Stage A could not move.
+
+**Decision.** During the window composition, a slice that moves code verbatim out of `MainWindow`
+may add that code's private accesses to `tests/controller_private_access_baseline.json`, in the
+same commit, naming the slice. This is coupling made visible, not coupling added. A slice still
+removes any duplicate handle it can (A3 dropped `_proxy_worker`/`_proxy_thread`, which JobManager
+already owns), and new code that is not a move keeps the zero allowance. `main_window_lines` is
+lowered in every slice.
+
+**Alternatives rejected.** A narrow input object per slice (cleaner, roughly two to three times the
+work and test churn per slice); moving only code that needs no private access (keeps the count
+falling but leaves most of the file in place).
+
+**Consequences.** The baseline's total rises during Stage A while `main_window.py` falls. Stage B
+(proposed D-next-e) is where those accesses become public coordinator attributes and the baseline
+shrinks again.

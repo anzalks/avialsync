@@ -88,6 +88,7 @@ from avialsync.ui.controllers import (
     identity_controller,
     identity_view,
     import_controller,
+    proxy_controller,
     session_controller,
     timebase,
     video_controller,
@@ -2469,65 +2470,13 @@ class MainWindow(QMainWindow):
     # ── Proxy generation ─────────────────────────────────────────────
 
     def _generate_proxy(self) -> None:
-        if not self.video_grid._paths:
-            self.notifications.show_warning(tr("Load a video before generating a proxy."))
-            return
+        proxy_controller.generate_proxy(self)
 
-        from avialsync.engine.proxy import ProxyWorker
-        from avialsync.ui import export_destinations
-
-        # The selected camera, as a nudge moves it. This was the first camera
-        # whatever was selected, so with three loaded only one could be proxied.
-        path = self._focused_video_path()
-        if path is None:
-            self.notifications.show_warning(
-                tr("Click the camera you want a proxy of first, or open one fullscreen.")
-            )
-            return
-        video_path = Path(path)
-        chosen = export_destinations.choose_proxy(self, video_path)  # D-244
-        if chosen is None:
-            return
-        self._proxy_worker = ProxyWorker(video_path, chosen)
-
-        # Proxy generation is minutes of transcoding. Behind a modal that was
-        # minutes of unusable application, for work the user started so they
-        # could keep looking at the session.
-        self.activity_bar.begin(f"Generating proxy for {video_path.name}")
-        self._active_cancel = self._proxy_worker.cancel
-
-        def _wire(thread: QThread) -> None:
-            worker = self._proxy_worker
-            assert worker is not None
-            self._proxy_thread = thread
-            worker.progress.connect(self.activity_bar.set_progress)
-            worker.finished.connect(self._on_proxy_finished)
-            worker.error.connect(self._on_proxy_error)
-
-        # Registered rather than hand-wired. `JobManager` connects
-        # `started -> run` and quits the thread on `finished`/`error`, so this
-        # no longer repeats those four lines — and a transcode that wedges is
-        # now reported as not responding instead of merely looking busy.
-        self._run_job(
-            self._proxy_worker,
-            label=f"Generating proxy for {video_path.name}",
-            configure=_wire,
-        )
-
-    def _on_proxy_finished(self, orig: str, proxy: str) -> None:
-        self.activity_bar.end()
-        self._active_cancel = None
-        # Offered, not just announced: it used to be left on disk unmentioned.
-        self.notifications.show_success(
-            tr("Proxy ready: {name} (720p 8-bit, for scrubbing)").format(name=Path(proxy).name),
-            action_label=tr("Open Proxy"),
-            on_action=lambda: self._load_video(Path(proxy)),
-        )
+    def _on_proxy_finished(self, _orig: str, proxy: str) -> None:
+        proxy_controller.on_proxy_finished(self, proxy)
 
     def _on_proxy_error(self, err: str) -> None:
-        self.activity_bar.end()
-        self._active_cancel = None
-        self.notifications.show_error(tr("Could not generate the proxy"), details=err)
+        proxy_controller.on_proxy_error(self, err)
 
     # ── Source loading ───────────────────────────────────────────────
 
