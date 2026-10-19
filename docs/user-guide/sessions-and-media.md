@@ -216,10 +216,13 @@ something else.
 **File → Preferences…** — in the File menu on Windows, macOS and Linux alike, and on ⌘, / Ctrl+, —
 collects everything configurable in one dialog, generated from the
 application's own settings list, so each entry carries its explanation and its own **Reset to
-default**. It holds the theme and font size, the colour-vision-safe trace palette, whether the A–B
-range loops, live plot presentation, whether body-part names are drawn by default, whether display
-levels for high-bit-depth video are chosen automatically, the remembered wheel setup (bar count, units
-and radius), the autosave interval, and whether unsaved work from a previous run is offered at launch.
+default**. It holds the theme and font size, the interface density and how many Data Streams rows
+each density shows before scrolling, the inspector page shown at launch, the colour-vision-safe
+trace palette, whether the A–B range loops, whether gaps without data are collapsed, live plot
+presentation, the video timecode detail, whether body-part names are drawn by default, whether
+display levels for high-bit-depth video are chosen automatically, the remembered wheel setup (bar
+count, units and radius), the autosave interval, and whether unsaved work from a previous run is
+offered at launch. Installed plugins add their own tabs; see [Plugin settings](../plugins/settings.md).
 
 ![The Preferences dialog](../_static/screenshots/feature_preferences.png)
 
