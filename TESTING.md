@@ -208,7 +208,7 @@ tests but cannot replace time, signal, accessibility, and performance assertions
 | Multi-part split recording | Loader presents as one source; boundaries seamless in pyramid |
 | 32+ channels | Tree panel + grouping; no 32-row explosion |
 
-### Synchronization evidence (planned, D-026)
+### Synchronization evidence (D-026, D-108)
 | Case | Expected behavior |
 |---|---|
 | Common periodic TTL clock | Deterministic pairing and affine offset/drift fit within fixture tolerance |
@@ -216,7 +216,7 @@ tests but cannot replace time, signal, accessibility, and performance assertions
 | Sparse pulses with a missing edge | Missing evidence recorded; valid remaining pairs fit without silent interpolation |
 | Repeated/ambiguous pulse pattern | No automatic acceptance; wizard explains ambiguity and offers manual constraint |
 | Outlier or spurious edge | Robust fit rejects it and records residual/outlier evidence |
-| Plugin native event stream | Raw timestamps are preserved; no acquisition driver or format special case in UI |
+| Plugin native event stream | Raw timestamps are preserved; no acquisition driver or format special case in UI. *Pending: the native plugin event-provider API is not frozen yet (BLUEPRINT open items).* |
 
 ### Sessions & environment
 | Case | Expected behavior |

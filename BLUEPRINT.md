@@ -103,10 +103,14 @@ behaviour, traps), git history, and `archive/plans/` (the executable plans, kept
 | 7 UX foundations | Command bus + undo, settings registry + Preferences, live-action shortcuts + command palette, overlay registry, feedback surface, error presenter + quality badges, empty state + Help/About, 12-bit display levels, Align menu + evidence view, sidebar at scale + workspaces, a11y/i18n/CVD palette | D-087 – D-107 |
 | 8 Alignment on evidence | Session zero, method on the record (schema v9), trigger evidence, model ladder, trigger plugins, non-modal evidence dialog | D-108 |
 | Identity repair | Accepted identity flips over declared lanes, one edit program, braid UI, single corrected pose export | D-141 – D-145 |
-| Physical props | Wheel, belt, ball, ladder in one Props inspector and `_prop.toml` sidecar; on `feat/physical-props` | D-149, D-154 – D-157, D-162 – D-166 |
-| 9 Interface design | Inspector rail and dock, status-bar Tasks, three bottom strips, density-sized Data Streams, compact video headers with a label contract, compact source cards, one Open Files list, shared step panels and empty states, minimal plot gutters, one decimal separator, accessible painted surfaces, First Session Tutorial, scrolling workspace; on `feat/interface-design` | D-167 – D-182 |
+| Physical props | Wheel, belt, ball, ladder in one Props inspector and `_prop.toml` sidecar; merged into `main` (`607c8af`) | D-149, D-154 – D-157, D-162 – D-166 |
+| 9 Interface design | Inspector rail and dock, status-bar Tasks, three bottom strips, density-sized Data Streams, compact video headers with a label contract, compact source cards, one Open Files list, shared step panels and empty states, minimal plot gutters, one decimal separator, accessible painted surfaces, First Session Tutorial, scrolling workspace; merged into `main` (`607c8af`) | D-167 – D-182 |
 | Alignment workflow | Screen-bounded scrolling review, contextual modes and tabbed evidence; visual pairs and imaging targets; stale-preview/dependency guards; reversible nonlinear adjustments; explicit trigger inputs, precision resolution and reports | D-241 |
 | Alignment UX simplification | Recording-first setup, narrow Settings/Results pages, Preview/Apply footer, concise result, grouped checks/export, offset-first manual editing, source labels and session-scoped UI memory | D-242 |
+| Engineering hardening | Running-version reporting, export provenance, cross-process cache ownership, strict core typing with 100 % core coverage enforced in CI, pinned CI dependency sets, local workload certification | D-228 – D-237 |
+| UI/UX review and frame stepping | Imports state their timebase, no one-click cache deletion, proxies where the user chooses, keyboard lanes, bulk relink; frame steps keep their chosen timestamp and picture clicks select the camera | D-243, D-244, D-246 |
+| Prop persistence | Prop TOML owns its projection and recording references, so saved geometry reloads on its own | D-245 |
+| Window composition, Stage A | `ui/main_window.py` 3,440 → 2,302 lines across eight new modules, no function over 60 lines, construction verified identical by inventory; Stage B awaits a decision | D-248 |
 
 ### Standing requirements carried forward from delivered phases
 
@@ -134,10 +138,10 @@ capability you do not have.
 | Populated-workload certification (P3.5) | 4/32/128-channel latency, peak RSS, 1 GB / 180 M-sample import, second-open latency, decoder-settle-plus-rendered-frame numbers not yet recorded on a mid-spec machine. Record p50/p95/p99 and max UI heartbeat delay. |
 | P4.6 slice 9 certification | The `TESTING.md` manual field-data checklist on all three platforms and the populated plot benchmarks (`archive/plans/PLOT_UX_PLAN.md` §14–§15). |
 | `ui/main_window.py` size (D-148) | 2 302 lines after Stage A of `WINDOW_COMPOSITION_PLAN.md` (from 3 440), no function over 60 lines. Under 1 000 needs Stage B (D-next-e) plus typed state objects; awaiting the user's decision. |
-| Physical props merge | Merge `feat/physical-props` and run its release gate (archived plan §4 slice 6). |
+| Physical props release gate | Merged into `main` (`607c8af`); the plan's release gate (archived plan §4 slice 6: docs, full gates, benchmarks, overlay and accessibility checks) is not recorded as run on the merged code. |
 | Shipped translations | Parked, not scheduled. Strings are wrapped and a catalogue built with `lupdate` applies (D-247); no catalogue ships and nothing extra is needed to run the app. Findings for any future pickup: `archive/plans/TRANSLATIONS_PLAN.md`. |
 | Native synchronization plugin API (D-026) | Native plugin event providers remain unfrozen. |
-| Phase 9 manual check | Run the TESTING.md §6 smoke checklist on real field data with `feat/interface-design` before merging; agents cannot. |
+| Field-data smoke check | Run the TESTING.md §6 smoke checklist on real field data on `main` before the next push or release: Phase 9, the 2026-10-16 alignment/UX/props work and the window composition have none yet. Agents cannot. |
 | Docking beyond the inspector (D-180) | Only the inspector is a dock; the workspace column keeps its splitters by decision. Revisit only with a dock-aware form of `PaneProportions` and D-127. |
 
 ---

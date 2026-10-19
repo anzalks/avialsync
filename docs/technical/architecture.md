@@ -39,6 +39,13 @@ them.
 | `engine/` | Background imports, cache construction, playback coordination, exports, and synchronization workers. |
 | `ui/` | The desktop window, video panes, plots, sidebar, transport controls, dialogs, and the registries that keep actions, overlays, and feedback single-authored. |
 
+The main window is a composition rather than one large class. `ui/main_window.py` builds the
+window in ordered construction phases and keeps the Qt receivers, so every signal is still
+delivered to an object on the interface thread. The behaviour behind those receivers lives in
+focused modules under `ui/controllers/` (alignment, sources, identity review, point correction,
+session placement, sessions, imports, exports, props) and the menus in `ui/menus/`. A boundary
+test caps how far those modules reach into the window and how long any function may grow.
+
 ## Loading and viewing a source
 
 1. The loader registry asks available loaders whether they recognise a dropped file.

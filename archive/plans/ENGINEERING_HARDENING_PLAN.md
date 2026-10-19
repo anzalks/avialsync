@@ -1,5 +1,8 @@
 # Engineering hardening plan
 
+> **Completed 2026-10-15; archived 2026-10-19.** Record only — the settled outcomes are D-228 –
+> D-237 and the HANDOUT module map. Its branch was merged into `main` and still exists on the remote.
+
 Branch: `fix/engineering-hardening`, based on `bf5f0f2`.
 
 Scope: the nine engineering improvements from the project evaluation. No new

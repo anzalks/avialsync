@@ -61,12 +61,38 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   ├── runtime.py                    # bundled/env media-tool discovery; no_window_kwargs (V-14)
 │   ├── ui/                           # PySide6 widgets only; no business logic
 │   │   ├── main_window.py            # composition, real Qt receivers and controller wiring; live actions own command identity
-│   │   ├── controllers/              # MainWindow behaviour as plain functions taking the window (D-066)
-│   │   │   ├── drop_controller.py    # drag/drop intake, drop scan, capability-resolved candidate routing
-│   │   │   ├── session_controller.py # .avv save/load/restore, QSettings geometry, autosave, recent files
-│   │   │   ├── export_controller.py  # snapshot, data slice, video clip, annotations, A/B region stats
-│   │   │   ├── video_controller.py   # bounded concurrent PyAV probes; serialized pane build (D-040)
-│   │   │   └── import_controller.py  # time-series import queue + pose routing to overlay/3D (D-046)
+│   │   ├── controllers/              # MainWindow behaviour, functions taking the window (D-066, D-148, D-248)
+│   │   │   ├── alignment_controller.py       # frame nudges, alignment badges, trigger evidence, the sync wizard
+│   │   │   ├── appearance.py                 # window title + modified marker, theme and font-size menus
+│   │   │   ├── artifact_write_controller.py  # coalesced authored-file writes as visible jobs
+│   │   │   ├── cache_controller.py           # File → Cache: delete, trim, show derived entries
+│   │   │   ├── calibration_controller.py     # rig calibration: find, import, fit, project
+│   │   │   ├── changes_export_controller.py  # Export Changes: the user's own work, one channel out
+│   │   │   ├── corrections_controller.py     # persist hand corrections: sidecar first, session fallback
+│   │   │   ├── custom_marker_controller.py   # Add 3D Marker: name, click in each camera, triangulate
+│   │   │   ├── drop_controller.py            # drag/drop intake, drop scan, capability-resolved candidate routing
+│   │   │   ├── export_controller.py          # snapshot, data slice, video clip, A/B region stats
+│   │   │   ├── gap_view.py                   # per-stream gaps between a session's parts; collapsed view (D-218)
+│   │   │   ├── identity_controller.py        # accepted identity flips: persisted, materialised into cache
+│   │   │   ├── identity_review.py            # Fix Identities dock: wiring, apply/remove, braid jobs, lane
+│   │   │   ├── identity_view.py              # what the Fix Identities panel shows and what gestures become
+│   │   │   ├── import_controller.py          # time-series import queue + pose routing to overlay/3D (D-046)
+│   │   │   ├── pairing_controller.py         # find, review, accept a recording's partner
+│   │   │   ├── plugin_controller.py          # plugins folder, reload, enable/disable
+│   │   │   ├── point_edit_controller.py      # Fix Tracker mode, drags as commands, revisit/restore a correction
+│   │   │   ├── proxy_controller.py           # proxy generation for the selected camera as a registered job
+│   │   │   ├── relink_controller.py          # move a restored session onto relocated files
+│   │   │   ├── session_controller.py         # .avv save/load/restore, QSettings geometry, autosave, recent files
+│   │   │   ├── sources_controller.py         # source removal, re-mapping, visibility, focused camera
+│   │   │   ├── timebase.py                   # master zero, per-source placement offsets, time display mode
+│   │   │   ├── video_controller.py           # bounded concurrent PyAV probes; serialized pane build (D-040)
+│   │   │   ├── wheel_*.py                    # wheel placement, display, edits, generation, rotation, state
+│   │   │   ├── window_feedback.py            # feedback presentation from supplied widgets (D-232)
+│   │   │   ├── window_shortcuts.py           # keyboard actions and focus policy (D-232)
+│   │   │   ├── workspace_layout.py           # workspace assembly and proportions (D-232)
+│   │   │   └── *_state.py, rig_paths.py      # typed transient state and narrow contexts (D-148)
+│   │   ├── menus/                    # File/Edit/Align/View/Help builders + the video pane context menu
+│   │   ├── window_wiring.py          # construction-time signal wiring, in its original order
 │   │   ├── video_pane.py             # decode→blit; ONE path on all OSes (D-075 removed the per-OS split)
 │   │   ├── video_timing.py           # timestamp rates, OSD text, frame lookup/step behavior
 │   │   ├── video_overlay.py          # transparent overlay; multi-source 2D pose tracks + legend (D-046)
