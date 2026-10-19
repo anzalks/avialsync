@@ -307,6 +307,27 @@ def test_every_command_has_an_id_and_a_label(command: Any) -> None:
     assert isinstance(command.label, str)
 
 
+def test_undoing_an_accepted_fit_restores_the_dependent_evidence_it_superseded(
+    target: FakeTarget,
+) -> None:
+    """Accepting a fit can supersede alignments chained through this source; undo restores them."""
+    from types import SimpleNamespace
+
+    dependent = SimpleNamespace(target_id="cam2", superseded_by="")
+    command = AcceptSyncCommand(
+        "cam1",
+        before=(0.0, 0.0),
+        after=(0.5, 1.0),
+        evidence={"n": 47},
+        dependent_before=(dependent,),
+    )
+    command.apply(target)
+    target.sync_evidence["cam2"] = SimpleNamespace(target_id="cam2", superseded_by="cam1")
+    command.revert(target)
+    assert target.mappings["cam1"] == (0.0, 0.0)
+    assert target.sync_evidence["cam2"] is dependent
+
+
 def test_redo_reapplies(target: FakeTarget) -> None:
     doc = Document()
     doc.execute(SetSourceMappingCommand("cam1", (0.0, 0.0), (2.0, 0.0)), target)

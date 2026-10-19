@@ -163,3 +163,71 @@ def test_context_rejects_invalid_reference_values(tmp_path: Path, change) -> Non
     data["context"].update(change)
     with pytest.raises(PropModelError):
         parse_context(data, tmp_path)
+
+
+def _camera_row(data: dict) -> dict:
+    return data["context"]["camera"][0]
+
+
+@pytest.mark.parametrize(
+    "corrupt",
+    [
+        pytest.param(lambda d: d.update(context=5), id="context-not-a-table"),
+        pytest.param(lambda d: d["context"].update(camera=[5]), id="camera-not-a-table"),
+        pytest.param(lambda d: d["context"].update(reference_camera=5), id="reference-not-a-name"),
+        pytest.param(lambda d: _camera_row(d).update(source=5), id="source-not-a-string"),
+        pytest.param(lambda d: _camera_row(d).update(distortions="0"), id="coefficients-not-array"),
+        pytest.param(
+            lambda d: _camera_row(d).update(distortions=[float("nan")]), id="coefficient-not-finite"
+        ),
+        pytest.param(lambda d: _camera_row(d).update(matrix="eye"), id="matrix-not-array"),
+        pytest.param(lambda d: _camera_row(d).update(size=[1.5, 2]), id="size-not-integer"),
+        pytest.param(lambda d: _camera_row(d).update(size=[0, 360]), id="size-not-positive"),
+        pytest.param(lambda d: _camera_row(d).update(correction=5), id="correction-not-a-table"),
+        pytest.param(
+            lambda d: _camera_row(d)["correction"].update(affine=[[0, 0, 0], [0, 0, 0], [0, 0, 1]]),
+            id="correction-singular",
+        ),
+        pytest.param(
+            lambda d: _camera_row(d).update(matrix=[[0, 0, 0], [0, 1, 0], [0, 0, 1]]),
+            id="projection-without-focal-length",
+        ),
+    ],
+)
+def test_a_damaged_context_is_refused_rather_than_projected(tmp_path: Path, corrupt) -> None:
+    """Each malformed field is named and refused before any geometry is drawn through it."""
+    from avialsync.core.errors import PropModelError
+    from avialsync.core.prop_context import parse_context
+
+    path = write_prop(tmp_path, saved_wheel(tmp_path))
+    data = tomllib.loads(path.read_text())
+    corrupt(data)
+    with pytest.raises(PropModelError):
+        parse_context(data, tmp_path)
+
+
+def test_context_identities_and_reference_time_are_checked_on_construction(
+    tmp_path: Path,
+) -> None:
+    from avialsync.core.errors import PropModelError
+
+    camera = saved_wheel(tmp_path).context.cameras[0]
+    with pytest.raises(PropModelError, match="unique"):
+        PropContext((camera, camera))
+    with pytest.raises(PropModelError, match="finite"):
+        PropContext((camera,), camera.name, float("inf"))
+
+
+def test_a_source_on_another_drive_keeps_its_absolute_path(tmp_path: Path, monkeypatch) -> None:
+    """Windows has no relative path between drives; the dependency stays named, not guessed."""
+    from avialsync.core import prop_context
+
+    def no_common_root(_path: str, _start: object) -> str:
+        raise ValueError("path is on mount 'D:', start on mount 'C:'")
+
+    monkeypatch.setattr(prop_context.os.path, "relpath", no_common_root)
+    source = str(tmp_path / "camera.mp4")
+    assert prop_context.source_fields("source", source, tmp_path / "pose-3d") == [
+        ("source", source),
+        ("source_relative", False),
+    ]

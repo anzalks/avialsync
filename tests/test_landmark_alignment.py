@@ -61,3 +61,28 @@ def test_three_precise_pairs_leave_an_independent_precision_check() -> None:
 def test_reversed_correspondences_are_refused() -> None:
     with pytest.raises(SyncEvidenceError, match="chronological"):
         fit([1.0, 2.0], [2.0, 1.0])
+
+
+@pytest.mark.parametrize(
+    ("master", "source", "kwargs", "message"),
+    [
+        ([], [], {}, "at least one corresponding event"),
+        ([0.0, 1.0], [0.0], {}, "at least one corresponding event"),
+        ([0.0, float("nan")], [0.0, 1.0], {}, "finite"),
+        ([0.0, 1.0], [0.0, 1.0], {"target_id": "camera"}, "different clocks"),
+        ([0.0, 1.0], [0.0, 1.0], {"observation_resolution": 0.0}, "finite and positive"),
+        ([0.0, 1.0], [0.0, 1.0], {"observation_resolution": float("inf")}, "finite and positive"),
+        ([0.0, 600.0], [0.0, 1200.0], {}, "implausible clock rate"),
+    ],
+)
+def test_unusable_landmarks_are_refused_with_the_reason(
+    master: list[float], source: list[float], kwargs: dict[str, Any], message: str
+) -> None:
+    options = {"reference_id": "camera", "target_id": "sensor", **kwargs}
+    with pytest.raises(SyncEvidenceError, match=message):
+        fit_landmarks(np.array(master), np.array(source), **options)
+
+
+def test_a_landmark_fit_describes_itself_as_visually_paired() -> None:
+    proposal = fit([0.0, 10.0, 20.0, 30.0], [1.0, 11.0, 21.0, 31.0], observation_resolution=0.01)
+    assert proposal.fit.describe().startswith("visually paired landmarks: ")

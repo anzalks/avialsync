@@ -32,3 +32,25 @@ def test_adjusted_exact_export_round_trip_retains_the_evaluated_mapping() -> Non
         assert restored.to_source(time) == pytest.approx(mapping.to_source(time))
         assert restored.contains_master_time(time) == mapping.contains_master_time(time)
         assert restored.rate_scale_at(time) == pytest.approx(mapping.rate_scale_at(time))
+
+
+@pytest.mark.parametrize(
+    ("anchor", "value"),
+    [
+        ("exact_offset_anchor", float("nan")),
+        ("exact_drift_anchor", float("inf")),
+        ("exact_drift_anchor", -3_600_000.0),
+    ],
+)
+def test_an_exported_exact_mapping_with_a_broken_anchor_is_refused(
+    anchor: str, value: float
+) -> None:
+    """A rate at or below -100 % would run the source clock backwards; never adopt it."""
+    from avialsync.core.errors import SyncEvidenceError
+
+    mapping = TimeMap()
+    mapping.set_exact_mapping(np.array([100.0, 101.0, 103.0]), np.array([0.0, 1.1, 3.0]))
+    record = mapping.to_record()
+    record[anchor] = value
+    with pytest.raises(SyncEvidenceError, match="incomplete or invalid"):
+        TimeMap.from_record(record)
