@@ -183,7 +183,7 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
     # thing that knows -- a camera counts from its own first frame, a MATLAB
     # log from midnight -- and declaring it is what lets every one of them be
     # placed on one clock without anybody typing an offset.
-    window._declared_source_epochs = {
+    window.timebase.declared_epochs = {
         str(item.path): float(item.source_epoch)
         for item in layout.items
         if item.source_epoch is not None

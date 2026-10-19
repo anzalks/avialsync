@@ -26,7 +26,7 @@
       "create_video_pane": 129
     }
   },
-  "main_window_lines": 3440,
+  "main_window_lines": 3339,
   "oversized_controller_lines": {
     "import_controller.py": 722,
     "session_controller.py": 850
@@ -62,7 +62,6 @@
       "_update_tracking_pane_visibility": 1
     },
     "drop_controller.py": {
-      "_declared_source_epochs": 1,
       "_load_video": 1,
       "_on_drop_scan_error": 1,
       "_on_drop_scan_finished": 1,
@@ -176,7 +175,6 @@
       "_calibration_state": 1,
       "_channel_units": 1,
       "_content_splitter": 2,
-      "_declared_source_epochs": 1,
       "_edited_generations": 1,
       "_empty_layout_saved": 1,
       "_enforce_splitter_policy": 1,
@@ -223,7 +221,6 @@
       "_save_in_progress": 3,
       "_sensor_cache_dirs": 2,
       "_show_original_tracker": 3,
-      "_source_base_offsets": 1,
       "_start_data_import": 2,
       "_start_session_load": 2,
       "_start_session_save": 2,

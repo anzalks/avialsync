@@ -421,11 +421,7 @@ def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
     video_levels.reset(window)
     window._sync_provenance.clear()
     window.forget_session_start()
-    # Placements belong to the session zero that produced them; carrying them
-    # into the next session would place its sources against an epoch it never
-    # declared.
-    window._source_base_offsets.clear()
-    window._declared_source_epochs.clear()
+    window.timebase.forget_placements()
     window.clear_trigger_sources()
     window._pending_exact_mappings.clear()
     window._overview_gaps.clear()

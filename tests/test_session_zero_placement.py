@@ -139,7 +139,7 @@ def test_the_clock_still_reads_wall_time_after_the_unification(
 
     drop_controller.apply_session_layout(window, _aol_session(tmp_path))
 
-    assert window._time_mode is TimeDisplayMode.UTC
+    assert window.timebase.time_mode is TimeDisplayMode.UTC
     assert window.transport._t_epoch == pytest.approx(CAMERA_START)
 
 
@@ -150,7 +150,7 @@ def test_a_declared_epoch_places_a_source_without_touching_its_offset_field(
     from avialsync.ui.controllers import drop_controller
 
     drop_controller.apply_session_layout(window, _aol_session(tmp_path))
-    camera = next(path for path in window._declared_source_epochs if path.endswith("FaceCam.mp4"))
+    camera = next(path for path in window.timebase.declared_epochs if path.endswith("FaceCam.mp4"))
 
     base = window.declare_base_offset(camera, 0.0)
 
@@ -164,7 +164,7 @@ def test_a_midnight_log_is_placed_beside_the_cameras(window: MainWindow, tmp_pat
 
     drop_controller.apply_session_layout(window, _aol_session(tmp_path))
     log = "/tmp/encoder_log.txt"
-    window._declared_source_epochs[log] = MIDNIGHT
+    window.timebase.declared_epochs[log] = MIDNIGHT
 
     base = window.declare_base_offset(log, 34_526.082)
 

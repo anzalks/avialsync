@@ -166,3 +166,9 @@ has reviewed them.
 
 ## Progress
 
+- [x] A1 timebase (2026-10-19): `ui/controllers/timebase.py` holds `SessionTimebase` (as
+  `window.timebase`: base offsets, declared epochs, trial spans, time mode) and the nine
+  functions; MainWindow keeps delegators. 3,440 → 3,339 lines. Three controller private accesses
+  removed from the baseline; three test accesses retargeted to `window.timebase` with unchanged
+  assertions. Full suites: 4,583 passed (3.12), 4,582 passed (3.11).
+

@@ -58,12 +58,6 @@ from avialsync.core.session import (
     SyncProvenance,
     TriggerEntry,
 )
-from avialsync.core.session_time import (
-    placement_offset,
-    reference_epoch,
-    source_epoch_for,
-    unix_start,
-)
 from avialsync.core.source import ImagingSource, TimeSeriesSource, VideoSource
 from avialsync.core.timeline import MasterClock, TimeMap
 from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
@@ -94,6 +88,7 @@ from avialsync.ui.controllers import (
     identity_view,
     import_controller,
     session_controller,
+    timebase,
     video_controller,
     wheel_controller,
     wheel_display,
@@ -103,6 +98,7 @@ from avialsync.ui.controllers import (
 from avialsync.ui.controllers.import_state import ImportState
 from avialsync.ui.controllers.rig_paths import RigPathsContext
 from avialsync.ui.controllers.session_state import SessionRuntimeState
+from avialsync.ui.controllers.timebase import SessionTimebase
 from avialsync.ui.controllers.video_load_state import VideoLoadState
 from avialsync.ui.controllers.wheel_state import WheelState
 from avialsync.ui.controllers.window_feedback import WindowFeedback
@@ -343,24 +339,10 @@ class MainWindow(QMainWindow):
         self.video_load_state = VideoLoadState()
         self._video_frame_times: dict[str, Any] = {}
         self._video_source_bounds: dict[str, tuple[float, float]] = {}
-        #: The recording's trials as declared by its session, in Unix-epoch seconds;
-        #: drawn against whatever master zero is in force (``_draw_trial_segments``).
-        self._trial_segment_epochs: list[tuple[float, float, str]] = []
         self._video_time_mappings: dict[str, tuple[float, float]] = {}
         self._sync_provenance: list[SyncProvenance] = []
-        #: What placed each source against the session zero, by path. Zero for
-        #: any source whose own clock already starts at its recording.
-        #:
-        #: A source's TimeMap offset is this plus what the sidebar shows, and
-        #: the split is the whole point: an `epoch_ms` file is placed at about
-        #: 1.77e9, which no usable spin box can express, while the hand
-        #: correction a user makes on top of it is a few frames. Keeping them
-        #: in one number meant the offset control either clamped the placement
-        #: (silently, to 86400) or was wiped by the first nudge.
-        self._source_base_offsets: dict[str, float] = {}
-        #: Unix epoch of each source's own t=0, where a session declared one.
-        #: Keyed by path like the other per-item declarations a session makes.
-        self._declared_source_epochs: dict[str, float] = {}
+        # Master zero's placements and the time display mode (controllers/timebase.py).
+        self.timebase = SessionTimebase()
         #: Trigger trains the user has loaded and typed, by file path. Evidence
         #: for the alignment wizard, not data: nothing here is ever plotted.
         self._trigger_trains: dict[str, list[Any]] = {}
@@ -411,7 +393,6 @@ class MainWindow(QMainWindow):
         # asynchronous import reports back.
         self._pending_sensor_mappings: dict[str, tuple[float, float]] = {}
         self._pending_channel_visibility: dict[str, dict[str, bool]] = {}
-        self._time_mode = TimeDisplayMode.RELATIVE
         self._save_in_progress = False
         # One owner for background work: names it for the status bar, watches it
         # for stalls, and abandons it at shutdown so the window always closes.
@@ -1060,7 +1041,7 @@ class MainWindow(QMainWindow):
             camera_states.append((label, t_pos, fps))
         self.readout_panel.show_delta(t_a, t_b, camera_states or None)
 
-    # ── Time display mode ────────────────────────────────────────────
+    # ── Time display mode and session placement (controllers/timebase.py) ──
 
     @property
     def session_start_time(self) -> float:
@@ -1068,47 +1049,12 @@ class MainWindow(QMainWindow):
         return self.session_runtime.start_time
 
     def adopt_session_start(self, source_start: float) -> float:
-        """Declare the session's zero from a source, if it has not been declared.
-
-        Declared once and then kept (NWB): a reference that moved whenever an
-        earlier source arrived would renumber every timestamp the user had
-        already written down. Returns the reference in force afterwards.
-        """
-        reference = reference_epoch(self.session_runtime.start_time, source_start)
-        if reference == self.session_runtime.start_time:
-            return reference
-        self.session_runtime.start_time = reference
-        self._publish_session_epoch()
-        return reference
+        return timebase.adopt_session_start(self, source_start)
 
     def declare_base_offset(
         self, source_id: str, source_start: float, source_epoch: float | None = None
     ) -> float:
-        """Place a source against the session zero and remember what that took.
-
-        *source_epoch* is the Unix epoch of the source's own t=0, when the
-        loader or the session knows it. Left out, it is guessed from the
-        magnitude of *source_start*, which recognises timestamps that are
-        already Unix time and nothing else -- see
-        `core/session_time.source_epoch_for`.
-
-        Returns the base offset: what this source's TimeMap needs before any
-        hand correction, so that a file counting from midnight and one counting
-        from its first frame both run from master zero.
-        """
-        if source_epoch is None:
-            # Looked up rather than passed in, so that a caller cannot forget
-            # it: every import path funnels through here, and a path that
-            # silently skipped the declaration would place its source at the
-            # wrong instant with nothing to show for it.
-            source_epoch = self._declared_source_epochs.get(source_id)
-        epoch = source_epoch_for(source_start, source_epoch)
-        started = unix_start(source_start, epoch)
-        if started is not None:
-            self.adopt_session_start(started)
-        base = placement_offset(epoch, self.session_start_time)
-        self._source_base_offsets[source_id] = base
-        return base
+        return timebase.declare_base_offset(self, source_id, source_start, source_epoch)
 
     @property
     def registry(self) -> "LoaderRegistry":
@@ -1117,7 +1063,7 @@ class MainWindow(QMainWindow):
 
     def base_offset(self, source_id: str) -> float:
         """The session placement for *source_id*, or 0.0 for a relative source."""
-        return self._source_base_offsets.get(source_id, 0.0)
+        return self.timebase.base_offsets.get(source_id, 0.0)
 
     def video_master_spans(self) -> dict[str, tuple[float, float]]:
         """Each loaded video's first and last frame on the master clock.
@@ -1132,72 +1078,25 @@ class MainWindow(QMainWindow):
         return spans
 
     def effective_offset(self, source_id: str, user_offset: float) -> float:
-        """The TimeMap offset for *source_id* given what the sidebar shows.
-
-        The sidebar owns a residual and nothing else. Adding the placement here
-        -- in one function, for video and time series alike -- is what stops a
-        hand nudge from replacing a wall-clock source's placement with the
-        nudge itself and throwing the source decades off the timeline.
-        """
-        return self.base_offset(source_id) + float(user_offset)
+        return timebase.effective_offset(self, source_id, user_offset)
 
     def user_offset(self, source_id: str, effective: float) -> float:
-        """The residual to show in the sidebar for an absolute *effective* offset.
-
-        The inverse of :meth:`effective_offset`, for the paths that are handed
-        a whole mapping: a restored session, and an accepted alignment fit.
-        """
-        return float(effective) - self.base_offset(source_id)
+        return timebase.user_offset(self, source_id, effective)
 
     def _publish_session_epoch(self) -> None:
-        """Give every time-displaying surface the epoch of master zero.
-
-        `format_time` has always taken this and falls back to elapsed time when
-        it is zero. Nothing ever passed one, so the UTC and local time-of-day
-        display modes silently could not work -- two of three options on a menu
-        that has been there since the start.
-        """
-        epoch = self.session_runtime.start_time
-        self.transport.set_t_epoch(epoch)
-        self.plot_pane.set_time_mode(self._time_mode, epoch)
-        self.message_panel.set_time_mode(self._time_mode, epoch)
-        self.changes_panel.set_time_mode(self._time_mode, epoch)
-        self._draw_trial_segments()
+        timebase.publish_session_epoch(self)
 
     def show_trial_segments(self, segments: list[tuple[float, float, str]]) -> None:
-        """Show the recording's trials (Unix-epoch spans) in Data Streams and on the plots."""
-        self._trial_segment_epochs = list(segments)
-        self._draw_trial_segments()
+        timebase.show_trial_segments(self, segments)
 
     def _draw_trial_segments(self) -> None:
-        """Place the declared trials against master zero, or clear them without one."""
-        zero = self.session_runtime.start_time
-        if not self._trial_segment_epochs or zero <= 0.0:
-            self.transport.set_trial_segments([])
-            self.plot_pane.set_segment_boundaries([])
-            return
-        segments = [
-            (start - zero, end - zero, name) for start, end, name in self._trial_segment_epochs
-        ]
-        self.transport.set_trial_segments(segments)
-        # Both edges of every trial: between two trials there may be a gap (D-217).
-        self.plot_pane.set_segment_boundaries(
-            sorted({edge for start, end, _name in segments for edge in (start, end)})
-        )
+        timebase.draw_trial_segments(self)
 
     def forget_session_start(self) -> None:
-        """Drop master zero and what was placed against it, the trials included."""
-        self.session_runtime.start_time = 0.0
-        self.show_trial_segments([])
+        timebase.forget_session_start(self)
 
     def _set_time_mode(self, mode: TimeDisplayMode) -> None:
-        self._time_mode = mode
-        self.transport.set_time_mode(mode)
-        # Through the one place that knows the epoch, so a mode change cannot
-        # reset a surface to elapsed time by passing the default.
-        self._publish_session_epoch()
-        self.transport.set_time(self.clock.state.t)
-        self.time_mode_changed.emit(mode)
+        timebase.set_time_mode(self, mode)
 
     # ── Diagnostics ──────────────────────────────────────────────────
 
