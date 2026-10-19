@@ -90,7 +90,7 @@ that builds the window and compares the full signal connection inventory (sender
 receiver) before and after.
 
 Expected result of Stage A: about 1,400–1,500 lines, with every long-function exception gone
-except a small construction shell.
+except a small construction shell. *(Measured result: 2,302 lines — see Progress for why.)*
 
 ## Stage B — coordinators own their slots (needs a decision)
 
@@ -201,4 +201,27 @@ has reviewed them.
   sensor re-mapping, channel/group/tracking/video visibility, focused and selected camera). Shared
   tracking-row routing is one helper instead of two copies. 2,507 → 2,303 lines; 49 moved private
   accesses under D-248. 363 targeted tests and the full 3.12 suite (4,595) passed.
+- [x] A10 construction (2026-10-19): the 493-line `__init__` is 12 ordered phase methods
+  (`_init_document_state` … `_finish_startup`, each ≤ 59 lines), cut at the original section
+  boundaries with no reordering. The pure wiring blocks for annotations, the Sources sidebar and
+  the transport/pane gestures are in `ui/window_wiring.py`, in their original order. The last
+  long-function exception is gone. Verified by a construction inventory taken before and after
+  (166 attributes and their types, every child object, the receiver count of every signal on
+  every object — 4,460 connections — and the 78 actions): identical. 2,303 → 2,302 lines. Full
+  suites: 4,597 passed (3.12), 4,596 passed (3.11).
+
+### Stage A outcome (2026-10-19)
+
+3,440 → 2,302 lines (−1,138); no function in `main_window.py` over 60 lines (four exceptions,
+up to 508 lines, before). What remains, measured: ~210 header and class declarations; 480 lines
+of construction phases, mostly the window's ~165 attribute declarations with their comments;
+559 lines of 185 thin delegators kept by D-066; 736 lines in 50 window-level methods (close,
+jobs, preconditions, bounds, detach, annotation entry points), 13–37 lines each.
+
+The 1,400–1,500 estimate assumed construction could leave the class. It cannot without either
+declaring every attribute twice (mypy requires each attribute on the class) or moving state into
+typed state objects, which retargets a large share of the tests' 940 private accesses. Stage B
+(D-next-e) as written would remove most delegators and, with state objects, reach roughly
+1,500–1,700 lines; under 1,000 would need both and further moves. The baseline's private-access
+total rose under D-248 while the window shrank, as recorded there.
 

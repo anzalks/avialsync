@@ -133,7 +133,7 @@ capability you do not have.
 |---|---|
 | Populated-workload certification (P3.5) | 4/32/128-channel latency, peak RSS, 1 GB / 180 M-sample import, second-open latency, decoder-settle-plus-rendered-frame numbers not yet recorded on a mid-spec machine. Record p50/p95/p99 and max UI heartbeat delay. |
 | P4.6 slice 9 certification | The `TESTING.md` manual field-data checklist on all three platforms and the populated plot benchmarks (`archive/plans/PLOT_UX_PLAN.md` §14–§15). |
-| `ui/main_window.py` size (D-148) | 3 440 lines; target under 1 000 through composition only (D-051). Planned in `WINDOW_COMPOSITION_PLAN.md`. |
+| `ui/main_window.py` size (D-148) | 2 302 lines after Stage A of `WINDOW_COMPOSITION_PLAN.md` (from 3 440), no function over 60 lines. Under 1 000 needs Stage B (D-next-e) plus typed state objects; awaiting the user's decision. |
 | Physical props merge | Merge `feat/physical-props` and run its release gate (archived plan §4 slice 6). |
 | Shipped translations | Parked, not scheduled. Strings are wrapped and a catalogue built with `lupdate` applies (D-247); no catalogue ships and nothing extra is needed to run the app. Findings for any future pickup: `archive/plans/TRANSLATIONS_PLAN.md`. |
 | Native synchronization plugin API (D-026) | Native plugin event providers remain unfrozen. |
@@ -145,9 +145,9 @@ capability you do not have.
 ## Next phase
 
 **Window composition (started 2026-10-19)**, on branch `feat/window-composition`, plan
-`WINDOW_COMPOSITION_PLAN.md`. Stage A moves bodies out under D-066 (floor about 1,450 lines);
-Stage B reaches the D-148 target of under 1,000 only with proposed decision D-next-e
-(window-owned coordinator objects), which needs the user's agreement first.
+`WINDOW_COMPOSITION_PLAN.md`. **Stage A is done** (3,440 → 2,302 lines, A1–A10 committed). Stage B
+(proposed D-next-e, window-owned coordinator objects) needs the user's agreement first; the
+plan's Stage A outcome records what it would and would not reach.
 
 Translation is **parked**, not scheduled: `archive/plans/TRANSLATIONS_PLAN.md`.
 

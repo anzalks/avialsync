@@ -529,8 +529,9 @@ Fixture: `tools/make_fixtures.generate_sync_ground_truth`.
   Exact `TimeMap.copy()` snapshots share immutable evidence arrays rather than copying large mappings.
   The 3D pose setup job opens XYZ arrays, samples trajectories, and infers skeletons for every
   vertical-axis choice off the UI thread; only the newest selection is installed.
-- **P2 maintainability — composition still in progress.** `ui/main_window.py` is 3 440
-  lines after the engineering hardening extraction (down from 3 893). Keyboard actions/focus
+- **P2 maintainability — composition still in progress.** `ui/main_window.py` is 2 302
+  lines after WINDOW_COMPOSITION_PLAN Stage A (3 893 → 3 440 in the engineering hardening,
+  3 440 → 2 302 in Stage A, with no function over 60 lines; see the plan's Stage A outcome). Keyboard actions/focus
   policy, feedback presentation, and workspace geometry have bounded components with explicit
   widget/state/callback inputs (D-232). File, Edit, Align, View, and Help menus live
   in `ui/menus/`, with labels still owned by their live actions. Wheel, video-load, import, and
@@ -949,6 +950,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/controllers/identity_review.py` | The Fix Identities dock: building and wiring it, applying/removing a swap at the playhead, new groups, debounced braid jobs, and the identity lane. What it shows is `identity_view`; persistence is `identity_controller` (WINDOW_COMPOSITION_PLAN A7, D-248) | `open_identity_panel()`, `refresh_identity_panel()`, `refresh_identity_lane()` |
 | `ui/controllers/alignment_controller.py` | Alignment by hand and by evidence: one-frame nudges, alignment badges, trigger evidence files and their read jobs, camera re-mapping with drift, trigger restore on session load, and opening the wizard (WINDOW_COMPOSITION_PLAN A8, D-248) | `nudge_alignment()`, `open_trigger_evidence()`, `open_sync_wizard()` |
 | `ui/controllers/sources_controller.py` | Loaded sources after import: removing a video or sensor, re-mapping a sensor, channel/group/tracking/video visibility as undoable commands, and which camera an untargeted action means (`focused_video_path`) (WINDOW_COMPOSITION_PLAN A9, D-248) | `on_video_remove_requested()`, `on_sensor_mapping_changed()`, `focused_video_path()` |
+| `ui/window_wiring.py` | Construction-time signal wiring moved verbatim from `MainWindow.__init__`: annotations, the Sources sidebar, transport/toolbar/pane gestures. Order is load-bearing where two slots share a signal (WINDOW_COMPOSITION_PLAN A10) | `connect_annotations()`, `connect_sources()`, `connect_transport_and_panes()` |
 | `ui/controllers/session_controller.py` | `.avv` save/load/restore, geometry, autosave, recent files. Also the recovery snapshot's UI side: `note_pending_recovery()` holds what a launch found, `offer_pending_recovery()` posts the opt-in bar, `recover_unsaved_work()` is the File command, `forget_pending_recovery()` drops the held offer beside every `clear_recovery()` (D-133) | `build_session_state()`, `restore_session()`, `start_session_save()` |
 | `ui/controllers/export_controller.py` | Snapshot, data slice, video clip, annotations, region stats. A clip's A/B loop is mapped onto each camera's clock before trimming | `export_snapshot()`, `start_data_export()`, `start_region_stats()` |
 | `ui/snapshot_capture.py` | UI-thread capture for the snapshot figure (D-101): cameras rendered as their panes draw them at one shared scale and placed by grid position, letterbox left empty, zoom readout moved to the caption (D-209), the 3D pose re-projected, the whole channel stack rather than the scroll viewport | `capture_figure()`, `capture_pane_figure()`, `capture_video_tile()`, `capture_plot_image()`, `plot_aspect()` |
@@ -987,7 +989,8 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 
 ## Signal Wiring Map
 
-All connections established in `MainWindow.__init__` unless noted.
+All connections established during `MainWindow` construction unless noted: its `__init__` runs
+the `_init_*` phases in order, and the pure wiring blocks are in `ui/window_wiring.py`.
 
 ### Sidebar → MainWindow → subsystems
 

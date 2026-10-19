@@ -62,6 +62,7 @@ from avialsync.ui import (
     recovery_worker,
     tracking_timing,
     video_levels,
+    window_wiring,
     workspaces,
 )
 from avialsync.ui.accessibility import apply_accessibility, install_show_time_sweep
@@ -213,6 +214,20 @@ class MainWindow(QMainWindow):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.resize(*workspace_layout.first_window_size())
+        self._init_document_state()
+        self._init_tracking_state()
+        self._init_feedback_state()
+        self._init_video_state()
+        self._init_import_state()
+        self._init_media_panes()
+        self._init_engine()
+        self._init_inspector_panels()
+        self._init_workspace()
+        self._init_menus_and_timers()
+        self._finish_startup()
+
+    def _init_document_state(self) -> None:
+        """The document, undo routing, and the stores of the user's own edits."""
         self._detached_plot_window: QDialog | None = None
         self._plots_detached = False
 
@@ -261,6 +276,9 @@ class MainWindow(QMainWindow):
         self.wheels.observe(self._on_wheels_changed)
         #: One callable, so the grid can tell "no wheel" from "same wheel source".
         self.wheel_state.pane_source = lambda path, t: wheel_display.pane_drawing(self, path, t)
+
+    def _init_tracking_state(self) -> None:
+        """Identity swaps, pose sources, and the Fix Identities and corrections state."""
         #: Accepted identity swaps: which lanes exchanged labels and
         #: from which frame. Like corrections, written beside the pose file the
         #: moment they are accepted; unlike corrections, applied by rebuilding
@@ -303,6 +321,8 @@ class MainWindow(QMainWindow):
         #: volume does not raise the same strip on every drag.
         self._announced_correction_files: set[str] = set()
 
+    def _init_feedback_state(self) -> None:
+        """The feedback surface, display levels, the title, and action bookkeeping."""
         # The feedback surface. JobManager already knew all of this;
         # none of it reached the user.
         self.activity_bar = ActivityBar(self)
@@ -328,6 +348,8 @@ class MainWindow(QMainWindow):
         self._letter_shortcuts: set[str] = set()
         self._action_preconditions: list[tuple[QAction, Callable[[], bool], str, str]] = []
 
+    def _init_video_state(self) -> None:
+        """Per-video timing, alignment evidence, trigger files, and pending imports."""
         # fps of each loaded video (str(path) → fps); used for frame-indexed source resolution
         self._video_fps: dict[str, float] = {}
         # JobManager owns the workers; this state only tracks probe capacity
@@ -361,6 +383,9 @@ class MainWindow(QMainWindow):
         #: Legacy workers are not registered with JobManager, so the bar needs
         #: its own handle to stop them.
         self._active_cancel: Callable[[], None] | None = None
+
+    def _init_import_state(self) -> None:
+        """Pose routing, per-source import state, the job owner, and the clock."""
         # Pose sources are shown on the video overlay and in the 3D view rather
         # than as plot rows. Keyed by video path -> source path -> track.
         self._overlay_sources: dict[str, dict[str, dict[str, Any]]] = {}
@@ -405,6 +430,8 @@ class MainWindow(QMainWindow):
         # Core
         self.clock = MasterClock()
 
+    def _init_media_panes(self) -> None:
+        """The video grid, 3D and imaging panes, plots, transport, and view tools."""
         # UI Components
         self.video_grid = VideoGrid(self)
         self.rig_paths = RigPathsContext(
@@ -452,6 +479,8 @@ class MainWindow(QMainWindow):
         self.plot_pane.view_window_changed.connect(self.transport.set_plot_viewport)
         self.plot_pane.seek_requested.connect(self._on_plot_seek_requested)
 
+    def _init_engine(self) -> None:
+        """The loader registry, the player, and the annotation store."""
         # Engine
         from avialsync.ui.controllers.plugin_controller import new_registry
 
@@ -479,14 +508,10 @@ class MainWindow(QMainWindow):
 
         # Annotations
         self.annotation_store = AnnotationStore(self)
-        self.annotation_store.changed.connect(self._update_timeline_annotations)
-        # Export Changes is available exactly when one of these has something
-        # in it, so both drive the availability pass.
-        self.annotation_store.changed.connect(self._refresh_action_availability)
-        self.annotation_store.marker_added.connect(self._record_marker_added)
-        self.annotation_store.marker_removed.connect(self._record_marker_removed)
-        self.annotation_store.marker_relabelled.connect(self._record_marker_relabelled)
+        window_wiring.connect_annotations(self)
 
+    def _init_inspector_panels(self) -> None:
+        """Sources, Values, Changes, Messages, and the inspector rail that holds them."""
         # Layout
         from avialsync.ui.sidebar import SidebarPane
 
@@ -494,30 +519,7 @@ class MainWindow(QMainWindow):
         self.wheel_panel = WheelPanel()
         self.wheel_tab = WheelTab(self.wheel_panel, self, scrollable=False)
         wheel_controller.connect_panel(self)
-        self.sidebar.video_offset_changed.connect(self._select_video)
-        self.sidebar.video_offset_changed.connect(self._on_video_offset_changed)
-        self.sidebar.video_mapping_changed.connect(self._on_video_mapping_changed)
-        self.sidebar.video_badge_clicked.connect(self._select_video)
-        self.sidebar.video_remove_requested.connect(self._on_video_remove_requested)
-        # Persist before a removed pane's media client is torn down: that
-        # teardown can fault on Windows, and mid-session it would otherwise
-        # cost everything since the last autosave.
-        self.video_grid.pane_detached.connect(self._write_session_snapshot)
-        self.sidebar.video_visibility_changed.connect(self._on_video_visibility_changed)
-        imaging_integration.connect_sidebar(self)
-        self.sidebar.sensor_remove_requested.connect(self._on_sensor_remove_requested)
-        self.sidebar.sensor_mapping_changed.connect(self._on_sensor_mapping_changed)
-        self.sidebar.channel_remove_requested.connect(self._on_channel_remove_requested)
-        self.sidebar.channel_visibility_changed.connect(self._on_channel_visibility_changed)
-        self.sidebar.channel_group_visibility_changed.connect(
-            self._on_channel_group_visibility_changed
-        )
-        self.sidebar.tracking_visibility_changed.connect(self._on_tracking_visibility_changed)
-        self.plot_pane.channel_close_requested.connect(self._on_plot_channel_close_requested)
-        self.sidebar.grid_mode_changed.connect(self.video_grid.set_grid_mode)
-        self.sidebar.video_badge_clicked.connect(self._show_video_properties)
-        self.sidebar.sensor_badge_clicked.connect(self._show_sensor_properties)
-        self.sidebar.sensor_report_requested.connect(self._show_import_report)
+        window_wiring.connect_sources(self)
 
         # Readout panel
         self.readout_panel = ReadoutPanel(self)
@@ -567,6 +569,9 @@ class MainWindow(QMainWindow):
         # Display levels live under Sources, beside the camera they act on.
         # Hidden until a recording that has range to choose from is opened.
         self.sidebar.content_layout.addWidget(self.levels_panel)
+
+    def _init_workspace(self) -> None:
+        """Dock the inspector, compose the workspace, and route drops and keys."""
         # A dock, not a splitter pane: either side, floating, or closed.
         self.inspector_dock = install_inspector_dock(self, self._left_tabs)
         self._workspace = workspace_layout.create_workspace(
@@ -618,6 +623,8 @@ class MainWindow(QMainWindow):
         if isinstance(app, QApplication):
             app.installEventFilter(self)
 
+    def _init_menus_and_timers(self) -> None:
+        """Menus, feedback, empty state, saved geometry, and window timers."""
         self._help_controller = HelpController(self)
 
         # Menu
@@ -641,17 +648,7 @@ class MainWindow(QMainWindow):
         self._empty_layout_ready = True
         self._refresh_empty_state()
 
-        # Transport signals
-        self.transport.ab_loop_changed.connect(self._on_ab_loop_changed)
-        self.view_toolbar.flag_requested.connect(self._on_annotate_requested)
-        self.transport.jump_requested.connect(self._on_jump_requested)
-
-        # Camera selection and the picture’s context menu.
-        self.video_grid.pane_activated.connect(self._select_video)
-        self.video_grid.pane_right_clicked.connect(self._on_pane_right_clicked)
-
-        # Plot annotate-at
-        self.plot_pane.annotate_at_requested.connect(self._on_annotate_at_requested)
+        window_wiring.connect_transport_and_panes(self)
 
         # One window-owned timer clears the revisit ring. Owned here, not by a
         # pane: a timer that outlives the widget it repaints is a SIGSEGV with
@@ -665,6 +662,8 @@ class MainWindow(QMainWindow):
         self._autosave_timer.timeout.connect(self._autosave)
         self._autosave_timer.start(_AUTOSAVE_INTERVAL_MS)
 
+    def _finish_startup(self) -> None:
+        """Start the player and background checks, then shortcuts and accessibility."""
         # Startup diagnostics (deferred so window shows first)
         QTimer.singleShot(500, self, self._run_diagnostics)
 

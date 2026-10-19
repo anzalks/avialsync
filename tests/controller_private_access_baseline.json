@@ -10,9 +10,6 @@
       "on_import_finished": 174,
       "register_tracking_source": 131
     },
-    "main_window.py": {
-      "__init__": 493
-    },
     "session_controller.py": {
       "build_session_state": 87,
       "reset_session": 142,
@@ -23,7 +20,7 @@
       "create_video_pane": 129
     }
   },
-  "main_window_lines": 2303,
+  "main_window_lines": 2302,
   "oversized_controller_lines": {
     "import_controller.py": 722,
     "session_controller.py": 850
