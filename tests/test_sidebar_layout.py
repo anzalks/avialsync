@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import pytest
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication, QWidget
 
 from avialsync.ui.sidebar import SensorInfoWidget, SidebarPane, VideoInfoWidget
@@ -182,7 +183,16 @@ def test_an_elided_label_still_reports_its_full_text(qapp: QApplication, qtbot) 
     assert label.toolTip() == LONG_PATH, "the full path has to stay reachable"
 
 
-def test_the_sidebars_own_chrome_fits_its_minimum(qapp: QApplication, qtbot) -> None:
+#: Extra large on macOS (13 pt x 1.5), and larger than it on Windows and Linux.
+_EXTRA_LARGE_PT = 20.0
+
+
+@pytest.mark.parametrize(
+    "points", [None, _EXTRA_LARGE_PT], ids=["default font", "extra large font"]
+)
+def test_the_sidebars_own_chrome_fits_its_minimum(
+    qapp: QApplication, qtbot, points: float | None
+) -> None:
     """Otherwise the backstop scrollbar is on permanently, which is not a backstop.
 
     The Open Files group was the offender: "Open Sensor/Ephys Data" wants 278px
@@ -190,18 +200,45 @@ def test_the_sidebars_own_chrome_fits_its_minimum(qapp: QApplication, qtbot) -> 
     show its own buttons without either cutting them off or carrying a
     horizontal scrollbar at every width.
     """
+    original = qapp.font()
+    enlarged = QFont(original)
+    enlarged.setPointSizeF(points or original.pointSizeF())
+    qapp.setFont(enlarged)
+    try:
+        pane = SidebarPane()
+        qtbot.addWidget(pane)
+        pane.resize(pane.minimumWidth(), 800)
+        pane.show()
+        qapp.processEvents()
+
+        content = pane._scroll_area.widget()
+        needed = content.minimumSizeHint().width()
+        assert needed <= pane.minimumWidth(), (
+            f"sidebar contents need {needed}px inside a {pane.minimumWidth()}px "
+            f"minimum, so the horizontal scrollbar is always showing"
+        )
+        # And no wider than that: 200 px stays the floor the default font measured.
+        assert pane.minimumWidth() == max(200, needed)
+    finally:
+        qapp.setFont(original)
+
+
+def test_changing_the_font_size_refits_the_sidebar_minimum(qapp: QApplication, qtbot) -> None:
+    """View → Font Size changes the font of a sidebar that already exists."""
+    original = qapp.font()
     pane = SidebarPane()
     qtbot.addWidget(pane)
-    pane.resize(pane.minimumWidth(), 800)
     pane.show()
-    qapp.processEvents()
-
     content = pane._scroll_area.widget()
-    needed = content.minimumSizeHint().width()
-    assert needed <= pane.minimumWidth(), (
-        f"sidebar contents need {needed}px inside a {pane.minimumWidth()}px "
-        f"minimum, so the horizontal scrollbar is always showing"
-    )
+    try:
+        enlarged = QFont(original)
+        enlarged.setPointSizeF(_EXTRA_LARGE_PT)
+        qapp.setFont(enlarged)
+        qtbot.waitUntil(lambda: pane.minimumWidth() > 200)
+        assert content.minimumSizeHint().width() <= pane.minimumWidth()
+    finally:
+        qapp.setFont(original)
+    qtbot.waitUntil(lambda: pane.minimumWidth() == max(200, content.minimumSizeHint().width()))
 
 
 @pytest.mark.parametrize("width", [200, 240, 320, 500])

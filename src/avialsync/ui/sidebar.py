@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TypeVar
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -967,6 +967,14 @@ def _wrapped_note(text: str) -> QLabel:
     return label
 
 
+#: Measured, not guessed. The widest thing the sidebar has to hold is a source
+#: panel, whose own minimum is 192 px once the header button and the
+#: offset/drift spins are allowed to shrink. 180 px was below that, and the
+#: 12 px difference is what pushed panel edges out of line. Larger fonts raise
+#: the minimum from there (`SidebarPane._fit_minimum_to_content`).
+_MINIMUM_WIDTH = 200
+
+
 class SidebarPane(QWidget):
     """The left sidebar for file management and metadata."""
 
@@ -990,11 +998,7 @@ class SidebarPane(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        # Measured, not guessed. The widest thing the sidebar has to hold is a
-        # source panel, whose own minimum is 192 px once the header button and
-        # the offset/drift spins are allowed to shrink. 180 px was below that,
-        # and the 12 px difference is what pushed panel edges out of line.
-        self.setMinimumWidth(200)
+        self.setMinimumWidth(_MINIMUM_WIDTH)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -1098,6 +1102,24 @@ class SidebarPane(QWidget):
 
         self._scroll_area.setWidget(scroll_content)
         main_layout.addWidget(self._scroll_area)
+        self._fit_minimum_to_content()
+
+    def changeEvent(self, event: QEvent) -> None:
+        """Re-measure the minimum when the font changes (View → Font Size)."""
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.FontChange:
+            # Once the change has reached every child, so their hints are new.
+            QTimer.singleShot(0, self, self._fit_minimum_to_content)
+
+    def _fit_minimum_to_content(self) -> None:
+        """Hold the sidebar's own chrome without a sideways scrollbar, at any font size.
+
+        200 px fits it at the default font; Extra large needs more, and a fixed
+        minimum left the horizontal scrollbar on permanently there.
+        """
+        content = self._scroll_area.widget()
+        needed = content.minimumSizeHint().width() if content is not None else 0
+        self.setMinimumWidth(max(_MINIMUM_WIDTH, needed))
 
     def add_video(self, path: str, metadata: dict) -> None:
         """Add a video info widget to the sidebar."""

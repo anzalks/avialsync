@@ -27,6 +27,9 @@ full history is in git. Versions follow the tags in the repository.
   camera you clicked (D-246).
 - A translation catalogue built with `lupdate` now applies; none ships yet (D-247).
 - Custom timeline lanes draw in the real accent colour, and overlay labels are outlined.
+- At the Extra large font size the Sources sidebar widens to fit its own controls instead of
+  showing a permanent horizontal scrollbar.
+- Quitting no longer prints a cache-lock traceback.
 
 ## 0.1.13 — 2026-10-15
 
