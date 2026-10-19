@@ -25,7 +25,7 @@
       "create_video_pane": 129
     }
   },
-  "main_window_lines": 3105,
+  "main_window_lines": 2985,
   "oversized_controller_lines": {
     "import_controller.py": 722,
     "session_controller.py": 850
@@ -162,6 +162,14 @@
       "_mutations": 2,
       "_run_job": 1,
       "_sensor_cache_dirs": 1
+    },
+    "point_edit_controller.py": {
+      "_highlight_timer": 1,
+      "_marker_placement": 1,
+      "_mutations": 2,
+      "_overlay_sources": 1,
+      "_refresh_action_availability": 1,
+      "_select_video": 1
     },
     "proxy_controller.py": {
       "_active_cancel": 3,

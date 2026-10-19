@@ -43,14 +43,13 @@ from avialsync.core.commands import (
     SetOriginalTrackerVisibleCommand,
     SetSourceMappingCommand,
     SetSourceVisibleCommand,
-    SetTrackedPointCommand,
     SetTrackingVisibleCommand,
 )
 from avialsync.core.custom_markers import CustomMarkerStore
 from avialsync.core.document import Document
 from avialsync.core.identity_swaps import SwapGroup, SwapStore
 from avialsync.core.inspection import SourceInspection
-from avialsync.core.point_edits import PointEditStore, PointKey, PointMove
+from avialsync.core.point_edits import PointEditStore
 from avialsync.core.pose import PoseSchema
 from avialsync.core.session import (
     SessionState,
@@ -73,7 +72,7 @@ from avialsync.ui import (
 )
 from avialsync.ui.accessibility import apply_accessibility, install_show_time_sweep
 from avialsync.ui.annotations import AnnotationStore, Marker
-from avialsync.ui.changes_panel import ChangeRow, ChangesPanel
+from avialsync.ui.changes_panel import ChangesPanel
 from avialsync.ui.controllers import (
     appearance,
     artifact_write_controller,
@@ -87,6 +86,7 @@ from avialsync.ui.controllers import (
     identity_controller,
     identity_view,
     import_controller,
+    point_edit_controller,
     proxy_controller,
     session_controller,
     timebase,
@@ -147,10 +147,6 @@ logger = logging.getLogger(__name__)
 
 
 _AUTOSAVE_INTERVAL_MS = 120_000  # 2 minutes
-#: How long the revisit ring stays on a point the Changes panel navigated to.
-#: Long enough to find it, short enough not to be mistaken for a state the
-#: correction is in.
-_HIGHLIGHT_MS = 4000
 
 #: Re-exported from the import controller, which owns the probe loop that
 #: enforces it.  Kept here because this is the name the bound is known by.
@@ -1537,80 +1533,16 @@ class MainWindow(QMainWindow):
     # ── Fix Tracker: correcting a predicted point by hand ────
 
     def _toggle_point_edit_mode(self, enabled: bool) -> None:
-        """Turn point correction on or off across every video pane.
-
-        Playback stops on the way in.  A moving frame makes the gesture
-        impossible -- the marker being aimed at is somewhere else by the time
-        the button goes down -- and stopping is what the user is about to do by
-        hand anyway.  This is presentation state, not a document mutation, so
-        it is deliberately not on the undo stack: undo reverses corrections,
-        not the mode you made them in.
-        """
-        enabled = bool(enabled)
-        if enabled and self._marker_placement is not None:
-            custom_marker_controller.cancel(self, tr("3D marker not added."))
-        if enabled:
-            wheel_controller.cancel(self, tr("Wheel not added."))
-            wheel_controller.stop_checking(self)
-        if enabled and self.clock.state.playing:
-            # Same route the K shortcut takes, so the transport button, the
-            # player, and the clock stay in agreement.
-            self.transport.play_toggled.emit(False)
-        self.video_grid.set_point_edit_mode(enabled)
-        if enabled:
-            self.transport.set_status(
-                tr("Fix Tracker on — drag a point to correct it. Playback paused."), "info"
-            )
-        else:
-            corrections = len(self.point_edits)
-            self.transport.set_status(
-                tr("Fix Tracker off — {n} corrected point(s) in this session.").format(
-                    n=corrections
-                )
-                if corrections
-                else tr("Fix Tracker off."),
-                "info",
-            )
+        point_edit_controller.toggle_point_edit_mode(self, enabled)
 
     def _on_tracked_point_moved(self, move: object) -> None:
-        """Route a finished drag through the command bus so it can be undone."""
-        if not isinstance(move, PointMove):
-            return
-        self.document.execute(
-            SetTrackedPointCommand(
-                source_id=move.key.source_id,
-                point=move.key.point,
-                index=move.key.index,
-                before=move.before,
-                after=move.after,
-                display_frame=corrections_controller.frame_for(
-                    self, move.key.source_id, move.key.index
-                ),
-                shown_as=move.shown_as,
-            ),
-            self._mutations,
-        )
+        point_edit_controller.on_tracked_point_moved(self, move)
 
     def _on_point_edits_changed(self, source_id: str | None) -> None:
-        """Repaint every overlay after a correction is applied, undone, or loaded.
-
-        The window observes the store, not each pane: a callback held by a
-        widget outlives it, and a repaint scheduled onto a freed pane is a
-        SIGSEGV with no traceback.  The window outlives them all.
-
-        *source_id* is unused here -- every pane repaints either way -- but it is
-        what tells the persistence path a change came from the user rather than
-        from reading a sidecar back in.
-        """
-        # The first correction is what makes Export Changes available.
-        self._refresh_action_availability()
+        # *source_id* tells the persistence path a change came from the user
+        # rather than from reading a sidecar back in; every pane repaints anyway.
         del source_id
-        grid = getattr(self, "video_grid", None)
-        if grid is not None:
-            grid.refresh_point_edits()
-        panel = getattr(self, "changes_panel", None)
-        if panel is not None:
-            panel.refresh()
+        point_edit_controller.on_point_edits_changed(self)
 
     def _on_wheels_changed(self, name: object) -> None:
         """Repaint every view and the Props Wheel page after a wheel changed or loaded."""
@@ -1645,69 +1577,17 @@ class MainWindow(QMainWindow):
             custom_marker_controller.refresh(self)
 
     def _locate_correction(self, key: object) -> tuple[float, str, int] | None:
-        """Place a correction on the master clock, a camera, and a frame.
-
-        The Changes panel cannot work this out: it needs the pose source's own
-        time column and the video that source overlays, and both live here.
-        """
-        if not isinstance(key, PointKey):
-            return None
-        for video, sources in self._overlay_sources.items():
-            entry = sources.get(key.source_id)
-            if entry is None:
-                continue
-            points = entry.get("points") or {}
-            axes = points.get(key.point) or next(iter(points.values()), None)
-            if axes is None:
-                return None
-            reader = axes[0]
-            times = reader.source_reader.mapped_columns()[0]
-            if not 0 <= key.index < len(times):
-                return None
-            t_master = float(reader.time_map.to_master(float(times[key.index])))
-            frame = corrections_controller.frame_for(self, key.source_id, key.index)
-            return t_master, video, frame
-        return None
+        return point_edit_controller.locate_correction(self, key)
 
     def _revisit_change(self, row: object) -> None:
-        """Go to a change the user selected in the panel.
-
-        Seek, select the camera it belongs to, and -- for a correction -- ring
-        the body part, because landing on the right frame with nine markers on
-        screen is only half of "show me that again".
-        """
-        if not isinstance(row, ChangeRow):
-            return
-        if row.t_master is not None:
-            self.player.seek(row.t_master, exact=True)
-        if row.camera:
-            self._select_video(row.camera)
-        self.video_grid.highlight_point(row.point)
-        if row.point is not None:
-            self._highlight_timer.start(_HIGHLIGHT_MS)
+        point_edit_controller.revisit_change(self, row)
 
     def _clear_point_highlight(self) -> None:
         """Drop the revisit ring once it has done its job."""
         self.video_grid.highlight_point(None)
 
     def _restore_predicted_point(self, key: object) -> None:
-        """Undo one correction from the panel, through the command bus."""
-        if not isinstance(key, PointKey):
-            return
-        before = self.point_edits.get(key)
-        if before is None:
-            return
-        self.document.execute(
-            SetTrackedPointCommand(
-                source_id=key.source_id,
-                point=key.point,
-                index=key.index,
-                before=before,
-                after=None,
-                display_frame=corrections_controller.frame_for(self, key.source_id, key.index),
-            ),
-            self._mutations,
-        )
+        point_edit_controller.restore_predicted_point(self, key)
 
     def _persist_point_edits(self, source_id: str) -> None:
         """Write one pose source's corrections beside it, and rebuild what is shown."""

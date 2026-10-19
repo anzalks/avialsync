@@ -185,4 +185,8 @@ has reviewed them.
 - [x] A5 pane menu (2026-10-19): `ui/menus/pane_menu.py`, split under the 60-line cap; the
   `_on_pane_right_clicked` long-function exception is gone. It had no test; `test_pane_menu.py`
   now drives every choice through a scripted menu. 3,176 → 3,105 lines. Full 3.12 suite passed.
+- [x] A6 point editing (2026-10-19): `ui/controllers/point_edit_controller.py` (Fix Tracker mode,
+  drag-to-command, correction lookup, revisit, restore); persistence stays in
+  `corrections_controller`. 3,105 → 2,985 lines; 7 moved private accesses under D-248. Full
+  suites: 4,593 passed (3.12), 4,592 passed (3.11).
 
