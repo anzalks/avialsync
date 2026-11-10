@@ -26,7 +26,7 @@ def test_explicit_epoch_format_owns_its_unit(tmp_path: Path, fmt: str) -> None:
 def test_csv_loader_basic():
     path = FIXTURE_DIR / "signal_epoch_ns.csv"
     if not path.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     loader = CSVLoader()
     assert loader.can_open(path) > 0.0
@@ -62,7 +62,7 @@ def test_csv_loader_non_monotonic(tmp_path):
 def test_csv_loader_euro_dialect():
     path = FIXTURE_DIR / "signal_euro_dialect.csv"
     if not path.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     loader = CSVLoader()
     # separator provided by user or detected. make_fixtures.py uses ';' and ',' decimal.
@@ -83,7 +83,7 @@ def test_csv_loader_euro_dialect():
 def test_csv_loader_sentinel():
     path = FIXTURE_DIR / "signal_nan_gap_sentinel.csv"
     if not path.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     loader = CSVLoader()
     config = {"time_col": "time", "time_unit": "s", "separator": ",", "sentinel": -9999.0}
@@ -121,7 +121,7 @@ def test_a_sentinel_on_a_column_without_nulls_imports(tmp_path: Path, cell: str)
 def test_csv_loader_iso8601():
     path = FIXTURE_DIR / "signal_iso8601.csv"
     if not path.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     loader = CSVLoader()
     config = {"time_col": "time", "time_format": "iso8601", "separator": ","}
@@ -137,7 +137,7 @@ def test_csv_loader_iso8601():
 def test_csv_loader_time_of_day():
     path = FIXTURE_DIR / "signal_time_only.csv"
     if not path.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     loader = CSVLoader()
     config = {
@@ -156,7 +156,7 @@ def test_csv_loader_time_of_day():
 def test_csv_loader_clock_jump():
     path = FIXTURE_DIR / "signal_clock_jump.csv"
     if not path.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     loader = CSVLoader()
     config = {"time_col": "time", "time_unit": "s", "separator": ","}
@@ -169,7 +169,7 @@ def test_csv_loader_clock_jump():
 def test_csv_loader_duplicate_timestamps():
     path = FIXTURE_DIR / "signal_duplicates.csv"
     if not path.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     loader = CSVLoader()
     config = {"time_col": "time", "time_unit": "s", "separator": ","}

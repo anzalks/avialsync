@@ -484,7 +484,7 @@ def test_sidecar_timing_is_never_auto_discovered(tmp_path: Path) -> None:
     """
     video = VIDEO_FIXTURES / "dropped_frames.mp4"
     if not video.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     decoy = tmp_path / "dropped_frames.csv"
     decoy.write_text("scorer,x,y\n0,1,2\n", encoding="utf-8")
@@ -498,7 +498,7 @@ def test_camera_maps_frames_to_when_they_were_exposed(tmp_path: Path) -> None:
     """The container's nominal rate is a guess; the sidecar is evidence."""
     video = VIDEO_FIXTURES / "dropped_frames.mp4"
     if not video.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     loader = VideoStandardProbe(video)
     frame_count = loader.frame_count
@@ -528,7 +528,7 @@ def test_camera_maps_frames_to_when_they_were_exposed(tmp_path: Path) -> None:
 def test_camera_falls_back_to_container_timing_without_a_sidecar(tmp_path: Path) -> None:
     video = VIDEO_FIXTURES / "dropped_frames.mp4"
     if not video.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     camera = VideoStandardLoader()
     camera.open(video, {"start_time": 5.0})
@@ -694,7 +694,7 @@ def test_camera_metadata_reports_the_rate_it_was_actually_exposed_at(tmp_path: P
     """
     video = VIDEO_FIXTURES / "dropped_frames.mp4"
     if not video.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     plain = VideoStandardProbe(video)
     exposures = np.cumsum(np.full(plain.frame_count, 0.02)) - 0.02
@@ -720,7 +720,7 @@ def test_camera_metadata_reports_the_rate_it_was_actually_exposed_at(tmp_path: P
 def test_camera_metadata_is_unchanged_without_a_sidecar() -> None:
     video = VIDEO_FIXTURES / "dropped_frames.mp4"
     if not video.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     camera = VideoStandardLoader()
     camera.open(video, {})
@@ -1068,7 +1068,7 @@ def test_dropped_frames_reach_the_readout_and_raise_a_flag(tmp_path: Path) -> No
 
     video = VIDEO_FIXTURES / "dropped_frames.mp4"
     if not video.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     stored = VideoStandardProbe(video).frame_count
     counter = np.arange(stored) * 2  # every other exposure lost
@@ -1089,7 +1089,7 @@ def test_dropped_frames_reach_the_readout_and_raise_a_flag(tmp_path: Path) -> No
 def test_a_video_without_a_sidecar_reports_no_drops() -> None:
     video = VIDEO_FIXTURES / "dropped_frames.mp4"
     if not video.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     loader = VideoStandardLoader()
     loader.open(video, {})

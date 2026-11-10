@@ -9,9 +9,9 @@ FIXTURE_DIR = Path(__file__).parent / "fixtures" / "videos"
 
 
 def test_video_standard_basic():
-    path = FIXTURE_DIR / "base_30fps.mp4"
+    path = FIXTURE_DIR / "camera_1.mp4"
     if not path.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     loader = VideoStandardLoader()
     assert loader.can_open(path) > 0.0
@@ -35,7 +35,7 @@ def test_video_standard_basic():
 def test_video_standard_vfr():
     path = FIXTURE_DIR / "vfr.mp4"
     if not path.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     loader = VideoStandardLoader()
     loader.open(path, {})
@@ -159,7 +159,7 @@ def test_frame_timestamp_cache_avoids_reprobing_long_video(
 def test_video_standard_no_metadata():
     path = FIXTURE_DIR / "no_metadata.mp4"
     if not path.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     loader = VideoStandardLoader()
     loader.open(path, {})
@@ -171,7 +171,7 @@ def test_video_standard_no_metadata():
 def test_video_standard_dropped_frames():
     path = FIXTURE_DIR / "dropped_frames.mp4"
     if not path.exists():
-        pytest.skip("Fixtures not generated")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     loader = VideoStandardLoader()
     loader.open(path, {})

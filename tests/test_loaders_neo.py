@@ -77,7 +77,7 @@ def test_neoloader_openephys(tmp_path: Path):
     fixture_path = Path("tests/fixtures/openephys_mock")
 
     if not fixture_path.exists():
-        pytest.skip("OpenEphys mock fixture not generated.")
+        pytest.fail("Fixtures not generated — run: python tools/make_fixtures.py")
 
     loader = NeoLoader()
 
