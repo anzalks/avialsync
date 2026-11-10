@@ -102,7 +102,7 @@ the result on that video's frame grid. The session scanner pairs by camera devic
 trials whose calibration or video match is missing or ambiguous. Projected points use the existing
 camera-specific tracking overlay and its visibility controls.
 
-**Physical props are merged into `main`** (`607c8af`; the plan's release gate is not recorded as run). Read
+**Physical props are merged into `main`** (`607c8af`; the plan's automated release gate passed on 2026-11-10, see Open items). Read
 D-149, D-154–D-157 and D-162–D-166 before changing a prop; the plan is archived at
 `archive/plans/PHYSICAL_PROPS_PLAN.md`. One Props inspector contains wheel placement/review,
 clicked horizontal ladders, and editable geometry and motion binding for belts and balls. Wheel
@@ -553,7 +553,9 @@ Fixture: `tools/make_fixtures.generate_sync_ground_truth`.
   defeats `_PANE_RESIZE_COALESCE_MS`; whether that reflects real interaction is unmeasured and
   needs the field checklist to settle.
 - Physical props: merged into `main` (`607c8af`); its release gate
-  (`archive/plans/PHYSICAL_PROPS_PLAN.md` §4 slice 6) is not recorded as run.
+  (`archive/plans/PHYSICAL_PROPS_PLAN.md` §4 slice 6) passed its automated part on 2026-11-10
+  at `a331078`: full suite, Ruff, both mypy commands, docs, benchmarks, and the golden sync and
+  conformance tests. Its in-app acceptance examples wait on the field-data smoke check.
 - Shipped translations: the machinery and 100 % wrapping of direct literals exist, and since D-247
   a catalogue built with `lupdate` actually applies. No `.qm` catalogue ships yet; the remaining
   gaps (indirect keys, plurals, language-independent shortcut ids, packaging) are
