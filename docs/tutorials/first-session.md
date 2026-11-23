@@ -33,20 +33,26 @@ Use the inspector's **Filter sources and channels** field to find a source or ch
 loaded recordings. Filtering only narrows the inspector list; it does not unload data or change
 visibility.
 
-To put plots on a second display, choose **View → Detach Plots**. Close that window or choose
-**Return to main window** to restore the pane; named workspaces remember its detached position.
+To spread views across multiple displays, use **View → Detach Plots**, **View → Detach 3D View**,
+**View → Detach Imaging**, **View → Inspector → Pop Out Current Inspector Page**, or right-click a
+camera and choose **Detach this camera**. Close any detached window or choose **View → Bring Panels
+Back** to restore it; named workspaces remember detached positions alongside camera and 3D viewpoints.
 
 ## 3. Find an event
 
-Drag the shared time bar until you see a meaningful event. Watch the video, traces, and values in
-the left panel together — they are all showing the same instant.
+Drag the shared time bar — or shuttle forward and backward with `J` / `K` / `L` — until you see a
+meaningful event. Watch the video, traces, and values in the left panel together — they are all
+showing the same instant.
 
 For a copyable text view of the current channel values, sample indices, and camera frames, open the
 **Values** inspector page and choose **Text view**.
 
-For a closer look, set **Time span** and drag the slider below the traces. Every trace keeps the
-same window: they sweep left to right together and restart together, because comparing them is the
-point.
+For a closer look, hold `Ctrl` (`Cmd` on macOS) and roll the mouse wheel over the plots to zoom the
+shared time span around the pointer, `Shift`+left-drag (or middle-drag) to pan horizontally, or set
+**Time span** and drag the slider below the traces. Switch **Mode** in the plot header between
+**Stacked**, **Overlaid**, and **Heatmap** when inspecting dense multi-channel recordings, or
+right-click a reference channel and choose **Pin row to top**. Every trace keeps the same window:
+they sweep left to right together and restart together, because comparing them is the point.
 
 ## 4. Mark it
 

@@ -36,18 +36,28 @@ pane draws. Nothing in AvialSync knows this lab's format.*
 
 ## What it gives you
 
-- Several camera recordings playing together on one clock.
-- Sensor, electrode, and tracking traces beside the video, up to 50 kHz across many channels.
+- Several camera recordings playing together on one clock, with forward/reverse `J`/`K`/`L` shuttle
+  and detach-to-window layouts (`View → Detach Plots / 3D View / Imaging`, per-camera detachment,
+  and pop-out inspector pages) for multi-monitor rigs.
+- Sensor, electrode, and tracking traces beside the video, up to 50 kHz across many channels, with
+  `Ctrl`-wheel cursor zoom, `Shift`-drag panning, sticky pinned reference rows, and `Stacked`,
+  `Overlaid`, or 2D Viridis `Heatmap` plot modes.
 - Two-photon HDF5, OME-TIFF and ScanImage stacks on the same clock, with channel overlays,
-  brightness/contrast, and a centred moving average, read one image plane at a time.
+  perceptual colormaps (`Viridis`, `Magma`, `Inferno`, `Turbo`), false-colour clipping indicators,
+  live pixel intensity readouts, bidirectional ROI-tile ↔ `ΔF/F` trace linking, and a centred moving
+  average, read one image plane at a time.
 - Alignment by offset, drift, or TTL/event evidence, with the original files left unchanged.
 - Notes the acquisition system itself recorded — read out of the file, placed on the same clock,
   and kept read-only so they never mix with your own marks.
-- Event marks, A/B time ranges, and exports of snapshots or selected spans for analysis elsewhere.
+- Event marks, draggable point and range annotations (`Shift+M`), configurable `1`–`9` behavioral
+  ethogram hotkeys (instant points or start/stop bouts), A/B time ranges, and exports of snapshots or
+  selected spans for analysis elsewhere.
 - Event-aligned grid MP4 export, with cameras above one shared TTL or stimulus trace and a selectable
   playback speed for high-speed footage; see the
   [illustrated export demo](https://avialsync.readthedocs.io/en/latest/tutorials/annotating-and-exporting.html#export-an-event-aligned-video-grid-with-its-ttl-trace).
-- Correction of a wrong pose estimate by hand, saved beside the pose file and exportable either as
+- Correction of a wrong pose estimate by hand — aided by low-confidence hollow rings, motion trails,
+  a `4×` pixel-grid zoom loupe, calibrated multi-camera epipolar guide curves, and off-thread
+  suspect-frame navigation (`Ctrl+[` / `Ctrl+]`) — saved beside the pose file and exportable either as
   corrected data or as a DeepLabCut or single-view Lightning Pose retraining set.
 - Repair of a tracker that swapped two animals or left/right body parts, by accepting the crossings
   it proposes; the original pose file is never modified.

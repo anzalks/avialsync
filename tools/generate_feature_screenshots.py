@@ -23,11 +23,14 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QMenu
 from scipy.spatial.transform import Rotation
 
 from avialsync.core.calibration import Calibration, CameraModel, write_calibration
+from avialsync.core.imaging_display import ChannelView, ImagingView
 from avialsync.core.physical_props import BallProp, BeltProp, Ladder
+from avialsync.core.source import ImagingMetadata, ImagingSource
 from avialsync.core.visual_prop_tracking import ball_visual_state, belt_visual_state
 from avialsync.core.wheel import LEFT, RIGHT, WheelGeometry, WheelSpec
 from avialsync.loaders.video_standard import VideoStandardLoader
@@ -397,6 +400,110 @@ def _capture_wheel_viewer(
     capture(window, out_dir / "feature_props_wheel_viewer.png", crop=window._media_splitter)
 
 
+class _SyntheticCalciumSource(ImagingSource):
+    """Synthetic 96x96 two-photon calcium field with somata and ROI footprints."""
+
+    @classmethod
+    def can_open(cls, path: Path) -> float:
+        return 1.0
+
+    def open(self, path: Path, config: dict) -> ImagingMetadata:
+        return ImagingMetadata(
+            frame_count=10,
+            height=96,
+            width=96,
+            dtype="float32",
+            frame_times=np.arange(10, dtype=np.float64) * 0.2,
+            timing_source="synthetic",
+            channel_count=1,
+            roi_boxes={
+                "roi1": (18, 18, 22, 22),
+                "roi2": (54, 24, 20, 20),
+                "roi3": (32, 58, 22, 22),
+            },
+        )
+
+    def read_frame(self, index: int, channel: int = 0) -> np.ndarray:
+        yy, xx = np.mgrid[0:96, 0:96].astype(np.float32)
+        plane = np.full((96, 96), 0.14, dtype=np.float32)
+        centres = ((29.0, 29.0, 1.38), (64.0, 34.0, 0.85), (43.0, 69.0, 1.05))
+        for cx, cy, amp in centres:
+            r2 = (xx - cx) ** 2 + (yy - cy) ** 2
+            plane = plane + amp * np.exp(-r2 / (2.0 * 6.5**2))
+        vessel = (xx - 76.0) ** 2 + (yy - 74.0) ** 2
+        plane = plane - 0.12 * np.exp(-vessel / (2.0 * 5.0**2))  # dark shadow <= black point
+        plane[28:31, 28:31] = 1.65  # saturated core >= white point
+        return plane.astype(np.float32)
+
+    def close(self) -> None:
+        pass
+
+
+def _capture_ux_surfaces(window: MainWindow, app: QApplication, out_dir: Path) -> None:
+    """Capture Changes ethogram/filters, Heatmap plot mode, and perceptual Imaging viewer."""
+    # 1. Changes page: Ethogram 1-9 strip, kind/text filter, and sample bouts
+    window.annotation_store.add_range(0.45, 1.30, "Grooming")
+    window.annotation_store.add_point(1.85, "Stimulus")
+    _show_tab(window, app, "Changes")
+    window.resizeDocks([window.inspector_dock], [460], Qt.Orientation.Horizontal)
+    settle(app)
+    capture(window, out_dir / "feature_changes_ethogram.png", crop=window._left_tabs)
+    window.annotation_store.clear()
+    window.document.clear()
+    pin_layout(window)
+    _show_tab(window, app, "Sources")
+    settle(app)
+
+    # 2. PlotPane in 2D Viridis Heatmap mode
+    window.plot_pane.set_view_mode("heatmap")
+    settle(app)
+    capture(
+        window,
+        out_dir / "feature_plot_heatmap.png",
+        (window.plot_pane.view_mode_combo,),
+        crop=window.plot_pane,
+    )
+    window.plot_pane.set_view_mode("stacked")
+    settle(app)
+
+    # 3. ImagingPane with Viridis perceptual LUT, clipping highlight, and live pixel readout
+    meta = _SyntheticCalciumSource().open(Path("synthetic_2p_rois.nwb"), {})
+    window.imaging_pane.setVisible(True)
+    window.imaging_splitter.setVisible(True)
+    window.resize(1440, 900)
+    settle(app)
+    window._media_splitter.setSizes((560, 540))
+    settle(app)
+    window.imaging_pane.add_source(
+        "synthetic_2p_rois.nwb",
+        _SyntheticCalciumSource,
+        {},
+        meta,
+        view=ImagingView(
+            channels=(ChannelView(color="viridis", auto_low=0.06, auto_high=1.45),),
+            show_clipping=True,
+        ),
+    )
+    window.imaging_pane.set_cursor(0.2)
+    wait_until(
+        app,
+        lambda: (
+            window.imaging_pane._image is not None and len(window.imaging_pane._current_planes) == 1
+        ),
+        "synthetic 2P frame",
+    )
+    window.imaging_pane.frame_label.set_roi_highlight((18, 18, 22, 22), "roi1")
+    window.imaging_pane._on_pixel_hovered((29, 29))
+    settle(app)
+    capture(window, out_dir / "feature_imaging_colormaps.png", crop=window.imaging_pane)
+    window.imaging_pane.clear_sources()
+    window.imaging_pane.setVisible(False)
+    window.resize(1280, 860)
+    window.document.clear()
+    pin_layout(window)
+    settle(app)
+
+
 def _generate(out_dir: Path, session: Path) -> None:
     app = QApplication.instance() or QApplication(sys.argv)
     pin_appearance(app)
@@ -428,6 +535,7 @@ def _generate(out_dir: Path, session: Path) -> None:
         _show_tab(window, app, "Exports")
         capture(window, out_dir / "exports_inspector.png", crop=window._left_tabs)
         _show_tab(window, app, "Sources")
+        _capture_ux_surfaces(window, app, out_dir)
 
         _capture_menu(window, app, "File", out_dir / "feature_menu_file.png")
         _capture_menu(window, app, "File", out_dir / "feature_menu_file_cache.png", "Cache")

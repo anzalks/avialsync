@@ -135,6 +135,8 @@ trials, experiments and their cameras load is described under
   pixels at or above its white point in red, so over- or under-windowed somata are immediately
   visible. Moving the pointer over the image shows live `(x, y)` coordinates and raw plane intensity
   in the status row.
+
+![Two-photon imaging viewer with perceptual Viridis lookup table, clipping indicator, and pixel readout](../_static/screenshots/feature_imaging_colormaps.png)
 - **Brightness** and **Contrast** act per channel. Both start from levels measured from the data,
   ignoring the brightest and darkest 0.5 % of pixels; **Auto levels** measures again from the
   picture now shown and returns the sliders to the middle.
@@ -185,6 +187,8 @@ right and restarts at the left edge when the window completes.
 - The display-mode selector switches visible channels between **Stacked** rows (the default),
   **Overlaid** traces on one shared axis, and a 2D Viridis **Heatmap** carpet for high-channel-count
   electrophysiology or ROI matrices.
+
+![Plot pane in 2D Viridis Heatmap mode with the header Mode selector](../_static/screenshots/feature_plot_heatmap.png)
 - The single slider below the plots sets the visible span and controls every row together. Rows do
   not zoom or scroll independently — they share one time axis because comparing them is the point.
 - **Reset Plots** (`Ctrl+0`) returns to the full loaded timeline and refits every visible plot.
@@ -254,7 +258,7 @@ not a second copy.
 2D skeleton limbs, fading motion trails, low-confidence point cues, calibrated epipolar guide lines,
 body-part names, the track legend, hand-corrected marks, hand-placed 3D markers, the wheel model
 and hidden wheel bars, physical props, 3D reprojection, 3D body-part names, the camera name,
-the timecode and format readout, and the 5× corner magnifier loupe shown while placing or dragging
+the timecode and format readout, and the 4× corner magnifier loupe shown while placing or dragging
 markers, with **Show All** and **Hide All** at the bottom. Anything a
 plugin draws appears here too — nothing is drawn over your footage that you cannot account for.
 

@@ -259,7 +259,7 @@ Pose estimates are sometimes wrong: an occluded nose lands on the wall. Select *
 - **Edit → Previous / Next Suspect Frame** (`Ctrl+[` / `Ctrl+]`) scans imported pose tracks in the
   background for low-confidence dips and abrupt jump spikes and seeks straight to each candidate.
 - While placing a 3D marker or dragging a point in **Fix Tracker** on a calibrated rig, AvialSync
-  projects dashed epipolar guide curves into the other cameras and shows a 5× corner magnifier loupe
+  projects dashed epipolar guide curves into the other cameras and shows a 4× corner magnifier loupe
   for sub-pixel placement.
 - Zooming with the wheel and panning with the middle mouse button keep working while the mode is on.
 
@@ -274,9 +274,13 @@ Drag a line after a crossing into the other lane to accept a swap from that fram
 ### Reviewing and exporting what you changed
 
 The **Changes** tab lists everything you have done to the session in one place and in time order:
-flagged frames, labelled ranges, corrected tracking points, and accepted identity swaps. Each row says when it happened,
+flagged frames, labelled ranges, corrected tracking points, and accepted identity swaps, with an
+**Ethogram (1–9)** hotkey strip above the list for instant point or start/stop bout coding and kind
+and text filters for fast review. Each row says when it happened,
 which recording it belongs to, and what it was — a correction names the body part, the coordinate,
 and the video frame.
+
+![The Changes inspector page with Ethogram 1–9 hotkeys, kind/text filters, and annotated events](../_static/screenshots/feature_changes_ethogram.png)
 
 - Select a row to go back to it. AvialSync seeks there, selects the camera it belongs to, and rings
   the corrected point for a few seconds so you can see which one is meant.

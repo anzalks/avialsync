@@ -30,15 +30,23 @@ frame number it reports are resolved by the same lookup: they cannot disagree.
 1. **`[`** sets the start of a range at the current time.
 2. **`]`** sets the end.
 
-Use `×` to clear it. A range is what the clip and data-slice exports operate on, and it also drives
-A/B loop playback for reviewing the same span repeatedly.
+Use `×` to clear it. Press `Shift+M` (**Edit → Mark A–B Range**) to convert the active A–B span into
+a saved range annotation. A range is what the clip and data-slice exports operate on, and it also
+drives A/B loop playback for reviewing the same span repeatedly.
 
-## Review and label what you flagged
+Point and range markers can be dragged directly on the plots or on the master timeline bar to refine
+their boundaries (`Ctrl+Z` undoes any move), and `Alt+Left` / `Alt+Right` jump between markers.
 
-The **Changes** tab in the left panel lists everything you have marked, in time order, alongside any
-tracking corrections you have made. Double-click a row's label to name it — `occluded`, `bad_paw`,
-`stim_onset`, whatever your analysis needs. **Delete** removes the selected row, and `Ctrl+Z` puts
-it back.
+## Code behavioral bouts and review changes
+
+The **Changes** tab in the left panel includes **Ethogram (1–9)** for rapid behavioral coding: press
+number keys `1`–`9` (when focus is outside a text box) to place instant point markers or toggle
+start/stop behavioral bouts, and use **Edit Keys…** to customize labels and modes.
+
+Below the ethogram strip, **Changes** lists everything you have marked in time order alongside any
+tracking corrections and accepted identity swaps, with kind and text filters for fast review.
+Double-click a row's label to name it — `occluded`, `bad_paw`, `stim_onset`, whatever your analysis
+needs. **Delete** removes the selected row, and `Ctrl+Z` puts it back.
 
 ## Export
 

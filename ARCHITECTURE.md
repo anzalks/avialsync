@@ -107,18 +107,26 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   ├── video_pane.py             # decode→blit; ONE path on all OSes (D-075 removed the per-OS split)
 │   │   ├── video_timing.py           # timestamp rates, OSD text, frame lookup/step behavior
 │   │   ├── video_overlay.py          # transparent overlay; multi-source 2D pose tracks + legend (D-046)
-│   │   ├── video_grid.py             # dynamic N columns, labels, no-footage state (D-010), fullscreen
+│   │   ├── pose_overlay_extras.py    # 2D skeleton, trails, low-confidence rings, 4x loupe & epipolar guides (D-251)
+│   │   ├── pose_suspects.py          # off-thread low-confidence / jump-spike suspect frame scanner (D-251)
+│   │   ├── video_grid.py             # dynamic N columns, labels, no-footage state (D-010), fullscreen, tile reorder
+│   │   ├── panel_detachment.py       # detach 3D, Imaging, cameras & pop-out Inspector pages across displays (D-249)
 │   │   ├── plot_pane.py              # pyramid-fed pyqtgraph rows, playhead, channel tree/groups (§5c); measure markers
 │   │   ├── plot_row.py               # one channel row's plot/curve/close-control construction
 │   │   ├── plot_sweep.py             # shared continuous window control + deterministic sweep state
-│   │   ├── plot_header.py            # page label, Time span, Fit Y, row density, Reset Plots strip
+│   │   ├── plot_header.py            # page label, Time span, Stacked/Overlaid/Heatmap mode, Fit Y, Reset Plots strip
+│   │   ├── plot_canvas_nav.py        # cursor-anchored Ctrl+wheel zoom and Shift/middle-drag horizontal pan (D-252)
+│   │   ├── plot_crosshair.py         # synchronized hover crosshair + inline value & A-B delta callouts (D-252)
+│   │   ├── plot_modes.py             # Stacked / Overlaid / Viridis Heatmap modes + sticky top row pinning (D-252)
 │   │   ├── plot_interactions.py      # plot context actions, measurement, annotation, gap state
-│   │   ├── plot_overlays.py          # bounded page-local overlay drawing + context menu helpers
+│   │   ├── plot_overlays.py          # bounded page-local overlay drawing + draggable marker handles
 │   │   ├── tracking_3d_pane.py       # cache-backed current-pose projection; orbit/zoom (D-041); head-up axis (D-046)
-│   │   ├── imaging_pane.py           # 2P / ROI-grid plane viewer below 3D view; channels, levels, centred averaging
+│   │   ├── imaging_pane.py           # 2P / ROI-grid plane viewer below 3D view; perceptual LUTs, clipping, pixel readout
+│   │   ├── roi_linking.py            # bidirectional 2P ROI footprint <-> plotted trace highlight & scroll (D-253)
 │   │   ├── inspector_dock.py         # movable/floatable Inspector QDockWidget + 6-page InspectorNav rail
 │   │   ├── pane_proportions.py       # panes keep their share of the window on resize; minimum-aware allocator
-│   │   ├── transport.py              # master seek bar, play/step/jump, A/B loop, Speed; Data Streams lanes above
+│   │   ├── transport.py              # master seek bar, J/K/L shuttle, draggable markers, A/B loop; Data Streams above
+│   │   ├── ethogram_bar.py           # configurable 1-9 point/bout behavioral coding & marker jump helpers (D-250)
 │   │   ├── view_toolbar.py           # video/pose action strip below cameras (Flag, Fix Tracker, 3D Marker, Snapshot…)
 │   │   ├── import_wizard.py          # timestamp col/format/tz/unit/sentinel preview dialog
 │   │   ├── sync_wizard.py            # non-modal evidence selection, residual preview, explicit acceptance (D-026)
