@@ -20,7 +20,8 @@ a guess.
 from __future__ import annotations
 
 from functools import partial
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+from weakref import WeakKeyDictionary
 
 import numpy as np
 from PySide6.QtCore import QTimer
@@ -38,6 +39,35 @@ _CONTINUOUS = 100_000
 
 #: The preference behind View → Collapse Gaps Without Data.
 COLLAPSE_SETTING = "playback/collapse_gaps"
+_HOLE_CACHE: WeakKeyDictionary[object, dict[str, tuple[object, list[tuple[float, float]]]]] = (
+    WeakKeyDictionary()
+)
+
+
+def _mapping_signature(window: MainWindow, source_id: str, kind: str) -> object:
+    """Compact cache key for a source's timing state without scanning its samples."""
+    if kind == "video":
+        grid = window.video_grid
+        try:
+            pane = grid.panes[grid.pane_paths().index(source_id)]
+        except ValueError:
+            return None
+        ft = pane._frame_times
+        tm = pane.time_map
+        return (0 if ft is None else len(ft), tm.offset, tm.drift_ms_per_hour, id(tm._exact_master))
+    if kind == "imaging":
+        pane_i = window.imaging_pane
+        if source_id not in pane_i.source_paths():
+            return None
+        _loader, _config, tm = pane_i.source_config(source_id)
+        return (len(pane_i.metadata_for(source_id).frame_times), tm.offset, tm.drift_ms_per_hour)
+    if kind == "data":
+        readers = window.source_readers(source_id)
+        if not readers:
+            return None
+        tm = readers[0].time_map
+        return (id(readers[0].source_reader), tm.offset, tm.drift_ms_per_hour, id(tm._exact_master))
+    return None
 
 
 def install(window: MainWindow) -> None:
@@ -77,14 +107,27 @@ def refresh_holes(window: MainWindow) -> None:
     """
     overview = window.transport.overview
     parts = [(start, end) for start, end, _name in overview._segments]
+    parts_key = tuple(parts)
+    per_source_cache = _HOLE_CACHE.setdefault(overview, {})
     holes: dict[str, list[tuple[float, float]]] = {}
     for source_id, (start, end, kind, _group) in overview._coverage.items():
         if len(parts) < 2:
             holes[source_id] = []
             continue
-        holes[source_id] = holes_between(
+        sig = _mapping_signature(window, source_id, kind)
+        cache_key: Any = (start, end, kind, parts_key, sig)
+        cached_entry = per_source_cache.get(source_id)
+        if cached_entry is not None and cached_entry[0] == cache_key and sig is not None:
+            holes[source_id] = list(cached_entry[1])
+            continue
+        computed = holes_between(
             (start, end), parts, partial(samples_between, window, source_id, kind)
         )
+        holes[source_id] = computed
+        if sig is not None:
+            per_source_cache[source_id] = (cache_key, list(computed))
+    for stale in set(per_source_cache) - set(overview._coverage):
+        per_source_cache.pop(stale, None)
     current = {source_id: list(overview._holes.get(source_id, ())) for source_id in holes}
     if holes != current:
         window.transport.set_coverage_holes(holes)

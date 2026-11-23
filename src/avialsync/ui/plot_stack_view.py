@@ -37,11 +37,20 @@ class PlotStackView(pg.GraphicsLayoutWidget):
         finally:
             for view, blocked in states:
                 view.blockLink(blocked)
+        width_changed = (
+            event is None
+            or not event.oldSize().isValid()
+            or event.oldSize().width() != event.size().width()
+        )
         try:
             for view, blocked in states:
                 if not blocked:
-                    view.linkedXChanged()
-                    view.linkedYChanged()
+                    x_master = view.linkedView(0)
+                    if x_master is not None:
+                        if width_changed or view.viewRange()[0] != x_master.viewRange()[0]:
+                            view.linkedXChanged()
+                    if view.linkedView(1) is not None:
+                        view.linkedYChanged()
         finally:
             # pyqtgraph's link calculation unconditionally releases its
             # target's block. Preserve blocks owned by another caller too.

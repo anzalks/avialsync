@@ -16,11 +16,14 @@ a value that cannot move it.
 from __future__ import annotations
 
 import logging
+import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from avialsync.core.columns import RegularTimes
+from avialsync.core.timeline import PreparedExactMapping
 from avialsync.ui.i18n import tr
 
 if TYPE_CHECKING:
@@ -155,6 +158,40 @@ def owner_tooltip(owner: str) -> str:
     )
 
 
+def _matched_video_frames(
+    source_times: Any, frame_rate: float, frame_times: np.ndarray
+) -> np.ndarray | None:
+    """Return video frame timestamps aligned to *source_times* without scanning RegularTimes."""
+    if len(source_times) < 2:
+        return None
+    if (
+        isinstance(source_times, RegularTimes)
+        and source_times.stride == 1
+        and math.isclose(source_times.rate, frame_rate, rel_tol=1e-6)
+    ):
+        first_f = float(source_times[0]) * frame_rate
+        last_f = float(source_times[-1]) * frame_rate
+        i0 = int(round(first_f))
+        i1 = int(round(last_f))
+        if (
+            abs(first_f - i0) <= 1e-4
+            and abs(last_f - i1) <= 1e-4
+            and 0 <= i0
+            and i1 < len(frame_times)
+            and (i1 - i0 + 1) == len(source_times)
+        ):
+            return frame_times[i0 : i1 + 1]
+    scaled = np.asarray(source_times, dtype=np.float64) * frame_rate
+    frame_indices = np.rint(scaled).astype(np.intp)
+    if (
+        not np.allclose(scaled, frame_indices)
+        or frame_indices[0] < 0
+        or frame_indices[-1] >= len(frame_times)
+    ):
+        return None
+    return frame_times[frame_indices]
+
+
 def calibrate_overlay_timing(window: MainWindow, video: str) -> None:
     """Map an AOL 2D track's frame indices to its video's presentation times.
 
@@ -180,23 +217,22 @@ def calibrate_overlay_timing(window: MainWindow, video: str) -> None:
         source_times = first_reader.source_reader.mapped_columns()[0]
         if len(source_times) < 2:
             continue
-        frame_indices = np.rint(source_times * frame_rate).astype(np.intp)
-        if (
-            not np.allclose(source_times * frame_rate, frame_indices)
-            or frame_indices[0] < 0
-            or frame_indices[-1] >= len(frame_times)
-        ):
+        matched_frames = _matched_video_frames(source_times, frame_rate, frame_times)
+        if matched_frames is None:
             _report_uncalibrated_overlay(window, video, first_reader.source_id)
             continue
-        master_times = pane.time_map.to_master_array(frame_times[frame_indices])
+        master_times = pane.time_map.to_master_array(matched_frames)
+        prepared = PreparedExactMapping.prepare(
+            master_times, np.asarray(source_times, dtype=np.float64)
+        )
         time_maps = {
             id(reader.time_map): reader.time_map for axes in points.values() for reader in axes
         }
         for time_map in time_maps.values():
-            time_map.set_exact_mapping(master_times, source_times)
+            time_map.set_exact_mapping(prepared.master, prepared.source)
         cache_dir = getattr(window, "_pose_cache_dirs", {}).get(first_reader.source_id)
         if cache_dir is not None and hasattr(window, "plot_pane"):
-            window.plot_pane.set_source_exact_mapping(cache_dir, master_times, source_times)
+            window.plot_pane.set_source_exact_mapping(cache_dir, prepared.master, prepared.source)
         if hasattr(window, "sidebar"):
             # The camera now times this source, so its own Offset and Drift cannot move it.
             show_timing_owner(window, first_reader.source_id)

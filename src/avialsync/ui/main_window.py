@@ -1252,7 +1252,7 @@ class MainWindow(QMainWindow):
             for r in self.video_grid.frame_records_at(t_master)
         ]
         self.annotation_store.add_point(t_master, video_frames=video_frames)
-        self.statusBar().showMessage(f"Marked frame at {t_master:.3f}s", 2000)
+        self.transport.set_status(tr("Marked frame at {time:.3f} s").format(time=t_master))
 
     def _export_changes(self) -> None:
         changes_export_controller.export_changes(self)
@@ -1817,7 +1817,7 @@ class MainWindow(QMainWindow):
             for r in self.video_grid.frame_records_at(t)
         ]
         self.annotation_store.add_point(t, video_frames=video_frames)
-        self.statusBar().showMessage(f"Marked frame at {t:.3f}s", 2000)
+        self.transport.set_status(tr("Marked frame at {time:.3f} s").format(time=t))
 
     # ── Shortcuts dialog ─────────────────────────────────────────────
 

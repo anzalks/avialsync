@@ -73,6 +73,10 @@ def read_setting(setting: Setting) -> Any:
 
 def write_setting(setting: Setting, value: Any) -> None:
     _store().setValue(setting.key, value)
+    if setting.key.startswith("overlays/"):
+        from avialsync.ui.pose_overlay_extras import invalidate_overlay_settings_cache
+
+        invalidate_overlay_settings_cache()
 
 
 def settings_report(extra: Sequence[Setting] = ()) -> str:

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping, Sequence
+from time import perf_counter as _elapsed
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import pyqtgraph as pg
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction
 
 from avialsync.core.channel_reader import ChannelKey
@@ -29,6 +31,7 @@ if TYPE_CHECKING:
     from avialsync.ui.plot_pane import PlotPane
 
 logger = logging.getLogger(__name__)
+_HOVER_MIN_INTERVAL_S = 1.0 / 30.0
 
 
 class PlotInteractionController:
@@ -44,6 +47,11 @@ class PlotInteractionController:
         self._measure_callout_items: list[tuple[pg.PlotItem, object]] = []
         self._hover = HoverCrosshair()
         self._last_hovered_key: ChannelKey | None = None
+        self._last_hover_at = 0.0
+        self._pending_hover: tuple[str, Any, object] | None = None
+        self._hover_timer = QTimer(pane)
+        self._hover_timer.setSingleShot(True)
+        self._hover_timer.timeout.connect(self._flush_pending_hover)
         self._annotation_store: AnnotationStore | None = None
         self._annotation_items: list[tuple[pg.PlotItem, object]] = []
         self._identity_events: dict[str, tuple[tuple[float, str], ...]] = {}
@@ -111,6 +119,8 @@ class PlotInteractionController:
 
     def clear_hover(self) -> None:
         """Hide hover crosshair and notify listeners when pointer exits the plots."""
+        self._pending_hover = None
+        self._hover_timer.stop()
         if self._last_hovered_key is not None:
             self._last_hovered_key = None
             self._pane.hovered_channel_changed.emit(None)
@@ -119,17 +129,36 @@ class PlotInteractionController:
 
     def set_gap_markers(self, channel_id: ChannelKey | str, gap_times: list[float]) -> None:
         """Update stored gap evidence for one channel and redraw the page."""
-        stored = tuple(gap_times)
-        self._gap_times[channel_id] = stored
+        self.set_gap_markers_bulk({channel_id: gap_times})
+
+    def set_gap_markers_bulk(
+        self,
+        markers_by_channel: (
+            Mapping[ChannelKey, Sequence[float]]
+            | Mapping[str, Sequence[float]]
+            | Mapping[ChannelKey | str, Sequence[float]]
+        ),
+    ) -> None:
+        """Update stored gap evidence for many channels with a single redraw."""
+        if not markers_by_channel:
+            return
+        by_key: dict[ChannelKey, tuple[float, ...]] = {}
+        by_name: dict[str, tuple[float, ...]] = {}
+        for channel_id, gap_times in markers_by_channel.items():
+            stored = tuple(gap_times)
+            self._gap_times[channel_id] = stored
+            if isinstance(channel_id, ChannelKey):
+                by_key[channel_id] = stored
+            else:
+                by_name[channel_id] = stored
         matched = False
         for channel in self._pane.channels:
-            matches = (
-                channel.reader.key == channel_id
-                if isinstance(channel_id, ChannelKey)
-                else channel.name == channel_id
-            )
-            if matches:
-                channel.gap_times = stored
+            key = channel.reader.key
+            if key in by_key:
+                channel.gap_times = by_key[key]
+                matched = True
+            elif channel.name in by_name:
+                channel.gap_times = by_name[channel.name]
                 matched = True
         if matched:
             self.redraw_gap_markers()
@@ -224,8 +253,38 @@ class PlotInteractionController:
         self.redraw_identity_markers()
         self.redraw_segment_boundaries()
 
+    def _schedule_hover(self, kind: str, scene_pos: Any, scene: object = None) -> bool:
+        """Return True when due to run immediately; otherwise arm a trailing 30 Hz timer."""
+        now = _elapsed()
+        remaining = _HOVER_MIN_INTERVAL_S - (now - self._last_hover_at)
+        if remaining <= 0.001:
+            self._pending_hover = None
+            self._hover_timer.stop()
+            self._last_hover_at = now
+            return True
+        self._pending_hover = (kind, scene_pos, scene)
+        if not self._hover_timer.isActive():
+            self._hover_timer.start(max(1, int(remaining * 1000.0)))
+        return False
+
+    def _flush_pending_hover(self) -> None:
+        pending = self._pending_hover
+        self._pending_hover = None
+        if pending is None:
+            return
+        self._last_hover_at = _elapsed()
+        kind, scene_pos, scene = pending
+        if kind == "mode":
+            self._apply_mode_moved(scene_pos)
+        else:
+            self._apply_scene_moved(scene_pos, scene)
+
     def on_scene_moved(self, scene_pos: Any, scene: object = None) -> None:
         """Reveal row tools and update synchronized hover crosshair on pointer motion."""
+        if self._schedule_hover("scene", scene_pos, scene):
+            self._apply_scene_moved(scene_pos, scene)
+
+    def _apply_scene_moved(self, scene_pos: Any, scene: object = None) -> None:
         scene_rows = [
             ch for ch in self._pane.channels if scene is None or ch.plot_item.scene() is scene
         ]
@@ -320,6 +379,10 @@ class PlotInteractionController:
 
     def on_mode_moved(self, scene_pos: Any) -> None:
         """Update synchronized hover hairline over the Overlaid / Heatmap canvas."""
+        if self._schedule_hover("mode", scene_pos):
+            self._apply_mode_moved(scene_pos)
+
+    def _apply_mode_moved(self, scene_pos: Any) -> None:
         mode_view = getattr(self._pane, "_mode_view", None)
         if mode_view is None or self._pane.sweep_start is None or self._pane.window_duration <= 0:
             return

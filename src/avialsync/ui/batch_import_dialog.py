@@ -80,6 +80,7 @@ class BatchImportDialog(QDialog):
             },
             key=lambda path: str(path).lower(),
         )
+        self._calibration_set = set(self._calibration_paths)
         self._registry = registry if registry is not None else LoaderRegistry()
         self._build_category_map()
         self._video_paths = list(
@@ -107,9 +108,6 @@ class BatchImportDialog(QDialog):
             [tr("File / Group"), tr("Detected Type"), tr("Use as"), tr("Calibration (XCP)")]
         )
         self._table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self._table.horizontalHeader().setSectionResizeMode(
-            1, QHeaderView.ResizeMode.ResizeToContents
-        )
         # A column of identical prefixes is what ElideRight gives you here: a
         # DeepLabCut export names every artifact after the same model and
         # snapshot, so what tells `..._el.csv` from `..._full.mp4` is the tail.
@@ -125,120 +123,16 @@ class BatchImportDialog(QDialog):
         self._calibration_combos: list[QComboBox] = []
         self._calibration_previous_indices: list[int] = []
 
-        for row, (path, default_loader, _config) in enumerate(self._candidates):
-            name_item = QTableWidgetItem(self._row_name(path))
-            name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            name_item.setToolTip(str(path))
-            # The label below draws the name; the item keeps it only for readers
-            # and assistive technology. Painted too, the same text landed twice a
-            # pixel or two apart and read as smeared bold.
-            name_item.setForeground(QBrush(Qt.GlobalColor.transparent))
-            self._table.setItem(row, 0, name_item)
-            # Drawn by the widget the application already uses for data text,
-            # rather than left to the view's own eliding. A view elides to the
-            # column it was given; this elides to the width it has, keeps both
-            # ends, and carries the whole path in its tooltip -- which is what
-            # turns nine rows of "Trial …" back into nine distinguishable
-            # files. The item above stays for anything reading the table.
-            name_label = ElidedLabel(self._row_name(path), self._table)
-            name_label.setToolTip(str(path))
-            name_label.setContentsMargins(spacing("s"), 0, spacing("s"), 0)
-            self._table.setCellWidget(row, 0, name_label)
-
-            combo = QComboBox()
-            sidecar_suffix = path.suffix.lower()
-            if sidecar_suffix == ".xcp":
-                combo.addItem(tr("Calibration sidecar; select it on a tracking row"), None)
-                combo.setEnabled(False)
-            elif sidecar_suffix == ".x2d":
-                combo.addItem(tr("Unsupported Vicon camera data; not a tracking source"), None)
-                combo.setEnabled(False)
-            else:
-                combo.addItem(tr("— Skip / Do Not Load —"), None)
-
-                # A declared kind selects among the loader's own labels; without one
-                # the loader's primary name is the default, as before.
-                wanted_kind = self._kinds.get(str(path), "")
-                # A session that named this item already knows what it is: offer
-                # its loader's own kinds and Skip, not every format installed.
-                declared = default_loader is not None and str(path) in self._labels
-                offered = [
-                    (label, loader_cls)
-                    for label, loader_cls in self._categories
-                    if not declared or loader_cls is default_loader
-                ]
-                default_index = 0
-                fallback_index = 0
-                for i, (label, loader_cls) in enumerate(offered, start=1):
-                    combo.addItem(label, loader_cls)
-                    if loader_cls != default_loader:
-                        continue
-                    if fallback_index == 0:
-                        fallback_index = i
-                    if wanted_kind and label == wanted_kind:
-                        default_index = i
-                # Index 0 is "Skip". A declared kind that matches none of its own
-                # loader's labels must fall back to that loader, not silently drop
-                # the row: the user would have seen it listed and not imported.
-                if default_index == 0:
-                    if wanted_kind:
-                        logger.warning(
-                            "%s declared kind %r, which %s does not offer; using its own name.",
-                            path.name,
-                            wanted_kind,
-                            default_loader.__name__ if default_loader else "no loader",
-                        )
-                    default_index = fallback_index
-
-                combo.setCurrentIndex(default_index)
-            tied = (_config or {}).get(TIED_KEY)
-            if tied:
-                # Equally sure readers: nothing is chosen until the user picks.
-                combo.setCurrentIndex(0)
-                combo.setToolTip(
-                    tr("Several readers claim this file: {names}. Choose one.").format(
-                        names=", ".join(str(name) for name in tied)
-                    )
-                )
-                name_label.setToolTip(combo.toolTip())
-            exclusive_group = str((_config or {}).get("_exclusive_group", ""))
-            if exclusive_group:
-                combo.setCurrentIndex(0)
-                self._exclusive_groups.setdefault(exclusive_group, []).append(combo)
-            self._table.setCellWidget(row, 1, combo)
-            self._combos.append(combo)
-            role_combo = QComboBox(self._table)
-            role_combo.setAccessibleName(tr("Use for {file}").format(file=path.name))
-            role_combo.setAccessibleDescription(
-                tr("Choose data channels, 3D pose, or 2D pose for a named camera video")
+        self._table.setUpdatesEnabled(False)
+        try:
+            for row, (path, default_loader, _config) in enumerate(self._candidates):
+                self._populate_row(row, path, default_loader, _config)
+            self._table.horizontalHeader().setSectionResizeMode(
+                1, QHeaderView.ResizeMode.ResizeToContents
             )
-            self._table.setCellWidget(row, 2, role_combo)
-            self._role_combos.append(role_combo)
-            combo.currentIndexChanged.connect(lambda _index, at=row: self._update_roles(at))
-            combo.currentIndexChanged.connect(
-                lambda index, current=combo: self._exclusive_selection_changed(current, index)
-            )
-            self._update_roles(row)
-
-            calibration_combo = QComboBox(self._table)
-            calibration_combo.setAccessibleName(
-                tr("Calibration file for {file}").format(file=path.name)
-            )
-            calibration_combo.setAccessibleDescription(
-                tr("Choose a Vicon XCP camera calibration file")
-            )
-            calibration_combo.addItem(tr("Not required"), None)
-            calibration_combo.setEnabled(False)
-            calibration_combo.currentIndexChanged.connect(
-                lambda index, at=row: self._calibration_changed(at, index)
-            )
-            self._table.setCellWidget(row, 3, calibration_combo)
-            self._calibration_combos.append(calibration_combo)
-            self._calibration_previous_indices.append(0)
-            combo.currentIndexChanged.connect(lambda _index, at=row: self._update_calibration(at))
-            self._update_calibration(row)
-            combo.currentIndexChanged.connect(lambda _index: self._refresh_optional_columns())
-        self._refresh_optional_columns()
+            self._refresh_optional_columns()
+        finally:
+            self._table.setUpdatesEnabled(True)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -246,6 +140,118 @@ class BatchImportDialog(QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+    def _populate_row(
+        self,
+        row: int,
+        path: Path,
+        default_loader: SourceLoader | None,
+        _config: dict | None,
+    ) -> None:
+        name_item = QTableWidgetItem(self._row_name(path))
+        name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+        name_item.setToolTip(str(path))
+        # The label below draws the name; the item keeps it only for readers
+        # and assistive technology. Painted too, the same text landed twice a
+        # pixel or two apart and read as smeared bold.
+        name_item.setForeground(QBrush(Qt.GlobalColor.transparent))
+        self._table.setItem(row, 0, name_item)
+        name_label = ElidedLabel(self._row_name(path), self._table)
+        name_label.setToolTip(str(path))
+        name_label.setContentsMargins(spacing("s"), 0, spacing("s"), 0)
+        self._table.setCellWidget(row, 0, name_label)
+
+        combo = self._build_loader_combo(path, default_loader, _config, name_label)
+        self._table.setCellWidget(row, 1, combo)
+        self._combos.append(combo)
+        role_combo = QComboBox(self._table)
+        role_combo.setAccessibleName(tr("Use for {file}").format(file=path.name))
+        role_combo.setAccessibleDescription(
+            tr("Choose data channels, 3D pose, or 2D pose for a named camera video")
+        )
+        self._table.setCellWidget(row, 2, role_combo)
+        self._role_combos.append(role_combo)
+        combo.currentIndexChanged.connect(lambda _index, at=row: self._update_roles(at))
+        combo.currentIndexChanged.connect(
+            lambda index, current=combo: self._exclusive_selection_changed(current, index)
+        )
+        self._update_roles(row)
+
+        calibration_combo = QComboBox(self._table)
+        calibration_combo.setAccessibleName(
+            tr("Calibration file for {file}").format(file=path.name)
+        )
+        calibration_combo.setAccessibleDescription(tr("Choose a Vicon XCP camera calibration file"))
+        calibration_combo.addItem(tr("Not required"), None)
+        calibration_combo.setEnabled(False)
+        calibration_combo.currentIndexChanged.connect(
+            lambda index, at=row: self._calibration_changed(at, index)
+        )
+        self._table.setCellWidget(row, 3, calibration_combo)
+        self._calibration_combos.append(calibration_combo)
+        self._calibration_previous_indices.append(0)
+        combo.currentIndexChanged.connect(lambda _index, at=row: self._update_calibration(at))
+        self._update_calibration(row)
+        combo.currentIndexChanged.connect(lambda _index: self._refresh_optional_columns())
+
+    def _build_loader_combo(
+        self,
+        path: Path,
+        default_loader: SourceLoader | None,
+        _config: dict | None,
+        name_label: ElidedLabel,
+    ) -> QComboBox:
+        combo = QComboBox()
+        sidecar_suffix = path.suffix.lower()
+        if sidecar_suffix == ".xcp":
+            combo.addItem(tr("Calibration sidecar; select it on a tracking row"), None)
+            combo.setEnabled(False)
+        elif sidecar_suffix == ".x2d":
+            combo.addItem(tr("Unsupported Vicon camera data; not a tracking source"), None)
+            combo.setEnabled(False)
+        else:
+            combo.addItem(tr("— Skip / Do Not Load —"), None)
+            wanted_kind = self._kinds.get(str(path), "")
+            declared = default_loader is not None and str(path) in self._labels
+            offered = [
+                (label, loader_cls)
+                for label, loader_cls in self._categories
+                if not declared or loader_cls is default_loader
+            ]
+            default_index = 0
+            fallback_index = 0
+            for i, (label, loader_cls) in enumerate(offered, start=1):
+                combo.addItem(label, loader_cls)
+                if loader_cls != default_loader:
+                    continue
+                if fallback_index == 0:
+                    fallback_index = i
+                if wanted_kind and label == wanted_kind:
+                    default_index = i
+            if default_index == 0:
+                if wanted_kind:
+                    logger.warning(
+                        "%s declared kind %r, which %s does not offer; using its own name.",
+                        path.name,
+                        wanted_kind,
+                        default_loader.__name__ if default_loader else "no loader",
+                    )
+                default_index = fallback_index
+            combo.setCurrentIndex(default_index)
+        tied = (_config or {}).get(TIED_KEY)
+        if tied:
+            combo.setCurrentIndex(0)
+            combo.setToolTip(
+                tr("Several readers claim this file: {names}. Choose one.").format(
+                    names=", ".join(str(name) for name in tied)
+                )
+            )
+            name_label.setToolTip(combo.toolTip())
+        exclusive_group = str((_config or {}).get("_exclusive_group", ""))
+        if exclusive_group:
+            combo.setCurrentIndex(0)
+            self._exclusive_groups.setdefault(exclusive_group, []).append(combo)
+        return combo
 
     def _refresh_optional_columns(self) -> None:
         """Show "Use as" and "Calibration" only while some row can use them.
@@ -276,7 +282,10 @@ class BatchImportDialog(QDialog):
         config_xcp = str((config or {}).get("xcp_path", ""))
         calibration_paths = list(self._calibration_paths)
         sibling_xcp = path.with_suffix(".xcp")
-        if sibling_xcp.is_file() and sibling_xcp not in calibration_paths:
+        has_sibling = sibling_xcp in self._calibration_set or sibling_xcp.is_file()
+        if has_sibling and sibling_xcp not in self._calibration_set:
+            self._calibration_set.add(sibling_xcp)
+        if has_sibling and sibling_xcp not in calibration_paths:
             calibration_paths.append(sibling_xcp)
         if config_xcp and Path(config_xcp) not in calibration_paths:
             calibration_paths.append(Path(config_xcp))
@@ -288,7 +297,7 @@ class BatchImportDialog(QDialog):
             if isinstance(previous_data, str) and previous_data in calibration_values
             else config_xcp
         )
-        if not default_xcp and sibling_xcp.is_file():
+        if not default_xcp and has_sibling:
             default_xcp = str(sibling_xcp)
         if not default_xcp and len(calibration_paths) == 1:
             default_xcp = str(calibration_paths[0])

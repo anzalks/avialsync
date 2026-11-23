@@ -24,7 +24,7 @@ from PySide6.QtCore import QThread, QTimer
 from avialsync.core.errors import SourceOpenError
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.source import VideoSource
-from avialsync.core.timeline import TimeMap
+from avialsync.core.timeline import PreparedExactMapping, TimeMap
 from avialsync.ui import video_levels
 from avialsync.ui.controllers import (
     calibration_controller,
@@ -225,7 +225,8 @@ def _declared_exact_mapping(loader: VideoSource, path: str) -> tuple[np.ndarray,
         len(master),
         float(master[-1] - master[0]),
     )
-    return master, source
+    prepared = PreparedExactMapping.prepare(master, source)
+    return prepared.master, prepared.source
 
 
 def create_video_pane(

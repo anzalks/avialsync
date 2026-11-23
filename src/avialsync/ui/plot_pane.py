@@ -3,7 +3,7 @@
 import logging
 import math
 import time
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -1018,6 +1018,39 @@ class PlotPane(QWidget):
         self._redraw_sweep_overlays()
         self._relayout_rows()
 
+    def set_channels_visible(
+        self,
+        updates: Mapping[ChannelKey, bool] | Mapping[str, bool] | Mapping[ChannelKey | str, bool],
+    ) -> None:
+        """Batch-update visibility across many channels with one relayout and page refresh."""
+        if not updates:
+            return
+        by_key = {ch.reader.key: ch for ch in self.channels}
+        to_apply: list[tuple[ChannelPlot, bool]] = []
+        any_shown = False
+        for target, visible in updates.items():
+            rows = (
+                [by_key[target]]
+                if isinstance(target, ChannelKey) and target in by_key
+                else ([] if isinstance(target, ChannelKey) else self._matching(target))
+            )
+            for ch in rows:
+                if ch.visible != visible:
+                    to_apply.append((ch, visible))
+                    if visible:
+                        any_shown = True
+        if not to_apply:
+            return
+        for ch, visible in to_apply:
+            ch.visible = visible
+            apply_channel_visibility(ch)
+        if any_shown and self.sweep_start is not None:
+            self.update_plots()
+        else:
+            self._refresh_mode_view()
+        self._redraw_sweep_overlays()
+        self._relayout_rows()
+
     def reset_zoom(self) -> None:
         """Set the shared sweep window to the full master-timeline duration."""
         for ch in self.channels:
@@ -1504,6 +1537,17 @@ class PlotPane(QWidget):
     def set_gap_markers(self, channel_id: ChannelKey | str, gap_times: list[float]) -> None:
         """Overlay thin red vertical lines at gap positions for one channel."""
         self._interactions.set_gap_markers(channel_id, gap_times)
+
+    def set_gap_markers_bulk(
+        self,
+        markers_by_channel: (
+            Mapping[ChannelKey, Sequence[float]]
+            | Mapping[str, Sequence[float]]
+            | Mapping[ChannelKey | str, Sequence[float]]
+        ),
+    ) -> None:
+        """Overlay gap markers across many channels with one redraw."""
+        self._interactions.set_gap_markers_bulk(markers_by_channel)
 
     def set_identity_events(self, source_id: str, events: list[tuple[float, str]]) -> None:
         """Mark accepted flip boundaries on rows belonging to one pose source."""

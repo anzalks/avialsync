@@ -18,14 +18,39 @@ from __future__ import annotations
 
 from PySide6.QtCore import QSettings
 
-__all__ = ["APPLICATION", "ORGANISATION", "app_settings"]
+__all__ = ["APPLICATION", "ORGANISATION", "app_settings", "settings_revision"]
 
 ORGANISATION = "AvialSync"
 APPLICATION = "AvialSync"
+_settings_revision = 0
+
+
+class _TrackedSettings(QSettings):
+    """QSettings store that increments a revision counter on every mutation."""
+
+    def setValue(self, key: str, value: object) -> None:
+        global _settings_revision
+        super().setValue(key, value)
+        _settings_revision += 1
+
+    def remove(self, key: str) -> None:
+        global _settings_revision
+        super().remove(key)
+        _settings_revision += 1
+
+    def clear(self) -> None:
+        global _settings_revision
+        super().clear()
+        _settings_revision += 1
+
+
+def settings_revision() -> int:
+    """Return a monotonic revision incremented on every ``app_settings()`` mutation."""
+    return _settings_revision
 
 
 def app_settings() -> QSettings:
     """Open the application's settings store in the process's default format."""
-    return QSettings(
+    return _TrackedSettings(
         QSettings.defaultFormat(), QSettings.Scope.UserScope, ORGANISATION, APPLICATION
     )

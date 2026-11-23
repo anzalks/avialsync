@@ -201,6 +201,9 @@ class HelpController(QObject):
             "overlays/trail_frames",
             "overlays/marker_radius",
         }:
+            from avialsync.ui.pose_overlay_extras import invalidate_overlay_settings_cache
+
+            invalidate_overlay_settings_cache()
             self._window.video_grid.refresh_point_edits()
             self._window.tracking_3d_pane.canvas.update()
 

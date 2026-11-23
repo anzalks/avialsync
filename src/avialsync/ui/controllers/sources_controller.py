@@ -163,8 +163,9 @@ def on_channel_group_visibility_changed(
     )
     if _follow_tracking_rows(window, path):
         return
-    for channel in channels:
-        window.plot_pane.set_channel_visible(ChannelKey(path, str(channel)), visible)
+    window.plot_pane.set_channels_visible(
+        {ChannelKey(path, str(channel)): visible for channel in channels}
+    )
 
 
 def on_tracking_visibility_changed(
@@ -212,12 +213,12 @@ def sync_tracking_plot(window: MainWindow, path: str) -> None:
     visible = window._tracking_visibility.get(path, {}).get("plot", False)
     card = window.sidebar.sensor_widget(path)
     selected = set(card.checked_channels()) if card is not None else set(channels)
+    existing = {
+        channel.reader.channel_id
+        for channel in window.plot_pane.channels
+        if channel.reader.source_id == path
+    }
     if visible:
-        existing = {
-            channel.reader.channel_id
-            for channel in window.plot_pane.channels
-            if channel.reader.source_id == path
-        }
         missing = [
             channel for channel in channels if channel in selected and channel not in existing
         ]
@@ -225,10 +226,11 @@ def sync_tracking_plot(window: MainWindow, path: str) -> None:
             window.plot_pane.load_channels(
                 cache_dir, missing, offset, drift_ms_per_hour, source_id=path
             )
-    for channel in channels:
-        window.plot_pane.set_channel_visible(
-            ChannelKey(path, channel), visible and channel in selected
-        )
+    elif not existing:
+        return
+    window.plot_pane.set_channels_visible(
+        {ChannelKey(path, channel): visible and channel in selected for channel in channels}
+    )
 
 
 def on_video_visibility_changed(window: MainWindow, path: str, is_visible: bool) -> None:

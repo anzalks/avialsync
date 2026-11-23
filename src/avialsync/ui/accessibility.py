@@ -129,17 +129,16 @@ def derive_name(widget: QWidget) -> str:
     return ""
 
 
+_SWEPT_PROPERTY = "_av_a11y_swept"
+
+
 def _interactive_descendants(root: QWidget) -> list[QWidget]:
-    """Query Qt directly for interactive base classes, avoiding QLabel/layout wrapper churn."""
-    seen: set[int] = set()
-    found: list[QWidget] = []
-    for cls in INTERACTIVE:
-        for widget in root.findChildren(cls):
-            widget_id = id(widget)
-            if widget_id not in seen and not _is_qt_internal(widget):
-                seen.add(widget_id)
-                found.append(widget)
-    return found
+    """Query Qt once for interactive widgets, avoiding repeated QObject tree walks."""
+    return [
+        widget
+        for widget in root.findChildren(QWidget)
+        if isinstance(widget, INTERACTIVE) and not _is_qt_internal(widget)
+    ]
 
 
 def apply_accessibility(root: QWidget) -> int:
@@ -151,13 +150,17 @@ def apply_accessibility(root: QWidget) -> int:
     """
     named = 0
     for widget in _interactive_descendants(root):
+        has_name = bool(widget.accessibleName())
+        if has_name and bool(widget.property(_SWEPT_PROPERTY)):
+            continue
         if isinstance(widget, QAbstractButton) and not widget.property("av_role"):
             apply_role(widget, ControlRole.SECONDARY)
 
-        if not widget.accessibleName():
+        if not has_name:
             name = derive_name(widget)
             if name:
                 widget.setAccessibleName(name)
+                has_name = True
                 named += 1
 
         # The description is the *why*, and the tooltip is already written to
@@ -167,6 +170,9 @@ def apply_accessibility(root: QWidget) -> int:
             tooltip = widget.toolTip().strip()
             if tooltip and tooltip != widget.accessibleName():
                 widget.setAccessibleDescription(tooltip)
+
+        if has_name:
+            widget.setProperty(_SWEPT_PROPERTY, True)
 
     return named
 

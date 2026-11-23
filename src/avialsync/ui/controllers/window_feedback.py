@@ -41,6 +41,7 @@ class WindowFeedback(QObject):
         self.activity = activity
         self.notifications = notifications
         self.panel = panel
+        self.transport.status_line.expired.connect(self._restore_live_job_status)
 
     def install_status(
         self,
@@ -100,6 +101,16 @@ class WindowFeedback(QObject):
             self.transport.set_status(text, kind)
         refresh_panel()
 
+    def _restore_live_job_status(self) -> None:
+        """Restore active job text after a transient warning/error status expires."""
+        text = self.jobs.status_text()
+        if text:
+            kind = "error" if self.jobs.stalled_jobs() else "busy"
+            self.transport.set_status(text, kind)
+
     def ui_stalled(self, milliseconds: float) -> None:
         """Present the existing heartbeat's observation without another timer."""
-        self.transport.set_status(f"Interface stalled for {milliseconds / 1000:.1f} s", "error")
+        self.transport.set_status(
+            tr("Interface stalled for {seconds:.1f} s").format(seconds=milliseconds / 1000.0),
+            "error",
+        )

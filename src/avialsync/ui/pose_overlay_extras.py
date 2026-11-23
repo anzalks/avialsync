@@ -10,6 +10,7 @@ from PySide6.QtCore import QPointF, QRect, QRectF, Qt
 from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QPolygonF
 
 from avialsync.core.settings_schema import setting_for
+from avialsync.ui.app_settings import settings_revision
 from avialsync.ui.preferences_dialog import read_setting
 from avialsync.ui.tracking_colors import color_for_point
 
@@ -26,6 +27,7 @@ __all__ = [
     "draw_motion_trails",
     "epipolar_guides_for",
     "infer_2d_edges",
+    "invalidate_overlay_settings_cache",
     "marker_radius",
     "style_point_by_confidence",
     "trail_frame_count",
@@ -33,27 +35,64 @@ __all__ = [
 
 _LOUPE_SIZE = 136
 _LOUPE_ZOOM = 5.0
+_cached_settings_revision: int = -1
+_cached_marker_radius: int | None = None
+_cached_confidence_threshold: float | None = None
+_cached_trail_frames: int | None = None
+
+
+def invalidate_overlay_settings_cache() -> None:
+    """Drop cached overlay settings so the next paint re-reads updated preferences."""
+    global _cached_settings_revision, _cached_marker_radius
+    global _cached_confidence_threshold, _cached_trail_frames
+    _cached_settings_revision = -1
+    _cached_marker_radius = None
+    _cached_confidence_threshold = None
+    _cached_trail_frames = None
+
+
+def _sync_revision() -> None:
+    global _cached_settings_revision, _cached_marker_radius
+    global _cached_confidence_threshold, _cached_trail_frames
+    rev = settings_revision()
+    if rev != _cached_settings_revision:
+        _cached_settings_revision = rev
+        _cached_marker_radius = None
+        _cached_confidence_threshold = None
+        _cached_trail_frames = None
 
 
 def marker_radius() -> int:
-    """Read the configured pose marker radius in logical pixels."""
-    setting = setting_for("overlays/marker_radius")
-    val = int(read_setting(setting)) if setting is not None else 5
-    return max(2, min(12, val))
+    """Read the configured pose marker radius in logical pixels (cached off paint path)."""
+    global _cached_marker_radius
+    _sync_revision()
+    if _cached_marker_radius is None:
+        setting = setting_for("overlays/marker_radius")
+        val = int(read_setting(setting)) if setting is not None else 5
+        _cached_marker_radius = max(2, min(12, val))
+    return _cached_marker_radius
 
 
 def confidence_threshold() -> float:
-    """Read the configured pose likelihood cutoff in ``[0.0, 1.0]``."""
-    setting = setting_for("overlays/confidence_threshold")
-    val = float(read_setting(setting)) if setting is not None else 0.3
-    return min(max(val, 0.0), 1.0)
+    """Read the configured pose likelihood cutoff in ``[0.0, 1.0]`` (cached off paint path)."""
+    global _cached_confidence_threshold
+    _sync_revision()
+    if _cached_confidence_threshold is None:
+        setting = setting_for("overlays/confidence_threshold")
+        val = float(read_setting(setting)) if setting is not None else 0.3
+        _cached_confidence_threshold = min(max(val, 0.0), 1.0)
+    return _cached_confidence_threshold
 
 
 def trail_frame_count() -> int:
-    """Read the configured motion-trail window in frames."""
-    setting = setting_for("overlays/trail_frames")
-    val = int(read_setting(setting)) if setting is not None else 15
-    return max(1, min(120, val))
+    """Read the configured motion-trail window in frames (cached off paint path)."""
+    global _cached_trail_frames
+    _sync_revision()
+    if _cached_trail_frames is None:
+        setting = setting_for("overlays/trail_frames")
+        val = int(read_setting(setting)) if setting is not None else 15
+        _cached_trail_frames = max(1, min(120, val))
+    return _cached_trail_frames
 
 
 def infer_2d_edges(points: Sequence[ResolvedPoint]) -> list[tuple[str, str]]:
@@ -166,25 +205,33 @@ def draw_motion_trails(
         start_idx = max(0, end_idx - frames)
         if end_idx <= start_idx:
             continue
-        xs = vx[start_idx : end_idx + 1]
-        ys = vy[start_idx : end_idx + 1]
-        gaps = gx[start_idx:end_idx] | gy[start_idx:end_idx]
+        xs = np.asarray(vx[start_idx : end_idx + 1], dtype=np.float64)
+        ys = np.asarray(vy[start_idx : end_idx + 1], dtype=np.float64)
+        gaps = np.asarray(gx[start_idx:end_idx], dtype=bool) | np.asarray(
+            gy[start_idx:end_idx], dtype=bool
+        )
+        valid = (
+            (~gaps)
+            & np.isfinite(xs[:-1])
+            & np.isfinite(ys[:-1])
+            & np.isfinite(xs[1:])
+            & np.isfinite(ys[1:])
+        )
+        if not np.any(valid):
+            continue
         base_color = QColor(*pt.color)
         count = len(xs) - 1
-        for k in range(count):
-            if bool(gaps[k]):
-                continue
-            x0, y0 = float(xs[k]), float(ys[k])
-            x1, y1 = float(xs[k + 1]), float(ys[k + 1])
-            if not (np.isfinite(x0) and np.isfinite(y0) and np.isfinite(x1) and np.isfinite(y1)):
-                continue
-            frac = (k + 1) / count
+        for k in np.flatnonzero(valid):
+            idx = int(k)
+            frac = (idx + 1) / count
             seg_color = QColor(base_color)
             seg_color.setAlpha(int(35 + 175 * frac))
             painter.setPen(QPen(seg_color, 1.0 + 1.4 * frac, Qt.PenStyle.SolidLine))
             painter.drawLine(
-                QPointF(offset_x + x0 * scale, offset_y + y0 * scale),
-                QPointF(offset_x + x1 * scale, offset_y + y1 * scale),
+                QPointF(offset_x + float(xs[idx]) * scale, offset_y + float(ys[idx]) * scale),
+                QPointF(
+                    offset_x + float(xs[idx + 1]) * scale, offset_y + float(ys[idx + 1]) * scale
+                ),
             )
     painter.restore()
 

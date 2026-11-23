@@ -11,7 +11,7 @@ import dataclasses
 import logging
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from weakref import WeakKeyDictionary
 
 from PySide6.QtCore import QObject, Signal, Slot
 
@@ -22,6 +22,31 @@ logger = logging.getLogger(__name__)
 
 #: Candidate-config key naming the readers tied for a file; the review asks.
 TIED_KEY = "_tied_loaders"
+
+_FRAME_INDEXED_MEMO: WeakKeyDictionary[type, tuple[object, bool]] = WeakKeyDictionary()
+
+
+def loader_is_frame_indexed(loader_class: type | None) -> bool:
+    """Return whether *loader_class* is frame-indexed, memoized per class."""
+    if (
+        loader_class is None
+        or not isinstance(loader_class, type)
+        or not issubclass(loader_class, TimeSeriesSource)
+    ):
+        return False
+    method = getattr(loader_class, "is_frame_indexed", None)
+    if method is TimeSeriesSource.is_frame_indexed:
+        return False
+    cached = _FRAME_INDEXED_MEMO.get(loader_class)
+    if cached is not None and cached[0] is method:
+        return cached[1]
+    try:
+        result = bool(loader_class().is_frame_indexed())
+    except Exception as exc:  # noqa: BLE001 - loader boundary
+        logger.debug("Failed to probe %s: %s", loader_class, exc)
+        result = False
+    _FRAME_INDEXED_MEMO[loader_class] = (method, result)
+    return result
 
 
 class DropScanWorker(QObject):
@@ -83,21 +108,13 @@ class DropScanWorker(QObject):
         loader_class = self._registry.find_best_loader(path)
 
         if loader_class is not None:
-            # Pre-compute is_frame_indexed for time series off-thread
-            config: dict[str, Any] | None = None
-            if issubclass(loader_class, TimeSeriesSource):
-                try:
-                    if getattr(loader_class, "is_frame_indexed", lambda s: False)(loader_class()):
-                        config = {"_is_frame_indexed": True}
-                except Exception as e:
-                    # Ignore instantiation errors during probing, but log them
-                    logger.debug("Failed to probe %s: %s", loader_class, e)
+            loader_is_frame_indexed(loader_class)
             tied = self._registry.tied_loaders(path)
             if tied:
                 # Several readers are equally sure: the review makes the user
                 # choose rather than letting registration order decide.
-                config = {**(config or {}), TIED_KEY: [cls.display_name() for cls in tied]}
-            return [(path, loader_class, config)]
+                return [(path, loader_class, {TIED_KEY: [cls.display_name() for cls in tied]})]
+            return [(path, loader_class, None)]
 
         candidates = []
         if path.is_dir():
@@ -144,7 +161,9 @@ class DropScanWorker(QObject):
                 continue
             layout, used = claimed
             self._adopt(session_cls, layout, ", ".join(path.name for path in used))
-            candidates += [(item.path, item.loader, dict(item.config)) for item in layout.items]
+            for item in layout.items:
+                loader_is_frame_indexed(item.loader)
+            candidates += [(item.path, item.loader, item.config) for item in layout.items]
             paths = [path for path in paths if path not in used]
         return candidates, paths
 
@@ -201,4 +220,6 @@ class DropScanWorker(QObject):
                 ],
             )
         self._adopt(session_cls, layout, path.name)
-        return [(item.path, item.loader, dict(item.config)) for item in layout.items]
+        for item in layout.items:
+            loader_is_frame_indexed(item.loader)
+        return [(item.path, item.loader, item.config) for item in layout.items]

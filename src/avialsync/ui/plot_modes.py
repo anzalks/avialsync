@@ -265,14 +265,18 @@ class PlotModeCanvas(QWidget):
                 continue
             xf = x_arr[finite]
             yf = y_arr[finite]
-            # Collapse interleaved (min, max) pairs monotonically along x
-            order = np.argsort(xf, kind="mergesort")
-            sampled = np.interp(grid_x, xf[order], yf[order], left=np.nan, right=np.nan)
+            # Collapse interleaved (min, max) pairs monotonically along x; skip sort if monotonic.
+            if not bool(np.all(xf[1:] >= xf[:-1])):
+                order = np.argsort(xf, kind="mergesort")
+                xf = xf[order]
+                yf = yf[order]
+            sampled = np.interp(grid_x, xf, yf, left=np.nan, right=np.nan)
             valid = np.isfinite(sampled)
             if not np.any(valid):
                 continue
-            lo = float(np.nanpercentile(sampled[valid], 2.0))
-            hi = float(np.nanpercentile(sampled[valid], 98.0))
+            lo_f, hi_f = np.percentile(sampled[valid], (2.0, 98.0))
+            lo = float(lo_f)
+            hi = float(hi_f)
             denom = hi - lo if hi > lo + 1e-12 else 1.0
             normed = np.clip((sampled - lo) / denom, 0.0, 1.0)
             normed[~valid] = 0.0

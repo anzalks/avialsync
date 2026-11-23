@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QLayout,
     QLineEdit,
     QPushButton,
     QScrollArea,
@@ -314,6 +315,7 @@ class SensorInfoWidget(QFrame):
         self.tree = QTreeWidget()
         self.tree.setColumnCount(1)
         self.tree.setHeaderHidden(True)
+        self.tree.setUniformRowHeights(True)
         self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.tree.setIndentation(12)
         self.tree.setMinimumHeight(120)
@@ -357,6 +359,8 @@ class SensorInfoWidget(QFrame):
         # group depends on how many other channels share it, which no single
         # name can say.
         groupable = group_prefixes(list(channels))
+        bold_font = self.tree.font()
+        bold_font.setBold(True)
 
         for ch in channels:
             parts = split_channel(ch, groupable)
@@ -370,9 +374,7 @@ class SensorInfoWidget(QFrame):
                     if not parent_path:
                         top_items.append(group_item)
                     group_item.setText(0, part)
-                    font = group_item.font(0)
-                    font.setBold(True)
-                    group_item.setFont(0, font)
+                    group_item.setFont(0, bold_font)
                     # Checkable, so forty channels can be hidden in one click.
                     # Tristate because a partly-hidden group must look partly
                     # hidden rather than claim to be one or the other.
@@ -988,6 +990,24 @@ def _wrapped_note(text: str) -> QLabel:
 _MINIMUM_WIDTH = 200
 
 
+def _invalidate_layout_tree(layout: QLayout | None) -> None:
+    """Invalidate *layout* and nested sub-layouts so cached hints drop after FontChange."""
+    if layout is None:
+        return
+    for index in range(layout.count()):
+        item = layout.itemAt(index)
+        if item is None:
+            continue
+        child_layout = item.layout()
+        if child_layout is not None:
+            _invalidate_layout_tree(child_layout)
+        else:
+            widget = item.widget()
+            if widget is not None and widget.layout() is not None:
+                _invalidate_layout_tree(widget.layout())
+    layout.invalidate()
+
+
 class SidebarPane(QWidget):
     """The left sidebar for file management and metadata."""
 
@@ -1046,7 +1066,6 @@ class SidebarPane(QWidget):
         self.actions_group = QGroupBox()
         self.actions_group.setAccessibleName(tr("Open Files"))
         actions_outer = QVBoxLayout(self.actions_group)
-        actions_outer.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
         actions_top = QHBoxLayout()
         actions_top.setContentsMargins(0, 0, 0, 0)
         actions_title = QLabel(tr("Open Files"), self.actions_group)
@@ -1156,7 +1175,11 @@ class SidebarPane(QWidget):
         minimum left the horizontal scrollbar on permanently there.
         """
         content = self._scroll_area.widget()
-        needed = content.minimumSizeHint().width() if content is not None else 0
+        if content is not None:
+            _invalidate_layout_tree(content.layout())
+            needed = content.minimumSizeHint().width()
+        else:
+            needed = 0
         self.setMinimumWidth(max(_MINIMUM_WIDTH, needed))
 
     def is_open_files_expanded(self) -> bool:

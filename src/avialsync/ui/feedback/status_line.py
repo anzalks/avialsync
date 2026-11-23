@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QPainter, QPaintEvent
 from PySide6.QtWidgets import QLabel, QSizePolicy, QWidget
 
@@ -20,6 +20,9 @@ class StatusLine(QLabel):
     longer than the bar, or one with a line break, was cut rather than shortened.
     """
 
+    #: Emitted when a transient message expires, so running job text can return.
+    expired = Signal()
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._message = ""
@@ -32,7 +35,7 @@ class StatusLine(QLabel):
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self._status_clear_timer = QTimer(self)
         self._status_clear_timer.setSingleShot(True)
-        self._status_clear_timer.timeout.connect(self.clear_status)
+        self._status_clear_timer.timeout.connect(self._on_clear_timeout)
         self.hide()
 
     def status_text(self) -> str:
@@ -42,6 +45,9 @@ class StatusLine(QLabel):
     def set_status(self, message: str, severity: str = "info") -> None:
         """Show *message* until replaced, or for five seconds if transient."""
         message = " ".join(message.split())  # one line: a break would be cut off
+        if not message:
+            self.clear_status()
+            return
         self._message = message
         self._severity = severity
         prefixes = {
@@ -60,8 +66,13 @@ class StatusLine(QLabel):
             self._status_clear_timer.start(5000)
         self.update()
 
+    def _on_clear_timeout(self) -> None:
+        self.clear_status()
+        self.expired.emit()
+
     def clear_status(self) -> None:
         """Clear a finished status without altering the job area."""
+        self._status_clear_timer.stop()
         self._message = ""
         self.clear()
         self.hide()

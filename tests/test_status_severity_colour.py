@@ -58,3 +58,59 @@ def test_every_severity_after_another_is_its_own_colour(qtbot, severity: str) ->
 
     expected = status_color(QApplication.palette(), severity)
     assert line.ink_color().name() == expected.name()
+
+
+def test_empty_status_clears_and_hides_without_bare_prefix(qtbot) -> None:
+    """Clearing status with '' or whitespace hides StatusLine instead of rendering 'Status: '."""
+    transport = Transport()
+    qtbot.addWidget(transport)
+    transport.show()
+    qtbot.waitExposed(transport)
+
+    transport.set_status("Scanning files…")
+    assert transport.status_line.isVisible()
+    assert "Scanning files" in transport.status_line.text()
+
+    transport.set_status("   ")
+    assert not transport.status_line.isVisible()
+    assert transport.status_line.text() == ""
+    assert transport.status_text() == ""
+
+
+def test_transient_stall_alert_restores_running_job_status_on_expiry(qtbot) -> None:
+    """When a stall alert expires while background work continues, live job status returns."""
+    from types import SimpleNamespace
+
+    from PySide6.QtWidgets import QMainWindow
+
+    from avialsync.ui.controllers.window_feedback import WindowFeedback
+    from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
+
+    owner = QMainWindow()
+    qtbot.addWidget(owner)
+    transport = Transport(owner)
+    jobs: object = SimpleNamespace(
+        status_text=lambda: "Importing roi_traces.mat",
+        stalled_jobs=lambda: [],
+        announced_jobs=lambda: [],
+        jobs_changed=SimpleNamespace(connect=lambda *_: None),
+        membership_changed=SimpleNamespace(connect=lambda *_: None),
+        is_shutting_down=lambda: False,
+        jobs=lambda: [],
+    )
+    feedback = WindowFeedback(
+        owner,
+        jobs,  # type: ignore[arg-type]
+        transport,
+        ActivityBar(owner),
+        NotificationStrip(owner),
+        JobsPanel(owner),
+    )
+
+    feedback.ui_stalled(420.0)
+    assert "Interface stalled for 0.4 s" in transport.status_text()
+    assert transport.status_line.text().startswith("Error:")
+
+    transport.status_line._on_clear_timeout()
+    assert transport.status_text() == "Importing roi_traces.mat"
+    assert transport.status_line.text().startswith("Working:")

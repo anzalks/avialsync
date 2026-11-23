@@ -444,7 +444,11 @@ def _apply_jump(window: MainWindow, suspects: list[SuspectFrame], direction: int
     window.player.seek(target, exact=True)
     window.video_grid.highlight_point(PointKey(chosen.source_id, chosen.point, chosen.sample_index))
     window._highlight_timer.start(2500)
-    window.statusBar().showMessage(
-        tr("Suspect frame — {reason} at {time:.3f}s").format(reason=chosen.reason, time=target),
-        3500,
+    message = tr("Suspect frame — {reason} at {time:.3f} s").format(
+        reason=chosen.reason, time=target
     )
+    transport = getattr(window, "transport", None)
+    if transport is not None and hasattr(transport, "set_status"):
+        transport.set_status(message)
+    else:
+        window.statusBar().showMessage(message, 3500)

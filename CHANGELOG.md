@@ -39,6 +39,12 @@ full history is in git. Versions follow the tags in the repository.
 - Internal: the main window is composed of focused modules; behaviour is unchanged (D-248).
 
 ### Fixed
+- The transport scrub bar now renders a single thumb-aligned groove with unioned source coverage
+  (eliminating the misaligned double-bar blue bleed across overlapping sources), empty status clears
+  hide `StatusLine` instead of showing a bare `Status:` prefix while restoring active background-job
+  text after transient stall warnings, and UI-thread stalls across overlay painting, bulk channel
+  visibility and gap updates, 240 Hz plot hover bursts, heatmap rendering, batch imports, large
+  channel trees, `RegularTimes` overlay timing, and multi-part gap detection are eliminated (D-170).
 - Dragging a page-clipped range marker on a plot preserves its off-page endpoint, moving a marker
   refreshes its exported camera frame snapshot, `Overlaid` and `Heatmap` plot modes sync immediately
   on channel hide, source removal, and pause while rendering timeline annotations and measure pins,

@@ -147,6 +147,8 @@ def redraw_measure_lines(
     palette: QPalette,
 ) -> tuple[list[pg.InfiniteLine], list[pg.InfiniteLine]]:
     """Replace A/B measurement pins without retaining stale plot items."""
+    if measure_a is None and measure_b is None and not old_a and not old_b:
+        return [], []
     for line in old_a + old_b:
         for channel in channels:
             try:
@@ -180,6 +182,8 @@ def redraw_gap_markers(
     palette: QPalette,
 ) -> None:
     """Draw retained gap evidence only where it intersects the visible page."""
+    if not any(ch.gap_markers or (ch.visible and ch.gap_times) for ch in channels):
+        return
     pen = gap_marker_pen(palette)
     for channel in channels:
         for line in channel.gap_markers:
@@ -205,6 +209,8 @@ def redraw_identity_markers(
     old_items: list[tuple[pg.PlotItem, pg.InfiniteLine]],
 ) -> list[tuple[pg.PlotItem, pg.InfiniteLine]]:
     """Draw accepted flips on the affected source's visible plot rows."""
+    if not events and not old_items:
+        return []
     for plot_item, line in old_items:
         try:
             plot_item.removeItem(line)
@@ -295,6 +301,8 @@ def redraw_annotations(
     on_marker_moved: Callable[[int, float, float | None], None] | None = None,
 ) -> list[tuple[pg.PlotItem, object]]:
     """Replace page-local annotation graphics from the authoritative store."""
+    if (annotation_store is None or not annotation_store.markers) and not old_items:
+        return []
     for plot_item, item in old_items:
         try:
             plot_item.removeItem(item)

@@ -20,6 +20,7 @@ from avialsync.core.errors import FileUnreadableError, LoaderContractError, Sour
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.pose import PoseSchema
 from avialsync.core.source import TimeSeriesSource
+from avialsync.engine.drop_worker import loader_is_frame_indexed
 from avialsync.ui.controllers import identity_controller
 from avialsync.ui.i18n import tr
 from avialsync.ui.sync_lifecycle import restore_adjustment
@@ -88,7 +89,7 @@ def start_data_import(
 
             start_preview(window, path, loader_cls, config)
             return
-    elif config.get("_is_frame_indexed") or loader_cls().is_frame_indexed():
+    elif loader_is_frame_indexed(loader_cls):
         # A frame rate already in the config is a decision -- a restored
         # session's, or a session scanner's -- and is not re-derived here.
         if "fps" not in config:
@@ -418,10 +419,9 @@ def on_import_finished(
             gap_times = list(rep.gap_locations)
             window._overview_gaps.update({time: f"Source: {Path(path).name}" for time in gap_times})
             window.transport.set_gap_events(sorted(window._overview_gaps.items()))
-            if not role:
-                # Pose sources have no plot rows to mark.
-                for ch in channels:
-                    window.plot_pane.set_gap_markers(ChannelKey(path, ch), gap_times)
+            if not role:  # Pose sources have no plot rows to mark.
+                gaps = {ChannelKey(path, ch): gap_times for ch in channels}
+                window.plot_pane.set_gap_markers_bulk(gaps)
     window.transport.set_status(f"Ready · imported {Path(path).name}")
     from avialsync.ui.controllers.pairing_controller import partner_source_loaded
 

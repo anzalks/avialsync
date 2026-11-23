@@ -505,7 +505,7 @@ def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
 
 
 def on_session_load_error(window: MainWindow, error: str) -> None:
-    window.statusBar().clearMessage()
+    window.transport.set_status("")
     logger.error("Session load failed: %s", error)
     window.report_failure(FileUnreadableError(error), doing="That session could not be opened")
 

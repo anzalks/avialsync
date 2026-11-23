@@ -169,14 +169,19 @@ def update_channel_coverage(
     if not channel.visible or channel.coverage_region is None:
         return
     if channel.coverage_bounds is None:
-        channel.coverage_region.hide()
+        if channel.coverage_region.isVisible():
+            channel.coverage_region.hide()
         return
     region = x_range(*channel.coverage_bounds)
     if region is None:
-        channel.coverage_region.hide()
+        if channel.coverage_region.isVisible():
+            channel.coverage_region.hide()
         return
-    channel.coverage_region.setRegion(list(region))
-    channel.coverage_region.show()
+    current = channel.coverage_region.getRegion()
+    if abs(current[0] - region[0]) > 1e-9 or abs(current[1] - region[1]) > 1e-9:
+        channel.coverage_region.setRegion(list(region))
+    if not channel.coverage_region.isVisible():
+        channel.coverage_region.show()
 
 
 def apply_channel_visibility(channel: ChannelPlot) -> None:

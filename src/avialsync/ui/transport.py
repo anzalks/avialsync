@@ -1225,18 +1225,26 @@ class _ABPin(QFrame):
         self.hide()
 
     def pin_to_slider(self, slider: QSlider, frac: float) -> None:
-        opt = QStyleOptionSlider()
-        slider.initStyleOption(opt)
-        groove = slider.style().subControlRect(
-            QStyle.ComplexControl.CC_Slider,
-            opt,
-            QStyle.SubControl.SC_SliderGroove,
-            slider,
-        )
-        g_global = slider.mapToParent(groove.topLeft())
-        x = g_global.x() + int(frac * groove.width()) - 1
-        y = g_global.y()
-        self.setGeometry(x, y, 2, groove.height())
+        if isinstance(slider, ScrubBar):
+            groove = slider.track_rect()
+            pin_height = max(12, groove.height() + 8)
+            g_global = slider.mapToParent(groove.topLeft())
+            x = g_global.x() + int(frac * groove.width()) - 1
+            y = g_global.y() + (groove.height() - pin_height) // 2
+            self.setGeometry(x, y, 2, pin_height)
+        else:
+            opt = QStyleOptionSlider()
+            slider.initStyleOption(opt)
+            groove = slider.style().subControlRect(
+                QStyle.ComplexControl.CC_Slider,
+                opt,
+                QStyle.SubControl.SC_SliderGroove,
+                slider,
+            )
+            g_global = slider.mapToParent(groove.topLeft())
+            x = g_global.x() + int(frac * groove.width()) - 1
+            y = g_global.y()
+            self.setGeometry(x, y, 2, groove.height())
         self.raise_()
         self.show()
 
