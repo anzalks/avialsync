@@ -365,6 +365,12 @@ class PlotPane(QWidget):
             interactions.redraw_measure_lines()
             interactions.redraw_identity_markers()
 
+    def refresh_palette(self) -> None:
+        """Reapply trace and canvas palette colours after a preference change."""
+        self._apply_palette()
+        if self._view_mode != PLOT_MODE_STACKED:
+            self.set_view_mode(self._view_mode)
+
     def load_channels(
         self,
         cache_dir: Path,

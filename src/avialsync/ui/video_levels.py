@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from avialsync.core.commands import SetVideoLevelsCommand
-from avialsync.engine.display_pipeline import DisplayLevels
+from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
 from avialsync.ui.i18n import tr
 
 if TYPE_CHECKING:
@@ -144,6 +144,25 @@ def restore(window: MainWindow, saved: dict[str, Any]) -> None:
         for path, data in (saved or {}).items()
         if not (levels := from_dict(data)).is_identity
     }
+
+
+def on_source_format_detected(window: MainWindow, path: str, source_format: object) -> None:
+    """Label the levels panel in the detected depth and optionally run Auto levels on open."""
+    if not isinstance(source_format, SourceFormat):
+        return
+    if path == window._focused_video_path():
+        show_focused(window)
+    if (
+        source_format.bits > 8
+        and path not in window._display_levels
+        and not window.session_runtime.restoring
+    ):
+        from avialsync.core.settings_schema import setting_for
+        from avialsync.ui.preferences_dialog import read_setting
+
+        setting = setting_for("video/auto_levels_on_open")
+        if setting is not None and bool(read_setting(setting)):
+            request_auto(window, path)
 
 
 def connect_pane(window: MainWindow, pane: Any, path: str) -> None:

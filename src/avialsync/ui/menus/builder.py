@@ -31,11 +31,11 @@ def build_menus(window: MainWindow) -> None:
 
     menu = window.menuBar()
     file_menu = build_file_menu(window, menu, register)
-    build_edit_menu(window, menu, register)
+    edit_menu = build_edit_menu(window, menu, register)
     align_menu = build_align_menu(window, menu, register)
     view_menu = build_view_menu(window, menu, register)
     help_menu = build_help_menu(window, menu, register)
 
-    for opened in (file_menu, align_menu, view_menu, help_menu):
+    for opened in (file_menu, edit_menu, align_menu, view_menu, help_menu):
         opened.aboutToShow.connect(window._refresh_action_availability)
     window._refresh_action_availability()

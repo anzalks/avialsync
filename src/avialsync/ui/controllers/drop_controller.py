@@ -147,6 +147,19 @@ def _remember_pairing(window: MainWindow, layout: SessionLayout) -> None:
         window.session_runtime.pending_pair = None
 
 
+def _adopt_skeleton_and_rig(window: MainWindow, layout: SessionLayout) -> None:
+    """Adopt declared pose bones and rotary prop configuration from *layout*."""
+    # Set unconditionally, including to nothing: a session that declares no
+    # skeleton must not inherit the previous one's bones, and an empty list is
+    # what hands the 3D view over to its own detection.
+    skeleton = list(layout.skeleton or [])
+    window.tracking_3d_pane.set_skeleton(skeleton)
+    if hasattr(window.video_grid, "set_skeleton_2d"):
+        window.video_grid.set_skeleton_2d(skeleton)
+    window.session_runtime.camera_corrections = layout.camera_corrections
+    wheel_rotation.adopt_rig(window, layout.rotary)
+
+
 def apply_session_layout(window: MainWindow, layout: object) -> None:
     """Adopt the settings a session plugin reported for the folder it laid out.
 
@@ -203,16 +216,7 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
         # Wall clock only from a real UTC instant; a zone-less clock (Vicon) only places.
         window._set_time_mode(TimeDisplayMode.UTC)
 
-    # Set unconditionally, including to nothing: a session that declares no
-    # skeleton must not inherit the previous one's bones, and an empty list is
-    # what hands the 3D view over to its own detection.
-    skeleton = list(layout.skeleton or [])
-    window.tracking_3d_pane.set_skeleton(skeleton)
-    if hasattr(window.video_grid, "set_skeleton_2d"):
-        window.video_grid.set_skeleton_2d(skeleton)
-    # Likewise the wheel: which channel turns it, and any rig model, are the rig's to say.
-    window.session_runtime.camera_corrections = layout.camera_corrections
-    wheel_rotation.adopt_rig(window, layout.rotary)  # its wheel, model and camera corrections
+    _adopt_skeleton_and_rig(window, layout)
 
     # A scan that left something out has to say so on screen.  The log already
     # holds the detail; what belongs here is the fact that the session in front

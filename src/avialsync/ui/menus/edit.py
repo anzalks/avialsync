@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 Register = Callable[[QAction, str], QAction]
 
 
-def build_edit_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> None:
+def build_edit_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMenu:
     """Create undo and editing actions from live commands."""
     window._edit_menu = menu.addMenu(tr("Edit"))
     window._undo_actions = install_edit_menu(window, window._edit_menu)
@@ -29,6 +29,7 @@ def build_edit_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> None:
     _edit_suspects(window, window._edit_menu, _reg)
     _edit_geometry(window, window._edit_menu, _reg)
     _edit_annotations(window, window._edit_menu, _reg)
+    return window._edit_menu
 
 
 def _edit_tracking(window: MainWindow, edit_menu: QMenu, _reg: Register) -> None:

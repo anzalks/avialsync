@@ -224,7 +224,7 @@ SETTINGS: tuple[Setting, ...] = (
         key="playback/loop_ab",
         label="Loop the A–B range",
         group="Playback",
-        default=False,
+        default=True,
         kind=bool,
         help_text="Return to A when playback reaches B, instead of continuing.",
     ),

@@ -152,13 +152,21 @@ class KeyboardActions:
         self.add("Keyboard shortcuts (alias)", "View", ctx.show_shortcuts, "?")
 
 
+def _belongs_to_workspace(owner: QWidget, focus: QWidget | None) -> bool:
+    """Return whether *focus* sits inside *owner* or one of its detached panes."""
+    if focus is None:
+        return False
+    top = focus.window()
+    return top is owner or (top.parent() is owner and bool(top.property("av_workspace_window")))
+
+
 def reserve_playhead_key(owner: QWidget, event: QEvent) -> bool:
     """Reserve playhead keys within this window, preserving an active editor's caret."""
     if not isinstance(event, QKeyEvent) or event.key() not in _PLAYHEAD_KEYS:
         return False
     app = QApplication.instance()
     focus = app.focusWidget() if isinstance(app, QApplication) else None
-    if focus is None or focus.window() is not owner:
+    if focus is None or not _belongs_to_workspace(owner, focus):
         return False
     return event.key() == Qt.Key.Key_Space or not _is_mid_edit(focus)
 
@@ -169,7 +177,7 @@ def reserve_letter_shortcut(owner: QWidget, letters: set[str], event: QEvent) ->
         return False
     app = QApplication.instance()
     focus = app.focusWidget() if isinstance(app, QApplication) else None
-    if focus is None or focus.window() is not owner:
+    if focus is None or not _belongs_to_workspace(owner, focus):
         return False
     return _editor_rejects_text(focus, event.text())
 

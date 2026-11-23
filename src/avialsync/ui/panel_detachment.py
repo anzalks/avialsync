@@ -68,6 +68,7 @@ class DetachedCameraWindow(QDialog):
         parent: QWidget,
     ) -> None:
         super().__init__(parent, Qt.WindowType.Window)
+        self.setProperty("av_workspace_window", True)
         self._path = path
         self._pane = pane
         self._grid = grid
@@ -127,6 +128,7 @@ class PopOutInspectorWindow(QDialog):
         window: MainWindow,
     ) -> None:
         super().__init__(window, Qt.WindowType.Window)
+        self.setProperty("av_workspace_window", True)
         self._index = page_index
         self._page = page
         self._placeholder = placeholder
@@ -188,6 +190,12 @@ class PanelDetachment:
         self._tracking_was_visible = False
         self._imaging_was_visible = False
 
+    def _share_window_actions(self, dialog: QWidget) -> None:
+        """Give a detached workspace surface the main window's live shortcuts."""
+        actions = getattr(self._window, "_all_actions", None)
+        if actions:
+            dialog.addActions(list(actions))
+
     # ── Plots ────────────────────────────────────────────────────────
 
     def set_plots_detached(self, detached: bool) -> None:
@@ -214,6 +222,7 @@ class PanelDetachment:
             return
 
         dialog = DetachedPaneWindow(tr("Plots"), win.plot_pane, win._v_splitter, index, win)
+        self._share_window_actions(dialog)
         win._detached_plot_window = dialog
         win._plots_detached = True
         dialog.returned.connect(self.on_plots_returned)
@@ -267,6 +276,7 @@ class PanelDetachment:
         dialog = DetachedPaneWindow(
             tr("3D View"), win.tracking_3d_pane, win.imaging_splitter, index, win
         )
+        self._share_window_actions(dialog)
         win.tracking_3d_pane.setVisible(True)
         self.tracking_3d_window = dialog
         dialog.returned.connect(self._on_tracking_3d_returned)
@@ -322,6 +332,7 @@ class PanelDetachment:
         dialog = DetachedPaneWindow(
             tr("Imaging"), win.imaging_pane, win.imaging_splitter, index, win
         )
+        self._share_window_actions(dialog)
         win.imaging_pane.setVisible(True)
         self.imaging_window = dialog
         dialog.returned.connect(self._on_imaging_returned)
@@ -370,6 +381,7 @@ class PanelDetachment:
 
         title = Path(path).name
         dialog = DetachedCameraWindow(title, path, pane, win.video_grid, win)
+        self._share_window_actions(dialog)
         self.camera_windows[path] = dialog
         dialog.returned.connect(lambda p: self.camera_windows.pop(p, None))
         dialog.show()
@@ -412,6 +424,7 @@ class PanelDetachment:
             placeholder.deleteLater()
             return
         dialog = PopOutInspectorWindow(target, title, page, placeholder, win)
+        self._share_window_actions(dialog)
         self.inspector_windows[target] = dialog
         dialog.returned.connect(lambda idx: self.inspector_windows.pop(idx, None))
         if nav.currentIndex() == target and target != 0 and not self.is_inspector_page_popped(0):

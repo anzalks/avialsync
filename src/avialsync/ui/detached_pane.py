@@ -24,6 +24,7 @@ class DetachedPaneWindow(QDialog):
         parent: QWidget,
     ) -> None:
         super().__init__(parent, Qt.WindowType.Window)
+        self.setProperty("av_workspace_window", True)
         self.setWindowTitle(title)
         self.setAccessibleName(tr("Detached {title} pane").format(title=title))
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)

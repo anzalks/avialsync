@@ -51,7 +51,7 @@ from avialsync.core.session import (
 )
 from avialsync.core.source import ImagingSource, TimeSeriesSource, VideoSource
 from avialsync.core.timeline import MasterClock, TimeMap
-from avialsync.engine.display_pipeline import DisplayLevels, SourceFormat
+from avialsync.engine.display_pipeline import DisplayLevels
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.player import Player
 from avialsync.engine.snapshot import SnapshotFigure
@@ -110,7 +110,12 @@ from avialsync.ui.coverage_lanes import SourceCoverage
 from avialsync.ui.empty_state import EmptyState
 from avialsync.ui.export_panel import ExportPanel
 from avialsync.ui.feedback import ActivityBar, JobsPanel, NotificationStrip
-from avialsync.ui.help_controller import HelpController
+from avialsync.ui.help_controller import (
+    HelpController,
+    apply_point_labels_default,
+    reload_autosave_interval,
+    reload_loop_ab_preference,
+)
 from avialsync.ui.i18n import tr
 from avialsync.ui.identity_braid import BraidModel
 from avialsync.ui.identity_model_worker import BraidBuildJob
@@ -144,9 +149,6 @@ if TYPE_CHECKING:
     from avialsync.ui.sync_wizard import SyncWizard
 
 logger = logging.getLogger(__name__)
-
-
-_AUTOSAVE_INTERVAL_MS = 120_000  # 2 minutes
 
 #: Re-exported from the import controller, which owns the probe loop that
 #: enforces it.  Kept here because this is the name the bound is known by.
@@ -265,6 +267,7 @@ class MainWindow(QMainWindow):
         #: Which overlay layers show, globally and per camera. Nothing is
         #: drawn over a frame that the user cannot turn off.
         self.overlay_state = OverlayState()
+        apply_point_labels_default(self, repaint=False)
         #: Hand corrections to tracked points. Sparse, and written
         #: beside each pose file the moment they are made; the pose files
         #: themselves and their caches are never written.
@@ -521,6 +524,7 @@ class MainWindow(QMainWindow):
             imaging_pane=self.imaging_pane,
         )
         self.player.step_reference = self._step_reference_pane
+        reload_loop_ab_preference(self)
         gap_view.install(self)  # D-218
 
         # Annotations
@@ -678,7 +682,7 @@ class MainWindow(QMainWindow):
         # Autosave timer
         self._autosave_timer = QTimer(self)
         self._autosave_timer.timeout.connect(self._autosave)
-        self._autosave_timer.start(_AUTOSAVE_INTERVAL_MS)
+        reload_autosave_interval(self)
 
     def _finish_startup(self) -> None:
         """Start the player and background checks, then shortcuts and accessibility."""
@@ -2126,10 +2130,7 @@ class MainWindow(QMainWindow):
 
     def _on_source_format_detected(self, path: str, source_format: object) -> None:
         """Label the levels panel in the depth this file turned out to have."""
-        if not isinstance(source_format, SourceFormat):
-            return
-        if path == self._focused_video_path():
-            video_levels.show_focused(self)
+        video_levels.on_source_format_detected(self, path, source_format)
 
     def _on_display_levels_changed(self, levels: object) -> None:
         """The inspector panel moved: a change to the focused camera's levels."""

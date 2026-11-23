@@ -65,8 +65,10 @@ def build_overlays_menu(window: MainWindow, register: Register) -> None:
     window._overlays_menu.addSeparator()
     show_all = window._overlays_menu.addAction(tr("Show All"))
     show_all.triggered.connect(lambda: window._set_all_overlays(True))
+    register(show_all, "View")
     hide_all = window._overlays_menu.addAction(tr("Hide All"))
     hide_all.triggered.connect(lambda: window._set_all_overlays(False))
+    register(hide_all, "View")
 
     # Install the resolver now, not on the first toggle. `apply_overlays_to`
     # is what a newly built pane goes through, and it returns early while

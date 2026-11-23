@@ -141,6 +141,7 @@ def _file_changes(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     act.triggered.connect(window._export_changes)
     window.changes_panel.set_export_action(act)
     window.export_panel.bind("changes", act)
+    _reg(act, "File")
     window._require(
         act,
         lambda: (
@@ -175,9 +176,10 @@ def _file_exports(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     act = file_menu.addAction(tr("Export Trimmed Video Clip…"))
     act.triggered.connect(window._export_video_clip)
     window.export_panel.bind("clip", act)
+    _reg(act, "File")
     window._require(
         act,
-        lambda: bool(window.video_grid._paths) and window.transport._ab_in_t is not None,
+        lambda: bool(window.video_grid._paths) and window.transport.ab_range() is not None,
         tr("Load a video and mark an A/B loop — [ and ] set where a clip starts and ends."),
     )
 
@@ -194,6 +196,7 @@ def _file_exports(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     act = file_menu.addAction(tr("Export Data Slice…"))
     act.triggered.connect(window._export_data_slice)
     window.export_panel.bind("data-slice", act)
+    _reg(act, "File")
     window._require(
         act,
         lambda: bool(window.plot_pane.channels),
@@ -202,6 +205,7 @@ def _file_exports(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
 
     act = file_menu.addAction(tr("Generate Proxy…"))
     act.triggered.connect(window._generate_proxy)
+    _reg(act, "File")
     window._require(
         act,
         lambda: bool(window.video_grid._paths),

@@ -39,6 +39,11 @@ full history is in git. Versions follow the tags in the repository.
 - Internal: the main window is composed of focused modules; behaviour is unchanged (D-248).
 
 ### Fixed
+- Detached workspace windows share all live playhead, shuttle, marker, and ethogram shortcuts;
+  `Export` and `Help` menu items appear in the command palette and shortcuts table; `Export Trimmed
+  Video Clip…` waits for a complete `I`–`O` range; and `Preferences` changes for A–B looping,
+  autosave interval, default point labels, colour-vision-safe plot colours, theme/font menus, and
+  high-bit-depth auto-levels apply immediately.
 - Left/Right frame steps work again after alignment, keep the chosen timestamp, and act on the
   camera you clicked (D-246).
 - A translation catalogue built with `lupdate` now applies; none ships yet (D-247).

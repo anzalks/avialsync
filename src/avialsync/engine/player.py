@@ -105,6 +105,7 @@ class Player(QObject):
         # A/B loop state
         self._ab_in: float | None = None
         self._ab_out: float | None = None
+        self._loop_ab_enabled: bool = True
 
         # Connect transport signals
         self.transport.play_toggled.connect(self.set_playing)
@@ -161,8 +162,12 @@ class Player(QObject):
             # Wrap around when starting at the active boundary
             current_t = self.clock.state.t
             bounds = self.transport.bounds
-            end_t = bounds[1] if self._ab_out is None else self._ab_out
-            start_t = bounds[0] if self._ab_in is None else self._ab_in
+            end_t = (
+                bounds[1] if (not self._loop_ab_enabled or self._ab_out is None) else self._ab_out
+            )
+            start_t = (
+                bounds[0] if (not self._loop_ab_enabled or self._ab_in is None) else self._ab_in
+            )
 
             if self.clock.state.direction < 0:
                 if current_t <= start_t + 0.05:
@@ -302,6 +307,10 @@ class Player(QObject):
         self._ab_in = t_in
         self._ab_out = t_out
 
+    def set_loop_ab_enabled(self, enabled: bool) -> None:
+        """Enable or disable wrapping playback between the active A and B pins."""
+        self._loop_ab_enabled = bool(enabled)
+
     def _update_pane_footage(self, t_master: float) -> list[VideoPane]:
         """Synchronize pane availability with master-time coverage before display or seek."""
         active_panes: list[VideoPane] = []
@@ -364,7 +373,7 @@ class Player(QObject):
                 t = self.clock.state.t
 
             # A/B loop enforcement
-            if self._ab_in is not None and self._ab_out is not None:
+            if self._loop_ab_enabled and self._ab_in is not None and self._ab_out is not None:
                 if self.clock.state.direction >= 0 and t >= self._ab_out:
                     self.seek(self._ab_in, exact=True)
                     t = self._ab_in

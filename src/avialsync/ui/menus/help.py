@@ -47,32 +47,41 @@ def build_help_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMenu
     _reg(window._act_shortcuts, "View")
 
     _add_first_session_tutorial(window, help_menu, _reg)
+    _add_reference_and_about_actions(window, help_menu, _reg)
+    return help_menu
 
+
+def _add_reference_and_about_actions(window: MainWindow, help_menu: QMenu, _reg: Register) -> None:
+    """Add documentation, issue reporting, citation, diagnostics, and About commands."""
     act = help_menu.addAction(tr("Documentation"))
     act.triggered.connect(
         lambda _checked=False: window._help_controller.open_project_url("Documentation")
     )
+    _reg(act, "Help")
     act = help_menu.addAction(tr("Report a Problem…"))
     act.triggered.connect(window._help_controller.report_a_problem)
+    _reg(act, "Help")
     act = help_menu.addAction(tr("Check for Updates"))
     act.setToolTip(tr("The installers are not code-signed and do not update themselves"))
     act.triggered.connect(
         lambda _checked=False: window._help_controller.open_project_url("Changelog")
     )
+    _reg(act, "Help")
     help_menu.addSeparator()
 
     act = help_menu.addAction(tr("Cite AvialSync…"))
     act.triggered.connect(window._help_controller.show_citation)
+    _reg(act, "Help")
 
     act = help_menu.addAction(tr("Diagnostics…"))
     act.triggered.connect(window._help_controller.show_diagnostics)
+    _reg(act, "Help")
 
     # About — macOS AboutRole moves this to the app menu
     act = help_menu.addAction(tr("About AvialSync"))
     act.setMenuRole(QAction.MenuRole.AboutRole)
     act.triggered.connect(window._help_controller.show_about)
-
-    return help_menu
+    _reg(act, "Help")
 
 
 def _add_first_session_tutorial(window: MainWindow, help_menu: QMenu, _reg: Register) -> None:

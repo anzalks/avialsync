@@ -18,6 +18,44 @@ if TYPE_CHECKING:
     from avialsync.ui.review_workflow import ReviewWorkflowDialog
 
 
+def sync_appearance_menus(window: MainWindow) -> None:
+    """Keep View -> Theme and View -> Font Size radio buttons synced with Preferences."""
+    window._sync_theme_menu()
+    window._sync_font_size_menu()
+
+
+def reload_autosave_interval(window: MainWindow) -> None:
+    """Apply the ``storage/autosave_minutes`` preference to the autosave timer."""
+    from avialsync.core.settings_schema import setting_for
+    from avialsync.ui.preferences_dialog import read_setting
+
+    setting = setting_for("storage/autosave_minutes")
+    minutes = int(read_setting(setting)) if setting is not None else 2
+    window._autosave_timer.start(max(1, minutes) * 60_000)
+
+
+def reload_loop_ab_preference(window: MainWindow) -> None:
+    """Apply the ``playback/loop_ab`` preference to ``Player``."""
+    from avialsync.core.settings_schema import setting_for
+    from avialsync.ui.preferences_dialog import read_setting
+
+    setting = setting_for("playback/loop_ab")
+    enabled = bool(read_setting(setting)) if setting is not None else True
+    window.player.set_loop_ab_enabled(enabled)
+
+
+def apply_point_labels_default(window: MainWindow, *, repaint: bool = True) -> None:
+    """Seed or refresh ``tracking.point_labels`` from ``overlays/point_labels_default``."""
+    from avialsync.core.settings_schema import setting_for
+    from avialsync.ui.preferences_dialog import read_setting
+
+    setting = setting_for("overlays/point_labels_default")
+    visible = bool(read_setting(setting)) if setting is not None else False
+    window.overlay_state.set_visible("tracking.point_labels", visible)
+    if repaint:
+        window._apply_overlay_state()
+
+
 class HelpController(QObject):
     """Own the Help and Preferences actions for one main window."""
 
@@ -130,11 +168,21 @@ class HelpController(QObject):
             from avialsync.ui.theme import apply_theme, load_saved_theme
 
             apply_theme(app, load_saved_theme(app))
+            sync_appearance_menus(self._window)
         elif key == "font/preference":
             from avialsync.ui.theme import apply_font_size, load_saved_font_size
 
             apply_font_size(app, load_saved_font_size(app))
+            sync_appearance_menus(self._window)
             self._window.data_streams.reload_preferences()
+        elif key == "palette/colour_vision_safe":
+            self._window.plot_pane.refresh_palette()
+        elif key == "playback/loop_ab":
+            reload_loop_ab_preference(self._window)
+        elif key == "overlays/point_labels_default":
+            apply_point_labels_default(self._window, repaint=True)
+        elif key == "storage/autosave_minutes":
+            reload_autosave_interval(self._window)
         elif key in {
             "interface/density",
             "timeline/compact_visible_lanes",
