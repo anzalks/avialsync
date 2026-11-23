@@ -32,6 +32,7 @@ from avialsync.ui.pose_overlay_extras import (
     draw_epipolar_guides,
     draw_magnifier_loupe,
     draw_motion_trails,
+    marker_radius,
     style_point_by_confidence,
     trail_frame_count,
 )
@@ -49,7 +50,6 @@ _MODEL_COLORS = (
     (255, 220, 60),
     (150, 160, 255),
 )
-_ENSEMBLE_RADIUS = 4
 _MODEL_RADIUS = 2
 #: Point-label text is sized by `marker_overlay.overlay_label_point_size`: small
 #: and offset off the marker so it never hides the very coordinate it is naming.
@@ -482,7 +482,7 @@ class PaintCanvas(MarkerOverlayMixin):
         tracked but not *which* one, which is the question being asked when
         several parts sit close together.
         """
-        radius = _ENSEMBLE_RADIUS if track.is_ensemble else _MODEL_RADIUS
+        radius = marker_radius() if track.is_ensemble else _MODEL_RADIUS
 
         label_font = painter.font()
         label_font.setPointSizeF(overlay_label_point_size())

@@ -41,6 +41,7 @@ from avialsync.ui.cylinder_paint import draw_cylinders
 from avialsync.ui.i18n import tr
 from avialsync.ui.label_layout import LabelLayout
 from avialsync.ui.overlay_registry import default_visible_for
+from avialsync.ui.pose_overlay_extras import marker_radius
 from avialsync.ui.theme import neutral_on_canvas
 from avialsync.ui.tracking_3d_controls import Tracking3DControls
 from avialsync.ui.tracking_colors import color_for_point, register_points
@@ -888,6 +889,8 @@ class Tracking3DCanvas(QWidget):
         # marker and this loop runs on the paint path.
         outline = QPen(neutral_on_canvas(palette, _POINT_OUTLINE_WEIGHT), 1)
         label_color = palette.color(QPalette.ColorRole.Text)
+        pt_radius = marker_radius()
+        label_dx = pt_radius + 3
         order = np.argsort(depth)
         for draw_order in order:
             point_index = int(valid_indices[draw_order])
@@ -895,10 +898,12 @@ class Tracking3DCanvas(QWidget):
             color = color_for_point(self._names[point_index])
             painter.setPen(outline)
             painter.setBrush(_qcolor(color))
-            painter.drawEllipse(QPoint(round(float(x)), round(float(y))), 5, 5)
+            painter.drawEllipse(QPoint(round(float(x)), round(float(y))), pt_radius, pt_radius)
             if self._point_labels_visible and len(valid_indices) <= _MAX_LABELS:
                 painter.setPen(label_color)
-                painter.drawText(round(float(x)) + 7, round(float(y)) - 5, self._names[point_index])
+                painter.drawText(
+                    round(float(x)) + label_dx, round(float(y)) - 5, self._names[point_index]
+                )
 
         self._draw_custom_points(painter, width, height, palette)
         self._draw_corner_axes(painter, width, height)

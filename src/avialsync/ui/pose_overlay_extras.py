@@ -26,12 +26,20 @@ __all__ = [
     "draw_motion_trails",
     "epipolar_guides_for",
     "infer_2d_edges",
+    "marker_radius",
     "style_point_by_confidence",
     "trail_frame_count",
 ]
 
 _LOUPE_SIZE = 136
 _LOUPE_ZOOM = 5.0
+
+
+def marker_radius() -> int:
+    """Read the configured pose marker radius in logical pixels."""
+    setting = setting_for("overlays/marker_radius")
+    val = int(read_setting(setting)) if setting is not None else 5
+    return max(2, min(12, val))
 
 
 def confidence_threshold() -> float:
@@ -193,7 +201,8 @@ def style_point_by_confidence(
     """Configure *painter* pen/brush; returns True when styled as low-confidence."""
     width = 2 if is_ensemble else 1
     if not enabled or confidence is None or not np.isfinite(confidence) or confidence >= threshold:
-        painter.setPen(QPen(color, width))
+        outline = QColor(12, 14, 18, 210) if is_ensemble else color
+        painter.setPen(QPen(outline, 1.5 if is_ensemble else 1.0))
         painter.setBrush(color)
         return False
     ratio = max(0.15, float(confidence) / max(threshold, 1e-3))

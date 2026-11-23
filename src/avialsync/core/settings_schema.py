@@ -282,6 +282,19 @@ SETTINGS: tuple[Setting, ...] = (
         ),
     ),
     Setting(
+        key="overlays/marker_radius",
+        label="Tracking marker radius (px)",
+        group="Overlays",
+        default=5,
+        kind=int,
+        minimum=2,
+        maximum=12,
+        help_text=(
+            "Radius in pixels of tracked body-part markers on video and 3D views. "
+            "Use smaller values for fine joint inspection and larger values for presentations."
+        ),
+    ),
+    Setting(
         key="overlays/confidence_threshold",
         label="Pose confidence threshold",
         group="Overlays",

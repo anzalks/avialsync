@@ -38,7 +38,7 @@ from PySide6.QtWidgets import QApplication, QCheckBox, QLabel, QPushButton
 from avialsync.engine.transcode import encode_video
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from screenshot_kit import capture, pin_appearance, pin_layout  # noqa: E402
+from screenshot_kit import capture, pin_appearance, pin_layout, quantize_gif_frames  # noqa: E402
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = REPOSITORY_ROOT / "docs" / "_static" / "screenshots"
@@ -222,15 +222,8 @@ def _captioned(window, caption: str) -> Image.Image:
 
 
 def _write_gif(frames: list[Image.Image], path: Path) -> None:
-    """Write *frames* as one looping GIF on a shared palette."""
-    # A palette from one frame has no orange in it if the animals are elsewhere,
-    # so it is built from a mosaic of frames spread across the whole loop.
-    picks = [frames[0], frames[len(frames) // 4], frames[len(frames) // 2], frames[-1]]
-    mosaic = Image.new("RGB", (picks[0].width, picks[0].height * len(picks)))
-    for row, frame in enumerate(picks):
-        mosaic.paste(frame, (0, row * frame.height))
-    palette = mosaic.quantize(colors=128, method=Image.Quantize.MEDIANCUT)
-    quantised = [frame.quantize(palette=palette, dither=Image.Dither.NONE) for frame in frames]
+    """Write *frames* as one looping GIF on a shared chroma-preserving palette."""
+    quantised = quantize_gif_frames(frames, colors=256)
     path.parent.mkdir(parents=True, exist_ok=True)
     quantised[0].save(
         path,

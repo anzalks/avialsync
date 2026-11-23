@@ -25,6 +25,7 @@ from avialsync.ui.pose_overlay_extras import (
     draw_motion_trails,
     epipolar_guides_for,
     infer_2d_edges,
+    marker_radius,
     style_point_by_confidence,
 )
 from avialsync.ui.pose_suspects import find_suspects_in_cache, jump_suspect_frame
@@ -271,3 +272,12 @@ def test_epipolar_guides_for_marker_placement_and_active_drag(qtbot) -> None:
     assert guides_left[0][0] == "bar_tip"
     assert _point_to_polyline_distance(CAMERAS["Left"].project(truth)[0], guides_left[0][1]) < 0.3
     assert epipolar_guides_for(window, cam_front, 0.0) == []
+
+    # Verify configurable marker radius preference live refresh
+    from avialsync.ui.app_settings import app_settings
+
+    app_settings().setValue("overlays/marker_radius", 9)
+    assert marker_radius() == 9
+    window._help_controller.on_setting_changed("overlays/marker_radius")
+    app_settings().remove("overlays/marker_radius")
+    assert marker_radius() == 5

@@ -315,3 +315,75 @@ def settle(app: QApplication, rounds: int = 40) -> None:
     for _ in range(rounds):
         app.processEvents()
         app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+
+
+def _blend_rgb(
+    fg: tuple[int, int, int], bg: tuple[int, int, int], alpha: float
+) -> tuple[int, int, int]:
+    return (
+        round(fg[0] * alpha + bg[0] * (1.0 - alpha)),
+        round(fg[1] * alpha + bg[1] * (1.0 - alpha)),
+        round(fg[2] * alpha + bg[2] * (1.0 - alpha)),
+    )
+
+
+def quantize_gif_frames(frames: list[Any], colors: int = 256) -> list[Any]:
+    """Quantize *frames* to one shared GIF palette without losing sparse marker hues.
+
+    Monochrome camera footage and dark UI chrome occupy >99 % of the pixels in a
+    session overview, so pure ``MEDIANCUT`` allocates almost every slot to greys
+    and snaps tiny coloured pose dots to grey. Reserving explicit slots for
+    ``POINT_COLORS`` (plus anti-aliased fur/canvas blends and UI accents) keeps
+    both neutral flat panels and vivid body-part markers intact.
+    """
+    from PIL import Image
+
+    from avialsync.ui.tracking_colors import POINT_COLORS
+
+    reserved: list[tuple[int, int, int]] = []
+    if colors >= 128:
+        fur_bg = (116, 116, 116)
+        dark_bg = (32, 34, 38)
+        for rgb in POINT_COLORS:
+            reserved.append(rgb)
+            reserved.append(_blend_rgb(rgb, fur_bg, 0.68))
+            reserved.append(_blend_rgb(rgb, dark_bg, 0.68))
+        reserved.extend(
+            [
+                (0, 255, 255),
+                (255, 166, 35),
+                (196, 132, 28),
+                (10, 132, 255),
+                (0, 102, 214),
+                (60, 200, 190),
+                (240, 150, 60),
+                (68, 132, 122),
+                (68, 92, 136),
+                (255, 64, 64),
+            ]
+        )
+    # Deduplicate while keeping order
+    unique_reserved = list(dict.fromkeys(reserved))
+    auto_count = max(32, min(256, colors) - len(unique_reserved))
+
+    width, height = frames[0].size
+    sample = (
+        frames
+        if len(frames) <= 12
+        else [frames[i] for i in np.linspace(0, len(frames) - 1, 8, dtype=int)]
+    )
+    stack = Image.new("RGB", (width, height * len(sample)))
+    for index, frame in enumerate(sample):
+        stack.paste(frame, (0, index * height))
+
+    base = stack.quantize(colors=auto_count, method=Image.Quantize.MEDIANCUT)
+    base_palette = base.getpalette() or []
+    raw_pal = list(base_palette[: auto_count * 3])
+    for r, g, b in unique_reserved[: max(0, min(256, colors) - auto_count)]:
+        raw_pal.extend((int(r), int(g), int(b)))
+    while len(raw_pal) < 768:
+        raw_pal.extend((0, 0, 0))
+
+    pal_img = Image.new("P", (16, 16))
+    pal_img.putpalette(raw_pal[:768])
+    return [frame.quantize(palette=pal_img, dither=Image.Dither.NONE) for frame in frames]

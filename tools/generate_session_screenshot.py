@@ -51,7 +51,7 @@ from PIL import Image
 from PySide6.QtCore import QEvent, QPointF, Qt
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication
-from screenshot_kit import pin_appearance, pin_layout
+from screenshot_kit import pin_appearance, pin_layout, quantize_gif_frames
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = REPOSITORY_ROOT / "docs" / "_static" / "screenshots" / "session_overview.gif"
@@ -99,6 +99,7 @@ HERO_PRESET: dict[str, object] = {
     "pose_pan": "0,0",
     "encoder_offset": 0.121,
     "wheel_sign": -1.0,
+    "marker_radius": 7,
 }
 
 #: What an option left unset means outside the front-page preset.
@@ -155,24 +156,8 @@ def _to_pillow(image: QImage) -> Image.Image:
 
 
 def quantize_to_shared_palette(frames: list[Image.Image], colors: int) -> list[Image.Image]:
-    """Map every frame onto one palette derived from all of them.
-
-    Per-frame palettes force the GIF writer to store each frame whole. One
-    shared palette lets it store only the pixels that changed, which for a UI
-    that is mostly static between frames is the difference between a loop that
-    appears instantly and one that streams in. Dithering is off for the same
-    reason: its noise defeats the run-length coding underneath GIF.
-
-    Median cut, not maximum coverage: this window is mostly neutral grey, and
-    maximum coverage picks representatives off the grey axis, which tints every
-    flat panel a different colour from the app it is a picture of.
-    """
-    width, height = frames[0].size
-    stack = Image.new("RGB", (width, height * len(frames)))
-    for index, frame in enumerate(frames):
-        stack.paste(frame, (0, index * height))
-    palette = stack.quantize(colors=colors, method=Image.Quantize.MEDIANCUT)
-    return [frame.quantize(palette=palette, dither=Image.Dither.NONE) for frame in frames]
+    """Map every frame onto one shared palette preserving sparse marker chroma."""
+    return quantize_gif_frames(frames, colors=colors)
 
 
 def write_gif(frames: list[Image.Image], out_path: Path, duration: float, colors: int) -> None:
@@ -347,12 +332,16 @@ def capture(
     osd_detail: str | None = None,
     layout: dict[str, object] | None = None,
     prop: str | None = None,
+    marker_radius: int | None = None,
 ) -> None:
     """Open ``session_dir``, record ``frames`` of playback, and write the loop."""
+    from avialsync.ui.app_settings import app_settings
     from avialsync.ui.main_window import MainWindow
 
     app = QApplication.instance() or QApplication(sys.argv)
     pin_appearance(app)
+    if marker_radius is not None:
+        app_settings().setValue("overlays/marker_radius", int(marker_radius))
 
     window = MainWindow()
     # macOS clamps normal windows to the attached monitor's visible frame, so a
@@ -870,8 +859,14 @@ def main() -> None:
         default=None,
         help="stop unless every saved wheel turns this way to its encoder",
     )
-    parser.add_argument("--gif-width", type=int, default=960, help="max GIF width")
-    parser.add_argument("--gif-height", type=int, default=720, help="max GIF height")
+    parser.add_argument("--gif-width", type=int, default=1280, help="max GIF width")
+    parser.add_argument("--gif-height", type=int, default=800, help="max GIF height")
+    parser.add_argument(
+        "--marker-radius",
+        type=int,
+        default=None,
+        help="override tracking marker radius in logical pixels while recording",
+    )
     parser.add_argument(
         "--colors",
         type=int,
@@ -924,6 +919,7 @@ def main() -> None:
         args.osd_detail,
         args.layout,
         args.prop,
+        args.marker_radius,
     )
 
 
