@@ -133,12 +133,16 @@ _SWEPT_PROPERTY = "_av_a11y_swept"
 
 
 def _interactive_descendants(root: QWidget) -> list[QWidget]:
-    """Query Qt once for interactive widgets, avoiding repeated QObject tree walks."""
-    return [
-        widget
-        for widget in root.findChildren(QWidget)
-        if isinstance(widget, INTERACTIVE) and not _is_qt_internal(widget)
-    ]
+    """Query Qt in C++ per interactive base class, skipping container widgets."""
+    seen: set[int] = set()
+    found: list[QWidget] = []
+    for cls in INTERACTIVE:
+        for widget in root.findChildren(cls):
+            wid = id(widget)
+            if wid not in seen and not _is_qt_internal(widget):
+                seen.add(wid)
+                found.append(widget)
+    return found
 
 
 def apply_accessibility(root: QWidget) -> int:
@@ -150,9 +154,10 @@ def apply_accessibility(root: QWidget) -> int:
     """
     named = 0
     for widget in _interactive_descendants(root):
-        has_name = bool(widget.accessibleName())
-        if has_name and bool(widget.property(_SWEPT_PROPERTY)):
+        if widget.property(_SWEPT_PROPERTY):
             continue
+        existing_name = widget.accessibleName()
+        has_name = bool(existing_name)
         if isinstance(widget, QAbstractButton) and not widget.property("av_role"):
             apply_role(widget, ControlRole.SECONDARY)
 
@@ -160,6 +165,7 @@ def apply_accessibility(root: QWidget) -> int:
             name = derive_name(widget)
             if name:
                 widget.setAccessibleName(name)
+                existing_name = name
                 has_name = True
                 named += 1
 
@@ -168,7 +174,7 @@ def apply_accessibility(root: QWidget) -> int:
         # not already say.
         if not widget.accessibleDescription():
             tooltip = widget.toolTip().strip()
-            if tooltip and tooltip != widget.accessibleName():
+            if tooltip and tooltip != existing_name:
                 widget.setAccessibleDescription(tooltip)
 
         if has_name:

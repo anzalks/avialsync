@@ -152,8 +152,14 @@ def on_channel_group_visibility_changed(
     decision, and an undo history needing forty presses to reverse one
     click would be worse than no undo for it.
     """
+    card = window.sidebar.sensor_widget(path)
+    snapshot = getattr(card, "last_group_before", None)
     before = {
-        str(channel): window.plot_pane.is_channel_visible(ChannelKey(path, str(channel)))
+        str(channel): (
+            snapshot[str(channel)]
+            if snapshot is not None and str(channel) in snapshot
+            else window.plot_pane.is_channel_visible(ChannelKey(path, str(channel)))
+        )
         for channel in channels
     }
     window._record(

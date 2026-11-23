@@ -27,6 +27,7 @@ from avialsync.core.channel_store import (
     ExternalArray,
     InPlaceChannel,
     Layout,
+    safe_channel_stem,
     write_layout,
     write_times,
 )
@@ -82,6 +83,7 @@ def build_in_place(
     has_gaps = gap_mask is not None and bool(np.any(gap_mask))
     for name in names:
         spec = channels[name]
+        stem = safe_channel_stem(name)
         write_layout(
             temp_dir,
             name,
@@ -93,11 +95,11 @@ def build_in_place(
                 times=external_times,
             ),
         )
-        if external_times is None and not (temp_dir / f"{name}_t.npy").exists():
-            write_times(temp_dir, name, times)
+        if external_times is None and not (temp_dir / f"{stem}_t.npy").exists():
+            write_times(temp_dir, stem, times)
         if has_gaps:
             assert gap_mask is not None
-            np.save(temp_dir / f"{name}_gap.npy", gap_mask)
+            np.save(temp_dir / f"{stem}_gap.npy", gap_mask)
         # Only the dtype is read when the first level is given; nothing is mapped.
         dtype_only = np.empty(0, dtype=np.dtype(spec.values.dtype))
         PyramidBuilder(temp_dir, name).save_levels(
@@ -135,7 +137,7 @@ def _time_axis(
         return column, build_gap_mask(column), offered
     # Computed from per-sample evidence (Open Ephys sample numbers with a drop):
     # not on disk as times, so written once and shared by every channel.
-    first = temp_dir / f"{names[0]}_t.npy"
+    first = temp_dir / f"{safe_channel_stem(names[0])}_t.npy"
     stored = np.lib.format.open_memmap(first, mode="w+", dtype=np.float64, shape=(len(column),))
     step = 1_000_000
     for start in range(0, len(column), step):
@@ -143,7 +145,7 @@ def _time_axis(
     stored.flush()
     del stored
     for name in names[1:]:
-        share_file(first, temp_dir / f"{name}_t.npy")
+        share_file(first, temp_dir / f"{safe_channel_stem(name)}_t.npy")
     times = np.load(first, mmap_mode="r", allow_pickle=False)
     return times, build_gap_mask(times), None
 
@@ -170,15 +172,35 @@ def _reduce_first_level(
         buckets = -(-length // _FACTOR)
         columns = [channels[name].values.column for name in names]
         on_disk = 2 * buckets * source.dtype.itemsize * len(names) > _IN_MEMORY_BYTES
-        out = {
-            name: _first_level_columns(temp_dir, index, buckets, source.dtype, on_disk)
-            for index, name in enumerate(names, start=done)
+        group_mm: np.ndarray | None = (
+            np.lib.format.open_memmap(
+                temp_dir / f"_first_group_{done}.npy",
+                mode="w+",
+                dtype=source.dtype,
+                shape=(2, len(names), buckets),
+            )
+            if on_disk
+            else None
+        )
+        out: dict[str, tuple[np.ndarray, np.ndarray]] = {
+            name: (
+                (group_mm[0, local_idx], group_mm[1, local_idx])
+                if group_mm is not None
+                else (
+                    np.empty(buckets, dtype=source.dtype),
+                    np.empty(buckets, dtype=source.dtype),
+                )
+            )
+            for local_idx, name in enumerate(names)
         }
         row_bytes = source.dtype.itemsize * (shape[1] if len(shape) > 1 else 1)
         rows = max(_FACTOR, (_BLOCK_BYTES // row_bytes) // _FACTOR * _FACTOR)
         floating = np.issubdtype(source.dtype, np.floating)
         for start in range(0, length, rows):
             if cancelled():
+                del source, group_mm, out, envelopes
+                for staged in temp_dir.glob("_first_*.npy"):
+                    staged.unlink(missing_ok=True)
                 return None, nan_counts
             stop = min(start + rows, length)
             block = np.asarray(source[start:stop])
@@ -191,29 +213,13 @@ def _reduce_first_level(
                 if floating:
                     nan_counts[name] += int(np.count_nonzero(np.isnan(samples)))
             progress(0.8 * (done + len(names) * stop / length) / len(channels))
+        if isinstance(group_mm, np.memmap):
+            group_mm.flush()
         for name in names:
-            for built in out[name]:
-                if isinstance(built, np.memmap):
-                    built.flush()
             envelopes[name] = (out[name][0], out[name][1])
         done += len(names)
-        del source
+        del source, group_mm, out
     return envelopes, nan_counts
-
-
-def _first_level_columns(
-    temp_dir: Path, index: int, buckets: int, dtype: np.dtype[Any], on_disk: bool
-) -> tuple[np.ndarray, np.ndarray]:
-    """Empty min and max columns for one channel's first level, in memory or on disk."""
-    if not on_disk:
-        return np.empty(buckets, dtype=dtype), np.empty(buckets, dtype=dtype)
-    low: np.ndarray = np.lib.format.open_memmap(
-        temp_dir / f"_first_{index}_min.npy", mode="w+", dtype=dtype, shape=(buckets,)
-    )
-    high: np.ndarray = np.lib.format.open_memmap(
-        temp_dir / f"_first_{index}_max.npy", mode="w+", dtype=dtype, shape=(buckets,)
-    )
-    return low, high
 
 
 def _envelope(values: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

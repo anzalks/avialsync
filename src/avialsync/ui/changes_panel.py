@@ -108,7 +108,10 @@ class ChangesPanel(QGroupBox):
         self._annotations = annotations
         self._corrections = corrections
         self._swaps = swaps
+        self._all_rows: list[ChangeRow] = []
+        self._search_keys: list[str] = []
         self._rows: list[ChangeRow] = []
+        self._suppress_refresh = False
         #: Resolves a correction to a time, a camera, and a frame number. Set by
         #: the window, which is the only thing that knows the pose sources.
         self._resolver: Any = None
@@ -164,14 +167,14 @@ class ChangesPanel(QGroupBox):
         )
         self.kind_filter.setMinimumContentsLength(6)
         self.kind_filter.setAccessibleName(tr("Filter changes by kind"))
-        self.kind_filter.currentIndexChanged.connect(self.refresh)
+        self.kind_filter.currentIndexChanged.connect(lambda _index: self._apply_search_filter())
         self.search_edit = QLineEdit(self)
         self.search_edit.setPlaceholderText(tr("Filter label or source…"))
         self.search_edit.setClearButtonEnabled(True)
         self.search_edit.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.search_edit.setMinimumWidth(50)
         self.search_edit.setAccessibleName(tr("Filter changes by text"))
-        self.search_edit.textChanged.connect(self.refresh)
+        self.search_edit.textChanged.connect(lambda _text: self._apply_search_filter())
         filter_row.addWidget(self.kind_filter)
         filter_row.addWidget(self.search_edit, 1)
         return filter_row
@@ -180,10 +183,30 @@ class ChangesPanel(QGroupBox):
         table = ThemedTable(0, len(_COLUMNS))
         table.setHorizontalHeaderLabels([tr(name) for name in _COLUMNS])
         header = table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        metrics = table.fontMetrics()
+        pad = spacing("xl", table)
+        table.setColumnWidth(
+            0,
+            max(metrics.horizontalAdvance(tr("When")), metrics.horizontalAdvance("00:00:00.000"))
+            + pad,
+        )
+        table.setColumnWidth(
+            1,
+            max(
+                metrics.horizontalAdvance(tr("Change")),
+                metrics.horizontalAdvance(tr("Identity swap")),
+            )
+            + pad,
+        )
+        table.setColumnWidth(
+            2,
+            max(metrics.horizontalAdvance(tr("Where")), metrics.horizontalAdvance("camera_00.mp4"))
+            + pad,
+        )
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         table.setEditTriggers(QTableWidget.EditTrigger.DoubleClicked)
         table.setAccessibleName(tr("Changes made in this session"))
@@ -242,31 +265,24 @@ class ChangesPanel(QGroupBox):
 
     def refresh(self) -> None:
         """Rebuild the table from every store holding a user-made change."""
+        if self._suppress_refresh:
+            return
         all_rows = sorted(
             self._annotation_rows() + self._correction_rows() + self._swap_rows(),
             # Unplaced rows sort last rather than to zero, where a fake time
             # would put them before everything that really happened first.
             key=lambda row: (row.t_master is None, row.t_master or 0.0, row.kind, row.where),
         )
-        wanted_kind = str(self.kind_filter.currentData() or "")
-        needle = self.search_edit.text().strip().lower()
-        self._rows = [
-            row
-            for row in all_rows
-            if (not wanted_kind or row.kind == tr(wanted_kind))
-            and (
-                not needle
-                or needle in row.detail.lower()
-                or needle in row.where.lower()
-                or needle in row.kind.lower()
-            )
-        ]
-        self._table.blockSignals(True)
+        self._all_rows = all_rows
+        self._search_keys = [f"{r.detail}\n{r.where}\n{r.kind}".lower() for r in all_rows]
+        unplaced_tip = tr("Waiting for this recording's tracking data to finish loading.")
+
+        was_enabled = self._table.updatesEnabled()
+        self._table.setUpdatesEnabled(False)
+        blocked = self._table.blockSignals(True)
         try:
-            self._table.setRowCount(0)
-            for row in self._rows:
-                position = self._table.rowCount()
-                self._table.insertRow(position)
+            self._table.setRowCount(len(all_rows))
+            for position, row in enumerate(all_rows):
                 cells = (self._when(row), row.kind, row.where, row.detail)
                 for column, text in enumerate(cells):
                     item = QTableWidgetItem(text)
@@ -274,19 +290,46 @@ class ChangesPanel(QGroupBox):
                     if not editable:
                         item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                     if row.t_master is None:
-                        item.setToolTip(
-                            tr("Waiting for this recording's tracking data to finish loading.")
-                        )
+                        item.setToolTip(unplaced_tip)
                     self._table.setItem(position, column, item)
         finally:
-            self._table.blockSignals(False)
+            self._table.blockSignals(blocked)
+            self._table.setUpdatesEnabled(was_enabled)
         self._empty.setVisible(not all_rows)
         self._table.setVisible(bool(all_rows))
+        self._apply_search_filter()
+
+    def _apply_search_filter(self) -> None:
+        """Hide non-matching rows in place without re-resolving or rebuilding items."""
+        wanted_code = str(self.kind_filter.currentData() or "")
+        wanted_kind = tr(wanted_code) if wanted_code else ""
+        needle = self.search_edit.text().strip().lower()
+        visible_rows: list[ChangeRow] = []
+
+        was_enabled = self._table.updatesEnabled()
+        self._table.setUpdatesEnabled(False)
+        blocked = self._table.blockSignals(True)
+        try:
+            for position, (row, search_key) in enumerate(
+                zip(self._all_rows, self._search_keys, strict=True)
+            ):
+                matches = (not wanted_kind or row.kind == wanted_kind) and (
+                    not needle or needle in search_key
+                )
+                self._table.setRowHidden(position, not matches)
+                if matches:
+                    visible_rows.append(row)
+        finally:
+            self._table.blockSignals(blocked)
+            self._table.setUpdatesEnabled(was_enabled)
+        self._rows = visible_rows
         self._update_delete()
 
     def _update_delete(self) -> None:
-        """Offer Delete only with a row selected; it did nothing otherwise (D-214)."""
-        selected = bool(self._table.selectedIndexes())
+        """Offer Delete only with a visible row selected (D-214)."""
+        selected = any(
+            not self._table.isRowHidden(idx.row()) for idx in self._table.selectedIndexes()
+        )
         self._delete_button.setEnabled(selected)
         self._delete_button.setToolTip(
             tr("Remove the selected annotation, correction, or identity swap")
@@ -374,12 +417,16 @@ class ChangesPanel(QGroupBox):
     # ── interaction ──────────────────────────────────────────────────
 
     def _selected_row(self) -> ChangeRow | None:
-        rows = {index.row() for index in self._table.selectedIndexes()}
+        rows = {
+            index.row()
+            for index in self._table.selectedIndexes()
+            if not self._table.isRowHidden(index.row())
+        }
         if len(rows) != 1:
             return None
         position = rows.pop()
-        if 0 <= position < len(self._rows):
-            return self._rows[position]
+        if 0 <= position < len(self._all_rows):
+            return self._all_rows[position]
         return None
 
     def _on_selection_changed(self) -> None:
@@ -388,33 +435,51 @@ class ChangesPanel(QGroupBox):
         if row is not None:
             self.revisit_requested.emit(row)
 
-    def _on_delete(self) -> None:
-        """Remove whatever is selected, through whichever store owns it.
+    def _delete_selected(self) -> None:
+        """Remove selected visible changes while coalescing intermediate rebuilds."""
+        selected_rows = sorted(
+            {
+                index.row()
+                for index in self._table.selectedIndexes()
+                if 0 <= index.row() < len(self._all_rows)
+                and not self._table.isRowHidden(index.row())
+            },
+            reverse=True,
+        )
+        if not selected_rows:
+            return
+        changes = [self._all_rows[row] for row in selected_rows]
+        marker_indices = [c.marker_index for c in changes if c.marker_index is not None]
 
-        Rows are taken highest-first: removing an annotation shifts every marker
-        index after it, so deleting a multi-row selection from the top would
-        remove the wrong ones.
-        """
-        selected = sorted({index.row() for index in self._table.selectedIndexes()}, reverse=True)
-        for row in selected:
-            if not 0 <= row < len(self._rows):
-                continue
-            change = self._rows[row]
-            if change.marker_index is not None:
-                self._annotations.remove(change.marker_index)
-            elif change.point is not None:
-                self.delete_correction_requested.emit(change.point)
-            elif change.swap is not None:
-                self.delete_swap_requested.emit(change.swap_source_id, change.swap)
+        self._suppress_refresh = True
+        try:
+            remove_indices = getattr(self._annotations, "remove_indices", None)
+            if marker_indices and callable(remove_indices):
+                remove_indices(marker_indices)
+            else:
+                for idx in sorted(marker_indices, reverse=True):
+                    self._annotations.remove(idx)
+            for change in changes:
+                if change.point is not None:
+                    self.delete_correction_requested.emit(change.point)
+                elif change.swap is not None:
+                    self.delete_swap_requested.emit(change.swap_source_id, change.swap)
+        finally:
+            self._suppress_refresh = False
+        self.refresh()
+
+    def _on_delete(self) -> None:
+        """Remove whatever is selected, through whichever store owns it."""
+        self._delete_selected()
 
     def _on_item_changed(self, item: QTableWidgetItem) -> None:
         """Apply an edited annotation label; corrections have none to edit."""
         if item.column() != 3:
             return
         row = item.row()
-        if not 0 <= row < len(self._rows):
+        if not 0 <= row < len(self._all_rows):
             return
-        change = self._rows[row]
+        change = self._all_rows[row]
         if change.marker_index is not None and item.text() != change.label:
             self._annotations.set_label(change.marker_index, item.text())
 

@@ -9,6 +9,7 @@ from collections.abc import Iterator
 import numpy as np
 from PySide6.QtCore import QObject, Signal, Slot
 
+from avialsync.core.alignment import MAX_PROPOSAL_MATCHES, subsample_matches
 from avialsync.core.errors import SyncEvidenceError
 from avialsync.core.pyramid import RAW_CHUNK_SAMPLES, PyramidReader
 from avialsync.core.sync import (
@@ -144,12 +145,15 @@ class SyncWorker(QObject):
                     target_span=self._target_span(),
                 )
             proposal = self._record_restriction(proposal)
+            display = prepare_display_summary(proposal)
+            if len(proposal.matches) > MAX_PROPOSAL_MATCHES:
+                proposal = dataclasses.replace(
+                    proposal, matches=subsample_matches(proposal.matches, MAX_PROPOSAL_MATCHES)
+                )
             proposal = self._record_reference_clock(proposal, mapping)
             self._check_cancel()
             self.progress.emit(85)
-            self.finished.emit(
-                dataclasses.replace(proposal, display=prepare_display_summary(proposal))
-            )
+            self.finished.emit(dataclasses.replace(proposal, display=display))
             self.progress.emit(100)
         except Exception as error:
             if self._cancel_requested.is_set():
@@ -219,6 +223,7 @@ class SyncWorker(QObject):
                 precision_requirement=self._precision_requirement,
                 is_cancelled=self._cancel_requested.is_set,
                 target_span=target_span,
+                precomputed_linear=proposal,
             )
         if method is AlignmentMethod.SHIFT:
             # The rate the affine fit produced is not reportable over this span;
@@ -538,6 +543,11 @@ class SyncWorker(QObject):
             self._observation_resolution,
             self._target_span(),
         )
+        display = prepare_display_summary(proposal)
+        if len(proposal.matches) > MAX_PROPOSAL_MATCHES:
+            proposal = dataclasses.replace(
+                proposal, matches=subsample_matches(proposal.matches, MAX_PROPOSAL_MATCHES)
+            )
         proposal = self._record_reference_clock(proposal, mapping)
         self._check_cancel()
-        self.finished.emit(dataclasses.replace(proposal, display=prepare_display_summary(proposal)))
+        self.finished.emit(dataclasses.replace(proposal, display=display))

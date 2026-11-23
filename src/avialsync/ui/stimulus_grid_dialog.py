@@ -33,6 +33,8 @@ from avialsync.ui.playback_rates import PLAYBACK_RATE_STEPS, rate_label
 from avialsync.ui.stimulus_grid_rows import GridRowsPanel
 from avialsync.ui.tables import ThemedTable
 
+_MAX_DISPLAYED_EVENTS = 500
+
 
 @dataclass(frozen=True)
 class StimulusChannelOption:
@@ -61,7 +63,8 @@ class StimulusGridDialog(QDialog):
         self.setWindowTitle(tr("Export Stimulus Grid"))
         self.setMinimumSize(1100 if rows is not None else 820, 640)
         self._channels = channels
-        self._events: tuple[float, ...] = ()
+        self._events: np.ndarray = np.empty(0, dtype=np.float64)
+        self._selected_indices: set[int] = set()
         self._scan_worker: StimulusEventScanWorker | None = None
         self._updating_events = False
         self._preview: (
@@ -280,17 +283,13 @@ class StimulusGridDialog(QDialog):
 
     def selected_events(self) -> tuple[float, ...]:
         """Return checked event times in chronological order."""
-        selected: list[float] = []
-        for row in range(self.event_table.rowCount()):
-            check = self.event_table.item(row, 0)
-            value = self.event_table.item(row, 1)
-            if (
-                check is not None
-                and value is not None
-                and check.checkState() == Qt.CheckState.Checked
-            ):
-                selected.append(float(cast(float, value.data(Qt.ItemDataRole.UserRole))))
-        return tuple(selected)
+        if not self._selected_indices or len(self._events) == 0:
+            return ()
+        return tuple(
+            float(self._events[index])
+            for index in sorted(self._selected_indices)
+            if 0 <= index < len(self._events)
+        )
 
     def playback_speed(self) -> float:
         """Return the selected source-time multiplier for the encoded movie."""
@@ -323,30 +322,46 @@ class StimulusGridDialog(QDialog):
     @Slot(object)
     def set_events(self, value: object) -> None:
         """Display completed event times and select the first event by default."""
-        if not isinstance(value, (tuple, list)):
+        if not isinstance(value, (tuple, list, np.ndarray)):
             self.set_scan_error("")
             return
-        self._events = tuple(float(time) for time in value)
+        self._events = np.asarray(value, dtype=np.float64)
+        total = int(len(self._events))
+        self._selected_indices = set(range(min(total, MAX_GRID_EVENTS)))
+        displayed = min(total, _MAX_DISPLAYED_EVENTS)
         self._updating_events = True
-        self.event_table.setRowCount(len(self._events))
-        for row, event_time in enumerate(self._events):
-            use = QTableWidgetItem()
-            use.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
-            use.setCheckState(
-                Qt.CheckState.Checked if row < MAX_GRID_EVENTS else Qt.CheckState.Unchecked
-            )
-            time_item = QTableWidgetItem(f"{event_time:.3f}")
-            time_item.setData(Qt.ItemDataRole.UserRole, event_time)
-            time_item.setFlags(time_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            self.event_table.setItem(row, 0, use)
-            self.event_table.setItem(row, 1, time_item)
-        self._updating_events = False
+        self.event_table.setUpdatesEnabled(False)
+        try:
+            self.event_table.setRowCount(displayed)
+            for row in range(displayed):
+                event_time = float(self._events[row])
+                use = QTableWidgetItem()
+                use.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
+                use.setCheckState(
+                    Qt.CheckState.Checked
+                    if row in self._selected_indices
+                    else Qt.CheckState.Unchecked
+                )
+                time_item = QTableWidgetItem(f"{event_time:.3f}")
+                time_item.setData(Qt.ItemDataRole.UserRole, event_time)
+                time_item.setFlags(time_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.event_table.setItem(row, 0, use)
+                self.event_table.setItem(row, 1, time_item)
+        finally:
+            self.event_table.setUpdatesEnabled(True)
+            self._updating_events = False
         self._scan_worker = None
         self._set_scanning(False)
-        if self._events:
+        if total > _MAX_DISPLAYED_EVENTS:
+            self.scan_status.setText(
+                tr(
+                    "Found {count} rising events (showing first {shown}). Select up to {limit}."
+                ).format(count=total, shown=displayed, limit=MAX_GRID_EVENTS)
+            )
+        elif total > 0:
             self.scan_status.setText(
                 tr("Found {count} rising events. Select up to {limit}.").format(
-                    count=len(self._events), limit=MAX_GRID_EVENTS
+                    count=total, limit=MAX_GRID_EVENTS
                 )
             )
         else:
@@ -376,10 +391,15 @@ class StimulusGridDialog(QDialog):
         self.min_interval_spin.setEnabled(not scanning)
 
     def _clear_events(self) -> None:
-        self._events = ()
+        self._events = np.empty(0, dtype=np.float64)
+        self._selected_indices.clear()
         self._updating_events = True
-        self.event_table.setRowCount(0)
-        self._updating_events = False
+        self.event_table.setUpdatesEnabled(False)
+        try:
+            self.event_table.setRowCount(0)
+        finally:
+            self.event_table.setUpdatesEnabled(True)
+            self._updating_events = False
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
         self.event_details.setText(tr("Scan the channel to see the first event and its window."))
         self._refresh_timeline()
@@ -421,16 +441,25 @@ class StimulusGridDialog(QDialog):
     def _event_selection_changed(self, _item: QTableWidgetItem | None = None) -> None:
         if self._updating_events:
             return
+        if _item is not None and _item.column() == 0:
+            row = _item.row()
+            if _item.checkState() == Qt.CheckState.Checked:
+                if row not in self._selected_indices and len(self._selected_indices) >= (
+                    MAX_GRID_EVENTS
+                ):
+                    self._updating_events = True
+                    try:
+                        _item.setCheckState(Qt.CheckState.Unchecked)
+                    finally:
+                        self._updating_events = False
+                    self.scan_status.setText(
+                        tr("Choose no more than {count} events.").format(count=MAX_GRID_EVENTS)
+                    )
+                else:
+                    self._selected_indices.add(row)
+            else:
+                self._selected_indices.discard(row)
         selected = self.selected_events()
-        if len(selected) > MAX_GRID_EVENTS:
-            self._updating_events = True
-            if _item is not None and _item.checkState() == Qt.CheckState.Checked:
-                _item.setCheckState(Qt.CheckState.Unchecked)
-            self._updating_events = False
-            selected = self.selected_events()
-            self.scan_status.setText(
-                tr("Choose no more than {count} events.").format(count=MAX_GRID_EVENTS)
-            )
         self._update_event_details(selected)
         self._refresh_rows()
         self._refresh_timeline()
@@ -457,15 +486,21 @@ class StimulusGridDialog(QDialog):
         if not self._channels:
             return
         reader = self.channel_option().reader
+        preview_times: np.ndarray | None = None
+        mid_values: np.ndarray | None = None
+        preview_bounds: tuple[float, float] | None = None
         if self._preview is not None:
             bounds, times, low, high, gaps = self._preview
+            preview_bounds = bounds
+            preview_times = np.asarray(times, dtype=np.float64)
             low_values = np.asarray(low, dtype=np.float64).copy()
             high_values = np.asarray(high, dtype=np.float64).copy()
             gap_mask = np.asarray(gaps, dtype=bool)
             low_values[gap_mask] = np.nan
             high_values[gap_mask] = np.nan
-            self.timeline.plot(times, low_values, pen=pg.mkPen("#3d806c", width=1))
-            self.timeline.plot(times, high_values, pen=pg.mkPen("#65b39b", width=1))
+            mid_values = 0.5 * (low_values + high_values)
+            self.timeline.plot(preview_times, low_values, pen=pg.mkPen("#3d806c", width=1))
+            self.timeline.plot(preview_times, high_values, pen=pg.mkPen("#65b39b", width=1))
             self.timeline.setXRange(bounds[0], bounds[1], padding=0.01)
         threshold = pg.InfiniteLine(
             pos=self.threshold_spin.value(), angle=0, pen=pg.mkPen("#d78342", width=1)
@@ -473,8 +508,22 @@ class StimulusGridDialog(QDialog):
         self.timeline.addItem(threshold)
         selected = self.selected_events()
         if selected:
-            samples = [(time, reader.available_sample_at(time)) for time in selected]
-            available = [(time, sample[1]) for time, sample in samples if sample is not None]
+            if (
+                preview_times is not None
+                and mid_values is not None
+                and preview_bounds is not None
+                and len(preview_times) > 0
+            ):
+                sel_arr = np.asarray(selected, dtype=np.float64)
+                in_bounds = (sel_arr >= preview_bounds[0]) & (sel_arr <= preview_bounds[1])
+                interp_y = np.interp(sel_arr, preview_times, mid_values)
+                valid = in_bounds & np.isfinite(interp_y)
+                available = list(
+                    zip(sel_arr[valid].tolist(), interp_y[valid].tolist(), strict=True)
+                )
+            else:
+                samples = [(time, reader.available_sample_at(time)) for time in selected]
+                available = [(time, sample[1]) for time, sample in samples if sample is not None]
             if available:
                 markers = pg.ScatterPlotItem(
                     x=[time for time, _value in available],

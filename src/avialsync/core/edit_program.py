@@ -154,8 +154,7 @@ def build(
     *points* is the source's full point list, used only to keep the fingerprint
     stable when a group's membership changes without any edit changing.
     """
-    boundaries = swaps.boundaries(source_id)
-    maps = tuple(swaps.point_sources(source_id, boundary) for boundary in boundaries)
+    boundaries, maps = swaps.boundary_point_sources(source_id)
     edits = {
         (point, index): (x, y) for index, point, x, y, _shown in corrections.for_source(source_id)
     }

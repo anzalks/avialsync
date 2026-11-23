@@ -339,7 +339,8 @@ class TimeWarp:
     def __init__(self, gaps: Sequence[Span] = ()) -> None:
         self.gaps: tuple[Span, ...] = tuple(sorted((float(a), float(b)) for a, b in gaps if b > a))
         self._starts = np.asarray([a for a, _b in self.gaps], dtype=np.float64)
-        self._removed = np.cumsum([b - a for a, b in self.gaps], dtype=np.float64)
+        self._ends = np.asarray([b for _a, b in self.gaps], dtype=np.float64)
+        self._removed = np.cumsum(self._ends - self._starts, dtype=np.float64)
         # A gap's start in view time: where the break is drawn.
         self._breaks = self._starts - np.concatenate(([0.0], self._removed[:-1]))
 
@@ -393,7 +394,7 @@ class TimeWarp:
             return times
         index = np.searchsorted(self._starts, times, side="right") - 1
         safe = np.maximum(index, 0)
-        ends = np.asarray([b for _a, b in self.gaps], dtype=np.float64)[safe]
+        ends = self._ends[safe]
         removed = self._removed[safe]
         view = np.where(times < ends, self._breaks[safe], times - removed)
         return np.where(index < 0, times, view)

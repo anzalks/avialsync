@@ -176,6 +176,49 @@ def _renamed_scorers(scorers: list[str]) -> list[str]:
     return marked
 
 
+def _compile_routes(
+    columns: dict[tuple[str, str], int],
+    routes: tuple[tuple[int, Mapping[str, str]], ...],
+) -> tuple[list[int], tuple[tuple[tuple[int, int], ...], ...]]:
+    """Precompute ``(dst_col, src_col)`` integer index pairs once per routing interval."""
+    if not routes:
+        return [], ()
+    fields_by_point: dict[str, dict[str, int]] = {}
+    for (point, field), col_idx in columns.items():
+        fields_by_point.setdefault(point, {})[field] = col_idx
+    boundaries = [boundary for boundary, _ in routes]
+    compiled: list[tuple[tuple[int, int], ...]] = []
+    for _boundary, route in routes:
+        pairs: list[tuple[int, int]] = []
+        for display, data in route.items():
+            if display == data:
+                continue
+            d_cols = fields_by_point.get(display)
+            s_cols = fields_by_point.get(data)
+            if d_cols is None or s_cols is None:
+                continue
+            for field, dst_idx in d_cols.items():
+                src_idx = s_cols.get(field)
+                if src_idx is not None and dst_idx != src_idx:
+                    pairs.append((dst_idx, src_idx))
+        compiled.append(tuple(pairs))
+    return boundaries, tuple(compiled)
+
+
+def _apply_compiled_remap(row: list[str], pairs: tuple[tuple[int, int], ...]) -> bool:
+    """Apply precomputed ``(dst_col, src_col)`` column permutation to one CSV *row*."""
+    if not pairs:
+        return False
+    row_len = len(row)
+    staged = [(dst, row[src]) for dst, src in pairs if dst < row_len and src < row_len]
+    moved = False
+    for dst, value in staged:
+        if row[dst] != value:
+            moved = True
+            row[dst] = value
+    return moved
+
+
 def _stream(
     reader: Iterator[list[str]],
     temporary: Path,
@@ -190,7 +233,7 @@ def _stream(
     corrected_points = 0
     swapped_rows = 0
     seen_frames: set[int] = set()
-    boundaries = [boundary for boundary, _ in routes]
+    boundaries, compiled_routes = _compile_routes(columns, routes)
 
     with open(temporary, "w", newline="", encoding="utf-8") as out:
         writer = csv.writer(out)
@@ -207,9 +250,10 @@ def _stream(
                     if replaced:
                         corrected_rows += 1
                         corrected_points += replaced
-                route = _route_at(routes, boundaries, frame)
-                if route and _reroute(row, columns, route):
-                    swapped_rows += 1
+                if boundaries and frame >= boundaries[0]:
+                    pairs = compiled_routes[bisect.bisect_right(boundaries, frame) - 1]
+                    if pairs and _apply_compiled_remap(row, pairs):
+                        swapped_rows += 1
             writer.writerow(row)
 
     return CorrectedCopyReport(
@@ -238,25 +282,8 @@ def _reroute(row: list[str], columns: dict[tuple[str, str], int], route: Mapping
     Read wholly before anything is written: a swap is a cycle, and writing as
     it goes would hand the second point what the first had just been given.
     """
-    involved = {*route, *route.values()}
-    fields = {field for point, field in columns if point in involved}
-    held = {
-        (point, field): row[position]
-        for point in involved
-        for field in fields
-        if (position := columns.get((point, field))) is not None and position < len(row)
-    }
-    moved = False
-    for display, data in route.items():
-        for field in fields:
-            position = columns.get((display, field))
-            value = held.get((data, field))
-            if position is None or value is None or position >= len(row):
-                continue
-            if row[position] != value:
-                moved = True
-            row[position] = value
-    return moved
+    _, compiled = _compile_routes(columns, ((0, route),))
+    return _apply_compiled_remap(row, compiled[0]) if compiled else False
 
 
 def _frame_of(row: list[str]) -> int | None:

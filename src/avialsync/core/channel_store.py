@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import weakref
 from dataclasses import dataclass
@@ -53,6 +54,14 @@ _SHARED_MEMMAPS: weakref.WeakValueDictionary[_MemmapKey, _SharedMemmap] = (
     weakref.WeakValueDictionary()
 )
 
+#: Small cached arrays (grids, coarse pyramid levels, short traces) are read
+#: straight into memory so plotting thousands of channels does not hold open
+#: thousands of persistent mmap file descriptors.
+_MMAP_THRESHOLD_BYTES = 65_536
+
+_UNSAFE_STEM_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f\x7f%]')
+_BARE_PERCENT_RE = re.compile(r"%(?![0-9A-F]{2})")
+
 __all__ = [
     "ExternalArray",
     "InPlaceChannel",
@@ -63,6 +72,7 @@ __all__ = [
     "load_layout",
     "read_level",
     "read_time_bounds",
+    "safe_channel_stem",
     "safe_save",
     "write_layout",
     "write_times",
@@ -73,9 +83,53 @@ LAYOUT_SUFFIX = "_layout.json"
 Column = np.ndarray | LazyColumn
 
 
+def safe_channel_stem(channel: str) -> str:
+    """Return a deterministic, collision-free filesystem stem for *channel*.
+
+    Names without path separators, wildcards, control bytes, ``%`` or trailing
+    dots/spaces are returned unchanged so existing cache entries remain
+    byte-for-byte identical.
+    """
+    if not channel:
+        return "%~"
+    if not _UNSAFE_STEM_RE.search(channel) and channel[-1] not in (".", " "):
+        return channel
+    parts: list[str] = []
+    last = len(channel) - 1
+    for idx, ch in enumerate(channel):
+        code = ord(ch)
+        if ch in '<>:"/\\|?*%' or code < 0x20 or code == 0x7F or (idx == last and ch in (".", " ")):
+            parts.append(f"%{code:02X}")
+        else:
+            parts.append(ch)
+    return "".join(parts)
+
+
+def _ensure_safe_stem(stem: str) -> str:
+    """Encode raw channel names while leaving already-encoded stems untouched."""
+    if stem == "%~":
+        return stem
+    if not stem or stem[-1] in (".", " "):
+        return safe_channel_stem(stem)
+    if re.search(r'[<>:"/\\|?*\x00-\x1f\x7f]', stem) or _BARE_PERCENT_RE.search(stem):
+        return safe_channel_stem(stem)
+    return stem
+
+
+def _load_npy(path: Path) -> np.ndarray:
+    """Load small ``.npy`` files into RAM; mmap larger columns read-only."""
+    if path.stat().st_size <= _MMAP_THRESHOLD_BYTES:
+        loaded: np.ndarray = np.load(path, mmap_mode=None, allow_pickle=False)
+        loaded.flags.writeable = False
+        return loaded
+    mapped: np.ndarray = np.load(path, mmap_mode="r", allow_pickle=False)
+    return mapped
+
+
 def level_stem(channel: str, level: int) -> str:
-    """``{channel}`` for level 1, ``{channel}_pyr_{level}`` above it."""
-    return channel if level == 1 else f"{channel}_pyr_{level}"
+    """``{stem}`` for level 1, ``{stem}_pyr_{level}`` above it."""
+    stem = safe_channel_stem(channel)
+    return stem if level == 1 else f"{stem}_pyr_{level}"
 
 
 @dataclass(frozen=True)
@@ -217,11 +271,13 @@ def write_layout(directory: Path, channel: str, layout: Layout) -> None:
         payload["values"] = layout.values.as_dict()
     if layout.times is not None:
         payload["times"] = layout.times.as_dict()
-    (directory / f"{channel}{LAYOUT_SUFFIX}").write_text(json.dumps(payload), encoding="utf-8")
+    stem = safe_channel_stem(channel)
+    (directory / f"{stem}{LAYOUT_SUFFIX}").write_text(json.dumps(payload), encoding="utf-8")
 
 
 def load_layout(directory: Path, channel: str) -> Layout:
-    path = directory / f"{channel}{LAYOUT_SUFFIX}"
+    stem = safe_channel_stem(channel)
+    path = directory / f"{stem}{LAYOUT_SUFFIX}"
     if not path.is_file():
         return Layout()
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -260,10 +316,11 @@ def safe_save(path: Path, arr: np.ndarray) -> None:
 
 def write_times(directory: Path, stem: str, times: Any) -> None:
     """Store *times* as a grid record when it is one, else as an array."""
+    safe_stem = _ensure_safe_stem(stem)
     if isinstance(times, RegularTimes):
-        safe_save(directory / f"{stem}_tgrid.npy", times.as_record())
+        safe_save(directory / f"{safe_stem}_tgrid.npy", times.as_record())
     else:
-        safe_save(directory / f"{stem}_t.npy", np.asarray(times, dtype=np.float64))
+        safe_save(directory / f"{safe_stem}_t.npy", np.asarray(times, dtype=np.float64))
 
 
 def _times(directory: Path, stem: str, layout: Layout, level: int) -> Column:
@@ -272,8 +329,7 @@ def _times(directory: Path, stem: str, layout: Layout, level: int) -> Column:
         return RegularTimes.from_record(np.load(grid, allow_pickle=False))
     if level == 1 and layout.times is not None:
         return layout.times.open()
-    loaded: np.ndarray = np.load(directory / f"{stem}_t.npy", mmap_mode="r", allow_pickle=False)
-    return loaded
+    return _load_npy(directory / f"{stem}_t.npy")
 
 
 def _values(array: np.ndarray, layout: Layout) -> Column:
@@ -288,8 +344,7 @@ def _values(array: np.ndarray, layout: Layout) -> Column:
 def _gaps(directory: Path, stem: str, length: int) -> np.ndarray:
     path = directory / f"{stem}_gap.npy"
     if path.is_file():
-        loaded: np.ndarray = np.load(path, mmap_mode="r", allow_pickle=False)
-        return loaded
+        return _load_npy(path)
     return no_gaps(length)
 
 
@@ -332,8 +387,11 @@ def columns_intact(
     try:
         if present is None:
             present = {entry.name for entry in os.scandir(directory)}
+        base_stem = safe_channel_stem(channel)
         layout = (
-            load_layout(directory, channel) if f"{channel}{LAYOUT_SUFFIX}" in present else Layout()
+            load_layout(directory, channel)
+            if f"{base_stem}{LAYOUT_SUFFIX}" in present
+            else Layout()
         )
         if not all(item.intact() for item in (layout.values, layout.times) if item is not None):
             return False
@@ -403,16 +461,12 @@ def read_level(
         raw = (
             resolved.values.open()
             if resolved.values is not None
-            else np.load(directory / f"{stem}_v.npy", mmap_mode="r", allow_pickle=False)
+            else _load_npy(directory / f"{stem}_v.npy")
         )
         values = _values(raw, resolved)
         return times, values, values, _gaps(directory, stem, len(times))
-    vmin = _values(
-        np.load(directory / f"{stem}_vmin.npy", mmap_mode="r", allow_pickle=False), resolved
-    )
-    vmax = _values(
-        np.load(directory / f"{stem}_vmax.npy", mmap_mode="r", allow_pickle=False), resolved
-    )
+    vmin = _values(_load_npy(directory / f"{stem}_vmin.npy"), resolved)
+    vmax = _values(_load_npy(directory / f"{stem}_vmax.npy"), resolved)
     if sum(scale < 0 for scale in resolved.scales) % 2:
         # A decreasing unit conversion reverses the stored extrema. Swap views;
         # the raw envelope and its source samples remain untouched.

@@ -39,6 +39,23 @@ full history is in git. Versions follow the tags in the repository.
 - Internal: the main window is composed of focused modules; behaviour is unchanged (D-248).
 
 ### Fixed
+- Full-scale multi-thousand-channel, multi-hour 50 kHz, multi-trial, and 16-camera sessions stay
+  correct and responsive across import, alignment, editing, playback, export, and session
+  persistence: sidebar group checkboxes batch as a single undoable command without `AutoTristate`
+  leaf storms or channel-description ID mixups; `SyncWizard` preserves distinct target channels on
+  multi-channel sources; `MessageStore` retains nonlinear exact/piecewise `TimeMap`s; opening a
+  `.avv` or recovery snapshot resets the prior workspace first, while content-addressed
+  `exact-sync-*.npz` sidecars reuse unchanged arrays, prune superseded files, and survive untitled
+  recovery; `safe_channel_stem` supports `/` and Windows-unsafe channel names while `ChannelStage`,
+  `in_place_import`, `channel_store`, `edit_cache`, and export workers bound open file descriptors;
+  `extract_pulses` is vectorized and `TriggerCSVSource` streams chunks; `EditProgram.build` scales
+  in `O(N × P)` across thousands of identity swaps; plot and `TimelineOverview` overlays binary-search
+  visible spans, skip culled rows, and coalesce dense ticks; 3D suspect-frame scans include Z-axis
+  jumps with unit-adaptive thresholds and cancellation; `infer_skeleton` supports up to 256 points;
+  prop/wheel encoder lookups are `O(1)`; `PyAVReader` bounds per-stream decode threads and frame-cache
+  bytes; and wide dialogs/panels (`MessagePanel`, `ChangesPanel`, `BatchImportDialog`,
+  `ImportWizard`, `TriggerEvidenceDialog`, `StimulusGridDialog`, `SensorPropertiesPanel`) avoid
+  `ResizeToContents` and per-keystroke rebuild stalls (D-087, D-088, D-107, D-170, D-201, D-216).
 - Multi-hundred-ROI NWB and dense multi-plot sessions stay responsive throughout loading,
   playback, scrubbing, measurement, and mode switching: in-place `ExternalArray` columns share a
   single read-only `np.memmap` per dataset, `PyramidReader` caches channel layouts, `NWBRoiGridSource`

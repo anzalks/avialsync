@@ -1691,13 +1691,15 @@ class MainWindow(QMainWindow):
         )
 
     def _record_marker_added(self, index: int) -> None:
-        markers = self.annotation_store.markers
+        if self.session_runtime.restoring:
+            return
+        markers = self.annotation_store._markers
         if not 0 <= index < len(markers):
             return
         self._record(AddMarkerCommand(marker_record(markers[index], index)))
 
     def _record_marker_removed(self, index: int, marker: object) -> None:
-        if not isinstance(marker, Marker):
+        if self.session_runtime.restoring or not isinstance(marker, Marker):
             return
         # Hold the marker itself, not just its description: undo must restore
         # the same object, keeping its colour index and per-video frame

@@ -75,13 +75,21 @@ class RecoveryWriteWorker(QObject):
         """Encode the captured session state and write it when still current."""
         try:
             encoded = self._state.to_dict()
+            exact_pairs = self._state.exact_pairs()
             if self._should_commit is not None and not self._should_commit():
                 self.finished.emit(False)
                 return
             if recovery.is_empty_state(encoded):
                 self.finished.emit(False)
                 return
-            self.finished.emit(recovery.write_recovery(encoded, None))
+            self.finished.emit(
+                recovery.write_recovery(
+                    encoded,
+                    None,
+                    exact_pairs=exact_pairs,
+                    should_commit=self._should_commit,
+                )
+            )
         except Exception as error:  # noqa: BLE001 - recovery autosave must never crash playback
             self.error.emit(str(error))
 

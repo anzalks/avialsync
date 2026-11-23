@@ -13,7 +13,7 @@ from PySide6.QtCore import QEvent, Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QAccessible, QAction, QCloseEvent, QResizeEvent
 from PySide6.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
 
-from avialsync.core.channel_reader import ChannelKey
+from avialsync.core.channel_reader import ChannelKey, MappedChannelReader
 from avialsync.core.timeline import TimeMap
 from avialsync.core.trials import TimeWarp
 from avialsync.engine.plot_page_worker import PlotPage, PlotPageWorker, PlotRowRequest
@@ -82,6 +82,9 @@ _CURSOR_REPAINT_SLACK_S = 1.0 / 120.0
 _ROW_BUILD_SLICE_S = 0.008
 #: A plot page job is shown in the status bar only once it has run this long.
 _PAGE_ANNOUNCE_S = 0.5
+#: Above 64 visible stacked rows on a shown pane, offscreen culled rows defer
+#: pyramid queries until scrolled into view; smaller stacks load whole.
+_CULLED_PAGE_SKIP_THRESHOLD = 64
 
 #: Every budget in this module is a fraction of a frame, so they are timed on
 #: `perf_counter`, never `time.monotonic`. On Windows `monotonic` is
@@ -248,6 +251,8 @@ class PlotPane(QWidget):
         self._pending_pinned: set[tuple[str, str]] = set()
         # The rows the page in flight was requested for, by request index.
         self._requested_rows: tuple[ChannelPlot, ...] = ()
+        self._requested_keys: tuple[tuple[object, ...] | None, ...] = ()
+        self._scroll_only_pending = False
         # Worst observed cost of one row, used to stop a slice before the next
         # row would overrun its budget rather than after one already has.
         self._row_build_cost_s = 0.0
@@ -256,6 +261,9 @@ class PlotPane(QWidget):
         # State
         # One TimeMap per source cache dir, shared by all of that source's rows.
         self._source_time_maps: dict[Path, TimeMap] = {}
+        self._readers_by_cache_and_id: dict[tuple[Path, str], MappedChannelReader] = {}
+        self._first_reader_by_cache: dict[Path, MappedChannelReader] = {}
+        self._source_raw_bounds: dict[Path, tuple[float, float]] = {}
         # Units arrive once, when the import finishes, but rows are built in
         # slices across later event-loop turns; kept here so a row built after
         # the units arrived still gets its own.
@@ -469,6 +477,8 @@ class PlotPane(QWidget):
             if self._master_plot is None and visible:
                 self._master_plot = channel.plot_item
             self.channels.append(channel)
+            self._readers_by_cache_and_id[(cache_dir, name)] = channel.reader
+            self._first_reader_by_cache.setdefault(cache_dir, channel.reader)
             self._index_cache = None
             self._label_axis(channel)
             # Laid out after it is built and moved whenever a row above it
@@ -532,7 +542,12 @@ class PlotPane(QWidget):
             self._index_cache = None
             # The rows of a page still in flight hold their readers' memory maps.
             self._requested_rows = ()
+            self._requested_keys = ()
+            self._scroll_only_pending = False
             self._source_time_maps.clear()
+            self._readers_by_cache_and_id.clear()
+            self._first_reader_by_cache.clear()
+            self._source_raw_bounds.clear()
             self._units.clear()
             self._pending_pinned.clear()
             self._interactions.clear_gap_markers()
@@ -619,6 +634,7 @@ class PlotPane(QWidget):
         for channel in self.channels:
             if channel.reader.cache_dir == cache_dir:
                 channel.coverage_bounds = channel.reader.coverage()
+                channel._loaded_page_key = None  # type: ignore[attr-defined]
         self.update_plots()
         self._interactions.redraw_annotations()
 
@@ -631,27 +647,88 @@ class PlotPane(QWidget):
         for channel in self.channels:
             if channel.reader.cache_dir == cache_dir:
                 channel.coverage_bounds = channel.reader.coverage()
+                channel._loaded_page_key = None  # type: ignore[attr-defined]
         if self.channels:
             self.update_plots()
 
     def source_mapping(self, cache_dir: Path) -> tuple[float, float]:
         """Return the ``(offset, drift_ms_per_hour)`` currently applied to a source."""
-        time_map = self._source_time_maps.get(cache_dir)
+        time_map = self.source_time_map(cache_dir)
         if time_map is None:
             return 0.0, 0.0
         return time_map.offset, time_map.drift_ms_per_hour
 
+    def reader_for(self, cache_dir: Path, channel_id: str) -> MappedChannelReader | None:
+        """Return the ``MappedChannelReader`` for ``(cache_dir, channel_id)`` in O(1)."""
+        self._channel_maps()
+        return self._readers_by_cache_and_id.get((cache_dir, channel_id))
+
+    def source_time_map(self, cache_dir: Path) -> TimeMap | None:
+        """Return the shared ``TimeMap`` for *cache_dir* in O(1), or ``None``."""
+        self._channel_maps()
+        first = self._first_reader_by_cache.get(cache_dir)
+        if first is not None:
+            return first.time_map
+        return self._source_time_maps.get(cache_dir)
+
+    def record_source_raw_bounds(self, cache_dir: Path, raw_bounds: tuple[float, float]) -> None:
+        """Record unmapped ``(t0, t1)`` bounds for *cache_dir* so ``source_bounds`` stays O(1)."""
+        if len(raw_bounds) == 2 and math.isfinite(raw_bounds[0]) and math.isfinite(raw_bounds[1]):
+            self._source_raw_bounds[cache_dir] = (float(raw_bounds[0]), float(raw_bounds[1]))
+
     def source_bounds(self, cache_dir: Path) -> tuple[float, float] | None:
         """Return one source's master-time coverage across all of its channels."""
-        spans = [
-            bounds
-            for channel in self.channels
-            if channel.reader.cache_dir == cache_dir
-            and (bounds := channel.reader.coverage()) is not None
-        ]
-        if not spans:
+        self._channel_maps()
+        raw_cached = self._source_raw_bounds.get(cache_dir)
+        first_reader = self._first_reader_by_cache.get(cache_dir)
+        if raw_cached is not None and (
+            first_reader is not None or any(row[0] == cache_dir for row in self._pending_rows)
+        ):
+            tm = (
+                first_reader.time_map
+                if first_reader is not None
+                else self._source_time_maps.get(cache_dir)
+            )
+            if tm is not None:
+                m0, m1 = tm.to_master(raw_cached[0]), tm.to_master(raw_cached[1])
+                return min(m0, m1), max(m0, m1)
+
+        source_rows = [ch for ch in self.channels if ch.reader.cache_dir == cache_dir]
+        if not source_rows:
             return None
-        return min(span[0] for span in spans), max(span[1] for span in spans)
+        raw_spans: list[tuple[float, float]] = []
+        master_spans: list[tuple[float, float]] = []
+        shared_tm = source_rows[0].reader.time_map
+        all_share_tm = True
+        for ch in source_rows:
+            if ch.reader.time_map is not shared_tm:
+                all_share_tm = False
+            src_reader = getattr(ch.reader, "source_reader", None)
+            src_cov = getattr(src_reader, "coverage", None)
+            if callable(src_cov):
+                rb = src_cov()
+                if rb is not None:
+                    raw_spans.append(rb)
+                    master_spans.append(
+                        (ch.reader.time_map.to_master(rb[0]), ch.reader.time_map.to_master(rb[1]))
+                    )
+                continue
+            mb = ch.reader.coverage()
+            if mb is not None:
+                master_spans.append(mb)
+                all_share_tm = False
+        if not master_spans:
+            return None
+        if (
+            all_share_tm
+            and raw_spans
+            and not any(row[0] == cache_dir for row in self._pending_rows)
+        ):
+            self._source_raw_bounds[cache_dir] = (
+                min(s[0] for s in raw_spans),
+                max(s[1] for s in raw_spans),
+            )
+        return min(s[0] for s in master_spans), max(s[1] for s in master_spans)
 
     def read_channels_from(self, source_id: str, directories: Mapping[str, Path]) -> None:
         """Read one source's rows from the directories named in *directories*.
@@ -669,6 +746,7 @@ class PlotPane(QWidget):
                 continue
             if channel.reader.source_reader.cache_dir != directory:
                 channel.reader.read_from(directory)
+                channel._loaded_page_key = None  # type: ignore[attr-defined]
                 touched = True
         if touched:
             self.update_plots()
@@ -676,6 +754,8 @@ class PlotPane(QWidget):
     def remove_channels(self, cache_dir: Path) -> None:
         """Remove all channels associated with a specific cache_dir (source)."""
         self._source_time_maps.pop(cache_dir, None)
+        self._source_raw_bounds.pop(cache_dir, None)
+        self._first_reader_by_cache.pop(cache_dir, None)
         removed_pending = [row for row in self._pending_rows if row[0] == cache_dir]
         if removed_pending:
             self._pending_rows = [row for row in self._pending_rows if row[0] != cache_dir]
@@ -690,6 +770,8 @@ class PlotPane(QWidget):
             self._interactions._hover.discard_items()
         for ch in to_remove:
             self._units.pop(ch.reader.key, None)
+            self._source_raw_bounds.pop(ch.reader.cache_dir, None)
+            self._readers_by_cache_and_id.pop((ch.reader.cache_dir, ch.reader.channel_id), None)
             self._interactions.forget_gap_markers(ch.reader.key)
         if to_remove:
             remove_ids = {id(ch) for ch in to_remove}
@@ -732,9 +814,23 @@ class PlotPane(QWidget):
             return self._index_cache[1], self._index_cache[2]
         by_key: dict[ChannelKey, list[ChannelPlot]] = {}
         by_name: dict[str, list[ChannelPlot]] = {}
+        by_cache_id: dict[tuple[Path, str], MappedChannelReader] = {}
+        first_by_cache: dict[Path, MappedChannelReader] = {}
         for ch in self.channels:
-            by_key.setdefault(ch.reader.key, []).append(ch)
-            by_name.setdefault(ch.reader.channel_id, []).append(ch)
+            reader = ch.reader
+            key = getattr(reader, "key", None)
+            channel_id = getattr(reader, "channel_id", None)
+            cache_dir = getattr(reader, "cache_dir", None)
+            if isinstance(key, ChannelKey):
+                by_key.setdefault(key, []).append(ch)
+            if isinstance(channel_id, str):
+                by_name.setdefault(channel_id, []).append(ch)
+            if isinstance(cache_dir, Path) and isinstance(channel_id, str):
+                by_cache_id[(cache_dir, channel_id)] = reader
+            if isinstance(cache_dir, Path):
+                first_by_cache.setdefault(cache_dir, reader)
+        self._readers_by_cache_and_id = by_cache_id
+        self._first_reader_by_cache = first_by_cache
         self._index_cache = (sig, by_key, by_name)
         return by_key, by_name
 
@@ -776,6 +872,8 @@ class PlotPane(QWidget):
             self._interactions._hover.discard_items()
         for ch in to_remove:
             self._units.pop(ch.reader.key, None)
+            self._source_raw_bounds.pop(ch.reader.cache_dir, None)
+            self._readers_by_cache_and_id.pop((ch.reader.cache_dir, ch.reader.channel_id), None)
             self._interactions.forget_gap_markers(ch.reader.key)
             ch.plot_item.setXLink(None)
             owner = self._pinned_layout if ch.pinned_in_layout else self.graphics_layout
@@ -799,6 +897,23 @@ class PlotPane(QWidget):
         """Backwards compatibility for the original single-channel load."""
         self.load_channels(cache_dir, [channel_id])
 
+    def _channel_page_key(self, channel: ChannelPlot, budget: int) -> tuple[object, ...] | None:
+        if self.sweep_start is None:
+            return None
+        tm = channel.reader.time_map
+        src_reader = getattr(channel.reader, "source_reader", None)
+        active_dir = getattr(src_reader, "cache_dir", channel.reader.cache_dir)
+        return (
+            self.sweep_start,
+            self.window_duration,
+            budget,
+            self._warp,
+            active_dir,
+            tm.offset,
+            tm.drift_ms_per_hour,
+            id(getattr(tm, "_exact_master", None)),
+        )
+
     def update_plots(self) -> None:
         """Request a worker-prepared page; install only its latest complete result.
 
@@ -809,8 +924,21 @@ class PlotPane(QWidget):
         """
         if self.sweep_start is None or not self.channels:
             return
+        self._scroll_only_pending = False
         self._page_generation += 1
         self._hold_rows_at_their_times()
+        if self._page_worker is not None:
+            self._page_worker.cancel()
+            return
+        self._start_page_job()
+
+    def _request_uncull_page(self) -> None:
+        """Load page data only for newly scrolled-into-view rows lacking the current page."""
+        if self.sweep_start is None or not self.channels or self._closed:
+            return
+        if self._page_worker is None:
+            self._scroll_only_pending = True
+        self._page_generation += 1
         if self._page_worker is not None:
             self._page_worker.cancel()
             return
@@ -833,10 +961,32 @@ class PlotPane(QWidget):
     def _start_page_job(self) -> None:
         if self._closed or self.sweep_start is None or not self.channels:
             return
+        scroll_only = self._scroll_only_pending
+        self._scroll_only_pending = False
         t0 = self.sweep_start
         budget = point_budget_for_width(int(self.graphics_layout.viewport().width()))
         self._last_point_budget = budget
-        self._requested_rows = tuple(channel for channel in self.channels if channel.visible)
+        visible = [channel for channel in self.channels if channel.visible]
+        skip_culled = (
+            len(visible) > _CULLED_PAGE_SKIP_THRESHOLD
+            and self._view_mode == PLOT_MODE_STACKED
+            and not self._draw_every_row
+            and self.isVisible()
+        )
+        candidates = [ch for ch in visible if not ch.culled] if skip_culled else visible
+        if scroll_only:
+            candidates = [
+                ch
+                for ch in candidates
+                if getattr(ch, "_loaded_page_key", None) != self._channel_page_key(ch, budget)
+            ]
+            if not candidates:
+                self._last_installed_generation = self._page_generation
+                return
+        self._requested_rows = tuple(candidates)
+        self._requested_keys = tuple(
+            self._channel_page_key(ch, budget) for ch in self._requested_rows
+        )
         rows = tuple(
             PlotRowRequest(
                 index,
@@ -890,6 +1040,8 @@ class PlotPane(QWidget):
             channel.curve.setData(x, y)
             channel.curve.setPos(0.0, 0.0)
             channel.page_t0 = page.t0
+            if index < len(self._requested_keys):
+                channel._loaded_page_key = self._requested_keys[index]  # type: ignore[attr-defined]
             if channel.y_mode == Y_AUTO or (
                 channel.y_mode == Y_FIT_ONCE and channel.y_range is None
             ):
@@ -912,6 +1064,7 @@ class PlotPane(QWidget):
         # Its page has landed or been discarded; holding the rows would keep a
         # removed row's memory maps open, which Windows will not delete under.
         self._requested_rows = ()
+        self._requested_keys = ()
         if finished is not None and finished.generation != self._page_generation:
             self._start_page_job()
 
@@ -945,6 +1098,14 @@ class PlotPane(QWidget):
             self._mode_view.set_mode(mode)
             self._refresh_mode_view()
             self._interactions.redraw_page_overlays()
+            if self.sweep_start is not None:
+                budget = point_budget_for_width(int(self.graphics_layout.viewport().width()))
+                if any(
+                    ch.visible
+                    and getattr(ch, "_loaded_page_key", None) != self._channel_page_key(ch, budget)
+                    for ch in self.channels
+                ):
+                    self.update_plots()
 
     def set_channel_pinned(self, channel: ChannelKey | str, pinned: bool) -> None:
         """Pin *channel* to the sticky top stack or return it to the scrollable stack."""
@@ -1137,13 +1298,13 @@ class PlotPane(QWidget):
                 if not visible:
                     ch.plot_item.setXLink(None)
                 apply_channel_visibility(ch)
-            self._apply_stack_height()
+            self._relayout_rows()
             self.graphics_layout.resizeEvent(None)
             self.graphics_layout.ci.layout.activate()
             if self._pinned_layout.isVisible():
                 self._pinned_layout.resizeEvent(None)
                 self._pinned_layout.ci.layout.activate()
-            self._update_axis_visibility()
+            self._cull_timer.stop()
             self._cull_offscreen_rows()
             self._link_x_axes()
         finally:
@@ -1403,13 +1564,13 @@ class PlotPane(QWidget):
         """Hide the data items of rows more than a viewport out of view."""
         if self._pending_rows and not self._draw_every_row:
             return
-        if self._draw_every_row:
+        height = self._plot_scroll.viewport().height()
+        if self._draw_every_row or not self.isVisible() or height <= 0:
             top, bottom = -math.inf, math.inf
         else:
             # A scroll re-culls before it repaints, so the margin only covers a
             # relayout, whose re-cull waits one event-loop turn: half a viewport
             # each side keeps a moved row from showing empty for that frame.
-            height = self._plot_scroll.viewport().height()
             top = self._plot_scroll.verticalScrollBar().value() - height / 2
             bottom = top + 2 * height
         position = self._sweep_control.advance(self._sweep_control.last_master_time)
@@ -1422,12 +1583,16 @@ class PlotPane(QWidget):
             unpinned, top, bottom, phase=position.phase, sweep_start=self.sweep_start
         )
         if changed_p or changed_u:
-            self._redraw_coverage()
-            if (
-                self._interactions._measure_a is not None
-                or self._interactions._measure_b is not None
-            ):
-                self._interactions.redraw_measure_lines()
+            self._redraw_sweep_overlays()
+            if self.sweep_start is not None and not self._closed:
+                budget = point_budget_for_width(int(self.graphics_layout.viewport().width()))
+                if any(
+                    ch.visible
+                    and not ch.culled
+                    and getattr(ch, "_loaded_page_key", None) != self._channel_page_key(ch, budget)
+                    for ch in self.channels
+                ):
+                    self._request_uncull_page()
 
     @contextmanager
     def every_row_drawn(self) -> Iterator[None]:

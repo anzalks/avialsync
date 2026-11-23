@@ -362,12 +362,50 @@ def persist(window: MainWindow) -> None:
         _enqueue(window, target_3d, write_3d)
 
 
+_Solved3DMap = dict[tuple[str, int], tuple[tuple[float, float, float], float | None]]
+_MARKER_2D_CACHE: dict[str, tuple[int, int, dict[tuple[str, int], tuple[float, float]]]] = {}
+_MARKER_3D_CACHE: dict[str, tuple[int, int, _Solved3DMap]] = {}
+
+
+def _cached_read_2d(source: Path) -> dict[tuple[str, int], tuple[float, float]]:
+    """Read a 2D marker sidecar only when it exists and changed since last read."""
+    try:
+        st = source.stat()
+    except OSError:
+        _MARKER_2D_CACHE.pop(str(source), None)
+        return {}
+    key = str(source)
+    cached = _MARKER_2D_CACHE.get(key)
+    if cached is not None and cached[0] == st.st_mtime_ns and cached[1] == st.st_size:
+        return cached[2]
+    parsed = custom_markers.read_2d(source)
+    _MARKER_2D_CACHE[key] = (st.st_mtime_ns, st.st_size, parsed)
+    return parsed
+
+
+def _cached_read_3d(target: Path | None) -> _Solved3DMap:
+    """Read a 3D marker sidecar only when it exists and changed since last read."""
+    if target is None:
+        return {}
+    try:
+        st = target.stat()
+    except OSError:
+        _MARKER_3D_CACHE.pop(str(target), None)
+        return {}
+    key = str(target)
+    cached = _MARKER_3D_CACHE.get(key)
+    if cached is not None and cached[0] == st.st_mtime_ns and cached[1] == st.st_size:
+        return cached[2]
+    parsed = custom_markers.read_3d(target)
+    _MARKER_3D_CACHE[key] = (st.st_mtime_ns, st.st_size, parsed)
+    return parsed
+
+
 def adopt(window: MainWindow) -> None:
     """Read the marker files beside whatever pose data is loaded now.
 
-    Called as each pose source registers; reading every file each time is a
-    handful of short CSVs, and it means the order sources arrive in does not
-    matter.
+    Called as each pose source registers; caching by ``(mtime_ns, size)`` avoids
+    re-parsing unchanged CSVs across multi-camera loads.
     """
     views: dict[tuple[str, int], list[tuple[str, float, float]]] = {}
     for video in set(rig_paths.open_videos(window.rig_paths)) | set(window._overlay_sources):
@@ -377,10 +415,9 @@ def adopt(window: MainWindow) -> None:
             # The first marker build wrote a camera without a pose file beside
             # its video; read that until this camera's file is written anew.
             source = custom_markers.marker_file_for(Path(video))
-        for key, (x, y) in custom_markers.read_2d(source).items():
+        for key, (x, y) in _cached_read_2d(source).items():
             views.setdefault(key, []).append((camera, x, y))
-    target = _marker_file_3d(window)
-    solved = custom_markers.read_3d(target) if target is not None else {}
+    solved = _cached_read_3d(_marker_file_3d(window))
     # A marker with a 3D position but no view in any camera is real too: one
     # placed by geometry rather than by clicking (a wheel's bars, most of them
     # out of shot) exists only in the 3D file.

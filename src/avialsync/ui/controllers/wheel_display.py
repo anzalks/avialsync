@@ -115,7 +115,12 @@ def _encoder_map(window: MainWindow, source_id: str) -> tuple[Path, TimeMap] | N
     cache_dir = window._sensor_cache_dirs.get(source_id)
     if cache_dir is None:
         return None
-    for row in window.plot_pane.channels:
+    pane = window.plot_pane
+    source_time_map = getattr(pane, "source_time_map", None)
+    if callable(source_time_map):
+        mapping = source_time_map(cache_dir)
+        return None if mapping is None else (cache_dir, mapping)
+    for row in pane.channels:
         if row.reader.cache_dir == cache_dir:
             return cache_dir, row.reader.time_map
     return None
@@ -126,7 +131,12 @@ def _channel_reader(window: MainWindow, channel: tuple[str, str]) -> MappedChann
     cache_dir = window._sensor_cache_dirs.get(channel[0])
     if cache_dir is None:
         return None
-    for row in window.plot_pane.channels:
+    pane = window.plot_pane
+    reader_for = getattr(pane, "reader_for", None)
+    if callable(reader_for):
+        found: MappedChannelReader | None = reader_for(cache_dir, channel[1])
+        return found
+    for row in pane.channels:
         if row.reader.cache_dir == cache_dir and row.reader.channel_id == channel[1]:
             return row.reader
     return None

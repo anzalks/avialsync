@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 from collections import OrderedDict
 from collections.abc import Iterator
@@ -43,6 +44,8 @@ from avialsync.core.video_timing import frame_index_at
 #: covers a slider drag's worth of back-and-forth on three cameras for ~166 MB,
 #: inside the 2.5 GB idle budget.
 DEFAULT_CACHE_FRAMES = 24
+#: Per-reader decoded-frame memory ceiling (~96 MiB), always retaining >= 2 frames.
+DEFAULT_MAX_CACHE_BYTES = 96 * 1024 * 1024
 VIDEO_INDEX_CACHE_VERSION = 3
 _PTS_NAME = "video_pts_ticks.npy"
 _KEYFRAMES_NAME = "video_keyframe_indices.npy"
@@ -53,6 +56,17 @@ logger = logging.getLogger(__name__)
 def _array_digest(values: np.ndarray) -> str:
     """Detect a changed but still ordered cached timestamp or keyframe table."""
     return xxhash.xxh64(memoryview(values).cast("B")).hexdigest()
+
+
+def _frame_nbytes(frame: av.VideoFrame) -> int:
+    """Estimate total plane buffer bytes held by a decoded ``av.VideoFrame``."""
+    try:
+        total = sum(int(plane.buffer_size) for plane in frame.planes)
+        if total > 0:
+            return total
+    except (AttributeError, TypeError):
+        pass
+    return max(1, int(frame.width) * int(frame.height) * 3)
 
 
 class _TimeBase(Protocol):
@@ -113,6 +127,8 @@ class PyAVReader:
         """
         self.path = Path(path)
         self._max_cached_frames = max(1, max_cached_frames)
+        self._max_cache_bytes = DEFAULT_MAX_CACHE_BYTES
+        self._cache_bytes = 0
         self._cache: OrderedDict[int, av.VideoFrame] = OrderedDict()
         self._decoded_index: int | None = None
         self._frames: Iterator[av.VideoFrame] | None = None
@@ -127,9 +143,9 @@ class PyAVReader:
             self._container.close()
             raise SourceOpenError(f"No video stream in: {self.path}") from None
 
-        # Decode with every core the machine has. Without this a single reader
-        # runs one thread and the 3-cam fanout is bound by the slowest pane.
+        # Multi-threaded decode per stream, capped at 4 so 16 cameras spawn <= 64 threads.
         self._stream.thread_type = "AUTO"
+        self._stream.thread_count = min(4, max(1, os.cpu_count() or 2))
 
         # Without a time base a packet timestamp is an uninterpretable integer.
         # Refusing here is the honest outcome: the alternative is to invent a
@@ -415,16 +431,26 @@ class PyAVReader:
         return found
 
     def _store(self, index: int, frame: av.VideoFrame) -> None:
+        if not self._cache:
+            self._cache_bytes = 0
+        prev = self._cache.pop(index, None)
+        if prev is not None:
+            self._cache_bytes = max(0, self._cache_bytes - _frame_nbytes(prev))
         self._cache[index] = frame
-        self._cache.move_to_end(index)
-        while len(self._cache) > self._max_cached_frames:
-            self._cache.popitem(last=False)
+        self._cache_bytes += _frame_nbytes(frame)
+        min_keep = min(2, self._max_cached_frames)
+        while len(self._cache) > self._max_cached_frames or (
+            len(self._cache) > min_keep and self._cache_bytes > self._max_cache_bytes
+        ):
+            _, evicted = self._cache.popitem(last=False)
+            self._cache_bytes = max(0, self._cache_bytes - _frame_nbytes(evicted))
 
     # -- lifecycle -------------------------------------------------------
 
     def close(self) -> None:
         """Release the container and the cached frames."""
         self._cache.clear()
+        self._cache_bytes = 0
         self._frames = None
         self._container.close()
 

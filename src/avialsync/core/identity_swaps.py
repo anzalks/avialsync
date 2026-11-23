@@ -389,6 +389,66 @@ class SwapStore:
         """
         return tuple(sorted({event.index for event in self._events.get(source_id, ())}))
 
+    def boundary_point_sources(
+        self, source_id: str
+    ) -> tuple[tuple[int, ...], tuple[dict[str, str], ...]]:
+        """Sweep sorted events once, returning ``(boundaries, point_source_maps)``."""
+        raw_events = self._events.get(source_id, ())
+        if not raw_events:
+            return (), ()
+        events = (
+            raw_events
+            if all(
+                raw_events[i].index <= raw_events[i + 1].index for i in range(len(raw_events) - 1)
+            )
+            else sorted(raw_events)
+        )
+        groups = self.groups_for(source_id)
+        by_name: dict[str, SwapGroup] = {}
+        for g in groups:
+            by_name.setdefault(g.name, g)
+        lane_state = {
+            name: {part: {lane: lane for lane in g.lanes} for part in g.parts}
+            for name, g in by_name.items()
+        }
+        part_sets = {name: set(g.parts) for name, g in by_name.items()}
+        group_steps: dict[str, dict[str, str]] = {name: {} for name in by_name}
+
+        boundaries: list[int] = []
+        maps: list[dict[str, str]] = []
+        pos = 0
+        total = len(events)
+        while pos < total:
+            boundary = events[pos].index
+            while pos < total and events[pos].index == boundary:
+                ev = events[pos]
+                pos += 1
+                target_group = by_name.get(ev.group)
+                if target_group is not None:
+                    _advance_group_step(
+                        target_group,
+                        ev,
+                        lane_state[target_group.name],
+                        part_sets[target_group.name],
+                        group_steps[target_group.name],
+                    )
+            composed: dict[str, str] = {}
+            for g in groups:
+                step = group_steps[g.name]
+                if not step:
+                    continue
+                composed = (
+                    dict(step)
+                    if not composed
+                    else {
+                        **composed,
+                        **{display: composed.get(data, data) for display, data in step.items()},
+                    }
+                )
+            boundaries.append(boundary)
+            maps.append({d: s for d, s in composed.items() if d != s})
+        return tuple(boundaries), tuple(maps)
+
     def _touches(self, source_id: str, group: str, index: int) -> bool:
         return any(
             event.group == group and event.index <= index
@@ -418,6 +478,7 @@ class SwapStore:
         self._notify(None)
 
     def _load_entries(self, entries: list[dict[str, Any]] | None) -> None:
+        touched: dict[str, set[SwapEvent]] = {}
         for entry in entries or []:
             try:
                 source = str(entry["source"])
@@ -426,7 +487,40 @@ class SwapStore:
                 # Never block, always inform: a session that has lost one flip still opens showing
                 # everything else, and the caller reports the count it expected.
                 continue
-            events = self._events.setdefault(source, [])
-            if event not in events:
-                events.append(event)
-                events.sort()
+            bucket = touched.get(source)
+            if bucket is None:
+                bucket = set(self._events.get(source, ()))
+                touched[source] = bucket
+            bucket.add(event)
+        for source, bucket in touched.items():
+            self._events[source] = sorted(bucket)
+
+
+def _advance_group_step(
+    group: SwapGroup,
+    event: SwapEvent,
+    g_lanes: dict[str, dict[str, str]],
+    part_set: set[str],
+    step: dict[str, str],
+) -> None:
+    """Apply one transposition *event* incrementally to *group*'s lane maps and point step."""
+    first, second = event.lanes
+    affected = group.parts if not event.parts else tuple(p for p in event.parts if p in part_set)
+    for part in affected:
+        mapping = g_lanes[part]
+        if first not in mapping or second not in mapping:
+            continue
+        mapping[first], mapping[second] = mapping[second], mapping[first]
+        for lane in (first, second):
+            display = group.point(lane, part)
+            if display is None:
+                continue
+            src_lane = mapping[lane]
+            if lane == src_lane:
+                step.pop(display, None)
+            else:
+                data = group.point(src_lane, part)
+                if data is not None:
+                    step[display] = data
+                else:
+                    step.pop(display, None)

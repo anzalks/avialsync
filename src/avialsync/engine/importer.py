@@ -16,7 +16,7 @@ from PySide6.QtCore import QObject, Signal
 
 from avialsync.core.cache import CacheManager
 from avialsync.core.cache_leases import pin_reader_directory
-from avialsync.core.channel_store import columns_intact, write_times
+from avialsync.core.channel_store import columns_intact, safe_channel_stem, write_times
 from avialsync.core.columns import fit_regular
 from avialsync.core.errors import CacheError, LoaderContractError, SourceOpenError
 from avialsync.core.inspection import ImportReport, IntegrityFlags, SourceInspection
@@ -450,9 +450,10 @@ class ImportWorker(QObject):
         """
         staging_dir = temp_dir / _STAGING_DIR
         staging_dir.mkdir(parents=True, exist_ok=True)
-        time_stage = ChannelStage(staging_dir, "_shared_t")
+        keep_open = len(channel_names) <= 64
+        time_stage = ChannelStage(staging_dir, "_shared_t", keep_open=keep_open)
         value_stages = {
-            channel: ChannelStage(staging_dir, channel, allow_float32=True)
+            channel: ChannelStage(staging_dir, channel, allow_float32=True, keep_open=keep_open)
             for channel in channel_names
         }
         try:
@@ -516,13 +517,14 @@ class ImportWorker(QObject):
 
         total_nan = 0
         for index, channel in enumerate(channel_names):
-            values = value_stages[channel].materialize(temp_dir / f"{channel}_v.npy")
+            stem = safe_channel_stem(channel)
+            values = value_stages[channel].materialize(temp_dir / f"{stem}_v.npy")
             if grid is not None:
-                write_times(temp_dir, channel, grid)
+                write_times(temp_dir, stem, grid)
             else:
-                _share_file(shared_t_path, temp_dir / f"{channel}_t.npy")
+                _share_file(shared_t_path, temp_dir / f"{stem}_t.npy")
             if has_gaps:
-                _share_file(gap_path, temp_dir / f"{channel}_gap.npy")
+                _share_file(gap_path, temp_dir / f"{stem}_gap.npy")
             PyramidBuilder(temp_dir, channel).save_levels(
                 grid if grid is not None else shared_t, values, gap_mask, include_base=False
             )
@@ -666,6 +668,7 @@ class ImportWorker(QObject):
             for index, channel in enumerate(channel_names):
                 if self._cancel_flag:
                     break
+                stem = safe_channel_stem(channel)
                 time_stage = ChannelStage(staging_dir, f"{channel}__t", hash_content=True)
                 value_stage = ChannelStage(staging_dir, f"{channel}__v", allow_float32=True)
                 try:
@@ -674,7 +677,7 @@ class ImportWorker(QObject):
                         value_stage.append(np.asarray(chunk_v, dtype=np.float64))
                     if time_stage.count == 0:
                         continue
-                    time_path = temp_dir / f"{channel}_t.npy"
+                    time_path = temp_dir / f"{stem}_t.npy"
                     identity = (time_stage.count, time_stage.content_digest or "")
                     earlier = time_axes.get(identity)
                     if earlier is None:
@@ -684,7 +687,7 @@ class ImportWorker(QObject):
                         time_stage.discard()
                         _share_file(earlier, time_path)
                         times = np.load(time_path, mmap_mode="r", allow_pickle=False)
-                    values = value_stage.materialize(temp_dir / f"{channel}_v.npy")
+                    values = value_stage.materialize(temp_dir / f"{stem}_v.npy")
                 finally:
                     time_stage.discard()
                     value_stage.discard()
@@ -697,10 +700,10 @@ class ImportWorker(QObject):
                     del times
                     time_path.unlink(missing_ok=True)
                     time_axes.pop(identity, None)
-                    write_times(temp_dir, channel, grid)
+                    write_times(temp_dir, stem, grid)
                     axis = grid
                 elif np.any(gap_mask):
-                    np.save(temp_dir / f"{channel}_gap.npy", gap_mask)
+                    np.save(temp_dir / f"{stem}_gap.npy", gap_mask)
                 PyramidBuilder(temp_dir, channel).save_levels(
                     axis, values, gap_mask if grid is None else None, include_base=False
                 )

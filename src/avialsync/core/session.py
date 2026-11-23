@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from numpy.typing import NDArray
 
 from avialsync.core.session_io import (
     _EXACT_MAPPING_INLINE_LIMIT,
@@ -213,26 +214,22 @@ class SessionState:
 
     def to_dict(self) -> dict[str, Any]:
         """Serialise to a JSON-compatible dict (always writes version 15)."""
-        provenance = []
-        for item in self.sync_provenance:
-            encoded = dataclasses.asdict(item)
-            master = np.asarray(item.exact_master, dtype=np.float64)
-            source = np.asarray(item.exact_source, dtype=np.float64)
-            if len(master) != len(source):
-                raise ValueError("Exact synchronization arrays have different lengths.")
-            encoded["exact_master"] = (
-                master.tolist() if len(master) <= _EXACT_MAPPING_INLINE_LIMIT else []
-            )
-            encoded["exact_source"] = (
-                source.tolist() if len(source) <= _EXACT_MAPPING_INLINE_LIMIT else []
-            )
-            provenance.append(encoded)
+        provenance = [_encode_sync_provenance(item) for item in self.sync_provenance]
+        markers = [
+            {
+                "t_start": m.t_start,
+                "t_end": m.t_end,
+                "label": m.label,
+                "video_frames": [dict(vf) for vf in m.video_frames],
+            }
+            for m in self.markers
+        ]
         return {
             "version": 15,
             "videos": [dataclasses.asdict(v) for v in self.videos],
             "imaging": [dataclasses.asdict(v) for v in self.imaging],
             "sensors": [dataclasses.asdict(s) for s in self.sensors],
-            "markers": [dataclasses.asdict(m) for m in self.markers],
+            "markers": markers,
             "sync_provenance": provenance,
             "t_start": self.t_start,
             "t_end": self.t_end,
@@ -249,6 +246,16 @@ class SessionState:
             "plot_view_mode": self.plot_view_mode,
             "pinned_channels": [dict(item) for item in self.pinned_channels],
         }
+
+    def exact_pairs(self) -> list[tuple[NDArray[np.float64], NDArray[np.float64]]]:
+        """Return float64 ``(master, source)`` arrays aligned with ``sync_provenance``."""
+        return [
+            (
+                np.asarray(item.exact_master, dtype=np.float64),
+                np.asarray(item.exact_source, dtype=np.float64),
+            )
+            for item in self.sync_provenance
+        ]
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SessionState:
@@ -292,19 +299,12 @@ class SessionState:
     def save(self, path: Path) -> None:
         """Write session JSON and large exact mappings atomically."""
         payload = self.to_dict()
-        exact_pairs = [
-            (
-                np.asarray(item.exact_master, dtype=np.float64),
-                np.asarray(item.exact_source, dtype=np.float64),
-            )
-            for item in self.sync_provenance
-        ]
         source_paths = (
             *(entry.path for entry in self.videos),
             *(entry.path for entry in self.sensors),
             *(entry.path for entry in self.imaging),
         )
-        save_session_file(path, payload, exact_pairs, source_paths)
+        save_session_file(path, payload, self.exact_pairs(), source_paths)
 
     @classmethod
     def load(cls, path: Path) -> SessionState:
@@ -314,3 +314,48 @@ class SessionState:
             state.sync_provenance[index].exact_master = prepared.master
             state.sync_provenance[index].exact_source = prepared.source
         return state
+
+
+def _encode_sync_provenance(item: SyncProvenance) -> dict[str, Any]:
+    """Serialise one provenance record without deep-copying large exact arrays."""
+    if not isinstance(item, SyncProvenance):
+        raise TypeError(f"Expected SyncProvenance, got {type(item).__name__}")
+    master = np.asarray(item.exact_master, dtype=np.float64)
+    source = np.asarray(item.exact_source, dtype=np.float64)
+    if len(master) != len(source):
+        raise ValueError("Exact synchronization arrays have different lengths.")
+    inline = len(master) <= _EXACT_MAPPING_INLINE_LIMIT
+    return {
+        "reference_id": item.reference_id,
+        "target_id": item.target_id,
+        "offset": item.offset,
+        "drift_ms_per_hour": item.drift_ms_per_hour,
+        "rms_residual": item.rms_residual,
+        "max_residual": item.max_residual,
+        "matched_count": item.matched_count,
+        "rejected_count": item.rejected_count,
+        "tolerance": item.tolerance,
+        "method": item.method,
+        "reference_count": item.reference_count,
+        "target_count": item.target_count,
+        "offset_stderr": item.offset_stderr,
+        "ambiguity_margin": item.ambiguity_margin,
+        "superseded_by": item.superseded_by,
+        "restricted_to": list(item.restricted_to),
+        "matches": [dict(match) for match in item.matches],
+        "exact_master": master.tolist() if inline else [],
+        "exact_source": source.tolist() if inline else [],
+        "reference_clock_id": item.reference_clock_id,
+        "precision_requirement": item.precision_requirement,
+        "precision_verified": item.precision_verified,
+        "coverage_fraction": item.coverage_fraction,
+        "largest_unsupported_interval": item.largest_unsupported_interval,
+        "extrapolated_before": item.extrapolated_before,
+        "extrapolated_after": item.extrapolated_after,
+        "excluded_incomplete_count": item.excluded_incomplete_count,
+        "measurement_resolution": item.measurement_resolution,
+        "overlap_reference_count": item.overlap_reference_count,
+        "exact_offset_anchor": item.exact_offset_anchor,
+        "exact_drift_anchor": item.exact_drift_anchor,
+        "settings": dict(item.settings),
+    }

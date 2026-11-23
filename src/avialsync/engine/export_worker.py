@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 from PySide6.QtCore import QObject, Signal, Slot
 
 from avialsync.core.channel_reader import MappedChannelReader
 from avialsync.core.edit_cache import GenerationPin, pin_reader_directory
 from avialsync.core.errors import AvialSyncError, CacheError
-from avialsync.core.pyramid import PyramidReader
+from avialsync.core.pyramid import RAW_CHUNK_SAMPLES, PyramidReader
 from avialsync.core.session import SyncProvenance
 from avialsync.core.timeline import TimeMap
 from avialsync.engine.export import (
@@ -20,6 +22,20 @@ from avialsync.engine.export import (
     trim_video_clip,
 )
 from avialsync.engine.snapshot import SnapshotFigure, save_figure
+
+_MAX_SIMULTANEOUS_EXPORT_READERS = 64
+
+
+def _close_reader(reader: object) -> None:
+    """Release any underlying PyramidReader mmaps and generation pins."""
+    close = getattr(reader, "close", None)
+    if callable(close):
+        close()
+        return
+    source_reader = getattr(reader, "source_reader", None)
+    source_close = getattr(source_reader, "close", None)
+    if callable(source_close):
+        source_close()
 
 
 @dataclass(frozen=True)
@@ -73,6 +89,45 @@ class ReaderReference:
         )
 
 
+class _LazyExportReader:
+    """Open and close one channel's mmap reader strictly around its chunk scan."""
+
+    def __init__(self, reference: ReaderReference) -> None:
+        if reference._pinned_snapshot and (
+            reference._pin is None or reference._pin.directory != reference.cache_dir.absolute()
+        ):
+            raise CacheError("Cached reader is in use or unavailable; retry when the job finishes")
+        self._reference = reference
+        self.cache_dir = reference.cache_dir
+        self.channel_id = reference.channel_id
+        self.source_id = reference.source_id
+        self.time_map = (
+            reference.time_map.copy()
+            if reference.time_map is not None
+            else TimeMap(reference.offset, reference.drift_ms_per_hour)
+        )
+        self._active: MappedChannelReader | None = None
+
+    def iter_raw_chunks_with_gaps(
+        self,
+        chunk_size: int = RAW_CHUNK_SAMPLES,
+        t0: float | None = None,
+        t1: float | None = None,
+    ) -> Iterator[tuple[np.ndarray, np.ndarray, np.ndarray]]:
+        reader = self._reference.open()
+        self._active = reader
+        try:
+            yield from reader.iter_raw_chunks_with_gaps(chunk_size, t0=t0, t1=t1)
+        finally:
+            self._active = None
+            _close_reader(reader)
+
+    def close(self) -> None:
+        if self._active is not None:
+            active, self._active = self._active, None
+            _close_reader(active)
+
+
 class DataExportWorker(QObject):
     """Write a requested data range without blocking the Qt event loop."""
 
@@ -99,8 +154,12 @@ class DataExportWorker(QObject):
     @Slot()
     def run(self) -> None:
         """Open worker-local readers and persist the requested range."""
+        readers: list[object] = []
         try:
-            readers = [reference.open() for reference in self._readers]
+            if len(self._readers) > _MAX_SIMULTANEOUS_EXPORT_READERS:
+                readers = [_LazyExportReader(reference) for reference in self._readers]
+            else:
+                readers = [reference.open() for reference in self._readers]
             if self._path.suffix.lower() == ".parquet":
                 output = export_data_slice_parquet(
                     readers,
@@ -123,6 +182,9 @@ class DataExportWorker(QObject):
             self.finished.emit(str(output))
         except (AvialSyncError, OSError, RuntimeError, ValueError) as error:
             self.error.emit(str(error))
+        finally:
+            for reader in readers:
+                _close_reader(reader)
 
 
 class RegionStatsWorker(QObject):
@@ -148,8 +210,13 @@ class RegionStatsWorker(QObject):
     def run(self) -> None:
         """Calculate region statistics and tag the result with its request id."""
         try:
-            readers = [reference.open() for reference in self._readers]
-            stats = compute_region_stats(readers, self._t0, self._t1)
+            stats: list[dict[str, float | str]] = []
+            for reference in self._readers:
+                reader = reference.open()
+                try:
+                    stats.extend(compute_region_stats([reader], self._t0, self._t1))
+                finally:
+                    _close_reader(reader)
             self.finished.emit(self._request_id, stats)
         except (AvialSyncError, OSError, RuntimeError, ValueError) as error:
             self.error.emit(self._request_id, str(error))

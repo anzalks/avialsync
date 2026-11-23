@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import csv
 import dataclasses
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -138,6 +138,25 @@ class AnnotationStore(QObject):
             removed = self._markers.pop(index)
             self.marker_removed.emit(index, removed)
             self.changed.emit()
+
+    def remove_indices(self, indices: Iterable[int]) -> list[tuple[int, Marker]]:
+        """Remove valid marker *indices* in descending order, emitting ``changed`` once."""
+        valid = sorted({int(i) for i in indices if 0 <= int(i) < len(self._markers)}, reverse=True)
+        if not valid:
+            return []
+        removed: list[tuple[int, Marker]] = []
+        for idx in valid:
+            marker = self._markers.pop(idx)
+            removed.append((idx, marker))
+            self.marker_removed.emit(idx, marker)
+        self.changed.emit()
+        return removed
+
+    def replace_all(self, markers: Sequence[Marker]) -> None:
+        """Replace all markers in one batch without emitting ``marker_added`` per item."""
+        self._markers = list(markers)
+        self._color_idx = max((m.color_index + 1 for m in self._markers), default=0)
+        self.changed.emit()
 
     def insert(self, index: int, marker: Marker) -> None:
         """Put *marker* back at *index*.

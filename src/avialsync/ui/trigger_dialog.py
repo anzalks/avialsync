@@ -142,15 +142,19 @@ class TriggerEvidenceDialog(QDialog):
         layout.addLayout(form)
 
         trains = list(suggestion.get("trains", []))
+        self._row_by_train_id: dict[str, int] = {}
         self._table = ThemedTable(len(trains), len(_COLUMNS), self)
         self._table.setHorizontalHeaderLabels([tr(name) for name in _COLUMNS])
         self._table.verticalHeader().setVisible(False)
         self._table.setAccessibleName(tr("Trigger trains in this file"))
-        header = self._table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        for row, train in enumerate(trains):
-            self._build_row(row, train)
+        self._configure_table_header(len(trains))
+        was_enabled = self._table.updatesEnabled()
+        self._table.setUpdatesEnabled(False)
+        try:
+            for row, train in enumerate(trains):
+                self._build_row(row, train)
+        finally:
+            self._table.setUpdatesEnabled(was_enabled)
         layout.addWidget(self._table)
 
         self._note = QLabel(
@@ -174,14 +178,42 @@ class TriggerEvidenceDialog(QDialog):
 
     # ── construction ─────────────────────────────────────────────────
 
+    def _configure_table_header(self, train_count: int) -> None:
+        """Avoid O(N) widget measurement stalls on wide trigger files."""
+        header = self._table.horizontalHeader()
+        metrics = self._table.fontMetrics()
+        if train_count > 64:
+            header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+            header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+            widths = {
+                0: min(72, max(44, metrics.horizontalAdvance(tr("Use")) + 24)),
+                1: min(180, max(90, metrics.horizontalAdvance(tr("Train")) + 32)),
+                2: min(180, max(90, metrics.horizontalAdvance(tr("Column")) + 32)),
+                4: min(200, max(130, metrics.horizontalAdvance(tr("(ask when aligning)")) + 36)),
+                5: min(180, max(120, metrics.horizontalAdvance(tr("Event timestamps")) + 36)),
+                6: min(150, max(110, metrics.horizontalAdvance(tr("High threshold")) + 24)),
+                7: min(170, max(130, metrics.horizontalAdvance(tr("Minimum interval (s)")) + 24)),
+            }
+            for col, width in widths.items():
+                self._table.setColumnWidth(col, width)
+        else:
+            header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+            header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+            header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+            self._table.setColumnWidth(
+                0, min(72, max(44, metrics.horizontalAdvance(tr("Use")) + 24))
+            )
+
     def _build_row(self, row: int, train: dict[str, Any]) -> None:
         """One row per column the provider found, defaulting to kept."""
+        train_id = str(train.get("id", ""))
+        self._row_by_train_id.setdefault(train_id, row)
         use = QCheckBox(self)
         use.setChecked(True)
-        use.setAccessibleName(tr("Use {name} as evidence").format(name=train.get("id", "")))
+        use.setAccessibleName(tr("Use {name} as evidence").format(name=train_id))
         self._table.setCellWidget(row, 0, use)
 
-        self._table.setItem(row, 1, QTableWidgetItem(str(train.get("id", ""))))
+        self._table.setItem(row, 1, QTableWidgetItem(train_id))
         self._table.setItem(row, 2, QTableWidgetItem(str(train.get("column", ""))))
 
         kinds = QComboBox(self)
@@ -284,6 +316,12 @@ class TriggerEvidenceDialog(QDialog):
         }
 
     def _parameter(self, train_id: str, column: int) -> float:
+        row = self._row_by_train_id.get(train_id)
+        if row is not None:
+            item = self._table.item(row, 1)
+            control = self._table.cellWidget(row, column)
+            if item is not None and item.text() == train_id and isinstance(control, QDoubleSpinBox):
+                return control.value()
         for row in range(self._table.rowCount()):
             item = self._table.item(row, 1)
             control = self._table.cellWidget(row, column)

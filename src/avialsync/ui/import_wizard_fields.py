@@ -50,14 +50,20 @@ def fill_units(wizard: ImportWizard) -> None:
     typed = units(wizard)
     time_col = wizard._time_col_combo.currentText()
     channels = [h.strip() for h in wizard._headers if h.strip() and h.strip() != time_col]
-    wizard._units_table.setRowCount(len(channels))
-    for row, name in enumerate(channels):
-        item = QTableWidgetItem(name)
-        item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-        wizard._units_table.setItem(row, 0, item)
-        wizard._units_table.setItem(
-            row, 1, QTableWidgetItem(typed.get(name, unit_from_header(name)))
-        )
+    table = wizard._units_table
+    was_enabled = table.updatesEnabled()
+    table.setUpdatesEnabled(False)
+    blocked = table.blockSignals(True)
+    try:
+        table.setRowCount(len(channels))
+        for row, name in enumerate(channels):
+            item = QTableWidgetItem(name)
+            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            table.setItem(row, 0, item)
+            table.setItem(row, 1, QTableWidgetItem(typed.get(name, unit_from_header(name))))
+    finally:
+        table.blockSignals(blocked)
+        table.setUpdatesEnabled(was_enabled)
 
 
 def units(wizard: ImportWizard) -> dict[str, str]:

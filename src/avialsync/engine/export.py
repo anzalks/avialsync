@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import csv
 import json
+from collections.abc import Callable
 from itertools import chain
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,8 @@ from avialsync.core.artifact_provenance import record
 from avialsync.core.errors import ExportError
 from avialsync.core.session import SyncProvenance
 from avialsync.engine.transcode import remux_clip
+
+_CSV_WRITE_BATCH = 32_768
 
 
 def _source_label(reader: Any) -> str:
@@ -35,6 +38,7 @@ def export_data_slice_csv(
     *,
     session: Path | None = None,
     alignment_evidence: tuple[SyncProvenance, ...] = (),
+    should_cancel: Callable[[], bool] | None = None,
 ) -> None:
     """Export the raw data for all channels in [t0, t1] to CSV.
 
@@ -48,8 +52,14 @@ def export_data_slice_csv(
             writer = csv.writer(f)
 
             for reader in readers:
+                if should_cancel is not None and should_cancel():
+                    raise ExportError("Data export was cancelled.")
                 wrote_header = False
                 for times, values, _ in reader.iter_raw_chunks_with_gaps(t0=t0, t1=t1):
+                    if should_cancel is not None and should_cancel():
+                        raise ExportError("Data export was cancelled.")
+                    if len(times) != len(values):
+                        raise ValueError("Time and value chunk lengths differ.")
                     if not wrote_header:
                         writer.writerow([f"# Source: {_source_label(reader)}"])
                         if getattr(reader, "source_id", ""):
@@ -57,8 +67,20 @@ def export_data_slice_csv(
                         writer.writerow([f"# Channel: {reader.channel_id}"])
                         writer.writerow(["time", reader.channel_id])
                         wrote_header = True
-                    for t_val, v_val in zip(times, values, strict=True):
-                        writer.writerow([repr(float(t_val)), repr(float(v_val))])
+                    times_f64 = np.asarray(times, dtype=np.float64)
+                    values_f64 = np.asarray(values, dtype=np.float64)
+                    for start in range(0, len(times_f64), _CSV_WRITE_BATCH):
+                        if should_cancel is not None and should_cancel():
+                            raise ExportError("Data export was cancelled.")
+                        stop = min(start + _CSV_WRITE_BATCH, len(times_f64))
+                        t_batch = times_f64[start:stop].tolist()
+                        v_batch = values_f64[start:stop].tolist()
+                        f.write(
+                            "".join(
+                                f"{t_val},{v_val}\r\n"
+                                for t_val, v_val in zip(t_batch, v_batch, strict=True)
+                            )
+                        )
                 if wrote_header:
                     writer.writerow([])
             provenance = record(

@@ -8,6 +8,7 @@ from time import perf_counter as _elapsed
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction
@@ -18,10 +19,12 @@ from avialsync.ui.axis_nav import show_plot_exporter
 from avialsync.ui.plot_crosshair import HoverCrosshair, redraw_measure_callouts
 from avialsync.ui.plot_modes import toggle_channel_pin
 from avialsync.ui.plot_overlays import (
+    PageTransform,
     redraw_annotations,
     redraw_gap_markers,
     redraw_identity_markers,
     redraw_measure_lines,
+    redraw_segment_boundaries,
     show_context_menu,
     show_mode_context_menu,
 )
@@ -55,9 +58,10 @@ class PlotInteractionController:
         self._annotation_store: AnnotationStore | None = None
         self._annotation_items: list[tuple[pg.PlotItem, object]] = []
         self._identity_events: dict[str, tuple[tuple[float, str], ...]] = {}
-        self._identity_items: list[tuple[pg.PlotItem, pg.InfiniteLine]] = []
+        self._identity_items: list[tuple[pg.PlotItem, Any]] = []
         self._segment_bounds: tuple[float, ...] = ()
-        self._segment_items: list[tuple[pg.PlotItem, pg.InfiniteLine]] = []
+        self._segment_bounds_arr: np.ndarray = np.empty(0, dtype=np.float64)
+        self._segment_items: list[tuple[pg.PlotItem, Any]] = []
         self._gap_times: dict[ChannelKey | str, tuple[float, ...]] = {}
 
     def set_context_actions(self, actions: list[QAction]) -> None:
@@ -180,13 +184,32 @@ class PlotInteractionController:
         """Drop all queued gap evidence when clearing sources."""
         self._gap_times.clear()
 
+    def _page_transform(self) -> PageTransform | None:
+        start = self._pane.sweep_start
+        duration = self._pane.window_duration
+        if start is None or duration < 0.0:
+            return None
+        warp = self._pane._warp
+        return PageTransform(
+            sweep_start=start,
+            window_duration=duration,
+            warp=warp,
+            master_lo=warp.to_master(start - 1e-7),
+            master_hi=warp.to_master(start + duration + 1e-7),
+        )
+
     def redraw_gap_markers(self) -> None:
         """Refresh all visible gap evidence."""
-        redraw_gap_markers(self._real_channels(), self._pane._display_x, self._pane.palette())
+        redraw_gap_markers(
+            self._real_channels(),
+            self._pane._display_x,
+            self._pane.palette(),
+            page=self._page_transform(),
+        )
 
     def set_identity_events(self, source_id: str, events: list[tuple[float, str]]) -> None:
         """Show accepted flips from one source on that source's plot rows."""
-        self._identity_events[source_id] = tuple(events)
+        self._identity_events[source_id] = tuple(sorted(events, key=lambda item: item[0]))
         self.redraw_identity_markers()
 
     def redraw_identity_markers(self) -> None:
@@ -197,36 +220,27 @@ class PlotInteractionController:
             self._pane._display_x,
             self._pane.palette(),
             self._identity_items,
+            page=self._page_transform(),
         )
 
     def set_segment_boundaries(self, times: list[float]) -> None:
         """Mark where the recording's trials meet, on every plot row."""
-        self._segment_bounds = tuple(sorted(times))
+        self._segment_bounds_arr = np.sort(np.asarray(times, dtype=np.float64))
+        self._segment_bounds = tuple(float(t) for t in self._segment_bounds_arr)
         self.redraw_segment_boundaries()
 
     def redraw_segment_boundaries(self) -> None:
         """Draw the trial boundaries that fall on the visible page."""
-        for plot_item, line in self._segment_items:
-            try:
-                plot_item.removeItem(line)
-            except RuntimeError:
-                logger.debug("Plot item was already deleted", exc_info=True)
-        self._segment_items = []
-        if not self._segment_bounds:
+        if len(self._segment_bounds_arr) == 0 and not self._segment_items:
             return
-        palette = self._pane.palette()
-        pen = pg.mkPen(palette.color(palette.ColorRole.Mid), width=1, style=Qt.PenStyle.DashLine)
-        for channel in self._overlay_targets():
-            if not channel.visible:
-                continue
-            for time in self._segment_bounds:
-                x = self._pane._display_x(time)
-                if x is None:
-                    continue
-                line = pg.InfiniteLine(pos=x, angle=90, movable=False, pen=pen)
-                line.setZValue(2)
-                channel.plot_item.addItem(line)
-                self._segment_items.append((channel.plot_item, line))
+        self._segment_items = redraw_segment_boundaries(
+            self._overlay_targets(),
+            self._segment_bounds_arr,
+            self._pane._display_x,
+            self._pane.palette(),
+            self._segment_items,
+            page=self._page_transform(),
+        )
 
     def set_annotation_store(self, store: AnnotationStore) -> None:
         """Subscribe to authoritative annotation changes once."""
@@ -246,6 +260,7 @@ class PlotInteractionController:
             master_at=self._pane.master_at,
             x_of=self._pane.x_of,
             on_marker_moved=store.set_span if store is not None else None,
+            page=self._page_transform(),
         )
 
     def redraw_page_overlays(self) -> None:

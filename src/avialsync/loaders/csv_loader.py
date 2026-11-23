@@ -330,13 +330,14 @@ class CSVLoader(TimeSeriesSource):
         has_headers = self._config.get("has_headers", True)
 
         channel_names = [channel.name for channel in self._schema_channels]
+        default_batch = max(1_000, min(50_000, 8_000_000 // max(1, len(channel_names))))
         reader = pl.scan_csv(
             self._path,
             separator=separator,
             has_header=has_headers,
             schema_overrides={time_col: self._timestamp_dtype()},
             decimal_comma=euro_decimal or (separator == ";"),
-        ).collect_batches(chunk_size=int(self._config.get("batch_size", 50_000)))
+        ).collect_batches(chunk_size=int(self._config.get("batch_size", default_batch)))
 
         row_offset = 0
         pending_time: float | None = None

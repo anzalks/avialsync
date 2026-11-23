@@ -7,7 +7,6 @@ two-minute autosave, and the recent-files list they both feed.
 
 from __future__ import annotations
 
-import dataclasses
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -32,6 +31,7 @@ from avialsync.engine.drop_worker import DropScanWorker
 from avialsync.ui import imaging_integration, recovery, video_levels
 from avialsync.ui.app_settings import app_settings
 from avialsync.ui.controllers import (
+    appearance,
     corrections_controller,
     custom_marker_controller,
     identity_controller,
@@ -147,6 +147,26 @@ def _pinned_channel_entries(window: MainWindow) -> list[dict[str, str]]:
     ]
 
 
+def _marker_entries(window: MainWindow) -> list[MarkerEntry]:
+    """Serialise markers without ``dataclasses.asdict`` deep-copying frame snapshots."""
+    return [
+        MarkerEntry(
+            t_start=m.t_start,
+            t_end=m.t_end,
+            label=m.label,
+            video_frames=[
+                {
+                    "path": vf.path,
+                    "frame_index": vf.frame_index,
+                    "media_timestamp": vf.media_timestamp,
+                }
+                for vf in m.video_frames
+            ],
+        )
+        for m in window.annotation_store.markers
+    ]
+
+
 def build_session_state(window: MainWindow) -> SessionState:
     """Snapshot current app state into a SessionState."""
     from avialsync.ui.sidebar import SensorInfoWidget
@@ -191,15 +211,7 @@ def build_session_state(window: MainWindow) -> SessionState:
                     )
                 )
 
-    markers = [
-        MarkerEntry(
-            t_start=m.t_start,
-            t_end=m.t_end,
-            label=m.label,
-            video_frames=[dataclasses.asdict(vf) for vf in m.video_frames],
-        )
-        for m in window.annotation_store.markers
-    ]
+    markers = _marker_entries(window)
 
     # The fixed sweep always displays 0..window_duration.
     plot_x0 = 0.0 if window.plot_pane.channels else None
@@ -267,10 +279,6 @@ def start_session_save(window: MainWindow, path: Path, is_autosave: bool = False
             return
         window.session_runtime.path = path
         add_recent(str(path))
-        # The work is now in a file the user chose, so the recovery snapshot
-        # describes nothing they could still lose. Leaving it would offer a
-        # pointless restore on the next launch and train them to dismiss the
-        # bar without reading it.
         recovery.clear_recovery()
         forget_pending_recovery(window)
         window._mark_session_saved()
@@ -284,30 +292,14 @@ def start_session_save(window: MainWindow, path: Path, is_autosave: bool = False
         else:
             logger.exception("Autosave failed for %s: %s", path, msg)
 
-    # Wired before the thread starts. `_run_job` returns an already-running
-    # thread, so connecting afterwards races a fast save: losing `finished`
-    # skips the recent-files entry, and losing `thread.finished` leaves
-    # `_save_in_progress` latched, which blocks every later save for the rest
-    # of the session.
+    # Wired before `_run_job` starts the thread; `on_ui_thread` marshals
+    # closures back to the GUI thread, and `thread.finished` always un-latches
+    # `_save_in_progress` without calling `worker.deleteLater` in-thread.
     def _wire(thread: QThread) -> None:
-        # Wrapped: both are closures rather than slots on a QObject, so a plain
-        # connection would run them in the worker thread and set the status bar
-        # and the recovery state from there.
         worker.finished.connect(on_ui_thread(on_finished, window))
         worker.error.connect(on_ui_thread(on_error, window))
-
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
-        # No `worker.deleteLater` here: these signals are emitted in the
-        # worker thread, where the worker also lives, so the connection is
-        # direct and ~QObject runs inside that thread — severing connections
-        # while holding one of Qt's pooled signal/slot mutexes and then
-        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-        # thread holding the GIL and waiting on a colliding mutex.
-        # The owning registry drops its reference on the UI thread instead.
-        # Un-latch even if the thread ends abnormally (e.g. worker deleted
-        # without emitting finished/error), so a stuck save cannot
-        # permanently block every later save.
         thread.finished.connect(lambda: setattr(window, "_save_in_progress", False))
 
     window._run_job(worker, configure=_wire)
@@ -326,6 +318,37 @@ def open_session(window: MainWindow) -> None:
     window._start_session_load(Path(path))
 
 
+def _persist_before_replace(
+    window: MainWindow, incoming_path: Path | None, *, snapshot_untitled: bool = True
+) -> None:
+    """Save or snapshot outgoing work before resetting the workspace for another session."""
+    current_path = window.session_runtime.path
+    if current_path is not None:
+        try:
+            same_file = (
+                incoming_path is not None and current_path.resolve() == incoming_path.resolve()
+            )
+        except OSError:
+            same_file = incoming_path == current_path
+        if window.document.is_dirty and not same_file:
+            try:
+                write_session_snapshot(window)
+            except Exception:
+                logger.exception("Could not autosave outgoing session %s", current_path)
+        return
+    if not snapshot_untitled:
+        return
+    try:
+        outgoing = build_session_state(window)
+        encoded = outgoing.to_dict()
+        if not recovery.is_empty_state(encoded) and recovery.write_recovery(
+            encoded, None, exact_pairs=outgoing.exact_pairs()
+        ):
+            note_pending_recovery(window)
+    except Exception:
+        logger.exception("Could not snapshot untitled workspace before session open")
+
+
 def start_session_load(window: MainWindow, path: Path) -> None:
     from avialsync.engine.session_worker import SessionLoadWorker
 
@@ -336,8 +359,12 @@ def start_session_load(window: MainWindow, path: Path) -> None:
     def on_finished(state: SessionState):
         if session_generation != window.session_runtime.generation:
             return
+        _persist_before_replace(window, path)
+        reset_session(window, discard_recovery=False)
+        window.document.clear()
         window.transport.set_status("")
         window.session_runtime.path = path
+        appearance.mark_session_saved(window)
         add_recent(str(path))
         window._restore_session(state)
 
@@ -345,28 +372,18 @@ def start_session_load(window: MainWindow, path: Path) -> None:
         window.transport.set_status("")
         window.report_failure(FileUnreadableError(msg), doing="That session could not be opened")
 
-    # Wired before the thread starts: `_run_job` returns an already-running
-    # thread, and a session that loads quickly can emit `finished` before a
-    # connection made afterwards exists — the window would keep "Loading
-    # session…" forever and never restore anything.
     def _wire(thread: QThread) -> None:
-        # Wrapped: `on_finished` calls `_restore_session`, which rebuilds rows
-        # and panes. As a bare closure it is a direct connection and all of
-        # that would be built in the worker thread.
         worker.finished.connect(on_ui_thread(on_finished, window))
         worker.error.connect(on_ui_thread(on_error, window))
-
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
-        # Registry drops the worker reference on the UI thread (see start_session_save).
 
     window._run_job(worker, configure=_wire)
 
 
 def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
     """Return the workspace to its empty, ready-to-open state."""
-    window.session_runtime.pairing = None
-    window.session_runtime.pending_pair = None
+    window.session_runtime.reset_metadata()
     window.session_runtime.generation += 1
     window.session_runtime.path = None
     # Do not let recovery resurrect work this reset intentionally discards.
@@ -485,11 +502,6 @@ def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
     window._pending_bounds_sources.clear()
     window._pending_sensor_mappings.clear()
     window._pending_channel_visibility.clear()
-    window.session_runtime.camera_fps = 0.0
-    window.session_runtime.anchor_epoch = 0.0
-    window.session_runtime.item_labels.clear()
-    window.session_runtime.item_kinds.clear()
-    window.session_runtime.coverage_groups.clear()
     window.reset_transient_ui_state()
 
     window._refresh_pose_3d()
@@ -538,6 +550,7 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
     identity_controller.restore_manifest(window, state.identity_swaps)
     relink_map = relink_controller.relink_missing(window, state)
     if relink_map is None:
+        window.session_runtime.restoring = False
         return
 
     # Before any source loads: the reference is declared once, and a restored
@@ -610,13 +623,20 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
                 window._inspections[str(p)] = ins
 
     _restore_markers_and_views(window, state, relink_map)
+    has_async_sources = (
+        any(source_exists(Path(relink_map.get(ve.path, ve.path))) for ve in state.videos)
+        or any(source_exists(Path(relink_map.get(se.path, se.path))) for se in state.sensors)
+        or bool(state.imaging)
+    )
+    if not has_async_sources:
+        window.session_runtime.restoring = False
 
 
 def _restore_markers_and_views(
     window: MainWindow, state: SessionState, relink_map: dict[str, str]
 ) -> None:
     """Restore markers, plot span, plot view mode/pins, camera zoom/pan, and 3D view."""
-    from avialsync.ui.annotations import VideoFrame
+    from avialsync.ui.annotations import Marker, VideoFrame
 
     camera_views = {
         str(Path(relink_map.get(ve.path, ve.path))): dict(ve.view) for ve in state.videos if ve.view
@@ -633,19 +653,30 @@ def _restore_markers_and_views(
         for p in pinned:
             src = relink_map.get(p["source_id"], p["source_id"])
             window.plot_pane.set_channel_pinned(ChannelKey(src, p["channel"]), True)
-    for me in state.markers:
+    restored_markers: list[Marker] = []
+    for color_index, me in enumerate(state.markers):
         vfs = [
             VideoFrame(
-                path=str(vf["path"]),
+                path=relink_map.get(str(vf["path"]), str(vf["path"])),
                 frame_index=int(vf["frame_index"]),
                 media_timestamp=float(vf["media_timestamp"]),
             )
             for vf in me.video_frames
         ]
-        if me.t_end is not None:
-            window.annotation_store.add_range(me.t_start, me.t_end, me.label, video_frames=vfs)
-        else:
-            window.annotation_store.add_point(me.t_start, me.label, video_frames=vfs)
+        t_start = float(me.t_start)
+        t_end = float(me.t_end) if me.t_end is not None else None
+        if t_end is not None and t_start > t_end:
+            t_start, t_end = t_end, t_start
+        restored_markers.append(
+            Marker(
+                t_start=t_start,
+                t_end=t_end,
+                label=me.label,
+                color_index=color_index,
+                video_frames=vfs,
+            )
+        )
+    window.annotation_store.replace_all(restored_markers)
     if state.plot_x0 is not None and state.plot_x1 is not None:
         window.plot_pane.set_window_duration(state.plot_x1 - state.plot_x0)
 
@@ -682,40 +713,21 @@ def offers_recovery_at_launch() -> bool:
 
 
 def note_pending_recovery(window: MainWindow) -> bool:
-    """Record what unsaved work is available, and return whether there is any.
-
-    Read once, at launch, and held on the window: the File command's precondition
-    is re-answered on every source change and every menu that opens, and a
-    precondition that stats and parses a file each time is the kind of IO that
-    does not belong on those events. The clear sites drop it with the
-    snapshot, so the command greys out when there is nothing behind it.
-    """
+    """Record what unsaved work is available on *window*, and return whether there is any."""
     window.session_runtime.pending_recovery = recovery.pending_recovery()
     window._refresh_action_availability()
     return window.session_runtime.pending_recovery is not None
 
 
 def forget_pending_recovery(window: MainWindow) -> None:
-    """Drop the held snapshot once it no longer describes recoverable work.
-
-    Called beside every ``recovery.clear_recovery()``: a save, a reset, or a
-    completed restore all mean the File command must stop offering it, and an
-    offer that outlives its file would put old work back over the current
-    workspace.
-    """
+    """Drop the held snapshot once it no longer describes recoverable work."""
     window.session_runtime.recovery_revision += 1
     window.session_runtime.pending_recovery = None
     window._refresh_action_availability()
 
 
 def recover_unsaved_work(window: MainWindow) -> None:
-    """Restore the held snapshot, on the user's explicit request.
-
-    This is what keeps the launch-time bar optional. With the offer off, the
-    snapshot is still written on every quit and this command is how it is
-    reached, so turning the notification off costs discoverability and not the
-    work itself.
-    """
+    """Restore the held snapshot on the user's explicit request."""
     snapshot = window.session_runtime.pending_recovery
     if snapshot is None:
         return
@@ -723,12 +735,7 @@ def recover_unsaved_work(window: MainWindow) -> None:
 
 
 def offer_pending_recovery(window: MainWindow) -> bool:
-    """Offer unsaved work from a previous run via the non-modal notification strip.
-
-    Silent unless ``storage/offer_recovery_at_launch`` is enabled; the snapshot
-    is always written on quit and reachable via **File → Recover Unsaved Work**.
-    Dismissing records the declined revision without deleting the snapshot.
-    """
+    """Offer unsaved work from a previous run via the non-modal notification strip."""
     from avialsync.ui.recovery_worker import present_pending_recovery
 
     snapshot = window.session_runtime.pending_recovery if note_pending_recovery(window) else None
@@ -738,7 +745,7 @@ def offer_pending_recovery(window: MainWindow) -> bool:
 def restore_pending_recovery(window: MainWindow, snapshot: recovery.RecoverySnapshot) -> None:
     """Load a recovery snapshot into the window, clearing it only once restored."""
     try:
-        state = SessionState.from_dict(snapshot.state)
+        state = recovery.decode_recovery_state(snapshot)
     except Exception as error:
         logger.exception("Could not decode the recovery snapshot")
         window.notifications.show_error(
@@ -746,12 +753,18 @@ def restore_pending_recovery(window: MainWindow, snapshot: recovery.RecoverySnap
         )
         return
 
-    window.session_runtime.path = Path(snapshot.session_path) if snapshot.session_path else None
+    target_path = Path(snapshot.session_path) if snapshot.session_path else None
+    _persist_before_replace(window, target_path, snapshot_untitled=False)
+    reset_session(window, discard_recovery=False)
+    window.document.clear()
+    window.session_runtime.path = target_path
+    window.session_runtime.dirty_after_restore = window.session_runtime.generation
     window._restore_session(state)
     recovery.clear_recovery()
     forget_pending_recovery(window)
     # Restored work is unsaved work: it went back to the window, not to a file.
     window.document.mark_dirty()
+    appearance.update_window_title(window)
     window.notifications.show_warning(
         tr("Restored. Save the session to keep it."),
     )
@@ -760,15 +773,17 @@ def restore_pending_recovery(window: MainWindow, snapshot: recovery.RecoverySnap
 def _write_recovery_snapshot(window: MainWindow) -> bool:
     """Persist unsaved work for an untitled session, clearing when empty."""
     try:
-        state = window._build_session_state().to_dict()
+        session_state = window._build_session_state()
+        encoded = session_state.to_dict()
+        exact_pairs = session_state.exact_pairs()
     except Exception:
         logger.exception("Could not serialise the workspace for recovery; skipping the snapshot")
         return False
-    if recovery.is_empty_state(state):
+    if recovery.is_empty_state(encoded):
         recovery.clear_recovery()
         forget_pending_recovery(window)
         return False
-    return recovery.write_recovery(state, None)
+    return recovery.write_recovery(encoded, None, exact_pairs=exact_pairs)
 
 
 def write_session_snapshot(window: MainWindow) -> None:

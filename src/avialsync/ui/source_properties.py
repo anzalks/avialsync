@@ -251,7 +251,8 @@ class SensorPropertiesPanel(_PropertiesBase):
     ) -> None:
         super().__init__("Sensor Properties", parent)
         self._inspection = inspection
-        self._populate(channel_infos or [])
+        self._channel_infos = list(channel_infos or [])
+        self._populate(self._channel_infos)
 
     def _populate(self, channel_infos: list[Any]) -> None:
         ins = self._inspection
@@ -262,15 +263,24 @@ class SensorPropertiesPanel(_PropertiesBase):
         self._add_row("FPS binding", ins.fps_binding or "—")
 
         if channel_infos:
-            ch_lines = "; ".join(
-                f"{c.name}" + (f" ({c.unit})" if getattr(c, "unit", "") else "")
-                for c in channel_infos
-            )
+            shown = [
+                c
+                if isinstance(c, str)
+                else f"{c.name}" + (f" ({c.unit})" if getattr(c, "unit", "") else "")
+                for c in channel_infos[:40]
+            ]
+            ch_lines = "; ".join(shown)
+            if len(channel_infos) > 40:
+                more = tr("… (+{more} more)").format(more=len(channel_infos) - 40)
+                ch_lines = f"{ch_lines}; {more}"
             self._add_row("Channels", ch_lines)
             rates = list(
                 {getattr(c, "rate_hz", None) for c in channel_infos if getattr(c, "rate_hz", None)}
             )
-            self._add_row("Sample rate", f"{rates[0]:,.0f} Hz" if len(rates) == 1 else "mixed")
+            self._add_row(
+                "Sample rate",
+                f"{rates[0]:,.0f} Hz" if len(rates) == 1 else ("mixed" if rates else "—"),
+            )
         else:
             self._add_row("Channels", "—")
             self._add_row("Sample rate", "—")
@@ -300,4 +310,4 @@ class SensorPropertiesPanel(_PropertiesBase):
         while self._form.rowCount():
             self._form.removeRow(0)
         self._rows.clear()
-        self._populate([])
+        self._populate(self._channel_infos)

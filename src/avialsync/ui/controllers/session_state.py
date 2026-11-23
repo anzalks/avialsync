@@ -51,3 +51,19 @@ class SessionRuntimeState:
         dirty = self.dirty_after_restore == self.generation
         self.dirty_after_restore = None
         return dirty
+
+    def reset_metadata(self) -> None:
+        """Clear per-session runtime declarations and transient restore flags."""
+        self.pairing = None
+        self.pending_pair = None
+        self.restoring = False
+        self.dirty_after_restore = None
+        self.camera_fps = 0.0
+        self.anchor_epoch = 0.0
+        self.camera_corrections = ()
+        self.item_labels.clear()
+        self.item_kinds.clear()
+        self.coverage_groups.clear()
+        self.channel_triggers.clear()
+        self.stimulus_grid_rows = None
+        self.alignment_selection = None

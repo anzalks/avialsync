@@ -21,6 +21,7 @@ from avialsync.core.channel_store import (
     load_layout,
     read_level,
     read_time_bounds,
+    safe_channel_stem,
     safe_save,
     write_times,
 )
@@ -219,6 +220,9 @@ def _aggregate_gap_mask(gap_mask: np.ndarray, factor: int) -> np.ndarray:
     return np.asarray(coarse, dtype=bool)
 
 
+_STAGE_FLUSH_BYTES = 65_536
+
+
 class ChannelStage:
     """Append-only, bounded-memory staging buffer for one numeric channel.
 
@@ -237,10 +241,19 @@ class ChannelStage:
         *,
         allow_float32: bool = False,
         hash_content: bool = False,
+        keep_open: bool = True,
     ) -> None:
-        self.path = staging_dir / f"{name}.stage"
-        self._handle = self.path.open("wb")
-        self._handle.write(self._header(0))
+        self.path = staging_dir / f"{safe_channel_stem(name)}.stage"
+        self._keep_open = keep_open
+        self._closed = False
+        self._buffer = bytearray()
+        if keep_open:
+            self._handle: Any = self.path.open("wb")
+            self._handle.write(self._header(0))
+        else:
+            self._handle = None
+            with self.path.open("wb") as handle:
+                handle.write(self._header(0))
         self._count = 0
         self._compact = allow_float32
         #: Whole numbers in 16-bit range, no NaN: ADC counts and digital lines,
@@ -266,9 +279,15 @@ class ChannelStage:
         """Return a chunk-boundary-independent digest when requested at staging."""
         return None if self._digest is None else self._digest.hexdigest()
 
+    def _flush_buffer(self) -> None:
+        if self._buffer:
+            with self.path.open("ab") as handle:
+                handle.write(self._buffer)
+            self._buffer.clear()
+
     def append(self, values: np.ndarray) -> None:
         """Append one bounded chunk of samples."""
-        if self._handle.closed:
+        if self._closed or (self._handle is not None and self._handle.closed):
             raise ValueError("ChannelStage is closed")
         block = np.ascontiguousarray(values, dtype="<f8")
         if self._compact and not np.array_equal(
@@ -279,17 +298,38 @@ class ChannelStage:
             self._int16 = False
         if self._digest is not None:
             self._digest.update(memoryview(block).cast("B"))
-        block.tofile(self._handle)
+        if self._keep_open:
+            assert self._handle is not None
+            block.tofile(self._handle)
+        elif block.nbytes >= _STAGE_FLUSH_BYTES:
+            with self.path.open("ab") as handle:
+                if self._buffer:
+                    handle.write(self._buffer)
+                    self._buffer.clear()
+                block.tofile(handle)
+        else:
+            self._buffer.extend(memoryview(block).cast("B"))
+            if len(self._buffer) >= _STAGE_FLUSH_BYTES:
+                self._flush_buffer()
         self._count += int(block.size)
 
     def close(self) -> None:
         """Close the staging handle; safe to call more than once."""
-        if not self._handle.closed:
-            self._handle.close()
+        if self._closed:
+            return
+        if self._handle is not None:
+            if not self._handle.closed:
+                self._handle.close()
+        else:
+            self._flush_buffer()
+        self._closed = True
 
     def discard(self) -> None:
         """Close and delete the staging file without materialising it."""
-        self.close()
+        if self._handle is not None and not self._handle.closed:
+            self._handle.close()
+        self._buffer.clear()
+        self._closed = True
         self.path.unlink(missing_ok=True)
 
     def materialize(self, target: Path, chunk_size: int = RAW_CHUNK_SAMPLES) -> np.ndarray:
@@ -378,11 +418,12 @@ class PyramidBuilder:
         has_gaps = gap_mask is not None and bool(np.any(gap_mask))
         arrays_to_save: list[tuple[Path, np.ndarray]] = []
         if include_base:
-            write_times(self.cache_dir, self.channel_id, t)
-            arrays_to_save.append((self.cache_dir / f"{self.channel_id}_v.npy", np.asarray(v)))
+            base_stem = level_stem(self.channel_id, 1)
+            write_times(self.cache_dir, base_stem, t)
+            arrays_to_save.append((self.cache_dir / f"{base_stem}_v.npy", np.asarray(v)))
             if has_gaps:
                 assert gap_mask is not None
-                arrays_to_save.append((self.cache_dir / f"{self.channel_id}_gap.npy", gap_mask))
+                arrays_to_save.append((self.cache_dir / f"{base_stem}_gap.npy", gap_mask))
 
         # vmin/vmax keep the values' own precision: float64 stays float64 (large
         # offsets in processed outputs), integers stay integers (16-bit counts,

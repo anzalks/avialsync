@@ -47,12 +47,14 @@ from avialsync.core.sync import (
 from avialsync.core.triggers import Reconciliation, TriggerKind
 
 __all__ = [
+    "MAX_PROPOSAL_MATCHES",
     "MIN_PIECEWISE_KNOTS",
     "choose_method",
     "demote_to_shift",
     "drift_is_identifiable",
     "fit_piecewise",
     "residual_trend",
+    "subsample_matches",
 ]
 
 #: No rate is called real on a divergence below this, whatever the residuals
@@ -65,6 +67,21 @@ _IDENTIFIABILITY_FLOOR_S = 1e-6
 #: with extra steps -- and a straight line is what the affine model already is,
 #: fitted with every point instead of two.
 MIN_PIECEWISE_KNOTS = 4
+
+#: Upper bound on display pairs stored in ``SyncProposal.matches``; fit metrics
+#: and exact/piecewise knot buffers always use the complete matched set.
+MAX_PROPOSAL_MATCHES = 2_000
+
+
+def subsample_matches(
+    matches: tuple[SyncMatch, ...], limit: int = MAX_PROPOSAL_MATCHES
+) -> tuple[SyncMatch, ...]:
+    """Subsample display pairs keeping endpoints and uniform stride above *limit*."""
+    count = len(matches)
+    if count <= limit:
+        return matches
+    indices = np.unique(np.linspace(0, count - 1, limit, dtype=np.intp))
+    return tuple(matches[int(i)] for i in indices)
 
 
 def drift_is_identifiable(drift_ms_per_hour: float, span: float, noise: float) -> bool:
@@ -158,6 +175,7 @@ def fit_piecewise(
     precision_requirement: float = 0.001,
     is_cancelled: Callable[[], bool] | None = None,
     target_span: tuple[float, float] | None = None,
+    precomputed_linear: SyncProposal | None = None,
 ) -> SyncProposal:
     """Interpolate linearly between matched sync edges, TPrime's model.
 
@@ -172,15 +190,19 @@ def fit_piecewise(
     interpolation happens. What changes is what is done with the pairs once
     they are trusted.
     """
-    affine = fit_sync_events(
-        reference_times,
-        target_times,
-        reference_id=reference_id,
-        target_id=target_id,
-        max_residual=tolerance,
-        precision_requirement=precision_requirement,
-        is_cancelled=is_cancelled,
-        target_span=target_span,
+    affine = (
+        precomputed_linear
+        if precomputed_linear is not None
+        else fit_sync_events(
+            reference_times,
+            target_times,
+            reference_id=reference_id,
+            target_id=target_id,
+            max_residual=tolerance,
+            precision_requirement=precision_requirement,
+            is_cancelled=is_cancelled,
+            target_span=target_span,
+        )
     )
     if len(affine.matches) < MIN_PIECEWISE_KNOTS:
         raise SyncEvidenceError(
@@ -190,8 +212,16 @@ def fit_piecewise(
             "computed from every point."
         )
 
-    master = np.asarray([match.reference_time for match in affine.matches], dtype=np.float64)
-    source = np.asarray([match.target_time for match in affine.matches], dtype=np.float64)
+    master = np.fromiter(
+        (match.reference_time for match in affine.matches),
+        dtype=np.float64,
+        count=len(affine.matches),
+    )
+    source = np.fromiter(
+        (match.target_time for match in affine.matches),
+        dtype=np.float64,
+        count=len(affine.matches),
+    )
     if np.any(np.diff(master) <= 0) or np.any(np.diff(source) <= 0):
         raise SyncEvidenceError(
             "Matched sync edges must be strictly increasing on both sides to interpolate "
@@ -213,12 +243,13 @@ def fit_piecewise(
 
     prepared = PreparedExactMapping.prepare(master, source)
     master, source = prepared.master, prepared.source
+    knot_count = len(master)
     fit = ExactSyncFit(
         offset=float(source[0] - master[0]),
         drift_ms_per_hour=affine.fit.drift_ms_per_hour,
         rms_residual=0.0,
         max_residual=0.0,
-        matched_count=len(affine.matches),
+        matched_count=max(knot_count, affine.fit.matched_count),
         rejected_count=affine.fit.rejected_count,
         reference_count=affine.fit.reference_count,
         target_count=affine.fit.target_count,
@@ -238,7 +269,15 @@ def fit_piecewise(
         precision_requirement,
         worst_residual=knot_error,
     )
-    matches = tuple(SyncMatch(float(m), float(s), 0.0) for m, s in zip(master, source, strict=True))
+    if knot_count <= MAX_PROPOSAL_MATCHES:
+        matches = tuple(
+            SyncMatch(float(m), float(s), 0.0) for m, s in zip(master, source, strict=True)
+        )
+    else:
+        indices = np.unique(np.linspace(0, knot_count - 1, MAX_PROPOSAL_MATCHES, dtype=np.intp))
+        matches = tuple(
+            SyncMatch(float(master[int(i)]), float(source[int(i)]), 0.0) for i in indices
+        )
     return SyncProposal(
         reference_id=reference_id,
         target_id=target_id,

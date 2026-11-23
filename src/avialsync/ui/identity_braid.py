@@ -336,16 +336,51 @@ def draw_separation(plot: pg.PlotItem, model: BraidModel, palette: QPalette) -> 
         distance,
         pen=pg.mkPen(palette.color(QPalette.ColorRole.WindowText), width=1),
     )
-    for node in model.nodes:
-        plot.addItem(
-            pg.InfiniteLine(
-                pos=node.at,
-                angle=90,
-                pen=pg.mkPen(
-                    _node_color(palette, accepted=node.accepted),
-                    width=1,
-                    style=_style(1),
+    if len(model.nodes) <= 64:
+        for node in model.nodes:
+            plot.addItem(
+                pg.InfiniteLine(
+                    pos=node.at,
+                    angle=90,
+                    pen=pg.mkPen(
+                        _node_color(palette, accepted=node.accepted),
+                        width=1,
+                        style=_style(1),
+                    ),
+                )
+            )
+    else:
+        finite = distance[np.isfinite(distance)]
+        if len(finite):
+            lo, hi = float(finite.min()), float(finite.max())
+            pad = (hi - lo) * 0.05 if hi > lo else 1.0
+            y0, y1 = lo - pad, hi + pad
+        else:
+            y0, y1 = 0.0, 1.0
+        node_xs = np.fromiter(
+            (node.at for node in model.nodes), dtype=np.float64, count=len(model.nodes)
+        )
+        span_lo, span_hi = model.span()
+        if len(node_xs) > MAX_POINTS * 2 and span_hi > span_lo:
+            bins = np.clip(
+                np.rint((node_xs - span_lo) / (span_hi - span_lo) * (MAX_POINTS * 2)).astype(
+                    np.int64
                 ),
+                0,
+                MAX_POINTS * 2,
+            )
+            _, keep_idx = np.unique(bins, return_index=True)
+            node_xs = node_xs[np.sort(keep_idx)]
+        xs = np.repeat(node_xs, 2)
+        ys = np.empty(len(xs), dtype=np.float64)
+        ys[0::2] = y0
+        ys[1::2] = y1
+        plot.addItem(
+            pg.PlotCurveItem(
+                x=xs,
+                y=ys,
+                connect="pairs",
+                pen=pg.mkPen(_node_color(palette, accepted=True), width=1, style=_style(1)),
             )
         )
     plot.setXRange(*model.span(), padding=0.01)

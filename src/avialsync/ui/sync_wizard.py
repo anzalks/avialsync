@@ -44,6 +44,17 @@ from avialsync.ui.sync_evidence_view import SyncEvidenceView
 from avialsync.ui.sync_landmarks import LandmarkPanel
 
 
+def _evidence_identity(spec: EvidenceSpec) -> tuple[str, str, str, str, str]:
+    """Distinct identity of one selectable reference or target item."""
+    return (
+        type(spec).__name__,
+        spec.source_id,
+        spec.clock_id,
+        str(getattr(spec, "channel_id", "")),
+        spec.display_name,
+    )
+
+
 class SyncWizard(QDialog):
     """Inspect and explicitly accept alignment while keeping recordings interactive."""
 
@@ -503,10 +514,14 @@ class SyncWizard(QDialog):
             from avialsync.ui.sync_landmarks import visual_evidence
 
             references = visual_evidence(parent)
-        current = {spec.source_id: spec for spec in references}
-        self._references = [current.get(spec.source_id, spec) for spec in self._references]
-        current = {spec.source_id: spec for spec in targets}
-        self._targets = [current.get(spec.source_id, spec) for spec in self._targets]
+        current_refs = {_evidence_identity(spec): spec for spec in references}
+        self._references = [
+            current_refs.get(_evidence_identity(spec), spec) for spec in self._references
+        ]
+        current_targets = {_evidence_identity(spec): spec for spec in targets}
+        self._targets = [
+            current_targets.get(_evidence_identity(spec), spec) for spec in self._targets
+        ]
         sync_choices.refresh_labels(self)
 
     def _restriction_changed(self, _window: object) -> None:

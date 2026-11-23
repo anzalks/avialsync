@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -31,6 +32,19 @@ def frame_time(window: MainWindow, video: str, t_master: float) -> tuple[int, fl
     return int(index), float(pane.time_map.to_master(pts))
 
 
+def _find_reader(window: MainWindow, cache: Path, channel: str) -> Any:
+    """Resolve ``(cache, channel)`` in O(1) via PlotPane, falling back for test stubs."""
+    pane = window.plot_pane
+    reader_for = getattr(pane, "reader_for", None)
+    if callable(reader_for):
+        return reader_for(cache, channel)
+    for row in pane.channels:
+        reader = row.reader
+        if reader.cache_dir == cache and reader.channel_id == channel:
+            return reader
+    return None
+
+
 def scalar_reading(
     window: MainWindow, source_id: str, channel: str, t_frame: float
 ) -> float | None:
@@ -38,20 +52,18 @@ def scalar_reading(
     cache = window._sensor_cache_dirs.get(source_id)
     if cache is None:
         return None
-    for row in window.plot_pane.channels:
-        reader = row.reader
-        if reader.cache_dir != cache or reader.channel_id != channel:
-            continue
-        try:
-            interp = getattr(reader, "interpolated_sample_at", None)
-            if callable(interp):
-                val = interp(t_frame)
-                return None if val is None or not math.isfinite(val) else float(val)
-            found = reader.available_sample_at(t_frame)
-        except (OSError, ValueError, KeyError):
-            return None
-        return None if found is None or not math.isfinite(found[1]) else float(found[1])
-    return None
+    reader = _find_reader(window, cache, channel)
+    if reader is None:
+        return None
+    try:
+        interp = getattr(reader, "interpolated_sample_at", None)
+        if callable(interp):
+            val = interp(t_frame)
+            return None if val is None or not math.isfinite(val) else float(val)
+        found = reader.available_sample_at(t_frame)
+    except (OSError, ValueError, KeyError):
+        return None
+    return None if found is None or not math.isfinite(found[1]) else float(found[1])
 
 
 def _slerp_quaternions(
@@ -89,14 +101,9 @@ def orientation_values(
     cache = window._sensor_cache_dirs.get(binding.source_id)
     if cache is None:
         return None
-    by_channel = {
-        row.reader.channel_id: row.reader
-        for row in window.plot_pane.channels
-        if row.reader.cache_dir == cache
-    }
-    if any(channel not in by_channel for channel in binding.channels):
+    readers = [_find_reader(window, cache, channel) for channel in binding.channels]
+    if any(reader is None for reader in readers):
         return None
-    readers = [by_channel[channel] for channel in binding.channels]
     try:
         samples = [reader.available_sample_at(t_frame) for reader in readers]
     except (OSError, ValueError, KeyError):

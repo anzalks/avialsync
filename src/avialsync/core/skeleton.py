@@ -20,9 +20,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-#: Above this many points the O(P^2) pass stops being a UI-thread callback.
-#: Real pose rigs are far below it -- the AOL reference session emits 27.
-MAX_POINTS = 64
+#: Above this many points the O(P^2) pass declines to guess topology.
+#: Bounded frame striding keeps up to 256 markers (dense multi-animal rigs) fast.
+MAX_POINTS = 256
 
 #: Elements per pairwise pass, which sets how many frames are sampled for a
 #: given point count. Sampling spans the whole recording by striding, so a

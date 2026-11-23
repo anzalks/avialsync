@@ -16,6 +16,7 @@ from collections import Counter
 from collections.abc import Iterable
 from pathlib import Path
 
+import numpy as np
 from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
@@ -49,6 +50,32 @@ class MappedMessage:
     channel: str
 
 
+def _time_maps_equal(first: TimeMap, second: TimeMap) -> bool:
+    """Return whether two :class:`TimeMap` instances evaluate identically."""
+    if (
+        first.offset != second.offset
+        or first.drift_ms_per_hour != second.drift_ms_per_hour
+        or first._base_offset != second._base_offset
+        or first._t_ref != second._t_ref
+        or first.has_exact_mapping != second.has_exact_mapping
+    ):
+        return False
+    if not first.has_exact_mapping:
+        return True
+    return (
+        first._exact_offset_anchor == second._exact_offset_anchor
+        and first._exact_drift_anchor == second._exact_drift_anchor
+        and (
+            first._exact_master is second._exact_master
+            or np.array_equal(first._exact_master, second._exact_master)  # type: ignore[arg-type]
+        )
+        and (
+            first._exact_source is second._exact_source
+            or np.array_equal(first._exact_source, second._exact_source)  # type: ignore[arg-type]
+        )
+    )
+
+
 class MessageStore(QObject):
     """Messages from every loaded source, on the master clock.
 
@@ -64,6 +91,7 @@ class MessageStore(QObject):
         super().__init__(parent)
         self._by_source: dict[str, tuple[Message, ...]] = {}
         self._maps: dict[str, TimeMap] = {}
+        self._mappings = self._maps
 
     def set_source_messages(self, source_id: str, messages: tuple[Message, ...]) -> None:
         """Replace the messages attributed to *source_id*."""
@@ -74,12 +102,47 @@ class MessageStore(QObject):
         self._by_source[source_id] = tuple(messages)
         self.changed.emit()
 
+    def set_source_time_map(self, source_id: str, time_map: TimeMap) -> None:
+        """Install a full :class:`TimeMap` (including exact/piecewise knots) for *source_id*."""
+        copied = time_map.copy()
+        existing = self._maps.get(source_id)
+        if existing is not None and _time_maps_equal(existing, copied):
+            return
+        if (
+            existing is None
+            and not copied.has_exact_mapping
+            and copied.offset == 0.0
+            and copied.drift_ms_per_hour == 0.0
+            and copied._base_offset == 0.0
+        ):
+            return
+        self._maps[source_id] = copied
+        if source_id in self._by_source:
+            self.changed.emit()
+
     def set_source_mapping(self, source_id: str, offset: float, drift_ms_per_hour: float) -> None:
         """Re-place one source's messages after its alignment changed."""
-        if source_id not in self._by_source and offset == 0.0 and drift_ms_per_hour == 0.0:
-            self._maps.pop(source_id, None)
-            return
-        self._maps[source_id] = TimeMap(offset=offset, drift_ms_per_hour=drift_ms_per_hour)
+        offset = float(offset)
+        drift_ms_per_hour = float(drift_ms_per_hour)
+        existing = self._maps.get(source_id)
+        if existing is None:
+            if offset == 0.0 and drift_ms_per_hour == 0.0:
+                return
+            self._maps[source_id] = TimeMap(offset=offset, drift_ms_per_hour=drift_ms_per_hour)
+        else:
+            if existing.offset == offset and existing.drift_ms_per_hour == drift_ms_per_hour:
+                return
+            if (
+                source_id not in self._by_source
+                and not existing.has_exact_mapping
+                and offset == 0.0
+                and drift_ms_per_hour == 0.0
+            ):
+                self._maps.pop(source_id, None)
+                return
+            updated = existing.copy()
+            updated.adjust_mapping(offset, drift_ms_per_hour)
+            self._maps[source_id] = updated
         if source_id in self._by_source:
             self.changed.emit()
 
@@ -190,9 +253,17 @@ class MessagePanel(QGroupBox):
         self._table = ThemedTable(0, 3, self)
         self._table.setHorizontalHeaderLabels(["Time", "Source", "Message"])
         header = self._table.horizontalHeader()
-        header.setSectionResizeMode(self._TIME_COLUMN, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(self._SOURCE_COLUMN, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(self._TIME_COLUMN, QHeaderView.ResizeMode.Interactive)
+        header.setSectionResizeMode(self._SOURCE_COLUMN, QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(self._TEXT_COLUMN, QHeaderView.ResizeMode.Stretch)
+        metrics = self._table.fontMetrics()
+        pad = spacing("xl", self._table)
+        self._table.setColumnWidth(
+            self._TIME_COLUMN, metrics.horizontalAdvance("00:00:00.000") + pad
+        )
+        self._table.setColumnWidth(
+            self._SOURCE_COLUMN, metrics.horizontalAdvance("Board-100.stream · ch") + pad
+        )
         self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self._table.setAccessibleName(tr("Recorded messages"))
@@ -240,24 +311,29 @@ class MessagePanel(QGroupBox):
         self._rows = [message for message in messages if message.time is not None]
         self._names = _display_names(message.source_id for message in messages)
 
-        self._table.blockSignals(True)
-        self._table.setRowCount(len(self._rows))
-        for row, message in enumerate(self._rows):
-            time_item = QTableWidgetItem(
-                format_time(float(message.time or 0.0), self._time_mode, self._t_epoch)
-            )
-            source_label = self._names.get(message.source_id) or _source_name(message.source_id)
-            if message.channel:
-                source_label = f"{source_label} · {message.channel}"
-            source_item = QTableWidgetItem(source_label)
-            text_item = QTableWidgetItem(message.text)
-            # The full text is the tooltip because a long note is elided in the
-            # cell, and this panel exists to let it be read.
-            text_item.setToolTip(message.text)
-            self._table.setItem(row, self._TIME_COLUMN, time_item)
-            self._table.setItem(row, self._SOURCE_COLUMN, source_item)
-            self._table.setItem(row, self._TEXT_COLUMN, text_item)
-        self._table.blockSignals(False)
+        was_enabled = self._table.updatesEnabled()
+        self._table.setUpdatesEnabled(False)
+        blocked = self._table.blockSignals(True)
+        try:
+            self._table.setRowCount(len(self._rows))
+            for row, message in enumerate(self._rows):
+                time_item = QTableWidgetItem(
+                    format_time(float(message.time or 0.0), self._time_mode, self._t_epoch)
+                )
+                source_label = self._names.get(message.source_id) or _source_name(message.source_id)
+                if message.channel:
+                    source_label = f"{source_label} · {message.channel}"
+                source_item = QTableWidgetItem(source_label)
+                text_item = QTableWidgetItem(message.text)
+                # The full text is the tooltip because a long note is elided in the
+                # cell, and this panel exists to let it be read.
+                text_item.setToolTip(message.text)
+                self._table.setItem(row, self._TIME_COLUMN, time_item)
+                self._table.setItem(row, self._SOURCE_COLUMN, source_item)
+                self._table.setItem(row, self._TEXT_COLUMN, text_item)
+        finally:
+            self._table.blockSignals(blocked)
+            self._table.setUpdatesEnabled(was_enabled)
         self._apply_filter()
 
     def _apply_filter(self) -> None:
@@ -273,13 +349,18 @@ class MessagePanel(QGroupBox):
                 )
             )
 
-        self._table.blockSignals(True)
+        was_enabled = self._table.updatesEnabled()
+        self._table.setUpdatesEnabled(False)
+        blocked = self._table.blockSignals(True)
         shown = 0
-        for row, message in enumerate(self._rows):
-            hidden = not self._matches(message)
-            self._table.setRowHidden(row, hidden)
-            shown += not hidden
-        self._table.blockSignals(False)
+        try:
+            for row, message in enumerate(self._rows):
+                hidden = not self._matches(message)
+                self._table.setRowHidden(row, hidden)
+                shown += not hidden
+        finally:
+            self._table.blockSignals(blocked)
+            self._table.setUpdatesEnabled(was_enabled)
 
         has_any = bool(notes or shown)
         self._table.setVisible(bool(shown))

@@ -34,7 +34,7 @@ import logging
 import os
 import shutil
 import uuid
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 import numpy as np
@@ -48,7 +48,7 @@ from avialsync.core.cache_leases import (
     pinned_cache_entries,
     reserve_edited_generation,
 )
-from avialsync.core.edit_program import EditProgram
+from avialsync.core.edit_program import EditProgram, Segment
 from avialsync.core.pose import PosePoint, PoseSchema
 from avialsync.core.pyramid import PyramidBuilder, PyramidReader
 
@@ -174,11 +174,20 @@ def materialise(
     staging.mkdir(parents=True, exist_ok=True)
 
     try:
+        grouped_corrections = _group_corrections_by_display(program)
         written: list[str] = []
         for name in affected:
             point = schema.point(name)
             assert point is not None  # affected() received precisely this schema's names.
-            written.extend(_write_point(cache_dir, staging, program, point))
+            written.extend(
+                _write_point(
+                    cache_dir,
+                    staging,
+                    program,
+                    point,
+                    point_corrections=grouped_corrections.get(name, ()),
+                )
+            )
 
         _write_manifest(staging, program.fingerprint, written, _base_key(cache_dir))
         directory.parent.mkdir(parents=True, exist_ok=True)
@@ -225,33 +234,85 @@ def _commit(staging: Path, directory: Path) -> None:
     os.replace(manifest, directory / _MANIFEST)
 
 
+def _group_corrections_by_display(
+    program: EditProgram,
+) -> dict[str, list[tuple[int, tuple[float, float]]]]:
+    """Map each displayed point name to ``(sample_index, (x, y))`` corrections it shows."""
+    if not program.corrections:
+        return {}
+    inv_cache: dict[int, dict[str, list[str]]] = {}
+    grouped: dict[str, list[tuple[int, tuple[float, float]]]] = {}
+    for (raw_point, index), coords in program.corrections.items():
+        route = program.route_at(index)
+        if not route:
+            grouped.setdefault(raw_point, []).append((index, coords))
+            continue
+        inv = inv_cache.get(id(route))
+        if inv is None:
+            inv = {}
+            for display, donor in route.items():
+                if display != donor:
+                    inv.setdefault(donor, []).append(display)
+            inv_cache[id(route)] = inv
+        for display in inv.get(raw_point, ()):
+            grouped.setdefault(display, []).append((index, coords))
+        if route.get(raw_point, raw_point) == raw_point:
+            grouped.setdefault(raw_point, []).append((index, coords))
+    return grouped
+
+
 def _write_point(
     cache_dir: Path,
     staging: Path,
     program: EditProgram,
     point: PosePoint,
+    *,
+    point_corrections: Sequence[tuple[int, tuple[float, float]]] | None = None,
 ) -> list[str]:
     """Write every channel of one point, edited, into *staging*."""
     channels: list[str] = []
     axes = tuple(point.axes)
+    segments = program.segments_for(point.name)
+    resolved_corrections = (
+        tuple(point_corrections)
+        if point_corrections is not None
+        else tuple(_group_corrections_by_display(program).get(point.name, ()))
+    )
     corrected_indices: set[int] = set()
 
     for position, axis in enumerate(axes):
         channel = point.channel(axis)
         try:
-            times, values = _edited_values(cache_dir, program, point.name, channel, position)
+            times, values = _edited_values(
+                cache_dir,
+                program,
+                point.name,
+                channel,
+                position,
+                segments=segments,
+                point_corrections=resolved_corrections,
+            )
         except (FileNotFoundError, ValueError):
             logger.warning("No cached channel %s to edit; leaving the original.", channel)
             continue
         if position < 2:
-            corrected_indices |= _corrected_indices(program, point.name, len(values))
+            count = len(values)
+            corrected_indices |= {idx for idx, _pos in resolved_corrections if 0 <= idx < count}
         PyramidBuilder(staging, channel).build_and_save(times, values)
         channels.append(channel)
 
     likelihood = point.likelihood_channel
     if likelihood is not None:
         try:
-            times, values = _edited_values(cache_dir, program, point.name, likelihood, None)
+            times, values = _edited_values(
+                cache_dir,
+                program,
+                point.name,
+                likelihood,
+                None,
+                segments=segments,
+                point_corrections=resolved_corrections,
+            )
         except (FileNotFoundError, ValueError):
             return channels
         for index in corrected_indices:
@@ -267,6 +328,9 @@ def _edited_values(
     name: str,
     channel: str,
     axis_position: int | None,
+    *,
+    segments: Sequence[Segment] | None = None,
+    point_corrections: Sequence[tuple[int, tuple[float, float]]] | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return ``(t, v)`` for one channel with routing and corrections applied.
 
@@ -274,35 +338,51 @@ def _edited_values(
     move; anything else takes routing alone.
     """
     reader = PyramidReader(cache_dir, channel)
-    times, values, _ = reader.mapped_columns()
-    times = np.asarray(times)
-    out = np.array(values, dtype=np.float64, copy=True)
-    count = len(out)
+    donors: dict[str, PyramidReader] = {}
+    try:
+        times, values, _ = reader.mapped_columns()
+        times = np.asarray(times)
+        out = np.array(values, dtype=np.float64, copy=True)
+        count = len(out)
 
-    suffix = channel[len(name) :]
-    for segment in program.segments_for(name):
-        start, stop = segment.bounded(count)
-        if stop <= start:
-            continue
-        donor = PyramidReader(cache_dir, f"{segment.source}{suffix}")
-        _, donor_values, _ = donor.mapped_columns()
-        end = min(stop, len(donor_values))
-        if end > start:
-            out[start:end] = donor_values[start:end]
+        suffix = channel[len(name) :]
+        active_segments = segments if segments is not None else program.segments_for(name)
+        for segment in active_segments:
+            start, stop = segment.bounded(count)
+            if stop <= start:
+                continue
+            donor_ch = f"{segment.source}{suffix}"
+            donor = donors.get(donor_ch)
+            if donor is None:
+                donor = PyramidReader(cache_dir, donor_ch)
+                donors[donor_ch] = donor
+            _, donor_values, _ = donor.mapped_columns()
+            end = min(stop, len(donor_values))
+            if end > start:
+                out[start:end] = donor_values[start:end]
 
-    if axis_position is not None and axis_position < 2:
-        for (point, index), position in program.corrections.items():
-            if 0 <= index < count and program.source_of(name, index) == point:
-                out[index] = position[axis_position]
-    return times, out
+        if axis_position is not None and axis_position < 2:
+            edits = (
+                point_corrections
+                if point_corrections is not None
+                else _group_corrections_by_display(program).get(name, ())
+            )
+            for index, position in edits:
+                if 0 <= index < count:
+                    out[index] = position[axis_position]
+        return times, out
+    finally:
+        reader.close()
+        for donor in donors.values():
+            donor.close()
 
 
 def _corrected_indices(program: EditProgram, name: str, count: int) -> set[int]:
     """Which samples of *name* show a hand-corrected coordinate."""
     return {
         index
-        for (point, index) in program.corrections
-        if 0 <= index < count and program.source_of(name, index) == point
+        for index, _pos in _group_corrections_by_display(program).get(name, ())
+        if 0 <= index < count
     }
 
 

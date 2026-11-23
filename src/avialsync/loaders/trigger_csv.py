@@ -17,6 +17,7 @@ weaker model for it.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,7 @@ __all__ = ["LEVEL", "TIMESTAMPS", "TriggerCSVSource", "describe_config"]
 LEVEL = "level"
 #: A column holding one timestamp per event; the events are its rows.
 TIMESTAMPS = "timestamps"
+_CSV_BATCH_ROWS = 250_000
 
 #: Column names that are a time axis, in the spellings labs actually use.
 _TIME_NAMES = (
@@ -98,7 +100,8 @@ class TriggerCSVSource(TriggerSource):
     def __init__(self) -> None:
         self._path: Path | None = None
         self._config: dict[str, Any] = {}
-        self._frame: pl.DataFrame | None = None
+        self._columns: tuple[str, ...] = ()
+        self._separator: str = ","
         self._resolutions: dict[str, float] = {}
         self._incomplete: dict[str, int] = {}
 
@@ -174,14 +177,16 @@ class TriggerCSVSource(TriggerSource):
                 f"{path.name} is a folder, not a delimited file. Choose a single file, "
                 "or a format that reads a recording directory."
             )
+        separator = "\t" if path.suffix.lower() == ".tsv" else ","
         try:
-            frame = pl.read_csv(path, separator="\t" if path.suffix.lower() == ".tsv" else ",")
+            sample = pl.read_csv(path, separator=separator, n_rows=16)
         except Exception as error:  # noqa: BLE001 - polars raises many shapes
             raise FileUnreadableError(f"{path.name} could not be read: {error}") from error
 
         self._path = path
         self._config = dict(config)
-        self._frame = frame
+        self._columns = tuple(sample.columns)
+        self._separator = separator
         self._resolutions.clear()
         self._incomplete.clear()
         self._validate()
@@ -193,19 +198,33 @@ class TriggerCSVSource(TriggerSource):
         return str(self._train(train_id).get("kind", TriggerKind.SYNC_TRAIN))
 
     def read_train(self, train_id: str) -> tuple[np.ndarray, np.ndarray | None]:
+        if self._path is None:
+            raise FileUnreadableError("No trigger file has been opened.")
         train = self._train(train_id)
         column = str(train["column"])
-        values = self._column(column)
+        self._require_column(column)
         unit = str(self._config.get("time_unit", "s"))
         if unit not in {"s", "ms", "us"}:
             raise FileUnreadableError(
                 "Choose seconds, milliseconds, or microseconds for trigger timestamps."
             )
         scale = {"s": 1.0, "ms": 0.001, "us": 0.000001}[unit]
+        path = self._path
 
         if str(train.get("mode", LEVEL)) == TIMESTAMPS:
-            times = np.asarray(values, dtype=np.float64) * scale
-            times = times[np.isfinite(times)]
+            parts: list[np.ndarray] = []
+            try:
+                batches = iter(
+                    pl.scan_csv(path, separator=self._separator)
+                    .select(column)
+                    .collect_batches(chunk_size=_CSV_BATCH_ROWS)
+                )
+                for batch in batches:
+                    arr = batch.get_column(column).cast(pl.Float64).to_numpy() * scale
+                    parts.append(arr[np.isfinite(arr)])
+            except Exception as error:  # noqa: BLE001
+                raise FileUnreadableError(f"{self._name()} could not be read: {error}") from error
+            times = np.concatenate(parts) if parts else np.empty(0, dtype=np.float64)
             if len(times) and np.any(np.diff(times) <= 0):
                 times = np.unique(times)
             # A list of instants has no second edge, so no duration is known.
@@ -213,17 +232,56 @@ class TriggerCSVSource(TriggerSource):
             return times, None
 
         time_column = str(self._config.get("time_column", ""))
-        times = np.asarray(self._column(time_column), dtype=np.float64) * scale
+        self._require_column(time_column)
+        max_interval = 0.0
+        prev_last_time: float | None = None
+
+        def _iter_level_chunks() -> Iterator[tuple[np.ndarray, np.ndarray]]:
+            nonlocal max_interval, prev_last_time
+            select_cols = [time_column] if time_column == column else [time_column, column]
+            try:
+                batch_iter = iter(
+                    pl.scan_csv(path, separator=self._separator)
+                    .select(select_cols)
+                    .collect_batches(chunk_size=_CSV_BATCH_ROWS)
+                )
+            except Exception as error:  # noqa: BLE001
+                raise FileUnreadableError(f"{self._name()} could not be read: {error}") from error
+            while True:
+                try:
+                    batch = next(batch_iter)
+                    t_chunk = batch.get_column(time_column).cast(pl.Float64).to_numpy() * scale
+                    v_chunk = batch.get_column(column).cast(pl.Float64).to_numpy()
+                except StopIteration:
+                    break
+                except Exception as error:  # noqa: BLE001
+                    raise FileUnreadableError(
+                        f"{self._name()} could not be read: {error}"
+                    ) from error
+                if len(t_chunk) == 0:
+                    continue
+                if prev_last_time is not None:
+                    boundary_dt = float(t_chunk[0] - prev_last_time)
+                    if np.isfinite(boundary_dt) and boundary_dt > max_interval:
+                        max_interval = boundary_dt
+                if len(t_chunk) > 1:
+                    diffs = np.diff(t_chunk)
+                    valid_diffs = diffs[np.isfinite(diffs) & (diffs > 0.0)]
+                    if len(valid_diffs):
+                        chunk_max = float(valid_diffs.max())
+                        if chunk_max > max_interval:
+                            max_interval = chunk_max
+                prev_last_time = float(t_chunk[-1])
+                yield t_chunk, v_chunk
+
         pulses = extract_pulses(
-            [(times, np.asarray(values, dtype=np.float64))],
+            _iter_level_chunks(),
             source_id=f"{self._name()}:{train_id}",
             kind=TriggerKind(self.kind_of(train_id)),
             threshold=float(train.get("threshold", 0.5)),
             min_interval=float(train.get("min_interval", 0.0)),
         )
-        intervals = np.diff(times)
-        intervals = intervals[np.isfinite(intervals) & (intervals > 0.0)]
-        self._resolutions[train_id] = float(intervals.max()) if len(intervals) else 0.0
+        self._resolutions[train_id] = max_interval
         self._incomplete[train_id] = pulses.incomplete_count
         return pulses.times, pulses.durations
 
@@ -252,14 +310,13 @@ class TriggerCSVSource(TriggerSource):
             f"{', '.join(self.trains()) or 'none'}."
         )
 
-    def _column(self, name: str) -> pl.Series:
-        if self._frame is None:
+    def _require_column(self, name: str) -> None:
+        if self._path is None:
             raise FileUnreadableError("No trigger file has been opened.")
-        if name not in self._frame.columns:
+        if name not in self._columns:
             raise FileUnreadableError(
-                f"{self._name()} has no column {name!r}. It has: {', '.join(self._frame.columns)}."
+                f"{self._name()} has no column {name!r}. It has: {', '.join(self._columns)}."
             )
-        return self._frame.get_column(name)
 
     def _validate(self) -> None:
         """Refuse a configuration that names something the file does not have.
@@ -282,7 +339,7 @@ class TriggerCSVSource(TriggerSource):
             if train_id in seen:
                 raise FileUnreadableError(f"Two trigger trains are both called {train_id!r}.")
             seen.add(train_id)
-            self._column(str(train.get("column", "")))
+            self._require_column(str(train.get("column", "")))
             try:
                 TriggerKind(str(train.get("kind", "")))
             except ValueError:
@@ -292,7 +349,7 @@ class TriggerCSVSource(TriggerSource):
                     f"{', '.join(k.value for k in TriggerKind)}."
                 ) from None
             if str(train.get("mode", LEVEL)) == LEVEL:
-                self._column(str(self._config.get("time_column", "")))
+                self._require_column(str(self._config.get("time_column", "")))
 
 
 def _peek_header(path: Path) -> list[str]:

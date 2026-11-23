@@ -10,7 +10,54 @@ from avialsync.ui.sync_choices import preferred_reference, suggested_mode
 from avialsync.ui.sync_lifecycle import as_window
 
 if TYPE_CHECKING:
+    from avialsync.engine.sync_worker import EvidenceSpec
     from avialsync.ui.sync_wizard import SyncWizard
+
+
+def _selection_key(spec: EvidenceSpec) -> str:
+    """Encode channel/train identity alongside ``source_id`` in a single string."""
+    channel_id = str(getattr(spec, "channel_id", "") or "")
+    if channel_id:
+        return f"{spec.source_id}\x00{channel_id}"
+    if spec.display_name:
+        return f"{spec.source_id}\x00{spec.display_name}"
+    return spec.source_id
+
+
+def _find_saved_spec(specs: list[EvidenceSpec], saved_entry: Any, saved_channel: str = "") -> int:
+    """Match a saved selection, falling back to ``source_id`` for older entries."""
+    if isinstance(saved_entry, tuple):
+        src = str(saved_entry[0]) if saved_entry else ""
+        ch = str(saved_entry[1]) if len(saved_entry) > 1 else ""
+        if ch:
+            exact_tuple = next(
+                (
+                    i
+                    for i, spec in enumerate(specs)
+                    if spec.source_id == src and getattr(spec, "channel_id", "") == ch
+                ),
+                -1,
+            )
+            if exact_tuple >= 0:
+                return exact_tuple
+        return next((i for i, spec in enumerate(specs) if spec.source_id == src), -1)
+
+    entry = str(saved_entry)
+    if saved_channel:
+        by_channel = next(
+            (
+                i
+                for i, spec in enumerate(specs)
+                if spec.source_id == entry and getattr(spec, "channel_id", "") == saved_channel
+            ),
+            -1,
+        )
+        if by_channel >= 0:
+            return by_channel
+    exact = next((i for i, spec in enumerate(specs) if _selection_key(spec) == entry), -1)
+    if exact >= 0:
+        return exact
+    return next((i for i, spec in enumerate(specs) if spec.source_id == entry), -1)
 
 
 def preference(key: str) -> Any:
@@ -40,11 +87,12 @@ def restore(wizard: SyncWizard) -> None:
         if preferred >= 0:
             wizard._reference_combo.setCurrentIndex(preferred)
     if saved:
-        for specs, combo, source_id in (
-            (wizard._references, wizard._reference_combo, saved[2]),
-            (wizard._targets, wizard._target_combo, saved[3]),
+        extra_target_channel = str(saved[4]) if len(saved) > 4 else ""
+        for specs, combo, saved_id, channel_hint in (
+            (wizard._references, wizard._reference_combo, saved[2], ""),
+            (wizard._targets, wizard._target_combo, saved[3], extra_target_channel),
         ):
-            index = next((i for i, spec in enumerate(specs) if spec.source_id == source_id), -1)
+            index = _find_saved_spec(specs, saved_id, channel_hint)
             if index >= 0:
                 combo.setCurrentIndex(index)
         _advance_past_aligned(wizard, parent)
@@ -108,6 +156,6 @@ def save(wizard: SyncWizard) -> None:
     parent.session_runtime.alignment_selection = (
         parent.session_runtime.generation,
         str(wizard._mode_combo.currentData()),
-        wizard._references[reference].source_id if reference >= 0 else "",
-        wizard._targets[target].source_id if target >= 0 else "",
+        _selection_key(wizard._references[reference]) if reference >= 0 else "",
+        _selection_key(wizard._targets[target]) if target >= 0 else "",
     )

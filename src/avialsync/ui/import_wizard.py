@@ -128,6 +128,10 @@ def _guess_format(sample_values: list[str]) -> str:
     return guess_format(sample_values)
 
 
+_MAX_PREVIEW_COLS = 64
+_STRETCH_COL_LIMIT = 12
+
+
 class ImportWizard(QDialog):
     """Dialog for configuring CSV/time-series import parameters.
 
@@ -177,6 +181,7 @@ class ImportWizard(QDialog):
         self._preview_table = ThemedTable()
         self._preview_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self._preview_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self._preview_col_indices: list[int] = []
         preview_layout.addWidget(self._preview_table)
 
         units_group = import_wizard_fields.build_units_group(self)
@@ -335,6 +340,13 @@ class ImportWizard(QDialog):
     def _on_time_column_changed(self, _text: str) -> None:
         if not self._format_chosen_by_user:
             self._select_format(_guess_format(self._time_values()))
+        time_idx = self._time_col_combo.currentIndex()
+        if (
+            len(self._headers) > _MAX_PREVIEW_COLS
+            and 0 <= time_idx < len(self._headers)
+            and time_idx not in self._preview_col_indices
+        ):
+            self._populate_preview_table(time_idx)
         self._fill_units()
         self._refresh_validity()
 
@@ -361,6 +373,36 @@ class ImportWizard(QDialog):
     def _refresh_time_check(self) -> None:
         import_wizard_fields.refresh_time_check(self)
 
+    def _populate_preview_table(self, time_col_idx: int) -> None:
+        """Render up to ``_MAX_PREVIEW_COLS`` columns, keeping *time_col_idx* visible."""
+        ncols = len(self._headers)
+        if ncols <= _MAX_PREVIEW_COLS:
+            col_indices = list(range(ncols))
+        elif 0 <= time_col_idx < ncols and time_col_idx >= _MAX_PREVIEW_COLS:
+            col_indices = [*range(_MAX_PREVIEW_COLS - 1), time_col_idx]
+        else:
+            col_indices = list(range(_MAX_PREVIEW_COLS))
+        self._preview_col_indices = col_indices
+
+        was_enabled = self._preview_table.updatesEnabled()
+        self._preview_table.setUpdatesEnabled(False)
+        try:
+            mode = (
+                QHeaderView.ResizeMode.Interactive
+                if ncols > _STRETCH_COL_LIMIT
+                else QHeaderView.ResizeMode.Stretch
+            )
+            self._preview_table.horizontalHeader().setSectionResizeMode(mode)
+            self._preview_table.setColumnCount(len(col_indices))
+            self._preview_table.setHorizontalHeaderLabels([self._headers[c] for c in col_indices])
+            self._preview_table.setRowCount(min(20, len(self._sample_rows)))
+            for r, row_data in enumerate(self._sample_rows[:20]):
+                for out_col, src_col in enumerate(col_indices):
+                    val = row_data[src_col].strip() if src_col < len(row_data) else ""
+                    self._preview_table.setItem(r, out_col, QTableWidgetItem(val))
+        finally:
+            self._preview_table.setUpdatesEnabled(was_enabled)
+
     def _on_separator_changed(self, _idx: int) -> None:
         sep = self._sep_combo.currentData()
         reader = csv.reader(io.StringIO("\n".join(self._raw_lines[:50])), delimiter=sep)
@@ -373,22 +415,18 @@ class ImportWizard(QDialog):
             self._headers = [f"column_{i + 1}" for i in range(ncols)]
             self._sample_rows = rows[:20]
 
-        ncols = len(self._headers)
-        self._preview_table.setColumnCount(ncols)
-        self._preview_table.setHorizontalHeaderLabels(self._headers)
-        self._preview_table.setRowCount(min(20, len(self._sample_rows)))
-
-        for r, row_data in enumerate(self._sample_rows[:20]):
-            for c in range(ncols):
-                val = row_data[c].strip() if c < len(row_data) else ""
-                self._preview_table.setItem(r, c, QTableWidgetItem(val))
-
-        # Refresh time column combo
-        self._time_col_combo.clear()
-        for h in self._headers:
-            self._time_col_combo.addItem(h.strip())
         time_col_idx = _guess_time_column(self._headers)
-        self._time_col_combo.setCurrentIndex(time_col_idx)
+        self._populate_preview_table(time_col_idx)
+
+        blocked = self._time_col_combo.blockSignals(True)
+        try:
+            self._time_col_combo.clear()
+            self._time_col_combo.addItems([h.strip() for h in self._headers])
+            self._time_col_combo.setCurrentIndex(time_col_idx)
+        finally:
+            self._time_col_combo.blockSignals(blocked)
+        if hasattr(self, "_units_table") and hasattr(self, "_validation_label"):
+            self._on_time_column_changed(self._time_col_combo.currentText())
 
     def _on_has_headers_toggled(self, checked: bool) -> None:
         self._has_headers = checked

@@ -1,5 +1,6 @@
 """Playback transport controls."""
 
+import bisect
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -204,6 +205,69 @@ class _AnnotationLane:
 
 
 @dataclass(frozen=True)
+class _SpanIndex:
+    """Sorted start/end tables for logarithmic interval and handle queries."""
+
+    order: np.ndarray
+    starts: np.ndarray
+    max_ends: np.ndarray
+    range_end_order: np.ndarray
+
+    def overlapping(self, q0: float, q1: float) -> np.ndarray:
+        if len(self.starts) == 0 or q1 < q0:
+            return np.empty(0, dtype=np.int64)
+        hi = int(np.searchsorted(self.starts, q1, side="right"))
+        if hi == 0:
+            return np.empty(0, dtype=np.int64)
+        lo = int(np.searchsorted(self.max_ends[:hi], q0, side="left"))
+        return self.order[lo:hi]
+
+
+def _build_segment_index(segments: tuple[tuple[float, float, str], ...]) -> _SpanIndex:
+    n = len(segments)
+    if n == 0:
+        empty_i = np.empty(0, dtype=np.int64)
+        return _SpanIndex(empty_i, _EMPTY_TIMES, _EMPTY_TIMES, empty_i)
+    firsts = np.fromiter((min(a, b) for a, b, _ in segments), dtype=np.float64, count=n)
+    lasts = np.fromiter((max(a, b) for a, b, _ in segments), dtype=np.float64, count=n)
+    if n > 1 and bool(np.any(firsts[1:] < firsts[:-1])):
+        order = np.argsort(firsts, kind="mergesort")
+    else:
+        order = np.arange(n, dtype=np.int64)
+    s_starts = firsts[order]
+    max_ends = np.maximum.accumulate(lasts[order])
+    return _SpanIndex(order, s_starts, max_ends, np.empty(0, dtype=np.int64))
+
+
+def _build_marker_index(markers: tuple[tuple[float, float | None, str], ...]) -> _SpanIndex:
+    n = len(markers)
+    if n == 0:
+        empty_i = np.empty(0, dtype=np.int64)
+        return _SpanIndex(empty_i, _EMPTY_TIMES, _EMPTY_TIMES, empty_i)
+    starts = np.fromiter((s for s, _e, _c in markers), dtype=np.float64, count=n)
+    ends = np.fromiter(
+        (s if e is None else max(s, e) for s, e, _c in markers), dtype=np.float64, count=n
+    )
+    firsts = np.minimum(starts, ends)
+    order = np.argsort(firsts, kind="mergesort")
+    s_starts = firsts[order]
+    max_ends = np.maximum.accumulate(ends[order])
+    range_indices = np.asarray(
+        [i for i, (_s, e, _c) in enumerate(markers) if e is not None], dtype=np.int64
+    )
+    if len(range_indices):
+        range_ends = np.fromiter(
+            (float(markers[int(i)][1]) for i in range_indices),  # type: ignore[arg-type]
+            dtype=np.float64,
+            count=len(range_indices),
+        )
+        range_end_order = range_indices[np.argsort(range_ends, kind="mergesort")]
+    else:
+        range_end_order = np.empty(0, dtype=np.int64)
+    return _SpanIndex(order, s_starts, max_ends, range_end_order)
+
+
+@dataclass(frozen=True)
 class _SegmentLane:
     """Named stretches of the recording -- a joined experiment's trials."""
 
@@ -283,6 +347,7 @@ class TimelineOverview(QWidget):
         self._collapse_gaps = False
         self._warp = TimeWarp()
         self._raw_gap_events: tuple[tuple[float, str], ...] = ()
+        self._raw_gap_times: np.ndarray = _EMPTY_TIMES
         #: Source id -> the session's name for it, for lane labels.
         self._labels: dict[str, str] = {}
         self._ttl_events: tuple[tuple[float, str], ...] = ()
@@ -301,7 +366,9 @@ class TimelineOverview(QWidget):
             "identity_candidate": _EMPTY_TIMES,
         }
         self._markers: tuple[tuple[float, float | None, str], ...] = ()
+        self._markers_index_cache: tuple[int, _SpanIndex] = (0, _build_marker_index(()))
         self._segments: tuple[tuple[float, float, str], ...] = ()
+        self._segments_index_cache: tuple[int, _SpanIndex] = (0, _build_segment_index(()))
         self._press_x = 0.0
         self._viewport_moved = False
         self._viewport_start = 0.0
@@ -439,19 +506,56 @@ class TimelineOverview(QWidget):
         dropout: the source's lane shows it stopping, and it is left out here.
         """
         self._raw_gap_events = _normalise_events(events)
+        self._raw_gap_times = _time_index(self._raw_gap_events)
         self._on_evidence_changed()
 
     def _filter_gap_events(self) -> None:
-        holes = sorted(hole for holes in self._holes.values() for hole in holes)
-        # A gap is stamped at the last sample before it, just short of the hole.
-        events = tuple(
-            event
-            for event in self._raw_gap_events
-            if not any(a - MIN_COLLAPSED_GAP_S <= event[0] < b for a, b in holes)
+        if not self._raw_gap_events:
+            if self._gap_events:
+                self._gap_events = ()
+                self._event_times["gap"] = _EMPTY_TIMES
+            return
+        shifted = sorted(
+            (a - MIN_COLLAPSED_GAP_S, b)
+            for holes in self._holes.values()
+            for a, b in holes
+            if b > a - MIN_COLLAPSED_GAP_S
         )
+        if not shifted:
+            events = self._raw_gap_events
+            times = (
+                self._raw_gap_times
+                if len(self._raw_gap_times) == len(events)
+                else _time_index(events)
+            )
+        else:
+            merged: list[tuple[float, float]] = []
+            for s, e in shifted:
+                if merged and s <= merged[-1][1]:
+                    merged[-1] = (merged[-1][0], max(merged[-1][1], e))
+                else:
+                    merged.append((s, e))
+            starts = np.fromiter((s for s, _ in merged), dtype=np.float64, count=len(merged))
+            ends = np.fromiter((e for _, e in merged), dtype=np.float64, count=len(merged))
+            raw_times = (
+                self._raw_gap_times
+                if len(self._raw_gap_times) == len(self._raw_gap_events)
+                else _time_index(self._raw_gap_events)
+            )
+            self._raw_gap_times = raw_times
+            # A gap is stamped at the last sample before it, just short of the hole.
+            idx = np.searchsorted(starts, raw_times, side="right") - 1
+            in_hole = (idx >= 0) & (raw_times < ends[np.maximum(idx, 0)])
+            if not bool(np.any(in_hole)):
+                events = self._raw_gap_events
+                times = raw_times
+            else:
+                keep = np.flatnonzero(~in_hole)
+                events = tuple(self._raw_gap_events[int(i)] for i in keep)
+                times = raw_times[keep]
         if events != self._gap_events:
             self._gap_events = events
-            self._event_times["gap"] = _time_index(events)
+            self._event_times["gap"] = times
 
     def set_message_events(
         self, events: list[float | tuple[float, str]] | tuple[float, ...]
@@ -495,11 +599,7 @@ class TimelineOverview(QWidget):
         last = int(np.searchsorted(times, t1, side="right"))
         if last <= first:
             return []
-        columns = np.fromiter(
-            (self._content_x(float(time)) for time in times[first:last]),
-            dtype=np.int64,
-            count=last - first,
-        )
+        columns = self._content_x_array(times[first:last])
         return [int(column) for column in np.unique(columns)]
 
     def _events_of(self, kind: str) -> tuple[tuple[float, str], ...]:
@@ -532,14 +632,26 @@ class TimelineOverview(QWidget):
             return None
         return events[best]
 
+    def _segment_index_for(self, segments: tuple[tuple[float, float, str], ...]) -> _SpanIndex:
+        if self._segments_index_cache[0] != id(segments):
+            self._segments_index_cache = (id(segments), _build_segment_index(segments))
+        return self._segments_index_cache[1]
+
+    def _marker_index_for(self, markers: tuple[tuple[float, float | None, str], ...]) -> _SpanIndex:
+        if self._markers_index_cache[0] != id(markers):
+            self._markers_index_cache = (id(markers), _build_marker_index(markers))
+        return self._markers_index_cache[1]
+
     def set_segments(self, segments: list[tuple[float, float, str]]) -> None:
         """Show the recording's trials, ``(start, end, name)`` in master seconds."""
         self._segments = tuple(segments)
+        self._segments_index_cache = (id(self._segments), _build_segment_index(self._segments))
         self._on_evidence_changed()
 
     def set_markers(self, markers: list[tuple[float, float | None, str]]) -> None:
         """Display point/range annotations in their stored colors."""
         self._markers = tuple(markers)
+        self._markers_index_cache = (id(self._markers), _build_marker_index(self._markers))
         self._on_evidence_changed()
 
     def accessible_value(self) -> str:
@@ -734,20 +846,112 @@ class TimelineOverview(QWidget):
 
     def _paint_segments(self, painter: QPainter, lane: _SegmentLane, top: int, height: int) -> None:
         """Alternate two shades so neighbouring trials read apart, each named if it fits."""
+        t0, t1 = self._bounds
+        if t1 <= t0 or not lane.segments:
+            return
+        vis = self._segment_index_for(lane.segments).overlapping(t0, t1)
+        if len(vis) == 0:
+            return
+        starts = np.fromiter(
+            (max(t0, min(lane.segments[int(i)][0], lane.segments[int(i)][1])) for i in vis),
+            dtype=np.float64,
+            count=len(vis),
+        )
+        ends = np.fromiter(
+            (min(t1, max(lane.segments[int(i)][0], lane.segments[int(i)][1])) for i in vis),
+            dtype=np.float64,
+            count=len(vis),
+        )
+        lefts = self._content_x_array(starts, clip_gutter=True)
+        rights = np.maximum(lefts, self._content_x_array(ends, clip_gutter=True))
         palette = self.palette()
         shades = (palette.color(palette.ColorRole.Mid), palette.color(palette.ColorRole.Midlight))
-        for index, (start, end, name) in enumerate(lane.segments):
-            span = self._visible_span_x(start, end)
-            if span is None:
-                continue
-            left, right = span
-            painter.fillRect(left, top, max(1, right - left), height, shades[index % 2])
-            painter.setPen(separator_color(palette))
-            painter.drawLine(left, top, left, top + height)
+        sep_pen = separator_color(palette)
+        text_pen = palette.color(palette.ColorRole.Text)
+        fm = painter.fontMetrics()
+        last_collapsed = (-1, -1)
+        last_sep_x = -1
+        for pos, orig_i in enumerate(vis):
+            index = int(orig_i)
+            left, right = int(lefts[pos]), int(rights[pos])
+            span_w = max(1, right - left)
+            shade_idx = index % 2
+            if span_w <= 1:
+                if (left, shade_idx) == last_collapsed:
+                    continue
+                last_collapsed = (left, shade_idx)
+            painter.fillRect(left, top, span_w, height, shades[shade_idx])
+            if left != last_sep_x:
+                painter.setPen(sep_pen)
+                painter.drawLine(left, top, left, top + height)
+                last_sep_x = left
             width = right - left - 4
-            if width > painter.fontMetrics().horizontalAdvance(name):
-                painter.setPen(palette.color(palette.ColorRole.Text))
+            name = lane.segments[index][2]
+            if width >= 24 and name and width > fm.horizontalAdvance(name):
+                painter.setPen(text_pen)
                 painter.drawText(left + 2, top, width, height, Qt.AlignmentFlag.AlignVCenter, name)
+
+    def _paint_annotations(
+        self, painter: QPainter, payload: _AnnotationLane, band_top: int, band_height: int
+    ) -> None:
+        """Paint visible point and range annotations without overdrawing collapsed columns."""
+        t0, t1 = self._bounds
+        if t1 <= t0 or not payload.markers:
+            return
+        vis = self._marker_index_for(payload.markers).overlapping(t0, t1)
+        if len(vis) == 0:
+            return
+        starts = np.fromiter(
+            (
+                max(
+                    t0,
+                    payload.markers[int(i)][0]
+                    if payload.markers[int(i)][1] is None
+                    else min(payload.markers[int(i)][0], float(payload.markers[int(i)][1])),  # type: ignore[arg-type]
+                )
+                for i in vis
+            ),
+            dtype=np.float64,
+            count=len(vis),
+        )
+        ends = np.fromiter(
+            (
+                min(
+                    t1,
+                    payload.markers[int(i)][0]
+                    if payload.markers[int(i)][1] is None
+                    else max(payload.markers[int(i)][0], float(payload.markers[int(i)][1])),  # type: ignore[arg-type]
+                )
+                for i in vis
+            ),
+            dtype=np.float64,
+            count=len(vis),
+        )
+        lefts = self._content_x_array(starts, clip_gutter=True)
+        rights = np.maximum(lefts, self._content_x_array(ends, clip_gutter=True))
+        colors: dict[str, QColor] = {}
+        seen_points: set[tuple[int, str]] = set()
+        seen_ranges: set[tuple[int, int, str]] = set()
+        for pos, orig_i in enumerate(vis):
+            _start, end, marker_color = payload.markers[int(orig_i)]
+            left, right = int(lefts[pos]), int(rights[pos])
+            qcol = colors.get(marker_color)
+            if qcol is None:
+                qcol = QColor(marker_color)
+                colors[marker_color] = qcol
+            if end is None:
+                pt_key = (left, marker_color)
+                if pt_key in seen_points:
+                    continue
+                seen_points.add(pt_key)
+                painter.fillRect(left, band_top, 2, band_height, qcol)
+            else:
+                if right - left <= 2:
+                    rng_key = (left, right, marker_color)
+                    if rng_key in seen_ranges:
+                        continue
+                    seen_ranges.add(rng_key)
+                _paint_span(painter, left, band_top, right - left, band_height, qcol)
 
     def _coverage_payloads(self) -> list[_CoverageLane]:
         return [
@@ -763,6 +967,20 @@ class TimelineOverview(QWidget):
         if t1 <= t0:
             return self._LABEL_WIDTH
         return self._LABEL_WIDTH + round((warp.to_view(time) - t0) / (t1 - t0) * width)
+
+    def _content_x_array(self, times: np.ndarray, *, clip_gutter: bool = False) -> np.ndarray:
+        if len(times) == 0:
+            return np.empty(0, dtype=np.int64)
+        warp = self._warp
+        t0, t1 = warp.to_view(self._bounds[0]), warp.to_view(self._bounds[1])
+        width = max(1, self.width() - self._LABEL_WIDTH - 1)
+        if t1 <= t0:
+            return np.full(len(times), self._LABEL_WIDTH, dtype=np.int64)
+        cols = self._LABEL_WIDTH + np.rint((warp.to_view_array(times) - t0) / (t1 - t0) * width)
+        out = cols.astype(np.int64)
+        if clip_gutter:
+            return np.clip(out, self._LABEL_WIDTH, max(self._LABEL_WIDTH, self.width() - 1))
+        return out
 
     def _time_at_x(self, x: float) -> float:
         warp = self._warp
@@ -784,12 +1002,43 @@ class TimelineOverview(QWidget):
     def _annotation_hit_at(self, x: float, y: float) -> tuple[int, str, float, float | None] | None:
         """Return ``(marker_index, edge, t_start, t_end)`` when clicking an annotation handle."""
         lanes = self._lanes()
-        if not lanes:
+        if not lanes or not self._markers:
             return None
         lane_index = min(len(lanes) - 1, int(y // self.lane_height()))
         if lanes[lane_index][1] != "annotation":
             return None
-        for idx, (start, end, _color) in enumerate(self._markers):
+        m_idx = self._marker_index_for(self._markers)
+        candidates: set[int] = set()
+        if len(m_idx.order):
+            s_lo = bisect.bisect_left(
+                m_idx.order,
+                x - 5.0,
+                key=lambda idx: self._content_x(self._markers[int(idx)][0]),
+            )
+            s_hi = bisect.bisect_right(
+                m_idx.order,
+                x + 5.0,
+                lo=s_lo,
+                key=lambda idx: self._content_x(self._markers[int(idx)][0]),
+            )
+            if s_hi > s_lo:
+                candidates.add(int(np.min(m_idx.order[s_lo:s_hi])))
+        if len(m_idx.range_end_order):
+            e_lo = bisect.bisect_left(
+                m_idx.range_end_order,
+                x - 5.0,
+                key=lambda idx: self._content_x(float(self._markers[int(idx)][1])),  # type: ignore[arg-type]
+            )
+            e_hi = bisect.bisect_right(
+                m_idx.range_end_order,
+                x + 5.0,
+                lo=e_lo,
+                key=lambda idx: self._content_x(float(self._markers[int(idx)][1])),  # type: ignore[arg-type]
+            )
+            if e_hi > e_lo:
+                candidates.add(int(np.min(m_idx.range_end_order[e_lo:e_hi])))
+        for idx in sorted(candidates):
+            start, end, _color = self._markers[idx]
             sx = self._content_x(start)
             if end is None:
                 if abs(x - sx) <= 5:
@@ -1007,22 +1256,7 @@ class TimelineOverview(QWidget):
             elif isinstance(payload, _SegmentLane):
                 self._paint_segments(painter, payload, band_top, band_height)
             elif isinstance(payload, _AnnotationLane):
-                for start, end, marker_color in payload.markers:
-                    span = self._visible_span_x(start, start if end is None else end)
-                    if span is None:
-                        continue
-                    left, right = span
-                    if end is None:
-                        painter.fillRect(left, band_top, 2, band_height, QColor(marker_color))
-                    else:
-                        _paint_span(
-                            painter,
-                            left,
-                            band_top,
-                            right - left,
-                            band_height,
-                            QColor(marker_color),
-                        )
+                self._paint_annotations(painter, payload, band_top, band_height)
 
         viewport = self._visible_span_x(
             self._viewport_start, self._viewport_start + self._viewport_duration
@@ -1054,19 +1288,32 @@ class TimelineOverview(QWidget):
 
     def _paint_breaks(self, painter: QPainter) -> None:
         """A collapsed gap is a double dashed line, so a break never reads as a seam (D-218)."""
+        if not self._warp.gaps:
+            return
         t0, t1 = self._bounds
+        starts = self._warp._starts
+        lo = int(np.searchsorted(starts, t0, side="left"))
+        hi = int(np.searchsorted(starts, t1, side="right"))
+        if hi <= lo:
+            return
         pen = QPen(evidence_color(self.palette(), "gap"))
         pen.setStyle(Qt.PenStyle.DashLine)
         painter.setPen(pen)
-        for a, _b in self._warp.gaps:
-            if t0 <= a <= t1:
-                x = self._content_x(a)
-                painter.drawLine(x - 1, 0, x - 1, self.height() - 1)
-                painter.drawLine(x + 1, 0, x + 1, self.height() - 1)
+        h = self.height() - 1
+        for x in np.unique(self._content_x_array(starts[lo:hi])):
+            px = int(x)
+            painter.drawLine(px - 1, 0, px - 1, h)
+            painter.drawLine(px + 1, 0, px + 1, h)
 
     def _break_detail(self, x: float) -> str:
         """The collapsed gap under *x*, in the words of its tooltip."""
-        for a, b in self._warp.gaps:
+        gaps = self._warp.gaps
+        if not gaps:
+            return ""
+        lo = bisect.bisect_left(gaps, x - 3.0, key=lambda gap: self._content_x(gap[0]))
+        hi = bisect.bisect_right(gaps, x + 3.0, lo=lo, key=lambda gap: self._content_x(gap[0]))
+        if hi > lo:
+            a, b = gaps[lo]
             if abs(self._content_x(a) - x) <= 3:
                 return tr(
                     "Collapsed: {length} with no data, {start:.3f}–{end:.3f} s\n"
@@ -1117,13 +1364,19 @@ class TimelineOverview(QWidget):
                 extra = f"\n{nearest[1]}" if nearest[1] else ""
                 return f"{event_name}\nMaster time: {nearest[0]:.3f} s{extra}"
         if isinstance(payload, _SegmentLane):
-            for first, last, name in payload.segments:
+            vis = self._segment_index_for(payload.segments).overlapping(time, time)
+            for idx in np.sort(vis):
+                first, last, name = payload.segments[int(idx)]
                 if first <= time <= last:
                     return tr("Trial {name}\n{start:.3f}–{end:.3f} s").format(
                         name=name, start=first, end=last
                     )
         if isinstance(payload, _AnnotationLane):
-            for start, end, _ in payload.markers:
+            vis = self._marker_index_for(payload.markers).overlapping(
+                time - tolerance, time + tolerance
+            )
+            for idx in np.sort(vis):
+                start, end, _ = payload.markers[int(idx)]
                 if start - tolerance <= time <= (end if end is not None else start) + tolerance:
                     return f"Annotation\nMaster time: {start:.3f} s"
         return f"{label}\nMaster time: {time:.3f} s"
@@ -1552,16 +1805,40 @@ class Transport(QWidget):
         """Snapshot changed evidence for the slider, never called by a cursor tick."""
         # The slider is drawn in view time: with gaps collapsed, a collapsed
         # gap takes no track at all (D-218).
-        view = self.overview.warp.to_view
+        warp = self.overview.warp
+        view = warp.to_view
         coverage = tuple(
             (view(start), view(end))
             for source_id in self.overview._coverage
             for start, end in self.overview.source_spans(source_id)
         )
-        markers = tuple(
-            (view(start), None if end is None else view(end), label)
-            for start, end, label in self.overview._markers
-        )
+        raw_markers = self.overview._markers
+        if len(raw_markers) > 64 and warp:
+            m_starts = warp.to_view_array(
+                np.fromiter(
+                    (s for s, _e, _l in raw_markers), dtype=np.float64, count=len(raw_markers)
+                )
+            )
+            m_ends = warp.to_view_array(
+                np.fromiter(
+                    (0.0 if e is None else e for _s, e, _l in raw_markers),
+                    dtype=np.float64,
+                    count=len(raw_markers),
+                )
+            )
+            markers = tuple(
+                (
+                    float(m_starts[i]),
+                    None if raw_markers[i][1] is None else float(m_ends[i]),
+                    raw_markers[i][2],
+                )
+                for i in range(len(raw_markers))
+            )
+        else:
+            markers = tuple(
+                (view(start), None if end is None else view(end), label)
+                for start, end, label in raw_markers
+            )
         loop = tuple(None if t is None else view(t) for t in (self._ab_in_t, self._ab_out_t))
         self.slider.set_track_data(
             (view(self._bounds[0]), view(self._bounds[1])),

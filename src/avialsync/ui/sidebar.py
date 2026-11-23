@@ -352,65 +352,9 @@ class SensorInfoWidget(QFrame):
         #: Held while a group toggle is being applied, so recomputing a parent
         #: from its children does not report a second group action.
         self._applying_group = False
-        nodes: dict[str, QTreeWidgetItem] = {}
-        top_items: list[QTreeWidgetItem] = []
-
-        # Prefixes are decided across the whole source: whether "Jaw" is a
-        # group depends on how many other channels share it, which no single
-        # name can say.
-        groupable = group_prefixes(list(channels))
-        bold_font = self.tree.font()
-        bold_font.setBold(True)
-
-        for ch in channels:
-            parts = split_channel(ch, groupable)
-            parent_path = ""
-            for part in parts[:-1]:
-                path_key = parent_path + "/" + part if parent_path else part
-                if path_key not in nodes:
-                    group_item = (
-                        QTreeWidgetItem(nodes[parent_path]) if parent_path else QTreeWidgetItem()
-                    )
-                    if not parent_path:
-                        top_items.append(group_item)
-                    group_item.setText(0, part)
-                    group_item.setFont(0, bold_font)
-                    # Checkable, so forty channels can be hidden in one click.
-                    # Tristate because a partly-hidden group must look partly
-                    # hidden rather than claim to be one or the other.
-                    group_item.setFlags(
-                        group_item.flags()
-                        | Qt.ItemFlag.ItemIsUserCheckable
-                        | Qt.ItemFlag.ItemIsAutoTristate
-                    )
-                    group_item.setCheckState(0, Qt.CheckState.Checked)
-                    nodes[path_key] = group_item
-                    self._group_items.append(group_item)
-                parent_path = path_key
-
-            leaf_part = parts[-1]
-            item = QTreeWidgetItem(nodes[parent_path]) if parent_path else QTreeWidgetItem()
-            if not parent_path:
-                top_items.append(item)
-            item.setText(0, leaf_part)
-            item.setToolTip(0, (channel_descriptions or {}).get(ch, ch))
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(
-                0,
-                Qt.CheckState.Checked
-                if (channel_visibility or {}).get(ch, True)
-                else Qt.CheckState.Unchecked,
-            )
-
-            self._channel_items[ch] = item
-
-        self.tree.setUpdatesEnabled(False)
-        try:
-            self.tree.addTopLevelItems(top_items)
-            for group_item in self._group_items:
-                group_item.setExpanded(True)
-        finally:
-            self.tree.setUpdatesEnabled(True)
+        #: Pre-toggle visibility snapshot for the in-flight group/bulk action.
+        self.last_group_before: dict[str, bool] | None = None
+        self._populate_tree(channels, channel_visibility, channel_descriptions)
         self.tree.itemChanged.connect(self._on_item_changed)
 
         # ── Show all / Hide all, for the whole source ────────────────
@@ -525,6 +469,102 @@ class SensorInfoWidget(QFrame):
             for channel, item in self._channel_items.items()
         }
 
+    def _populate_tree(
+        self,
+        channels: Sequence[str],
+        channel_visibility: Mapping[str, bool] | None,
+        channel_descriptions: Mapping[str, str] | None,
+    ) -> None:
+        """Build group and leaf items with canonical IDs in ``UserRole``."""
+        nodes: dict[str, QTreeWidgetItem] = {}
+        top_items: list[QTreeWidgetItem] = []
+        groupable = group_prefixes(list(channels))
+        bold_font = self.tree.font()
+        bold_font.setBold(True)
+
+        for ch in channels:
+            parts = split_channel(ch, groupable)
+            parent_path = ""
+            for part in parts[:-1]:
+                path_key = parent_path + "/" + part if parent_path else part
+                if path_key not in nodes:
+                    group_item = (
+                        QTreeWidgetItem(nodes[parent_path]) if parent_path else QTreeWidgetItem()
+                    )
+                    if not parent_path:
+                        top_items.append(group_item)
+                    group_item.setText(0, part)
+                    group_item.setData(0, Qt.ItemDataRole.UserRole, path_key)
+                    group_item.setFont(0, bold_font)
+                    # Omit ItemIsAutoTristate: Qt propagates child itemChanged
+                    # signals before the group item, corrupting Undo and firing
+                    # O(N) signals per click. Tristate is synced explicitly.
+                    group_item.setFlags(group_item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                    group_item.setCheckState(0, Qt.CheckState.Checked)
+                    nodes[path_key] = group_item
+                    self._group_items.append(group_item)
+                parent_path = path_key
+
+            item = QTreeWidgetItem(nodes[parent_path]) if parent_path else QTreeWidgetItem()
+            if not parent_path:
+                top_items.append(item)
+            item.setText(0, parts[-1])
+            item.setData(0, Qt.ItemDataRole.UserRole, ch)
+            item.setToolTip(0, (channel_descriptions or {}).get(ch, ch))
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(
+                0,
+                Qt.CheckState.Checked
+                if (channel_visibility or {}).get(ch, True)
+                else Qt.CheckState.Unchecked,
+            )
+            self._channel_items[ch] = item
+
+        was_enabled = self.tree.updatesEnabled()
+        self.tree.setUpdatesEnabled(False)
+        try:
+            self.tree.addTopLevelItems(top_items)
+            for group_item in self._group_items:
+                group_item.setExpanded(True)
+            self._sync_group_check_states()
+        finally:
+            self.tree.setUpdatesEnabled(was_enabled)
+
+    def _sync_group_check_states(self) -> None:
+        """Set every group's tristate from its children under ``blockSignals(True)``."""
+        blocked = self.tree.blockSignals(True)
+        try:
+            for group in reversed(self._group_items):
+                count = group.childCount()
+                if count == 0:
+                    continue
+                checked = 0
+                unchecked = 0
+                for index in range(count):
+                    child = group.child(index)
+                    if child is None:
+                        continue
+                    state = child.checkState(0)
+                    if state == Qt.CheckState.Checked:
+                        checked += 1
+                    elif state == Qt.CheckState.Unchecked:
+                        unchecked += 1
+                total = checked + unchecked
+                if total == count and checked == count:
+                    target = Qt.CheckState.Checked
+                elif total == count and unchecked == count:
+                    target = Qt.CheckState.Unchecked
+                else:
+                    target = Qt.CheckState.PartiallyChecked
+                if group.checkState(0) != target:
+                    group.setCheckState(0, target)
+        finally:
+            self.tree.blockSignals(blocked)
+
+    def _effective_filter(self) -> str:
+        """Return a non-empty query when either local or external filter is active."""
+        return self._filter.text().strip() or self._external_filter
+
     def _apply_filter(self, needle: str) -> None:
         """Show only channels matching *needle*, keeping their groups visible.
 
@@ -532,19 +572,24 @@ class SensorInfoWidget(QFrame):
         on its item, and rebuilding the tree to filter it would either lose
         that or need it mirrored somewhere else.
         """
-        for channel, item in self._channel_items.items():
-            matches_local = matches_filter(channel, needle)
-            matches_external = matches_filter(channel, self._external_filter)
-            item.setHidden(not (matches_local and matches_external))
+        was_enabled = self.tree.updatesEnabled()
+        self.tree.setUpdatesEnabled(False)
+        try:
+            for channel, item in self._channel_items.items():
+                matches_local = matches_filter(channel, needle)
+                matches_external = matches_filter(channel, self._external_filter)
+                item.setHidden(not (matches_local and matches_external))
 
-        # A group whose every child is filtered out is noise; one with a
-        # surviving child has to stay, and stay open, or the match is hidden
-        # inside a collapsed node.
-        for group in reversed(self._group_items):
-            visible_children = any(not child.isHidden() for child in _children_of(group))
-            group.setHidden(not visible_children)
-            if visible_children and (needle or self._external_filter):
-                group.setExpanded(True)
+            # A group whose every child is filtered out is noise; one with a
+            # surviving child has to stay, and stay open, or the match is hidden
+            # inside a collapsed node.
+            for group in reversed(self._group_items):
+                visible_children = any(not child.isHidden() for child in _children_of(group))
+                group.setHidden(not visible_children)
+                if visible_children and (needle or self._external_filter):
+                    group.setExpanded(True)
+        finally:
+            self.tree.setUpdatesEnabled(was_enabled)
 
     def _on_local_filter_changed(self, needle: str) -> None:
         """Apply the local query, then let the sidebar update source cards."""
@@ -553,81 +598,143 @@ class SensorInfoWidget(QFrame):
 
     def set_external_filter(self, needle: str) -> None:
         """Apply the inspector-wide query without changing the local filter."""
-        self._external_filter = needle.strip().lower()
+        normalized = needle.strip().lower()
+        if normalized == self._external_filter:
+            return
+        self._external_filter = normalized
         self._apply_filter(self._filter.text())
 
     def visible_channel_count(self) -> int:
         """How many channels the filter currently shows."""
         return sum(1 for item in self._channel_items.values() if not item.isHidden())
 
-    def _on_bulk_visibility(self, visible: bool) -> None:
-        """Report Show all / Hide all as one action over every shown channel.
-
-        Only what the filter is showing: a Hide all that also hid the channels
-        the user had filtered out would be a surprise with no visible control
-        saying it happened.
-        """
+    def _set_all(self, visible: bool) -> list[str]:
+        """Update all visible leaf checkboxes and return their channel IDs."""
         channels = [channel for channel, item in self._channel_items.items() if not item.isHidden()]
+        if not channels:
+            return []
+        self.last_group_before = {
+            ch: self._channel_items[ch].checkState(0) == Qt.CheckState.Checked for ch in channels
+        }
+        state = Qt.CheckState.Checked if visible else Qt.CheckState.Unchecked
+        was_enabled = self.tree.updatesEnabled()
+        self.tree.setUpdatesEnabled(False)
+        blocked = self.tree.blockSignals(True)
+        try:
+            for channel in channels:
+                self._channel_items[channel].setCheckState(0, state)
+            self._sync_group_check_states()
+        finally:
+            self.tree.blockSignals(blocked)
+            self.tree.setUpdatesEnabled(was_enabled)
+        return channels
+
+    def _on_bulk_visibility(self, visible: bool) -> None:
+        """Report Show all / Hide all as one action over every shown channel."""
+        channels = self._set_all(visible)
         if channels:
-            state = Qt.CheckState.Checked if visible else Qt.CheckState.Unchecked
-            blocked = self.tree.blockSignals(True)
             try:
-                for channel in channels:
-                    self._channel_items[channel].setCheckState(0, state)
+                self.channel_group_visibility_changed.emit(
+                    self.path, Path(self.path).name, channels, visible
+                )
             finally:
-                self.tree.blockSignals(blocked)
-            self.channel_group_visibility_changed.emit(
-                self.path, Path(self.path).name, channels, visible
-            )
+                self.last_group_before = None
+
+    def _leaf_channel(self, item: QTreeWidgetItem) -> str | None:
+        """Return canonical channel ID when *item* is one of our leaf items."""
+        ch = item.data(0, Qt.ItemDataRole.UserRole)
+        if isinstance(ch, str) and self._channel_items.get(ch) is item:
+            return ch
+        return None
+
+    def _leaf_items_under(
+        self, group: QTreeWidgetItem, *, visible_only: bool = False
+    ) -> list[QTreeWidgetItem]:
+        """Return leaf items beneath *group* in tree order."""
+        found: list[QTreeWidgetItem] = []
+        stack = list(reversed(_children_of(group)))
+        while stack:
+            node = stack.pop()
+            children = _children_of(node)
+            if children:
+                stack.extend(reversed(children))
+            elif self._leaf_channel(node) is not None and (not visible_only or not node.isHidden()):
+                found.append(node)
+        return found
 
     def _channels_under(self, group: QTreeWidgetItem) -> list[str]:
         """Every channel id beneath *group*, however deeply nested."""
-        found: list[str] = []
-        stack = _children_of(group)
-        while stack:
-            node = stack.pop()
-            channel = node.toolTip(0)
-            if channel:
-                found.append(channel)
-            stack.extend(_children_of(node))
-        return found
+        return [
+            str(leaf.data(0, Qt.ItemDataRole.UserRole)) for leaf in self._leaf_items_under(group)
+        ]
 
     def _on_item_changed(self, item: QTreeWidgetItem, column: int) -> None:
-        channel = item.toolTip(0)
-        if channel:
+        channel = self._leaf_channel(item)
+        if channel is not None:
+            self._sync_group_check_states()
             is_visible = item.checkState(0) == Qt.CheckState.Checked
             self.channel_visibility_changed.emit(self.path, channel, is_visible)
             return
 
-        # A group. Qt's auto-tristate has already propagated the new state down
-        # and emitted itemChanged for each child, so this only reports the group
-        # as one action -- and only when the user drove it, not when a child
-        # change recomputed the parent.
-        if item not in self._group_items or self._applying_group:
+        if item.childCount() == 0 or self._applying_group:
             return
         state = item.checkState(0)
         if state == Qt.CheckState.PartiallyChecked:
             return
-        channels = self._channels_under(item)
-        if channels:
-            self.channel_group_visibility_changed.emit(
-                self.path, item.text(0), channels, state == Qt.CheckState.Checked
-            )
+        is_checked = state == Qt.CheckState.Checked
+        target_leaves = self._leaf_items_under(item, visible_only=bool(self._effective_filter()))
+        target_channel_ids = [str(leaf.data(0, Qt.ItemDataRole.UserRole)) for leaf in target_leaves]
+        self.last_group_before = {
+            ch: leaf.checkState(0) == Qt.CheckState.Checked
+            for ch, leaf in zip(target_channel_ids, target_leaves, strict=True)
+        }
+        target_state = Qt.CheckState.Checked if is_checked else Qt.CheckState.Unchecked
+        was_enabled = self.tree.updatesEnabled()
+        self.tree.setUpdatesEnabled(False)
+        blocked = self.tree.blockSignals(True)
+        try:
+            for leaf in target_leaves:
+                leaf.setCheckState(0, target_state)
+            self._sync_group_check_states()
+        finally:
+            self.tree.blockSignals(blocked)
+            self.tree.setUpdatesEnabled(was_enabled)
+        if target_channel_ids:
+            group_key = str(item.data(0, Qt.ItemDataRole.UserRole) or item.text(0))
+            try:
+                self.channel_group_visibility_changed.emit(
+                    self.path, group_key, target_channel_ids, is_checked
+                )
+            finally:
+                self.last_group_before = None
+        else:
+            self.last_group_before = None
 
     def set_group_visible(self, group_label: str, visible: bool) -> None:
-        """Set every channel under *group_label* without re-reporting the group.
-
-        Used by undo. The per-channel signals still fire, because the plot rows
-        are what they drive; the group signal does not, because replaying one
-        command must not record another.
-        """
+        """Set every channel under *group_label* without re-reporting the group."""
+        exact = [
+            group
+            for group in self._group_items
+            if group.data(0, Qt.ItemDataRole.UserRole) == group_label
+        ]
+        matched_groups = exact or [
+            group for group in self._group_items if group.text(0) == group_label
+        ]
+        if not matched_groups:
+            return
+        state = Qt.CheckState.Checked if visible else Qt.CheckState.Unchecked
         self._applying_group = True
+        was_enabled = self.tree.updatesEnabled()
+        self.tree.setUpdatesEnabled(False)
+        blocked = self.tree.blockSignals(True)
         try:
-            state = Qt.CheckState.Checked if visible else Qt.CheckState.Unchecked
-            for group in self._group_items:
-                if group.text(0) == group_label:
-                    group.setCheckState(0, state)
+            for group in matched_groups:
+                for leaf in self._leaf_items_under(group):
+                    leaf.setCheckState(0, state)
+            self._sync_group_check_states()
         finally:
+            self.tree.blockSignals(blocked)
+            self.tree.setUpdatesEnabled(was_enabled)
             self._applying_group = False
 
     def set_channel_visible(self, channel: str, visible: bool) -> bool:
@@ -637,6 +744,7 @@ class SensorInfoWidget(QFrame):
             return False
         state = Qt.CheckState.Checked if visible else Qt.CheckState.Unchecked
         item.setCheckState(0, state)
+        self._sync_group_check_states()
         return True
 
     def set_channels_visible(self, visibility: dict[str, bool]) -> bool:
@@ -649,14 +757,16 @@ class SensorInfoWidget(QFrame):
         if not matched:
             return False
         self._applying_group = True
+        was_enabled = self.tree.updatesEnabled()
         self.tree.setUpdatesEnabled(False)
         blocked = self.tree.blockSignals(True)
         try:
             for item, vis in matched:
                 item.setCheckState(0, Qt.CheckState.Checked if vis else Qt.CheckState.Unchecked)
+            self._sync_group_check_states()
         finally:
             self.tree.blockSignals(blocked)
-            self.tree.setUpdatesEnabled(True)
+            self.tree.setUpdatesEnabled(was_enabled)
             self._applying_group = False
         return True
 

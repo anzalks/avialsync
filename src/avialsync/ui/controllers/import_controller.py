@@ -244,13 +244,34 @@ def _tracking_coverage(
     Timed by its camera's frames, a frame count at a nominal rate is not where
     the data is (D-219); a 2D-only track is placed by its own offset and drift.
     """
-    spans = [span for reader in window.source_readers(path) if (span := reader.coverage())]
-    if not spans:
-        from avialsync.core.timeline import TimeMap
+    readers = window.source_readers(path)
+    if readers and (span := readers[0].coverage()):
+        return float(span[0]), float(span[1])
+    from avialsync.core.timeline import TimeMap
 
-        mapping = TimeMap(offset=offset, drift_ms_per_hour=drift)
-        spans = [(mapping.to_master(bounds[0]), mapping.to_master(bounds[1]))]
-    return min(a for a, _b in spans), max(b for _a, b in spans)
+    mapping = TimeMap(offset=offset, drift_ms_per_hour=drift)
+    return (mapping.to_master(bounds[0]), mapping.to_master(bounds[1]))
+
+
+def _publish_source_messages(
+    window: MainWindow,
+    path: str,
+    cache_path: Path,
+    inspection: SourceInspection,
+    offset: float,
+    drift: float,
+) -> None:
+    """Register imported messages under the source's full TimeMap (including exact knots)."""
+    if not inspection.messages:
+        return
+    set_tm = getattr(window.message_store, "set_source_time_map", None)
+    get_tm = getattr(window.plot_pane, "source_time_map", None)
+    live_tm = get_tm(cache_path) if callable(get_tm) else None
+    if callable(set_tm) and live_tm is not None:
+        set_tm(path, live_tm)
+    else:
+        window.message_store.set_source_mapping(path, offset, drift)
+    window.message_store.set_source_messages(path, inspection.messages)
 
 
 def on_import_finished(
@@ -343,27 +364,22 @@ def on_import_finished(
         )
         mapped = _tracking_coverage(window, path, bounds, offset, drift)
     else:
+        cache_path = Path(cache_dir)
+        record_raw = getattr(window.plot_pane, "record_source_raw_bounds", None)
+        if callable(record_raw):
+            record_raw(cache_path, bounds)
         window.plot_pane.load_channels(
-            Path(cache_dir),
-            channels,
-            offset,
-            drift,
-            source_id=path,
-            visibility=channel_visibility,
+            cache_path, channels, offset, drift, source_id=path, visibility=channel_visibility
         )
-        window._sensor_cache_dirs[path] = Path(cache_dir)
+        window._sensor_cache_dirs[path] = cache_path
         exact = window.take_pending_exact_mapping(path)
         if exact is not None:
-            # Preserve the accepted curve and any later scalar correction.
-            window.plot_pane.set_source_exact_mapping(Path(cache_dir), *exact)
+            window.plot_pane.set_source_exact_mapping(cache_path, *exact)
             restore_adjustment(window, path)
-        # Rows are built across several event-loop turns so the window stays
-        # usable during a large selection; reader bounds may not exist yet.
-        # The worker's bounds are the correct stand-in
-        # until they do; `_refine_source_bounds` re-applies the exact span
-        # once every row exists.
-        mapped = window.plot_pane.source_bounds(Path(cache_dir)) or bounds
-        window._pending_bounds_sources[path] = Path(cache_dir)
+        # Rows build across several event-loop turns; `_refine_source_bounds`
+        # re-applies the exact mapped span once every row exists.
+        mapped = window.plot_pane.source_bounds(cache_path) or bounds
+        window._pending_bounds_sources[path] = cache_path
     window.transport.set_source_coverage(
         path, mapped[0], mapped[1], "data", window.coverage_group_for(path)
     )
@@ -403,9 +419,7 @@ def on_import_finished(
         # Messages arrive in source time, so the mapping goes in first: setting
         # them the other way round would emit a change the panel renders at the
         # unmapped position before the correction lands.
-        if inspection.messages:
-            window.message_store.set_source_mapping(path, offset, drift)
-            window.message_store.set_source_messages(path, inspection.messages)
+        _publish_source_messages(window, path, Path(cache_dir), inspection, offset, drift)
         # Declared by the loader, overridden by the import wizard; source-
         # scoped, so two files' "force_z" never relabel each other's row.
         scoped: dict[ChannelKey | str, str] = {

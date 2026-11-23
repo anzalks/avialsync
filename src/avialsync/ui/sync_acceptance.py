@@ -240,7 +240,18 @@ def install_sync_mapping(
         if prepared is not None:
             window.plot_pane.set_source_exact_mapping(cache_dir, prepared.master, prepared.source)
         window.sidebar.set_sensor_mapping(source_id, residual, drift_ms_per_hour)
-        window.message_store.set_source_mapping(source_id, offset, drift_ms_per_hour)
+        sensor_tm = TimeMap(offset, drift_ms_per_hour)
+        if prepared is not None:
+            sensor_tm.install_prepared_exact_mapping(prepared)
+            if anchor_offset is not None:
+                sensor_tm._exact_offset_anchor = anchor_offset
+            if anchor_drift is not None:
+                sensor_tm._exact_drift_anchor = anchor_drift
+        set_tm = getattr(window.message_store, "set_source_time_map", None)
+        if callable(set_tm):
+            set_tm(source_id, sensor_tm)
+        else:
+            window.message_store.set_source_mapping(source_id, offset, drift_ms_per_hour)
         bounds = window.plot_pane.source_bounds(cache_dir)
         if bounds is not None:
             window.transport.set_source_coverage(

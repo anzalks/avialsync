@@ -1,6 +1,7 @@
 """Dialog for verifying and categorizing batch drag-and-drop imports."""
 
 import logging
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -29,6 +30,35 @@ from avialsync.ui.tables import ThemedTable
 
 logger = logging.getLogger(__name__)
 SourceLoader = type[TimeSeriesSource | VideoSource | ImagingSource]
+
+
+def _disambiguated_video_names(video_paths: Sequence[str]) -> dict[str, str]:
+    """Return short labels for *video_paths*, adding parent segments only on collision."""
+    labels: dict[str, str] = {}
+    remaining = list(dict.fromkeys(video_paths))
+    segments = {
+        video: [part for part in Path(video).parts if part != Path(video).anchor]
+        for video in remaining
+    }
+    max_depth = max((len(parts) for parts in segments.values()), default=1)
+    for depth in range(1, max_depth + 1):
+        if not remaining:
+            break
+        candidates = {
+            video: "/".join(segments[video][-depth:]) if segments[video] else video
+            for video in remaining
+        }
+        counts = Counter(candidates.values())
+        still_ambiguous: list[str] = []
+        for video in remaining:
+            if counts[candidates[video]] == 1:
+                labels[video] = candidates[video]
+            else:
+                still_ambiguous.append(video)
+        remaining = still_ambiguous
+    for video in remaining:
+        labels[video] = video
+    return labels
 
 
 class BatchImportDialog(QDialog):
@@ -100,6 +130,7 @@ class BatchImportDialog(QDialog):
                 ]
             )
         )
+        self._video_labels = _disambiguated_video_names(self._video_paths)
 
         layout = QVBoxLayout(self)
 
@@ -379,14 +410,16 @@ class BatchImportDialog(QDialog):
                 combo.addItem(tr("3D pose"), ["pose3d", ""])
             if "pose3d_overlay2d" in roles or config.get("role") == "pose3d_overlay2d":
                 for video in self._video_paths:
+                    video_label = self._video_labels.get(video, Path(video).name)
                     combo.addItem(
-                        tr("3D pose and 2D overlay on {video}").format(video=Path(video).name),
+                        tr("3D pose and 2D overlay on {video}").format(video=video_label),
                         ["pose3d_overlay2d", video],
                     )
             if "overlay2d" in roles or config.get("role") == "overlay2d":
                 for video in self._video_paths:
+                    video_label = self._video_labels.get(video, Path(video).name)
                     combo.addItem(
-                        tr("2D pose on {video}").format(video=Path(video).name),
+                        tr("2D pose on {video}").format(video=video_label),
                         ["overlay2d", video],
                     )
         if wanted == ["", ""]:
@@ -427,12 +460,49 @@ class BatchImportDialog(QDialog):
         if "overlay2d" not in loader.pose_roles():
             return None
         path = self._candidates[row][0]
-        stems = {Path(video).stem: video for video in self._video_paths}
-        named = match_label(path.stem, stems)
+        matched = self._auto_pair_video(path)
+        if matched is not None:
+            return ["overlay2d", matched]
+        return None
+
+    def _auto_pair_video(self, path: Path) -> str | None:
+        """Pair *path* with its camera video without collapsing colliding stems."""
+        stem_counts = Counter(Path(video).stem.lower() for video in self._video_paths)
+        unique_stems = {
+            Path(video).stem: video
+            for video in self._video_paths
+            if stem_counts[Path(video).stem.lower()] == 1
+        }
+        named = match_label(path.stem, unique_stems)
         if named is not None:
-            return ["overlay2d", stems[named]]
+            return unique_stems[named]
+
+        colliding = [
+            video for video in self._video_paths if stem_counts[Path(video).stem.lower()] > 1
+        ]
+        if colliding:
+            same_dir = [video for video in colliding if Path(video).parent == path.parent]
+            if len(same_dir) == 1:
+                return same_dir[0]
+            parent_counts = Counter(
+                Path(video).parent.name.lower() for video in colliding if Path(video).parent.name
+            )
+            unique_parents = {
+                Path(video).parent.name: video
+                for video in colliding
+                if Path(video).parent.name and parent_counts[Path(video).parent.name.lower()] == 1
+            }
+            by_stem = match_label(path.stem, unique_parents)
+            if by_stem is not None:
+                return unique_parents[by_stem]
+            by_parent = {k.lower(): v for k, v in unique_parents.items()}.get(
+                path.parent.name.lower()
+            )
+            if by_parent is not None:
+                return by_parent
+
         if len(self._video_paths) == 1:
-            return ["overlay2d", self._video_paths[0]]
+            return self._video_paths[0]
         return None
 
     def get_selections(

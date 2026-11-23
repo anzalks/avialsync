@@ -19,6 +19,7 @@ a guess.
 
 from __future__ import annotations
 
+import math
 from functools import partial
 from typing import TYPE_CHECKING, Any
 from weakref import WeakKeyDictionary
@@ -26,9 +27,10 @@ from weakref import WeakKeyDictionary
 import numpy as np
 from PySide6.QtCore import QTimer
 
+from avialsync.core.columns import RegularTimes
 from avialsync.core.settings_schema import Setting, setting_for
 from avialsync.core.timeline import TimeMap
-from avialsync.core.trials import holes_between
+from avialsync.core.trials import GAP_FACTOR, holes_between
 from avialsync.ui.preferences_dialog import read_setting, write_setting
 
 if TYPE_CHECKING:
@@ -186,6 +188,84 @@ def _imaging_samples(
     return _frames(pane.metadata_for(source_id).frame_times, mapping, a, b)
 
 
+def _regular_data_samples(
+    t_base: RegularTimes, mapping: TimeMap, a: float, b: float
+) -> tuple[np.ndarray, float] | None:
+    """Resolve inter-part presence on a ``RegularTimes`` grid in O(1) without array allocation."""
+    n = len(t_base)
+    if n == 0:
+        return None
+    src_a, src_b = sorted((mapping.to_source(a), mapping.to_source(b)))
+    dt_src = float(t_base.stride) / float(t_base.rate)
+    period = abs(float(mapping.to_master(t_base.t0 + dt_src) - mapping.to_master(t_base.t0)))
+    if period <= 0.0:
+        period = dt_src
+    lo_i = max(0, int(t_base.searchsorted(src_a, side="left")) - 1)
+    hi_i = min(n, int(t_base.searchsorted(src_b, side="right")) + 1) - 1
+    while lo_i <= hi_i and float(mapping.to_master(float(t_base[lo_i]))) <= a:
+        lo_i += 1
+    while hi_i >= lo_i and float(mapping.to_master(float(t_base[hi_i]))) >= b:
+        hi_i -= 1
+    if hi_i < lo_i:
+        return np.empty(0, dtype=np.float64), period
+    count = hi_i - lo_i + 1
+    if count > _CONTINUOUS:
+        return None
+    t_first = float(mapping.to_master(float(t_base[lo_i])))
+    t_last = float(mapping.to_master(float(t_base[hi_i])))
+    tol = period * GAP_FACTOR
+    if t_first - a <= tol and b - t_last <= tol:
+        return None
+    if count == 1 or t_last <= t_first:
+        return np.asarray([t_first], dtype=np.float64), period
+    step = max(tol * 0.5, 1e-12)
+    n_bridge = max(2, int(math.ceil((t_last - t_first) / step)) + 1)
+    return np.linspace(t_first, t_last, n_bridge, dtype=np.float64), period
+
+
+def _irregular_data_samples(
+    src_reader: Any, mapping: TimeMap, a: float, b: float
+) -> tuple[np.ndarray, float] | None:
+    """Resolve inter-part samples on stored timestamps, bounding slice size first."""
+    t_base, _values, gap_base = src_reader.mapped_columns()
+    if isinstance(t_base, RegularTimes):
+        return _regular_data_samples(t_base, mapping, a, b)
+    n = len(t_base)
+    if n == 0:
+        return None
+    src_a, src_b = sorted((mapping.to_source(a), mapping.to_source(b)))
+    i0 = int(np.searchsorted(t_base, src_a, side="left"))
+    i1 = int(np.searchsorted(t_base, src_b, side="right"))
+    if i1 - i0 > _CONTINUOUS:
+        load_level = getattr(src_reader, "_load_level", None)
+        if callable(load_level):
+            try:
+                _t4k, _, _, gap_4k = load_level(4096)
+                if not bool(np.any(gap_4k[i0 // 4096 : (i1 // 4096) + 1])):
+                    return None
+                gap_idx = np.flatnonzero(gap_base[i0:i1]) + i0
+                if 0 < len(gap_idx) <= 1024:
+                    pts = sorted(
+                        {i0, max(i0, i1 - 1)}
+                        | {int(g) for g in gap_idx}
+                        | {min(n - 1, int(g) + 1) for g in gap_idx}
+                    )
+                    head = mapping.to_master_array(
+                        np.asarray(t_base[: min(n, 256)], dtype=np.float64)
+                    )
+                    per = float(np.median(np.diff(head))) if len(head) > 1 else 0.0
+                    return mapping.to_master_array(np.asarray(t_base[pts], dtype=np.float64)), per
+            except (OSError, ValueError, KeyError, IndexError):
+                return None
+        return None
+    sub = np.asarray(t_base[i0:i1], dtype=np.float64)
+    period = 0.0
+    if len(sub) <= 1 and n > 1:
+        head = mapping.to_master_array(np.asarray(t_base[: min(n, 256)], dtype=np.float64))
+        period = float(np.median(np.diff(head)))
+    return mapping.to_master_array(sub), period
+
+
 def _data_samples(
     window: MainWindow, source_id: str, a: float, b: float
 ) -> tuple[np.ndarray, float] | None:
@@ -195,8 +275,10 @@ def _data_samples(
         return None
     reader = readers[0]
     mapping = reader.time_map
-    source = reader.source_reader.raw_slice(mapping.to_source(a), mapping.to_source(b))[0]
+    src_reader = reader.source_reader
+    if hasattr(src_reader, "mapped_columns"):
+        return _irregular_data_samples(src_reader, mapping, a, b)
+    source = src_reader.raw_slice(mapping.to_source(a), mapping.to_source(b))[0]
     if len(source) > _CONTINUOUS:
-        # Recorded straight through: data, without mapping a million samples.
-        return np.asarray([(a + b) / 2.0]), 0.0
+        return None
     return mapping.to_master_array(np.asarray(source, dtype=np.float64)), 0.0
