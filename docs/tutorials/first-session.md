@@ -6,15 +6,17 @@ recordings.
 The camera and signal data shown in the screenshots are generated examples, not recordings from an
 experiment.
 
-For an in-app checklist while reviewing, open **Help → Review Workflow**.
+For an in-app checklist while reviewing, open **Help → Review Workflow…**.
 
 ## 1. Load the camera
 
 ![Load the camera](../_static/screenshots/demo_step2_video_loaded.png)
 
 Drag the video into the window. Its name appears in the left panel and its image appears in the video
-area. The readout over the video shows its time, timestamp-derived CFR/VFR rate, nominal rate, codec,
-and file size. Open **Video Properties** for resolution, duration, and the complete timing evidence.
+area. The readout over the video shows its time, frame number, resolution, and bit depth (and, at
+**Full** detail under **Preferences → Overlays → Video timecode detail**, its timestamp-derived
+CFR/VFR rate, nominal rate, codec, pixel format, and file size). Open **Properties…** on the camera
+for the complete metadata and timing evidence.
 
 ## 2. Load the recording
 

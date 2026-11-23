@@ -20,8 +20,8 @@ All of this is covered, with nothing to sign and nothing to pay:
 
 ## Plugins are your own work
 
-A plugin that uses only the documented {doc}`TimeSeriesSource, VideoSource and
-SessionSource <plugin-guide>` interfaces is a separate work, and you choose its
+A plugin that uses only the documented {doc}`TimeSeriesSource, VideoSource,
+ImagingSource and SessionSource <plugin-guide>` interfaces is a separate work, and you choose its
 licence. You are **not** required to publish a loader you wrote for your lab's
 proprietary instrument format.
 
@@ -44,8 +44,10 @@ carry their own FFmpeg. PyAV itself is BSD-3-Clause, and the FFmpeg it bundles
 is GPL-configured — it includes `libx264` and `libx265`, both GPL-2.0-or-later,
 which is compatible with this project's AGPL-3.0-or-later distribution.
 
-The other Python dependencies are LGPL-3.0 (PySide6), MIT (pyqtgraph, polars),
-and BSD (numpy, neo, xxhash). Their own licences continue to apply to them.
+The other Python dependencies are LGPL-3.0 (PySide6), MIT (pyqtgraph, polars,
+c3d, zarr), BSD (numpy, scipy, h5py, tifffile, fsspec, neo, quantities,
+xxhash), and Apache-2.0 (aiohttp, tzdata on Windows). Their own licences
+continue to apply to them.
 
 Release installers bundle nothing further: proxy generation, clip export, and
 the sample-session generator all run against the same in-process FFmpeg, so

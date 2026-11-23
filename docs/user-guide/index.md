@@ -2,9 +2,10 @@
 
 ## Main areas of the window
 
-- **Videos** show each available camera at the selected experiment time. The block under each video
-  time shows timestamp-derived CFR/VFR rates, the nominal container rate when it differs, codec, and
-  file size.
+- **Videos** show each available camera at the selected experiment time. Each pane shows the camera
+  name, current time and frame number, resolution, and bit depth; switching **Preferences → Overlays
+  → Video timecode detail** to **Full** adds timestamp-derived CFR/VFR rates, nominal container rate,
+  codec, pixel format, and file size.
 - **3D Tracking** shows complete XYZ tracking points beside the videos at the same experiment time.
   Drag the vertical splitter handle to give either view more space.
 - **Plots** show sensor, electrode, and tracking values in a fixed oscilloscope-style time window.
@@ -26,13 +27,14 @@
 - **Shared time bar** moves every view together.
 - **Left panel** has a page rail with **Sources** (files, visibility, offsets, properties),
   **Values**, **Messages** (prose the recording itself carries), **Changes** (everything you
-  flagged, labelled, or corrected), and **Props** (physical apparatus). Every page name is shown
+  flagged, labelled, or corrected), **Props** (physical apparatus), and **Exports** (every export
+  command in one place). Every page name is shown
   in full; on a short window the rail scrolls. Up and Down move between pages, and
   **View → Inspector** or the command palette opens any of them. The last page used is restored
   next time.
 - **Open Files** at the top of the Sources page lists every way in, one button each: **Open
-  Videos…**, **Open Sensor/Ephys Data…**, **Open Session…**, **Align recordings…**, and,
-  set apart, **Reset Session**.
+  Videos…**, **Open Sensor/Ephys Data…**, **Open NWB…**, **Open Imaging…**, **Open Session…**,
+  **Align recordings…**, and, set apart, **Reset Session**.
 - **Tasks** opens from the status bar and lists what is loading, with a cancel where the work
   supports one.
 - The left panel is a dock: drag its title to the other side of the window, float it onto a
@@ -138,7 +140,7 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
 - Right-click a plot to add a marker at that moment without moving the playhead first.
 - The **Changes** tab lists what you flagged; double-click a label to name it.
 - **File → Export Changes…** writes your annotations, and any corrected pose data, out.
-- **File → Export Snapshot / Trimmed Video Clip / Data Slice** cover images, media, and signals.
+- **File → Export Snapshot… / Export Trimmed Video Clip… / Export Data Slice…** cover images, media, and signals.
 - **File → Export Stimulus Grid…** makes an event-column MP4 with a row per chosen camera and imaging
   stack, and a full-width band per chosen sensor group underneath (every event overlaid, the
   mean bold). Choose the output frame rate and playback speed to slow high-speed
@@ -150,7 +152,7 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
 Controls sit with what they act on. Under the videos: **Flag Frame**, **Fix Tracker**, **Add 3D
 Marker**, **Show Original Tracking**, **Snapshot**, **Fit All Videos** and **Fullscreen**, all glyph buttons
 except **Show Original Tracking**; hover for the name and shortcut. One row
-under the plots holds **Live**, **Time span** and its slider, **Fit Y**, row density (Compact,
+under the plots holds the visible page readout, **Time span** and its slider, **Fit Y**, row density (Compact,
 Comfortable or Large), and **Reset Plots**. Data Streams has a **Hide** control above its lanes.
 Its lane labels shorten when space is tight; hover to read the full name. Compact density shows
 up to ten lanes at once, then scrolls vertically. **Preferences → Appearance** sets the Data
@@ -707,8 +709,8 @@ Every bold (primary) button is reachable with Tab, and Up and Down move between 
 
 ## Appearance and font size
 
-Use **View → Theme** to choose System, Dark, or Light, and **View → Font Size** to select a
-system-relative text size. System follows your desktop, including a change made while AvialSync is
+Use **View → Theme** to choose System, Dark, or Light, and **View → Font Size** to select System,
+Small, Medium, Large, or Extra large. System follows your desktop, including a change made while AvialSync is
 running, and returning to System from Dark or Light gives the appearance back to your desktop.
 
 A switch reaches the plots — background, axis lines, tick numbers, axis titles and playhead — the

@@ -88,6 +88,21 @@ conda run -n avialsync python tools/generate_stimulus_grid_demo.py
 It writes the event-selection and slow-motion screenshots, the exported-frame still, and the demo
 MP4 under `docs/_static/screenshots/`.
 
+Showcase clips of your own recordings are a separate, local-only tool. It opens one recording per
+folder under `data/` through the real drop-and-open path, plays 20 seconds over the span every
+loaded source covers, and writes an MP4, a preview PNG and a JSON report for each:
+
+```bash
+conda run -n avialsync python tools/record_demo_videos.py --list   # what it would record
+conda run -n avialsync python tools/record_demo_videos.py          # one clip per data/ subfolder
+conda run -n avialsync python tools/record_demo_videos.py <folder> # one recording
+```
+
+Each run writes a new dated folder under the git-ignored `data/demo_videos/` and never overwrites
+an earlier one. It reads the recordings and changes nothing beside them; preferences, recovery and
+the cache go to a temporary folder that is removed afterwards. The clips show where the sources
+currently sit on the timeline, not a verified alignment, and they are not published assets.
+
 The front-page GIF is different: the committed `aol_session_overview.gif` is real AOL recording
 footage, made from the `09-35-24` session kept (git-ignored) at the repository root. Its source
 recording is not in git, so the exact public asset cannot be reproduced from a clean checkout.

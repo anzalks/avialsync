@@ -211,7 +211,7 @@ Two product laws govern that phase and outrank convention:
   registered layer with a checkbox in View → Overlays, plugin overlays included (D-090).
 
 ### Done (Phase 4)
-- Session save/load `.avv` schema v5, autosave 2 min, recent files, relink dialog
+- Session save/load `.avv` (current schema v14; large exact mappings in `<session>_avv_sync/`), autosave 2 min, recent files, relink dialog
 - File → Reset Session (also Sources → Open Files) cancels pending loads and clears the current workspace without
   modifying recordings, their cache, or a saved `.avv` file.
 - File → Cache: Delete Cache for This Trial / Delete All Cache / Trim Cache / Show Cache Folder
@@ -223,7 +223,7 @@ Two product laws govern that phase and outrank convention:
   Dark/Light use the same platform accent with readable application surfaces. Themes are
   palette/font-only: they must not alter seek-bar geometry or semantics, plot range/follow state,
   splitter/scrollbar behavior, playback, shortcuts, or layout state.
-- Font size: View → Font Size offers System, Small, Medium, and Large; each non-System choice is a
+- Font size: View → Font Size offers System, Small, Medium, Large, and Extra large; each non-System choice is a
   persisted scale relative to the platform application font and applies to already-open controls.
   Fixed-width readouts retain their monospaced family while inheriting that scale.
 - Video/channel visibility checkboxes (hide without unloading)
@@ -261,8 +261,9 @@ Two product laws govern that phase and outrank convention:
 - `plot_pane.reset_zoom()` method exists
 - Plots share one master-time page and continuous **Time span** control (`ms` / `s` / `min` / `h`),
   with lossless unit conversion, logarithmic slider mapping, coalesced drag updates, and normal
-  Tab/Enter focus. Paused and approximate scrubs use complete-page **Review**; live playback offers
-  retained-page/eraser **Sweep** (default) and compatible clear/restart **Scope**. The pyramid is
+  Tab/Enter focus. Paused and approximate scrubs use complete-page **Review**; live playback uses
+  clear/restart **Scope** (the sole live presentation shown in the UI since D-057; unit-tested
+  retained-page **Sweep** internals remain in `plot_sweep.py`). The pyramid is
   queried only at page changes, coalesced span changes, or quantized-density resize changes; hidden
   rows are not queried. One bottom master-time axis, per-channel fixed name/unit/range gutters,
   bounded min/max envelope, close-to-sidebar visibility path, stable Fit/Auto/Manual Y modes,
@@ -299,24 +300,20 @@ Two product laws govern that phase and outrank convention:
 - **One rendering path everywhere**: headless or not, Windows, macOS, and Linux all decode to a
   `QImage` and blit it. `tests/test_ci_platform_config.py` parses `video_pane.py` and fails if a
   `sys.platform` read, an `mpv` import, or a `QOpenGLWidget` import reappears.
-- **Portable media runtime and demo launch**: `avialsync.runtime` locates bundled or
-  environment-provided **FFmpeg executables** (decoding needs none), and `VideoStandardLoader` resolves an
-  explicit `ffprobe` path rather than trusting the current directory or activated-shell PATH; on
-  Windows it also finds the standard WinGet FFmpeg package path. `tools/launch_demo.py` delegates to
-  the installed command so the two paths cannot drift. `avialsync demo` generates the full three-CFR
-  plus one-VFR camera demo under the platform application-data folder and serially imports its sensor,
-  dense ephys/TTL, and tracking tables through the normal asynchronous source paths.
-  Generation runs in `DemoGenerationWorker`, with a modal progress/log dialog, FFmpeg diagnostic
-  errors, cancellation, and explicit reuse of already-created files. FFmpeg uses `-progress pipe:1`
-  with `-loglevel error`; never read progress while leaving verbose stderr unread, or first-run demo
-  generation can deadlock after the child process fills its stderr pipe. The dialog update endpoint
-  is an explicit Qt `@Slot(int, str)`, and final loading is queued on the UI event loop: never
-  connect a worker to a plain widget-mutating Python callback.
-  Release staging rejects a bundle without `ffmpeg` and `ffprobe`; no video library is staged or
-  required (D-075). A pip install carries its own decoder, so there is no missing-library first run
-  and no guided dialog. FFmpeg remains external for proxy generation, clip export, and the demo
-  generator — archive/plans/MIGRATION_PYAV.md step 7. The prohibition on an in-app downloader still stands (D-014):
-  an application must not fetch its own binaries at runtime; that is what the wheel is for.
+- **In-process media runtime and demo launch (D-075)**: Decoding (`engine/pyav_reader.py`),
+  metadata and timestamp probing (`core/video_probe.py`), proxy generation (`engine/proxy.py`),
+  clip trimming (`engine/export.py`), stimulus-grid encoding (`engine/stimulus_grid.py`), and
+  `avialsync demo` video synthesis (`demo.py`) all run in-process against the FFmpeg bundled inside
+  PyAV's wheels. No external `ffmpeg`, `ffprobe`, or `libmpv` binary is staged in installers or
+  required after `pip install avialsync` (only the build-time test fixture generator
+  `tools/make_fixtures.py` invokes `ffmpeg`). `tools/launch_demo.py` delegates to `avialsync demo`
+  so the two paths cannot drift. `avialsync demo` generates the full three-CFR plus one-VFR camera
+  demo under the platform application-data folder and serially imports its sensor, dense ephys/TTL,
+  and tracking tables through the normal asynchronous source paths. Generation runs in
+  `DemoGenerationWorker`, with a non-modal progress/log window, cancellation, and explicit reuse of
+  already-created files; the update endpoint is an explicit Qt `@Slot(int, str)` and final loading
+  is queued on the UI event loop. The prohibition on an in-app binary downloader still stands
+  (D-014): wheels and installers carry their runtime directly.
 - **Video pane shutdown**: `MainWindow.closeEvent()` calls `Player.stop()` and then
   `VideoGrid.shutdown()` before Qt destroys child widgets. This removes the precise 60 Hz timer and
   closes every `VideoPane`, which stops its decode thread and closes its reader on the thread that
@@ -755,7 +752,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `loaders/aol_mosaic_layout.py` | Where each ribbon tile sits: the controller-style branch tree from `thin_mask.mat` (branches as columns, segments stacked, population patches packed), the lab's analysis map, or a square grid (D-204) | `choose_layout()`, `branch_layout()`, `analysis_layout()`, `MosaicLayout` |
 | `loaders/aol_camera_join.py` | "Video (Joined Trials)": a camera's per-trial recordings read in place from a manifest (each file at its trial's start, gaps kept) with a timestamp sidecar, each segment at its pairing's offset and trimmed to its trial; where camera recordings are looked for (trial folders, beside them, the camera data folder, a sibling `<date>/<experiment>` mirror) (D-205, D-208) | `AOLJoinedCameraSource`, `find_recordings()`, `recording()`, `camera_segments()`, `configure_camera_roots()` |
 | `ui/video_levels.py` | Each camera's display levels: the one authority the pane popover, the inspector panel, undo (`SetVideoLevelsCommand`) and the session go through; applies to the decoder and the pane's pressed levels button (D-209) | `request()`, `request_auto()`, `measured()`, `apply()`, `restore()`, `saved()` |
-| `ui/tracking_timing.py` | A pose source's timing after load: overlay calibration to its camera's frames, live Offset/Drift for its overlay and 3D readers, and the source card's lock while a camera times it (D-214) | `calibrate_overlay_timing()`, `apply_mapping()`, `timing_owner()`, `show_timing_owner()` |
+| `ui/tracking_timing.py` | A pose source's timing and reader teardown after load: overlay calibration to its camera's frames, live Offset/Drift for its overlay and 3D readers, the source card's lock while a camera times it, and releasing readers/pins before removal or provisional-rate rebinding (D-214) | `calibrate_overlay_timing()`, `apply_mapping()`, `timing_owner()`, `show_timing_owner()`, `release_pose_source()`, `teardown_for_rebind()` |
 | `engine/stimulus_grid_export.py` | Stimulus grid movie: picture rows (cameras, imaging) by event columns, sensor bands beneath; output schedule merges every row's frame changes (D-210) | `export_stimulus_grid()`, `GridVideo`, `GridImaging`, `GridBand`, `plan_grid()` |
 | `engine/stimulus_grid_bands.py` | One band per sensor group: streams in colour, events faint, mean bold, overlay ≤4 else stacked lanes on one amplitude, trigger line and cursor (D-210) | `GridBand`, `GridStream`, `event_mean()`, `stack_height()` |
 | `engine/stimulus_grid_imaging.py` | An imaging row rendered by the viewer's reader with its view and zoom crop, frames held by `frame_index_at` (D-210) | `GridImaging`, `ImagingRow` |
@@ -851,7 +848,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/controllers/gap_view.py` | Each source's holes between the session's parts (from its own frames/samples), published to Data Streams; the Collapse Gaps Without Data preference and View action (D-218) | `install()`, `refresh_holes()`, `has_data_between()`, `set_collapse()` |
 | `loaders/joined_parts.py` | A stream recorded in parts as one source: `JoinedVideoSource` (part files read in place from a manifest with each file's own keyframe table, any codec) and `JoinedTimeSeriesSource` (each part read by its own loader and config, channels unioned, NaN where a part lacks one) (D-219) | `JoinedVideoSource`, `JoinedTimeSeriesSource`, `loader_name()`, `part_stamp()` |
 | `core/columns.py` | Columns computed rather than stored: verified regular times (`RegularTimes`, `fit_regular` — exact match only), scaled/int16 values (`ScaledColumn`), zero-memory gap masks (D-216) | `RegularTimes`, `ScaledColumn`, `fit_regular()`, `no_gaps()` |
-| `core/channel_store.py` | A cache entry's per-channel layout: grids, optional gaps, values in place (`_layout.json`), header-only validation (D-216) | `read_level()`, `write_times()`, `columns_intact()`, `ExternalArray`, `InPlaceChannel` |
+| `core/channel_store.py` | A cache entry's per-channel layout: grids, optional gaps, values in place (`_layout.json`), time-only bounds lookup, header-only validation (D-216) | `read_level()`, `read_time_bounds()`, `write_times()`, `columns_intact()`, `ExternalArray`, `InPlaceChannel` |
 | `engine/segmented_media.py` | A joined camera's trial files read as one video from a manifest, each file at its `Segment.start` so gaps stay; `PyAVReader(path)` returns a `SegmentedReader` for `*.segments.json` (D-216, D-217) | `SegmentedReader`, `read_manifest()`, `write_manifest()` |
 | `engine/in_place_import.py` | Import a binary source without copying its samples: one pass over the file's rows builds every channel's levels (D-216) | `build_in_place()` |
 | `loaders/neo_in_place.py` | Open Ephys (neo raw buffers) offered in place; clock checked against every sample number (D-216) | `in_place_channels()` |
@@ -910,7 +907,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `engine/drop_worker.py` | Off-thread drop scanning and AOL session candidate collection | `DropScanWorker` |
 | `engine/import_preview_worker.py` | Bounded source prefix for the text import wizard; registered job (D-200) | `ImportPreviewWorker` |
 | `ui/import_preview.py` | UI handoff from the bounded preview job to the import wizard | `start_preview()` |
-| `ui/recovery_worker.py` | Registered launch-time recovery read and non-modal offer | `start_recovery_check()`, `RecoveryReadWorker` |
+| `ui/recovery_worker.py` | Registered launch-time recovery read, non-modal offer, and periodic untitled-session recovery writes | `start_recovery_check()`, `start_recovery_write()`, `RecoveryReadWorker`, `RecoveryWriteWorker` |
 | `ui/tracking_3d_worker.py` | Registered 3D pose preparation and stale-result rejection (D-200) | `start_pose_preparation()`, `Tracking3DPrepareWorker` |
 | `loaders/aol_session_loader.py` | AOL session manifest: raw videos, fused per-camera EKS, encoder | `build_manifest()`, `is_aol_session()` |
 | `loaders/aol_eks_loader.py` | AOL 2D/3D pose CSV ingest | `AOLEksLoader` |
@@ -943,7 +940,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/import_wizard.py` | CSV import dialog | `ImportWizard` |
 | `ui/diagnostics.py` | Startup probe (hardware-decode support, disk speed) — async daemon thread | `run_startup_diagnostics()`, `probe_hwdec()` |
 | `ui/controllers/drop_controller.py` | Drag/drop intake, drop scan, candidate routing (D-066) | `drop_event()`, `start_drop_scan()`, `route_import_candidate()` |
-| `core/source.py` | Plugin ABCs: `TimeSeriesSource`, `VideoSource`, and `SessionSource` for folder layouts (D-068), with the optional `scan_together` for multi-path drops and drops onto loaded sources (D-208); all three name themselves via `_Nameable`. `SessionLayout.warnings` carries what a scan could not lay out, so a dropped recording is never silent (D-085). `TimeSeriesSource.pose_roles()` offers direct-import 2D/3D uses (D-132) | `SessionSource`, `SessionLayout` (incl. `warnings`), `SessionItem` (incl. `label`), `display_name()`, `VideoSource.exact_time_mapping()` (D-072) |
+| `core/source.py` | Plugin API v2 ABCs (`PLUGIN_API_VERSION = 2`, D-220): `TimeSeriesSource`, `VideoSource`, `ImagingSource` (D-190), and `SessionSource` for folder layouts (D-068) with optional `scan_together` (D-208) and `find_partner()`; all four name and configure themselves via `_Nameable` (`settings()`/`configure()`). `ChannelInfo.trigger` / `trigger_for` declares trigger wiring; `SessionLayout.warnings` carries what a scan could not lay out (D-085); `TimeSeriesSource.pose_roles()` offers direct-import 2D/3D uses (D-132) | `PLUGIN_API_VERSION`, `ImagingSource`, `SessionSource`, `SessionLayout`, `SessionItem`, `ChannelInfo`, `VideoSource.exact_time_mapping()` |
 | `ui/controllers/cache_controller.py` | File → Cache: delete this trial's cache, all cache, or trim unused entries to 10 GB / 30 days; deletion closes and restores a loaded trial, while trim protects it without reimporting (D-160, D-199) | `delete_trial_cache()`, `delete_all_cache()`, `trim_cache()`, `show_cache_folder()` |
 | `ui/controllers/timebase.py` | Master zero's placements and the time display mode: `SessionTimebase` (base offsets, declared source epochs, trial spans, mode) held as `window.timebase`, plus the adopt/declare/publish/trial/time-mode functions behind MainWindow's delegators. Reads no private window field (WINDOW_COMPOSITION_PLAN A1) | `SessionTimebase`, `declare_base_offset()`, `publish_session_epoch()`, `set_time_mode()` |
 | `ui/controllers/appearance.py` | Window title with Qt's modified marker, saved-state marking, and the theme/font-size menu handlers; the menu groups are passed in, so it reads no private window field (WINDOW_COMPOSITION_PLAN A2) | `update_window_title()`, `mark_session_saved()`, `cycle_theme()` |
@@ -984,7 +981,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 5. All data sources go through plugin ABCs in `core/source.py`. No format special-casing in UI code.
 6. Sync correctness beats frame completeness. Drop frames, never drift. Paused/stepping: exact seeks only.
 7. Text data parsed once → binary cache in the per-user cache folder, mmap-read afterwards (D-160).
-8. No GPL/AGPL dependencies. New dep requires license named in PR + pip-installable on all 3 OSes.
+8. AGPL-3.0-or-later-compatible dependencies only (D-076; PyQt remains banned in favour of LGPL PySide6). New dep requires license named in PR + pip-installable on all 3 OSes with no OS install step.
 9. No module >~500 lines; no function >~60 lines. Errors: typed exceptions from `core/errors.py`. Never `except Exception: pass`.
 
 ---
@@ -2089,12 +2086,9 @@ Without it, ancestor QSS may bleed through and paint over the OpenGL surface eve
 QTimer fires late under UI load. Accumulating the interval leads to drift.  
 **Fix:** `delta = now - self._last_tick_monotonic` where `now = time.monotonic()`.
 
-### 8. Drift correction needs hysteresis (5 consecutive ticks)
-Seeking on every off-target tick causes stutter cascades.  
-**Fix:** Player keys `_drift_counts` by pane identity; corrects only after 5 consecutive ticks
-outside the deadband (`_DRIFT_HYSTERESIS_TICKS`), then resets the counter. This applies to the
-soft speed nudge as well as the hard re-seek — it used to guard only the re-seek. A seeking pane
-is skipped while healthy panes continue, and no decoder may freeze `MasterClock`.
+### 8. *(Historical, pre-D-075 — superseded by 8b below)* Drift correction hysteresis
+Libmpv rate/drift hysteresis (`_drift_counts`, `_DRIFT_HYSTERESIS_TICKS`) was removed with libmpv in
+D-075; see **8b** right below for the active frame-command rule.
 
 ### 8b. Playback commands a frame, never a rate — do not reintroduce drift correction
 The old design inferred where libmpv had got to and nudged `mpv.speed` toward the master clock,
@@ -2137,9 +2131,8 @@ points off the thing they mark.
 
 ### 9. polars `read_csv` type inference flips per-chunk
 Without an explicit schema, the timestamp column type can change between chunks.  
-**Current audit finding:** `CSVLoader` does not yet pass that schema. P3.5 must derive an explicit
-timestamp dtype from the accepted wizard configuration and test a file whose later batch would
-otherwise infer a different type.
+**Fix (closed in P3.5):** `CSVLoader` derives an explicit schema from the accepted wizard
+configuration and carries the last accepted timestamp across batch boundaries (`tests/test_loaders_csv.py`).
 
 ### 10. `QImage` does not copy the array it wraps
 `QImage(rgb.data, w, h, stride, Format_RGB888)` borrows the buffer. If the array is collected, the
@@ -2549,8 +2542,9 @@ QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest -x -q
 # Lint + format
 conda run -n avialsync ruff check --fix . && conda run -n avialsync ruff format .
 
-# Type check
-conda run -n avialsync mypy src/avialsync/core/
+# Type check — run BOTH; strict mode applies to core/
+conda run -n avialsync mypy --strict src/avialsync/core
+conda run -n avialsync mypy src/avialsync
 
 # Performance benchmarks
 QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest --benchmark-only
@@ -2641,9 +2635,9 @@ for correctness only; it is not a speed authority. Never add per-test multiplier
 
 The pyramid builder creates the 16× level from raw data, then derives 256× and
 4096× levels from the preceding min/max envelopes. This preserves exact envelopes
-while avoiding repeated full-resolution passes. Its current coarse gap masks are
-recomputed from coarse timestamps, however, so P3.5 must OR-reduce raw gap evidence
-into parent buckets. The raw gap scan is chunked to avoid a large temporary
+while avoiding repeated full-resolution passes. Coarse gap masks OR-reduce raw gap
+evidence into parent buckets (`_aggregate_gap_mask`) so short raw gaps are never lost
+under decimation. The raw gap scan is chunked to avoid a large temporary
 timestamp-difference allocation.
 
 ### 8f. The pyramid query must fill the point budget, not merely fit under it

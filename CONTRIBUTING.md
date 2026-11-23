@@ -41,9 +41,15 @@ increment, not only at the end.
 
 ```bash
 conda run -n avialsync ruff check . && conda run -n avialsync ruff format .
-conda run -n avialsync mypy src/avialsync/core     # strict, enforced
-conda run -n avialsync mypy src/avialsync          # standard
+conda run -n avialsync mypy --strict src/avialsync/core     # strict, enforced
+conda run -n avialsync mypy src/avialsync                   # standard
 QT_QPA_PLATFORM=offscreen conda run -n avialsync pytest -q --ignore=tests/benchmarks
+```
+
+When touching `docs/`, also build the Sphinx site with warnings treated as errors:
+
+```bash
+conda run -n avialsync sphinx-build -W --keep-going -b html docs docs/_build/html
 ```
 
 Coverage targets (TESTING.md §1) are checked with:
@@ -68,7 +74,12 @@ real bug in this codebase.
    asserts that thread identity and has caught a real regression.
 4. **Plot only through the decimation pyramid.** Never hand raw arrays over
    100 k samples to pyqtgraph.
-5. **No GPL/AGPL dependencies.** Name the licence in the pull request.
+5. **Dependency compatibility and no OS install steps.** AvialSync is licensed
+   under `AGPL-3.0-or-later` and nothing else (D-076), so GPL-compatible
+   dependencies (including PyAV's bundled FFmpeg) are permitted. PyQt remains
+   banned in favour of LGPL PySide6. Any new dependency must name its licence in
+   the pull request, be compatible with `AGPL-3.0-or-later`, and install cleanly
+   via `pip` on Windows, macOS, and Linux with no manual OS-level step.
 6. **Never weaken a failing test to make it pass.** If a test looks wrong,
    explain why and propose the fix explicitly. Never add `# type: ignore` or a
    mypy `ignore_errors` override to ship code you know is broken.
@@ -97,12 +108,13 @@ added a trap, or fixed a listed bug, update `HANDOUT.md` in the same commit.
 
 ## Where help is most useful
 
-- **Format plugins.** The `TimeSeriesSource` / `VideoSource` contracts are
-  frozen; see `docs/plugin-guide.md`. Lab-specific formats belong in plugins,
-  not in core.
-- **Platform verification.** Video rendering is intentionally platform-specific
-  at one boundary (Qt OpenGL on Windows/macOS, native `wid` on Linux). Reports
-  from real hardware are valuable — CI is headless everywhere.
+- **Format and session plugins.** The `TimeSeriesSource`, `VideoSource`,
+  `ImagingSource`, and `SessionSource` contracts let lab formats live in plugins
+  rather than in core; see `docs/plugins/index.md` and `docs/plugin-guide.md`.
+- **Platform verification.** Video decoding and presentation share one in-process
+  PyAV → `QImage` path on Windows, macOS, and Linux (D-075). Reports from real
+  desktop compositors, HiDPI displays, and 16 GB hardware remain valuable — CI
+  runs `offscreen` everywhere.
 - **The open items under "Pending" in `HANDOUT.md`**, which lists known gaps
   with the evidence behind each.
 
@@ -115,9 +127,10 @@ and that is the whole process. You keep the copyright in your work.
 ## Reporting bugs
 
 Include: what you did, what you expected, what happened, your OS and Python
-version, and the output of **Help → Diagnostics → Copy diagnostics**. If it is a
-timing or synchronisation problem, say which sources were loaded and what their
-offsets were — that is usually the whole answer.
+version, and the copied output of **Help → Diagnostics…** (or use **Help → Report
+a Problem…**, which copies build details to the clipboard and opens the issue
+tracker). If it is a timing or synchronisation problem, say which sources were
+loaded and what their offsets were — that is usually the whole answer.
 
 Please do not attach private research data. If a bug only reproduces on your own
 recordings, describe their shape (rate, duration, channel count, container) and

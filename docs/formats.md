@@ -108,7 +108,7 @@ group in the grid export, where streams of different units are stacked, each on 
 session's `encoder_log.txt` is plotted instead when one is open, and its angle is loaded hidden
 by default so the existing wheel prop can still use it.
 
-With an AOL camera session loaded, **Align → Find microscope trial…** searches the dated folder,
+With an AOL camera session loaded, **Align → Find Matching Recording…** searches the dated folder,
 matches the camera wall clock against the trial's UTC `STARTTIME`, and presents the evidence for
 review. The derived time-zone offset assumes both PCs use the same local zone. Accepting places
 the trial on camera frame zero as one undoable change; it does not alter the already-open camera
@@ -119,7 +119,7 @@ calibration correction.
 
 ## Two-photon imaging
 
-Open `.h5`, `.hdf5`, `.tif`, `.tiff` or `.nwb` through **File → Open Imaging** or drag the stack into
+Open `.h5`, `.hdf5`, `.tif`, `.tiff` or `.nwb` through **File → Open Imaging…** or drag the stack into
 the window. Imaging is a separate time-indexed source, shown below the 3D view when both are present.
 It follows the same master playhead as video and plots. PyAV continues to decode camera videos only.
 
@@ -220,7 +220,7 @@ message: it is what the software wrote about the recording, not something a pers
 ## Neurodata Without Borders (NWB)
 
 An `.nwb` file holds a whole session — electrophysiology, imaging, behaviour, trials — and
-AvialSync opens it as one. Drop the file (or choose it with **File → Open**) and the review lists:
+AvialSync opens it as one. Drop the file (or choose it with **File → Open NWB…**) and the review lists:
 
 - **NWB Time Series**: every time series in the file, one plot row per column, named by where the
   series sits (`ophys.DfOverF.RoiResponseSeries.roi12`, `Position.SpatialSeries.x`) so that two
@@ -257,9 +257,10 @@ from the specification each file carries when available. NWB 1.x series under
 `acquisition/timeseries` use the same plotted and imaging routes. Choose **File → Open NWB…** and
 browse to a local file, or paste a DANDI asset download URL or its public S3 content URL; the app streams the
 requested HDF5 ranges or Zarr chunks and keeps a small link in your application-data folder for
-session restore. External videos referenced by a remote file must be opened locally. Imaging
-creates a lossless cached copy and shows percentage progress while it is encoded; that encoding
-finishes once started.
+session restore. External videos referenced by a remote file must be opened locally. Image series open
+directly in the imaging viewer one plane at a time by default; if opened through the optional
+video-proxy reader instead, encoding creates a lossless cached copy with percentage progress and
+finishes an in-progress pass before cancellation takes effect.
 
 ## Trigger and TTL files
 

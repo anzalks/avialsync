@@ -16,7 +16,8 @@ Reload Plugins**, or restart.
   pip install --target ~/.avialsync/plugins/lib some-package
   ```
 
-  A library with compiled code must match the application's Python (3.11) and platform.
+  A library with compiled code must match the running Python interpreter (3.11 in the standalone
+  installers, or 3.11 / 3.12 in a `pip` install) and platform.
 - Files and folders starting with `_` are skipped.
 
 ## A package: pip users

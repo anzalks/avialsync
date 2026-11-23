@@ -35,7 +35,7 @@ them.
 | Part | Responsibility |
 | --- | --- |
 | `core/` | Headless timeline, cache, session, synchronization, command bus, settings schema, and plugin contracts. It does not import the Qt interface. |
-| `loaders/` | Built-in readers for CSV, tracking, video, and optional scientific formats. Third-party readers use the same plugin contracts. |
+| `loaders/` | Built-in readers for CSV, tracking, standard video, two-photon HDF5/TIFF stacks, NWB (HDF5, Zarr, DANDI), Vicon C3D, Open Ephys / Neo, and AOL sessions. Third-party readers use the same plugin contracts. |
 | `engine/` | Background imports, cache construction, playback coordination, exports, and synchronization workers. |
 | `ui/` | The desktop window, video panes, plots, sidebar, transport controls, dialogs, and the registries that keep actions, overlays, and feedback single-authored. |
 
@@ -117,7 +117,9 @@ the notification strip, with cancel where the worker supports it; `QProgressDial
 `src/`. Typed exceptions from `core/errors.py` reach the user through the single presenter in
 `ui/feedback/error_presenter.py` as title, plain-language cause, and named recovery actions, with raw
 text behind "Show details". Quitting is never gated on saving: a recovery snapshot is written
-unconditionally to the platform's app-data location and the next launch says so, non-modally.
+unconditionally to the platform's app-data location and remains reachable through **File → Recover
+Unsaved Work…**, while a launch-time notification banner is opt-in (**Preferences → Storage → Offer
+unsaved work at launch**, off by default, D-133).
 
 High-bit-depth video is windowed in the decode worker, never in the pane: `to_ndarray("rgb24")`
 destroys 12-bit range inside swscale before any UI code runs, so display levels are a decode stage

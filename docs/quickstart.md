@@ -37,6 +37,8 @@ the left panel.
 
 - Use **Open Videos…** for camera recordings.
 - Use **Open Sensor/Ephys Data…** for tables, recordings, tracking files, or lab formats.
+- Use **Open NWB…** for local `.nwb` / Zarr recordings or streaming an asset from DANDI.
+- Use **Open Imaging…** for HDF5, TIFF, or NWB imaging stacks.
 - Use **Open Session…** to reopen a saved `.avv` session.
 
 The program examines each file and chooses the appropriate built-in or lab plugin. Large recordings

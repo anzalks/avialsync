@@ -97,8 +97,9 @@ That generates and opens a complete sample session — four cameras, sensor and 
 tracking — so you can confirm the install and try everything before touching your own data. With
 your own recordings:
 
-1. Drag video and data files onto the window, or use **Open Videos**, **Open Sensor/Ephys Data**,
-   and **Open Imaging**.
+1. Drag video, data, imaging, or session folders onto the window, or use **Open Videos…**,
+   **Open Sensor/Ephys Data…**, **Open NWB…**, **Open Imaging…**, and **Open Session…** in the left
+   panel.
 2. Video appears at the top, traces below it.
 3. Drag the shared time bar to inspect one moment across every recording.
 4. If recordings do not line up, use the synchronization tools to align a visible event or TTL pulse.
@@ -126,9 +127,10 @@ four-command gate every change must pass, and the architecture rules that exist 
 them caused real bugs. Participation is governed by our
 [Code of Conduct](CODE_OF_CONDUCT.md).
 
-Good places to start are format plugins (the `TimeSeriesSource` / `VideoSource` contracts are frozen
-— see the [plugin guide](https://avialsync.readthedocs.io/en/latest/plugin-guide.html)), platform
-verification on real hardware, and the [open issues](https://github.com/anzalks/avialsync/issues).
+Good places to start are format and session plugins (`TimeSeriesSource`, `VideoSource`,
+`ImagingSource`, and `SessionSource` — see the [plugin tutorial](https://avialsync.readthedocs.io/en/latest/plugins/index.html),
+[plugin reference](https://avialsync.readthedocs.io/en/latest/plugin-guide.html), and `avialsync plugin-check`), platform
+verification on real desktop displays and hardware, and the [open issues](https://github.com/anzalks/avialsync/issues).
 
 ## Licence
 
@@ -139,8 +141,8 @@ including letting others use it over a network — you publish your changes unde
 
 Running it in your lab, modifying it for your own use, publishing results, and writing plugins for
 your own rig all sit inside this and cost nothing. A plugin that uses only the documented
-`TimeSeriesSource`, `VideoSource` and `SessionSource` interfaces is your own work and you choose its
-licence, so a loader for a proprietary instrument format need not be published.
+`TimeSeriesSource`, `VideoSource`, `ImagingSource`, and `SessionSource` interfaces is your own work
+and you choose its licence, so a loader for a proprietary instrument format need not be published.
 
 There is no dual licence and no contributor agreement — contributions are accepted under the same
 AGPL, and opening a pull request is the whole process.

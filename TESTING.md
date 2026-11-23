@@ -128,7 +128,7 @@ Run these as slice-level regression gates; do not wait until the entire visual r
 | Area | Required automated evidence |
 |---|---|
 | Compatibility | Characterize every item in `archive/plans/PLOT_UX_PLAN.md` §2 before moving controls. Assert the same QAction/signal result after relocation and that close still changes the sidebar checkbox. |
-| Modes | Review paints the complete selected page; Sweep retains the previous pass only until overwrite; Scope preserves D-042 blank/restart; all three map cursor, gaps, measures, annotations, and coverage to identical absolute times. |
+| Modes | Review paints the complete selected page; Scope clears and restarts at each page and is the sole live presentation exposed in the UI since D-057 (while unit tests also cover `PlotPresentation.SWEEP` internals); all modes map cursor, gaps, measures, annotations, and coverage to identical absolute times. |
 | Shared X state | Add/remove/hide, resize, theme change, save/load, slider, typed value, shortcuts, and navigator changes leave every visible row X-linked with one duration and page. No per-row horizontal scrollbar exists. |
 | Time span | Unit changes preserve seconds exactly within display precision; the continuous mapping is monotonic at ms/s/min/h scales; drag updates are coalesced and release commits the newest value. |
 | Navigator | Data Streams retains named/conditional evidence and detail. Viewport drag preserves playhead phase and emits coalesced approximate seeks plus one exact release; its width follows the shared duration; pixel mapping remains correct after widget resize. |
@@ -165,8 +165,8 @@ tests but cannot replace time, signal, accessibility, and performance assertions
   export in another program and verify the locked-file message offers closing it and retrying.
 - [ ] Kill app mid-import; relaunch; cache not corrupted.
 - [ ] Try it on the weakest machine you own; note anything sluggish as an issue.
-- [ ] P4.6: pause/scrub shows a complete Review page; Sweep overwrites behind a narrow eraser gap;
-  Scope still clears/restarts; switching among them never changes master time or alignment.
+- [ ] P4.6: pause/scrub shows a complete Review page; live playback clears and restarts at each
+  Scope page (D-057); play/pause transitions never change master time or alignment.
 - [ ] P4.6: change the same time span through typing, units, slider, zoom keys, and reset; move the
   page through the Data Streams viewport; all rows and the navigator agree, with no per-row
   horizontal scroll.
@@ -179,7 +179,7 @@ tests but cannot replace time, signal, accessibility, and performance assertions
 | Case | Expected behavior |
 |---|---|
 | Timezone-naive CSV | Wizard forces explicit tz choice; default UTC with visible warning |
-| Camera UTC vs logger local (1–2 h apart) | Loads fine; offsets panel shows the gap; docs FAQ entry |
+| Camera UTC vs logger local (1–2 h apart) | Loads fine; Data Streams and per-source Timing disclosure show the gap; docs FAQ entry |
 | DST-ambiguous local timestamp | Loader asks; never resolves silently |
 | Time-of-day-only column | Anchor-date config in wizard; midnight-spanning recording rolls over correctly |
 | Non-monotonic rows (buffer flush) | Sorted with notice, or NonMonotonicTimeError with row number |

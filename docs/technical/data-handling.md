@@ -166,10 +166,12 @@ and presentation preferences remain local to each user — named workspace layou
 layout belongs to the person and their screen rather than to the recording. When a source has moved,
 the session can ask the user to relink it instead of guessing a replacement.
 
-Hand corrections to pose data are the one edit kept *outside* the session, in a `_avialfix.csv`
-sidecar beside the pose file, so they travel with the recording rather than with the session. The
-session records only how many corrections each source had; if that count and the sidecar disagree, or
-the sidecar has gone, the discrepancy is reported rather than absorbed.
+Authored pose edits and apparatus records live *outside* the session as sidecars beside the
+recording — `_avialfix.csv` point corrections, `_avialswap.csv` identity swaps,
+`*_custom_markers.csv` 3D markers, and `pose-3d/<name>_prop.toml` physical props — so they travel
+with the data rather than with one `.avv` file. For point corrections and identity swaps, the
+session records how many edits each source had; if that count and the sidecar disagree, or the
+sidecar has gone, the discrepancy is reported rather than absorbed.
 
 Exact per-frame mappings can contain millions of timestamp pairs. Large accepted mappings live
 in compact, checksum-validated compressed files in `<session>_avv_sync/` beside the `.avv`, while

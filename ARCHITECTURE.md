@@ -5,9 +5,12 @@
 ```
 avialsync/                          # repo root = GitHub repo `avialsync`
 ├── pyproject.toml                    # hatchling; deps `av` (PyAV) + bundled ffmpeg; extras: [dev], [docs];
-│                                     #   entry point `avialsync`; entry-point group `avialsync.loaders`
-├── README.md                         # user-facing: what/GIFs/install (installers first, pip second)
-├── LICENSE                           # AGPL-3.0-or-later (D-069, supersedes D-003)
+│                                     #   entry point `avialsync`; groups `avialsync.loaders` & `avialsync.sessions`
+├── README.md                         # user-facing: what/GIFs/install (`pip` first, standalone installers second)
+├── LICENSE                           # AGPL-3.0-or-later (D-069, D-076; supersedes D-003)
+├── CITATION.cff                      # release citation metadata (bundled into wheel/installers for Help → Cite)
+├── CONTRIBUTING.md  CODE_OF_CONDUCT.md  SECURITY.md
+├── .readthedocs.yaml                 # Ubuntu 24.04 + Python 3.12 Sphinx build (warnings as errors)
 ├── .gitignore                        # incl. tests/fixtures/ (generated), dist/
 ├── .pre-commit-config.yaml           # ruff check+format, basic hygiene hooks
 │
@@ -24,7 +27,8 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │
 ├── src/avialsync/                  # the installable package (src layout — import avialsync)
 │   ├── __init__.py                   # __version__ single source (read by pyproject)
-│   ├── __main__.py                   # CLI: `avialsync` / `avialsync open <path>`
+│   ├── __main__.py                   # CLI: `avialsync` / `avialsync demo` / `avialsync open <path>` / `avialsync plugin-check`
+│   ├── demo.py                       # in-process PyAV sample-session generator (`avialsync demo`)
 │   ├── core/                         # HEADLESS — must never import PySide6 (test-enforced)
 │   │   ├── timeline.py               # MasterClock, TimeMap(offset, drift), PlaybackState
 │   │   ├── session.py                # Session model + .avv JSON (versioned schema v14)
@@ -41,17 +45,24 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   ├── loaders/                      # built-in plugins (use ONLY the public core API)
 │   │   ├── csv_loader.py             # polars; chunked ingest (D-005); tz/anchor/sentinel config
 │   │   ├── video_standard.py         # PyAV metadata + mmap-cached presentation timestamps
-│   │   ├── tracking_loader.py        # DeepLabCut CSV; multi-scorer, bodypart/coord flat-headers
-│   │   ├── neo_loader.py             # Neo electrophysiology; OpenEphys/NCS/NIX; BFS root detect
-│   │   ├── aol_session_loader.py     # AOLSessionSource: first SessionSource implementation, not a special case (D-068)
-│   │   ├── aol_eks_loader.py         # AOL 3D EKS triangulation CSV; frame-indexed x/y/z triplets
-│   │   └── aol_encoder_loader.py     # AOL encoder log; seconds-since-midnight, midnight-unwrapped (D-045)
+│   │   ├── imaging_loader.py         # HDF5ImagingLoader + TIFFImagingLoader (OME-TIFF, ScanImage) (D-190)
+│   │   ├── tracking_loader.py        # DeepLabCut / LightningPose CSV; single- & multi-animal headers
+│   │   ├── neo_loader.py             # Neo electrophysiology; OpenEphys/NCS/NIX; in-place binary layouts
+│   │   ├── nwb_*.py                  # NWB 1.x/2.x HDF5, Zarr v2/v3, DANDI streaming, 2P stacks & ROI grids (D-188)
+│   │   ├── vicon_*.py                # Vicon C3D + XCP camera projection + multi-trial session scanner
+│   │   ├── open_ephys_*.py           # Open Ephys record-node session, sidecar-timed cameras, messages
+│   │   ├── aol_*.py                  # AOL camera/pose/encoder/extraction + 2P ribbon-scan trial pairing
+│   │   ├── joined_parts.py           # multi-trial JoinedVideoSource & JoinedTimeSeriesSource
+│   │   └── trigger_csv.py            # standalone TTL/strobe/trigger evidence reader
 │   ├── engine/                       # playback machinery (imports core + av, no widgets)
 │   │   ├── pyav_reader.py            # headless exact-frame reader: pts table, seek, LRU cache (D-075)
+│   │   ├── imaging_reader.py         # off-thread ImagingSource plane reader + LRU cache + levels/averaging
+│   │   ├── display_pipeline.py       # off-thread high-bit-depth LUT windowing before 8-bit conversion (D-093)
 │   │   ├── player.py                 # clock→pane fanout; owns the clock, so no drift correction (D-075)
 │   │   ├── seeker.py                 # parallel exact seeks across panes
 │   │   ├── importer.py               # QThread worker: parse → cache → pyramid; progress + cancel signals
 │   │   ├── export.py                 # snapshot, data slice (CSV/Parquet), video clip trim
+│   │   ├── stimulus_grid.py          # event-aligned multi-camera/imaging/sensor MP4 grid encoder
 │   │   ├── proxy.py                  # in-process PyAV short-GOP proxies + prepare() conversion flow (D-075)
 │   │   ├── sync_worker.py            # chunked event extraction and deterministic fitting (D-026)
 │   │   ├── drop_worker.py            # off-thread drop classification; format-neutral, defers folders to SessionSource (D-068)
@@ -100,34 +111,40 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   ├── plot_pane.py              # pyramid-fed pyqtgraph rows, playhead, channel tree/groups (§5c); measure markers
 │   │   ├── plot_row.py               # one channel row's plot/curve/close-control construction
 │   │   ├── plot_sweep.py             # shared continuous window control + deterministic sweep state
-│   │   ├── plot_header.py            # presentation, page, Y-fit, row-height, reset controls
+│   │   ├── plot_header.py            # page label, Time span, Fit Y, row density, Reset Plots strip
 │   │   ├── plot_interactions.py      # plot context actions, measurement, annotation, gap state
 │   │   ├── plot_overlays.py          # bounded page-local overlay drawing + context menu helpers
-|   |   |-- tracking_3d_pane.py       # cache-backed current-pose projection; orbit/zoom (D-041); head-up axis (D-046)
+│   │   ├── tracking_3d_pane.py       # cache-backed current-pose projection; orbit/zoom (D-041); head-up axis (D-046)
+│   │   ├── imaging_pane.py           # 2P / ROI-grid plane viewer below 3D view; channels, levels, centred averaging
+│   │   ├── inspector_dock.py         # movable/floatable Inspector QDockWidget + 6-page InspectorNav rail
 │   │   ├── pane_proportions.py       # panes keep their share of the window on resize; minimum-aware allocator
-│   │   ├── transport.py              # two-row timeline + named evidence lanes, controls, status, A/B loop
+│   │   ├── transport.py              # master seek bar, play/step/jump, A/B loop, Speed; Data Streams lanes above
+│   │   ├── view_toolbar.py           # video/pose action strip below cameras (Flag, Fix Tracker, 3D Marker, Snapshot…)
 │   │   ├── import_wizard.py          # timestamp col/format/tz/unit/sentinel preview dialog
-│   │   ├── sync_wizard.py            # evidence selection, residual preview, explicit acceptance (D-026)
-│   │   ├── offsets_panel.py          # per-source offset + drift in ms/h, live preview (D-020, D-184)
+│   │   ├── sync_wizard.py            # non-modal evidence selection, residual preview, explicit acceptance (D-026)
+│   │   ├── sidebar.py / source_card.py # Sources page: Open Files, filter, per-source Timing (offset + drift) & badges
+│   │   ├── offsets_panel.py          # unused stub — offset/drift live on each source card's Timing disclosure
 │   │   ├── recent_files.py           # recent-session list in QSettings — kept out of core/ (rule 2)
-│   │   ├── annotations.py            # point/range markers panel + CSV export
-│   │   ├── readout_panel.py          # nearest-sample values at t_master + units + sample index + Δ section
+│   │   ├── annotations.py            # point/range markers store + ChangesPanel integration
+│   │   ├── readout_panel.py          # Values page: sample-at-or-before t_master + units + camera frames + Δ section
 │   │   ├── source_properties.py      # VideoPropertiesPanel + SensorPropertiesPanel — collapsible detail (D-020)
 │   │   ├── import_report.py          # ImportReportDialog — scrollable import stats + "Copy as text" (D-020)
 │   │   ├── time_format.py            # TimeDisplayMode enum + format_time(t, mode, t_epoch) helper (D-020)
 │   │   ├── relink_dialog.py          # missing session files → browse/search (§5)
-│   │   ├── shortcuts_dialog.py       # keyboard shortcuts reference dialog (? key)
+│   │   ├── shortcuts_dialog.py       # rebindable keyboard shortcuts dialog (F1 / ? key)
 │   │   ├── diagnostics.py            # startup probes: decoder/disk (D-075 dropped the libmpv probe+guide)
-│   │   ├── theme.py                  # system/dark/light appearance; sole colour authority (D-106)
+│   │   ├── theme.py                  # QPalette + QStyleHints system/dark/light appearance; sole colour authority (D-106)
 │   │   ├── plot_theme.py             # applies the live palette to pyqtgraph canvases (D-106)
 │   │   └── splitter.py               # pane splitter whose boundary is drawn end to end (D-106)
-│   └── resources/                    # icons, .qss themes, sample-session manifest (packaged data)
+│   └── resources/                    # packaged app icon (`avialsync.png`) and wheel-bundled `CITATION.cff`
 │
 ├── tools/
 │   ├── make_fixtures.py              # ground-truth generator: frame-strip videos, 50 kHz signals,
-│   │                                 #   ALL edge-case variants (TESTING §7); deterministic, CI-run
-│   ├── generate_demo_data.py         # generate examples/data/ sample videos+CSV; writes tools/launch_demo.py
-│   └── launch_demo.py                # (generated) launch the app pre-loaded with demo data
+│   │                                 #   ALL edge-case variants (TESTING §7); deterministic, CI-run (needs ffmpeg)
+│   ├── certify_engineering.py        # isolated multi-process 1 GB / 3-cam / 128-row local benchmark harness
+│   ├── prepare_release.py            # atomic version bump, build check, annotated tag & push helper
+│   ├── launch_demo.py                # convenience wrapper delegating to `avialsync demo`
+│   └── generate_*_screenshots.py     # reproducible Sphinx screenshot & demo-clip generators (`screenshot_kit.py`)
 │
 ├── tests/                            # mirrors src/ layout
 │   ├── conftest.py                   # offscreen Qt, fixture paths, qtbot helpers
@@ -159,17 +176,16 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   └── plugins/                      # bundled plugins loaded via sys._MEIPASS on compiled builds;
 │                                     #   template for custom drop-in plugin authors (Phase 5)
 │
-├── docs/                             # mkdocs-material site → GitHub Pages (Phase 5)
-│   ├── mkdocs.yml
-│   ├── index.md  quickstart.md  formats.md  troubleshooting.md  plugin-guide.md
-│   └── user-guide/                   # per-feature pages grown during Phase 4
+├── docs/                             # Sphinx + MyST + Furo site → Read the Docs (`.readthedocs.yaml`)
+│   ├── conf.py  index.rst
+│   ├── install.md  quickstart.md  formats.md  troubleshooting.md  plugin-guide.md  licensing.md  changelog.md
+│   └── user-guide/  tutorials/  plugins/  formats/  technical/
 │
 └── .github/
     ├── workflows/
     │   ├── ci.yml                    # push/PR correctness: concurrent lint/types, 6 native tests, docs; pinned deps + coverage
-    │   ├── release.yml               # tag → installers + PyPI, all-or-nothing (D-012)
-    ├── ISSUE_TEMPLATE/  PULL_REQUEST_TEMPLATE.md   # Phase 6
-    └── CONTRIBUTING.md  CODE_OF_CONDUCT.md         # Phase 6
+    │   └── release.yml               # tag → installers + PyPI, all-or-nothing (D-012)
+    └── ISSUE_TEMPLATE/  PULL_REQUEST_TEMPLATE.md
 ```
 
 Placement rules (binding): user-visible deliverable code only under `src/avialsync/`;
@@ -186,21 +202,20 @@ flat at repo root so every model finds them without searching. Dependency direct
             │                                               ▼
             ▼                                   ┌─────────────────────┐
   PlaybackEngine (engine/player.py)             │ UI observers        │
-   for each VideoSource:                        │  transport readout  │
-     target = TimeMap(t)                        │  plot playhead line │
-     local exact-map rate + frame-aware PLL     │  readout panel      │
-   scrub: keyframe seeks while dragging,        └─────────────────────┘
-          snap to accepted trigger + exact seek on release
+   for each VideoPane / ImagingPane:            │  transport readout  │
+     t_src = TimeMap.to_source(t)               │  plot playhead line │
+     exact frame index: last pts <= t_src       │  readout & 3D pose  │
+   scrub: coalesced in-flight exact seeks,      └─────────────────────┘
+          snap to accepted trigger on release
 ```
 
 Time series never keep an independent playback clock. Plots render pyramid-decimated data for one
 shared fixed-duration page selected from `t_master`. Ordinary master-clock ticks move only the
 playhead and cheap presentation clip/gap; they do not query the pyramid or rebuild curve data.
-Paused/scrubbed **Review** shows the complete selected page. Live **Sweep** retains the previous
-page only until a narrow eraser gap overwrites it; compatibility **Scope** clears/restarts at the
-left edge as in D-042. At a deterministic page boundary, plots load the next bounded slice.
-Retained display data is limited to the current and immediately previous page, and the full cursor
-path remains within the ≤ 2 ms budget (D-044, `archive/plans/PLOT_UX_PLAN.md`).
+Paused/scrubbed **Review** shows the complete selected page; live **Scope** clears and restarts at
+the left edge of each page and is the sole live presentation exposed in the UI since D-057 (while
+`plot_sweep.py` retains unit-tested `Sweep` state internals). At a deterministic page boundary,
+plots load the next bounded slice, and the full cursor path remains within the ≤ 2 ms budget (D-044).
 The 3D tracking view follows the same rule: it recognizes complete `name_x`, `name_y`, `name_z`
 channel triplets already imported through a `TimeSeriesSource`, samples only the nearest mmap-backed
 cache row at `t_master`, and paints only the current pose. Coordinates sharing one source reuse one
@@ -215,24 +230,27 @@ decoration. It gives visual-inspection users a concise account of what exists on
 timeline without replacing the plot, sidebar, or synchronization wizard.
 
 ```
-Data Streams               [Hide] [Flag Frame]                                  [Status: …]
-source labels │ ━ video / data spans (one named row per visible source group)
+Data Streams               [Hide]
+source labels │ ━ video / imaging / data spans (plus Trials lane when segmented)
 Sync / TTL     │ accepted paired-event ticks only
 Data gaps      │ imported discontinuities only
+Identity       │ accepted swap markers and candidate crossings
+Messages       │ timed rig messages
 Annotations    │ point and range markers only
 Navigator      │ full-session overview · visible-window rectangle · playhead
 ═══════════ drawn splitter handle (full width) ═══════════
-playhead controls · time ───── master seek bar ───── end · A/B · Speed [selector]
+playhead controls · time ───── master seek bar ───── end · A/B ([ ] ×) · Speed [selector]
+status bar     │ activity & cancel · notifications · Cache: … [⋯] · Tasks
 ```
 
 **Presentation contract:**
 
-- The title is exactly **Data Streams**. **Hide** sits beside it, followed by compact status text,
-  then the transport's **Loop region** (Set In / Set Out / Clear Loop) and **Speed** controls.
-  Flag Frame, Snapshot and Fullscreen are video actions under the cameras, and **Reset plots** is
-  the plot header's face of the View → Reset Plot Zoom QAction; presentation may proxy old buttons during migration but may not duplicate
-  command logic. Busy status remains visible;
-  ordinary completion/status messages clear after a short delay. Each visible lane has a text label and an accessible name;
+- The title is exactly **Data Streams**, with **Hide** above its lanes. Playback **Loop** (Set In /
+  Set Out / Clear Loop) and **Speed** sit in the transport bar beside the master scrubber, and
+  application activity, notifications, **Cache**, and **Tasks** sit in the bottom status surface
+  (D-170). **Flag Frame**, **Fix Tracker**, **Add 3D Marker**, **Show Original Tracking**,
+  **Snapshot**, **Fit All Videos**, and **Fullscreen** sit in the toolbar directly below the videos,
+  and **Reset Plots** is the plot header's face of the **View → Reset Plots** `QAction`. Each visible lane has a text label and an accessible name;
   colour is supporting information, never the only meaning. Do not print a long inline list of all
   source names in the header.
 - Lanes are conditional: do not show Sync / TTL until accepted synchronization evidence exists, or
@@ -277,8 +295,8 @@ The raw recordings are never resampled, rewritten, or altered. The accepted resu
 source-to-master `TimeMap`. Event extraction and fitting run off the UI thread; preview data is
 bounded and decimated where needed. Exact index acceptance makes the first active exact mapping the
 reference frame clock: exact scrub release, pause, and stepping snap to its accepted trigger times,
-while every pane receives its own mapped presentation timestamp. During playback, each pane applies
-the local piecewise mapping slope and a half-frame drift tolerance. The workflow supports a common
+while every pane receives its own mapped presentation timestamp and resolves the frame containing it
+(`pts <= t_src`, D-075 — no rate PLL or drift tolerance). The workflow supports a common
 periodic clock, camera frame triggers, or sparse experimental pulses, while lab-specific event
 encodings remain plugins.
 
@@ -494,7 +512,7 @@ class VideoSource(ABC):
     # Phantom .cine, Photron, GenICam dumps, split multi-part files). First-class, not a hack.
     def needs_conversion(self) -> bool: ...
     def prepare(self, progress_cb: Callable[[float], None]) -> Path:
-        """Produce a decodable file (ffmpeg proxy etc.), cancellable, cached in sidecar."""
+        """Produce a decodable file (PyAV proxy etc.), cancellable, cached in cache_root() (D-160)."""
 
     def media_path(self) -> Path: ...  # what the decoder actually opens (proxy-aware)
     def start_time(self) -> float | None:
@@ -525,6 +543,16 @@ class VideoSource(ABC):
     def label(self) -> str:
         ...  # UI ensures uniqueness (adds parent dir
         # when filenames collide)
+
+
+class ImagingSource(ABC):
+    @classmethod
+    def can_open(cls, path: Path) -> float: ...
+    def open(self, path: Path, config: dict) -> ImagingMetadata: ...
+    def read_frame(self, index: int, channel: int = 0) -> np.ndarray:
+        """Read one 2D plane on the imaging reader thread without materializing the stack."""
+
+    def close(self) -> None: ...
 ```
 
 **No-footage / no-data state (uniform rule):** every pane must render a defined state when
@@ -538,27 +566,30 @@ Discovery: Python entry points and drop-ins in `~/.avialsync/plugins/` (files, p
 declare settings (`settings()`/`configure()`), pairing (`SessionLayout.pairing`, `find_partner`,
 `partner_targets`) and trigger lines (`ChannelInfo.trigger`) through the same classes (D-220).
 
-### Synchronization plugin extension (D-026; not frozen API v1)
+### Trigger and event evidence (D-026, Plugin API 2 / D-220)
 
-The shipped workflow extracts rising TTL edges from cached time-series channels and compares them
-with video frame-event timestamps. The frozen loader API remains focused on opening video and
-chunked time-series ingest. A later, separate plugin extension will let a loader expose native raw
-`SyncEvent` evidence (digital events, TTL edges, or camera-frame triggers). It will be headless,
-timestamp-only, and independent of any lab acquisition system. The core will perform no scientific
-analysis; plugins may offer lab-specific analysis separately. A source proposal includes its paired
-event evidence and fit quality so the user can inspect and explicitly accept it.
+The shipped workflow extracts pulses/edges from cached time-series channels or standalone trigger
+files (**Align → Open Trigger Evidence…**, `loaders/trigger_csv.py`) and compares them with video,
+imaging, or sensor timestamps. Loaders declare wiring semantics directly on `ChannelInfo.trigger`
+(`frame_strobe`, `frame_trigger`, `sync_train`, `sparse_events`) and `ChannelInfo.trigger_for`
+without adding a fifth plugin base class. The core performs no scientific analysis; a proposal
+includes its paired event evidence, precision checks, and fit quality so the user inspects and
+explicitly accepts it before any `TimeMap` changes.
 
 Video acceptance is capability-based rather than suffix-based: files the bundled FFmpeg can decode
 use the standard video path, while undecodable laboratory formats use a plugin's conversion hook.
 Format-specific parsing is deliberately a plugin responsibility.
 
-## 5. Session file (.avv, JSON, schema_version field)
+## 5. Session file (.avv, JSON, `version` field — current schema v14)
 
-Stores: source list (path, loader id, loader config, offset, drift, proxy path), layout
-(grid order, visible channels, colors), view state (shared plot-window duration, theme), annotations, and—after an
-alignment is accepted—synchronization provenance (evidence summary, matching settings, residuals,
-confidence, and the accepted affine or exact piecewise mapping). Schema v5 stores the complete
-exact mapping arrays so reopening a session cannot silently fall back to offset/drift.
+Stores: source lists (`videos`, `imaging`, `sensors`, `triggers`), per-source mappings (`offset`,
+`drift_ms_per_hour`), `session_start_time`, channel visibility overrides (v14), per-tracker
+`Show overlay` / `Show plot` (v11) and `show_original_tracker` (v12), overlay overrides and display
+levels (v7), imaging import/display choices (v13), point-edit and identity-swap verification counts
+(v8, v10), annotations, and—after an alignment is accepted—synchronization provenance (method,
+evidence summary, precision verification, residuals, and exact mapping knots). Exact mappings up to
+500 pairs are stored inline; larger accepted mappings live beside the session in
+`<session>_avv_sync/` (`core/session.py`, D-160) so reopening never falls back to offset/drift.
 Paths stored relative to session file when possible, absolute fallback.
 
 Timeline Evidence splitter geometry/collapse is deliberately excluded from `.avv`: they are local

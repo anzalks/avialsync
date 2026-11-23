@@ -35,19 +35,21 @@ Imported data is cached in one folder of AvialSync's own, never beside your reco
 only the time a re-import takes. Open Ephys and uncompressed NWB samples are read straight from your
 recording rather than copied, and an AOL experiment's cameras play their trials from the trial files
 themselves, so the cache holds little more than zoomed-out views and frame lists.
-**File → Cache** offers three commands:
+**File → Cache** offers four commands:
 
 - **Delete Cache for This Trial** deletes the cached imports of every file in the loaded trial's
   folder, then reloads the trial from the original files. What you had open, your offsets, markers
   and unsaved changes all come back as they were.
 - **Delete All Cache** deletes the cached imports of every recording you have opened.
+- **Trim Cache** removes cached entries unused for 30 days or beyond 10 GB while leaving any
+  currently open recording untouched.
 - **Show Cache Folder** opens the folder in your file manager.
 
 The status bar always shows how much disk the cache holds, as **Cache: 1.2 GB**, with a **⋯**
 beside it holding the same File → Cache commands, so no single click there deletes anything. The figure is measured again whenever background work such as an
 import or a deletion finishes.
 
-![The File → Cache submenu with its three commands](../_static/screenshots/feature_menu_file_cache.png)
+![The File → Cache submenu](../_static/screenshots/feature_menu_file_cache.png)
 
 Your own work is never in the cache: tracking corrections, identity swaps, custom markers and
 physical props are saved beside the data they describe, and sessions where you save them. See
@@ -94,13 +96,13 @@ skeleton from the movement itself: two markers that keep the same distance apart
 however the animal moves are on one rigid segment, and those are the pairs it joins. A detected
 skeleton is drawn **dashed**, thinning as it runs away from the topmost point, and the pane says
 `detected` beside the point count — it is a reading of your data, not something the recording
-claimed. Names are never used to decide anatomy. Use **Bones:** in the pane header to keep the
-detected skeleton (`Detected`), turn bones off entirely (`Off`), or return to `Auto`, which prefers
-whatever the session declared.
+claimed. Names are never used to decide anatomy. Use **Skeleton** in the **Display** popover below
+the 3D scene to keep the detected skeleton (`Detected`), turn bones off entirely (`Off`), or return
+to `Auto`, which prefers whatever the session declared.
 
 ## Two-photon imaging
 
-Open an `.h5`, `.hdf5`, `.tif` or `.tiff` stack with **Open Imaging…** on the Sources page or
+Open an `.h5`, `.hdf5`, `.tif`, `.tiff`, or `.nwb` stack with **Open Imaging…** on the Sources page or
 in the File menu, or drop it on the window. The imaging pane appears below the 3D view (or alone
 in that column) and shows the frame whose acquisition interval contains the playhead, exactly as
 a video pane does. The stack opens straight away with a reading of its dimensions: the file's own
@@ -170,7 +172,7 @@ right and restarts at the left edge when the window completes.
   not zoom or scroll independently — they share one time axis because comparing them is the point.
 - **Reset Plots** (`Ctrl+0`) returns to the full loaded timeline and refits every visible plot.
 - **Fit Y** fits and holds the vertical range of every visible channel.
-- **Rows** sets one height for every row: Compact, Comfortable, or Large.
+- The row-density selector sets one height for every row: Compact, Comfortable, or Large.
 - The small **×** beside a plot hides that row, which also unchecks it in the left panel.
 
 Everything drawn goes through a decimation pyramid, so a 180-million-sample channel draws one
@@ -218,8 +220,8 @@ collects everything configurable in one dialog, generated from the
 application's own settings list, so each entry carries its explanation and its own **Reset to
 default**. It holds the theme and font size, the interface density and how many Data Streams rows
 each density shows before scrolling, the inspector page shown at launch, the colour-vision-safe
-trace palette, whether the A–B range loops, whether gaps without data are collapsed, live plot
-presentation, the video timecode detail, whether body-part names are drawn by default, whether
+trace palette, whether the A–B range loops, whether gaps without data are collapsed,
+the video timecode detail, whether body-part names are drawn by default, whether
 display levels for high-bit-depth video are chosen automatically, the remembered wheel setup (bar
 count, units and radius), the autosave interval, and whether unsaved work from a previous run is
 offered at launch. Installed plugins add their own tabs; see [Plugin settings](../plugins/settings.md).
@@ -231,19 +233,22 @@ not a second copy.
 
 ## Overlays on the video
 
-**View → Overlays** switches every graphic drawn over a camera view: tracking points, body-part
-names, the track legend, hand-corrected marks, the camera name, and the timecode and format
-readout. Anything a plugin draws appears here too — nothing is drawn over your video that you
-cannot account for.
+**View → Overlays** switches every graphic drawn over a camera or 3D view: tracking points,
+body-part names, the track legend, hand-corrected marks, hand-placed 3D markers, the wheel model
+and hidden wheel bars, physical props, 3D reprojection, 3D body-part names, the camera name, and
+the timecode and format readout, with **Show All** and **Hide All** at the bottom. Anything a
+plugin draws appears here too — nothing is drawn over your footage that you cannot account for.
 
 Right-click a video pane and use **Overlays on this camera** to override one camera without changing
 the others; **Follow the View menu** puts it back. Overlay choices are remembered with the session.
 
 ![The View → Overlays submenu](../_static/screenshots/feature_menu_view_overlays.png)
 
-Two are listed but cannot be switched off, and say why when you ask: the **No Footage** placeholder,
-because hiding it would leave an empty pane looking like a camera that simply had nothing to show,
-and the **Fix Tracker handles**, because hiding them would leave that mode nothing to grab.
+Three entries are listed so the inventory stays complete, but are locked on and explain why in their
+tooltips: the **“No Footage” placeholder** (hiding it would let an empty pane look like black
+footage), **Fix Tracker handles** (shown only while Fix Tracker is active, so the mode always has
+handles to drag), and **Export frame number** (identifies source frames in stimulus-grid tiles when
+applicable).
 
 ## Named layouts
 
@@ -279,7 +284,8 @@ switches in particular, which are otherwise three levels into a menu.
 ## The Help menu
 
 - **Review Workflow…** opens a checklist for checking timing, alignment, and observations.
-- **Commands…** and **Keyboard Shortcuts…** are described above and below.
+- **Commands…** (`Ctrl+Shift+P`) and **Keyboard Shortcuts…** (`F1` or `?`) are described above and below.
+- **First Session Tutorial** opens the step-by-step tutorial for a first recording session.
 - **Documentation** opens this site.
 - **Report a Problem…** copies this build's version details to the clipboard and opens the issue
   tracker, so you can paste them into the report.
@@ -292,7 +298,7 @@ switches in particular, which are otherwise three levels into a menu.
 
 ## Keyboard shortcuts
 
-**Help → Keyboard Shortcuts** lists every registered shortcut, grouped by category, read from the
+**Help → Keyboard Shortcuts…** (`F1` or `?`) lists every registered shortcut, grouped by category, read from the
 actions themselves — so it is accurate for the version you are running, unlike a list in a
 document that drifts. **Shortcuts can be rebound there**: your choice is stored per action and
 layered over the default, so a later release that changes a default still reaches you if you never
@@ -302,11 +308,14 @@ The ones worth knowing without looking:
 
 | Key | Action |
 |---|---|
+| `Space` | Play or pause |
+| `←` / `→` (or `,` / `.`) | Step back or forward one frame |
+| `Shift+←` / `Shift+→` | Jump back or forward one second |
+| `J` / `K` / `L` | Jump back 1 s, pause, step up playback rate |
 | `M` | Flag the current frame |
 | `Ctrl+E` | Export snapshot |
 | `[` and `]` (or `I` and `O`) | Mark the start and end of a range |
 | `F11` (`Ctrl+Cmd+F` on macOS) | Toggle fullscreen on the active video |
-| `J` / `K` / `L` | Shuttle back, pause, shuttle forward |
 | `Ctrl+Z` / `Ctrl+Shift+Z` | Undo, redo |
 | `Ctrl+Shift+T` | Fix Tracker |
 | `Ctrl+Shift+←` / `→` | Nudge the selected source earlier or later |
@@ -317,7 +326,8 @@ and `Ctrl+Shift+D` for data.
 
 ## Appearance
 
-**View → Theme** offers System, Dark, or Light. **View → Font Size** offers a system-relative size.
+**View → Theme** offers System, Dark, or Light. **View → Font Size** offers System, Small, Medium,
+Large, and Extra large.
 
 ![The same session in the Light theme](../_static/screenshots/feature_light_theme.png)
 

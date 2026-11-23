@@ -40,7 +40,7 @@ pan/zoom-to-paint interaction meets its requirement.
 - 3D setup and skeleton estimation run in workers. Current-pose sampling shares timestamp lookups
   and never loads a full trajectory into the paint path.
 
-On macOS the first system-accent lookup can still run `defaults` synchronously with a one-second
+On macOS the first system-accent lookup can still run `defaults` synchronously with a 200 ms
 timeout. It is cached, but remains a startup responsiveness caveat.
 
 ## What the checks measure
