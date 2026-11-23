@@ -73,7 +73,7 @@ OVERLAY_LAYERS: tuple[OverlayLayer, ...] = (
         overlay_id="tracking.skeleton_2d",
         label="2D skeleton",
         group="Tracking",
-        default_visible=True,
+        default_visible=False,
         description="Limb lines connecting tracked body parts on each camera view.",
     ),
     OverlayLayer(

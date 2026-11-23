@@ -355,6 +355,15 @@ def capture(
     pin_appearance(app)
 
     window = MainWindow()
+    # macOS clamps normal windows to the attached monitor's visible frame, so a
+    # 2560x1382 hero preset run on a smaller laptop screen collapsed its
+    # splitter sizes, 3D viewport, and camera pan bounds. WA_DontShowOnScreen
+    # keeps the native Cocoa style while honouring exact requested dimensions.
+    screen = app.primaryScreen()
+    if screen is not None:
+        avail = screen.availableGeometry()
+        if width > avail.width() or height > avail.height():
+            window.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
     window.resize(width, height)
     window.show()
 

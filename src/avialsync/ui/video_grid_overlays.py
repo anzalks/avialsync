@@ -56,6 +56,7 @@ class GridOverlayMixin:
         self._wheel: Callable[[str, float], object] | None = None
         self._props: Callable[[str, float], list] | None = None
         self._epipolar: Callable[[str, float], list] | None = None
+        self._skeleton_2d: list[tuple[str, str]] = []
 
     def _apply_held_overlays(self, pane: VideoPane, path: str) -> None:
         """Give a pane built now whatever already resolved for its camera."""
@@ -84,6 +85,9 @@ class GridOverlayMixin:
             pane.set_prop_source(self._props_for(path))
         if self._epipolar is not None and hasattr(pane, "set_epipolar_source"):
             pane.set_epipolar_source(self._epipolar_for(path))
+        canvas = getattr(pane, "paint_canvas", None)
+        if canvas is not None and hasattr(canvas, "declared_skeleton_2d"):
+            canvas.declared_skeleton_2d = list(self._skeleton_2d)
 
     def set_tracking_readers(self, readers: list) -> None:
         """Pass tracking data readers to all video panes for overlay rendering.
@@ -210,6 +214,15 @@ class GridOverlayMixin:
         for path, pane in zip(self._paths, self.panes, strict=False):
             if hasattr(pane, "set_epipolar_source"):
                 pane.set_epipolar_source(self._epipolar_for(path))
+
+    def set_skeleton_2d(self, edges: list[tuple[str, str]]) -> None:
+        """Share the session's declared anatomical skeleton with all 2D camera overlays."""
+        self._skeleton_2d = list(edges)
+        for pane in self.panes:
+            canvas = getattr(pane, "paint_canvas", None)
+            if canvas is not None and hasattr(canvas, "declared_skeleton_2d"):
+                canvas.declared_skeleton_2d = list(self._skeleton_2d)
+                canvas.update()
 
     def _epipolar_for(self, path: str) -> Callable[[float], list] | None:
         source = self._epipolar

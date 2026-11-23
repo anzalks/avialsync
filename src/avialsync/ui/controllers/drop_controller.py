@@ -206,7 +206,10 @@ def apply_session_layout(window: MainWindow, layout: object) -> None:
     # Set unconditionally, including to nothing: a session that declares no
     # skeleton must not inherit the previous one's bones, and an empty list is
     # what hands the 3D view over to its own detection.
-    window.tracking_3d_pane.set_skeleton(list(layout.skeleton or []))
+    skeleton = list(layout.skeleton or [])
+    window.tracking_3d_pane.set_skeleton(skeleton)
+    if hasattr(window.video_grid, "set_skeleton_2d"):
+        window.video_grid.set_skeleton_2d(skeleton)
     # Likewise the wheel: which channel turns it, and any rig model, are the rig's to say.
     window.session_runtime.camera_corrections = layout.camera_corrections
     wheel_rotation.adopt_rig(window, layout.rotary)  # its wheel, model and camera corrections
