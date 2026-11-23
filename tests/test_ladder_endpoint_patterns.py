@@ -121,3 +121,49 @@ def test_solved_footholds_use_even_3d_spacing_before_camera_projection() -> None
     guides = [points[0] for label, points, _c in drawings if label]
     np.testing.assert_allclose(guides, expected)
     assert len([points for label, points, _c in rung_positions(ladder) if label]) == 4
+
+
+def test_solved_neighbour_rungs_project_3d_guides_through_lens_distortion() -> None:
+    """Neighbour-extended 3D rungs honour radial lens distortion instead of 2D homography."""
+    distorted_cam = dataclasses.replace(
+        CAMERAS["Front"],
+        distortions=np.asarray([-0.35, 0.12, 0.0, 0.0, 0.0], dtype=np.float64),
+    )
+    cameras = {**CAMERAS, "Front": distorted_cam}
+
+    steps = []
+    for idx, x in enumerate((0.0, 12.0)):
+        pts = []
+        for y in (-8.0, 8.0):
+            xyz = np.asarray((x, y, 70.0), dtype=np.float64)
+            clicks = tuple(
+                StepClick(
+                    name,
+                    0,
+                    float(cameras[name].project(xyz)[0, 0]),
+                    float(cameras[name].project(xyz)[0, 1]),
+                )
+                for name in ("Front", "Left")
+            )
+            pts.append(LadderPoint(clicks).resolved(cameras))
+        steps.append(LadderStep(str(idx), f"Rung {idx + 1}", tuple(pts)))
+
+    ladder = Ladder(
+        "distorted_neighbour_ladder",
+        tuple(steps),
+        support="side_rails",
+        pattern=RungPattern("0", "1", 8, between_endpoints=False),
+    )
+
+    def project(xyz: tuple[float, float, float]) -> tuple[float, float, bool]:
+        px, py = distorted_cam.project(np.asarray(xyz, dtype=np.float64))[0]
+        return float(px), float(py), False
+
+    step_pixels = [
+        [(p.clicks[0].x, p.clicks[0].y, True) for p in step.points] for step in ladder.steps
+    ]
+    drawings = rung_pixels(ladder, step_pixels, project=project)
+    # Rung 8 (7 spacings from Rung 1 -> x = 84.0) is captioned at the far end of the run.
+    far_guide = [pts for label, pts, _c in drawings if "8" in label][0]
+    expected_far = tuple(project((84.0, y, 70.0)) for y in (-8.0, 8.0))
+    np.testing.assert_allclose(far_guide, expected_far, atol=1e-4)

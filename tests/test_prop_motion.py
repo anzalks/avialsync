@@ -109,3 +109,64 @@ def test_ball_requires_same_sample_for_all_quaternion_components(monkeypatch) ->
     assert prop_motion.material_point(window, ball, 1.0) is None
     window.plot_pane.channels[-1].reader.available_sample_at = lambda _t: None
     assert prop_motion.material_point(window, ball, 1.0) is None
+
+
+def test_belt_linear_interpolation_and_ball_geodesic_slerp_between_samples(
+    tmp_path: Path,
+) -> None:
+    """MappedChannelReader-backed props interpolate belt scalars and SLERP ball quaternions."""
+    from avialsync.core.channel_reader import MappedChannelReader
+    from avialsync.core.pyramid import PyramidBuilder, PyramidReader
+    from avialsync.core.timeline import TimeMap
+
+    window = _window()
+    sensor_cache = tmp_path / "sensor"
+    imu_cache = tmp_path / "imu"
+    sensor_cache.mkdir()
+    imu_cache.mkdir()
+    window._sensor_cache_dirs = {"sensor": sensor_cache, "imu": imu_cache}
+
+    # 0.0 -> 0.1 s normal interval, then a > 10x gap from 0.2 -> 5.0 s.
+    times = np.asarray([0.0, 0.1, 0.2, 5.0], dtype=np.float64)
+    PyramidBuilder(sensor_cache, "distance").build_and_save(
+        times, np.asarray([10.0, 20.0, 30.0, 40.0], dtype=np.float64)
+    )
+    window.plot_pane.channels.append(
+        SimpleNamespace(
+            reader=MappedChannelReader(PyramidReader(sensor_cache, "distance"), TimeMap(), "sensor")
+        )
+    )
+    assert prop_motion.scalar_reading(window, "sensor", "distance", 0.05) == pytest.approx(15.0)
+    # Refuses interpolation across the observed timestamp gap (0.2 -> 5.0).
+    assert prop_motion.scalar_reading(window, "sensor", "distance", 2.5) is None
+
+    # Quaternion samples: q(0.0) = identity, q(0.1) = -rot_z(90 deg) (antipodal shortest-arc test).
+    q_end = UnitQuaternion.about_axis((0.0, 0.0, 1.0), math.pi / 2.0)
+    q_series = {
+        "qw": np.asarray([1.0, -q_end.w, -q_end.w, 1.0], dtype=np.float64),
+        "qx": np.asarray([0.0, -q_end.x, -q_end.x, 0.0], dtype=np.float64),
+        "qy": np.asarray([0.0, -q_end.y, -q_end.y, 0.0], dtype=np.float64),
+        "qz": np.asarray([0.0, -q_end.z, -q_end.z, 0.0], dtype=np.float64),
+    }
+    tm = TimeMap()
+    for ch_name, arr in q_series.items():
+        PyramidBuilder(imu_cache, ch_name).build_and_save(times, arr)
+        window.plot_pane.channels.append(
+            SimpleNamespace(
+                reader=MappedChannelReader(PyramidReader(imu_cache, ch_name), tm, "imu")
+            )
+        )
+
+    ball = BallProp(
+        "ball",
+        BallSurface((0.0, 0.0, 70.0), 2.0),
+        surface_marks=((1.0, 0.0, 0.0),),
+        binding=BallBinding("imu", ("qw", "qx", "qy", "qz"), 0, UnitQuaternion.identity()),
+    )
+    mid_q = prop_motion.orientation(window, ball, 0.05)
+    expected_mid = UnitQuaternion.about_axis((0.0, 0.0, 1.0), math.pi / 4.0)
+    assert mid_q is not None
+    assert mid_q.rotate((1.0, 0.0, 0.0)) == pytest.approx(
+        expected_mid.rotate((1.0, 0.0, 0.0)), abs=1e-6
+    )
+    assert prop_motion.orientation(window, ball, 2.5) is None

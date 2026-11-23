@@ -100,8 +100,6 @@ def rung_pixels(
     if (
         project is not None
         and pattern is not None
-        and ladder.pattern is not None
-        and ladder.pattern.between_endpoints
         and all(p.xyz is not None for i in pattern[:2] for p in ladder.steps[i].points)
     ):
         layout = _project_layout(

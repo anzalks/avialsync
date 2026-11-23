@@ -216,3 +216,50 @@ def test_saved_visual_prop_clicks_keep_their_labels_in_every_camera(
             name == label and pixels and pixels[0] is not None and pixels[0][2]
             for name, pixels, _closed in drawings
         ), "a saved real click must stay solid and labelled in its own camera"
+
+
+def test_channel_bound_belt_and_ball_sample_each_cameras_own_exposure(
+    window: MainWindow, tmp_path: Path
+) -> None:
+    """Staggered cameras draw channel-driven belt/ball marks at their own exposure timestamp."""
+    from types import SimpleNamespace
+
+    from avialsync.core.channel_reader import MappedChannelReader
+    from avialsync.core.physical_props import BeltBinding
+    from avialsync.core.pyramid import PyramidBuilder, PyramidReader
+    from avialsync.ui import prop_motion
+
+    sensor_cache = tmp_path / "belt_sensor"
+    sensor_cache.mkdir()
+    times = np.linspace(0.0, 2.0, 201, dtype=np.float64)
+    # 100 units/s so a 5 ms camera stagger moves the mark by 0.5 units along X.
+    PyramidBuilder(sensor_cache, "dist").build_and_save(times, times * 100.0)
+    window._sensor_cache_dirs["belt_sensor"] = sensor_cache
+    window.plot_pane.channels.append(
+        SimpleNamespace(
+            reader=MappedChannelReader(
+                PyramidReader(sensor_cache, "dist"), TimeMap(), "belt_sensor"
+            )
+        )
+    )
+    belt = BeltProp(
+        "staggered_belt",
+        BeltTrack(((0.0, 0.0, 70.0), (200.0, 0.0, 70.0)), closed=False),
+        travel_direction=(1.0, 0.0, 0.0),
+        binding=BeltBinding("belt_sensor", "dist", 0, 0.0, 0.0, 1.0),
+    )
+    window.props_app.store.set(belt.name, belt)
+    _present(window)
+
+    seen_xs: list[float] = []
+    for path, pane in zip(window.video_grid.pane_paths(), window.video_grid.panes, strict=True):
+        drawings = window.props_app.camera_drawing(path, pane.paint_canvas.t)
+        mark_drawings = [pts for name, pts, _c in drawings if name == "mark"]
+        assert len(mark_drawings) == 1 and mark_drawings[0][0] is not None
+        px, py, _solid = mark_drawings[0][0]
+        seen_xs.append(px)
+        # Drawn mark in each staggered camera agrees to 0.0 px with check_click on that camera!
+        chk = prop_motion.check_click(window, belt, path, px, py)
+        assert chk is not None and chk.residual_px == pytest.approx(0.0, abs=1e-6)
+    # Staggered camera exposures yield distinct mark positions rather than cloning camera 0's time.
+    assert len({round(v, 4) for v in seen_xs}) == len(seen_xs)

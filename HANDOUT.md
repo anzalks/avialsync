@@ -193,8 +193,9 @@ old-session completions stay silent. Never advance this queue from a GUI callbac
 **Prop labels across cameras:** a camera canvas receives its own presented frame's
 master timestamp, which may precede the reference camera's current frame. Wheel
 placement, saved wheel reference/rotation evidence, and belt/ball visual observations
-select their shared reference frame at `window.clock.state.t`; wheel motion sampling
-and belt/ball click-frame checks retain the camera's own presentation time. Never
+select their shared reference frame at `window.clock.state.t`; wheel and channel-bound
+belt/ball motion sampling and click-frame checks retain each camera's own presentation
+time. Never
 resolve the reference frame from another camera's exposure: it hides labels in later
 panes and can show them one frame late. Prop-only canvases also request a repaint on
 presented-frame changes, even when no tracking or wheel overlay is loaded. `PropsApp.refresh`

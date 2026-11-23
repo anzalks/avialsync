@@ -39,6 +39,14 @@ full history is in git. Versions follow the tags in the repository.
 - Internal: the main window is composed of focused modules; behaviour is unchanged (D-248).
 
 ### Fixed
+- Channel-driven treadmill belts and spherical balls now sample at each camera's own presented
+  frame exposure time (matching click-check residuals across staggered or multi-rate cameras),
+  linearly interpolate belt displacement channels and SLERP synchronized ball quaternions across
+  non-gapped intervals, honour live `TimeMap` reference baselines during motion calibration, cross
+  closed-belt loop seams without box-bound trapping, pre-screen all 24 proper `SO(3)` axis
+  permutations when fitting sideways/inverted ball sensors, keep open-belt boundary penalties
+  independent of signed X pixel errors, and project neighbour-extrapolated 3D ladder guides through
+  full camera lens distortion and TPS image corrections (D-163, D-164, D-227).
 - The transport scrub bar now renders a single thumb-aligned groove with unioned source coverage
   (eliminating the misaligned double-bar blue bleed across overlapping sources), empty status clears
   hide `StatusLine` instead of showing a bare `Status:` prefix while restoring active background-job

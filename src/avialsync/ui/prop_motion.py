@@ -34,7 +34,7 @@ def frame_time(window: MainWindow, video: str, t_master: float) -> tuple[int, fl
 def scalar_reading(
     window: MainWindow, source_id: str, channel: str, t_frame: float
 ) -> float | None:
-    """Read a displacement inside the loaded channel's actual time coverage."""
+    """Read an interpolated displacement inside the loaded channel's actual time coverage."""
     cache = window._sensor_cache_dirs.get(source_id)
     if cache is None:
         return None
@@ -43,6 +43,10 @@ def scalar_reading(
         if reader.cache_dir != cache or reader.channel_id != channel:
             continue
         try:
+            interp = getattr(reader, "interpolated_sample_at", None)
+            if callable(interp):
+                val = interp(t_frame)
+                return None if val is None or not math.isfinite(val) else float(val)
             found = reader.available_sample_at(t_frame)
         except (OSError, ValueError, KeyError):
             return None
@@ -50,10 +54,35 @@ def scalar_reading(
     return None
 
 
+def _slerp_quaternions(
+    q0: tuple[float, float, float, float],
+    q1: tuple[float, float, float, float],
+    alpha: float,
+) -> tuple[float, float, float, float]:
+    """Spherical linear interpolation along the shortest arc on S^3."""
+    u0 = np.asarray(q0, dtype=np.float64) / math.hypot(*q0)
+    u1 = np.asarray(q1, dtype=np.float64) / math.hypot(*q1)
+    dot = float(np.dot(u0, u1))
+    if dot < 0.0:
+        u1 = -u1
+        dot = -dot
+    if dot > 1.0 - 1e-7:
+        blended = (1.0 - alpha) * u0 + alpha * u1
+        blended /= float(np.linalg.norm(blended))
+    else:
+        theta = math.acos(min(1.0, dot))
+        sin_theta = math.sin(theta)
+        blended = (
+            math.sin((1.0 - alpha) * theta) / sin_theta * u0
+            + math.sin(alpha * theta) / sin_theta * u1
+        )
+    return (float(blended[0]), float(blended[1]), float(blended[2]), float(blended[3]))
+
+
 def orientation_values(
     window: MainWindow, ball: BallProp, t_frame: float
 ) -> tuple[float, float, float, float] | None:
-    """Read raw quaternion components from one synchronized source sample."""
+    """Read synchronized quaternion components, SLERPed to *t_frame* between samples."""
     binding = ball.binding
     if binding is None:
         return None
@@ -67,8 +96,9 @@ def orientation_values(
     }
     if any(channel not in by_channel for channel in binding.channels):
         return None
+    readers = [by_channel[channel] for channel in binding.channels]
     try:
-        samples = [by_channel[channel].available_sample_at(t_frame) for channel in binding.channels]
+        samples = [reader.available_sample_at(t_frame) for reader in readers]
     except (OSError, ValueError, KeyError):
         return None
     if any(item is None for item in samples):
@@ -76,10 +106,48 @@ def orientation_values(
     found = [item for item in samples if item is not None]
     if len({item[0] for item in found}) != 1:
         return None
+    index = int(found[0][0])
     values = (float(found[0][1]), float(found[1][1]), float(found[2][1]), float(found[3][1]))
     if not all(math.isfinite(value) for value in values) or math.hypot(*values) < 1e-12:
         return None
+    if all(hasattr(reader, "source_reader") and hasattr(reader, "time_map") for reader in readers):
+        try:
+            source_time = float(readers[0].time_map.to_source(t_frame))
+            cols = [reader.source_reader.mapped_columns() for reader in readers]
+            t_col = cols[0][0]
+            if index + 1 < len(t_col) and source_time > float(t_col[index]):
+                spans = [(float(c[0][index]), float(c[0][index + 1])) for c in cols]
+                if len(set(spans)) == 1 and spans[0][1] > spans[0][0]:
+                    next_vals = (
+                        float(cols[0][1][index + 1]),
+                        float(cols[1][1][index + 1]),
+                        float(cols[2][1][index + 1]),
+                        float(cols[3][1][index + 1]),
+                    )
+                    if all(math.isfinite(v) for v in next_vals) and math.hypot(*next_vals) >= 1e-12:
+                        alpha = (source_time - spans[0][0]) / (spans[0][1] - spans[0][0])
+                        return _slerp_quaternions(values, next_vals, min(max(alpha, 0.0), 1.0))
+        except (OSError, ValueError, KeyError, IndexError, TypeError):
+            return values
     return values
+
+
+def reference_baseline(
+    window: MainWindow, prop: BeltProp | BallProp
+) -> tuple[float | None, UnitQuaternion | None]:
+    """Read the prop's reference-frame sensor baseline through today's live TimeMap."""
+    if prop.binding is None:
+        return None, None
+    reference_time = prop_context.frame_master_time(window, prop, prop.binding.reference_frame)
+    if reference_time is None:
+        return None, None
+    if isinstance(prop, BeltProp):
+        return (
+            scalar_reading(window, prop.binding.source_id, prop.binding.channel, reference_time),
+            None,
+        )
+    raw = orientation_values(window, prop, reference_time)
+    return None, (None if raw is None else UnitQuaternion(*raw))
 
 
 def orientation(window: MainWindow, ball: BallProp, t_frame: float) -> UnitQuaternion | None:

@@ -961,7 +961,13 @@ class PropsApp:
         if len(checks) < 3:
             self._status(tr("Save at least three video checks before fitting motion."))
             return
-        worker = PropMotionCalibrationWorker(prop, prop_context.models(self.window, prop))
+        ref_reading, ref_orientation = prop_motion.reference_baseline(self.window, prop)
+        worker = PropMotionCalibrationWorker(
+            prop,
+            prop_context.models(self.window, prop),
+            reference_reading=ref_reading,
+            reference_orientation=ref_orientation,
+        )
         self._motion_fitting.add(name)
 
         def finished(
@@ -996,6 +1002,11 @@ class PropsApp:
         ):
             belt_binding = dataclasses.replace(
                 prop.binding,
+                reference_reading=(
+                    prop.binding.reference_reading
+                    if proposal.reference_reading is None
+                    else proposal.reference_reading
+                ),
                 reference_distance=proposal.reference_distance,
                 units_per_reading=proposal.units_per_reading,
             )
@@ -1007,8 +1018,17 @@ class PropsApp:
             and prop.binding is not None
         ):
             correction = proposal.orientation_correction
+            ref_q = proposal.reference_orientation
             ball_binding = dataclasses.replace(
                 prop.binding,
+                reference_orientation=(
+                    prop.binding.reference_orientation if ref_q is None else ref_q
+                ),
+                reference_values=(
+                    prop.binding.reference_values
+                    if ref_q is None or prop.binding.reference_values is None
+                    else (ref_q.w, ref_q.x, ref_q.y, ref_q.z)
+                ),
                 orientation_correction=(correction.w, correction.x, correction.y, correction.z),
             )
             changed = dataclasses.replace(prop, binding=ball_binding)
@@ -1631,7 +1651,7 @@ class PropsApp:
                 rung_pixels(
                     ladder,
                     step_pixels,
-                    project=partial(self._project_declared, model),
+                    project=partial(self._project_declared, model) if model is not None else None,
                 )
             )
         for prop in self.store:
@@ -1648,7 +1668,16 @@ class PropsApp:
                 reference = prop_context.frame_and_time(
                     self.window, prop, self.window.clock.state.t
                 )
-                marks = self._motion_at(prop, reference[0], reference[1]) if reference else ()
+                sample_t = (
+                    camera_frame[1]
+                    if camera_frame is not None
+                    else (reference[1] if reference is not None else _time)
+                )
+                marks = (
+                    self._motion_at(prop, reference[0], sample_t)
+                    if reference is not None
+                    else (() if prop.visual_frames else self._motion_at(prop, -1, sample_t))
+                )
                 material = marks[0] if marks else None
                 for mesh_points, closed in _belt_mesh_lines(prop):
                     mesh = tuple(project(point) for point in mesh_points)
@@ -1708,7 +1737,16 @@ class PropsApp:
                 reference = prop_context.frame_and_time(
                     self.window, prop, self.window.clock.state.t
                 )
-                marks = self._motion_at(prop, reference[0], reference[1]) if reference else ()
+                sample_t = (
+                    camera_frame[1]
+                    if camera_frame is not None
+                    else (reference[1] if reference is not None else _time)
+                )
+                marks = (
+                    self._motion_at(prop, reference[0], sample_t)
+                    if reference is not None
+                    else (() if prop.visual_frames else self._motion_at(prop, -1, sample_t))
+                )
                 material = marks[0] if marks else None
                 for ring_index, (_plane, points) in enumerate(_ball_rings(prop)):
                     ball_pixels = tuple(self._project_declared(model, point) for point in points)

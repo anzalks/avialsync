@@ -9,7 +9,7 @@ from PySide6.QtCore import QObject, Signal, Slot
 
 from avialsync.core.calibration import CameraModel
 from avialsync.core.errors import PropMotionCalibrationError
-from avialsync.core.physical_props import BallProp, BeltProp
+from avialsync.core.physical_props import BallProp, BeltProp, UnitQuaternion
 from avialsync.core.prop_motion_calibration import fit_ball_motion, fit_belt_motion
 
 logger = logging.getLogger(__name__)
@@ -23,19 +23,36 @@ class PropMotionCalibrationWorker(QObject):
     finished = Signal(object)
     error = Signal(str)
 
-    def __init__(self, prop: BeltProp | BallProp, cameras: Mapping[str, CameraModel]) -> None:
+    def __init__(
+        self,
+        prop: BeltProp | BallProp,
+        cameras: Mapping[str, CameraModel],
+        *,
+        reference_reading: float | None = None,
+        reference_orientation: UnitQuaternion | None = None,
+    ) -> None:
         super().__init__()
         self._prop = prop
         self._cameras = dict(cameras)
+        self._reference_reading = reference_reading
+        self._reference_orientation = reference_orientation
 
     @Slot()
     def run(self) -> None:
         """Fit without touching Qt widgets or a mutable prop store."""
         try:
             proposal = (
-                fit_belt_motion(self._prop, self._cameras)
+                fit_belt_motion(
+                    self._prop,
+                    self._cameras,
+                    reference_reading=self._reference_reading,
+                )
                 if isinstance(self._prop, BeltProp)
-                else fit_ball_motion(self._prop, self._cameras)
+                else fit_ball_motion(
+                    self._prop,
+                    self._cameras,
+                    reference_orientation=self._reference_orientation,
+                )
             )
         except (PropMotionCalibrationError, ValueError, ArithmeticError) as error:
             logger.warning("Physical-prop motion calibration fit failed", exc_info=True)
