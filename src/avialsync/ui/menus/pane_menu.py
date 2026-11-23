@@ -36,6 +36,7 @@ def show_pane_menu(window: MainWindow, path: str, pos: Any) -> None:
 
     act_fs = menu.addAction(tr("Fullscreen this camera"))
     act_snap = menu.addAction(tr("Snapshot this camera"))
+    layout_actions = _add_layout_actions(window, menu, path)
     menu.addSeparator()
     camera_actions, act_follow = _add_camera_overlays(window, menu, path)
     menu.addSeparator()
@@ -45,6 +46,8 @@ def show_pane_menu(window: MainWindow, path: str, pos: Any) -> None:
     chosen = menu.exec(pos)
     if act_delete_marker is not None and chosen == act_delete_marker and marker_hit:
         custom_marker_controller.delete(window, marker_hit[0], marker_hit[1])
+        return
+    if _handle_layout_choice(window, path, chosen, layout_actions):
         return
     if chosen in camera_actions:
         overlay_id = camera_actions[chosen]
@@ -63,6 +66,46 @@ def show_pane_menu(window: MainWindow, path: str, pos: Any) -> None:
         window._show_video_properties(path)
     elif chosen == act_copy:
         _copy_frame_info(window, path)
+
+
+def _add_layout_actions(window: MainWindow, menu: QMenu, path: str) -> dict[str, QAction]:
+    """Detach/re-dock and tile ordering commands for one camera pane."""
+    actions: dict[str, QAction] = {}
+    detachment = getattr(window, "panel_detachment", None)
+    detached = bool(detachment is not None and detachment.is_camera_detached(path))
+    if detachment is not None:
+        label = tr("Return camera to grid") if detached else tr("Detach this camera")
+        actions["detach"] = menu.addAction(label)
+    pane_paths_fn = getattr(window.video_grid, "pane_paths", None)
+    paths = pane_paths_fn() if callable(pane_paths_fn) else []
+    if path in paths and len(paths) >= 2 and not detached:
+        idx = paths.index(path)
+        act_left = menu.addAction(tr("Move Camera Left"))
+        act_left.setEnabled(idx > 0)
+        act_right = menu.addAction(tr("Move Camera Right"))
+        act_right.setEnabled(idx < len(paths) - 1)
+        actions["left"] = act_left
+        actions["right"] = act_right
+    return actions
+
+
+def _handle_layout_choice(
+    window: MainWindow, path: str, chosen: QAction | None, actions: dict[str, QAction]
+) -> bool:
+    if chosen is None:
+        return False
+    detachment = getattr(window, "panel_detachment", None)
+    if chosen is actions.get("detach") and detachment is not None:
+        detached = detachment.is_camera_detached(path)
+        detachment.set_camera_detached(path, not detached)
+        return True
+    if chosen is actions.get("left"):
+        window.video_grid.move_pane(path, -1)
+        return True
+    if chosen is actions.get("right"):
+        window.video_grid.move_pane(path, 1)
+        return True
+    return False
 
 
 def _add_camera_overlays(

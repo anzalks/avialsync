@@ -35,6 +35,8 @@ import numpy as np
 __all__ = [
     "CHANNEL_COLORS",
     "MAX_AVERAGE",
+    "PERCEPTUAL_COLORMAPS",
+    "VALID_CHANNEL_COLORS",
     "ChannelView",
     "ImagingView",
     "auto_window",
@@ -56,6 +58,33 @@ CHANNEL_COLORS: dict[str, tuple[int, int, int]] = {
     "red": (255, 0, 0),
     "blue": (0, 0, 255),
 }
+
+
+def _build_lut(stops: Sequence[tuple[int, int, int]]) -> np.ndarray:
+    arr = np.asarray(stops, dtype=np.float64)
+    xs = np.linspace(0.0, 1.0, len(arr))
+    grid = np.linspace(0.0, 1.0, 256)
+    cols = [np.clip(np.interp(grid, xs, arr[:, c]), 0.0, 255.0).astype(np.uint8) for c in range(3)]
+    return np.column_stack(cols)
+
+
+#: Perceptual single-channel false-colour lookup tables (256x3 uint8 RGB).
+PERCEPTUAL_COLORMAPS: dict[str, np.ndarray] = {
+    "viridis": _build_lut(
+        ((68, 1, 84), (59, 82, 139), (33, 145, 140), (94, 201, 98), (253, 231, 37))
+    ),
+    "magma": _build_lut(
+        ((0, 0, 4), (81, 18, 124), (183, 55, 121), (252, 137, 97), (252, 253, 191))
+    ),
+    "inferno": _build_lut(
+        ((0, 0, 4), (87, 16, 110), (188, 55, 84), (249, 142, 9), (252, 255, 164))
+    ),
+    "turbo": _build_lut(
+        ((48, 18, 59), (40, 188, 235), (164, 252, 60), (251, 126, 33), (122, 4, 3))
+    ),
+}
+
+VALID_CHANNEL_COLORS: frozenset[str] = frozenset(CHANNEL_COLORS) | frozenset(PERCEPTUAL_COLORMAPS)
 
 #: Defaults by channel count. Green and magenta are the field's standard
 #: two-channel pair and stay apart under every colour vision deficiency; the
@@ -134,7 +163,7 @@ class ChannelView:
         high = data.get("auto_high")
         return cls(
             visible=bool(data.get("visible", True)),
-            color=color if color in CHANNEL_COLORS else "grey",
+            color=color if color in VALID_CHANNEL_COLORS else "grey",
             auto_low=None if low is None else float(low),
             auto_high=None if high is None else float(high),
             brightness=_clamp(float(data.get("brightness", 0.0))),
@@ -149,6 +178,8 @@ class ImagingView:
     channels: tuple[ChannelView, ...] = ()
     #: Frames in the centred moving average; always odd, 1 means none.
     average: int = 1
+    #: Highlight under-exposed (cyan) and saturated (red) pixels at window bounds.
+    show_clipping: bool = False
 
     @classmethod
     def for_channels(cls, count: int, names: Sequence[str] = ()) -> ImagingView:
@@ -165,7 +196,11 @@ class ImagingView:
         defaults = default_colors(count, names)
         channels = list(self.channels[:count])
         channels += [ChannelView(color=defaults[i]) for i in range(len(channels), count)]
-        return ImagingView(channels=tuple(channels), average=odd_average(self.average))
+        return ImagingView(
+            channels=tuple(channels),
+            average=odd_average(self.average),
+            show_clipping=self.show_clipping,
+        )
 
     def with_channel(self, index: int, channel: ChannelView) -> ImagingView:
         """Return a copy with channel *index* replaced."""
@@ -175,13 +210,21 @@ class ImagingView:
 
     def to_dict(self) -> dict[str, Any]:
         """Serialise for the session file."""
-        return {"average": self.average, "channels": [c.to_dict() for c in self.channels]}
+        return {
+            "average": self.average,
+            "show_clipping": self.show_clipping,
+            "channels": [c.to_dict() for c in self.channels],
+        }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> ImagingView:
         """Read a stored view; an empty dict is the default view."""
         channels = tuple(ChannelView.from_dict(dict(c)) for c in data.get("channels", []))
-        return cls(channels=channels, average=odd_average(int(data.get("average", 1))))
+        return cls(
+            channels=channels,
+            average=odd_average(int(data.get("average", 1))),
+            show_clipping=bool(data.get("show_clipping", False)),
+        )
 
 
 def odd_average(frames: int) -> int:
@@ -212,16 +255,18 @@ def auto_window(plane: np.ndarray) -> tuple[float, float]:
     return low_value, high_value
 
 
-def compose(planes: Sequence[tuple[np.ndarray, ChannelView]]) -> np.ndarray:
+def compose(
+    planes: Sequence[tuple[np.ndarray, ChannelView]], *, show_clipping: bool = False
+) -> np.ndarray:
     """Window each visible plane and add them into one 8-bit image.
 
-    Returns a C-contiguous ``(H, W)`` array when the only plane is grey -- a
-    third of the bytes to convert and upload -- and ``(H, W, 3)`` RGB otherwise.
-    NaN pixels show as black. An empty sequence is a caller error.
+    Returns a C-contiguous ``(H, W)`` array when the only plane is grey without
+    clipping overlay -- a third of the bytes to convert and upload -- and
+    ``(H, W, 3)`` RGB otherwise. NaN pixels show as black.
     """
     if not planes:
         raise ValueError("compose() needs at least one visible plane")
-    if len(planes) == 1 and planes[0][1].color == "grey":
+    if not show_clipping and len(planes) == 1 and planes[0][1].color == "grey":
         plane, channel = planes[0]
         return _to_byte(_windowed(plane, channel))
 
@@ -229,11 +274,30 @@ def compose(planes: Sequence[tuple[np.ndarray, ChannelView]]) -> np.ndarray:
     total = np.zeros((height, width, 3), dtype=np.float32)
     for plane, channel in planes:
         scaled = _windowed(plane, channel)
-        rgb = CHANNEL_COLORS.get(channel.color, CHANNEL_COLORS["grey"])
-        for component, weight in enumerate(rgb):
-            if weight:
-                total[..., component] += scaled * (weight / 255.0)
-    return _to_byte(total)
+        lut = PERCEPTUAL_COLORMAPS.get(channel.color)
+        if lut is not None:
+            valid = np.isfinite(plane)
+            indices = np.clip(scaled * 255.0 + 0.5, 0.0, 255.0).astype(np.uint8)
+            mapped = lut[indices].astype(np.float32) * np.float32(1.0 / 255.0)
+            mapped *= valid[..., np.newaxis]
+            total += mapped
+        else:
+            rgb = np.asarray(
+                CHANNEL_COLORS.get(channel.color, CHANNEL_COLORS["grey"]), dtype=np.float32
+            ) * np.float32(1.0 / 255.0)
+            total += np.clip(scaled, 0.0, 1.0)[..., np.newaxis] * rgb
+    out = _to_byte(total)
+    if show_clipping:
+        under = np.zeros((height, width), dtype=bool)
+        over = np.zeros((height, width), dtype=bool)
+        for plane, channel in planes:
+            low, high = channel.window()
+            finite = np.isfinite(plane)
+            under |= finite & (plane <= low)
+            over |= finite & (plane >= high)
+        out[under & ~over] = (0, 170, 255)
+        out[over] = (255, 45, 45)
+    return out
 
 
 def _windowed(plane: np.ndarray, channel: ChannelView) -> np.ndarray:

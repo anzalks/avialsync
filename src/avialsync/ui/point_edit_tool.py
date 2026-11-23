@@ -90,6 +90,8 @@ class PointEditMixin(QWidget):
     custom_point_moved = Signal(str, int, float, float)
     #: ``(x, y)`` in video pixels: a left click while placing a 3D marker.
     marker_clicked = Signal(float, float)
+    #: Emitted while a Fix Tracker drag moves or finishes so sibling cameras update epipolar guides.
+    drag_preview_changed = Signal()
 
     # ── supplied by the host canvas ──────────────────────────────────
     tracks: list[OverlayTrack]
@@ -122,6 +124,8 @@ class PointEditMixin(QWidget):
         self._highlight: PointKey | None = None
         #: Placing a new 3D marker: a left click anywhere names its position.
         self._place_mode = False
+        #: Current pointer in video pixels while placing or dragging, for the loupe.
+        self._loupe_video_xy: tuple[float, float] | None = None
 
     def set_identity_resolver(self, resolver: Callable[[str, str, int], str] | None) -> None:
         """Say how to find the column a displayed point is currently showing.
@@ -154,10 +158,13 @@ class PointEditMixin(QWidget):
         enabled = bool(enabled)
         if enabled == self._edit_mode:
             return
+        had_drag = self._drag is not None
         self._edit_mode = enabled
         self._drag = None
         self._hover = None
         self._capture_mouse()
+        if had_drag:
+            self.drag_preview_changed.emit()
 
     def set_place_mode(self, enabled: bool) -> None:
         """Take a left click anywhere as the position of a new 3D marker.
@@ -176,6 +183,8 @@ class PointEditMixin(QWidget):
         active = self._edit_mode or self._place_mode
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, not active)
         self.setMouseTracking(active)
+        if not active:
+            self._loupe_video_xy = None
         if active:
             self.setCursor(Qt.CursorShape.CrossCursor)
         else:
@@ -198,6 +207,13 @@ class PointEditMixin(QWidget):
     def highlighted_point(self) -> PointKey | None:
         """The coordinate currently being pointed out, if any."""
         return self._highlight
+
+    @property
+    def active_drag_point(self) -> tuple[str, tuple[float, float]] | None:
+        """``(name, (x, y))`` currently being dragged in Fix Tracker, if any."""
+        if self._drag is None:
+            return None
+        return self._drag.name, self._drag.position
 
     # ── what the drag draws ──────────────────────────────────────────
 
@@ -361,11 +377,17 @@ class PointEditMixin(QWidget):
         self.update()
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if self._place_mode and not self._edit_mode:
+            self._loupe_video_xy = self._to_video(event.position().x(), event.position().y())
+            self.update()
+            event.accept()
+            return
         if not self._edit_mode:
             self._forward(event)
             return
         position = event.position()
         if self._drag is None:
+            self._loupe_video_xy = None
             hovered = self.point_at(position.x(), position.y())
             key = hovered.key if hovered is not None else None
             if key != self._hover:
@@ -377,7 +399,9 @@ class PointEditMixin(QWidget):
         moved = self._to_video(position.x(), position.y())
         if moved is not None:
             self._drag.position = moved
+            self._loupe_video_xy = moved
             self.update()
+            self.drag_preview_changed.emit()
         event.accept()
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
@@ -386,9 +410,11 @@ class PointEditMixin(QWidget):
             return
         drag = self._drag
         self._drag = None
+        self._loupe_video_xy = None
         self.setCursor(Qt.CursorShape.OpenHandCursor)
         event.accept()
         self.update()
+        self.drag_preview_changed.emit()
         after = (float(drag.position[0]), float(drag.position[1]))
         if drag.before is not None and drag.before == after:
             # A click that put the point back exactly where it already was is
@@ -411,7 +437,10 @@ class PointEditMixin(QWidget):
         self._forward(event)
 
     def leaveEvent(self, event: QEvent) -> None:
-        """Drop the hover highlight when the pointer leaves the pane."""
+        """Drop the hover highlight and loupe when the pointer leaves the pane."""
+        if self._loupe_video_xy is not None and self._drag is None:
+            self._loupe_video_xy = None
+            self.update()
         if self._hover is not None and self._drag is None:
             self._hover = None
             self.update()

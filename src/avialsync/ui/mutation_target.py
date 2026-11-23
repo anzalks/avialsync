@@ -155,6 +155,10 @@ class WindowMutationTarget:
         with self.replaying():
             self._window.annotation_store.set_label(index, label)
 
+    def set_marker_span(self, index: int, t_start: float, t_end: float | None) -> None:
+        with self.replaying():
+            self._window.annotation_store.set_span(index, t_start, t_end)
+
     # ── visibility ───────────────────────────────────────────────────
 
     def set_source_visible(self, source_id: str, visible: bool) -> None:
@@ -371,6 +375,12 @@ class WindowMutationTarget:
                 window._on_imaging_remove_requested(source_id)
             else:
                 window._on_sensor_remove_requested(source_id)
+
+    def set_video_order(self, order: tuple[str, ...]) -> None:
+        window = self._window
+        with self.replaying():
+            window.video_grid.reorder_panes(order)
+            window.sidebar.reorder_videos(order)
 
     def apply_sync(
         self, source_id: str, offset: float, drift_ms_per_hour: float, evidence: Any

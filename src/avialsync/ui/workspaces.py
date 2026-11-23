@@ -25,7 +25,8 @@ collapsed-pane repair, and the plot behaviour depends on them.
 from __future__ import annotations
 
 import dataclasses
-from typing import TYPE_CHECKING
+import json
+from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QByteArray, QSettings, Qt
 from PySide6.QtWidgets import QInputDialog
@@ -66,6 +67,13 @@ class Workspace:
     dock_state: QByteArray = dataclasses.field(default_factory=QByteArray)
     #: An older workspace's inspector width, read from its old splitter state.
     legacy_inspector_width: int | None = None
+    tracking_3d_detached: bool = False
+    tracking_3d_geometry: QByteArray = dataclasses.field(default_factory=QByteArray)
+    imaging_detached: bool = False
+    imaging_geometry: QByteArray = dataclasses.field(default_factory=QByteArray)
+    camera_order: tuple[str, ...] = ()
+    camera_views: dict[str, dict[str, float]] = dataclasses.field(default_factory=dict)
+    view_3d: dict[str, Any] = dataclasses.field(default_factory=dict)
 
 
 def _store() -> QSettings:
@@ -74,6 +82,7 @@ def _store() -> QSettings:
 
 def capture(window: MainWindow) -> Workspace:
     """Take the window's current arrangement."""
+    detachment = window.panel_detachment
     return Workspace(
         geometry=window.saveGeometry(),
         splitters={
@@ -87,6 +96,13 @@ def capture(window: MainWindow) -> Workspace:
             else QByteArray()
         ),
         dock_state=dock_state(window),
+        tracking_3d_detached=detachment.tracking_3d_detached,
+        tracking_3d_geometry=detachment.tracking_3d_geometry(),
+        imaging_detached=detachment.imaging_detached,
+        imaging_geometry=detachment.imaging_geometry(),
+        camera_order=tuple(window.video_grid.pane_paths()),
+        camera_views=window.video_grid.camera_views(),
+        view_3d=window.tracking_3d_pane.view_orientation(),
     )
 
 
@@ -124,6 +140,32 @@ def apply(window: MainWindow, workspace: Workspace) -> None:
             detached.restoreGeometry(workspace.plots_geometry)
             window._bring_onto_screen(detached)
 
+    act_3d = getattr(window, "_act_detach_3d", None)
+    if act_3d is not None:
+        act_3d.setChecked(workspace.tracking_3d_detached)
+    if workspace.tracking_3d_detached and not workspace.tracking_3d_geometry.isEmpty():
+        det_3d = window.panel_detachment.tracking_3d_window
+        if det_3d is not None:
+            det_3d.restoreGeometry(workspace.tracking_3d_geometry)
+            window._bring_onto_screen(det_3d)
+
+    act_img = getattr(window, "_act_detach_imaging", None)
+    if act_img is not None:
+        act_img.setChecked(workspace.imaging_detached)
+    if workspace.imaging_detached and not workspace.imaging_geometry.isEmpty():
+        det_img = window.panel_detachment.imaging_window
+        if det_img is not None:
+            det_img.restoreGeometry(workspace.imaging_geometry)
+            window._bring_onto_screen(det_img)
+
+    if workspace.camera_order:
+        window.video_grid.reorder_panes(workspace.camera_order)
+        window.sidebar.reorder_videos(workspace.camera_order)
+    if workspace.camera_views:
+        window.video_grid.apply_camera_views(workspace.camera_views)
+    if workspace.view_3d:
+        window.tracking_3d_pane.set_view_orientation(workspace.view_3d)
+
     window._enforce_splitter_policy()
     window._repair_collapsed_panes()
     # The restored arrangement is now the ratio to hold, so a later resize
@@ -144,6 +186,13 @@ def save(name: str, workspace: Workspace) -> None:
     store.setValue("plots_detached", workspace.plots_detached)
     store.setValue("plots_geometry", workspace.plots_geometry)
     store.setValue("dock_state", workspace.dock_state)
+    store.setValue("tracking_3d_detached", workspace.tracking_3d_detached)
+    store.setValue("tracking_3d_geometry", workspace.tracking_3d_geometry)
+    store.setValue("imaging_detached", workspace.imaging_detached)
+    store.setValue("imaging_geometry", workspace.imaging_geometry)
+    store.setValue("camera_order_json", json.dumps(list(workspace.camera_order)))
+    store.setValue("camera_views_json", json.dumps(workspace.camera_views))
+    store.setValue("view_3d_json", json.dumps(workspace.view_3d))
     store.endGroup()
 
 
@@ -192,9 +241,57 @@ def load(name: str) -> Workspace | None:
             plots_geometry=plots_geometry,
             dock_state=docks,
             legacy_inspector_width=legacy_width,
+            tracking_3d_detached=_as_bool(store.value("tracking_3d_detached", False)),
+            tracking_3d_geometry=_as_bytes(store.value("tracking_3d_geometry", QByteArray())),
+            imaging_detached=_as_bool(store.value("imaging_detached", False)),
+            imaging_geometry=_as_bytes(store.value("imaging_geometry", QByteArray())),
+            camera_order=tuple(_as_json_list(store.value("camera_order_json", ""))),
+            camera_views=_as_camera_views(store.value("camera_views_json", "")),
+            view_3d=_as_json_dict(store.value("view_3d_json", "")),
         )
     finally:
         store.endGroup()
+
+
+def _as_bool(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes"}
+
+
+def _as_bytes(value: object) -> QByteArray:
+    return value if isinstance(value, QByteArray) else QByteArray()
+
+
+def _as_json_list(raw: object) -> list[str]:
+    if not isinstance(raw, str) or not raw.strip():
+        return []
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        return []
+    return [str(item) for item in parsed] if isinstance(parsed, list) else []
+
+
+def _as_json_dict(raw: object) -> dict[str, Any]:
+    if not isinstance(raw, str) or not raw.strip():
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        return {}
+    return dict(parsed) if isinstance(parsed, dict) else {}
+
+
+def _as_camera_views(raw: object) -> dict[str, dict[str, float]]:
+    parsed = _as_json_dict(raw)
+    out: dict[str, dict[str, float]] = {}
+    for path, spec in parsed.items():
+        if isinstance(spec, dict):
+            out[str(path)] = {
+                str(k): float(v) for k, v in spec.items() if isinstance(v, (int, float))
+            }
+    return out
 
 
 def names() -> list[str]:

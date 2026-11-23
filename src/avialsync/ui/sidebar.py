@@ -1,6 +1,6 @@
 """Left Sidebar / Inspector Pane."""
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TypeVar
 
@@ -1041,15 +1041,39 @@ class SidebarPane(QWidget):
         # the window installs them. Stacked, so the longest
         # label sets no width the sidebar cannot give. Reset Session sits apart
         # at the end, marked destructive by glyph and place.
-        actions_group = QGroupBox(tr("Open Files"))
-        self._open_column = QVBoxLayout(actions_group)
-        self.btn_open_video = ActionButton(actions_group)
-        self.btn_open_sensor = ActionButton(actions_group)
-        self.btn_open_imaging = ActionButton(actions_group)
-        self.btn_open_nwb = ActionButton(actions_group)
-        self.btn_open_session = ActionButton(actions_group)
-        self.btn_align = ActionButton(actions_group)
-        self.btn_reset_session = ActionButton(actions_group)
+        self._open_files_expanded = True
+        self._open_files_pinned_by_user = False
+        self.actions_group = QGroupBox()
+        self.actions_group.setAccessibleName(tr("Open Files"))
+        actions_outer = QVBoxLayout(self.actions_group)
+        actions_outer.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
+        actions_top = QHBoxLayout()
+        actions_top.setContentsMargins(0, 0, 0, 0)
+        actions_title = QLabel(tr("Open Files"), self.actions_group)
+        set_bold(actions_title)
+        self.open_files_toggle = QPushButton(tr("Hide"), self.actions_group)
+        apply_role(self.open_files_toggle, ControlRole.SECONDARY)
+        self.open_files_toggle.setAccessibleName(tr("Toggle Open Files buttons"))
+        self.open_files_toggle.setAccessibleDescription(
+            tr("Collapse or expand the Open Files buttons to leave room for loaded sources.")
+        )
+        self.open_files_toggle.setToolTip(tr("Collapse or expand the Open Files buttons"))
+        self.open_files_toggle.clicked.connect(self._on_open_files_toggle_clicked)
+        actions_top.addWidget(actions_title)
+        actions_top.addStretch()
+        actions_top.addWidget(self.open_files_toggle)
+        actions_outer.addLayout(actions_top)
+
+        self._open_body = QWidget(self.actions_group)
+        self._open_column = QVBoxLayout(self._open_body)
+        self._open_column.setContentsMargins(0, 0, 0, 0)
+        self.btn_open_video = ActionButton(self._open_body)
+        self.btn_open_sensor = ActionButton(self._open_body)
+        self.btn_open_imaging = ActionButton(self._open_body)
+        self.btn_open_nwb = ActionButton(self._open_body)
+        self.btn_open_session = ActionButton(self._open_body)
+        self.btn_align = ActionButton(self._open_body)
+        self.btn_reset_session = ActionButton(self._open_body)
         for button in (
             self.btn_open_video,
             self.btn_open_sensor,
@@ -1065,7 +1089,8 @@ class SidebarPane(QWidget):
         self.btn_reset_session.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.btn_reset_session.setMinimumWidth(120)
         self._open_column.addWidget(self.btn_reset_session)
-        self.content_layout.addWidget(actions_group)
+        actions_outer.addWidget(self._open_body)
+        self.content_layout.addWidget(self.actions_group)
 
         self._source_filter = QLineEdit()
         self._source_filter.setPlaceholderText(tr("Filter sources and channels…"))
@@ -1134,6 +1159,44 @@ class SidebarPane(QWidget):
         needed = content.minimumSizeHint().width() if content is not None else 0
         self.setMinimumWidth(max(_MINIMUM_WIDTH, needed))
 
+    def is_open_files_expanded(self) -> bool:
+        """Whether the ``Open Files`` button list is currently expanded."""
+        return self._open_files_expanded
+
+    def set_open_files_expanded(self, expanded: bool, *, by_user: bool = False) -> None:
+        """Expand or collapse the ``Open Files`` section."""
+        self._open_files_expanded = bool(expanded)
+        if by_user:
+            self._open_files_pinned_by_user = True
+        self._open_body.setVisible(self._open_files_expanded)
+        self.open_files_toggle.setText(tr("Hide") if self._open_files_expanded else tr("Show"))
+
+    def _on_open_files_toggle_clicked(self) -> None:
+        self.set_open_files_expanded(not self._open_files_expanded, by_user=True)
+
+    def _sync_open_files_disclosure(self) -> None:
+        """Re-expand ``Open Files`` automatically when all sources are cleared."""
+        has_sources = bool(
+            self._video_widgets
+            or self._imaging_widgets
+            or _widgets_of(self.sensors_layout, SensorInfoWidget)
+        )
+        if not has_sources:
+            self._open_files_pinned_by_user = False
+            self.set_open_files_expanded(True)
+
+    def reorder_videos(self, order: Sequence[str]) -> None:
+        """Arrange ``VideoInfoWidget`` cards to match *order*."""
+        ordered = [p for p in order if p in self._video_widgets]
+        ordered.extend(p for p in self._video_widgets if p not in ordered)
+        rebuilt: dict[str, VideoInfoWidget] = {}
+        for path in ordered:
+            widget = self._video_widgets[path]
+            self.videos_layout.removeWidget(widget)
+            self.videos_layout.addWidget(widget)
+            rebuilt[path] = widget
+        self._video_widgets = rebuilt
+
     def add_video(self, path: str, metadata: dict) -> None:
         """Add a video info widget to the sidebar."""
         if path in self._video_widgets:
@@ -1149,6 +1212,7 @@ class SidebarPane(QWidget):
         self.videos_layout.addWidget(widget)
         self._video_widgets[path] = widget
         self._apply_source_filter(self._source_filter.text())
+        self._sync_open_files_disclosure()
 
     def remove_video(self, path: str) -> None:
         """Remove a video info widget."""
@@ -1156,6 +1220,7 @@ class SidebarPane(QWidget):
         if widget:
             self.videos_layout.removeWidget(widget)
             widget.deleteLater()
+        self._sync_open_files_disclosure()
 
     def clear_sources(self) -> None:
         """Remove every source summary from the sidebar."""
@@ -1166,6 +1231,7 @@ class SidebarPane(QWidget):
             self.remove_video(path)
         for widget in _widgets_of(self.sensors_layout, SensorInfoWidget):
             self.remove_sensor(widget.path)
+        self._sync_open_files_disclosure()
 
     def add_sensor(
         self,
@@ -1200,6 +1266,7 @@ class SidebarPane(QWidget):
         widget.filter_changed.connect(self._refresh_source_filter)
         self.sensors_layout.addWidget(widget)
         self._apply_source_filter(self._source_filter.text())
+        self._sync_open_files_disclosure()
 
     def _refresh_source_filter(self) -> None:
         """Reevaluate source cards after a per-source filter edit."""
@@ -1298,6 +1365,7 @@ class SidebarPane(QWidget):
 
         if self.sensors_layout.count() == 0:
             self.sensors_layout.addWidget(_wrapped_note("No sensor data loaded."))
+        self._sync_open_files_disclosure()
 
     def set_video_loader(self, path: str, loader: object) -> None:
         """Forward loader reference to VideoInfoWidget for properties panel."""
@@ -1321,6 +1389,7 @@ class SidebarPane(QWidget):
         widget.set_mapping(offset, drift)
         self.imaging_group.setVisible(True)
         self._apply_source_filter(self._source_filter.text())
+        self._sync_open_files_disclosure()
 
     def remove_imaging(self, path: str) -> None:
         """Remove an imaging stack's card."""
@@ -1329,6 +1398,7 @@ class SidebarPane(QWidget):
             self.imaging_layout.removeWidget(widget)
             widget.deleteLater()
         self.imaging_group.setVisible(bool(self._imaging_widgets))
+        self._sync_open_files_disclosure()
 
     def imaging_widget(self, path: str) -> ImagingInfoWidget | None:
         """The card for one imaging stack, if it has one."""

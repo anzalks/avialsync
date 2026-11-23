@@ -146,6 +146,10 @@ class HelpController(QObject):
 
             for pane in self._window.video_grid.panes:
                 pane.set_osd_detail(_saved_osd_detail())
+        elif key == "interface/toolbar_labels":
+            self._window.view_toolbar.reload_preferences()
+        elif key in {"overlays/confidence_threshold", "overlays/trail_frames"}:
+            self._window.video_grid.refresh_point_edits()
 
     @Slot()
     def show_about(self) -> None:

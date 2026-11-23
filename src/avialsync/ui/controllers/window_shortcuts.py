@@ -35,6 +35,7 @@ class KeyboardContext:
     annotate: Callable[[], None]
     cycle_theme: Callable[[], None]
     show_shortcuts: Callable[[], None]
+    ethogram_trigger: Callable[[int], None] | None = None
 
 
 class KeyboardActions:
@@ -101,7 +102,6 @@ class KeyboardActions:
             "Playback",
             lambda: ctx.transport.jump_requested.emit(-1.0),
             "Shift+Left",
-            "J",
             repeatable=True,
         )
         self.add(
@@ -114,8 +114,9 @@ class KeyboardActions:
 
     def _navigation(self) -> None:
         ctx = self.context
-        self.add("Pause", "Playback", lambda: ctx.transport.play_toggled.emit(False), "K")
-        self.add("Step up playback rate", "Playback", ctx.transport.step_rate_up, "L")
+        self.add("Shuttle reverse", "Playback", ctx.transport.shuttle_reverse, "J")
+        self.add("Pause", "Playback", ctx.transport.shuttle_pause, "K")
+        self.add("Shuttle forward", "Playback", ctx.transport.shuttle_forward, "L")
         self.add(
             "Jump to start",
             "Playback",
@@ -134,6 +135,14 @@ class KeyboardActions:
         self.add("Set A/B in-point", "Marking", ctx.transport.ab_in, Qt.Key.Key_BracketLeft, "I")
         self.add("Set A/B out-point", "Marking", ctx.transport.ab_out, Qt.Key.Key_BracketRight, "O")
         self.add("Add marker at playhead", "Marking", ctx.annotate, "M")
+        if ctx.ethogram_trigger is not None:
+            for digit in range(1, 10):
+                self.add(
+                    f"Ethogram behavior {digit}",
+                    "Marking",
+                    lambda d=digit: ctx.ethogram_trigger(d),  # type: ignore[misc]
+                    str(digit),
+                )
 
     def _view(self) -> None:
         ctx = self.context

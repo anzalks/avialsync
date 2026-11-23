@@ -61,6 +61,7 @@ __all__ = [
     "corrected",
     "write_calibration",
     "triangulate",
+    "epipolar_curve",
     "fit_camera",
 ]
 
@@ -413,6 +414,52 @@ def triangulate(
         for camera, pixel in views
     ]
     return point, float(np.mean(errors))
+
+
+def epipolar_curve(
+    source_camera: CameraModel,
+    target_camera: CameraModel,
+    pixel: tuple[float, float],
+    *,
+    samples: int = 32,
+) -> np.ndarray:
+    """Sample the 2D epipolar curve in *target_camera* for a ray through *pixel* in *source_camera*.
+
+    Back-projects *pixel* through *source_camera* (undoing lens distortion and any
+    :class:`ImageCorrection`) and projects positive-depth points along that ray
+    through *target_camera*. Returns an ``(M, 2)`` array of finite pixel coordinates
+    clipped to a generous margin around *target_camera*'s image frame (empty ``(0, 2)``
+    when no part of the ray falls in front of *target_camera*).
+    """
+    x_n, y_n = source_camera.normalise(np.asarray([pixel], dtype=np.float64))[0]
+    r_src = source_camera.rotation_matrix()
+    r_tgt = target_camera.rotation_matrix()
+    center_src = -r_src.T @ source_camera.translation
+    center_tgt = -r_tgt.T @ target_camera.translation
+    scale = max(
+        float(np.linalg.norm(center_src - center_tgt)),
+        float(np.linalg.norm(source_camera.translation)),
+        1.0,
+    )
+    depths = np.geomspace(0.05 * scale, 20.0 * scale, max(2, int(samples)))
+    ray_cam = np.column_stack((x_n * depths, y_n * depths, depths))
+    world = (ray_cam - source_camera.translation) @ r_src
+    tgt_cam = world @ r_tgt.T + target_camera.translation
+    in_front = tgt_cam[:, 2] > 1e-6
+    if not np.any(in_front):
+        return np.empty((0, 2), dtype=np.float64)
+    projected = target_camera.project(world[in_front])
+    width, height = target_camera.size
+    margin_x = max(float(width), 1.0) * 0.5
+    margin_y = max(float(height), 1.0) * 0.5
+    valid = (
+        np.isfinite(projected).all(axis=1)
+        & (projected[:, 0] >= -margin_x)
+        & (projected[:, 0] <= width + margin_x)
+        & (projected[:, 1] >= -margin_y)
+        & (projected[:, 1] <= height + margin_y)
+    )
+    return np.asarray(projected[valid], dtype=np.float64)
 
 
 # ── fitting a camera from 3D↔2D pairs ────────────────────────────────

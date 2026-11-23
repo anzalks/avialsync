@@ -118,23 +118,31 @@ def _trigger_entries(window: MainWindow) -> list[TriggerEntry]:
     return entries
 
 
-def build_session_state(window: MainWindow) -> SessionState:
-    """Snapshot current app state into a SessionState."""
-    from avialsync.ui.sidebar import SensorInfoWidget
-
-    bounds = window.clock.state.bounds
-    videos = []
-    for p, pane in zip(window.video_grid._paths, window.video_grid.panes, strict=False):
+def _video_entries(window: MainWindow) -> list[VideoEntry]:
+    """Serialise loaded cameras in their current grid order, including zoom/pan."""
+    views = window.video_grid.camera_views()
+    entries: list[VideoEntry] = []
+    for p, pane in zip(window.video_grid.pane_paths(), window.video_grid.panes, strict=False):
         ins = window._inspections.get(p)
-        videos.append(
+        entries.append(
             VideoEntry(
                 path=p,
                 offset=pane.time_map.offset,
                 drift_ms_per_hour=pane.time_map.drift_ms_per_hour,
                 integrity_flags=ins.integrity_flags.as_dict() if ins else {},
                 metadata=ins.import_config if ins else {},
+                view=views.get(p, {}),
             )
         )
+    return entries
+
+
+def build_session_state(window: MainWindow) -> SessionState:
+    """Snapshot current app state into a SessionState."""
+    from avialsync.ui.sidebar import SensorInfoWidget
+
+    bounds = window.clock.state.bounds
+    videos = _video_entries(window)
     sensors: list[SensorEntry] = []
     for i in range(window.sidebar.sensors_layout.count()):
         item = window.sidebar.sensors_layout.itemAt(i)
@@ -204,6 +212,7 @@ def build_session_state(window: MainWindow) -> SessionState:
         point_edits=corrections_controller.build_manifest(window),
         identity_swaps=identity_controller.build_manifest(window),
         show_original_tracker=window._show_original_tracker,
+        view_3d=window.tracking_3d_pane.view_orientation(),
     )
 
 
@@ -401,9 +410,10 @@ def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
     for path in source_paths:
         window.transport.set_source_coverage(path, 0.0, 0.0, "data")
 
-    # `reset`, never `stop`: stop is teardown and halts the 60 Hz tick that is
-    # the only caller of MasterClock.advance. Nothing restarts it, so a reset
-    # that used it left the playhead dead for the rest of the process.
+    # `reset`, never `stop`: stop halts the 60 Hz tick that calls MasterClock.advance.
+    window.panel_detachment.reattach_all_for_close()
+    window.video_grid.clear_camera_views()
+    window.tracking_3d_pane.set_view_orientation({})
     window.player.reset()
     for path in list(window.video_grid.pane_paths()):
         window.video_grid.remove_pane(path)
@@ -588,9 +598,21 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
                 )
                 window._inspections[str(p)] = ins
 
-    # Restore annotations
+    _restore_markers_and_views(window, state, relink_map)
+
+
+def _restore_markers_and_views(
+    window: MainWindow, state: SessionState, relink_map: dict[str, str]
+) -> None:
+    """Restore markers, plot span, per-camera zoom/pan, and 3D orientation."""
     from avialsync.ui.annotations import VideoFrame
 
+    camera_views = {
+        str(Path(relink_map.get(ve.path, ve.path))): dict(ve.view) for ve in state.videos if ve.view
+    }
+    window.video_grid.apply_camera_views(camera_views, defer_unloaded=True)
+    if state.view_3d:
+        window.tracking_3d_pane.set_view_orientation(state.view_3d, defer_until_loaded=True)
     for me in state.markers:
         vfs = [
             VideoFrame(
@@ -604,8 +626,6 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
             window.annotation_store.add_range(me.t_start, me.t_end, me.label, video_frames=vfs)
         else:
             window.annotation_store.add_point(me.t_start, me.label, video_frames=vfs)
-
-    # Restore the shared fixed-window duration even while sources load asynchronously.
     if state.plot_x0 is not None and state.plot_x1 is not None:
         window.plot_pane.set_window_duration(state.plot_x1 - state.plot_x0)
 

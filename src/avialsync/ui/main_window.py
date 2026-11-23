@@ -14,27 +14,26 @@ from PySide6.QtGui import (
     QCloseEvent,
     QDragEnterEvent,
     QDropEvent,
-    QGuiApplication,
     QResizeEvent,
 )
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
-    QDockWidget,
     QFileDialog,
     QMainWindow,
     QMenu,
     QSplitter,
     QWidget,
 )
-from shiboken6 import isValid
 
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.commands import (
     AddMarkerCommand,
     AddSourceCommand,
+    MoveMarkerCommand,
     RelabelMarkerCommand,
     RemoveMarkerCommand,
+    ReorderVideosCommand,
     ResetSessionCommand,
     SetOriginalTrackerVisibleCommand,
     SetSourceMappingCommand,
@@ -58,8 +57,11 @@ from avialsync.engine.player import Player
 from avialsync.engine.snapshot import SnapshotFigure
 from avialsync.ui import (
     dandi_open,
+    ethogram_bar,
     imaging_integration,
+    pose_overlay_extras,
     recovery_worker,
+    roi_linking,
     tracking_timing,
     video_levels,
     window_wiring,
@@ -121,6 +123,7 @@ from avialsync.ui.menus import pane_menu
 from avialsync.ui.menus import view as view_menu
 from avialsync.ui.mutation_target import WindowMutationTarget, marker_record
 from avialsync.ui.overlay_registry import OverlayState
+from avialsync.ui.panel_detachment import PanelDetachment, bring_onto_screen
 from avialsync.ui.plot_pane import PlotPane
 from avialsync.ui.props_app import PropsApp
 from avialsync.ui.readout_panel import ReadoutPanel
@@ -184,12 +187,19 @@ class MainWindow(QMainWindow):
     _act_snapshot: QAction
     _act_fix_tracker: QAction
     _act_fix_identities: QAction
+    _act_prev_suspect: QAction
+    _act_next_suspect: QAction
     _act_add_marker: QAction
     _act_add_prop: QAction
+    _act_mark_range: QAction
+    _act_prev_marker: QAction
+    _act_next_marker: QAction
     _act_synchronize: QAction
     _act_find_partner: QAction
     _act_show_original_tracker: QAction
     _act_detach_plots: QAction
+    _act_detach_3d: QAction
+    _act_detach_imaging: QAction
     _act_panels_back: QAction
     _act_reset_zoom: QAction
     _act_fit_videos: QAction
@@ -230,6 +240,7 @@ class MainWindow(QMainWindow):
         """The document, undo routing, and the stores of the user's own edits."""
         self._detached_plot_window: QDialog | None = None
         self._plots_detached = False
+        self.panel_detachment = PanelDetachment(self)
 
         # Initialized before menu preconditions read the recovery offer.
         self.session_runtime = SessionRuntimeState()
@@ -291,6 +302,7 @@ class MainWindow(QMainWindow):
         #: was imported to, and which edited generation its readers are on.
         self._pose_schemas: dict[str, PoseSchema] = {}
         self._pose_cache_dirs: dict[str, Path] = {}
+        self._suspect_cache: tuple[int, list[Any]] | None = None
         self._edited_generations: dict[str, Any] = {}
         self._swap_storage: dict[str, str] = {}
         self._expected_swap_counts: dict[str, int] = {}
@@ -459,6 +471,7 @@ class MainWindow(QMainWindow):
                 self, path, name, frame, x, y
             )
         )
+        self.video_grid.panes_reordered.connect(self._on_videos_reordered)
         self.tracking_3d_pane = Tracking3DPane(self)
         self.imaging_pane, self.imaging_splitter, self._imaging_visibility_filter = (
             imaging_integration.install(self, self.tracking_3d_pane)
@@ -470,6 +483,9 @@ class MainWindow(QMainWindow):
         self.video_grid.set_reprojection_source(
             lambda path, t: calibration_controller.reprojected(self, path, t)
         )
+        self.video_grid.set_epipolar_source(
+            lambda path, t: pose_overlay_extras.epipolar_guides_for(self, path, t)
+        )
         self.tracking_3d_pane.canvas.set_wheel_source(lambda t: wheel_display.scene(self, t))
         self.tracking_3d_pane.canvas.set_prop_source(self.props_app.scene_steps)
         self.plot_pane = PlotPane(self)
@@ -477,6 +493,7 @@ class MainWindow(QMainWindow):
         self.data_streams = self.transport.detach_data_streams()
         self.view_toolbar = ViewToolbar(self)
         self.plot_pane.view_window_changed.connect(self.transport.set_plot_viewport)
+        self.plot_pane.hover_time_changed.connect(self.transport.set_hover_time)
         self.plot_pane.seek_requested.connect(self._on_plot_seek_requested)
 
     def _init_engine(self) -> None:
@@ -528,6 +545,7 @@ class MainWindow(QMainWindow):
         self.plot_pane.sources_changed.connect(self._on_sources_changed)
         self.plot_pane.sources_changed.connect(self._set_plotted_tracking_readers)
         self.plot_pane.measure_changed.connect(self._on_measure_changed)
+        roi_linking.install_roi_linking(self)
         self.player._readout_panel = self.readout_panel
 
         # Annotation panel
@@ -1241,6 +1259,7 @@ class MainWindow(QMainWindow):
                 annotate=self._on_annotate_requested,
                 cycle_theme=self._cycle_theme,
                 show_shortcuts=self._show_shortcuts,
+                ethogram_trigger=lambda digit: ethogram_bar.trigger_ethogram_slot(self, digit),
             )
         )
 
@@ -1270,8 +1289,8 @@ class MainWindow(QMainWindow):
         # process never exits, which is the "window won't close" the user sees.
         self._close_step("releasing the application event filter", self._remove_app_event_filter)
         self._close_step(
-            "re-attaching the detached plot pane",
-            lambda: self._act_detach_plots.setChecked(False),
+            "re-attaching detached workspace panes",
+            self.panel_detachment.reattach_all_for_close,
         )
         self._close_step("cancelling queued plot rows", self.plot_pane.shutdown)
         self._close_step("stopping the heartbeat", self._heartbeat.stop)
@@ -1468,6 +1487,7 @@ class MainWindow(QMainWindow):
         # *source_id* tells the persistence path a change came from the user
         # rather than from reading a sidecar back in; every pane repaints anyway.
         del source_id
+        self._suspect_cache = None
         point_edit_controller.on_point_edits_changed(self)
 
     def _on_wheels_changed(self, name: object) -> None:
@@ -1542,86 +1562,25 @@ class MainWindow(QMainWindow):
         identity_review.apply_identity_swap(self)
 
     def _bring_panels_back(self) -> None:
-        """Re-dock and re-centre every panel this window owns.
-
-        A dock can be floated, dragged to a second screen, and left there --
-        and a screen can then be unplugged. Nothing in Qt brings it home, so
-        the panel is simply gone and reopening it shows it at the coordinates
-        it vanished at. This is the one command that undoes all of that,
-        whatever combination of detaching and closing got the user there.
-        """
-        self._act_detach_plots.setChecked(False)
-        for dock in self.findChildren(QDockWidget):
-            if dock.isFloating():
-                dock.setFloating(False)
-            dock.show()
-        for dialog in (
-            getattr(self, "_preferences_dialog", None),
-            getattr(self, "_sync_wizard", None),
-        ):
-            if dialog is not None and isValid(dialog) and dialog.isVisible():
-                self._bring_onto_screen(dialog)
-        self.notifications.show_success(tr("Panels are back on this window."))
+        """Re-dock and re-centre every panel, camera, and inspector window."""
+        self.panel_detachment.bring_panels_back()
 
     def _set_plots_detached(self, detached: bool) -> None:
         """Move plots to another window, or restore them to their splitter slot."""
-        if not detached:
-            dialog = self._detached_plot_window
-            if dialog is not None and isValid(dialog):
-                dialog.close()
-            else:
-                self._on_detached_plots_returned()
-            return
-
-        existing = self._detached_plot_window
-        if existing is not None and isValid(existing):
-            existing.show()
-            self._bring_onto_screen(existing)
-            existing.raise_()
-            return
-
-        index = self._v_splitter.indexOf(self.plot_pane)
-        if index < 0:
-            blocked = self._act_detach_plots.blockSignals(True)
-            self._act_detach_plots.setChecked(False)
-            self._act_detach_plots.blockSignals(blocked)
-            return
-
-        from avialsync.ui.detached_pane import DetachedPaneWindow
-
-        dialog = DetachedPaneWindow(tr("Plots"), self.plot_pane, self._v_splitter, index, self)
-        self._detached_plot_window = dialog
-        self._plots_detached = True
-        dialog.returned.connect(self._on_detached_plots_returned)
-        dialog.show()
-        self._bring_onto_screen(dialog)
-        dialog.raise_()
+        self.panel_detachment.set_plots_detached(detached)
 
     def _on_detached_plots_returned(self) -> None:
         """Restore command state after the plot pane returns to its splitter."""
-        self._detached_plot_window = None
-        self._plots_detached = False
-        blocked = self._act_detach_plots.blockSignals(True)
-        self._act_detach_plots.setChecked(False)
-        self._act_detach_plots.blockSignals(blocked)
-        self._pane_proportions.record_all()
+        self.panel_detachment.on_plots_returned()
 
     def _bring_onto_screen(self, widget: QWidget) -> None:
-        """Move *widget* onto this window's screen when it is off every screen.
+        """Move *widget* onto this window's screen when it sits off every display."""
+        bring_onto_screen(self, widget)
 
-        Reopening a dialog that was last closed on a monitor which is no longer
-        attached shows it at coordinates nothing can reach, which reads as the
-        command doing nothing at all.
-        """
-        if QGuiApplication.screenAt(widget.frameGeometry().center()) is not None:
-            return
-        screen = self.screen() or QGuiApplication.primaryScreen()
-        if screen is None:
-            return
-        available = screen.availableGeometry()
-        frame = widget.frameGeometry()
-        frame.moveCenter(available.center())
-        widget.move(frame.topLeft())
+    def _on_videos_reordered(self, before: tuple[str, ...], after: tuple[str, ...]) -> None:
+        """Sync sidebar cards and record an undoable camera reorder."""
+        self.sidebar.reorder_videos(after)
+        self._record(ReorderVideosCommand(before=before, after=after))
 
     def _remove_identity_swap(self) -> None:
         identity_review.remove_identity_swap(self)
@@ -1733,6 +1692,14 @@ class MainWindow(QMainWindow):
 
     def _record_marker_relabelled(self, index: int, before: str, after: str) -> None:
         self._record(RelabelMarkerCommand(index=index, before=before, after=after))
+
+    def _record_marker_moved(
+        self,
+        index: int,
+        before: tuple[float, float | None],
+        after: tuple[float, float | None],
+    ) -> None:
+        self._record(MoveMarkerCommand(index=index, before=before, after=after))
 
     def _note_source_loaded(self, source_id: str, kind: str) -> None:
         """Record a source the user opened, or finish a restore.

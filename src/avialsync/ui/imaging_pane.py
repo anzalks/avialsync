@@ -90,6 +90,8 @@ class ImagingPane(QWidget):
     #: A master time to show: emitted when the user picks a stack with no data at the playhead.
     seek_requested = Signal(float)
     decode_requested = Signal()
+    #: Emitted with ``roi_id`` (e.g. ``'roi17'``) when an ROI tile is clicked in the image.
+    roi_clicked = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -101,6 +103,8 @@ class ImagingPane(QWidget):
         self._last_index: int | None = None
         self._last_time = 0.0
         self._image: QImage | None = None
+        self._current_planes: tuple[np.ndarray, ...] = ()
+        self._highlighted_roi: str | None = None
         self._out_of_range = False
         self._reported_frame_failure = False
 
@@ -120,6 +124,8 @@ class ImagingPane(QWidget):
         self.frame_label.setText(tr("No imaging source"))
         self.frame_label.setAccessibleName(tr("Imaging frame"))
         self.frame_label.setAccessibleDescription(tr("Current image plane"))
+        self.frame_label.pixel_hovered.connect(self._on_pixel_hovered)
+        self.frame_label.pixel_clicked.connect(self._on_pixel_clicked)
         register_painted(
             self.frame_label, QAccessible.Role.Graphic, lambda: self.status_label.text()
         )
@@ -134,6 +140,10 @@ class ImagingPane(QWidget):
         self.status_label.setAccessibleName(tr("Imaging frame status"))
         self.status_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         status_row.addWidget(self.status_label, 1)
+        self.pixel_label = QLabel("", self)
+        self.pixel_label.setAccessibleName(tr("Hovered imaging pixel value"))
+        self.pixel_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        status_row.addWidget(self.pixel_label)
         self.auto_button = self.controls.auto_button
         layout.addLayout(status_row)
         layout.addWidget(self.controls)
@@ -281,6 +291,9 @@ class ImagingPane(QWidget):
         self.controls.set_view(ImagingView())
         self._show_message(tr("No imaging source"))
         self.status_label.clear()
+        self.pixel_label.clear()
+        self._current_planes = ()
+        self.frame_label.set_roi_highlight(None)
         self.layout_row.setVisible(False)
 
     def shutdown(self) -> None:
@@ -450,6 +463,7 @@ class ImagingPane(QWidget):
         self._last_index = None
         self.decode_requested.connect(worker.decode_pending, Qt.ConnectionType.QueuedConnection)
         worker.opened.connect(self._on_worker_opened)
+        worker.planes_ready.connect(self._on_planes_ready)
         worker.frame_ready.connect(self._on_frame)
         worker.frame_failed.connect(self._on_frame_failed)
         worker.failed.connect(self._on_worker_failed)
@@ -536,10 +550,77 @@ class ImagingPane(QWidget):
             status += " · " + tr("mean of {count}").format(count=average)
         self.status_label.setText(status)
 
+    @Slot(str, int, object)
+    def _on_planes_ready(self, path: str, index: int, planes: object) -> None:
+        if path == self.source_choice.currentData() and index == self._last_index:
+            self._current_planes = tuple(planes) if isinstance(planes, tuple) else ()
+
     def _show_message(self, text: str) -> None:
         self._image = None
+        self._current_planes = ()
+        self.pixel_label.clear()
         self.frame_label.setText(text)
 
     def _show_image(self) -> None:
         if self._image is not None:
             self.frame_label.set_image(self._image)
+            self._apply_roi_highlight()
+
+    def _roi_at_image_pixel(self, ix: int, iy: int) -> str | None:
+        stack = self._sources.get(self.source_choice.currentData())
+        if stack is None or self._image is None or not stack.info.roi_boxes:
+            return None
+        sx = stack.info.width / max(1, self._image.width())
+        sy = stack.info.height / max(1, self._image.height())
+        fx = ix * sx
+        fy = iy * sy
+        for roi_id, (left, top, width, height) in stack.info.roi_boxes.items():
+            if left <= fx < left + width and top <= fy < top + height:
+                return roi_id
+        return None
+
+    def _on_pixel_hovered(self, coords: object) -> None:
+        if not isinstance(coords, tuple) or len(coords) != 2:
+            self.pixel_label.clear()
+            return
+        ix, iy = int(coords[0]), int(coords[1])
+        vals: list[str] = []
+        for plane in self._current_planes:
+            if 0 <= iy < plane.shape[0] and 0 <= ix < plane.shape[1]:
+                v = float(plane[iy, ix])
+                vals.append("NaN" if np.isnan(v) else f"{v:.4g}")
+        if not vals and self._image is not None:
+            col = self._image.pixelColor(ix, iy)
+            vals.append(str(col.green() if col.red() == col.green() == col.blue() else col.name()))
+        roi = self._roi_at_image_pixel(ix, iy)
+        roi_part = f" · {roi}" if roi else ""
+        val_part = f" · {' / '.join(vals)}" if vals else ""
+        self.pixel_label.setText(f"({ix}, {iy}){val_part}{roi_part}")
+
+    def _on_pixel_clicked(self, ix: int, iy: int) -> None:
+        roi = self._roi_at_image_pixel(ix, iy)
+        if roi is not None:
+            self.highlight_roi(roi)
+            self.roi_clicked.emit(roi)
+
+    def highlight_roi(self, roi_id: str | None) -> None:
+        """Outline *roi_id* in the current imaging mosaic, or clear when ``None``."""
+        self._highlighted_roi = roi_id
+        self._apply_roi_highlight()
+
+    def _apply_roi_highlight(self) -> None:
+        stack = self._sources.get(self.source_choice.currentData())
+        if (
+            self._highlighted_roi is None
+            or stack is None
+            or self._image is None
+            or self._highlighted_roi not in stack.info.roi_boxes
+        ):
+            self.frame_label.set_roi_highlight(None)
+            return
+        left, top, width, height = stack.info.roi_boxes[self._highlighted_roi]
+        sx = self._image.width() / max(1, stack.info.width)
+        sy = self._image.height() / max(1, stack.info.height)
+        self.frame_label.set_roi_highlight(
+            (left * sx, top * sy, width * sx, height * sy), self._highlighted_roi
+        )

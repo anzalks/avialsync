@@ -28,6 +28,7 @@ __all__ = [
     "SetSourceMappingCommand",
     "SetSourceMappingsCommand",
     "AddMarkerCommand",
+    "MoveMarkerCommand",
     "RemoveMarkerCommand",
     "RelabelMarkerCommand",
     "SetSourceVisibleCommand",
@@ -52,6 +53,7 @@ __all__ = [
     "AcceptSyncCommand",
     "AddSourceCommand",
     "RemoveSourceCommand",
+    "ReorderVideosCommand",
     "ResetSessionCommand",
 ]
 
@@ -285,6 +287,34 @@ class RelabelMarkerCommand:
 
     def merge_with(self, other: object) -> RelabelMarkerCommand | None:
         if not isinstance(other, RelabelMarkerCommand) or other.index != self.index:
+            return None
+        return dataclasses.replace(self, after=other.after)
+
+
+@dataclasses.dataclass
+class MoveMarkerCommand:
+    """Move a point marker or adjust a range marker's start/end times."""
+
+    index: int
+    before: tuple[float, float | None]
+    after: tuple[float, float | None]
+    command_id: str = "marker.move"
+
+    @property
+    def label(self) -> str:
+        t0, t1 = self.after
+        if t1 is None:
+            return f"Move marker to {t0:.3f} s"
+        return f"Adjust range marker to {t0:.3f}–{t1:.3f} s"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_marker_span(self.index, self.after[0], self.after[1])
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_marker_span(self.index, self.before[0], self.before[1])
+
+    def merge_with(self, other: object) -> MoveMarkerCommand | None:
+        if not isinstance(other, MoveMarkerCommand) or other.index != self.index:
             return None
         return dataclasses.replace(self, after=other.after)
 
@@ -811,6 +841,22 @@ class RemoveSourceCommand:
 
     def revert(self, target: MutationTarget) -> None:
         target.add_source(self.record)
+
+
+@dataclasses.dataclass
+class ReorderVideosCommand:
+    """Change the display order of loaded camera panes."""
+
+    before: tuple[str, ...]
+    after: tuple[str, ...]
+    command_id: str = "video.reorder"
+    label: str = "Reorder camera panes"
+
+    def apply(self, target: MutationTarget) -> None:
+        target.set_video_order(self.after)
+
+    def revert(self, target: MutationTarget) -> None:
+        target.set_video_order(self.before)
 
 
 @dataclasses.dataclass

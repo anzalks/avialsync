@@ -2,13 +2,13 @@
 
 import logging
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-from PySide6.QtCore import QMargins, Qt, Signal
-from PySide6.QtGui import QResizeEvent
+from PySide6.QtCore import QEvent, QMargins, QObject, QPoint, Qt, Signal
+from PySide6.QtGui import QMouseEvent, QResizeEvent
 from PySide6.QtWidgets import QGridLayout, QLabel, QSizePolicy, QWidget
 
 from avialsync.core.timeline import PreparedExactMapping, TimeMap
@@ -58,6 +58,8 @@ class VideoGrid(GridOverlayMixin, QWidget):
     marker_clicked = Signal(str, float, float)
     #: ``(path, name, frame, x, y)``: a hand-placed 3D marker was dragged.
     custom_point_moved = Signal(str, str, int, float, float)
+    #: ``(before, after)``: camera panes were reordered by drag or menu.
+    panes_reordered = Signal(tuple, tuple)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -65,6 +67,10 @@ class VideoGrid(GridOverlayMixin, QWidget):
         self._fullscreen_pane: VideoPane | None = None
         self._paths: list[str] = []
         self._pane_enabled: list[bool] = []
+        self._detached_paths: set[str] = set()
+        self._pending_camera_views: dict[str, dict[str, float]] = {}
+        self._drag_source_path: str | None = None
+        self._drag_origin_global: QPoint | None = None
         self._grid_mode: bool = False
         self._batch_depth: int = 0
         self._init_grid_overlays()
@@ -155,14 +161,123 @@ class VideoGrid(GridOverlayMixin, QWidget):
         return str(getattr(pane, "media_path", "") or path)
 
     def visible_panes(self) -> list[VideoPane]:
-        """Return panes currently selected and displayed by the grid."""
+        """Return panes currently selected and displayed (in grid or detached)."""
         if self._fullscreen_pane is not None:
             try:
                 index = self.panes.index(self._fullscreen_pane)
             except ValueError:
                 return []
-            return [self._fullscreen_pane] if self._is_pane_enabled(index) else []
+            shown = [self._fullscreen_pane] if self._is_pane_enabled(index) else []
+            for idx, (path, pane) in enumerate(zip(self._paths, self.panes, strict=False)):
+                if path in self._detached_paths and pane is not self._fullscreen_pane:
+                    if self._is_pane_enabled(idx):
+                        shown.append(pane)
+            return shown
         return [pane for index, pane in enumerate(self.panes) if self._is_pane_enabled(index)]
+
+    def is_pane_detached(self, path: str) -> bool:
+        """Whether *path* is currently shown in its own detached window."""
+        return path in self._detached_paths
+
+    def set_pane_detached(self, path: str, detached: bool) -> VideoPane | None:
+        """Mark *path* detached from or returned to this grid layout."""
+        try:
+            idx = self._paths.index(path)
+        except ValueError:
+            return None
+        pane = self.panes[idx]
+        if detached:
+            if path in self._detached_paths:
+                return pane
+            if self._fullscreen_pane is pane:
+                self._fullscreen_pane = None
+            self._detached_paths.add(path)
+            self._layout.removeWidget(pane)
+        else:
+            if path not in self._detached_paths:
+                return pane
+            self._detached_paths.discard(path)
+            pane.setParent(self)
+        self._relayout()
+        self._update_labels()
+        self.displayed_panes_changed.emit()
+        return pane
+
+    def reorder_panes(self, order: Sequence[str]) -> bool:
+        """Arrange loaded camera panes in *order* without reloading decoders."""
+        new_order = [p for p in order if p in self._paths]
+        new_order.extend(p for p in self._paths if p not in new_order)
+        if new_order == self._paths:
+            return False
+        by_path = {
+            path: (
+                self.panes[i],
+                self._is_pane_enabled(i),
+            )
+            for i, path in enumerate(self._paths)
+        }
+        self._paths = new_order
+        self.panes = [by_path[p][0] for p in new_order]
+        self._pane_enabled = [by_path[p][1] for p in new_order]
+        self._relayout()
+        self._update_labels()
+        self.displayed_panes_changed.emit()
+        return True
+
+    def move_pane(self, path: str, delta: int) -> tuple[tuple[str, ...], tuple[str, ...]] | None:
+        """Shift camera *path* by *delta* slots and emit ``panes_reordered``."""
+        try:
+            idx = self._paths.index(path)
+        except ValueError:
+            return None
+        target = max(0, min(len(self._paths) - 1, idx + delta))
+        if target == idx:
+            return None
+        before = tuple(self._paths)
+        reordered = list(self._paths)
+        reordered.insert(target, reordered.pop(idx))
+        after = tuple(reordered)
+        if self.reorder_panes(after):
+            self.panes_reordered.emit(before, after)
+            return before, after
+        return None
+
+    def camera_views(self) -> dict[str, dict[str, float]]:
+        """Non-default ``(zoom, pan_x, pan_y)`` transforms keyed by camera path."""
+        views: dict[str, dict[str, float]] = {}
+        for path, pane in zip(self._paths, self.panes, strict=False):
+            surface = getattr(pane, "surface", None)
+            if surface is None or surface.is_default_view:
+                continue
+            zoom, px, py = surface.view_transform()
+            views[path] = {"zoom": zoom, "pan_x": px, "pan_y": py}
+        return views
+
+    def apply_camera_views(
+        self, views: Mapping[str, Mapping[str, float]], *, defer_unloaded: bool = False
+    ) -> None:
+        """Restore per-camera zoom/pan transforms, optionally deferring until panes open."""
+        if defer_unloaded:
+            self._pending_camera_views = {
+                str(p): {str(k): float(v) for k, v in spec.items()} for p, spec in views.items()
+            }
+        for path, pane in zip(self._paths, self.panes, strict=False):
+            surface = getattr(pane, "surface", None)
+            if surface is None:
+                continue
+            spec = views.get(path)
+            if spec:
+                surface.set_view_transform(
+                    float(spec.get("zoom", 1.0)),
+                    float(spec.get("pan_x", 0.0)),
+                    float(spec.get("pan_y", 0.0)),
+                )
+            elif not defer_unloaded:
+                surface.reset_view()
+
+    def clear_camera_views(self) -> None:
+        """Forget deferred camera view transforms on session reset."""
+        self._pending_camera_views.clear()
 
     def _is_pane_enabled(self, index: int) -> bool:
         """Treat panes added without an enabled flag as visible."""
@@ -210,6 +325,9 @@ class VideoGrid(GridOverlayMixin, QWidget):
         pane.custom_point_moved.connect(
             lambda name, frame, x, y, _p=path: self.custom_point_moved.emit(_p, name, frame, x, y)
         )
+        canvas = getattr(pane, "paint_canvas", None)  # stand-in panes have none
+        if canvas is not None:
+            canvas.drag_preview_changed.connect(self.refresh_point_edits)
         # Forward right-click with path so MainWindow can build a context menu.
         if on_file_loaded is not None:
             pane.file_loaded.connect(on_file_loaded)
@@ -222,6 +340,18 @@ class VideoGrid(GridOverlayMixin, QWidget):
         surface = getattr(pane, "surface", None)  # stand-in panes have none
         if surface is not None:
             surface.view_changed.connect(self._fit_panes_to_picture)
+            surface.installEventFilter(self)
+            pending_view = self._pending_camera_views.pop(path, None)
+            if pending_view is not None:
+                surface.set_view_transform(
+                    float(pending_view.get("zoom", 1.0)),
+                    float(pending_view.get("pan_x", 0.0)),
+                    float(pending_view.get("pan_y", 0.0)),
+                )
+        paint_canvas = getattr(pane, "paint_canvas", None)
+        if paint_canvas is not None:
+            paint_canvas.installEventFilter(self)
+        pane.installEventFilter(self)
         self.panes.append(pane)
         self._paths.append(path)
         self._pane_enabled.append(True)
@@ -242,6 +372,8 @@ class VideoGrid(GridOverlayMixin, QWidget):
 
         pane = self.panes.pop(idx)
         self._paths.pop(idx)
+        self._detached_paths.discard(path)
+        self._pending_camera_views.pop(path, None)
         if idx < len(self._pane_enabled):
             self._pane_enabled.pop(idx)
         # The held tracks own channel readers over mmap'd pyramids. A camera the
@@ -283,6 +415,8 @@ class VideoGrid(GridOverlayMixin, QWidget):
                 logger.debug("Video pane was already destroyed", exc_info=True)
         self.panes.clear()
         self._paths.clear()
+        self._detached_paths.clear()
+        self._pending_camera_views.clear()
         self._fullscreen_pane = None
         self._pane_enabled.clear()
         self._overlay_tracks.clear()
@@ -402,14 +536,22 @@ class VideoGrid(GridOverlayMixin, QWidget):
             for r in range(self._layout.rowCount()):
                 self._layout.setRowStretch(r, 0)
 
-            for pane in self.panes:
-                pane.setVisible(False)
-            visible_panes = self.visible_panes()
+            for path, pane in zip(self._paths, self.panes, strict=False):
+                if path not in self._detached_paths:
+                    pane.setVisible(False)
+            all_visible = self.visible_panes()
+            pane_to_path = {pane: path for path, pane in zip(self._paths, self.panes, strict=False)}
+            visible_panes = [
+                pane for pane in all_visible if pane_to_path.get(pane) not in self._detached_paths
+            ]
             n = len(visible_panes)
 
             # ── Empty state ──────────────────────────────────────────
             if n == 0:
-                self._place_empty()
+                if not all_visible:
+                    self._place_empty()
+                else:
+                    self.lbl_empty.setVisible(False)
                 return
 
             self.lbl_empty.setVisible(False)
@@ -465,7 +607,11 @@ class VideoGrid(GridOverlayMixin, QWidget):
             self._base_margins = self._layout.contentsMargins()
         base = self._base_margins
         # Widgets only: anything standing in for a pane that is not one is not laid out.
-        visible = [pane for pane in self.panes if isinstance(pane, QWidget) and pane.isVisible()]
+        visible = [
+            pane
+            for path, pane in zip(self._paths, self.panes, strict=False)
+            if path not in self._detached_paths and isinstance(pane, QWidget) and pane.isVisible()
+        ]
         sizes = [getattr(pane, "video_size", None) for pane in visible]
         fit = 0 < len(visible) <= 2 and not self._grid_mode and self._fullscreen_pane is None
         if not fit or any(size is None or not all(size) for size in sizes):
@@ -536,3 +682,71 @@ class VideoGrid(GridOverlayMixin, QWidget):
             self._fullscreen_pane = pane
         self._relayout()
         self.displayed_panes_changed.emit()
+
+    def _path_for_watched(self, watched: QObject) -> str | None:
+        for path, pane in zip(self._paths, self.panes, strict=False):
+            if watched is pane or (
+                isinstance(watched, QWidget)
+                and isinstance(pane, QWidget)
+                and pane.isAncestorOf(watched)
+            ):
+                return path
+        return None
+
+    def _pane_path_at_global(self, global_pos: QPoint) -> str | None:
+        for path, pane in zip(self._paths, self.panes, strict=False):
+            if path in self._detached_paths or not pane.isVisible():
+                continue
+            local = pane.mapFromGlobal(global_pos)
+            if pane.rect().contains(local):
+                return path
+        return None
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        """Allow Alt+Left-drag (or dragging a camera's top-left title) to reorder tiles."""
+        if len(self._paths) >= 2 and isinstance(event, QMouseEvent):
+            etype = event.type()
+            if (
+                etype == QEvent.Type.MouseButtonPress
+                and event.button() == Qt.MouseButton.LeftButton
+            ):
+                path = self._path_for_watched(watched)
+                if path is not None and path not in self._detached_paths:
+                    pane = self.panes[self._paths.index(path)]
+                    lbl = getattr(pane, "lbl_name", None)
+                    in_header = (
+                        lbl is not None
+                        and lbl.isVisible()
+                        and lbl.geometry().contains(
+                            pane.mapFromGlobal(event.globalPosition().toPoint())
+                        )
+                    )
+                    if event.modifiers() & Qt.KeyboardModifier.AltModifier or in_header:
+                        self._drag_source_path = path
+                        self._drag_origin_global = event.globalPosition().toPoint()
+                        return True
+            elif etype == QEvent.Type.MouseMove and self._drag_source_path is not None:
+                return True
+            elif (
+                etype == QEvent.Type.MouseButtonRelease
+                and event.button() == Qt.MouseButton.LeftButton
+                and self._drag_source_path is not None
+            ):
+                src = self._drag_source_path
+                origin = self._drag_origin_global
+                self._drag_source_path = None
+                self._drag_origin_global = None
+                end_pos = event.globalPosition().toPoint()
+                if origin is not None and (end_pos - origin).manhattanLength() >= 8:
+                    dst = self._pane_path_at_global(end_pos)
+                    if dst is not None and dst != src and src in self._paths and dst in self._paths:
+                        before = tuple(self._paths)
+                        reordered = list(self._paths)
+                        dst_idx = reordered.index(dst)
+                        src_idx = reordered.index(src)
+                        reordered.insert(dst_idx, reordered.pop(src_idx))
+                        after = tuple(reordered)
+                        if self.reorder_panes(after):
+                            self.panes_reordered.emit(before, after)
+                return True
+        return super().eventFilter(watched, event)

@@ -109,6 +109,7 @@ class SweepWindowControl(QWidget):
         self._window_seconds = self._DEFAULT_WINDOW_SECONDS
         self._last_master_t = 0.0
         self._sweep_start: float | None = None
+        self._manual_start: float | None = None
         self._pending_window_seconds: float | None = None
         self._slider_drag_active = False
 
@@ -198,6 +199,7 @@ class SweepWindowControl(QWidget):
         elif total > 0:
             self._window_seconds = min(self._window_seconds, total)
         self._sweep_start = None
+        self._manual_start = None
         self._sync_widgets()
         self.window_changed.emit(self._window_seconds)
 
@@ -211,9 +213,45 @@ class SweepWindowControl(QWidget):
 
     def reset_window(self) -> None:
         """Expand the sweep to the complete master timeline."""
+        self._manual_start = None
         total = self._timeline_duration()
         if total > 0:
             self._commit_window(total)
+
+    def set_manual_start(self, view_start: float) -> bool:
+        """Pan the shared viewport to *view_start* in view-time seconds."""
+        t0, t1 = self._bounds
+        duration = self._window_seconds
+        clamped = min(max(view_start, t0), max(t0, t1 - duration)) if t1 > t0 else view_start
+        if self._sweep_start is not None and math.isclose(clamped, self._sweep_start, abs_tol=1e-9):
+            return False
+        self._manual_start = clamped
+        self._sweep_start = clamped
+        return True
+
+    def follow_time_if_outside(self, view_t: float) -> None:
+        """Release manual pan when an explicit seek or playback leaves the panned window."""
+        if self._manual_start is None:
+            return
+        if not (self._manual_start <= view_t <= self._manual_start + self._window_seconds):
+            self._manual_start = None
+
+    def zoom_around(self, seconds: float, anchor_view_t: float, fraction: float) -> None:
+        """Zoom the shared duration while keeping *anchor_view_t* at *fraction* of the width."""
+        maximum = self._maximum_window()
+        duration = min(seconds, maximum) if maximum > 0 else seconds
+        duration = max(self._minimum_window(), duration)
+        t0, t1 = self._bounds
+        frac = min(1.0, max(0.0, fraction))
+        desired_start = anchor_view_t - frac * duration
+        clamped_start = (
+            min(max(desired_start, t0), max(t0, t1 - duration)) if t1 > t0 else desired_start
+        )
+        self._window_seconds = duration
+        self._manual_start = clamped_start
+        self._sweep_start = clamped_start
+        self._sync_widgets()
+        self.window_changed.emit(self._window_seconds)
 
     def zoom_in(self) -> None:
         """Move the continuous slider one small step inward."""
@@ -232,12 +270,16 @@ class SweepWindowControl(QWidget):
 
         t0, t1 = self._bounds
         bounded_t = min(max(master_t, t0), t1) if t1 > t0 else master_t
-        elapsed = max(0.0, bounded_t - t0)
-        sweep_start = t0 + math.floor(elapsed / duration) * duration
-        phase = bounded_t - sweep_start
-        if bounded_t == t1 and elapsed > 0 and math.isclose(phase, 0.0, abs_tol=1e-9):
-            sweep_start -= duration
-            phase = duration
+        if self._manual_start is not None:
+            sweep_start = self._manual_start
+            phase = bounded_t - sweep_start
+        else:
+            elapsed = max(0.0, bounded_t - t0)
+            sweep_start = t0 + math.floor(elapsed / duration) * duration
+            phase = bounded_t - sweep_start
+            if bounded_t == t1 and elapsed > 0 and math.isclose(phase, 0.0, abs_tol=1e-9):
+                sweep_start -= duration
+                phase = duration
 
         changed = self._sweep_start is None or not math.isclose(
             sweep_start, self._sweep_start, abs_tol=1e-9
@@ -311,6 +353,7 @@ class SweepWindowControl(QWidget):
             return
         self._window_seconds = duration
         self._sweep_start = None
+        self._manual_start = None
         self._sync_widgets()
         self.window_changed.emit(self._window_seconds)
 

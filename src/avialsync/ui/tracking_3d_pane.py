@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import logging
 import math
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt
@@ -1275,6 +1276,39 @@ class Tracking3DCanvas(QWidget):
         self._pan = QPointF()
         self.update()
 
+    def view_orientation(self) -> dict[str, Any]:
+        """Serialisable 3D camera orientation, vertical axis, zoom, and pan."""
+        return {
+            "up_axis": int(self._up_axis),
+            "up_inverted": bool(self._up_inverted),
+            "up_auto": bool(self._up_auto),
+            "azimuth": float(self._azimuth),
+            "elevation": float(self._elevation),
+            "zoom": float(self._zoom),
+            "pan_x": float(self._pan.x()),
+            "pan_y": float(self._pan.y()),
+        }
+
+    def apply_view_orientation(self, state: Mapping[str, Any]) -> None:
+        """Restore a persisted 3D camera orientation and zoom."""
+        if not state:
+            return
+        if "up_axis" in state and not bool(state.get("up_auto", True)):
+            self._up_axis = int(state["up_axis"]) % 3
+            self._up_inverted = bool(state.get("up_inverted", False))
+            self._up_auto = False
+            self._view_basis = _view_matrix(self._up_axis, -1.0 if self._up_inverted else 1.0)
+            self._infer_skeleton()
+        if "azimuth" in state:
+            self._azimuth = float(state["azimuth"])
+        if "elevation" in state:
+            self._elevation = float(np.clip(float(state["elevation"]), -1.48, 1.48))
+        if "zoom" in state:
+            self._zoom = float(np.clip(float(state["zoom"]), 0.1, 20.0))
+        if "pan_x" in state or "pan_y" in state:
+            self._pan = QPointF(float(state.get("pan_x", 0.0)), float(state.get("pan_y", 0.0)))
+        self.update()
+
     def wheelEvent(self, event: QWheelEvent) -> None:
         """Zoom around the current scene center."""
         self.zoom_by(1.15 ** (event.angleDelta().y() / 120.0))
@@ -1339,6 +1373,7 @@ class Tracking3DPane(QWidget):
         self.setAccessibleName(tr("3D Tracking pane"))
         self.setMinimumWidth(112)
         self._prepare_revision = 0
+        self._pending_orientation: dict[str, Any] | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -1426,6 +1461,30 @@ class Tracking3DPane(QWidget):
         self._sync_up_axis_combo()
         if self.canvas.point_count:
             self.canvas.fit_current_pose()
+            if self._pending_orientation is not None:
+                self.canvas.apply_view_orientation(self._pending_orientation)
+                self._sync_up_axis_combo()
+                self._pending_orientation = None
+
+    def view_orientation(self) -> dict[str, Any]:
+        """Return the current or pending 3D camera orientation."""
+        if self._pending_orientation is not None and not self.canvas.point_count:
+            return dict(self._pending_orientation)
+        return self.canvas.view_orientation()
+
+    def set_view_orientation(
+        self, state: Mapping[str, Any], *, defer_until_loaded: bool = False
+    ) -> None:
+        """Apply *state* to the 3D canvas, retaining it across async pose load if needed."""
+        if not state:
+            self._pending_orientation = None
+            return
+        self.canvas.apply_view_orientation(state)
+        self._sync_up_axis_combo()
+        if defer_until_loaded and not self.canvas.point_count:
+            self._pending_orientation = dict(state)
+        else:
+            self._pending_orientation = None
 
     def _refresh_status(self) -> None:
         """Say how many points are loaded, and where their bones came from.

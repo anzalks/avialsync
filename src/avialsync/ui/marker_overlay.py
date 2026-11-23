@@ -68,6 +68,8 @@ class ResolvedPoint:
     corrected: bool
     #: A hand-placed 3D marker rather than a prediction.
     custom: bool = False
+    #: Model confidence in ``[0, 1]`` when the pose source supplies likelihoods.
+    confidence: float | None = None
 
 
 class MarkerOverlayMixin(PointEditMixin):
@@ -99,6 +101,20 @@ class MarkerOverlayMixin(PointEditMixin):
         self._wheel_hidden_visible = False
         self._props: Callable[[float], list[PropDrawing]] | None = None
         self._props_visible = default_visible_for("tracking.props")
+        self._epipolar: Callable[[float], list[tuple[str, object]]] | None = None
+        self._epipolar_visible = default_visible_for("tracking.epipolar")
+
+    def set_epipolar_source(
+        self, source: Callable[[float], list[tuple[str, object]]] | None
+    ) -> None:
+        """Supply projected epipolar guide polylines for this camera."""
+        self._epipolar = source
+        self.update()
+
+    def set_epipolar_visible(self, visible: bool) -> None:
+        """Apply the registered epipolar guide overlay switch."""
+        self._epipolar_visible = bool(visible)
+        self.update()
 
     def set_prop_source(self, source: Callable[[float], list[PropDrawing]] | None) -> None:
         """Ask for this camera's accepted and currently clicked props."""

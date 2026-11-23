@@ -7951,3 +7951,87 @@ falling but leaves most of the file in place).
 **Consequences.** The baseline's total rises during Stage A while `main_window.py` falls. Stage B
 (proposed D-next-e) is where those accesses become public coordinator attributes and the baseline
 shrinks again.
+
+## 2026-11-23 · D-249 · Multi-monitor detachment, undoable camera reordering, and persisted 2D/3D view transforms
+
+**Context.** Multi-camera behavioural and electrophysiology rigs routinely span two or three displays.
+Only the plot stack could detach; individual cameras, the 3D tracking pane, the two-photon imaging
+pane, and secondary inspector pages (`Values` or `Changes` alongside `Sources`) remained locked to
+one window. Camera tile order followed load order with no way to rearrange views, per-camera zoom/pan
+and 3D orbit/up-axis were lost on reopen, and `Open Files` consumed vertical inspector height even
+after sources loaded.
+
+**Decision.** `ui/panel_detachment.py` owns non-modal detachment for `View → Detach 3D View`,
+`View → Detach Imaging`, per-camera `Detach this camera` / `Return camera to grid`, and
+`View → Inspector → Pop Out Current Inspector Page` / `Pop Out Page`, with `View → Bring Panels Back`
+re-docking and re-centring every detached surface cleanly. Camera order is mutated through
+`ReorderVideosCommand` (`Alt`+drag on a camera tile or `Move Camera Left/Right` in the pane menu),
+syncing `VideoGrid` and `SidebarPane` reversibly. Non-default per-camera `(zoom, pan_x, pan_y)` and
+3D `(up_axis, up_inverted, azimuth, elevation, zoom, pan_x, pan_y)` persist in `.avv` sessions and
+named workspaces, deferred across asynchronous media probing. `Open Files` carries a `Hide`/`Show`
+disclosure toggle that re-expands automatically when sources are cleared (preserving D-181's open
+default while assembling multi-source sessions), and `interface/toolbar_labels`
+offers optional text beside toolbar glyphs while keeping glyph-only as default (D-174).
+
+## 2026-11-23 · D-250 · Bidirectional `J`/`K`/`L` shuttle, draggable range annotations, and ethogram hotkeys
+
+**Context.** Behavioural review workflows (BORIS, Bento, DaVinci Resolve) rely on reverse/pause/forward
+`J`/`K`/`L` shuttle, direct dragging of annotation boundaries, `Mark A–B Range`, marker-to-marker
+stepping, and single-key ethogram coding (`1`–`9`) without touching the mouse.
+
+**Decision.** `PlaybackState.direction` (`±1`) and `MasterClock.set_direction` carry signed playback
+direction while keeping `rate` strictly positive in `[0.01, 10.0]`. `J` shuttles in reverse (starting
+at `-1×` and stepping rate up on repeated presses), `K` pauses unconditionally and resets direction
+to `+1`, and `L` shuttles forward (`Shift+Left` / `Shift+Right` retain repeatable `±1 s` jumps).
+`MoveMarkerCommand` (with `merge_with` coalescing) backs draggable point/range handles on both plot
+rows and `TimelineOverview`. `Edit → Mark A–B Range` (`Shift+M`), `Previous / Next Marker`
+(`Alt+Left` / `Alt+Right`), configurable `1`–`9` point/bout ethogram hotkeys (`ui/ethogram_bar.py`),
+and kind/text filtering in `ChangesPanel` complete the behavioural annotation loop.
+
+## 2026-11-23 · D-251 · Registered 2D pose confidence, trails, skeleton, loupe, epipolar curves, and suspect scan
+
+**Context.** Raw 2D tracker dots give no indication of model likelihood, recent trajectory smoothness,
+anatomical connectivity, sub-pixel placement target, multi-camera geometric consistency, or where in
+an hour-long recording the tracker failed.
+
+**Decision.** Five new layers are registered in `ui/overlay_registry.py` (rule 13, D-090):
+`tracking.skeleton_2d`, `tracking.trails`, `tracking.confidence`, `tracking.epipolar`, and
+`camera.loupe`, controlled by `overlays/confidence_threshold` and `overlays/trail_frames` in
+`core/settings_schema.py`. `core/calibration.py::epipolar_curve` back-projects a pixel ray through
+the source camera (undoing OpenCV distortion and any `ImageCorrection` TPS warp) and projects
+positive-depth samples into sibling calibrated cameras during 3D marker placement and `Fix Tracker`
+drags. `ui/pose_suspects.py` scans cached pose columns off-thread via `MainWindow._run_job` (rule 11)
+for low-likelihood valleys and MAD-normalised velocity spikes, navigated via `Edit → Previous / Next
+Suspect Frame` (`Ctrl+[` / `Ctrl+]`).
+
+## 2026-11-23 · D-252 · Direct plot canvas zoom/pan, hover crosshairs, pinned rows, and Overlaid / Heatmap modes
+
+**Context.** Inspecting 32–234 electrophysiology or calcium channels required leaving the plot canvas
+for the time-span spinbox, switching to the `Values` tab to read amplitudes or `Δt`/`Δy` intervals,
+losing sight of reference TTL/wheel rows while scrolling, and viewing dense ROI matrices only as tall
+stacks of individual lines.
+
+**Decision.** `ui/plot_canvas_nav.py` adds cursor-anchored `Ctrl`/`Cmd`+wheel time-span zoom and
+middle-button / `Shift`+left-drag horizontal pan while leaving unmodified wheel scrolling to
+`_plot_scroll`. `ui/plot_crosshair.py` renders a synchronized hover hairline across visible plot rows
+(mirrored onto `TimelineOverview`), an O(1) inline value+unit pill on the hovered row, and on-canvas
+shaded interval + `Δt` / `Hz` / `Δy` badges when both Measure A and B pins are active. Rows can be
+pinned to a sticky top `PlotStackView` via the row context menu (`Pin {name} to top`) reusing their
+existing `MappedChannelReader`, and `PlotHeader` switches between `Stacked`, `Overlaid` (paired with
+dash patterns per rule 17), and `Heatmap` (a 2D Viridis carpet built strictly from `PlotPageWorker`'s
+decimated pyramid envelopes, rule 4).
+
+## 2026-11-23 · D-253 · Perceptual imaging LUTs, clipping highlights, live pixel readouts, and 2P ROI linking
+
+**Context.** Single-hue additive channels conceal subtle ΔF/F gradients and offer no warning when
+display windowing clips dark background or saturates bright somata; ROI mosaic tiles had no direct
+link to their plotted fluorescence traces.
+
+**Decision.** `core/imaging_display.py` adds perceptual lookup tables (`viridis`, `magma`, `inferno`,
+`turbo`) alongside the additive channel colours while keeping NaN pixels black, plus undoable
+`ImagingView.show_clipping` (`Clip` in `ImagingControls`) highlighting under-exposed (`<= low`)
+pixels in cyan and saturated (`>= high`) pixels in red on the imaging reader thread (rule 16).
+`ImagingPane` and `VideoSurface` report live `(x, y)` coordinates and raw float/RGB pixel intensities
+on pointer hover without disk I/O. `ImagingMetadata.roi_boxes` (populated by `NWBRoiGridSource`)
+drives `ui/roi_linking.py`: clicking an ROI tile reveals and scrolls to its trace in `PlotPane`, and
+hovering an ROI row in `PlotPane` outlines the corresponding cell tile in `ImagingFrameView`.

@@ -661,6 +661,8 @@ class ImagingMetadata:
     #: What the file calls each acquired channel: an OME channel name,
     #: an NWB optical channel or series. Empty where the file names none.
     channel_names: tuple[str, ...] = ()
+    #: Optional ``roi_id -> (left, top, width, height)`` bounding boxes in plane pixels.
+    roi_boxes: dict[str, tuple[int, int, int, int]] = field(default_factory=dict)
     tail_duration: float = field(init=False)
     #: Where the stack has no frame between its first and last: the time
     #: between trials, or any pause past the gap rule (D-009, D-217).

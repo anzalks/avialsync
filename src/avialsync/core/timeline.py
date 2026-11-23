@@ -24,6 +24,7 @@ class PlaybackState:
     rate: float
     t: float
     bounds: tuple[float, float]
+    direction: int = 1
 
 
 def _interp_scalar(x: float, xp: np.ndarray, fp: np.ndarray) -> float:
@@ -131,6 +132,7 @@ class MasterClock:
     def __init__(self) -> None:
         self._playing: bool = False
         self._rate: float = 1.0
+        self._direction: int = 1
         self._t: float = 0.0
         self._bounds: tuple[float, float] = (0.0, 0.0)
         self._last_monotonic: float | None = None
@@ -147,7 +149,13 @@ class MasterClock:
 
     @property
     def state(self) -> PlaybackState:
-        return PlaybackState(playing=self._playing, rate=self._rate, t=self._t, bounds=self._bounds)
+        return PlaybackState(
+            playing=self._playing,
+            rate=self._rate,
+            t=self._t,
+            bounds=self._bounds,
+            direction=self._direction,
+        )
 
     def set_bounds(self, start: float, end: float) -> None:
         """Set the absolute limits of the master timeline."""
@@ -173,6 +181,11 @@ class MasterClock:
             None  # Re-anchor on next advance to prevent jump with old monotonic delta
         )
 
+    def set_direction(self, direction: int) -> None:
+        """Set shuttle direction (``+1`` forward, ``-1`` reverse)."""
+        self._direction = -1 if direction < 0 else 1
+        self._last_monotonic = None
+
     def seek(self, t: float) -> None:
         """Seek to a specific master time."""
         self._t = float(t)
@@ -197,7 +210,7 @@ class MasterClock:
         self._last_monotonic = monotonic_now
 
         if delta > 0:
-            self._t += delta * self._rate
+            self._t += delta * self._rate * self._direction
             self._clamp_and_notify()
 
     def _clamp_and_notify(self) -> None:

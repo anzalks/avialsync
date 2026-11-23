@@ -149,6 +149,18 @@ class InspectorNav(QWidget):
     def setCurrentWidget(self, page: QWidget) -> None:  # noqa: N802
         self.setCurrentIndex(self.indexOf(page))
 
+    def swap_page_widget(self, index: int, replacement: QWidget) -> QWidget | None:
+        """Replace page *index*'s widget in place while keeping rail order."""
+        old = self._stack.widget(index)
+        if old is None or old is replacement:
+            return None
+        was_current = self._stack.currentIndex() == index
+        self._stack.removeWidget(old)
+        self._stack.insertWidget(index, replacement)
+        if was_current:
+            self._stack.setCurrentIndex(index)
+        return old
+
     # ── persistence ─────────────────────────────────────────────────
 
     def save_page(self, settings: QSettings) -> None:

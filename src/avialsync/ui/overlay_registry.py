@@ -70,6 +70,40 @@ OVERLAY_LAYERS: tuple[OverlayLayer, ...] = (
         description="The name of each tracked point, drawn beside its marker.",
     ),
     OverlayLayer(
+        overlay_id="tracking.skeleton_2d",
+        label="2D skeleton",
+        group="Tracking",
+        default_visible=True,
+        description="Limb lines connecting tracked body parts on each camera view.",
+    ),
+    OverlayLayer(
+        overlay_id="tracking.trails",
+        label="Motion trails",
+        group="Tracking",
+        default_visible=False,
+        description="Fading trajectory tails showing recent tracked positions.",
+    ),
+    OverlayLayer(
+        overlay_id="tracking.confidence",
+        label="Confidence cues",
+        group="Tracking",
+        default_visible=True,
+        description=(
+            "Draw low-likelihood pose predictions as translucent dashed rings below "
+            "the confidence threshold in Preferences."
+        ),
+    ),
+    OverlayLayer(
+        overlay_id="tracking.epipolar",
+        label="Epipolar guide lines",
+        group="Tracking",
+        default_visible=True,
+        description=(
+            "Projected camera-ray lines across calibrated views while placing or "
+            "adjusting a landmark."
+        ),
+    ),
+    OverlayLayer(
         overlay_id="tracking.legend",
         label="Track legend",
         group="Tracking",
@@ -176,6 +210,16 @@ OVERLAY_LAYERS: tuple[OverlayLayer, ...] = (
         description=(
             "Time, frame number, resolution and bit depth; at full detail also the rate, "
             "codec, pixel format and size."
+        ),
+    ),
+    OverlayLayer(
+        overlay_id="camera.loupe",
+        label="Precision magnifier loupe",
+        group="Camera chrome",
+        default_visible=True,
+        description=(
+            "Magnified corner inset around the cursor while dragging a point in Fix "
+            "Tracker or placing a 3D marker."
         ),
     ),
     OverlayLayer(

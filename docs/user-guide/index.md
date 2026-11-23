@@ -256,6 +256,11 @@ Pose estimates are sometimes wrong: an occluded nose lands on the wall. Select *
   model output. Turn the ring off under **View → Overlays → Hand-corrected marks** if you want to
   see the result plainly.
 - **Edit → Undo** (`Ctrl+Z`) reverses corrections one drag at a time.
+- **Edit → Previous / Next Suspect Frame** (`Ctrl+[` / `Ctrl+]`) scans imported pose tracks in the
+  background for low-confidence dips and abrupt jump spikes and seeks straight to each candidate.
+- While placing a 3D marker or dragging a point in **Fix Tracker** on a calibrated rig, AvialSync
+  projects dashed epipolar guide curves into the other cameras and shows a 5× corner magnifier loupe
+  for sub-pixel placement.
 - Zooming with the wheel and panning with the middle mouse button keep working while the mode is on.
 
 ### Fixing switched identities

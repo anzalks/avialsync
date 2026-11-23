@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QPushButton, QSplitter, QVBoxLayout, QWidget
 
+from avialsync.ui.design_tokens import ControlRole, apply_role
 from avialsync.ui.i18n import tr
 
 
@@ -39,6 +40,7 @@ class DetachedPaneWindow(QDialog):
         controls = QHBoxLayout()
         controls.addStretch(1)
         self.return_button = QPushButton(tr("Return to main window"), self)
+        apply_role(self.return_button, ControlRole.SECONDARY)
         self.return_button.setAccessibleDescription(
             tr("Put this pane back in its original place in the main workspace.")
         )

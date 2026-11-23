@@ -12,8 +12,17 @@ whole rows and columns would alias the picture.
 
 from __future__ import annotations
 
-from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QImage, QMouseEvent, QPainter, QPaintEvent, QResizeEvent, QWheelEvent
+from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, Signal
+from PySide6.QtGui import (
+    QColor,
+    QImage,
+    QMouseEvent,
+    QPainter,
+    QPaintEvent,
+    QPen,
+    QResizeEvent,
+    QWheelEvent,
+)
 from PySide6.QtWidgets import QGridLayout, QSizePolicy, QWidget
 
 from avialsync.ui.zoom_controls import ZOOM_STEP, ZoomControls
@@ -27,17 +36,25 @@ MAX_ZOOM = 40.0
 class ImagingFrameView(QWidget):
     """Paint one composed imaging frame with its own zoom and pan."""
 
+    #: ``(ix, iy)`` in image pixels while hovering, or ``None`` when leaving the image.
+    pixel_hovered = Signal(object)
+    #: ``(ix, iy)`` in image pixels when left-clicked.
+    pixel_clicked = Signal(int, int)
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         # Ignored: the picture fills whatever room the pane gives it and never
         # holds the pane at the size of the last frame shown.
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
         self.setMinimumSize(80, 80)
+        self.setMouseTracking(True)
         self._image: QImage | None = None
         self._message = ""
         self._zoom = 1.0
         self._pan = QPointF()
         self._pan_origin: QPointF | None = None
+        self._roi_highlight: tuple[float, float, float, float] | None = None
+        self._roi_label = ""
 
         self.zoom_controls = ZoomControls(self)
         self.zoom_controls.zoom_in_requested.connect(lambda: self.zoom_by(ZOOM_STEP))
@@ -71,6 +88,30 @@ class ImagingFrameView(QWidget):
         if resized:
             self._clamp_pan()
         self.update()
+
+    def set_roi_highlight(
+        self, box: tuple[float, float, float, float] | None, label: str = ""
+    ) -> None:
+        """Outline *box* ``(left, top, width, height)`` in image pixels for ROI linking."""
+        if box == self._roi_highlight and label == self._roi_label:
+            return
+        self._roi_highlight = box
+        self._roi_label = label
+        self.update()
+
+    def image_pixel_at(self, widget_pos: QPointF) -> tuple[int, int] | None:
+        """Convert *widget_pos* to ``(ix, iy)`` inside the current image, or ``None``."""
+        geometry = self._geometry()
+        if geometry is None or self._image is None:
+            return None
+        scale, left, top = geometry
+        if scale <= 0.0:
+            return None
+        ix = int((widget_pos.x() - left) / scale)
+        iy = int((widget_pos.y() - top) / scale)
+        if 0 <= ix < self._image.width() and 0 <= iy < self._image.height():
+            return ix, iy
+        return None
 
     def zoom(self) -> float:
         """Magnification over the fitted picture; 1.0 is fitted."""
@@ -170,6 +211,26 @@ class ImagingFrameView(QWidget):
             painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, scale < 1.0)
             target = QRectF(left, top, self._image.width() * scale, self._image.height() * scale)
             painter.drawImage(target, self._image)
+            if self._roi_highlight is not None:
+                rx, ry, rw, rh = self._roi_highlight
+                box_rect = QRectF(
+                    left + rx * scale,
+                    top + ry * scale,
+                    max(4.0, rw * scale),
+                    max(4.0, rh * scale),
+                )
+                painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+                painter.setPen(QPen(QColor(0, 0, 0, 200), 4.0))
+                painter.setBrush(Qt.BrushStyle.NoBrush)
+                painter.drawRect(box_rect)
+                painter.setPen(QPen(QColor(0, 255, 255, 240), 2.0))
+                painter.drawRect(box_rect)
+                if self._roi_label:
+                    painter.setPen(QColor(0, 255, 255))
+                    painter.drawText(
+                        box_rect.adjusted(0, -16, 80, 0).topLeft(),
+                        self._roi_label,
+                    )
         elif self._message:
             painter.setPen(self.palette().windowText().color())
             painter.drawText(
@@ -192,22 +253,34 @@ class ImagingFrameView(QWidget):
         super().wheelEvent(event)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
-        """Start a middle-button pan when the picture is magnified."""
+        """Start a middle-button pan when magnified, or report an ROI/pixel click."""
         if event.button() == Qt.MouseButton.MiddleButton and self._zoom > 1.0:
             self._pan_origin = event.position()
             event.accept()
             return
+        if event.button() == Qt.MouseButton.LeftButton:
+            px = self.image_pixel_at(event.position())
+            if px is not None:
+                self.pixel_clicked.emit(px[0], px[1])
+                event.accept()
+                return
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        """Pan with the held middle button."""
+        """Pan with the held middle button, or emit live image pixel coordinates."""
         if self._pan_origin is None or not event.buttons() & Qt.MouseButton.MiddleButton:
+            self.pixel_hovered.emit(self.image_pixel_at(event.position()))
             super().mouseMoveEvent(event)
             return
         position = event.position()
         self.pan_by(position - self._pan_origin)
         self._pan_origin = position
         event.accept()
+
+    def leaveEvent(self, event: QEvent) -> None:
+        """Clear pixel readout when pointer leaves the frame view."""
+        self.pixel_hovered.emit(None)
+        super().leaveEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         """Finish a middle-button pan."""

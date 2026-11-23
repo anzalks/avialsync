@@ -254,10 +254,16 @@ class NWBRoiGridSource(ImagingSource):
             if not is_group(table) or _type(table) != "PlaneSegmentation":
                 raise SourceOpenError(f"{table_path} is not a plane segmentation.")
             self._crops, self._corners = _masks(table)
+            table_ids = (
+                np.asarray(table["id"][()], dtype=np.int64)
+                if is_dataset(table.get("id"))
+                else np.arange(len(self._crops), dtype=np.int64)
+            )
             raw = _raw_series(self._handle, contents, table, _extent(self._crops, self._corners))
             if raw is not None:
                 self._mode, self._info = "raw", raw
                 self._columns = np.arange(len(self._crops))
+                roi_names = [f"roi{int(i)}" for i in table_ids[: len(self._crops)]]
             else:
                 response = _response_series(self._handle, contents, table_path)
                 if response is None:
@@ -271,6 +277,10 @@ class NWBRoiGridSource(ImagingSource):
                 self._crops = [self._crops[row] for row in region]
                 self._corners = [self._corners[row] for row in region]
                 self._columns = np.arange(len(region))
+                roi_names = [
+                    f"roi{int(table_ids[row])}" if 0 <= row < len(table_ids) else f"roi{int(row)}"
+                    for row in region
+                ]
             times = nwb_read.read_times(self._handle, self._info, 0, self._info.length)
             usable = np.isfinite(times)
             if len(times) > 1:
@@ -279,6 +289,18 @@ class NWBRoiGridSource(ImagingSource):
             if not len(self._frames):
                 raise SourceOpenError(f"{self._info.name} has no frame with a usable timestamp.")
             self._layout()
+            grid_cols = max(1, self._grid[1])
+            tile_h, tile_w = self._tile
+            roi_boxes = {
+                roi_names[pos]: (
+                    (pos % grid_cols) * tile_w,
+                    (pos // grid_cols) * tile_h,
+                    crop.shape[1],
+                    crop.shape[0],
+                )
+                for pos, crop in enumerate(self._crops)
+                if pos < len(roi_names)
+            }
             return ImagingMetadata(
                 frame_count=len(self._frames),
                 height=self._shape[0],
@@ -288,6 +310,7 @@ class NWBRoiGridSource(ImagingSource):
                 timing_source=("NWB timestamps" if self._info.has_timestamps else "NWB frame rate"),
                 dataset=table_path,
                 channel_count=1,
+                roi_boxes=roi_boxes,
             )
         except BaseException:
             self.close()

@@ -79,6 +79,8 @@ class AnnotationStore(QObject):
     marker_removed = Signal(int, object)
     #: index, previous label, new label.
     marker_relabelled = Signal(int, str, str)
+    #: index, (before_start, before_end), (after_start, after_end).
+    marker_moved = Signal(int, object, object)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -160,6 +162,24 @@ class AnnotationStore(QObject):
             return
         self._markers[index].label = label
         self.marker_relabelled.emit(index, before, label)
+        self.changed.emit()
+
+    def set_span(self, index: int, t_start: float, t_end: float | None = None) -> None:
+        """Move the marker at *index* to *t_start* (and *t_end* for ranges)."""
+        if not 0 <= index < len(self._markers):
+            return
+        start = float(t_start)
+        end = float(t_end) if t_end is not None else None
+        if end is not None and start > end:
+            start, end = end, start
+        marker = self._markers[index]
+        before = (marker.t_start, marker.t_end)
+        after = (start, end)
+        if before == after:
+            return
+        marker.t_start = start
+        marker.t_end = end
+        self.marker_moved.emit(index, before, after)
         self.changed.emit()
 
     def clear(self) -> None:

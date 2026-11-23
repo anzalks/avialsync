@@ -22,8 +22,14 @@ from avialsync.ui.annotations import AnnotationStore
 from avialsync.ui.app_settings import app_settings
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import JobManager
+from avialsync.ui.plot_canvas_nav import PlotCanvasNavigator
 from avialsync.ui.plot_header import PlotControlStrip, PlotHeader
 from avialsync.ui.plot_interactions import PlotInteractionController
+from avialsync.ui.plot_modes import (
+    PLOT_MODE_STACKED,
+    PlotModeCanvas,
+    rebuild_rows_across_stacks,
+)
 from avialsync.ui.plot_row import (
     Y_AUTO,
     Y_FIT_ONCE,
@@ -114,6 +120,10 @@ class PlotPane(QWidget):
     # Rows still queued for construction, 0 when the load is complete.
     rows_pending = Signal(int)
     page_ready = Signal(int)
+    # Pointer hover master-time (float) or None when pointer leaves the plots.
+    hover_time_changed = Signal(object)
+    # ChannelKey | None as pointer moves between plot rows (used for 2P ROI linking).
+    hovered_channel_changed = Signal(object)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -137,6 +147,7 @@ class PlotPane(QWidget):
         self._plot_header.presentation_changed.connect(self._on_presentation_changed)
         self._plot_header.fit_all_requested.connect(self.fit_all_y)
         self._plot_header.row_height_changed.connect(self._set_row_height)
+        self._plot_header.view_mode_changed.connect(self.set_view_mode)
         self.reset_action = QAction(tr("Reset Plots"), self)
         self.reset_action.setToolTip(tr("Reset the shared time span and fit every visible plot"))
         self.reset_action.triggered.connect(self.reset_zoom)
@@ -145,10 +156,23 @@ class PlotPane(QWidget):
         self.page_label = self._plot_header.page_label
         self.fit_all_button = self._plot_header.fit_all_button
         self.row_height_combo = self._plot_header.row_height_combo
+        self.view_mode_combo = self._plot_header.view_mode_combo
         self.reset_button = self._plot_header.reset_button
+        self._view_mode = PLOT_MODE_STACKED
+
+        self._pinned_layout = PlotStackView(
+            lambda: [ch.plot_item.getViewBox() for ch in self.channels if ch.pinned_in_layout],
+            self,
+        )
+        self._pinned_layout.setAccessibleName(tr("Pinned plot rows"))
+        self._pinned_layout.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._pinned_layout.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._pinned_layout.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._pinned_layout.hide()
+        _layout.addWidget(self._pinned_layout)
 
         self.graphics_layout = PlotStackView(
-            lambda: [channel.plot_item.getViewBox() for channel in self.channels]
+            lambda: [ch.plot_item.getViewBox() for ch in self.channels if not ch.pinned_in_layout]
         )
         self.graphics_layout.setAccessibleName(tr("Plot rows"))
         register_painted(
@@ -175,6 +199,12 @@ class PlotPane(QWidget):
         self._plot_scroll.setAccessibleName(tr("Channel plot stack"))
         self._plot_scroll.setWidget(self.graphics_layout)
         _layout.addWidget(self._plot_scroll)
+        self._mode_view = PlotModeCanvas(self)
+        self._mode_view.hide()
+        self._mode_view.seek_requested.connect(
+            lambda x: self.seek_requested.emit(self.master_at(x))
+        )
+        _layout.addWidget(self._mode_view, 1)
         self._cull_timer = QTimer(self)
         self._cull_timer.setSingleShot(True)
         self._cull_timer.setInterval(0)
@@ -243,8 +273,22 @@ class PlotPane(QWidget):
         # rows no longer show; triggered any other way it raised. Rows offer
         # Export in their own menu instead (axis_nav.show_plot_exporter).
         scene.contextMenu = []
-        scene.sigMouseClicked.connect(self._interactions.on_scene_clicked)
-        self.graphics_layout.scene().sigMouseMoved.connect(self._interactions.on_scene_moved)
+        scene.sigMouseClicked.connect(
+            lambda ev, s=scene: self._interactions.on_scene_clicked(ev, s)
+        )
+        scene.sigMouseMoved.connect(lambda pos, s=scene: self._interactions.on_scene_moved(pos, s))
+        pinned_scene = self._pinned_layout.scene()
+        pinned_scene.contextMenu = []
+        pinned_scene.sigMouseClicked.connect(
+            lambda ev, s=pinned_scene: self._interactions.on_scene_clicked(ev, s)
+        )
+        pinned_scene.sigMouseMoved.connect(
+            lambda pos, s=pinned_scene: self._interactions.on_scene_moved(pos, s)
+        )
+        self._navigator = PlotCanvasNavigator(self)
+        self._navigator.attach(self.graphics_layout)
+        self._navigator.attach(self._pinned_layout)
+        self._navigator.attach(self._mode_view.graphics_layout)
 
     def changeEvent(self, event: QEvent) -> None:
         """Keep pyqtgraph's canvas aligned with an application palette change."""
@@ -305,6 +349,12 @@ class PlotPane(QWidget):
         if view is None:
             return
         apply_canvas_palette(view, palette)
+        pinned = getattr(self, "_pinned_layout", None)
+        if pinned is not None:
+            apply_canvas_palette(pinned, palette)
+        mode_view = getattr(self, "_mode_view", None)
+        if mode_view is not None:
+            mode_view.apply_palette(palette)
         for channel in getattr(self, "channels", ()):
             apply_channel_palette(channel, palette)
         # Page-local overlays are rebuilt rather than re-penned: they are
@@ -440,9 +490,12 @@ class PlotPane(QWidget):
     def clear_sources(self) -> None:
         """Remove every plotted source and its pending row work."""
         self.cancel_pending_rows()
+        self._interactions._hover.discard_items()
+        self._interactions.clear_measure()
         readers_to_close = [channel.reader.source_reader for channel in self.channels]
         for channel in self.channels:
-            detach_row(self.graphics_layout, channel)
+            owner = self._pinned_layout if channel.pinned_in_layout else self.graphics_layout
+            detach_row(owner, channel)
         self.channels.clear()
         # The rows of a page still in flight hold their readers' memory maps.
         self._requested_rows = ()
@@ -593,11 +646,14 @@ class PlotPane(QWidget):
             if not self._pending_rows:
                 self.graphics_layout.setUpdatesEnabled(True)
         to_remove = [ch for ch in self.channels if ch.reader.cache_dir == cache_dir]
+        if to_remove:
+            self._interactions._hover.discard_items()
         for ch in to_remove:
             self._units.pop(ch.reader.key, None)
             self._interactions.forget_gap_markers(ch.reader.key)
         for ch in to_remove:
-            detach_row(self.graphics_layout, ch)
+            owner = self._pinned_layout if ch.pinned_in_layout else self.graphics_layout
+            detach_row(owner, ch)
             self.channels.remove(ch)
 
             if self._master_plot == ch.plot_item:
@@ -644,10 +700,13 @@ class PlotPane(QWidget):
         if not self._pending_rows:
             self.graphics_layout.setUpdatesEnabled(True)
         to_remove = self._matching(channel)
+        if to_remove:
+            self._interactions._hover.discard_items()
         for ch in to_remove:
             self._units.pop(ch.reader.key, None)
             self._interactions.forget_gap_markers(ch.reader.key)
-            detach_row(self.graphics_layout, ch)
+            owner = self._pinned_layout if ch.pinned_in_layout else self.graphics_layout
+            detach_row(owner, ch)
             self.channels.remove(ch)
 
             if self._master_plot == ch.plot_item:
@@ -763,6 +822,15 @@ class PlotPane(QWidget):
                 if channel.y_mode == Y_FIT_ONCE and channel.y_range is not None:
                     channel.y_mode = Y_MANUAL
         self._last_installed_generation = page.generation
+        if self._view_mode != PLOT_MODE_STACKED:
+            pos = self._sweep_control.advance(self._sweep_control.last_master_time)
+            self._mode_view.render_from_channels(
+                self.channels,
+                self.window_duration,
+                self.palette(),
+                reveal=self.presentation != PlotPresentation.REVIEW,
+                phase=pos.phase,
+            )
         self.page_ready.emit(page.generation)
 
     @Slot(str)
@@ -781,16 +849,81 @@ class PlotPane(QWidget):
             self._start_page_job()
 
     def set_cursor(self, t: float, *, immediate: bool = False) -> None:
-        """Advance the fixed sweep from the master-clock time.
-
-        Called on every 60 Hz tick.  Advancing the sweep *state* is cheap
-        (~0.2 ms at 16 rows); repainting the scene is not (~7 ms), and it shares
-        the UI thread with every video pane's ``paintGL``.  Pixels are therefore
-        moved at :data:`_CURSOR_REPAINT_HZ` while time keeps advancing at the
-        full tick rate.  Pass ``immediate`` for discrete events — a seek, a
-        pause, a frame step — where a stale cursor would be a lie.
-        """
+        """Advance the fixed sweep from the master-clock time."""
+        if immediate or self._playing:
+            self._sweep_control.follow_time_if_outside(self._warp.to_view(t))
         self._set_sweep_for_time(t, force=immediate)
+
+    @property
+    def view_mode(self) -> str:
+        """Current multi-channel presentation: ``'stacked'``, ``'overlay'``, or ``'heatmap'``."""
+        return self._view_mode
+
+    def set_view_mode(self, mode: str) -> None:
+        """Switch between stacked rows, overlaid traces, and 2D carpet heatmap."""
+        if mode not in ("stacked", "overlay", "heatmap") or mode == self._view_mode:
+            return
+        self._view_mode = mode
+        idx = self.view_mode_combo.findData(mode)
+        if idx >= 0 and self.view_mode_combo.currentIndex() != idx:
+            self.view_mode_combo.blockSignals(True)
+            self.view_mode_combo.setCurrentIndex(idx)
+            self.view_mode_combo.blockSignals(False)
+        stacked = mode == PLOT_MODE_STACKED
+        self._plot_scroll.setVisible(stacked)
+        has_pinned = any(ch.pinned_in_layout and ch.visible for ch in self.channels)
+        self._pinned_layout.setVisible(stacked and has_pinned)
+        self._mode_view.setVisible(not stacked)
+        if not stacked:
+            self._mode_view.set_mode(mode)
+            pos = self._sweep_control.advance(self._sweep_control.last_master_time)
+            self._mode_view.render_from_channels(
+                self.channels,
+                self.window_duration,
+                self.palette(),
+                reveal=self.presentation != PlotPresentation.REVIEW,
+                phase=pos.phase,
+            )
+
+    def set_channel_pinned(self, channel: ChannelKey | str, pinned: bool) -> None:
+        """Pin *channel* to the sticky top stack or return it to the scrollable stack."""
+        changed = False
+        for ch in self._matching(channel):
+            if ch.pinned != bool(pinned):
+                ch.pinned = bool(pinned)
+                changed = True
+        if changed:
+            rebuild_rows_across_stacks(self)
+
+    def scroll_to_channel(self, channel: ChannelKey | str) -> bool:
+        """Scroll the channel stack to bring *channel* into view; returns True if found."""
+        matches = [ch for ch in self._matching(channel) if ch.visible]
+        if not matches:
+            return False
+        target = matches[0]
+        if target.pinned_in_layout:
+            return True
+        y_top = int(target.plot_item.geometry().top())
+        bar = self._plot_scroll.verticalScrollBar()
+        bar.setValue(max(0, y_top - 12))
+        return True
+
+    def zoom_around_cursor(
+        self, seconds: float, anchor_view_t: float, fraction: float = 0.5
+    ) -> None:
+        """Zoom the shared time span while keeping *anchor_view_t* under *fraction*."""
+        if seconds <= 0:
+            self.reset_zoom()
+            return
+        self._sweep_control.zoom_around(seconds, anchor_view_t, fraction)
+
+    def set_manual_view_start(self, view_start: float) -> None:
+        """Pan the shared time window horizontally in view-time seconds."""
+        if not self._sweep_control.set_manual_start(view_start):
+            return
+        self._set_sweep_for_time(
+            self._warp.to_master(self._sweep_control.last_master_time), force=True
+        )
 
     def set_zoom_window(self, seconds: float) -> None:
         """Compatibility alias for setting the shared continuous window."""
@@ -1068,7 +1201,10 @@ class PlotPane(QWidget):
             top = self._plot_scroll.verticalScrollBar().value() - height / 2
             bottom = top + 2 * height
         position = self._sweep_control.advance(self._sweep_control.last_master_time)
-        cull_offscreen_rows(self.channels, top, bottom, phase=position.phase)
+        pinned = [ch for ch in self.channels if ch.pinned_in_layout]
+        unpinned = [ch for ch in self.channels if not ch.pinned_in_layout]
+        cull_offscreen_rows(pinned, -math.inf, math.inf, phase=position.phase)
+        cull_offscreen_rows(unpinned, top, bottom, phase=position.phase)
 
     @contextmanager
     def every_row_drawn(self) -> Iterator[None]:
@@ -1094,7 +1230,9 @@ class PlotPane(QWidget):
         row, and at thirty rows that is a scrollbar that stops short of the last
         one.
         """
-        visible = [channel for channel in self.channels if channel.visible]
+        visible = [
+            channel for channel in self.channels if channel.visible and not channel.pinned_in_layout
+        ]
         layout = self.graphics_layout.ci.layout
         spacing = max(0.0, layout.verticalSpacing())
         _, top, _, bottom = layout.getContentsMargins()
@@ -1103,10 +1241,30 @@ class PlotPane(QWidget):
             wanted += spacing * (len(visible) - 1) + top + bottom
         self.graphics_layout.setMinimumHeight(math.ceil(wanted))
 
+        pinned_vis = [
+            channel for channel in self.channels if channel.visible and channel.pinned_in_layout
+        ]
+        if pinned_vis:
+            p_layout = self._pinned_layout.ci.layout
+            p_spacing = max(0.0, p_layout.verticalSpacing())
+            _, p_top, _, p_bottom = p_layout.getContentsMargins()
+            p_wanted = (
+                sum(ch.row_height for ch in pinned_vis)
+                + p_spacing * (len(pinned_vis) - 1)
+                + p_top
+                + p_bottom
+            )
+            self._pinned_layout.setFixedHeight(math.ceil(p_wanted))
+            if self._view_mode == PLOT_MODE_STACKED:
+                self._pinned_layout.show()
+        else:
+            self._pinned_layout.hide()
+
     def _update_axis_visibility(self) -> None:
         """Use one shared bottom X axis while keeping all rows X-linked."""
-        visible = [channel for channel in self.channels if channel.visible]
-        bottom = visible[-1] if visible else None
+        unpinned_vis = [ch for ch in self.channels if ch.visible and not ch.pinned_in_layout]
+        pinned_vis = [ch for ch in self.channels if ch.visible and ch.pinned_in_layout]
+        bottom = unpinned_vis[-1] if unpinned_vis else (pinned_vis[-1] if pinned_vis else None)
         for channel in self.channels:
             axis = channel.plot_item.getAxis("bottom")
             show = channel is bottom
@@ -1159,6 +1317,10 @@ class PlotPane(QWidget):
             if ch.visible and ch.cursor_line.isVisible():
                 ch.cursor_line.setValue(position.phase)
                 ch.curve.set_sweep_position(position.phase)
+        if self._view_mode != PLOT_MODE_STACKED:
+            self._mode_view.set_cursor_phase(
+                position.phase, reveal=self.presentation != PlotPresentation.REVIEW
+            )
         self._update_page_label(position.start)
         # The strip is in master time: the page's master edges, and the playhead.
         first = self._warp.to_master(position.start)

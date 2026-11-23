@@ -127,9 +127,14 @@ trials, experiments and their cameras load is described under
   NWB optical channel or series, otherwise *Ch 1*, *Ch 2*, …). Its tick box chooses which recorded
   signals are drawn: tick one to see it alone, several to overlay them. Ticked channels are added
   together, so signal present in both appears white.
-- **Colour** is only the colour a channel is drawn in (green and magenta by default for two, a
-  pair that stays distinct under colour-vision deficiencies). Changing it never changes which data
-  is shown.
+- **Colour** chooses either an additive fluorescence hue (green and magenta by default for two, a
+  pair that stays distinct under colour-vision deficiencies) or a perceptual false-colour lookup
+  table (**Viridis**, **Magma**, **Inferno**, **Turbo**) for single-channel ΔF/F inspection.
+  Changing it never changes which data is shown, and `NaN` background pixels remain black.
+- **Clip** highlights pixels at or below the display window's black point in cyan and saturated
+  pixels at or above its white point in red, so over- or under-windowed somata are immediately
+  visible. Moving the pointer over the image shows live `(x, y)` coordinates and raw plane intensity
+  in the status row.
 - **Brightness** and **Contrast** act per channel. Both start from levels measured from the data,
   ignoring the brightest and darkest 0.5 % of pixels; **Auto levels** measures again from the
   picture now shown and returns the sliders to the middle.
@@ -155,7 +160,8 @@ same imaging plane covers the ROIs, each tile is that movie's pixels around the 
 not -- patch-scanned recordings often store a movie for only one cell -- each tile is the cell's
 outline lit by its ΔF/F (or fluorescence) at that moment, and the source list says so: it is a map
 of the measured trace, not imaging. Levels, averaging, zoom and offset work on the grid as on any
-stack.
+stack. Clicking an ROI tile reveals and scrolls to its corresponding `roi<N>` trace in the plot
+pane, and hovering an ROI trace in the plots outlines that cell's tile in the imaging viewer.
 
 Display changes are undoable and saved with the session; the raw pixels are never changed. Only
 the frames needed for the current picture are read from disk, so a stack does not need to fit in
@@ -167,7 +173,18 @@ Plots are a fixed oscilloscope-style window, not a scrolling strip. The trace fi
 right and restarts at the left edge when the window completes.
 
 - **Time span** sets the span, in `ms`, `s`, `min`, or `h`. Pick the unit first: a smaller unit
-  gives fine control, a larger one gives coarse.
+  gives fine control, a larger one gives coarse. Hold `Ctrl` (`Cmd` on macOS) and roll the mouse
+  wheel over the plots to zoom the shared time span around the cursor, or drag with the middle mouse
+  button (or `Shift`+left-drag) to pan horizontally without moving the playhead.
+- Moving the pointer over a plot draws a synchronized hover hairline across visible rows and shows
+  an inline value-and-unit readout on the hovered trace. Placing both **Measure A** and **Measure B**
+  from the right-click menu shades the interval and displays `Δt`, frequency (`Hz`), and `Δy`
+  directly on the canvas.
+- Right-click any channel and choose **Pin to top** to keep a reference trace (such as a TTL line or
+  wheel speed) fixed above the scroll area while scrolling through dozens of channels.
+- The display-mode selector switches visible channels between **Stacked** rows (the default),
+  **Overlaid** traces on one shared axis, and a 2D Viridis **Heatmap** carpet for high-channel-count
+  electrophysiology or ROI matrices.
 - The single slider below the plots sets the visible span and controls every row together. Rows do
   not zoom or scroll independently — they share one time axis because comparing them is the point.
 - **Reset Plots** (`Ctrl+0`) returns to the full loaded timeline and refits every visible plot.
@@ -234,9 +251,11 @@ not a second copy.
 ## Overlays on the video
 
 **View → Overlays** switches every graphic drawn over a camera or 3D view: tracking points,
+2D skeleton limbs, fading motion trails, low-confidence point cues, calibrated epipolar guide lines,
 body-part names, the track legend, hand-corrected marks, hand-placed 3D markers, the wheel model
-and hidden wheel bars, physical props, 3D reprojection, 3D body-part names, the camera name, and
-the timecode and format readout, with **Show All** and **Hide All** at the bottom. Anything a
+and hidden wheel bars, physical props, 3D reprojection, 3D body-part names, the camera name,
+the timecode and format readout, and the 5× corner magnifier loupe shown while placing or dragging
+markers, with **Show All** and **Hide All** at the bottom. Anything a
 plugin draws appears here too — nothing is drawn over your footage that you cannot account for.
 
 Right-click a video pane and use **Overlays on this camera** to override one camera without changing
@@ -260,9 +279,14 @@ this is so you do not rearrange the splitters each time.
 A layout belongs to you and your screen, not to the recording, so workspaces are kept with your
 application settings rather than in the `.avv` file. **Delete Layout…** removes one.
 
-**View → Detach Plots** moves the plots into their own window, for a second display. If a panel ends
-up somewhere you cannot reach — floated onto a screen that has since been unplugged, say — **View →
-Bring Panels Back** re-docks every panel and moves any stray window back onto this screen.
+**View → Detach Plots**, **View → Detach 3D View**, and **View → Detach Imaging** move those panes
+into separate windows for multi-monitor rigs; right-clicking a camera offers **Detach this camera**
+and **Move Camera Left / Right** (or `Alt`+drag a camera tile) to reorder the grid, and **View →
+Inspector → Pop Out Page** opens a secondary inspector window (for example **Values** or **Changes**
+beside **Sources**). Per-camera zoom/pan and 3D camera orientation are saved with the session and
+with named workspaces. If a panel ends up somewhere you cannot reach — floated onto a screen that
+has since been unplugged, say — **View → Bring Panels Back** re-docks every panel and moves any
+stray window back onto this screen.
 
 ## Time display
 
@@ -311,8 +335,11 @@ The ones worth knowing without looking:
 | `Space` | Play or pause |
 | `←` / `→` (or `,` / `.`) | Step back or forward one frame |
 | `Shift+←` / `Shift+→` | Jump back or forward one second |
-| `J` / `K` / `L` | Jump back 1 s, pause, step up playback rate |
-| `M` | Flag the current frame |
+| `J` / `K` / `L` | Shuttle reverse, pause, shuttle forward |
+| `M` / `Shift+M` | Flag the current frame, or mark the active A–B loop as a range |
+| `Alt+←` / `Alt+→` | Jump to the previous or next annotation marker |
+| `1`–`9` | Trigger configured ethogram point or start/stop bout labels |
+| `Ctrl+[` / `Ctrl+]` | Jump to the previous or next suspect pose frame |
 | `Ctrl+E` | Export snapshot |
 | `[` and `]` (or `I` and `O`) | Mark the start and end of a range |
 | `F11` (`Ctrl+Cmd+F` on macOS) | Toggle fullscreen on the active video |

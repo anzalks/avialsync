@@ -7,6 +7,22 @@ full history is in git. Versions follow the tags in the repository.
 ## Unreleased
 
 ### Added
+- Multi-monitor detachment for the 3D view, the two-photon imaging pane, individual camera tiles, and
+  secondary inspector pages (`Values`, `Changes`, etc.), undoable camera reordering (`Alt`+drag or
+  pane menu), persisted per-camera and 3D view transforms, collapsible `Open Files`, and optional
+  toolbar text labels (D-249).
+- Bidirectional `J`/`K`/`L` shuttle playback, draggable point and range annotations on plots and Data
+  Streams, `Edit → Mark A–B Range` (`Shift+M`), `Previous / Next Marker` (`Alt+←` / `Alt+→`),
+  configurable `1`–`9` point/bout ethogram hotkeys, and `Changes` kind/text filtering (D-250).
+- Registered 2D pose skeleton limbs, fading motion trails, low-confidence point cues, a 5× corner
+  magnifier loupe, calibrated multi-camera epipolar guide curves, and off-thread `Previous / Next
+  Suspect Frame` (`Ctrl+[` / `Ctrl+]`) navigation (D-251).
+- Cursor-anchored `Ctrl`+wheel plot zoom, middle-drag / `Shift`+left-drag horizontal pan,
+  synchronized hover crosshairs with inline value pills and on-canvas `Δt`/`Δy` measure callouts,
+  sticky pinned plot rows, and `Stacked` / `Overlaid` / `Heatmap` plot modes (D-252).
+- Perceptual imaging colormaps (`Viridis`, `Magma`, `Inferno`, `Turbo`), under/over-exposure clipping
+  highlights, live `(x, y)` pixel intensity readouts, and bidirectional 2P ROI-to-plot linking
+  (D-253).
 - Alignment setup starts from the recording, with narrow Settings and Results pages, one
   Preview/Apply footer, a concise result card, and grouped checks and export (D-241, D-242).
 - Alignment results are judged over the overlap of the recordings and say why a match was

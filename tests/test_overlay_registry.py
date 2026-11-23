@@ -29,6 +29,10 @@ from avialsync.ui.video_overlay import PaintCanvas
 EXPECTED_INVENTORY = {
     "tracking.points",
     "tracking.point_labels",
+    "tracking.skeleton_2d",
+    "tracking.trails",
+    "tracking.confidence",
+    "tracking.epipolar",
     "tracking.legend",
     "tracking.corrections",
     "tracking.custom_markers",
@@ -40,6 +44,7 @@ EXPECTED_INVENTORY = {
     "tracking.edit_handles",
     "camera.name",
     "camera.osd",
+    "camera.loupe",
     "camera.no_footage",
     "export.frame_number",
 }

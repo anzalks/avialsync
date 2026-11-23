@@ -110,6 +110,9 @@ class Player(QObject):
         self.transport.play_toggled.connect(self.set_playing)
         self.transport.seek_requested.connect(self.seek)
         self.transport.rate_changed.connect(self.set_rate)
+        direction_signal = getattr(self.transport, "direction_changed", None)
+        if direction_signal is not None:
+            direction_signal.connect(self.set_direction)
         self.transport.frame_step_requested.connect(self.step_frame)
         self.transport.ab_loop_changed.connect(self.set_ab_loop)
 
@@ -155,13 +158,16 @@ class Player(QObject):
     def set_playing(self, playing: bool) -> None:
         self.plot_pane.set_playing(playing)
         if playing:
-            # Wrap around to start if at the very end
+            # Wrap around when starting at the active boundary
             current_t = self.clock.state.t
             bounds = self.transport.bounds
             end_t = bounds[1] if self._ab_out is None else self._ab_out
             start_t = bounds[0] if self._ab_in is None else self._ab_in
 
-            if current_t >= end_t - 0.05:
+            if self.clock.state.direction < 0:
+                if current_t <= start_t + 0.05:
+                    self.seek(end_t, exact=True)
+            elif current_t >= end_t - 0.05:
                 self.seek(start_t, exact=True)
 
             self.clock.play()
@@ -226,6 +232,9 @@ class Player(QObject):
 
     def set_rate(self, rate: float) -> None:
         self.clock.set_rate(rate)
+
+    def set_direction(self, direction: int) -> None:
+        self.clock.set_direction(direction)
 
     def step_frame(self, direction: int) -> None:
         """Step to the neighbouring decoded frame across all video panes.
@@ -351,13 +360,17 @@ class Player(QObject):
             warp = getattr(self.transport, "warp", None)
             gap = warp.gap_at(t) if isinstance(warp, TimeWarp) else None
             if gap is not None:
-                self.clock.seek(gap[1])
+                self.clock.seek(gap[0] - 1e-6 if self.clock.state.direction < 0 else gap[1])
                 t = self.clock.state.t
 
             # A/B loop enforcement
-            if self._ab_in is not None and self._ab_out is not None and t >= self._ab_out:
-                self.seek(self._ab_in, exact=True)
-                t = self._ab_in
+            if self._ab_in is not None and self._ab_out is not None:
+                if self.clock.state.direction >= 0 and t >= self._ab_out:
+                    self.seek(self._ab_in, exact=True)
+                    t = self._ab_in
+                elif self.clock.state.direction < 0 and t <= self._ab_in:
+                    self.seek(self._ab_out, exact=True)
+                    t = self._ab_out
 
             # Playback is a seek per tick. Each pane is asked for the frame
             # containing master `t`; the request coalesces inside the pane, so a

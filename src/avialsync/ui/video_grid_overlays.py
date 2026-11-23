@@ -55,6 +55,7 @@ class GridOverlayMixin:
         #: ``(path, t_master) -> WheelDrawing``: the wheel model in a camera.
         self._wheel: Callable[[str, float], object] | None = None
         self._props: Callable[[str, float], list] | None = None
+        self._epipolar: Callable[[str, float], list] | None = None
 
     def _apply_held_overlays(self, pane: VideoPane, path: str) -> None:
         """Give a pane built now whatever already resolved for its camera."""
@@ -81,6 +82,8 @@ class GridOverlayMixin:
             pane.set_wheel_source(self._wheel_for(path))
         if self._props is not None:
             pane.set_prop_source(self._props_for(path))
+        if self._epipolar is not None and hasattr(pane, "set_epipolar_source"):
+            pane.set_epipolar_source(self._epipolar_for(path))
 
     def set_tracking_readers(self, readers: list) -> None:
         """Pass tracking data readers to all video panes for overlay rendering.
@@ -155,7 +158,9 @@ class GridOverlayMixin:
     def refresh_point_edits(self) -> None:
         """Repaint every overlay after the correction store changed."""
         for pane in self.panes:
-            pane.paint_canvas.update()
+            canvas = getattr(pane, "paint_canvas", None)
+            if canvas is not None:
+                canvas.update()
 
     def set_custom_markers(
         self, path: str, markers: dict[int, list[tuple[str, float, float]]]
@@ -197,6 +202,17 @@ class GridOverlayMixin:
 
     def _props_for(self, path: str) -> Callable[[float], list] | None:
         source = self._props
+        return None if source is None else lambda t: source(path, t)
+
+    def set_epipolar_source(self, source: Callable[[str, float], list] | None) -> None:
+        """Give current and future camera panes their epipolar guide lines."""
+        self._epipolar = source
+        for path, pane in zip(self._paths, self.panes, strict=False):
+            if hasattr(pane, "set_epipolar_source"):
+                pane.set_epipolar_source(self._epipolar_for(path))
+
+    def _epipolar_for(self, path: str) -> Callable[[float], list] | None:
+        source = self._epipolar
         return None if source is None else lambda t: source(path, t)
 
     def _reprojection_for(self, path: str) -> Callable[[float], list] | None:

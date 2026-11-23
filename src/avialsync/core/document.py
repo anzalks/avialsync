@@ -117,6 +117,9 @@ class MutationTarget(Protocol):
     def set_marker_label(self, index: int, label: str) -> None:
         """Set the label of the marker at *index*."""
 
+    def set_marker_span(self, index: int, t_start: float, t_end: float | None) -> None:
+        """Move the marker at *index* to *t_start* (and *t_end* for ranges)."""
+
     def set_source_visible(self, source_id: str, visible: bool) -> None:
         """Show or hide a whole source without unloading it."""
 
@@ -223,6 +226,9 @@ class MutationTarget(Protocol):
 
     def remove_source(self, source_id: str) -> None:
         """Unload a source from the workspace."""
+
+    def set_video_order(self, order: tuple[str, ...]) -> None:
+        """Arrange loaded camera panes in *order*."""
 
     def apply_sync(
         self, source_id: str, offset: float, drift_ms_per_hour: float, evidence: Any

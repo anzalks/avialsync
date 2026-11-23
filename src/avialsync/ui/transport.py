@@ -240,6 +240,7 @@ class TimelineOverview(QWidget):
 
     seek_requested = Signal(float)
     viewport_seek_requested = Signal(float, bool)
+    marker_move_requested = Signal(int, float, object)
     evidence_changed = Signal()
     _LABEL_WIDTH = 220
     _MIN_LANE_HEIGHT = 18
@@ -306,8 +307,10 @@ class TimelineOverview(QWidget):
         self._viewport_start = 0.0
         self._viewport_duration = 0.0
         self._viewport_phase = 0.0
+        self._hover_time: float | None = None
         self._dragging_viewport = False
         self._viewport_drag_offset = 0.0
+        self._dragging_marker: tuple[int, str, float, float | None] | None = None
         self._on_evidence_changed()
 
     def changeEvent(self, event: QEvent) -> None:
@@ -345,6 +348,13 @@ class TimelineOverview(QWidget):
     def set_cursor(self, t: float) -> None:
         """Move the overview playhead without recalculating any evidence."""
         self._cursor = t
+        self.update()
+
+    def set_hover_time(self, t: float | None) -> None:
+        """Mirror the plot canvas hover hairline without moving the playhead."""
+        if t == self._hover_time:
+            return
+        self._hover_time = t
         self.update()
 
     def set_viewport(self, start: float, duration: float, phase: float) -> None:
@@ -771,10 +781,37 @@ class TimelineOverview(QWidget):
         right = min(self.width() - 1, self._content_x(min(t1, last)))
         return left, max(left, right)
 
+    def _annotation_hit_at(self, x: float, y: float) -> tuple[int, str, float, float | None] | None:
+        """Return ``(marker_index, edge, t_start, t_end)`` when clicking an annotation handle."""
+        lanes = self._lanes()
+        if not lanes:
+            return None
+        lane_index = min(len(lanes) - 1, int(y // self.lane_height()))
+        if lanes[lane_index][1] != "annotation":
+            return None
+        for idx, (start, end, _color) in enumerate(self._markers):
+            sx = self._content_x(start)
+            if end is None:
+                if abs(x - sx) <= 5:
+                    return idx, "point", start, None
+            else:
+                ex = self._content_x(end)
+                if abs(x - sx) <= 5:
+                    return idx, "start", start, end
+                if abs(x - ex) <= 5:
+                    return idx, "end", start, end
+        return None
+
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             t0, t1 = self._bounds
             if event.position().x() >= self._LABEL_WIDTH and t1 > t0:
+                hit = self._annotation_hit_at(event.position().x(), event.position().y())
+                if hit is not None:
+                    self._dragging_marker = hit
+                    self._press_x = event.position().x()
+                    event.accept()
+                    return
                 viewport = self._visible_span_x(
                     self._viewport_start, self._viewport_start + self._viewport_duration
                 )
@@ -791,6 +828,9 @@ class TimelineOverview(QWidget):
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if self._dragging_marker is not None:
+            event.accept()
+            return
         if self._dragging_viewport:
             # A press inside the page window is a click until it travels the
             # platform's drag distance; only then does it move the page.
@@ -812,6 +852,20 @@ class TimelineOverview(QWidget):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if self._dragging_marker is not None and event.button() == Qt.MouseButton.LeftButton:
+            idx, edge, orig_start, orig_end = self._dragging_marker
+            self._dragging_marker = None
+            new_t = self._time_at_x(event.position().x())
+            if abs(event.position().x() - self._press_x) < 3:
+                self.seek_requested.emit(orig_start)
+            elif edge == "point":
+                self.marker_move_requested.emit(idx, new_t, None)
+            elif edge == "start" and orig_end is not None:
+                self.marker_move_requested.emit(idx, min(new_t, orig_end), max(new_t, orig_end))
+            elif edge == "end" and orig_end is not None:
+                self.marker_move_requested.emit(idx, min(orig_start, new_t), max(orig_start, new_t))
+            event.accept()
+            return
         if self._dragging_viewport and event.button() == Qt.MouseButton.LeftButton:
             self._dragging_viewport = False
             if self._viewport_moved:
@@ -982,6 +1036,12 @@ class TimelineOverview(QWidget):
             painter.drawRect(left, 1, max(1, right - left), max(1, self.height() - 3))
 
         self._paint_breaks(painter)
+        if self._hover_time is not None and t0 <= self._hover_time <= t1:
+            hover_color = QColor(palette.color(palette.ColorRole.BrightText))
+            hover_color.setAlpha(110)
+            painter.setPen(QPen(hover_color, 1, Qt.PenStyle.DotLine))
+            hx = min(self.width() - 1, max(self._LABEL_WIDTH, self._content_x(self._hover_time)))
+            painter.drawLine(hx, 0, hx, self.height() - 1)
         painter.setPen(palette.color(palette.ColorRole.BrightText))
         cursor_x = min(self.width() - 1, max(self._LABEL_WIDTH, self._content_x(self._cursor)))
         painter.drawLine(cursor_x, 0, cursor_x, self.height() - 1)
@@ -1195,9 +1255,11 @@ class Transport(QWidget):
     play_toggled = Signal(bool)
     seek_requested = Signal(float, bool)  # t, exact
     rate_changed = Signal(float)
+    direction_changed = Signal(int)  # +1 forward, -1 reverse
     frame_step_requested = Signal(int)  # -1 or +1
     ab_loop_changed = Signal(object, object)  # t_in|None, t_out|None
     jump_requested = Signal(float)  # delta in seconds
+    marker_move_requested = Signal(int, float, object)  # index, t_start, t_end|None
 
     # Ordered playback-rate steps (J/K/L model)
     _RATE_STEPS = PLAYBACK_RATE_STEPS
@@ -1221,6 +1283,7 @@ class Transport(QWidget):
         self.overview.viewport_seek_requested.connect(
             lambda t, exact: self.seek_requested.emit(t, exact)
         )
+        self.overview.marker_move_requested.connect(self.marker_move_requested)
         self._root_layout.addWidget(self.evidence)
         self._root_layout.addLayout(self._timeline_layout)
 
@@ -1348,6 +1411,7 @@ class Transport(QWidget):
         self._timeline_layout.addWidget(self.rate_combo)
 
         self._bounds = (0.0, 0.0)
+        self._direction = 1
         self._is_scrubbing = False
         self._ab_in_t: float | None = None
         self._ab_out_t: float | None = None
@@ -1385,6 +1449,61 @@ class Transport(QWidget):
     def ab_out(self) -> None:
         """Set the A/B loop out-point at the current slider position (public)."""
         self._on_ab_out()
+
+    def ab_range(self) -> tuple[float, float] | None:
+        """Return ``(start, end)`` when both A and B loop pins are set."""
+        if self._ab_in_t is None or self._ab_out_t is None:
+            return None
+        return min(self._ab_in_t, self._ab_out_t), max(self._ab_in_t, self._ab_out_t)
+
+    @property
+    def direction(self) -> int:
+        """Current shuttle direction (``+1`` forward, ``-1`` reverse)."""
+        return self._direction
+
+    def set_direction(self, direction: int) -> None:
+        """Set playback direction without resetting speed."""
+        next_dir = -1 if direction < 0 else 1
+        if next_dir != self._direction:
+            self._direction = next_dir
+            self.direction_changed.emit(self._direction)
+        self._update_shuttle_tooltip()
+
+    def shuttle_forward(self) -> None:
+        """Start forward playback at 1x, or step forward speed up (L key)."""
+        if not self.play_btn.isChecked() or self._direction < 0:
+            self.set_direction(1)
+            idx_1x = self.rate_combo.findData(1.0)
+            if idx_1x >= 0:
+                self.rate_combo.setCurrentIndex(idx_1x)
+            self.set_playing(True)
+            self.play_toggled.emit(True)
+            return
+        self.step_rate_up()
+
+    def shuttle_reverse(self) -> None:
+        """Start reverse playback at -1x, or step reverse speed up (J key)."""
+        if not self.play_btn.isChecked() or self._direction > 0:
+            self.set_direction(-1)
+            idx_1x = self.rate_combo.findData(1.0)
+            if idx_1x >= 0:
+                self.rate_combo.setCurrentIndex(idx_1x)
+            self.set_playing(True)
+            self.play_toggled.emit(True)
+            return
+        self.step_rate_up()
+
+    def shuttle_pause(self) -> None:
+        """Pause unconditionally and reset shuttle direction to forward (K key)."""
+        self.set_direction(1)
+        self.set_playing(False)
+        self.play_toggled.emit(False)
+
+    def _update_shuttle_tooltip(self) -> None:
+        if self._direction < 0 and self.play_btn.isChecked():
+            self.play_btn.setToolTip(tr("Playing in reverse — press K or Space to pause"))
+        else:
+            self.play_btn.setToolTip(tr("Play / Pause (Space)"))
 
     def set_ab_region(self, start: float, end: float) -> None:
         """Show a review span using the same A/B pins as the transport buttons."""
@@ -1550,6 +1669,10 @@ class Transport(QWidget):
                 self.slider.blockSignals(False)
         self.overview.set_cursor(t)
 
+    def set_hover_time(self, t: object) -> None:
+        """Forward plot hover time (float or None) to the timeline overview."""
+        self.overview.set_hover_time(float(t) if isinstance(t, (int, float)) else None)
+
     def set_playing(self, playing: bool) -> None:
         self.play_btn.blockSignals(True)
         self.play_btn.setChecked(playing)
@@ -1557,6 +1680,7 @@ class Transport(QWidget):
         set_svg_icon(self.play_btn, "pause" if playing else "play")
         self.play_btn.setAccessibleName(tr("Pause playback") if playing else tr("Start playback"))
         self.play_btn.blockSignals(False)
+        self._update_shuttle_tooltip()
 
     def step_rate_up(self) -> None:
         """Advance the rate combo to the next higher step (L key)."""

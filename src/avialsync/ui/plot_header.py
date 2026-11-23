@@ -26,6 +26,7 @@ class PlotHeader(QWidget):
     presentation_changed = Signal(object)
     fit_all_requested = Signal()
     row_height_changed = Signal(int)
+    view_mode_changed = Signal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -64,6 +65,18 @@ class PlotHeader(QWidget):
         self.row_height_combo.currentIndexChanged.connect(self._emit_row_height)
         layout.addWidget(self.row_height_combo)
 
+        self.view_mode_combo = QComboBox(self)
+        self.view_mode_combo.addItem(tr("Stacked"), "stacked")
+        self.view_mode_combo.addItem(tr("Overlaid"), "overlay")
+        self.view_mode_combo.addItem(tr("Heatmap"), "heatmap")
+        self.view_mode_combo.setCurrentIndex(0)
+        self.view_mode_combo.setAccessibleName(tr("Plot display mode"))
+        self.view_mode_combo.setToolTip(
+            tr("Display visible channels as stacked rows, overlaid traces, or a 2D heatmap")
+        )
+        self.view_mode_combo.currentIndexChanged.connect(self._emit_view_mode)
+        layout.addWidget(self.view_mode_combo)
+
         # The plot pane's own Reset Plots action, which the View menu also
         # shows: it said "Reset plots" here and "Reset Plot Zoom" there for the
         # same Ctrl+0 command.
@@ -89,6 +102,9 @@ class PlotHeader(QWidget):
 
     def _emit_row_height(self, _index: int) -> None:
         self.row_height_changed.emit(int(self.row_height_combo.currentData()))
+
+    def _emit_view_mode(self, _index: int) -> None:
+        self.view_mode_changed.emit(str(self.view_mode_combo.currentData()))
 
 
 class PlotControlStrip(QScrollArea):

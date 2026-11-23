@@ -26,6 +26,15 @@ from avialsync.ui.marker_overlay import (
     overlay_label_point_size,
 )
 from avialsync.ui.overlay_registry import default_visible_for
+from avialsync.ui.pose_overlay_extras import (
+    confidence_threshold,
+    draw_2d_skeleton,
+    draw_epipolar_guides,
+    draw_magnifier_loupe,
+    draw_motion_trails,
+    style_point_by_confidence,
+    trail_frame_count,
+)
 from avialsync.ui.prop_overlay import PropDrawing, draw_props
 from avialsync.ui.tracking_colors import color_for_point
 from avialsync.ui.wheel_overlay import WheelDrawing, draw_wheel, draw_wheel_clicks
@@ -67,6 +76,7 @@ class OverlayTrack:
     color: tuple[int, int, int] = _ENSEMBLE_COLOR
     is_ensemble: bool = True
     likelihood: dict[str, Any] = field(default_factory=dict)
+    edges: tuple[tuple[str, str], ...] = ()
 
 
 def track_color(index: int, *, is_ensemble: bool) -> tuple[int, int, int]:
@@ -107,6 +117,10 @@ class PaintCanvas(MarkerOverlayMixin):
         #: checking a track needs to do.
         self._points_visible = default_visible_for("tracking.points")
         self._corrections_visible = default_visible_for("tracking.corrections")
+        self._skeleton_2d_visible = default_visible_for("tracking.skeleton_2d")
+        self._trails_visible = default_visible_for("tracking.trails")
+        self._confidence_visible = default_visible_for("tracking.confidence")
+        self._loupe_visible = default_visible_for("camera.loupe")
         self._init_point_editing()
         self._init_marker_overlay()
 
@@ -145,6 +159,26 @@ class PaintCanvas(MarkerOverlayMixin):
     def set_legend_visible(self, visible: bool) -> None:
         """Show or hide the per-track legend."""
         self._show_legend = visible
+        self.update()
+
+    def set_skeleton_2d_visible(self, visible: bool) -> None:
+        """Show or hide 2D limb connections between tracked points."""
+        self._skeleton_2d_visible = bool(visible)
+        self.update()
+
+    def set_trails_visible(self, visible: bool) -> None:
+        """Show or hide fading recent-frame motion trails."""
+        self._trails_visible = bool(visible)
+        self.update()
+
+    def set_confidence_visible(self, visible: bool) -> None:
+        """Show or hide low-confidence point styling."""
+        self._confidence_visible = bool(visible)
+        self.update()
+
+    def set_loupe_visible(self, visible: bool) -> None:
+        """Show or hide the corner magnifier loupe during precision edits."""
+        self._loupe_visible = bool(visible)
         self.update()
 
     def _video_scale(self) -> tuple[float, float, float] | None:
@@ -274,6 +308,12 @@ class PaintCanvas(MarkerOverlayMixin):
 
             if np.isnan(x_value) or np.isnan(y_value):
                 continue
+            conf_value: float | None = None
+            lik_reader = track.likelihood.get(name)
+            if lik_reader is not None and not corrected:
+                lik_sample = self._sample(lik_reader)
+                if lik_sample is not None and np.isfinite(lik_sample[1]):
+                    conf_value = float(lik_sample[1])
             resolved.append(
                 ResolvedPoint(
                     name=name,
@@ -282,6 +322,7 @@ class PaintCanvas(MarkerOverlayMixin):
                     color=color_for_point(name),
                     key=key,
                     corrected=corrected,
+                    confidence=conf_value,
                 )
             )
         return resolved
@@ -303,7 +344,18 @@ class PaintCanvas(MarkerOverlayMixin):
         # Reprojection is its own layer too: the 3D points' crosses alone are
         # how a triangulation is checked against the footage.
         reproject = self._reprojection_visible and self._reprojection is not None
-        if not draw_points and not reproject and wheel is None and not props:
+        epipolar = (
+            self._epipolar(self.t) if self._epipolar is not None and self._epipolar_visible else []
+        )
+        loupe = self._loupe_visible and self._loupe_video_xy is not None
+        if (
+            not draw_points
+            and not reproject
+            and wheel is None
+            and not props
+            and not epipolar
+            and not loupe
+        ):
             return
         geometry = self._video_scale()
         if geometry is None:
@@ -313,7 +365,9 @@ class PaintCanvas(MarkerOverlayMixin):
         painter = QPainter(self)
         try:
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            self._paint_layers(painter, draw_points, wheel, props, scale, offset_x, offset_y)
+            self._paint_layers(
+                painter, draw_points, wheel, props, epipolar, scale, offset_x, offset_y
+            )
         finally:
             # A Python exception must not return control to Qt with this widget
             # still being painted; that leaves the backing store in an invalid
@@ -326,6 +380,7 @@ class PaintCanvas(MarkerOverlayMixin):
         draw_points: bool,
         wheel: WheelDrawing | None,
         props: list[PropDrawing],
+        epipolar: list[tuple[str, Any]],
         scale: float,
         offset_x: float,
         offset_y: float,
@@ -334,6 +389,8 @@ class PaintCanvas(MarkerOverlayMixin):
         bounds, chrome = self._label_area(scale, offset_x, offset_y)
         if props:
             draw_props(painter, props, scale, offset_x, offset_y, bounds, chrome)
+        if epipolar:
+            draw_epipolar_guides(painter, epipolar, scale, offset_x, offset_y)
 
         if wheel is not None:
             # Under the tracking, so a bar never hides the paw standing on it.
@@ -374,6 +431,19 @@ class PaintCanvas(MarkerOverlayMixin):
 
         if wheel is not None and (wheel.clicks or wheel.projections or wheel.prompt):
             draw_wheel_clicks(painter, wheel, scale, offset_x, offset_y, bounds, chrome)
+        if self._loupe_visible and self._loupe_video_xy is not None:
+            surface = getattr(self.parent(), "surface", None)
+            image = getattr(surface, "_image", None) if surface is not None else None
+            draw_magnifier_loupe(
+                painter,
+                image,
+                self._loupe_video_xy,
+                self.width(),
+                self.height(),
+                scale,
+                offset_x,
+                offset_y,
+            )
 
     def _label_area(
         self, scale: float, offset_x: float, offset_y: float
@@ -418,17 +488,31 @@ class PaintCanvas(MarkerOverlayMixin):
         label_font.setPointSizeF(overlay_label_point_size())
         label_font.setBold(track.is_ensemble)
 
+        resolved = self._resolve(track)
+        if self._trails_visible and resolved:
+            draw_motion_trails(
+                painter, track, resolved, scale, offset_x, offset_y, trail_frame_count()
+            )
+        if self._skeleton_2d_visible and track.is_ensemble and len(resolved) >= 2:
+            draw_2d_skeleton(painter, resolved, track.edges, scale, offset_x, offset_y)
+
+        thresh = confidence_threshold()
         any_drawn = False
-        for point in self._resolve(track):
+        for point in resolved:
             x = offset_x + point.x * scale
             y = offset_y + point.y * scale
 
             color = QColor(*point.color)
-            pen = QPen(color, 2 if track.is_ensemble else 1)
-            painter.setPen(pen)
-            painter.setBrush(color)
-
-            painter.drawEllipse(int(x) - radius, int(y) - radius, radius * 2, radius * 2)
+            low_conf = style_point_by_confidence(
+                painter,
+                color,
+                point.confidence,
+                thresh,
+                enabled=self._confidence_visible,
+                is_ensemble=track.is_ensemble,
+            )
+            r = (radius + 2) if low_conf else radius
+            painter.drawEllipse(int(x) - r, int(y) - r, r * 2, r * 2)
             if point.key is not None and point.key == self._highlight:
                 self.draw_revisit_ring(painter, x, y)
             if point.corrected and self._corrections_visible:

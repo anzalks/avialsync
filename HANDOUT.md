@@ -884,6 +884,10 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/plot_interactions.py` | Plot context actions, measurement, annotation, and gap interaction state | `PlotInteractionController` |
 | `ui/axis_nav.py` | Per-axis zoom/reset controls and one-axis-at-a-time wheel semantics for a pyqtgraph canvas. **Reset goes to a range the owner declares**, never to auto-range — auto-ranging to the matched subset is what hid a bad fit | `AxisNav`, `NavigableViewBox`, `AxisNav.set_home_range()` |
 | `ui/plot_overlays.py` | Bounded page-local overlay drawing and plot context menu helpers | `redraw_annotations()`, `redraw_measure_lines()` |
+| `ui/plot_canvas_nav.py`, `ui/plot_crosshair.py`, `ui/plot_modes.py` | Cursor-anchored `Ctrl`+wheel zoom and middle/`Shift`+left horizontal pan (`PlotCanvasNavigator`), synchronized hover hairlines + inline value pills + on-canvas `Δt`/`Δy` measure badges (`HoverCrosshair`), sticky top pinned rows, and pyramid-backed `Overlaid` / 2D Viridis `Heatmap` modes (`PlotModeCanvas`) (D-252) | `PlotCanvasNavigator`, `HoverCrosshair`, `redraw_measure_callouts()`, `PlotModeCanvas`, `toggle_channel_pin()` |
+| `ui/pose_overlay_extras.py`, `ui/pose_suspects.py` | Registered 2D skeleton limbs, fading motion trails, low-likelihood point styling, 5× magnifier loupe, calibrated epipolar curves (`core/calibration.py::epipolar_curve`), and off-thread suspect-frame scan/jump via `MainWindow._run_job` (D-251) | `draw_2d_skeleton()`, `draw_motion_trails()`, `style_point_by_confidence()`, `draw_epipolar_guides()`, `draw_magnifier_loupe()`, `epipolar_guides_for()`, `find_suspects_in_cache()`, `jump_suspect_frame()` |
+| `ui/ethogram_bar.py` | Configurable `1`–`9` point/bout ethogram hotkeys, `Mark A–B Range` (`Shift+M`), and marker-to-marker navigation (`Alt+←`/`→`) routed through the command bus (D-250) | `EthogramBar`, `mark_ab_range()`, `jump_to_marker()` |
+| `ui/panel_detachment.py`, `ui/roi_linking.py` | Non-modal multi-monitor detachment for 3D, Imaging, individual cameras, and secondary inspector pages (`PanelDetachment`, D-249); bidirectional 2P ROI mosaic ↔ plot row linking (`install_roi_linking()`, D-253) | `PanelDetachment`, `DetachedCameraWindow`, `PopOutInspectorWindow`, `bring_onto_screen()`, `install_roi_linking()`, `extract_roi_token()` |
 | `ui/tracking_3d_pane.py`, `ui/tracking_3d_controls.py` | Current-pose XYZ projection from cached triplets; orbit/zoom/fit. All tools sit below the scene, aligned with the video tools and using their glyph helpers; there is no top band. Display opens a native popup like camera levels, with labeled skeleton, lines/tubes, numeric thickness and units. Footer height follows font/layout changes and reserves scrollbar height only when needed; very narrow panes retain horizontal access without collapsing videos (D-237). The independent registered `tracking.3d_point_labels` layer is undoable and session-persisted, with the same action in View → Overlays and Display. `Tracking3DCanvas.render_scene(painter, w, h)` owns widget and snapshot painting (D-101). Hand-placed markers are rings; wheels are bars/rims (D-112, D-113) | `Tracking3DPane.set_readers()`, `set_cursor()`, `install_reprojection_action()`, `install_point_labels_action()`, `Tracking3DCanvas.render_scene()`, `set_point_labels_visible()`, `point_labels_visible`, `set_custom_point_source()`, `set_wheel_source()` |
 | `ui/transport.py` | Master-time seek row with Play, glyph step controls, loop and rate; Data Streams has a title and font-scaled, vertically scrolling lanes (D-170, D-171). Status forwards to the status bar. `format_master_time()` owns the displayed time mode and epoch (D-020, D-101) | `set_time()`, `set_bounds()`, `format_master_time()`, `status_text()`, `set_source_coverage(source_id, t0, t1, kind, group="")` — a non-empty `group` merges the span into one shared lane (D-083); an empty span at the origin removes it — `set_ttl_events()`, `set_gap_events()`, `set_message_events()`, `set_annotation_markers()`, `set_status()` |
 | `ui/inspector_nav.py` | Inspector page rail: icon + label buttons that never elide, scrolling vertically when short; a `QTabWidget`-compatible surface (D-172) | `InspectorNav.addTab(page, label, icon=)`, `currentIndex()`, `setCurrentWidget()`, `button()`, `currentChanged` |
@@ -2569,16 +2573,16 @@ conda run -n avialsync python tools/prepare_release.py 0.1.0b1
 | `.` | Step forward 1 frame (alias for `→`) |
 | `Shift+←` | Jump back 1 second |
 | `Shift+→` | Jump forward 1 second |
-| `J` | Jump back 1 second (via `transport.jump_requested(-1.0)`) |
-| `K` | Pause (via `transport.play_toggled(False)`) |
-| `L` | Step up playback rate (via `transport.rate_changed`) |
+| `J` | Shuttle reverse (starts reverse playback at `-1×` or steps rate up; D-250) |
+| `K` | Pause and reset shuttle direction to forward (via `transport.play_toggled(False)`) |
+| `L` | Shuttle forward (starts at `1×` or steps rate up; D-250) |
 | `Home` | Jump to start |
 | `End` | Jump to end |
 
 Time and plot-window editors protect Space while text is being entered. Enter accepts a valid value
 and returns focus to the containing playback surface, so the next Space immediately plays/pauses.
 
-### Marking
+### Marking & Pose Review
 
 | Key | Action |
 |---|---|
@@ -2587,6 +2591,10 @@ and returns focus to the containing playback surface, so the next Space immediat
 | `]` | Set A/B loop out-point |
 | `O` | Set A/B loop out-point (alias for `]`) |
 | `M` | Add point marker at playhead |
+| `Shift+M` | Mark A–B range as a span annotation |
+| `Alt+←` / `Alt+→` | Seek to previous / next annotation marker |
+| `1`–`9` | Trigger configured ethogram point or start/stop bout annotation |
+| `Ctrl+[` / `Ctrl+]` | Seek to previous / next suspect pose frame (low confidence or jump spike) |
 
 ### View
 

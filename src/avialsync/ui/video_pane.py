@@ -313,11 +313,15 @@ class VideoSurface(QWidget):
     """
 
     view_changed = Signal()
+    #: ``(ix, iy, (r, g, b))`` on pointer hover, or ``None`` when leaving the picture.
+    pixel_hovered = Signal(object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
+        self.setMouseTracking(True)
         self._image: QImage | None = None
+        self._hover_pixel: tuple[int, int, tuple[int, int, int]] | None = None
         #: The array the QImage borrows. QImage does not copy the buffer, so
         #: dropping this would leave it pointing at freed memory.
         self._buffer: np.ndarray | None = None
@@ -325,6 +329,7 @@ class VideoSurface(QWidget):
         self._zoom = 1.0
         self._pan = QPointF()
         self._pan_origin: QPointF | None = None
+        self._pending_view: tuple[float, float, float] | None = None
         #: Off while a snapshot renders the picture: the readout is screen
         #: chrome, and a figure states the zoom in its caption instead.
         self.readout_shown = True
@@ -345,6 +350,11 @@ class VideoSurface(QWidget):
         if self._video_size == size:
             return
         self._video_size = size
+        if self._pending_view is not None and width > 0 and height > 0:
+            zoom, pan_x, pan_y = self._pending_view
+            self._pending_view = None
+            self._zoom = zoom
+            self._pan = QPointF(pan_x, pan_y)
         self._clamp_pan()
         self.update()
         self.view_changed.emit()
@@ -430,10 +440,34 @@ class VideoSurface(QWidget):
 
     def reset_view(self) -> None:
         """Restore the fitted, centred video view."""
+        self._pending_view = None
         if self._zoom == 1.0 and self._pan.isNull():
             return
         self._zoom = 1.0
         self._pan = QPointF()
+        self.update()
+        self.view_changed.emit()
+
+    def view_transform(self) -> tuple[float, float, float]:
+        """Return ``(zoom, pan_x, pan_y)`` for session/workspace persistence."""
+        if self._pending_view is not None:
+            return self._pending_view
+        return float(self._zoom), float(self._pan.x()), float(self._pan.y())
+
+    def set_view_transform(self, zoom: float, pan_x: float = 0.0, pan_y: float = 0.0) -> None:
+        """Apply a persisted ``(zoom, pan_x, pan_y)`` transform."""
+        clamped_zoom = min(max(float(zoom), 1.0), 20.0)
+        px = float(pan_x)
+        py = float(pan_y)
+        if not all(self._video_size):
+            self._pending_view = (clamped_zoom, px, py)
+            self._zoom = clamped_zoom
+            self._pan = QPointF(px, py)
+            return
+        self._pending_view = None
+        self._zoom = clamped_zoom
+        self._pan = QPointF(px, py)
+        self._clamp_pan()
         self.update()
         self.view_changed.emit()
 
@@ -487,8 +521,10 @@ class VideoSurface(QWidget):
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        """Pan the magnified frame with the held middle button."""
+        """Pan the magnified frame with the held middle button, or inspect hovered pixel."""
         if self._pan_origin is None or not event.buttons() & Qt.MouseButton.MiddleButton:
+            self._hover_pixel = self.pixel_at(event.position())
+            self.pixel_hovered.emit(self._hover_pixel)
             super().mouseMoveEvent(event)
             return
         position = event.position()
@@ -496,6 +532,29 @@ class VideoSurface(QWidget):
         self._pan_origin = position
         self.pan_by(delta)
         event.accept()
+
+    def leaveEvent(self, event: QEvent) -> None:
+        """Clear hovered pixel readout when the pointer leaves the surface."""
+        if self._hover_pixel is not None:
+            self._hover_pixel = None
+            self.pixel_hovered.emit(None)
+        super().leaveEvent(event)
+
+    def pixel_at(self, widget_pos: QPointF) -> tuple[int, int, tuple[int, int, int]] | None:
+        """Return ``(ix, iy, (r, g, b))`` of the displayed frame under *widget_pos*."""
+        image = self._image
+        geometry = self.frame_geometry()
+        if image is None or image.isNull() or geometry is None:
+            return None
+        scale, offset_x, offset_y = geometry
+        if scale <= 0.0:
+            return None
+        ix = int((widget_pos.x() - offset_x) / scale)
+        iy = int((widget_pos.y() - offset_y) / scale)
+        if not (0 <= ix < image.width() and 0 <= iy < image.height()):
+            return None
+        col = image.pixelColor(ix, iy)
+        return ix, iy, (col.red(), col.green(), col.blue())
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         """Finish a middle-button pan gesture."""
@@ -986,6 +1045,12 @@ class VideoPane(VideoTimingMixin, QWidget):
         """Draw this camera's clicked physical props."""
         self.paint_canvas.set_prop_source(source)
 
+    def set_epipolar_source(
+        self, source: Callable[[float], list[tuple[str, object]]] | None
+    ) -> None:
+        """Draw projected epipolar guide lines in this camera."""
+        self.paint_canvas.set_epipolar_source(source)
+
     def set_marker_place_mode(self, enabled: bool) -> None:
         """Take the next left click as a new 3D marker's position in this camera."""
         self.paint_canvas.set_place_mode(enabled)
@@ -1077,6 +1142,10 @@ class VideoPane(VideoTimingMixin, QWidget):
 
         self.paint_canvas.set_points_visible(visibility.get("tracking.points", True))
         self.paint_canvas.set_point_labels_visible(visibility.get("tracking.point_labels", False))
+        self.paint_canvas.set_skeleton_2d_visible(visibility.get("tracking.skeleton_2d", True))
+        self.paint_canvas.set_trails_visible(visibility.get("tracking.trails", False))
+        self.paint_canvas.set_confidence_visible(visibility.get("tracking.confidence", True))
+        self.paint_canvas.set_epipolar_visible(visibility.get("tracking.epipolar", True))
         self.paint_canvas.set_corrections_visible(visibility.get("tracking.corrections", True))
         self.paint_canvas.set_legend_visible(visibility.get("tracking.legend", True))
         self.paint_canvas.set_custom_markers_visible(
@@ -1087,6 +1156,7 @@ class VideoPane(VideoTimingMixin, QWidget):
             visibility.get("tracking.wheel", True), visibility.get("tracking.wheel_hidden", False)
         )
         self.paint_canvas.set_props_visible(visibility.get("tracking.props", True))
+        self.paint_canvas.set_loupe_visible(visibility.get("camera.loupe", True))
 
         self.lbl_osd.setVisible(visibility.get("camera.osd", True))
         # Through set_label so an empty name stays hidden either way: a pane

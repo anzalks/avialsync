@@ -38,6 +38,8 @@ class ActionButton(QPushButton):
         super().__init__(parent)
         self._action: QAction | None = None
         self._icon_only = False
+        self._show_icon_label = False
+        self._short_label = ""
         if action is not None:
             self.set_action(action)
         else:
@@ -63,7 +65,7 @@ class ActionButton(QPushButton):
         self._adopt()
         self.show()
 
-    def set_icon_only(self, icon: str) -> None:
+    def set_icon_only(self, icon: str, short_label: str = "") -> None:
         """Show AvialSync glyph *icon* in place of the text.
 
         The action's text still names the button -- as its accessible name and
@@ -72,7 +74,16 @@ class ActionButton(QPushButton):
         from avialsync.ui.design_tokens import ControlRole, apply_role
 
         self._icon_only = True
+        if short_label:
+            self._short_label = short_label
         apply_role(self, ControlRole.TOOL, icon)
+        self._adopt()
+
+    def set_label_shown(self, shown: bool, short_label: str = "") -> None:
+        """Toggle optional text beside an icon-only tool button."""
+        self._show_icon_label = bool(shown)
+        if short_label:
+            self._short_label = short_label
         self._adopt()
 
     def _on_clicked(self) -> None:
@@ -98,7 +109,7 @@ class ActionButton(QPushButton):
             return
         if self._icon_only:
             name = action.text().replace("&", "").rstrip("…").strip()
-            self.setText("")
+            self.setText((self._short_label or name) if self._show_icon_label else "")
             self.setAccessibleName(name)
             # The action's own tooltip when it has one -- it carries the
             # reason a greyed command is unavailable -- else the name.
@@ -111,6 +122,9 @@ class ActionButton(QPushButton):
         else:
             self.setText(action.text())
             self.setToolTip(action.toolTip())
+        status = action.statusTip() or self.toolTip()
+        if status:
+            self.setStatusTip(status)
         self.setEnabled(action.isEnabled())
         if not action.isCheckable():
             return

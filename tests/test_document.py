@@ -16,9 +16,11 @@ from avialsync.core.commands import (
     AcceptSyncCommand,
     AddMarkerCommand,
     AddSourceCommand,
+    MoveMarkerCommand,
     RelabelMarkerCommand,
     RemoveMarkerCommand,
     RemoveSourceCommand,
+    ReorderVideosCommand,
     ResetSessionCommand,
     SetChannelVisibleCommand,
     SetIdentityGroupCommand,
@@ -66,6 +68,7 @@ class FakeTarget:
         self.video_levels: dict[str, dict[str, float]] = {}
         self.imaging_layouts: dict[str, dict[str, Any]] = {}
         self.sync_evidence: dict[str, Any] = {}
+        self.video_order: tuple[str, ...] = ("cam1", "cam2")
         self.cleared = 0
         self.captures = 0
 
@@ -87,6 +90,9 @@ class FakeTarget:
 
     def set_marker_label(self, index: int, label: str) -> None:
         self.markers[index] = dataclasses.replace(self.markers[index], label=label)
+
+    def set_marker_span(self, index: int, t_start: float, t_end: float | None) -> None:
+        self.markers[index] = dataclasses.replace(self.markers[index], t_start=t_start, t_end=t_end)
 
     def set_source_visible(self, source_id: str, visible: bool) -> None:
         self.source_visible[source_id] = visible
@@ -177,6 +183,9 @@ class FakeTarget:
     def remove_source(self, source_id: str) -> None:
         self.sources.pop(source_id, None)
 
+    def set_video_order(self, order: tuple[str, ...]) -> None:
+        self.video_order = tuple(order)
+
     def apply_sync(
         self, source_id: str, offset: float, drift_ms_per_hour: float, evidence: Any
     ) -> None:
@@ -191,6 +200,7 @@ class FakeTarget:
             "sources": dict(self.sources),
             "tracking_visible": dict(self.tracking_visible),
             "original_tracker_visible": self.original_tracker_visible,
+            "video_order": self.video_order,
         }
 
     def restore_workspace(self, snapshot: Any) -> None:
@@ -199,6 +209,7 @@ class FakeTarget:
         self.sources = dict(snapshot["sources"])
         self.tracking_visible = dict(snapshot["tracking_visible"])
         self.original_tracker_visible = snapshot["original_tracker_visible"]
+        self.video_order = snapshot["video_order"]
 
     def clear_workspace(self) -> None:
         self.cleared += 1
@@ -207,6 +218,7 @@ class FakeTarget:
         self.sources.clear()
         self.tracking_visible.clear()
         self.original_tracker_visible = False
+        self.video_order = ()
 
 
 @pytest.fixture()
@@ -235,6 +247,8 @@ def _all_commands() -> list[Any]:
         AddMarkerCommand(_marker(t=5.0, label="new")),
         RemoveMarkerCommand(_marker()),
         RelabelMarkerCommand(index=0, before="spike", after="burst"),
+        MoveMarkerCommand(index=0, before=(1.0, None), after=(2.5, None)),
+        ReorderVideosCommand(before=("cam1", "cam2"), after=("cam2", "cam1")),
         SetSourceVisibleCommand("cam1", visible=False),
         SetChannelVisibleCommand("ephys", "ch3", visible=False),
         SetOverlayVisibleCommand("tracking.legend", visible=False),

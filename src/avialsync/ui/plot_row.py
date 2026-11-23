@@ -60,6 +60,8 @@ class ChannelPlot:
     y_range: tuple[float, float] | None = None
     row_height: int = 110
     visible: bool = True
+    pinned: bool = False
+    pinned_in_layout: bool = False
     #: The page start its curve data is relative to, once a page is installed.
     #: Pages arrive from a worker, so between a page change and its arrival
     #: the row is offset by the difference and its samples stay at their
@@ -282,13 +284,18 @@ def create_channel_plot(
     source_id: str = "",
     row_height: int = 110,
     visible: bool = True,
+    existing_reader: MappedChannelReader | None = None,
 ) -> ChannelPlot:
     """Create one row without deciding shared X-axis ownership.
 
     The row always reads through a :class:`MappedChannelReader`, so every time it
     handles is master time regardless of the source's own clock.
     """
-    reader = MappedChannelReader(PyramidReader(cache_dir, channel_name), time_map, source_id)
+    reader = (
+        existing_reader
+        if existing_reader is not None
+        else MappedChannelReader(PyramidReader(cache_dir, channel_name), time_map, source_id)
+    )
     close_button = QToolButton()
     close_button.setText(tr("Hide plot"))
     close_button.setAutoRaise(True)

@@ -28,9 +28,15 @@ from typing import Any
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
+    QComboBox,
+    QFrame,
     QGroupBox,
+    QHBoxLayout,
     QHeaderView,
+    QLineEdit,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -43,6 +49,7 @@ from avialsync.ui.action_button import ActionButton
 from avialsync.ui.annotations import AnnotationStore
 from avialsync.ui.design_tokens import ControlRole, apply_role, spacing
 from avialsync.ui.empty_note import EmptyNote
+from avialsync.ui.ethogram_bar import EthogramBar
 from avialsync.ui.i18n import tr
 from avialsync.ui.tables import ThemedTable
 from avialsync.ui.time_format import TimeDisplayMode, format_time
@@ -106,8 +113,45 @@ class ChangesPanel(QGroupBox):
         #: the window, which is the only thing that knows the pose sources.
         self._resolver: Any = None
 
-        layout = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea(self)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setWidgetResizable(True)
+        scroll.setMinimumHeight(0)
+        scroll.setAccessibleName(tr("Changes list and controls"))
+        content = QWidget(scroll)
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
+
+        self.ethogram_bar = EthogramBar(annotations, content)
+        layout.addWidget(self.ethogram_bar)
+
+        filter_row = QHBoxLayout()
+        filter_row.setContentsMargins(0, 0, 0, 0)
+        filter_row.setSpacing(spacing("xs"))
+        self.kind_filter = QComboBox(self)
+        self.kind_filter.addItem(tr("All changes"), "")
+        self.kind_filter.addItem(tr("Flags"), "Flag")
+        self.kind_filter.addItem(tr("Ranges"), "Range")
+        self.kind_filter.addItem(tr("Corrections"), "Correction")
+        self.kind_filter.addItem(tr("Identity swaps"), "Identity swap")
+        self.kind_filter.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
+        )
+        self.kind_filter.setMinimumContentsLength(6)
+        self.kind_filter.setAccessibleName(tr("Filter changes by kind"))
+        self.kind_filter.currentIndexChanged.connect(self.refresh)
+        self.search_edit = QLineEdit(self)
+        self.search_edit.setPlaceholderText(tr("Filter label or source…"))
+        self.search_edit.setClearButtonEnabled(True)
+        self.search_edit.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.search_edit.setMinimumWidth(50)
+        self.search_edit.setAccessibleName(tr("Filter changes by text"))
+        self.search_edit.textChanged.connect(self.refresh)
+        filter_row.addWidget(self.kind_filter)
+        filter_row.addWidget(self.search_edit, 1)
+        layout.addLayout(filter_row)
 
         self._table = ThemedTable(0, len(_COLUMNS))
         self._table.setHorizontalHeaderLabels([tr(name) for name in _COLUMNS])
@@ -155,6 +199,9 @@ class ChangesPanel(QGroupBox):
         buttons.addWidget(self._delete_button)
         layout.addLayout(buttons)
 
+        scroll.setWidget(content)
+        outer.addWidget(scroll)
+
         self._annotations.changed.connect(self.refresh)
         self._time_mode = TimeDisplayMode.RELATIVE
         self._t_epoch = 0.0
@@ -189,12 +236,25 @@ class ChangesPanel(QGroupBox):
 
     def refresh(self) -> None:
         """Rebuild the table from every store holding a user-made change."""
-        self._rows = sorted(
+        all_rows = sorted(
             self._annotation_rows() + self._correction_rows() + self._swap_rows(),
             # Unplaced rows sort last rather than to zero, where a fake time
             # would put them before everything that really happened first.
             key=lambda row: (row.t_master is None, row.t_master or 0.0, row.kind, row.where),
         )
+        wanted_kind = str(self.kind_filter.currentData() or "")
+        needle = self.search_edit.text().strip().lower()
+        self._rows = [
+            row
+            for row in all_rows
+            if (not wanted_kind or row.kind == tr(wanted_kind))
+            and (
+                not needle
+                or needle in row.detail.lower()
+                or needle in row.where.lower()
+                or needle in row.kind.lower()
+            )
+        ]
         self._table.blockSignals(True)
         try:
             self._table.setRowCount(0)
@@ -214,8 +274,8 @@ class ChangesPanel(QGroupBox):
                     self._table.setItem(position, column, item)
         finally:
             self._table.blockSignals(False)
-        self._empty.setVisible(not self._rows)
-        self._table.setVisible(bool(self._rows))
+        self._empty.setVisible(not all_rows)
+        self._table.setVisible(bool(all_rows))
         self._update_delete()
 
     def _update_delete(self) -> None:

@@ -199,30 +199,45 @@ def _view_panels(window: MainWindow, view_menu: QMenu, _reg: Register) -> None:
     window._act_detach_plots.toggled.connect(window._set_plots_detached)
     _reg(window._act_detach_plots, "View")
 
+    window._act_detach_3d = view_menu.addAction(tr("Detach 3D View"))
+    window._act_detach_3d.setCheckable(True)
+    window._act_detach_3d.setToolTip(
+        tr("Show the 3D tracking view in a separate window for another display")
+    )
+    window._act_detach_3d.toggled.connect(window.panel_detachment.set_tracking_3d_detached)
+    _reg(window._act_detach_3d, "View")
+
+    window._act_detach_imaging = view_menu.addAction(tr("Detach Imaging"))
+    window._act_detach_imaging.setCheckable(True)
+    window._act_detach_imaging.setToolTip(
+        tr("Show the two-photon imaging pane in a separate window for another display")
+    )
+    window._act_detach_imaging.toggled.connect(window.panel_detachment.set_imaging_detached)
+    _reg(window._act_detach_imaging, "View")
+    window._require(
+        window._act_detach_imaging,
+        lambda: (
+            bool(window.imaging_pane.source_paths()) or window.panel_detachment.imaging_detached
+        ),
+        tr("Load an imaging stack before detaching the imaging pane."),
+    )
+
     window._act_panels_back = view_menu.addAction(tr("Bring Panels Back"))
     window._act_panels_back.setToolTip(
         tr("Re-dock every panel and move any stray window back onto this screen")
     )
     window._act_panels_back.triggered.connect(window._bring_panels_back)
     _reg(window._act_panels_back, "View")
-    # Kept in the menu and nowhere else. Attaching a panel belongs on the
-    # panel -- its title bar carries that button -- and this is only the
-    # last resort for the one case the panel's own button cannot serve: a
-    # window on a screen that is no longer there to click.
     view_menu.addSeparator()
 
-    # Workspaces: a session is looked at in more than one way, and
-    # rearranging the splitters each time is friction enough to stop
-    # people doing it.
     window._workspace_menu = view_menu.addMenu(tr("Workspace"))
     window._rebuild_workspace_menu()
     view_menu.addSeparator()
 
 
 def _view_inspector(window: MainWindow, view_menu: QMenu, _reg: Register) -> None:
-    """One action per inspector page, so the palette and menu reach each."""
+    """One action per inspector page, plus secondary pop-out windows."""
     inspector_menu = view_menu.addMenu(tr("Inspector"))
-    # The dock's own toggle: shown, hidden, or floating.
     inspector_menu.addAction(_reg(window.inspector_dock.toggleViewAction(), "View"))
     inspector_menu.addSeparator()
     nav = window._left_tabs
@@ -235,16 +250,31 @@ def _view_inspector(window: MainWindow, view_menu: QMenu, _reg: Register) -> Non
         window._inspector_actions.append(_reg(action, "View"))
     tasks = inspector_menu.addAction(tr("Show Tasks"))
     tasks.setToolTip(tr("Show running and recently finished background tasks"))
-    # Late-bound: the status bar is built after the menus.
     tasks.triggered.connect(lambda: window.tasks_button.show_popover())
     window._inspector_actions.append(_reg(tasks, "View"))
+    inspector_menu.addSeparator()
+    pop_current = inspector_menu.addAction(tr("Pop Out Current Inspector Page"))
+    pop_current.setToolTip(
+        tr("Open the active inspector page in a separate window alongside this dock")
+    )
+    pop_current.triggered.connect(lambda: window.panel_detachment.pop_out_inspector_page())
+    _reg(pop_current, "View")
+    pop_menu = inspector_menu.addMenu(tr("Pop Out Page"))
+    for index in range(nav.count()):
+        name = nav.tabText(index)
+        pop_act = pop_menu.addAction(tr("Pop Out {page}").format(page=name))
+        pop_act.setToolTip(
+            tr("Show {page} in its own window while keeping Sources open").format(page=name)
+        )
+        pop_act.triggered.connect(
+            lambda _checked=False, i=index: window.panel_detachment.pop_out_inspector_page(i)
+        )
+        _reg(pop_act, "View")
     view_menu.addSeparator()
 
 
 def _view_navigation(window: MainWindow, view_menu: QMenu, _reg: Register) -> None:
     """Offer plot zoom and video fitting commands."""
-    # The plot pane's own action, so the button under the plots is this same
-    # command. Renamed from "Reset Plot Zoom": it resets the time span too.
     window._act_reset_zoom = window.plot_pane.reset_action
     view_menu.addAction(window._act_reset_zoom)
     window._act_reset_zoom.setProperty("av_id", "view_reset_plot_zoom")
@@ -256,8 +286,6 @@ def _view_navigation(window: MainWindow, view_menu: QMenu, _reg: Register) -> No
         tr("There are no plots to reset until data is loaded."),
     )
 
-    # Fit All Videos: every camera back to the whole frame, 1.00x, unpanned --
-    # what each pane's own reset button does, for all of them at once.
     window._act_fit_videos = view_menu.addAction(tr("Fit All Videos"))
     window._act_fit_videos.setShortcut(QKeySequence("Ctrl+Shift+0"))
     window._act_fit_videos.setToolTip(
@@ -272,8 +300,6 @@ def _view_navigation(window: MainWindow, view_menu: QMenu, _reg: Register) -> No
     )
     window.view_toolbar.install_fit_videos_action(window._act_fit_videos)
 
-    # A view, never a change to time: the preference is the one authority,
-    # and this action is its switch (D-218).
     window._act_collapse_gaps = view_menu.addAction(tr("Collapse Gaps Without Data"))
     window._act_collapse_gaps.setCheckable(True)
     window._act_collapse_gaps.setChecked(gap_view.collapse_enabled())
@@ -286,7 +312,6 @@ def _view_navigation(window: MainWindow, view_menu: QMenu, _reg: Register) -> No
     window._act_collapse_gaps.toggled.connect(lambda on: gap_view.set_collapse(window, on))
     _reg(window._act_collapse_gaps, "View")
 
-    # Fullscreen toggle — StandardKey.FullScreen = F11 / Ctrl+Cmd+F on macOS
     window._act_fullscreen = view_menu.addAction(tr("Fullscreen"))
     window._act_fullscreen.setShortcut(QKeySequence(QKeySequence.StandardKey.FullScreen))
     window._act_fullscreen.triggered.connect(window._toggle_fullscreen)
@@ -298,6 +323,12 @@ def _view_navigation(window: MainWindow, view_menu: QMenu, _reg: Register) -> No
         lambda: bool(window.video_grid._paths),
         tr("Load a video — fullscreen applies to a camera pane."),
     )
+    _install_plot_context_actions(window)
 
-    # Pass reset-zoom action to plot pane so the context menu uses the same object
-    window.plot_pane.set_context_actions([window._act_reset_zoom])
+
+def _install_plot_context_actions(window: MainWindow) -> None:
+    ctx_actions = [window._act_reset_zoom]
+    mark_range = getattr(window, "_act_mark_range", None)
+    if mark_range is not None:
+        ctx_actions.append(mark_range)
+    window.plot_pane.set_context_actions(ctx_actions)

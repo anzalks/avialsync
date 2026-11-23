@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QMenu, QMenuBar
 
+from avialsync.ui import ethogram_bar, pose_suspects
 from avialsync.ui.controllers import custom_marker_controller, identity_view
 from avialsync.ui.i18n import tr
 from avialsync.ui.undo_adapter import install_edit_menu
@@ -25,7 +26,9 @@ def build_edit_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> None:
     _reg(window._undo_actions.undo_action, "Edit")
     _reg(window._undo_actions.redo_action, "Edit")
     _edit_tracking(window, window._edit_menu, _reg)
+    _edit_suspects(window, window._edit_menu, _reg)
     _edit_geometry(window, window._edit_menu, _reg)
+    _edit_annotations(window, window._edit_menu, _reg)
 
 
 def _edit_tracking(window: MainWindow, edit_menu: QMenu, _reg: Register) -> None:
@@ -60,6 +63,35 @@ def _edit_tracking(window: MainWindow, edit_menu: QMenu, _reg: Register) -> None
     )
 
 
+def _edit_suspects(window: MainWindow, edit_menu: QMenu, _reg: Register) -> None:
+    """Jump between low-likelihood and velocity-spike pose frames."""
+    window._act_prev_suspect = edit_menu.addAction(tr("Previous Suspect Frame"))
+    window._act_prev_suspect.setShortcut(QKeySequence("Ctrl+["))
+    window._act_prev_suspect.setToolTip(
+        tr("Seek to the previous low-confidence or abrupt-jump pose frame (Ctrl+[)")
+    )
+    window._act_prev_suspect.triggered.connect(lambda: pose_suspects.jump_suspect_frame(window, -1))
+    window._require(
+        window._act_prev_suspect,
+        lambda: bool(window._pose_schemas),
+        tr("Import 2D tracking before stepping through suspect pose frames."),
+    )
+    _reg(window._act_prev_suspect, "Edit")
+
+    window._act_next_suspect = edit_menu.addAction(tr("Next Suspect Frame"))
+    window._act_next_suspect.setShortcut(QKeySequence("Ctrl+]"))
+    window._act_next_suspect.setToolTip(
+        tr("Seek to the next low-confidence or abrupt-jump pose frame (Ctrl+])")
+    )
+    window._act_next_suspect.triggered.connect(lambda: pose_suspects.jump_suspect_frame(window, 1))
+    window._require(
+        window._act_next_suspect,
+        lambda: bool(window._pose_schemas),
+        tr("Import 2D tracking before stepping through suspect pose frames."),
+    )
+    _reg(window._act_next_suspect, "Edit")
+
+
 def _edit_geometry(window: MainWindow, edit_menu: QMenu, _reg: Register) -> None:
     """Add 3D marker and wheel placement commands."""
     # Add 3D Marker: name a point, click it in every camera, triangulate.
@@ -85,3 +117,42 @@ def _edit_geometry(window: MainWindow, edit_menu: QMenu, _reg: Register) -> None
     window._act_add_prop.setToolTip(tr("Open the physical props inspector"))
     window._act_add_prop.triggered.connect(window.props_app.show)
     _reg(window._act_add_prop, "Edit")
+
+
+def _edit_annotations(window: MainWindow, edit_menu: QMenu, _reg: Register) -> None:
+    """Range annotation and marker navigation commands."""
+    edit_menu.addSeparator()
+    window._act_mark_range = edit_menu.addAction(tr("Mark A–B Range"))
+    window._act_mark_range.setShortcut(QKeySequence("Shift+M"))
+    window._act_mark_range.setToolTip(
+        tr("Create a range annotation spanning the current A–B loop (Shift+M)")
+    )
+    window._act_mark_range.triggered.connect(lambda: ethogram_bar.mark_ab_range(window))
+    window._require(
+        window._act_mark_range,
+        lambda: window.transport.ab_range() is not None,
+        tr("Set loop in and out points (I and O) before marking an A–B range."),
+    )
+    _reg(window._act_mark_range, "Marking")
+
+    window._act_prev_marker = edit_menu.addAction(tr("Previous Marker"))
+    window._act_prev_marker.setShortcut(QKeySequence("Alt+Left"))
+    window._act_prev_marker.setToolTip(tr("Seek to the previous annotation marker (Alt+←)"))
+    window._act_prev_marker.triggered.connect(lambda: ethogram_bar.jump_to_marker(window, -1))
+    window._require(
+        window._act_prev_marker,
+        lambda: bool(window.annotation_store.markers),
+        tr("Add at least one marker before jumping between markers."),
+    )
+    _reg(window._act_prev_marker, "Marking")
+
+    window._act_next_marker = edit_menu.addAction(tr("Next Marker"))
+    window._act_next_marker.setShortcut(QKeySequence("Alt+Right"))
+    window._act_next_marker.setToolTip(tr("Seek to the next annotation marker (Alt+→)"))
+    window._act_next_marker.triggered.connect(lambda: ethogram_bar.jump_to_marker(window, 1))
+    window._require(
+        window._act_next_marker,
+        lambda: bool(window.annotation_store.markers),
+        tr("Add at least one marker before jumping between markers."),
+    )
+    _reg(window._act_next_marker, "Marking")

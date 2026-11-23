@@ -164,6 +164,7 @@ def cancel(window: MainWindow, message: str | None = None) -> None:
     had = window._marker_placement is not None
     window._marker_placement = None
     window.video_grid.set_marker_place_mode(False)
+    window.video_grid.refresh_point_edits()
     _set_action_checked(window, False)
     if had and message:
         window.transport.set_status(message, "info")
@@ -189,6 +190,7 @@ def on_clicked(window: MainWindow, video: str, x: float, y: float) -> None:
         placement.clicks.clear()
     placement.clicks[video] = (float(x), float(y))
     if len(placement.clicks) < len(state.cameras):
+        window.video_grid.refresh_point_edits()
         _report_progress(window)
         return
     marker = CustomMarker(name=placement.name, frame=placement.frame)

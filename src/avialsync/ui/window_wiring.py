@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from avialsync.ui import imaging_integration
+from avialsync.ui import ethogram_bar, imaging_integration
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
@@ -25,6 +25,7 @@ def connect_annotations(window: MainWindow) -> None:
     window.annotation_store.marker_added.connect(window._record_marker_added)
     window.annotation_store.marker_removed.connect(window._record_marker_removed)
     window.annotation_store.marker_relabelled.connect(window._record_marker_relabelled)
+    window.annotation_store.marker_moved.connect(window._record_marker_moved)
 
 
 def connect_sources(window: MainWindow) -> None:
@@ -65,5 +66,9 @@ def connect_transport_and_panes(window: MainWindow) -> None:
     window.video_grid.pane_activated.connect(window._select_video)
     window.video_grid.pane_right_clicked.connect(window._on_pane_right_clicked)
 
-    # Plot annotate-at
+    # Plot annotate-at and timeline marker dragging
     window.plot_pane.annotate_at_requested.connect(window._on_annotate_at_requested)
+    window.transport.marker_move_requested.connect(window.annotation_store.set_span)
+    window.changes_panel.ethogram_bar.slot_activated.connect(
+        lambda digit: ethogram_bar.trigger_ethogram_slot(window, digit)
+    )

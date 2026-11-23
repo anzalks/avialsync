@@ -28,6 +28,7 @@ ContextAction = Literal[
     "fit_y",
     "auto_y",
     "hold_y",
+    "pin",
     "export",
     "hide",
 ]
@@ -66,6 +67,13 @@ def show_context_menu(
     fit_y = menu.addAction(tr("Fit {name} Y (hold)").format(name=channel.name))
     auto_y = menu.addAction(tr("Auto-scale {name} Y").format(name=channel.name))
     hold_y = menu.addAction(tr("Hold {name} Y scale").format(name=channel.name))
+    menu.addSeparator()
+    pin_label = (
+        tr("Unpin {name} from top").format(name=channel.name)
+        if channel.pinned
+        else tr("Pin {name} to top").format(name=channel.name)
+    )
+    pin = menu.addAction(pin_label)
     extras = tuple(extra_actions)
     if extras:
         menu.addSeparator()
@@ -87,6 +95,7 @@ def show_context_menu(
         fit_y: "fit_y",
         auto_y: "auto_y",
         hold_y: "hold_y",
+        pin: "pin",
         export: "export",
         hide: "hide",
     }
@@ -192,14 +201,18 @@ def redraw_annotations(
     display_x: Callable[[float], float | None],
     x_range: Callable[[float, float], tuple[float, float] | None],
     old_items: list[tuple[pg.PlotItem, object]],
+    *,
+    master_at: Callable[[float], float] | None = None,
+    on_marker_moved: Callable[[int, float, float | None], None] | None = None,
 ) -> list[tuple[pg.PlotItem, object]]:
     """Replace page-local annotation graphics from the authoritative store."""
     for plot_item, item in old_items:
         plot_item.removeItem(item)
     if annotation_store is None:
         return []
+    movable = master_at is not None and on_marker_moved is not None
     new_items: list[tuple[pg.PlotItem, object]] = []
-    for marker in annotation_store.markers:
+    for marker_idx, marker in enumerate(annotation_store.markers):
         color = pg.mkColor(marker.color)
         for channel in channels:
             if not channel.visible:
@@ -209,7 +222,13 @@ def redraw_annotations(
                 if x is None:
                     continue
                 pen = pg.mkPen(color, width=2, style=Qt.PenStyle.DashLine)
-                line = pg.InfiniteLine(pos=x, angle=90, movable=False, pen=pen)
+                line = pg.InfiniteLine(pos=x, angle=90, movable=movable, pen=pen)
+                if movable and master_at is not None and on_marker_moved is not None:
+                    line.sigPositionChangeFinished.connect(
+                        lambda item=line, idx=marker_idx: on_marker_moved(
+                            idx, master_at(float(item.value())), None
+                        )
+                    )
                 channel.plot_item.addItem(line)
                 new_items.append((channel.plot_item, line))
                 continue
@@ -220,10 +239,18 @@ def redraw_annotations(
             brush.setAlpha(40)
             region = pg.LinearRegionItem(
                 values=list(span),
-                movable=False,
+                movable=movable,
                 brush=brush,
                 pen=pg.mkPen(color, width=1, style=Qt.PenStyle.DashLine),
             )
+            if movable and master_at is not None and on_marker_moved is not None:
+                region.sigRegionChangeFinished.connect(
+                    lambda item=region, idx=marker_idx: on_marker_moved(
+                        idx,
+                        master_at(float(item.getRegion()[0])),
+                        master_at(float(item.getRegion()[1])),
+                    )
+                )
             region.setZValue(-5)
             channel.plot_item.addItem(region)
             new_items.append((channel.plot_item, region))

@@ -37,6 +37,7 @@ def on_video_remove_requested(window: MainWindow, path: str) -> None:
     # the way past and that snapshot must describe the session the user
     # just asked for, not the one with this video still in it.
     window.sidebar.remove_video(path)
+    window.panel_detachment.on_camera_removed(path)
     window._video_frame_times.pop(path, None)
     window._overlay_sources.pop(path, None)
     window.overlay_state.forget_camera(path)

@@ -41,6 +41,7 @@ class VideoEntry:
     drift_ms_per_hour: float = 0.0
     integrity_flags: dict[str, object] = dataclasses.field(default_factory=dict)
     metadata: dict[str, object] = dataclasses.field(default_factory=dict)
+    view: dict[str, float] = dataclasses.field(default_factory=dict)
 
 
 @dataclasses.dataclass
@@ -233,6 +234,8 @@ class SessionState:
     #: Session view choice: compare the estimator's imported tracker against
     #: the edited generation without changing either one.
     show_original_tracker: bool = False
+    #: 3D view orientation and camera zoom/pan for this session.
+    view_3d: dict[str, Any] = dataclasses.field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialise to a JSON-compatible dict (always writes version 14)."""
@@ -268,6 +271,7 @@ class SessionState:
             "triggers": [dataclasses.asdict(entry) for entry in self.triggers],
             "identity_swaps": self.identity_swaps,
             "show_original_tracker": self.show_original_tracker,
+            "view_3d": self.view_3d,
         }
 
     @classmethod
@@ -295,6 +299,7 @@ class SessionState:
                 drift_ms_per_hour=drift_from_legacy_entry(v),
                 integrity_flags=v.get("integrity_flags", {}),
                 metadata=v.get("metadata", {}),
+                view={str(k): float(val) for k, val in (v.get("view") or {}).items()},
             )
             for v in data.get("videos", [])
         ]
@@ -421,6 +426,7 @@ class SessionState:
             point_edits=list(data.get("point_edits") or []),
             identity_swaps=list(data.get("identity_swaps") or []),
             show_original_tracker=bool(data.get("show_original_tracker", False)),
+            view_3d=dict(data.get("view_3d") or {}),
         )
 
     def save(self, path: Path) -> None:

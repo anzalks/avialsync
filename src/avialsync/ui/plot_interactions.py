@@ -11,6 +11,8 @@ from PySide6.QtGui import QAction
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.ui.annotations import AnnotationStore
 from avialsync.ui.axis_nav import show_plot_exporter
+from avialsync.ui.plot_crosshair import HoverCrosshair, redraw_measure_callouts
+from avialsync.ui.plot_modes import toggle_channel_pin
 from avialsync.ui.plot_overlays import (
     redraw_annotations,
     redraw_gap_markers,
@@ -34,6 +36,9 @@ class PlotInteractionController:
         self._measure_b: float | None = None
         self._measure_a_lines: list[pg.InfiniteLine] = []
         self._measure_b_lines: list[pg.InfiniteLine] = []
+        self._measure_callout_items: list[tuple[pg.PlotItem, object]] = []
+        self._hover = HoverCrosshair()
+        self._last_hovered_key: ChannelKey | None = None
         self._annotation_store: AnnotationStore | None = None
         self._annotation_items: list[tuple[pg.PlotItem, object]] = []
         self._identity_events: dict[str, tuple[tuple[float, str], ...]] = {}
@@ -77,6 +82,22 @@ class PlotInteractionController:
             self._measure_b_lines,
             self._pane.palette(),
         )
+        self._measure_callout_items = redraw_measure_callouts(
+            self._pane.channels,
+            self._measure_a,
+            self._measure_b,
+            self._pane.x_range,
+            self._measure_callout_items,
+            self._pane.palette(),
+        )
+
+    def clear_hover(self) -> None:
+        """Hide hover crosshair and notify listeners when pointer exits the plots."""
+        if self._last_hovered_key is not None:
+            self._last_hovered_key = None
+            self._pane.hovered_channel_changed.emit(None)
+        if self._hover.clear():
+            self._pane.hover_time_changed.emit(None)
 
     def set_gap_markers(self, channel_id: ChannelKey | str, gap_times: list[float]) -> None:
         """Update stored gap evidence for one channel and redraw the page."""
@@ -162,12 +183,15 @@ class PlotInteractionController:
 
     def redraw_annotations(self) -> None:
         """Refresh page-local annotation graphics."""
+        store = self._annotation_store
         self._annotation_items = redraw_annotations(
             self._pane.channels,
-            self._annotation_store,
+            store,
             self._pane._display_x,
             self._pane.x_range,
             self._annotation_items,
+            master_at=self._pane.master_at,
+            on_marker_moved=store.set_span if store is not None else None,
         )
 
     def redraw_page_overlays(self) -> None:
@@ -178,12 +202,41 @@ class PlotInteractionController:
         self.redraw_identity_markers()
         self.redraw_segment_boundaries()
 
-    def on_scene_moved(self, scene_pos: Any) -> None:
-        """Reveal the row tools under the pointer; no work on the clock tick."""
-        reveal_row_tools(self._pane.channels, float(scene_pos.y()))
+    def on_scene_moved(self, scene_pos: Any, scene: object = None) -> None:
+        """Reveal row tools and update synchronized hover crosshair on pointer motion."""
+        scene_rows = [
+            ch for ch in self._pane.channels if scene is None or ch.plot_item.scene() is scene
+        ]
+        reveal_row_tools(scene_rows, float(scene_pos.y()))
+        if self._pane.sweep_start is None or self._pane.window_duration <= 0:
+            return
+        hovered = next(
+            (
+                candidate
+                for candidate in scene_rows
+                if candidate.visible
+                and candidate.plot_item.vb.sceneBoundingRect().contains(scene_pos)
+            ),
+            None,
+        )
+        if hovered is None:
+            self.clear_hover()
+            return
+        if hovered.reader.key != self._last_hovered_key:
+            self._last_hovered_key = hovered.reader.key
+            self._pane.hovered_channel_changed.emit(hovered.reader.key)
+        x_page = float(hovered.plot_item.vb.mapSceneToView(scene_pos).x())
+        x_clamped = min(self._pane.window_duration, max(0.0, x_page))
+        t_master = self._pane.master_at(x_clamped)
+        self._hover.update(self._pane.channels, hovered, x_clamped, t_master, self._pane.palette())
+        self._pane.hover_time_changed.emit(t_master)
 
-    def on_scene_clicked(self, event: Any) -> None:
+    def on_scene_clicked(self, event: Any, scene: object = None) -> None:
         """Seek on left-clicks and show actions for right-clicks in visible rows."""
+        nav = getattr(self._pane, "_navigator", None)
+        if nav is not None and nav.suppress_click:
+            nav.suppress_click = False
+            return
         if self._pane.sweep_start is None:
             return
         scene_pos = event.scenePos()
@@ -192,6 +245,7 @@ class PlotInteractionController:
                 candidate
                 for candidate in self._pane.channels
                 if candidate.visible
+                and (scene is None or candidate.plot_item.scene() is scene)
                 and candidate.plot_item.vb.sceneBoundingRect().contains(scene_pos)
             ),
             None,
@@ -199,6 +253,11 @@ class PlotInteractionController:
         if channel is None:
             return
         if event.button() == Qt.MouseButton.LeftButton:
+            mods = (
+                event.modifiers() if hasattr(event, "modifiers") else Qt.KeyboardModifier.NoModifier
+            )
+            if bool(mods & Qt.KeyboardModifier.ShiftModifier):
+                return
             view_pos = channel.plot_item.vb.mapSceneToView(scene_pos)
             self._pane.seek_requested.emit(self._pane.master_at(float(view_pos.x())))
             event.accept()
@@ -227,6 +286,8 @@ class PlotInteractionController:
             self._pane.set_channel_y_mode(target, Y_AUTO)
         elif choice.action == "hold_y":
             self._pane.set_channel_y_mode(target, Y_MANUAL)
+        elif choice.action == "pin":
+            toggle_channel_pin(self._pane, target)
         elif choice.action == "export":
             show_plot_exporter(channel.plot_item)
         elif choice.action == "hide":

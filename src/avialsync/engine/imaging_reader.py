@@ -52,6 +52,7 @@ class ImagingReadWorker(QObject):
 
     opened = Signal(str)
     frame_ready = Signal(str, int, object)
+    planes_ready = Signal(str, int, object)
     frame_failed = Signal(str, int, str)
     failed = Signal(str, str)
     #: ``(path, channel, low, high)`` -- a reference window measured from data.
@@ -100,22 +101,24 @@ class ImagingReadWorker(QObject):
             return
         index, view = pending
         try:
-            image = self.render(index, view)
+            image, raw_planes = self._render_with_planes(index, view)
         except Exception as error:  # noqa: BLE001 - a damaged page is one frame's failure
             logger.warning(
                 "Could not read imaging frame %s from %s", index, self._path, exc_info=error
             )
             self.frame_failed.emit(str(self._path), index, str(error))
             return
+        self.planes_ready.emit(str(self._path), index, raw_planes)
         self.frame_ready.emit(str(self._path), index, image)
 
     def render(self, index: int, view: ImagingView) -> np.ndarray | None:
-        """Average, window and overlay the visible channels at *index*.
+        """Average, window and overlay the visible channels at *index*."""
+        image, _planes = self._render_with_planes(index, view)
+        return image
 
-        Returns ``None`` when no channel is visible. A channel without a
-        measured reference window has one measured here, from the averaged plane
-        the user is looking at, and reported through ``window_measured``.
-        """
+    def _render_with_planes(
+        self, index: int, view: ImagingView
+    ) -> tuple[np.ndarray | None, tuple[np.ndarray, ...]]:
         frames = average_range(index, self._frame_count, view.average)
         planes = []
         for channel, shown in enumerate(view.channels):
@@ -127,7 +130,9 @@ class ImagingReadWorker(QObject):
                 shown = dataclasses.replace(shown, auto_low=low, auto_high=high)
                 self.window_measured.emit(str(self._path), channel, low, high)
             planes.append((mean, shown))
-        return compose(planes) if planes else None
+        if not planes:
+            return None, ()
+        return compose(planes, show_clipping=view.show_clipping), tuple(p for p, _ in planes)
 
     def _mean(self, frames: range, channel: int) -> np.ndarray:
         total: np.ndarray | None = None

@@ -208,6 +208,17 @@ SETTINGS: tuple[Setting, ...] = (
             "forms of colour blindness. Evenly spaced hues do not."
         ),
     ),
+    Setting(
+        key="interface/toolbar_labels",
+        label="Show text labels on video toolbar",
+        group="Appearance",
+        default=False,
+        kind=bool,
+        help_text=(
+            "Show short text labels beside the glyph buttons under the video panes. "
+            "Off by default to keep the toolbar compact on narrow displays."
+        ),
+    ),
     # ── Playback ─────────────────────────────────────────────────────
     Setting(
         key="playback/loop_ab",
@@ -268,6 +279,32 @@ SETTINGS: tuple[Setting, ...] = (
         help_text=(
             "Off by default: on a nine-point session the names cover the animal. "
             "A session's own setting overrides this."
+        ),
+    ),
+    Setting(
+        key="overlays/confidence_threshold",
+        label="Pose confidence threshold",
+        group="Overlays",
+        default=0.3,
+        kind=float,
+        minimum=0.0,
+        maximum=1.0,
+        help_text=(
+            "Predictions with likelihood below this value are drawn as translucent "
+            "dashed rings when Confidence cues are enabled."
+        ),
+    ),
+    Setting(
+        key="overlays/trail_frames",
+        label="Motion trail length (frames)",
+        group="Overlays",
+        default=15,
+        kind=int,
+        minimum=1,
+        maximum=120,
+        help_text=(
+            "Number of recent frames drawn behind each tracked point when Motion "
+            "trails are enabled."
         ),
     ),
     # ── Video Display ────────────────────────────────────────────────

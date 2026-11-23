@@ -31,10 +31,11 @@ from PySide6.QtWidgets import (
 from avialsync.core.imaging_display import (
     CHANNEL_COLORS,
     MAX_AVERAGE,
+    PERCEPTUAL_COLORMAPS,
     ChannelView,
     ImagingView,
 )
-from avialsync.ui.design_tokens import spacing
+from avialsync.ui.design_tokens import ControlRole, apply_role, spacing
 from avialsync.ui.i18n import tr
 
 __all__ = ["ImagingControls"]
@@ -44,7 +45,7 @@ _STEPS = 100
 
 
 def _color_names() -> dict[str, str]:
-    """Colour keys to translated names, in menu order."""
+    """Colour and perceptual-LUT keys to translated names, in menu order."""
     return {
         "grey": tr("Grey"),
         "green": tr("Green"),
@@ -53,10 +54,24 @@ def _color_names() -> dict[str, str]:
         "yellow": tr("Yellow"),
         "red": tr("Red"),
         "blue": tr("Blue"),
+        "viridis": tr("Viridis"),
+        "magma": tr("Magma"),
+        "inferno": tr("Inferno"),
+        "turbo": tr("Turbo"),
     }
 
 
 def _swatch(color: str) -> QIcon:
+    lut = PERCEPTUAL_COLORMAPS.get(color)
+    if lut is not None:
+        pixmap = QPixmap(12, 12)
+        painter_img = pixmap.toImage()
+        for x in range(12):
+            r, g, b = (int(v) for v in lut[round(x * 255 / 11)])
+            col = QColor(r, g, b)
+            for y in range(12):
+                painter_img.setPixelColor(x, y, col)
+        return QIcon(QPixmap.fromImage(painter_img))
     pixmap = QPixmap(12, 12)
     pixmap.fill(QColor(*CHANNEL_COLORS[color]))
     return QIcon(pixmap)
@@ -178,6 +193,17 @@ class ImagingControls(QWidget):
         )
         self.average.valueChanged.connect(self._on_average)
         average_row.addWidget(self.average)
+        self.clipping_check = QCheckBox(tr("Clip"), self)
+        self.clipping_check.setAccessibleName(tr("Highlight clipped pixels"))
+        self.clipping_check.setAccessibleDescription(
+            tr("Highlight under-exposed pixels in cyan and saturated pixels in red")
+        )
+        self.clipping_check.setToolTip(
+            tr("Highlight under-exposed (cyan) and saturated (red) pixels at window limits")
+        )
+        apply_role(self.clipping_check, ControlRole.SECONDARY)
+        self.clipping_check.toggled.connect(self._on_clipping)
+        average_row.addWidget(self.clipping_check)
         average_row.addStretch(1)
         # Auto and Full range, the same pair the video's Display Levels offers.
         self.auto_button = QPushButton(tr("Auto"), self)
@@ -231,6 +257,7 @@ class ImagingControls(QWidget):
             for row, channel in zip(self._rows, view.channels, strict=True):
                 row.show_channel(channel)
             self.average.setValue(view.average // 2)
+            self.clipping_check.setChecked(view.show_clipping)
             self._name_average_unit()
         finally:
             self._updating = False
@@ -289,6 +316,13 @@ class ImagingControls(QWidget):
         frames = 2 * self.average.value() + 1
         if frames != self._view.average:
             self._emit(dataclasses.replace(self._view, average=frames), "averaging")
+
+    @Slot(bool)
+    def _on_clipping(self, checked: bool) -> None:
+        if self._updating:
+            return
+        if bool(checked) != self._view.show_clipping:
+            self._emit(dataclasses.replace(self._view, show_clipping=bool(checked)), "clipping")
 
     def _name_average_unit(self) -> None:
         self.average.setSuffix(tr(" frame") if self.average.value() == 1 else tr(" frames"))

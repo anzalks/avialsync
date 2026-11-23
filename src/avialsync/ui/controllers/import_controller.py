@@ -486,56 +486,30 @@ def register_tracking_source(
         logger.warning("2D pose source %s has no overlay target; skipping.", path)
         return
 
-    # The loader said which points exist and what they are called; this no
-    # longer re-derives them by splitting ``_x`` off a channel name, which is
-    # what let two animals sharing ``snout`` collapse into one point.
-    points: dict[str, tuple[MappedChannelReader, MappedChannelReader]] = {}
-    point_channels: dict[str, tuple[str, str]] = {}
-    available = set(channels)
-
     def _reader(channel: str) -> MappedChannelReader:
         return MappedChannelReader(PyramidReader(cache_dir, channel), time_map, source_id=path)
 
+    available = set(channels)
     pose = inspection.pose if isinstance(inspection, SourceInspection) else None
     if pose is None:
         logger.warning("2D pose source %s declares no pose schema; not overlaid.", path)
         return
-    if role == combined_role:
-        projection_channels = config.get("vicon_projection_channels", {})
-        for point in pose.points_with("x", "y", "z"):
-            projected = (
-                projection_channels.get(point.name)
-                if isinstance(projection_channels, dict)
-                else None
-            )
-            if not isinstance(projected, (list, tuple)) or len(projected) != 2:
-                continue
-            x_channel, y_channel = str(projected[0]), str(projected[1])
-            if x_channel in available and y_channel in available:
-                points[point.name] = (_reader(x_channel), _reader(y_channel))
-                point_channels[point.name] = (x_channel, y_channel)
-    else:
-        for point in pose.points_with("x", "y"):
-            x_channel, y_channel = point.channel("x"), point.channel("y")
-            if x_channel in available and y_channel in available:
-                points[point.name] = (_reader(x_channel), _reader(y_channel))
-                point_channels[point.name] = (x_channel, y_channel)
-
+    points, point_channels, likelihood = _extract_overlay_readers(
+        pose, role == combined_role, config, available, _reader
+    )
     if not points:
         logger.warning("2D pose source %s produced no complete XY points.", path)
         return
 
-    # Decide colours now, while the whole set of body parts for this source
-    # is in hand, so the overlay and the 3D view agree from the first paint.
     from avialsync.ui.tracking_colors import register_points
 
     register_points(points)
-
     window._overlay_sources.setdefault(video, {})[path] = {
         "label": str(config.get("overlay_label", Path(path).stem)),
         "is_ensemble": bool(config.get("overlay_is_ensemble", False)),
         "points": points,
         "point_channels": point_channels,
+        "likelihood": likelihood,
         "frame_rate": float(config.get("fps", 0.0)),
     }
     # What this source is and where it was imported to, kept because an
@@ -605,11 +579,49 @@ def update_tracking_pane_visibility(window: MainWindow) -> None:
     window._pane_proportions.record(window._media_splitter)
 
 
+def _extract_overlay_readers(
+    pose: Any,
+    is_combined: bool,
+    config: dict[str, Any],
+    available: set[str],
+    make_reader: Any,
+) -> tuple[dict[str, tuple[Any, Any]], dict[str, tuple[str, str]], dict[str, Any]]:
+    """Build XY and likelihood readers for one 2D pose source."""
+    points: dict[str, tuple[Any, Any]] = {}
+    point_channels: dict[str, tuple[str, str]] = {}
+    likelihood: dict[str, Any] = {}
+    if is_combined:
+        projection_channels = config.get("vicon_projection_channels", {})
+        for point in pose.points_with("x", "y", "z"):
+            projected = (
+                projection_channels.get(point.name)
+                if isinstance(projection_channels, dict)
+                else None
+            )
+            if not isinstance(projected, (list, tuple)) or len(projected) != 2:
+                continue
+            x_channel, y_channel = str(projected[0]), str(projected[1])
+            if x_channel in available and y_channel in available:
+                points[point.name] = (make_reader(x_channel), make_reader(y_channel))
+                point_channels[point.name] = (x_channel, y_channel)
+    else:
+        for point in pose.points_with("x", "y"):
+            x_channel, y_channel = point.channel("x"), point.channel("y")
+            if x_channel in available and y_channel in available:
+                points[point.name] = (make_reader(x_channel), make_reader(y_channel))
+                point_channels[point.name] = (x_channel, y_channel)
+                lik_channel = point.likelihood_channel
+                if lik_channel and lik_channel in available:
+                    likelihood[point.name] = make_reader(lik_channel)
+    return points, point_channels, likelihood
+
+
 def refresh_overlays(window: MainWindow, video: str) -> None:
     """Rebuild one camera's overlay track list, ensemble last."""
     from avialsync.ui.video_overlay import OverlayTrack, track_color
 
     sources = window._overlay_sources.get(video, {})
+    edges = tuple(window.tracking_3d_pane.canvas.skeleton_edges)
     tracks: list[OverlayTrack] = []
     model_index = 0
     for _source_path, entry in sorted(
@@ -629,6 +641,8 @@ def refresh_overlays(window: MainWindow, video: str) -> None:
                 for name, readers in source_points.items()
                 if set(point_channels.get(name, ())) <= selected
             }
+        source_lik = entry.get("likelihood", {})
+        lik = {name: source_lik[name] for name in points if name in source_lik}
         is_ensemble = bool(entry["is_ensemble"])
         color = track_color(model_index, is_ensemble=is_ensemble)
         if not is_ensemble:
@@ -639,6 +653,8 @@ def refresh_overlays(window: MainWindow, video: str) -> None:
                 points=points,
                 color=color,
                 is_ensemble=is_ensemble,
+                likelihood=lik,
+                edges=edges,
             )
         )
     window.video_grid.set_overlay_tracks(video, tracks)
