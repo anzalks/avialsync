@@ -39,6 +39,15 @@ full history is in git. Versions follow the tags in the repository.
 - Internal: the main window is composed of focused modules; behaviour is unchanged (D-248).
 
 ### Fixed
+- Multi-hundred-ROI NWB and dense multi-plot sessions stay responsive throughout loading,
+  playback, scrubbing, measurement, and mode switching: in-place `ExternalArray` columns share a
+  single read-only `np.memmap` per dataset, `PyramidReader` caches channel layouts, `NWBRoiGridSource`
+  reuses extracted segmentation masks across discovery/probe/reader workers with vectorized tile
+  composition, wide 2D NWB matrices bound initial shown rows while keeping every channel in the
+  inspector, plot rows skip hidden pyqtgraph menu construction and offscreen culling/X-link storms,
+  `Overlaid` and `Heatmap` modes batch/vectorize dense traces, `ReadoutPanel` bounds mounted widgets
+  and defers hidden-tab cursor updates, and group visibility Undo/Redo replays in a single batch
+  (D-170, D-188, D-252, D-253).
 - Channel-driven treadmill belts and spherical balls now sample at each camera's own presented
   frame exposure time (matching click-check residuals across staggered or multi-rate cameras),
   linearly interpolate belt displacement channels and SLERP synchronized ball quaternions across

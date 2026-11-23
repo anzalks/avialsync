@@ -386,10 +386,18 @@ class SetChannelGroupVisibleCommand:
         return f"{verb} {count} channels in {self.group_label}"
 
     def apply(self, target: MutationTarget) -> None:
+        batch = getattr(target, "set_channels_visible", None)
+        if callable(batch):
+            batch(self.source_id, {channel: self.visible for channel in self.before})
+            return
         for channel in self.before:
             target.set_channel_visible(self.source_id, channel, self.visible)
 
     def revert(self, target: MutationTarget) -> None:
+        batch = getattr(target, "set_channels_visible", None)
+        if callable(batch):
+            batch(self.source_id, dict(self.before))
+            return
         for channel, was_visible in self.before.items():
             target.set_channel_visible(self.source_id, channel, was_visible)
 

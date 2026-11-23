@@ -65,6 +65,35 @@ _VIRIDIS_STOPS = np.array(
 )
 
 
+def _decimate_for_overlay(
+    x_arr: np.ndarray, y_arr: np.ndarray, max_columns: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Coarsen an interleaved min/max curve when hundreds of traces share one canvas."""
+    n_pts = len(x_arr)
+    if n_pts <= max_columns * 2 or max_columns < 8:
+        return x_arr, y_arr
+    n_cols = n_pts // 2
+    factor = max(1, -(-n_cols // max_columns))
+    if factor <= 1:
+        return x_arr, y_arr
+    trunc = (n_cols // factor) * factor
+    if trunc <= 0:
+        return x_arr, y_arr
+    x_cols = x_arr[0 : trunc * 2 : 2].reshape(-1, factor)[:, 0]
+    y_blocks = y_arr[0 : trunc * 2].reshape(-1, factor * 2)
+    has_nan = np.any(~np.isfinite(y_blocks), axis=1)
+    safe = np.where(np.isfinite(y_blocks), y_blocks, 0.0)
+    lo = np.min(safe, axis=1)
+    hi = np.max(safe, axis=1)
+    lo[has_nan] = np.nan
+    hi[has_nan] = np.nan
+    out_x = np.repeat(x_cols, 2)
+    out_y = np.empty(len(x_cols) * 2, dtype=np.float64)
+    out_y[0::2] = lo
+    out_y[1::2] = hi
+    return out_x, out_y
+
+
 def _viridis_lut() -> np.ndarray:
     positions = np.linspace(0.0, 1.0, len(_VIRIDIS_STOPS))
     grid = np.linspace(0.0, 1.0, 256)
@@ -107,7 +136,7 @@ class PlotModeCanvas(QWidget):
         self.graphics_layout.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         layout.addWidget(self.graphics_layout)
 
-        self.plot_item = self.graphics_layout.addPlot(row=0, col=0)
+        self.plot_item = self.graphics_layout.addPlot(row=0, col=0, enableMenu=False)
         self.plot_item.setMenuEnabled(False)
         self.plot_item.setMouseEnabled(x=False, y=False)
         self.plot_item.enableAutoRange(axis="x", enable=False)
@@ -172,17 +201,21 @@ class PlotModeCanvas(QWidget):
         phase: float,
     ) -> None:
         """Render the already-installed decimated curve arrays from visible *channels*."""
-        self._clear_items()
-        visible = [ch for ch in channels if ch.visible]
-        self._channel_names = [ch.name for ch in visible]
-        self.set_x_window(window_duration)
-        self.cursor_line.setValue(phase)
-        if not visible:
-            return
-        if self._mode == PLOT_MODE_HEATMAP:
-            self._render_heatmap(visible, window_duration)
-        else:
-            self._render_overlay(visible, palette, reveal=reveal, phase=phase)
+        self.graphics_layout.setUpdatesEnabled(False)
+        try:
+            self._clear_items()
+            visible = [ch for ch in channels if ch.visible]
+            self._channel_names = [ch.name for ch in visible]
+            self.set_x_window(window_duration)
+            self.cursor_line.setValue(phase)
+            if not visible:
+                return
+            if self._mode == PLOT_MODE_HEATMAP:
+                self._render_heatmap(visible, window_duration)
+            else:
+                self._render_overlay(visible, palette, reveal=reveal, phase=phase)
+        finally:
+            self.graphics_layout.setUpdatesEnabled(True)
 
     def _clear_items(self) -> None:
         for curve in self._curves:
@@ -217,26 +250,69 @@ class PlotModeCanvas(QWidget):
         y_min = float("inf")
         y_max = float("-inf")
         use_dashes = len(visible) > 1
-        for idx, ch in enumerate(visible):
-            xs, ys = ch.curve.getData()
-            style = (
-                _PEN_STYLES[(idx // 6) % len(_PEN_STYLES)] if use_dashes else Qt.PenStyle.SolidLine
-            )
-            pen = pg.mkPen(color=trace_color(palette, ch.color_index), width=1.4, style=style)
-            label = f"{ch.name} ({ch.unit})" if ch.unit else ch.name
-            curve = SweepCurveItem(pen=pen, connect="finite", name=label)
-            curve.set_reveal_enabled(reveal)
-            curve.set_sweep_position(phase)
-            if xs is not None and ys is not None and len(xs) > 0:
-                curve.setData(xs, ys)
-                finite = np.asarray(ys)[np.isfinite(ys)]
+        if len(visible) <= 12:
+            for idx, ch in enumerate(visible):
+                xs, ys = ch.curve.getData()
+                style = (
+                    _PEN_STYLES[(idx // 6) % len(_PEN_STYLES)]
+                    if use_dashes
+                    else Qt.PenStyle.SolidLine
+                )
+                pen = pg.mkPen(color=trace_color(palette, ch.color_index), width=1.4, style=style)
+                label = f"{ch.name} ({ch.unit})" if ch.unit else ch.name
+                curve = SweepCurveItem(pen=pen, connect="finite", name=label)
+                curve.set_reveal_enabled(reveal)
+                curve.set_sweep_position(phase)
+                if xs is not None and ys is not None and len(xs) > 0:
+                    curve.setData(xs, ys)
+                    finite = np.asarray(ys)[np.isfinite(ys)]
+                    if len(finite):
+                        y_min = min(y_min, float(finite.min()))
+                        y_max = max(y_max, float(finite.max()))
+                self.plot_item.addItem(curve)
+                self._curves.append(curve)
+                if self._legend is not None:
+                    self._legend.addItem(curve, html.escape(label))
+        else:
+            # Batch dense overlays into one NaN-delimited curve per (colour, dash)
+            # pen group so 600+ ROIs draw ~32 paths instead of 600+ QGraphicsItems.
+            buckets: dict[
+                tuple[int, Qt.PenStyle], tuple[Any, list[np.ndarray], list[np.ndarray]]
+            ] = {}
+            nan_sep = np.array([np.nan], dtype=np.float64)
+            max_cols = max(32, 24_000 // len(visible))
+            for idx, ch in enumerate(visible):
+                xs, ys = ch.curve.getData()
+                if xs is None or ys is None or len(xs) == 0:
+                    continue
+                x_arr = np.asarray(xs, dtype=np.float64)
+                y_arr = np.asarray(ys, dtype=np.float64)
+                finite = y_arr[np.isfinite(y_arr)]
                 if len(finite):
                     y_min = min(y_min, float(finite.min()))
                     y_max = max(y_max, float(finite.max()))
-            self.plot_item.addItem(curve)
-            self._curves.append(curve)
-            if self._legend is not None:
-                self._legend.addItem(curve, html.escape(label))
+                if len(visible) > 32:
+                    x_arr, y_arr = _decimate_for_overlay(x_arr, y_arr, max_cols)
+                color = trace_color(palette, ch.color_index)
+                style = _PEN_STYLES[(idx // 6) % len(_PEN_STYLES)]
+                key = (color.rgba(), style)
+                entry = buckets.get(key)
+                if entry is None:
+                    entry = (color, [], [])
+                    buckets[key] = entry
+                if entry[1]:
+                    entry[1].append(nan_sep)
+                    entry[2].append(nan_sep)
+                entry[1].append(x_arr)
+                entry[2].append(y_arr)
+            for (_rgba, style), (color, x_parts, y_parts) in buckets.items():
+                pen = pg.mkPen(color=color, width=1.4, style=style)
+                curve = SweepCurveItem(pen=pen, connect="finite")
+                curve.set_reveal_enabled(reveal)
+                curve.set_sweep_position(phase)
+                curve.setData(np.concatenate(x_parts), np.concatenate(y_parts))
+                self.plot_item.addItem(curve)
+                self._curves.append(curve)
 
         if np.isfinite(y_min) and np.isfinite(y_max):
             pad = max(1e-3, (y_max - y_min) * 0.08) if not np.isclose(y_min, y_max) else 1.0
@@ -253,6 +329,8 @@ class PlotModeCanvas(QWidget):
         grid_x = np.linspace(0.0, dur, n_bins)
         # ImageItem expects shape (width_x, height_y); row 0 at top -> y = n_rows - 1 - row_idx
         matrix = np.zeros((n_bins, n_rows), dtype=np.float32)
+        sampled_rows = np.full((n_rows, n_bins), np.nan, dtype=np.float64)
+        valid_row_mask = np.zeros(n_rows, dtype=bool)
 
         for row_idx, ch in enumerate(visible):
             xs, ys = ch.curve.getData()
@@ -271,16 +349,18 @@ class PlotModeCanvas(QWidget):
                 xf = xf[order]
                 yf = yf[order]
             sampled = np.interp(grid_x, xf, yf, left=np.nan, right=np.nan)
-            valid = np.isfinite(sampled)
-            if not np.any(valid):
-                continue
-            lo_f, hi_f = np.percentile(sampled[valid], (2.0, 98.0))
-            lo = float(lo_f)
-            hi = float(hi_f)
-            denom = hi - lo if hi > lo + 1e-12 else 1.0
-            normed = np.clip((sampled - lo) / denom, 0.0, 1.0)
-            normed[~valid] = 0.0
-            matrix[:, n_rows - 1 - row_idx] = normed.astype(np.float32)
+            if np.any(np.isfinite(sampled)):
+                sampled_rows[row_idx] = sampled
+                valid_row_mask[row_idx] = True
+
+        if np.any(valid_row_mask):
+            active = sampled_rows[valid_row_mask]
+            lo, hi = np.nanpercentile(active, (2.0, 98.0), axis=1)
+            denom = np.where(hi > lo + 1e-12, hi - lo, 1.0)
+            normed = np.clip((active - lo[:, None]) / denom[:, None], 0.0, 1.0)
+            normed = np.nan_to_num(normed, nan=0.0)
+            dest_cols = (n_rows - 1) - np.flatnonzero(valid_row_mask)
+            matrix[:, dest_cols] = normed.T.astype(np.float32)
 
         img = pg.ImageItem(matrix)
         img.setLookupTable(_HEATMAP_LUT)
@@ -374,36 +454,45 @@ def rebuild_rows_across_stacks(pane: PlotPane) -> None:
 
     pane._interactions._hover.discard_items()
     saved_curves: list[tuple[Any, Any, float | None]] = []
-    for ch in old_channels:
-        xs, ys = ch.curve.getData()
-        saved_curves.append((xs, ys, ch.page_t0))
-        owner = pane._pinned_layout if ch.pinned_in_layout else pane.graphics_layout
-        detach_row(owner, ch)
+    pane.graphics_layout.setUpdatesEnabled(False)
+    pane._pinned_layout.setUpdatesEnabled(False)
+    try:
+        for ch in old_channels:
+            xs, ys = ch.curve.getData()
+            saved_curves.append((xs, ys, ch.page_t0))
+            ch.plot_item.setXLink(None)
+            owner = pane._pinned_layout if ch.pinned_in_layout else pane.graphics_layout
+            detach_row(owner, ch)
 
-    pane.channels.clear()
-    pane._master_plot = None
-    pinned_row = 0
-    scroll_row = 0
+        pane.channels.clear()
+        pane._index_cache = None
+        pane._master_plot = None
+        pinned_row = 0
+        scroll_row = 0
 
-    for ch, curve_state in zip(old_channels, saved_curves, strict=True):
-        row_idx = pinned_row if ch.pinned else scroll_row
-        if ch.pinned:
-            pinned_row += 1
-        else:
-            scroll_row += 1
-        rebuilt = _rebuild_one_channel(pane, ch, row_idx, curve_state)
-        if pane._master_plot is None:
-            pane._master_plot = rebuilt.plot_item
-        else:
-            if pane.window_duration > 0:
-                rebuilt.plot_item.setXRange(0.0, pane.window_duration, padding=0)
-            rebuilt.plot_item.setXLink(pane._master_plot)
-        pane._label_axis(rebuilt)
-        rebuilt.plot_item.geometryChanged.connect(pane._cull_timer.start)
-        pane.channels.append(rebuilt)
+        for ch, curve_state in zip(old_channels, saved_curves, strict=True):
+            row_idx = pinned_row if ch.pinned else scroll_row
+            if ch.pinned:
+                pinned_row += 1
+            else:
+                scroll_row += 1
+            rebuilt = _rebuild_one_channel(pane, ch, row_idx, curve_state)
+            if pane._master_plot is None:
+                pane._master_plot = rebuilt.plot_item
+            else:
+                if pane.window_duration > 0:
+                    rebuilt.plot_item.setXRange(0.0, pane.window_duration, padding=0)
+                rebuilt.plot_item.setXLink(pane._master_plot)
+            pane._label_axis(rebuilt)
+            rebuilt.plot_item.geometryChanged.connect(pane._cull_timer.start)
+            pane.channels.append(rebuilt)
 
-    pane._link_x_axes()
-    pane._relayout_rows()
+        pane._index_cache = None
+        pane._link_x_axes()
+        pane._relayout_rows()
+    finally:
+        pane._pinned_layout.setUpdatesEnabled(True)
+        pane.graphics_layout.setUpdatesEnabled(True)
     pane._redraw_sweep_overlays()
     if pane.sweep_start is not None:
         pane._set_sweep_for_time(

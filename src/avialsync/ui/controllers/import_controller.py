@@ -538,18 +538,26 @@ def register_tracking_source(
 
 def refresh_pose_3d(window: MainWindow) -> None:
     """Feed the 3D view from registered pose sources plus any plotted XYZ."""
-    readers: list[Any] = [
+    from avialsync.core.pose import split_channel
+
+    plotted = [
         reader
         for reader in window._plotted_readers
         if getattr(reader, "source_id", "") not in window._tracking_visibility
     ]
+    pose_readers: list[Any] = []
     for source_id, source_readers in window._pose_3d_sources.items():
         if not window._tracking_visibility.get(source_id, {}).get("overlay", True):
             continue
         selected = _selected_tracking_channels(window, source_id)
-        readers.extend(
+        pose_readers.extend(
             reader for reader in source_readers if selected is None or reader.channel_id in selected
         )
+    has_plotted_z = any(
+        (split := split_channel(getattr(reader, "channel_id", ""))) is not None and split[1] == "z"
+        for reader in plotted
+    )
+    readers = (plotted + pose_readers) if (pose_readers or has_plotted_z) else []
     from avialsync.ui.tracking_3d_worker import start_pose_preparation
 
     start_pose_preparation(window, readers)

@@ -566,6 +566,27 @@ class ImagingPane(QWidget):
             self.frame_label.set_image(self._image)
             self._apply_roi_highlight()
 
+    def _roi_spatial_index(
+        self, roi_boxes: dict[str, tuple[int, int, int, int]]
+    ) -> tuple[int, dict[tuple[int, int], list[tuple[str, int, int, int, int]]]]:
+        cached = getattr(self, "_roi_box_index", None)
+        if cached is not None and cached[0] == id(roi_boxes):
+            return cached[1], cached[2]
+        cell = max(
+            16,
+            max((max(w, h) for _l, _t, w, h in roi_boxes.values()), default=16),
+        )
+        grid: dict[tuple[int, int], list[tuple[str, int, int, int, int]]] = {}
+        for roi_id, (left, top, width, height) in roi_boxes.items():
+            entry = (roi_id, left, top, width, height)
+            x0, x1 = left // cell, (left + max(0, width - 1)) // cell
+            y0, y1 = top // cell, (top + max(0, height - 1)) // cell
+            for gx in range(x0, x1 + 1):
+                for gy in range(y0, y1 + 1):
+                    grid.setdefault((gx, gy), []).append(entry)
+        self._roi_box_index = (id(roi_boxes), cell, grid)
+        return cell, grid
+
     def _roi_at_image_pixel(self, ix: int, iy: int) -> str | None:
         stack = self._sources.get(self.source_choice.currentData())
         if stack is None or self._image is None or not stack.info.roi_boxes:
@@ -574,7 +595,9 @@ class ImagingPane(QWidget):
         sy = stack.info.height / max(1, self._image.height())
         fx = ix * sx
         fy = iy * sy
-        for roi_id, (left, top, width, height) in stack.info.roi_boxes.items():
+        cell, grid = self._roi_spatial_index(stack.info.roi_boxes)
+        candidates = grid.get((int(fx) // cell, int(fy) // cell), ())
+        for roi_id, left, top, width, height in candidates:
             if left <= fx < left + width and top <= fy < top + height:
                 return roi_id
         return None

@@ -102,6 +102,8 @@ class PaintCanvas(MarkerOverlayMixin):
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.setAutoFillBackground(False)
         self.readers: list[Any] = []
+        self._loose_cache_sig: tuple[int, int] | None = None
+        self._loose_xy_readers: list[tuple[Any, str, str]] = []
         self.tracks: list[OverlayTrack] = []
         self._reported_reader_errors: set[int] = set()
         self.t = 0.0
@@ -132,8 +134,26 @@ class PaintCanvas(MarkerOverlayMixin):
         way, broadcast to every camera rather than routed to one.
         """
         self.readers = readers
+        self._loose_cache_sig = None
         self._reported_reader_errors.clear()
         self.update()
+
+    def _active_loose_xy(self) -> list[tuple[Any, str, str]]:
+        """Return only loose readers that form complete ``(x, y)`` pairs."""
+        sig = (id(self.readers), len(self.readers))
+        if self._loose_cache_sig == sig:
+            return self._loose_xy_readers
+        axes_by_name: dict[str, set[str]] = {}
+        candidates: list[tuple[Any, str, str]] = []
+        for reader in self.readers:
+            split = split_channel(getattr(reader, "channel_id", ""))
+            if split is not None and split[1] in ("x", "y"):
+                axes_by_name.setdefault(split[0], set()).add(split[1])
+                candidates.append((reader, split[0], split[1]))
+        complete = {name for name, axes in axes_by_name.items() if "x" in axes and "y" in axes}
+        self._loose_xy_readers = [item for item in candidates if item[1] in complete]
+        self._loose_cache_sig = sig
+        return self._loose_xy_readers
 
     def set_tracks(self, tracks: list[OverlayTrack]) -> None:
         """Draw one or more named prediction sources over this camera."""
@@ -335,7 +355,7 @@ class PaintCanvas(MarkerOverlayMixin):
         # Edit mode overrides a hidden points layer: a mode whose whole purpose
         # is grabbing markers must not start with nothing on screen to grab.
         draw_points = (self._points_visible or self._edit_mode) and bool(
-            self.readers or self.tracks or self._custom
+            self._active_loose_xy() or self.tracks or self._custom
         )
         # The wheel is its own layer, not a kind of point: hiding the tracking
         # must not hide the wheel the animal is running on, or the reverse.
@@ -420,7 +440,7 @@ class PaintCanvas(MarkerOverlayMixin):
             if self._show_legend and len(drawn) > 1:
                 self._draw_legend(painter, drawn)
 
-        if self.readers:
+        if self._active_loose_xy():
             self._draw_loose_readers(painter, scale, offset_x, offset_y)
 
         if self._reprojection_visible:
@@ -563,14 +583,11 @@ class PaintCanvas(MarkerOverlayMixin):
         self, painter: QPainter, scale: float, offset_x: float, offset_y: float
     ) -> None:
         points: dict[str, dict[str, float]] = {}
-        for reader in self.readers:
+        for reader, point_name, axis in self._active_loose_xy():
             sample = self._sample(reader)
             if sample is None or not np.isfinite(sample[1]):
                 continue
-            value = sample[1]
-            split = split_channel(reader.channel_id)
-            if split is not None and split[1] in ("x", "y"):
-                points.setdefault(split[0], {})[split[1]] = value
+            points.setdefault(point_name, {})[axis] = sample[1]
 
         label_font = painter.font()
         label_font.setPointSizeF(overlay_label_point_size())
@@ -637,7 +654,7 @@ class PaintCanvas(MarkerOverlayMixin):
         """
         self.t = t
         if (
-            self.readers
+            self._active_loose_xy()
             or self.tracks
             or self._custom
             or self._wheel is not None

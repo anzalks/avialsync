@@ -150,6 +150,13 @@ def redraw_measure_lines(
     if measure_a is None and measure_b is None and not old_a and not old_b:
         return [], []
     for line in old_a + old_b:
+        owner = getattr(line, "_owner_plot_item", None)
+        if owner is not None:
+            try:
+                owner.removeItem(line)
+            except RuntimeError:
+                logger.debug("Plot item was already deleted", exc_info=True)
+            continue
         for channel in channels:
             try:
                 channel.plot_item.removeItem(line)
@@ -160,7 +167,7 @@ def redraw_measure_lines(
     new_a: list[pg.InfiniteLine] = []
     new_b: list[pg.InfiniteLine] = []
     for channel in channels:
-        if not channel.visible:
+        if not channel.visible or getattr(channel, "culled", False):
             continue
         for marker, pen, destination in (
             (measure_a, pen_a, new_a),
@@ -171,6 +178,7 @@ def redraw_measure_lines(
                 continue
             line = pg.InfiniteLine(pos=x, angle=90, movable=False, pen=pen)
             line.setZValue(5)
+            line._owner_plot_item = channel.plot_item  # type: ignore[attr-defined]
             channel.plot_item.addItem(line)
             destination.append(line)
     return new_a, new_b

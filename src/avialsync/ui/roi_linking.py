@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from typing import TYPE_CHECKING
 
 from avialsync.core.channel_reader import ChannelKey
@@ -20,6 +21,7 @@ __all__ = [
 _ROI_RE = re.compile(r"(?:^|[._\s-])roi[_-]?(\d+)$", re.IGNORECASE)
 
 
+@lru_cache(maxsize=4096)
 def extract_roi_token(channel_name: str) -> str | None:
     """Normalize a channel name like ``'DfOverF.roi17'`` or ``'roi_17'`` to ``'roi17'``."""
     match = _ROI_RE.search(channel_name.strip())

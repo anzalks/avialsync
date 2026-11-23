@@ -80,9 +80,12 @@ class PlotInteractionController:
 
     def clear_measure(self) -> None:
         """Remove both measurement pins."""
+        had_measure = self._measure_a is not None or self._measure_b is not None
         self._measure_a = None
         self._measure_b = None
         self.redraw_measure_lines()
+        if had_measure:
+            self._pane.measure_cleared.emit()
 
     def _real_channels(self) -> list[ChannelPlot]:
         return [ch for ch in self._pane.channels if isinstance(ch, ChannelPlot)]
@@ -296,6 +299,7 @@ class PlotInteractionController:
                 candidate
                 for candidate in scene_rows
                 if candidate.visible
+                and not candidate.culled
                 and candidate.plot_item.vb.sceneBoundingRect().contains(scene_pos)
             ),
             None,
@@ -326,6 +330,7 @@ class PlotInteractionController:
                 candidate
                 for candidate in self._pane.channels
                 if candidate.visible
+                and not candidate.culled
                 and (scene is None or candidate.plot_item.scene() is scene)
                 and candidate.plot_item.vb.sceneBoundingRect().contains(scene_pos)
             ),

@@ -22,7 +22,7 @@ the window's recording flag down for the duration.
 from __future__ import annotations
 
 import contextlib
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -172,6 +172,18 @@ class WindowMutationTarget:
         with self.replaying():
             window.sidebar.set_channel_visible(channel, visible, source_id)
             window.plot_pane.set_channel_visible(ChannelKey(source_id, channel), visible)
+
+    def set_channels_visible(self, source_id: str, visibility: Mapping[str, bool]) -> None:
+        """Apply a batched group visibility change in one tree and plot update."""
+        from avialsync.ui.controllers import sources_controller
+
+        window = self._window
+        with self.replaying():
+            window.sidebar.set_channels_visible(dict(visibility), source_id)
+            if not sources_controller._follow_tracking_rows(window, source_id):
+                window.plot_pane.set_channels_visible(
+                    {ChannelKey(source_id, ch): vis for ch, vis in visibility.items()}
+                )
 
     def set_overlay_visible(self, overlay_id: str, camera: str | None, visible: bool) -> None:
         """Show or hide a registered overlay layer, globally or for one camera."""

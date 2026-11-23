@@ -16,7 +16,9 @@ import numpy as np
 
 from avialsync.core.cache_leases import GenerationPin, pin_published_reader
 from avialsync.core.channel_store import (
+    Layout,
     level_stem,
+    load_layout,
     read_level,
     read_time_bounds,
     safe_save,
@@ -480,6 +482,7 @@ class PyramidReader:
         self.cache_dir = cache_dir
         self.channel_id = channel_id
         self._arrays: dict[str, tuple[Any, Any, Any, np.ndarray]] = {}
+        self._layout: Layout | None = None
         self._coverage: tuple[float, float] | None = None
         self._coverage_cached = False
         # A plot row's reader is also read by the page worker. The lock keeps a
@@ -494,6 +497,7 @@ class PyramidReader:
         """Release cached arrays and their generation after consumers finish."""
         with self._lock:
             self._arrays.clear()
+            self._layout = None
             self._coverage = None
             self._coverage_cached = False
             self._closed = True
@@ -526,11 +530,24 @@ class PyramidReader:
             previous, self._pin = self._pin, pin
             self.cache_dir = cache_dir
             self._arrays.clear()
+            self._layout = None
             self._coverage = None
             self._coverage_cached = False
             self._closed = False
         if previous is not None:
             previous.close()
+
+    def _resolve_layout(self, cache_dir: Path) -> Layout:
+        with self._lock:
+            if self._layout is not None and self.cache_dir == cache_dir:
+                return self._layout
+        loaded = load_layout(cache_dir, self.channel_id)
+        with self._lock:
+            if not self._closed and self.cache_dir == cache_dir:
+                if self._layout is None:
+                    self._layout = loaded
+                return self._layout
+        return loaded
 
     def _load_level(self, level: int) -> tuple[Any, Any, Any, np.ndarray]:
         key = f"{self.channel_id}_{level}"
@@ -545,7 +562,8 @@ class PyramidReader:
         # on another thread that only wants a level already loaded.
         pin = pin_published_reader(cache_dir)
         try:
-            loaded = read_level(cache_dir, self.channel_id, level)
+            layout = self._resolve_layout(cache_dir)
+            loaded = read_level(cache_dir, self.channel_id, level, layout=layout)
         finally:
             if pin is not None:
                 pin.close()
@@ -578,7 +596,8 @@ class PyramidReader:
         else:
             pin = pin_published_reader(cache_dir)
             try:
-                bounds = read_time_bounds(cache_dir, self.channel_id)
+                layout = self._resolve_layout(cache_dir)
+                bounds = read_time_bounds(cache_dir, self.channel_id, layout=layout)
             finally:
                 if pin is not None:
                     pin.close()

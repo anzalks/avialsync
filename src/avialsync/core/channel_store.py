@@ -29,6 +29,8 @@ from __future__ import annotations
 
 import json
 import os
+import threading
+import weakref
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -36,6 +38,20 @@ from typing import Any
 import numpy as np
 
 from avialsync.core.columns import LazyColumn, RegularTimes, ScaledColumn, no_gaps
+
+
+class _SharedMemmap:
+    """Keep one read-only OS mapping alive while any column view references it."""
+
+    def __init__(self, array: np.ndarray) -> None:
+        self.array = array
+
+
+_MemmapKey = tuple[str, str, int, tuple[int, ...], int, int]
+_MEMMAP_LOCK = threading.Lock()
+_SHARED_MEMMAPS: weakref.WeakValueDictionary[_MemmapKey, _SharedMemmap] = (
+    weakref.WeakValueDictionary()
+)
 
 __all__ = [
     "ExternalArray",
@@ -96,10 +112,30 @@ class ExternalArray:
         )
 
     def open(self) -> np.ndarray:
-        mapped = np.memmap(
-            self.path, dtype=np.dtype(self.dtype), mode="r", offset=self.offset, shape=self.shape
+        """Open a read-only view, sharing one OS mapping across columns of one dataset."""
+        key: _MemmapKey = (
+            self.path,
+            self.dtype,
+            self.offset,
+            self.shape,
+            self.size,
+            self.mtime_ns,
         )
-        return mapped if self.column is None else mapped[:, self.column]
+        with _MEMMAP_LOCK:
+            owner = _SHARED_MEMMAPS.get(key)
+            if owner is None:
+                mapped: np.ndarray = np.memmap(
+                    self.path,
+                    dtype=np.dtype(self.dtype),
+                    mode="r",
+                    offset=self.offset,
+                    shape=self.shape,
+                )
+                owner = _SharedMemmap(mapped)
+                _SHARED_MEMMAPS[key] = owner
+            view = owner.array[:] if self.column is None else owner.array[:, self.column]
+            weakref.finalize(view, bool, owner)
+        return view
 
     def intact(self) -> bool:
         try:
@@ -345,37 +381,39 @@ def columns_intact(
     return True
 
 
-def read_time_bounds(directory: Path, channel: str) -> tuple[float, float] | None:
+def read_time_bounds(
+    directory: Path, channel: str, layout: Layout | None = None
+) -> tuple[float, float] | None:
     """``(t_first, t_last)`` from level 1's time axis alone, without mapping values."""
-    layout = load_layout(directory, channel)
-    times = _times(directory, level_stem(channel, 1), layout, 1)
+    resolved = layout if layout is not None else load_layout(directory, channel)
+    times = _times(directory, level_stem(channel, 1), resolved, 1)
     if len(times) == 0:
         return None
     return float(times[0]), float(times[-1])
 
 
 def read_level(
-    directory: Path, channel: str, level: int
+    directory: Path, channel: str, level: int, layout: Layout | None = None
 ) -> tuple[Column, Column, Column, np.ndarray]:
     """``(t, vmin, vmax, gap)`` for one level; level 1's ``vmin`` and ``vmax`` are its values."""
-    layout = load_layout(directory, channel)
+    resolved = layout if layout is not None else load_layout(directory, channel)
     stem = level_stem(channel, level)
-    times = _times(directory, stem, layout, level)
+    times = _times(directory, stem, resolved, level)
     if level == 1:
         raw = (
-            layout.values.open()
-            if layout.values is not None
+            resolved.values.open()
+            if resolved.values is not None
             else np.load(directory / f"{stem}_v.npy", mmap_mode="r", allow_pickle=False)
         )
-        values = _values(raw, layout)
+        values = _values(raw, resolved)
         return times, values, values, _gaps(directory, stem, len(times))
     vmin = _values(
-        np.load(directory / f"{stem}_vmin.npy", mmap_mode="r", allow_pickle=False), layout
+        np.load(directory / f"{stem}_vmin.npy", mmap_mode="r", allow_pickle=False), resolved
     )
     vmax = _values(
-        np.load(directory / f"{stem}_vmax.npy", mmap_mode="r", allow_pickle=False), layout
+        np.load(directory / f"{stem}_vmax.npy", mmap_mode="r", allow_pickle=False), resolved
     )
-    if sum(scale < 0 for scale in layout.scales) % 2:
+    if sum(scale < 0 for scale in resolved.scales) % 2:
         # A decreasing unit conversion reverses the stored extrema. Swap views;
         # the raw envelope and its source samples remain untouched.
         vmin, vmax = vmax, vmin

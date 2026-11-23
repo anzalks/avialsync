@@ -56,6 +56,11 @@ _GRID_MAX_SAMPLES = 4_000_000
 #: The longest a spike's pulse is drawn. Narrower when two spikes are closer.
 _SPIKE_PULSE_S = 1e-3
 
+#: Wide 2-D matrices (hundreds of ROIs or high-density probes) import every
+#: channel into the cache and sidebar tree, while keeping the initial plot stack
+#: readable without scrolling through hundreds of duplicate rows.
+_INITIAL_SHOWN_COLUMNS = 16
+
 
 @dataclass
 class _Group:
@@ -87,9 +92,15 @@ class NWBLoader(TimeSeriesSource):
         self._path = path
         self._contents = nwb_format.scan(path)
         self._groups = []
+        signals = list(self._contents.of_kind("signal"))
+        has_dff = any(
+            info.path.rstrip("/").split("/")[-2] == "DfOverF"
+            for info in signals
+            if info.path.count("/") > 1
+        )
         with nwb_format.open_file(path) as handle:
-            for info in self._contents.of_kind("signal"):
-                self._groups.append(self._signal_group(info))
+            for info in signals:
+                self._groups.append(self._signal_group(info, has_dff=has_dff))
             for info in self._contents.of_kind("interval"):
                 starts, stops = _interval_series_edges(handle, info)
                 self._add_interval_group(info.name, starts, stops)
@@ -111,13 +122,26 @@ class NWBLoader(TimeSeriesSource):
 
     # ── Channel groups ─────────────────────────────────────────────────────
 
-    def _signal_group(self, info: SeriesInfo) -> _Group:
+    def _signal_group(self, info: SeriesInfo, *, has_dff: bool = False) -> _Group:
         unit = display_unit(info.unit)
         names = info.channel_names()
+        parent = info.path.rstrip("/").split("/")[-2] if info.path.count("/") > 1 else ""
+        secondary_wide_fluo = (
+            has_dff and parent == "Fluorescence" and len(names) > _INITIAL_SHOWN_COLUMNS
+        )
         return _Group(
             names=names,
             read=lambda handle: _signal_chunks(handle, info, names),
-            infos=[ChannelInfo(name, unit, "float64", info.rate) for name in names],
+            infos=[
+                ChannelInfo(
+                    name,
+                    unit,
+                    "float64",
+                    info.rate,
+                    shown=(not secondary_wide_fluo and idx < _INITIAL_SHOWN_COLUMNS),
+                )
+                for idx, name in enumerate(names)
+            ],
         )
 
     def _add_interval_group(self, name: str, starts: np.ndarray, stops: np.ndarray) -> None:

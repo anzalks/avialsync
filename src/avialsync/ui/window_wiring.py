@@ -71,6 +71,7 @@ def connect_transport_and_panes(window: MainWindow) -> None:
 
     # Plot annotate-at and timeline marker dragging
     window.plot_pane.annotate_at_requested.connect(window._on_annotate_at_requested)
+    window.plot_pane.measure_cleared.connect(window.readout_panel.clear_delta)
     window.transport.marker_move_requested.connect(window.annotation_store.set_span)
     window.changes_panel.ethogram_bar.slot_activated.connect(
         lambda digit: ethogram_bar.trigger_ethogram_slot(window, digit)

@@ -107,6 +107,8 @@ class PlotPane(QWidget):
     sources_changed = Signal(list)  # list[MappedChannelReader]
     # Emitted when both measure points are set (t_a, t_b)
     measure_changed = Signal(float, float)
+    # Emitted when measure points are cleared
+    measure_cleared = Signal()
     # Emitted when user picks "Add marker here" from the plot context menu
     annotate_at_requested = Signal(float)  # t in master-clock seconds
     # Emitted when a visible plot row is left-clicked at an absolute master time.
@@ -128,6 +130,14 @@ class PlotPane(QWidget):
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.channels: list[ChannelPlot] = []
+        self._index_cache: (
+            tuple[
+                tuple[int, int, int],
+                dict[ChannelKey, list[ChannelPlot]],
+                dict[str, list[ChannelPlot]],
+            ]
+            | None
+        ) = None
         self._page_generation = 0
         self._last_installed_generation = 0
         self._page_thread: QThread | None = None
@@ -456,18 +466,10 @@ class PlotPane(QWidget):
             )
             if not visible:
                 apply_channel_visibility(channel)
-            if self._master_plot is None:
+            if self._master_plot is None and visible:
                 self._master_plot = channel.plot_item
-            else:
-                # Range first, then link. An X link only propagates on a change
-                # of the master's range, so a row linked later kept whatever it
-                # was constructed with and sat mis-scaled beside the rows
-                # already on screen. Setting it after linking is worse still:
-                # the value feeds back through the link and rescales the master.
-                if self.window_duration > 0:
-                    channel.plot_item.setXRange(0.0, self.window_duration, padding=0)
-                channel.plot_item.setXLink(self._master_plot)
             self.channels.append(channel)
+            self._index_cache = None
             self._label_axis(channel)
             # Laid out after it is built and moved whenever a row above it
             # changes; either way its on-screen test must be re-read.
@@ -478,14 +480,13 @@ class PlotPane(QWidget):
             gaps = self._interactions.gap_times_for(channel.reader.key, name)
             if gaps:
                 channel.gap_times = gaps
-            # No data yet: the view stays frozen until the last row exists, and
-            # `_finish_loading` then requests one page for all of them from the
-            # worker. Querying here made each UI slice wait on cold mmap pages.
-
-            # Stop before the *next* row would overrun, not after this one
-            # already has. Checking afterwards let a slice run to twice its
-            # budget whenever a row started just under the deadline.
-            self._row_build_cost_s = max(self._row_build_cost_s, _elapsed() - row_started)
+            # No data or XLink yet: the view stays frozen until the last row
+            # exists, and `_finish_loading` settles stack geometry, links the
+            # visible rows once, and requests one page from the worker.
+            cost = _elapsed() - row_started
+            self._row_build_cost_s = (
+                cost if self._row_build_cost_s <= 0.0 else 0.7 * self._row_build_cost_s + 0.3 * cost
+            )
             elapsed = _elapsed() - started
             if elapsed + self._row_build_cost_s > _ROW_BUILD_SLICE_S:
                 break
@@ -520,19 +521,27 @@ class PlotPane(QWidget):
         self._interactions._hover.discard_items()
         self._interactions.clear_measure()
         readers_to_close = [channel.reader.source_reader for channel in self.channels]
-        for channel in self.channels:
-            owner = self._pinned_layout if channel.pinned_in_layout else self.graphics_layout
-            detach_row(owner, channel)
-        self.channels.clear()
-        # The rows of a page still in flight hold their readers' memory maps.
-        self._requested_rows = ()
-        self._source_time_maps.clear()
-        self._units.clear()
-        self._pending_pinned.clear()
-        self._interactions.clear_gap_markers()
-        self._master_plot = None
-        self._link_x_axes()
-        self._relayout_rows()
+        self.graphics_layout.setUpdatesEnabled(False)
+        self._pinned_layout.setUpdatesEnabled(False)
+        try:
+            for channel in self.channels:
+                channel.plot_item.setXLink(None)
+                owner = self._pinned_layout if channel.pinned_in_layout else self.graphics_layout
+                detach_row(owner, channel)
+            self.channels.clear()
+            self._index_cache = None
+            # The rows of a page still in flight hold their readers' memory maps.
+            self._requested_rows = ()
+            self._source_time_maps.clear()
+            self._units.clear()
+            self._pending_pinned.clear()
+            self._interactions.clear_gap_markers()
+            self._master_plot = None
+            self._link_x_axes()
+            self._relayout_rows()
+        finally:
+            self._pinned_layout.setUpdatesEnabled(True)
+            self.graphics_layout.setUpdatesEnabled(True)
         self._refresh_mode_view()
         self.sources_changed.emit([])
         self._interactions.redraw_page_overlays()
@@ -566,6 +575,7 @@ class PlotPane(QWidget):
         # the fold.
         self._update_axis_visibility()
         self._cull_offscreen_rows()
+        self._link_x_axes()
         self.graphics_layout.setUpdatesEnabled(True)
         self._configure_shared_x_range()
         self._set_sweep_for_time(
@@ -681,22 +691,52 @@ class PlotPane(QWidget):
         for ch in to_remove:
             self._units.pop(ch.reader.key, None)
             self._interactions.forget_gap_markers(ch.reader.key)
-        for ch in to_remove:
-            owner = self._pinned_layout if ch.pinned_in_layout else self.graphics_layout
-            detach_row(owner, ch)
-            self.channels.remove(ch)
-
-            if self._master_plot == ch.plot_item:
-                self._master_plot = self.channels[0].plot_item if self.channels else None
-
-        self._link_x_axes()
-        self._relayout_rows()
+        if to_remove:
+            remove_ids = {id(ch) for ch in to_remove}
+            self.graphics_layout.setUpdatesEnabled(False)
+            self._pinned_layout.setUpdatesEnabled(False)
+            try:
+                for ch in to_remove:
+                    ch.plot_item.setXLink(None)
+                    owner = self._pinned_layout if ch.pinned_in_layout else self.graphics_layout
+                    detach_row(owner, ch)
+                self.channels = [ch for ch in self.channels if id(ch) not in remove_ids]
+                self._index_cache = None
+                if any(self._master_plot == ch.plot_item for ch in to_remove):
+                    self._master_plot = self.channels[0].plot_item if self.channels else None
+                self._link_x_axes()
+                self._relayout_rows()
+            finally:
+                self._pinned_layout.setUpdatesEnabled(True)
+                if not self._pending_rows:
+                    self.graphics_layout.setUpdatesEnabled(True)
+        else:
+            self._link_x_axes()
+            self._relayout_rows()
         self._refresh_mode_view()
 
         self.sources_changed.emit([ch.reader for ch in self.channels])
         self._interactions.redraw_page_overlays()
         for ch in to_remove:
             ch.reader.source_reader.close()
+
+    def _channel_maps(
+        self,
+    ) -> tuple[dict[ChannelKey, list[ChannelPlot]], dict[str, list[ChannelPlot]]]:
+        sig = (
+            len(self.channels),
+            id(self.channels[0]) if self.channels else 0,
+            id(self.channels[-1]) if self.channels else 0,
+        )
+        if self._index_cache is not None and self._index_cache[0] == sig:
+            return self._index_cache[1], self._index_cache[2]
+        by_key: dict[ChannelKey, list[ChannelPlot]] = {}
+        by_name: dict[str, list[ChannelPlot]] = {}
+        for ch in self.channels:
+            by_key.setdefault(ch.reader.key, []).append(ch)
+            by_name.setdefault(ch.reader.channel_id, []).append(ch)
+        self._index_cache = (sig, by_key, by_name)
+        return by_key, by_name
 
     def _matching(self, channel: ChannelKey | str) -> list[ChannelPlot]:
         """Resolve a channel reference to the rows it identifies.
@@ -705,9 +745,10 @@ class PlotPane(QWidget):
         ambiguous by construction — two files can both contain ``force_z`` — so
         it matches every owner and says so, rather than silently picking one.
         """
+        by_key, by_name = self._channel_maps()
         if isinstance(channel, ChannelKey):
-            return [ch for ch in self.channels if ch.reader.key == channel]
-        matches = [ch for ch in self.channels if ch.reader.channel_id == channel]
+            return list(by_key.get(channel, ()))
+        matches = list(by_name.get(channel, ()))
         owners = {ch.reader.source_id for ch in matches}
         if len(owners) > 1:
             logger.warning(
@@ -736,12 +777,14 @@ class PlotPane(QWidget):
         for ch in to_remove:
             self._units.pop(ch.reader.key, None)
             self._interactions.forget_gap_markers(ch.reader.key)
+            ch.plot_item.setXLink(None)
             owner = self._pinned_layout if ch.pinned_in_layout else self.graphics_layout
             detach_row(owner, ch)
             self.channels.remove(ch)
 
             if self._master_plot == ch.plot_item:
                 self._master_plot = self.channels[0].plot_item if self.channels else None
+        self._index_cache = None
 
         self._link_x_axes()
         self._relayout_rows()
@@ -784,7 +827,7 @@ class PlotPane(QWidget):
         if self.sweep_start is None:
             return
         for channel in self.channels:
-            if channel.page_t0 is not None:
+            if channel.visible and channel.page_t0 is not None:
                 channel.curve.setPos(channel.page_t0 - self.sweep_start, 0.0)
 
     def _start_page_job(self) -> None:
@@ -1007,9 +1050,26 @@ class PlotPane(QWidget):
 
     def set_channel_visible(self, channel: ChannelKey | str, visible: bool) -> None:
         """Show or hide the plot row(s) identified by *channel*."""
+        need_relink = False
         for ch in self._matching(channel):
             ch.visible = visible
             apply_channel_visibility(ch)
+            if not visible and ch.plot_item == self._master_plot:
+                need_relink = True
+            elif visible and self._master_plot is None:
+                need_relink = True
+            elif (
+                visible
+                and self._master_plot is not None
+                and ch.plot_item != self._master_plot
+                and ch.plot_item.vb.linkedView(0) is not self._master_plot.vb
+            ):
+                ch.plot_item.layout.activate()
+                if self.window_duration > 0:
+                    ch.plot_item.setXRange(0.0, self.window_duration, padding=0)
+                ch.plot_item.setXLink(self._master_plot)
+        if need_relink:
+            self._link_x_axes()
         if visible and self.sweep_start is not None:
             # The shown row's page comes from the worker like any other.
             self.update_plots()
@@ -1025,14 +1085,14 @@ class PlotPane(QWidget):
         """Batch-update visibility across many channels with one relayout and page refresh."""
         if not updates:
             return
-        by_key = {ch.reader.key: ch for ch in self.channels}
+        by_key, _by_name = self._channel_maps()
         to_apply: list[tuple[ChannelPlot, bool]] = []
         any_shown = False
         for target, visible in updates.items():
             rows = (
-                [by_key[target]]
-                if isinstance(target, ChannelKey) and target in by_key
-                else ([] if isinstance(target, ChannelKey) else self._matching(target))
+                list(by_key.get(target, ()))
+                if isinstance(target, ChannelKey)
+                else self._matching(target)
             )
             for ch in rows:
                 if ch.visible != visible:
@@ -1041,15 +1101,60 @@ class PlotPane(QWidget):
                         any_shown = True
         if not to_apply:
             return
-        for ch, visible in to_apply:
-            ch.visible = visible
-            apply_channel_visibility(ch)
+        if len(to_apply) <= 8:
+            need_relink = False
+            for ch, visible in to_apply:
+                ch.visible = visible
+                apply_channel_visibility(ch)
+                if not visible and ch.plot_item == self._master_plot:
+                    need_relink = True
+                elif visible and self._master_plot is None:
+                    need_relink = True
+                elif (
+                    visible
+                    and self._master_plot is not None
+                    and ch.plot_item != self._master_plot
+                    and ch.plot_item.vb.linkedView(0) is not self._master_plot.vb
+                ):
+                    ch.plot_item.layout.activate()
+                    if self.window_duration > 0:
+                        ch.plot_item.setXRange(0.0, self.window_duration, padding=0)
+                    ch.plot_item.setXLink(self._master_plot)
+            if need_relink:
+                self._link_x_axes()
+            if any_shown and self.sweep_start is not None:
+                self.update_plots()
+            else:
+                self._refresh_mode_view()
+            self._redraw_sweep_overlays()
+            self._relayout_rows()
+            return
+        self.graphics_layout.setUpdatesEnabled(False)
+        self._pinned_layout.setUpdatesEnabled(False)
+        try:
+            for ch, visible in to_apply:
+                ch.visible = visible
+                if not visible:
+                    ch.plot_item.setXLink(None)
+                apply_channel_visibility(ch)
+            self._apply_stack_height()
+            self.graphics_layout.resizeEvent(None)
+            self.graphics_layout.ci.layout.activate()
+            if self._pinned_layout.isVisible():
+                self._pinned_layout.resizeEvent(None)
+                self._pinned_layout.ci.layout.activate()
+            self._update_axis_visibility()
+            self._cull_offscreen_rows()
+            self._link_x_axes()
+        finally:
+            self._pinned_layout.setUpdatesEnabled(True)
+            if not self._pending_rows:
+                self.graphics_layout.setUpdatesEnabled(True)
         if any_shown and self.sweep_start is not None:
             self.update_plots()
         else:
             self._refresh_mode_view()
         self._redraw_sweep_overlays()
-        self._relayout_rows()
 
     def reset_zoom(self) -> None:
         """Set the shared sweep window to the full master-timeline duration."""
@@ -1258,10 +1363,26 @@ class PlotPane(QWidget):
             scene.prepareForPaint()
 
     def _link_x_axes(self) -> None:
+        self._master_plot = next(
+            (ch.plot_item for ch in self.channels if ch.visible),
+            self.channels[0].plot_item if self.channels else None,
+        )
         if self._master_plot is None:
             return
+        self._master_plot.layout.activate()
+        if self.window_duration > 0:
+            self._master_plot.setXRange(0.0, self.window_duration, padding=0)
         for ch in self.channels:
-            if ch.plot_item != self._master_plot:
+            if not ch.visible:
+                ch.plot_item.setXLink(None)
+                continue
+            if ch.plot_item == self._master_plot:
+                ch.plot_item.setXLink(None)
+                continue
+            if ch.plot_item.vb.linkedView(0) is not self._master_plot.vb:
+                ch.plot_item.layout.activate()
+                if self.window_duration > 0:
+                    ch.plot_item.setXRange(0.0, self.window_duration, padding=0)
                 ch.plot_item.setXLink(self._master_plot)
         self._configure_shared_x_range()
 
@@ -1280,6 +1401,8 @@ class PlotPane(QWidget):
     @Slot()
     def _cull_offscreen_rows(self) -> None:
         """Hide the data items of rows more than a viewport out of view."""
+        if self._pending_rows and not self._draw_every_row:
+            return
         if self._draw_every_row:
             top, bottom = -math.inf, math.inf
         else:
@@ -1292,8 +1415,19 @@ class PlotPane(QWidget):
         position = self._sweep_control.advance(self._sweep_control.last_master_time)
         pinned = [ch for ch in self.channels if ch.pinned_in_layout]
         unpinned = [ch for ch in self.channels if not ch.pinned_in_layout]
-        cull_offscreen_rows(pinned, -math.inf, math.inf, phase=position.phase)
-        cull_offscreen_rows(unpinned, top, bottom, phase=position.phase)
+        changed_p = cull_offscreen_rows(
+            pinned, -math.inf, math.inf, phase=position.phase, sweep_start=self.sweep_start
+        )
+        changed_u = cull_offscreen_rows(
+            unpinned, top, bottom, phase=position.phase, sweep_start=self.sweep_start
+        )
+        if changed_p or changed_u:
+            self._redraw_coverage()
+            if (
+                self._interactions._measure_a is not None
+                or self._interactions._measure_b is not None
+            ):
+                self._interactions.redraw_measure_lines()
 
     @contextmanager
     def every_row_drawn(self) -> Iterator[None]:
@@ -1410,7 +1544,7 @@ class PlotPane(QWidget):
         # Two items per visible row: the trace and the cursor.  This loop is the
         # 30 Hz repaint path, so anything added here is paid per row per frame.
         for ch in self.channels:
-            if ch.visible and ch.cursor_line.isVisible():
+            if ch.visible and not ch.culled:
                 ch.cursor_line.setValue(position.phase)
                 ch.curve.set_sweep_position(position.phase)
         if self._view_mode != PLOT_MODE_STACKED:
@@ -1484,14 +1618,13 @@ class PlotPane(QWidget):
 
     def _request_channel_close(self, channel_id: ChannelKey | str) -> None:
         """Row close button: hide this source's row and tell the sidebar which one."""
+        matches = self._matching(channel_id)
         if isinstance(channel_id, ChannelKey):
-            match = next((ch for ch in self.channels if ch.reader.key == channel_id), None)
-            key = match.reader.key if match is not None else channel_id
+            key = matches[0].reader.key if matches else channel_id
         else:
-            match = next(
-                (ch for ch in self.channels if ch.reader.channel_id == channel_id and ch.visible),
-                None,
-            ) or next((ch for ch in self.channels if ch.reader.channel_id == channel_id), None)
+            match = next((ch for ch in matches if ch.visible), None) or (
+                matches[0] if matches else None
+            )
             key = match.reader.key if match is not None else ChannelKey("", channel_id)
         self.set_channel_visible(key, False)
         self.channel_close_requested.emit(key.source_id, key.channel_id)
@@ -1512,7 +1645,8 @@ class PlotPane(QWidget):
         if self.sweep_start is None:
             return
         for ch in self.channels:
-            update_channel_coverage(ch, self.x_range)
+            if not ch.culled:
+                update_channel_coverage(ch, self.x_range)
 
     def set_context_actions(self, actions: list[QAction]) -> None:
         """Register shared QActions, including the View menu's Reset Zoom action."""

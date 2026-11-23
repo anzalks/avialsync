@@ -265,15 +265,26 @@ def _tree_size(directory: Path) -> int:
     """
     seen: set[tuple[int, int]] = set()
     total = 0
-    for folder, _dirs, files in os.walk(directory, followlinks=False):
-        for name in files:
-            try:
-                stat = os.lstat(os.path.join(folder, name))
-            except OSError:
-                continue
-            identity = (stat.st_dev, stat.st_ino)
-            if stat.st_nlink > 1 and identity in seen:
-                continue
-            seen.add(identity)
-            total += stat.st_size
+    stack: list[str] = [os.fspath(directory)]
+    while stack:
+        current = stack.pop()
+        try:
+            with os.scandir(current) as entries:
+                for entry in entries:
+                    try:
+                        if entry.is_dir(follow_symlinks=False):
+                            stack.append(entry.path)
+                            continue
+                        if entry.is_symlink() and entry.is_dir(follow_symlinks=True):
+                            continue
+                        stat = entry.stat(follow_symlinks=False)
+                    except OSError:
+                        continue
+                    identity = (stat.st_dev, stat.st_ino)
+                    if stat.st_nlink > 1 and identity in seen:
+                        continue
+                    seen.add(identity)
+                    total += stat.st_size
+        except OSError:
+            continue
     return total

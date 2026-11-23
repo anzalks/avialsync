@@ -62,6 +62,7 @@ class ChannelPlot:
     visible: bool = True
     pinned: bool = False
     pinned_in_layout: bool = False
+    culled: bool = False
     #: The page start its curve data is relative to, once a page is installed.
     #: Pages arrive from a worker, so between a page change and its arrival
     #: the row is offset by the difference and its samples stay at their
@@ -118,6 +119,8 @@ def refresh_channel_plot(
 
 def set_channel_unit(channel: ChannelPlot, unit: str) -> None:
     """Show a channel's unit in the fixed left-axis gutter."""
+    if channel.unit == unit:
+        return
     channel.unit = unit
     _update_channel_gutter(channel)
 
@@ -141,7 +144,6 @@ def fit_channel_y(channel: ChannelPlot) -> None:
     channel.y_range = (low - pad, high + pad)
     channel.plot_item.setYRange(*channel.y_range, padding=0)
     channel.plot_item.enableAutoRange(axis="y", enable=False)
-    _update_channel_gutter(channel)
 
 
 def _update_channel_gutter(channel: ChannelPlot) -> None:
@@ -203,8 +205,13 @@ def apply_channel_visibility(channel: ChannelPlot) -> None:
 
 
 def cull_offscreen_rows(
-    channels: list[ChannelPlot], top: float, bottom: float, *, phase: float | None = None
-) -> None:
+    channels: list[ChannelPlot],
+    top: float,
+    bottom: float,
+    *,
+    phase: float | None = None,
+    sweep_start: float | None = None,
+) -> bool:
     """Draw only the rows whose geometry meets ``[top, bottom]``.
 
     The stack is one tall view inside a scroll area, so Qt treats every row as
@@ -215,15 +222,31 @@ def cull_offscreen_rows(
     drawn, never assumed off screen. Restore the authoritative sweep phase
     before revealing data whose pixel updates were deferred while culled.
     """
+    changed = False
     for channel in channels:
+        group = channel.plot_item.getViewBox().childGroup
+        if not channel.visible:
+            if not channel.culled:
+                channel.culled = True
+                changed = True
+            if group.isVisible():
+                group.setVisible(False)
+            continue
         geometry = channel.plot_item.geometry()
         near = geometry.height() <= 0 or (geometry.bottom() >= top and geometry.top() <= bottom)
-        group = channel.plot_item.getViewBox().childGroup
-        if phase is not None and channel.visible and near:
-            channel.cursor_line.setValue(phase)
-            channel.curve.set_sweep_position(phase)
+        was_culled = channel.culled
+        channel.culled = not near
+        if was_culled != channel.culled:
+            changed = True
+        if near:
+            if was_culled and sweep_start is not None and channel.page_t0 is not None:
+                channel.curve.setPos(channel.page_t0 - sweep_start, 0.0)
+            if phase is not None:
+                channel.cursor_line.setValue(phase)
+                channel.curve.set_sweep_position(phase)
         if group.isVisible() != near:
             group.setVisible(near)
+    return changed
 
 
 def enforce_channel_visibility(channels: list[ChannelPlot]) -> None:
@@ -270,9 +293,12 @@ def detach_row(graphics_layout: pg.GraphicsLayoutWidget, channel: ChannelPlot) -
 def reveal_row_tools(channels: list[ChannelPlot], scene_y: float) -> None:
     """Show the tools of the row under the pointer; fade the rest."""
     for channel in channels:
-        band = channel.plot_item.sceneBoundingRect()
-        over = channel.visible and band.top() <= scene_y <= band.bottom()
         focused = channel.close_button.hasFocus()
+        if not channel.visible or channel.culled:
+            over = False
+        else:
+            band = channel.plot_item.sceneBoundingRect()
+            over = band.top() <= scene_y <= band.bottom()
         opacity = 1.0 if over or focused else 0.0
         if channel.close_proxy.opacity() != opacity:
             channel.close_proxy.setOpacity(opacity)
@@ -319,10 +345,20 @@ def create_channel_plot(
     # transparent, not hidden, so Tab still reaches it.
     close_proxy.setOpacity(0.0)
     close_button.installEventFilter(_RevealOnFocus(close_proxy, close_button))
+    if not visible:
+        close_proxy.setVisible(False)
+        close_proxy.setMinimumHeight(0)
+        close_proxy.setMaximumHeight(0)
     graphics_layout.addItem(close_proxy, row=row, col=0)
 
-    plot_item = graphics_layout.addPlot(row=row, col=1)
-    plot_item.setMinimumHeight(row_height)
+    plot_item = pg.PlotItem(enableMenu=False)
+    if visible:
+        plot_item.setMinimumHeight(row_height)
+    else:
+        plot_item.setVisible(False)
+        plot_item.setMinimumHeight(0)
+        plot_item.setMaximumHeight(0)
+    graphics_layout.addItem(plot_item, row=row, col=1)
     # Escaped for the same reason the gutter is: this label is rendered as HTML,
     # so a channel named "I<V" or "a & b" would lose part of its name.
     plot_item.setLabel("left", html.escape(channel_name))

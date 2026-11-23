@@ -7,7 +7,7 @@ from typing import cast
 
 import numpy as np
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QFontDatabase, QPalette
+from PySide6.QtGui import QAction, QFontDatabase, QPalette, QShowEvent
 from PySide6.QtWidgets import (
     QFrame,
     QGroupBox,
@@ -45,12 +45,32 @@ def _set_monospace(widget: QWidget) -> None:
     set_font_family(widget, _fixed_font_family())
 
 
+#: Maximum live per-channel QWidget rows mounted in the sidebar scroll area;
+#: sessions with hundreds of ROIs remain listed in ``_rows`` and ``Text view…``
+#: without constructing thousands of hidden QLabels on the UI thread.
+_MAX_WIDGET_ROWS = 64
+
+
+def _format_channel_summary(name: str, unit: str, sample: tuple[int, float] | None) -> str:
+    if sample is None or np.isnan(sample[1]):
+        val_text = tr("—")
+        idx_text = "" if sample is None else str(sample[0])
+    else:
+        unit_str = f" {unit}" if unit else ""
+        val_text = f"{sample[1]:.4g}{unit_str}"
+        idx_text = str(sample[0])
+    suffix = tr(" (sample {index})").format(index=idx_text) if idx_text else ""
+    return f"{name}: {val_text}{suffix}"
+
+
 class _ChannelReadout(QWidget):
     """Single row: channel name | value (unit) | sample index."""
 
     def __init__(self, name: str, unit: str = "", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._unit = unit
+        self._last_val_text = "—"
+        self._last_idx_text = ""
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -79,15 +99,22 @@ class _ChannelReadout(QWidget):
         if self._name_lbl.text() != name:
             self._name_lbl.setText(name)
         self._unit = unit
+        self._last_val_text = ""
 
     def set_value(self, v: float | None, sample_idx: int | None = None) -> None:
         if v is None or np.isnan(v):
-            self._val_lbl.setText(tr("—"))
+            val_text = tr("—")
         else:
             unit_str = f" {self._unit}" if self._unit else ""
-            self._val_lbl.setText(f"{v:.4g}{unit_str}")
+            val_text = f"{v:.4g}{unit_str}"
+        if val_text != self._last_val_text:
+            self._last_val_text = val_text
+            self._val_lbl.setText(val_text)
         if sample_idx is not None:
-            self._idx_lbl.setText(f"[{sample_idx}]")
+            idx_text = f"[{sample_idx}]"
+            if idx_text != self._last_idx_text:
+                self._last_idx_text = idx_text
+                self._idx_lbl.setText(idx_text)
 
     def summary_line(self) -> str:
         """Return the visible channel name, value, unit, and sample index."""
@@ -245,10 +272,16 @@ class ReadoutPanel(QGroupBox):
 
         # Keyed by (source_id, channel_id): two files may both contain the
         # same channel name, and neither may overwrite the other's row.
-        self._rows: dict[ChannelKey, tuple[MappedChannelReader, _ChannelReadout]] = {}
+        self._rows: dict[ChannelKey, tuple[MappedChannelReader, _ChannelReadout | None]] = {}
+        self._labels: dict[ChannelKey, str] = {}
         self._units: dict[ChannelKey, str] = {}
         self._readers: list[MappedChannelReader] = []
         self._cursor_time: float | None = None
+        self._cursor_dirty = False
+        self._overflow_lbl = QLabel()
+        self._overflow_lbl.setWordWrap(True)
+        self._overflow_lbl.setForegroundRole(QPalette.ColorRole.PlaceholderText)
+        self._overflow_lbl.setVisible(False)
 
         # Section labels + rows for optional sections
         self._cam_label = QLabel(tr("Camera Positions"))
@@ -265,8 +298,14 @@ class ReadoutPanel(QGroupBox):
         set_bold(self._delta_label)
         self._delta_label.setVisible(False)
         self._delta_rows: dict[ChannelKey, _DeltaRow] = {}
+        self._delta_extra_widgets: list[QWidget] = []
         self._delta_t_lbl = QLabel(tr("Δt = —"))
         _set_monospace(self._delta_t_lbl)
+
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        if self._cursor_dirty:
+            self._flush_cursor()
 
     # ── Public API ────────────────────────────────────────────────────
 
@@ -283,27 +322,48 @@ class ReadoutPanel(QGroupBox):
         self._readers = list(readers)
         self._units = dict(units or {})
         labels = disambiguate([reader.key for reader in readers])
+        self._labels = labels
         previous = self._rows
-        next_rows: dict[ChannelKey, tuple[MappedChannelReader, _ChannelReadout]] = {}
+        next_rows: dict[ChannelKey, tuple[MappedChannelReader, _ChannelReadout | None]] = {}
 
         self._content.setUpdatesEnabled(False)
         try:
-            for _, row in previous.values():
-                self._layout.removeWidget(row)
-            for reader in readers:
+            self._layout.removeWidget(self._overflow_lbl)
+            self._overflow_lbl.setVisible(False)
+            for _, old_row in previous.values():
+                if old_row is not None:
+                    self._layout.removeWidget(old_row)
+            for idx, reader in enumerate(readers):
                 key = reader.key
                 unit = self._units.get(key, self._units.get(ChannelKey("", key.channel_id), ""))
                 reused = previous.pop(key, None)
-                if reused is not None:
-                    row = reused[1]
-                    row.configure(labels[key], unit)
+                old_widget = reused[1] if reused is not None else None
+                if idx < _MAX_WIDGET_ROWS:
+                    if old_widget is not None:
+                        row = old_widget
+                        row.configure(labels[key], unit)
+                    else:
+                        row = _ChannelReadout(labels[key], unit)
+                    self._layout.insertWidget(self._layout.count() - 1, row)
+                    next_rows[key] = (reader, row)
                 else:
-                    row = _ChannelReadout(labels[key], unit)
-                self._layout.insertWidget(self._layout.count() - 1, row)
-                next_rows[key] = (reader, row)
+                    if old_widget is not None:
+                        old_widget.deleteLater()
+                    next_rows[key] = (reader, None)
+            if len(readers) > _MAX_WIDGET_ROWS:
+                extra = len(readers) - _MAX_WIDGET_ROWS
+                self._overflow_lbl.setText(
+                    tr("+{count} more channels — use Text view… for all values").format(count=extra)
+                )
+                self._overflow_lbl.setVisible(True)
+                self._layout.insertWidget(self._layout.count() - 1, self._overflow_lbl)
             for _, stale_row in previous.values():
-                stale_row.deleteLater()
+                if stale_row is not None:
+                    stale_row.deleteLater()
             self._rows = next_rows
+            self._cursor_dirty = self._cursor_time is not None
+            if self._cursor_dirty and (self.parentWidget() is None or self.isVisible()):
+                self._flush_cursor()
             self._refresh_empty()
         finally:
             self._content.setUpdatesEnabled(True)
@@ -311,7 +371,19 @@ class ReadoutPanel(QGroupBox):
     def set_cursor(self, t: float) -> None:
         """Display the last available sample at or before *t*."""
         self._cursor_time = float(t)
+        if self.parentWidget() is not None and not self.isVisible():
+            self._cursor_dirty = True
+            return
+        self._flush_cursor()
+
+    def _flush_cursor(self) -> None:
+        self._cursor_dirty = False
+        t = self._cursor_time
+        if t is None:
+            return
         for _name, (reader, row) in self._rows.items():
+            if row is None:
+                continue
             try:
                 sample = _display_sample(reader, t)
                 if sample is None:
@@ -324,11 +396,25 @@ class ReadoutPanel(QGroupBox):
 
     def textual_summary(self) -> str:
         """Return a screen-reader-friendly text view of the current readout."""
+        if self._cursor_dirty:
+            self._flush_cursor()
         if self._cursor_time is None:
             lines = [tr("Playhead time is not available.")]
         else:
             lines = [tr("Master time: {time:.6f} s").format(time=self._cursor_time)]
-        lines.extend(row.summary_line() for _, row in self._rows.values())
+        for key, (reader, row) in self._rows.items():
+            if row is not None:
+                lines.append(row.summary_line())
+                continue
+            unit = self._units.get(key, self._units.get(ChannelKey("", key.channel_id), ""))
+            label = self._labels.get(key, key.channel_id)
+            sample: tuple[int, float] | None = None
+            if self._cursor_time is not None:
+                try:
+                    sample = _display_sample(reader, self._cursor_time)
+                except Exception:
+                    sample = None
+            lines.append(_format_channel_summary(label, unit, sample))
         lines.extend(row.summary_line() for row in self._cam_rows)
         if not self._rows and not self._cam_rows:
             lines.append(tr("No channel values or camera frames are available."))
@@ -405,18 +491,22 @@ class ReadoutPanel(QGroupBox):
 
     def display_region_stats(self, stats_list: list[dict[str, float | str]]) -> None:
         """Display A/B-region statistics computed by a background worker."""
-        self._clear_stats()
-        if not stats_list:
-            return
+        self._content.setUpdatesEnabled(False)
+        try:
+            self._clear_stats()
+            if not stats_list:
+                return
 
-        self._stats_label.setVisible(True)
-        self._layout.insertWidget(self._layout.count() - 1, self._stats_label)
-        for stats in stats_list:
-            ch = str(stats.get("channel", "?"))
-            row = _StatsRow(ch)
-            row.set_stats(stats)
-            self._layout.insertWidget(self._layout.count() - 1, row)
-            self._stats_rows[ch] = row
+            self._stats_label.setVisible(True)
+            self._layout.insertWidget(self._layout.count() - 1, self._stats_label)
+            for stats in stats_list[:_MAX_WIDGET_ROWS]:
+                ch = str(stats.get("channel", "?"))
+                row = _StatsRow(ch)
+                row.set_stats(stats)
+                self._layout.insertWidget(self._layout.count() - 1, row)
+                self._stats_rows[ch] = row
+        finally:
+            self._content.setUpdatesEnabled(True)
 
     def show_delta(
         self,
@@ -425,38 +515,54 @@ class ReadoutPanel(QGroupBox):
         camera_states: list[tuple[str, float, float]] | None = None,
     ) -> None:
         """Show Δt and Δvalue per channel between measure points A and B."""
-        self._clear_delta()
-        dt = t_b - t_a
-        self._delta_label.setVisible(True)
-        self._delta_t_lbl.setText(tr("Δt = {dt} s").format(dt=f"{dt:+.3f}"))
-        self._layout.insertWidget(self._layout.count() - 1, self._delta_label)
-        self._layout.insertWidget(self._layout.count() - 1, self._delta_t_lbl)
+        self._content.setUpdatesEnabled(False)
+        try:
+            self._clear_delta()
+            dt = t_b - t_a
+            self._delta_label.setVisible(True)
+            self._delta_t_lbl.setText(tr("Δt = {dt} s").format(dt=f"{dt:+.3f}"))
+            self._layout.insertWidget(self._layout.count() - 1, self._delta_label)
+            self._layout.insertWidget(self._layout.count() - 1, self._delta_t_lbl)
 
-        labels = disambiguate(list(self._rows))
-        for key, (reader, _) in self._rows.items():
-            unit = self._units.get(key, "")
-            try:
-                sample_a = _display_sample(reader, t_a)
-                sample_b = _display_sample(reader, t_b)
-                if sample_a is None or sample_b is None:
+            labels = self._labels or disambiguate(list(self._rows))
+            for idx, (key, (reader, _)) in enumerate(self._rows.items()):
+                if idx >= _MAX_WIDGET_ROWS:
+                    break
+                unit = self._units.get(key, "")
+                try:
+                    sample_a = _display_sample(reader, t_a)
+                    sample_b = _display_sample(reader, t_b)
+                    if sample_a is None or sample_b is None:
+                        dv = None
+                    else:
+                        dv = sample_b[1] - sample_a[1]
+                except Exception:
                     dv = None
-                else:
-                    dv = sample_b[1] - sample_a[1]
-            except Exception:
-                dv = None
-            row = _DeltaRow(labels[key], unit)
-            row.set_delta(dv)
-            self._layout.insertWidget(self._layout.count() - 1, row)
-            self._delta_rows[key] = row
+                row = _DeltaRow(labels.get(key, key.channel_id), unit)
+                row.set_delta(dv)
+                self._layout.insertWidget(self._layout.count() - 1, row)
+                self._delta_rows[key] = row
 
-        if camera_states:
-            fps_row = QLabel(tr("Frames between:"))
-            set_bold(fps_row)
-            self._layout.insertWidget(self._layout.count() - 1, fps_row)
-            for label, _tp, fps in camera_states:
-                n = int(round(dt * fps)) if fps > 0 else "—"
-                r = QLabel(tr("  {label}: {count} frames").format(label=label, count=n))
-                self._layout.insertWidget(self._layout.count() - 1, r)
+            if len(self._rows) > _MAX_WIDGET_ROWS:
+                more_lbl = QLabel(
+                    tr("+{count} more channels").format(count=len(self._rows) - _MAX_WIDGET_ROWS)
+                )
+                more_lbl.setForegroundRole(QPalette.ColorRole.PlaceholderText)
+                self._layout.insertWidget(self._layout.count() - 1, more_lbl)
+                self._delta_extra_widgets.append(more_lbl)
+
+            if camera_states:
+                fps_row = QLabel(tr("Frames between:"))
+                set_bold(fps_row)
+                self._layout.insertWidget(self._layout.count() - 1, fps_row)
+                self._delta_extra_widgets.append(fps_row)
+                for label, _tp, fps in camera_states:
+                    n = int(round(dt * fps)) if fps > 0 else "—"
+                    r = QLabel(tr("  {label}: {count} frames").format(label=label, count=n))
+                    self._layout.insertWidget(self._layout.count() - 1, r)
+                    self._delta_extra_widgets.append(r)
+        finally:
+            self._content.setUpdatesEnabled(True)
 
     def clear_region_stats(self) -> None:
         self._clear_stats()
@@ -482,3 +588,7 @@ class ReadoutPanel(QGroupBox):
             self._layout.removeWidget(row)
             row.deleteLater()
         self._delta_rows.clear()
+        for extra in self._delta_extra_widgets:
+            self._layout.removeWidget(extra)
+            extra.deleteLater()
+        self._delta_extra_widgets.clear()

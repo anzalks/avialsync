@@ -53,6 +53,8 @@ class HoverCrosshair:
         self._lines: dict[int, tuple[pg.PlotItem, pg.InfiniteLine]] = {}
         self._pill: pg.TextItem | None = None
         self._pill_host: pg.PlotItem | None = None
+        self._pen_rgba: int | None = None
+        self._pen: object = None
         self.last_hover_time: float | None = None
 
     def update(
@@ -77,16 +79,21 @@ class HoverCrosshair:
         x_page: float,
         palette: QPalette,
     ) -> None:
-        pen = _hover_pen(palette)
-        alive_ids = {id(ch.plot_item) for ch in channels if ch.visible}
+        rgba = palette.color(QPalette.ColorRole.Text).rgba()
+        pen_changed = rgba != self._pen_rgba or self._pen is None
+        if pen_changed:
+            self._pen_rgba = rgba
+            self._pen = _hover_pen(palette)
+        pen = self._pen
+
+        active = [ch for ch in channels if ch.visible and not getattr(ch, "culled", False)]
+        alive_ids = {id(ch.plot_item) for ch in active}
         for key in list(self._lines):
             if key not in alive_ids:
                 plot_item, line = self._lines.pop(key)
                 _safe_remove_item(plot_item, line)
 
-        for ch in channels:
-            if not ch.visible:
-                continue
+        for ch in active:
             pid = id(ch.plot_item)
             entry = self._lines.get(pid)
             if entry is None:
@@ -96,9 +103,11 @@ class HoverCrosshair:
                 self._lines[pid] = (ch.plot_item, line)
             else:
                 _, line = entry
-                line.setPen(pen)
+                if pen_changed:
+                    line.setPen(pen)
                 line.setValue(x_page)
-                line.show()
+                if not line.isVisible():
+                    line.show()
 
     def _update_pill(
         self,
@@ -229,6 +238,6 @@ def redraw_measure_callouts(
     border_pen = pg.mkPen(accent, width=1)
     new_items: list[tuple[pg.PlotItem, object]] = []
     for ch in channels:
-        if ch.visible:
+        if ch.visible and not getattr(ch, "culled", False):
             new_items.extend(_add_channel_callout(ch, span, t_lo, t_hi, shade, bg, fg, border_pen))
     return new_items

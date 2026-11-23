@@ -639,6 +639,27 @@ class SensorInfoWidget(QFrame):
         item.setCheckState(0, state)
         return True
 
+    def set_channels_visible(self, visibility: dict[str, bool]) -> bool:
+        """Set many channel checkboxes in one pass without per-row signal storms."""
+        matched = [
+            (self._channel_items[ch], vis)
+            for ch, vis in visibility.items()
+            if ch in self._channel_items
+        ]
+        if not matched:
+            return False
+        self._applying_group = True
+        self.tree.setUpdatesEnabled(False)
+        blocked = self.tree.blockSignals(True)
+        try:
+            for item, vis in matched:
+                item.setCheckState(0, Qt.CheckState.Checked if vis else Qt.CheckState.Unchecked)
+        finally:
+            self.tree.blockSignals(blocked)
+            self.tree.setUpdatesEnabled(True)
+            self._applying_group = False
+        return True
+
     def _on_channel_remove(self, sensor_path: str, channel: str) -> None:
         item = self._channel_items.pop(channel, None)
         if item:
@@ -1377,6 +1398,19 @@ class SidebarPane(QWidget):
             if widget.set_channel_visible(channel, visible):
                 return True
         return False
+
+    def set_channels_visible(self, visibility: dict[str, bool], source_id: str = "") -> bool:
+        """Mirror batched plot-row visibility to the owning source's checkboxes."""
+        if not visibility:
+            return False
+        if source_id:
+            widget = self.sensor_widget(source_id)
+            return widget.set_channels_visible(visibility) if widget is not None else False
+        updated = False
+        for widget in _widgets_of(self.sensors_layout, SensorInfoWidget):
+            if widget.set_channels_visible(visibility):
+                updated = True
+        return updated
 
     def remove_sensor(self, path: str) -> None:
         """Remove a sensor info widget."""

@@ -21,6 +21,8 @@ black and ignored by the automatic levels, so a window is measured on cells.
 
 from __future__ import annotations
 
+import threading
+from collections import OrderedDict
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -39,6 +41,11 @@ __all__ = ["NWBRoiGridSource", "RoiGrid", "find_roi_grids"]
 
 #: Response series preferred for the mask view, most interpretable first.
 _RESPONSE_PARENTS = ("DfOverF", "Fluorescence")
+_MASK_CACHE_LIMIT = 8
+_MASK_CACHE_LOCK = threading.Lock()
+_MASK_CACHE: OrderedDict[
+    tuple[str, int, int, str], tuple[tuple[np.ndarray, ...], tuple[tuple[int, int], ...]]
+] = OrderedDict()
 
 
 @dataclass(frozen=True)
@@ -173,6 +180,33 @@ def _raw_series(
     return None
 
 
+def _cached_masks(container: Path, table: Any) -> tuple[list[np.ndarray], list[tuple[int, int]]]:
+    """Read a segmentation's masks once across discovery, probe, and reader workers."""
+    key: tuple[str, int, int, str] | None = None
+    try:
+        resolved = container.resolve()
+        if resolved.is_file():
+            stat = resolved.stat()
+            key = (str(resolved), int(stat.st_mtime_ns), int(stat.st_size), str(table.name))
+    except OSError:
+        key = None
+    if key is not None:
+        with _MASK_CACHE_LOCK:
+            cached = _MASK_CACHE.get(key)
+            if cached is not None:
+                _MASK_CACHE.move_to_end(key)
+                return list(cached[0]), list(cached[1])
+    crops, corners = _masks(table)
+    for crop in crops:
+        crop.setflags(write=False)
+    if key is not None:
+        with _MASK_CACHE_LOCK:
+            _MASK_CACHE[key] = (tuple(crops), tuple(corners))
+            while len(_MASK_CACHE) > _MASK_CACHE_LIMIT:
+                _MASK_CACHE.popitem(last=False)
+    return crops, corners
+
+
 def find_roi_grids(path: Path, contents: nwb_format.FileContents | None = None) -> list[RoiGrid]:
     """Plane segmentations in *path* that the grid can show, with what it would show."""
     contents = contents or nwb_format.scan(path)
@@ -180,7 +214,7 @@ def find_roi_grids(path: Path, contents: nwb_format.FileContents | None = None) 
     with nwb_format.open_file(path) as handle:
         for table in _segmentations(handle):
             try:
-                crops, corners = _masks(table)
+                crops, corners = _cached_masks(path, table)
             except SourceOpenError:
                 continue
             extent = _extent(crops, corners)
@@ -223,6 +257,10 @@ class NWBRoiGridSource(ImagingSource):
         self._shape = (0, 0)
         self._grid = (0, 0)
         self._tile = (0, 0)
+        self._valid_flat = np.empty(0, dtype=np.intp)
+        self._valid_weights = np.empty(0, dtype=np.float32)
+        self._valid_cols = np.empty(0, dtype=np.intp)
+        self._raw_slices: list[tuple[slice, slice, slice, slice]] = []
 
     @classmethod
     def display_name(cls) -> str:
@@ -253,7 +291,7 @@ class NWBRoiGridSource(ImagingSource):
             table = self._handle.get(table_path)
             if not is_group(table) or _type(table) != "PlaneSegmentation":
                 raise SourceOpenError(f"{table_path} is not a plane segmentation.")
-            self._crops, self._corners = _masks(table)
+            self._crops, self._corners = _cached_masks(container, table)
             table_ids = (
                 np.asarray(table["id"][()], dtype=np.int64)
                 if is_dataset(table.get("id"))
@@ -317,8 +355,37 @@ class NWBRoiGridSource(ImagingSource):
             raise
 
     def _layout(self) -> None:
-        """Choose tile size and a grid near-square on screen, with 1 px gutters."""
+        """Choose tile size and precompute vectorized mosaic indices for fast frame reads."""
         self._grid, self._tile, self._shape = geometry(self._crops)
+        cols = max(1, self._grid[1])
+        tile_h, tile_w = self._tile
+        if self._mode == "raw":
+            self._raw_slices = [
+                (
+                    slice((idx // cols) * tile_h, (idx // cols) * tile_h + crop.shape[0]),
+                    slice((idx % cols) * tile_w, (idx % cols) * tile_w + crop.shape[1]),
+                    slice(top, top + crop.shape[0]),
+                    slice(left, left + crop.shape[1]),
+                )
+                for idx, (crop, (top, left)) in enumerate(
+                    zip(self._crops, self._corners, strict=True)
+                )
+            ]
+            self._valid_flat = np.empty(0, dtype=np.intp)
+            self._valid_weights = np.empty(0, dtype=np.float32)
+            self._valid_cols = np.empty(0, dtype=np.intp)
+        else:
+            self._raw_slices = []
+            weight_mosaic = pack(self._crops, self._grid, self._tile, self._shape)
+            col_tiles = [
+                np.where(np.isfinite(crop), np.float32(col), np.float32(np.nan))
+                for crop, col in zip(self._crops, self._columns, strict=True)
+            ]
+            col_mosaic = pack(col_tiles, self._grid, self._tile, self._shape)
+            flat = np.flatnonzero(np.isfinite(weight_mosaic))
+            self._valid_flat = flat.astype(np.intp, copy=False)
+            self._valid_weights = weight_mosaic.ravel()[flat].astype(np.float32, copy=True)
+            self._valid_cols = col_mosaic.ravel()[flat].astype(np.intp, copy=True)
 
     def read_frame(self, index: int, channel: int = 0) -> np.ndarray:
         """Compose frame *index*: every ROI's tile in reading order."""
@@ -331,17 +398,18 @@ class NWBRoiGridSource(ImagingSource):
             frame = nwb_read.read_frames(self._handle, self._info, stored, stored + 1)[0]
             # The whole box around each cell, not only its mask: the neuropil
             # beside a cell is how its signal is judged.
-            tiles = [
-                frame[top : top + crop.shape[0], left : left + crop.shape[1]].astype(np.float32)
-                for crop, (top, left) in zip(self._crops, self._corners, strict=True)
-            ]
-        else:
-            values = nwb_read.read_values(self._handle, self._info, stored, stored + 1)[0]
-            tiles = [
-                crop * np.float32(values[column])
-                for crop, column in zip(self._crops, self._columns, strict=True)
-            ]
-        return pack(tiles, self._grid, self._tile, self._shape)
+            out = np.full(self._shape, np.nan, dtype=np.float32)
+            for dst_y, dst_x, src_y, src_x in self._raw_slices:
+                out[dst_y, dst_x] = frame[src_y, src_x]
+            return out
+        values = np.asarray(
+            nwb_read.read_values(self._handle, self._info, stored, stored + 1)[0],
+            dtype=np.float32,
+        )
+        out = np.full(self._shape, np.nan, dtype=np.float32)
+        if len(self._valid_flat):
+            out.ravel()[self._valid_flat] = self._valid_weights * values[self._valid_cols]
+        return out
 
     def close(self) -> None:
         if self._context is not None:
