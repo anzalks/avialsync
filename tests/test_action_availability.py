@@ -116,7 +116,7 @@ def test_a_loaded_channel_enables_the_data_slice(window: MainWindow) -> None:
 
 
 def test_the_clip_export_needs_both_a_video_and_a_loop(window: MainWindow) -> None:
-    """Two conditions, so the test has to fail the way each one fails."""
+    """Two conditions, and a complete I–O loop rather than a lone in-point."""
     action = _action(window, "Export Trimmed Video Clip…")
 
     window.video_grid._paths.append("cam1.mp4")
@@ -124,6 +124,10 @@ def test_the_clip_export_needs_both_a_video_and_a_loop(window: MainWindow) -> No
     assert action.isEnabled() is False, "a video alone is not a range to cut"
 
     window.transport._ab_in_t = 1.0
+    window._refresh_action_availability()
+    assert action.isEnabled() is False, "an in-point without an out-point is not a range"
+
+    window.transport._ab_out_t = 2.0
     window._refresh_action_availability()
     assert action.isEnabled() is True
 

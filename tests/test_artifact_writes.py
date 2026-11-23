@@ -37,7 +37,7 @@ _KNOWN_WRITERS: dict[str, str] = {
     "core/calibration_ref.py:write_ref": "Writes publish's temporary text path.",
     "core/pose_export.py:_stream": "Streams into publish's temporary CSV path.",
     "core/dlc_export.py:write_labeled_data": "Writes publish's temporary CSV path.",
-    "core/session.py:save": "Writes publish's temporary JSON and NPZ paths.",
+    "core/session_io.py:save_session_file": "Writes publish's temporary JSON and NPZ paths.",
     "engine/export.py:export_data_slice_csv": "Writes publish's temporary CSV path.",
     "engine/export.py:export_data_slice_parquet": "Writes publish's temporary Parquet path.",
     "engine/sync_report.py:run": "Writes only publish's temporary alignment-report JSON path.",

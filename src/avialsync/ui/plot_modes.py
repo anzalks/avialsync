@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import logging
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -29,6 +30,8 @@ from avialsync.ui.theme import playhead_color, plot_colors, trace_color
 
 if TYPE_CHECKING:
     from avialsync.ui.plot_pane import PlotPane
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "PLOT_MODE_HEATMAP",
@@ -80,6 +83,7 @@ class PlotModeCanvas(QWidget):
     """Shared canvas rendering visible decimated channels as Overlaid traces or a 2D Heatmap."""
 
     seek_requested = Signal(float)  # page-local x
+    context_requested = Signal(object)  # QGraphicsSceneMouseEvent
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -110,7 +114,7 @@ class PlotModeCanvas(QWidget):
         self.plot_item.enableAutoRange(axis="y", enable=False)
         self.plot_item.getAxis("left").setWidth(104)
         self.plot_item.getAxis("left").enableAutoSIPrefix(False)
-        self.plot_item.getAxis("bottom").setLabel("Master time", units="s")
+        self.plot_item.getAxis("bottom").setLabel(tr("Master time"), units="s")
         for hidden in ("top", "right"):
             self.plot_item.getAxis(hidden).enableAutoSIPrefix(False)
 
@@ -191,7 +195,7 @@ class PlotModeCanvas(QWidget):
             try:
                 self._legend.scene().removeItem(self._legend)
             except (AttributeError, RuntimeError):
-                pass
+                logger.debug("Legend item was already removed", exc_info=True)
             self._legend = None
         self.plot_item.getAxis("left").setTicks(None)
 
@@ -290,12 +294,17 @@ class PlotModeCanvas(QWidget):
         self.plot_item.getAxis("left").setTicks([ticks])
 
     def _on_clicked(self, event: Any) -> None:
-        if event.button() != Qt.MouseButton.LeftButton:
-            return
-        if bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
-            return
         scene_pos = event.scenePos()
         if not self.plot_item.vb.sceneBoundingRect().contains(scene_pos):
+            return
+        if event.button() == Qt.MouseButton.RightButton:
+            self.context_requested.emit(event)
+            event.accept()
+            return
+        if event.button() != Qt.MouseButton.LeftButton:
+            return
+        mods = event.modifiers() if hasattr(event, "modifiers") else Qt.KeyboardModifier.NoModifier
+        if bool(mods & Qt.KeyboardModifier.ShiftModifier):
             return
         x = float(self.plot_item.vb.mapSceneToView(scene_pos).x())
         self.seek_requested.emit(x)
@@ -309,6 +318,47 @@ def toggle_channel_pin(pane: PlotPane, target: ChannelKey | str) -> None:
         return
     new_pinned = not matches[0].pinned
     pane.set_channel_pinned(target, new_pinned)
+
+
+def _rebuild_one_channel(
+    pane: PlotPane,
+    ch: ChannelPlot,
+    row_idx: int,
+    curve_state: tuple[Any, Any, float | None],
+) -> ChannelPlot:
+    """Recreate *ch* in its target stack layout while preserving data and Y state."""
+    xs, ys, page_t0 = curve_state
+    target_layout = pane._pinned_layout if ch.pinned else pane.graphics_layout
+    rebuilt = create_channel_plot(
+        target_layout,
+        row_idx,
+        ch.reader.cache_dir,
+        ch.name,
+        ch.color_index,
+        pane._request_channel_close,
+        ch.reader.time_map,
+        ch.reader.source_id,
+        row_height=ch.row_height,
+        visible=ch.visible,
+        existing_reader=ch.reader,
+    )
+    rebuilt.pinned = ch.pinned
+    rebuilt.pinned_in_layout = ch.pinned
+    rebuilt.y_mode = ch.y_mode
+    rebuilt.y_range = ch.y_range
+    rebuilt.gap_times = ch.gap_times
+    if ch.unit:
+        set_channel_unit(rebuilt, ch.unit)
+    if not rebuilt.visible:
+        apply_channel_visibility(rebuilt)
+    if xs is not None and ys is not None:
+        rebuilt.curve.setData(xs, ys)
+        rebuilt.page_t0 = page_t0
+        if rebuilt.y_range is not None:
+            rebuilt.plot_item.setYRange(*rebuilt.y_range, padding=0)
+        else:
+            fit_channel_y(rebuilt)
+    return rebuilt
 
 
 def rebuild_rows_across_stacks(pane: PlotPane) -> None:
@@ -331,42 +381,13 @@ def rebuild_rows_across_stacks(pane: PlotPane) -> None:
     pinned_row = 0
     scroll_row = 0
 
-    for ch, (xs, ys, page_t0) in zip(old_channels, saved_curves, strict=True):
-        target_layout = pane._pinned_layout if ch.pinned else pane.graphics_layout
+    for ch, curve_state in zip(old_channels, saved_curves, strict=True):
         row_idx = pinned_row if ch.pinned else scroll_row
         if ch.pinned:
             pinned_row += 1
         else:
             scroll_row += 1
-        rebuilt = create_channel_plot(
-            target_layout,
-            row_idx,
-            ch.reader.cache_dir,
-            ch.name,
-            ch.color_index,
-            pane._request_channel_close,
-            ch.reader.time_map,
-            ch.reader.source_id,
-            row_height=ch.row_height,
-            visible=ch.visible,
-            existing_reader=ch.reader,
-        )
-        rebuilt.pinned = ch.pinned
-        rebuilt.pinned_in_layout = ch.pinned
-        rebuilt.y_mode = ch.y_mode
-        rebuilt.y_range = ch.y_range
-        rebuilt.gap_times = ch.gap_times
-        if ch.unit:
-            set_channel_unit(rebuilt, ch.unit)
-        if not rebuilt.visible:
-            apply_channel_visibility(rebuilt)
-        if xs is not None and ys is not None:
-            rebuilt.curve.setData(xs, ys)
-            rebuilt.page_t0 = page_t0
-            if rebuilt.y_range is not None:
-                rebuilt.plot_item.setYRange(*rebuilt.y_range, padding=0)
-            else:
-                fit_channel_y(rebuilt)
+        rebuilt = _rebuild_one_channel(pane, ch, row_idx, curve_state)
         if pane._master_plot is None:
             pane._master_plot = rebuilt.plot_item
         else:

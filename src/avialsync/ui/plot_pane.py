@@ -235,6 +235,7 @@ class PlotPane(QWidget):
         self._last_point_budget = 0
         self._last_cursor_repaint = 0.0
         self._pending_rows: list[tuple[Path, str, TimeMap, str, bool]] = []
+        self._pending_pinned: set[tuple[str, str]] = set()
         # The rows the page in flight was requested for, by request index.
         self._requested_rows: tuple[ChannelPlot, ...] = ()
         # Worst observed cost of one row, used to stop a slice before the next
@@ -285,6 +286,9 @@ class PlotPane(QWidget):
         pinned_scene.sigMouseMoved.connect(
             lambda pos, s=pinned_scene: self._interactions.on_scene_moved(pos, s)
         )
+        mode_scene = self._mode_view.graphics_layout.scene()
+        mode_scene.sigMouseMoved.connect(self._interactions.on_mode_moved)
+        self._mode_view.context_requested.connect(self._interactions.on_mode_context_menu)
         self._navigator = PlotCanvasNavigator(self)
         self._navigator.attach(self.graphics_layout)
         self._navigator.attach(self._pinned_layout)
@@ -317,7 +321,7 @@ class PlotPane(QWidget):
     def resizeEvent(self, event: QResizeEvent) -> None:
         """Coalesce resize storms before selecting a new pyramid resolution."""
         super().resizeEvent(event)
-        enforce_channel_visibility(self.channels)
+        enforce_channel_visibility([ch for ch in self.channels if not ch.visible])
         if self.channels and self.sweep_start is not None:
             self._resize_refresh_timer.start()
 
@@ -356,7 +360,8 @@ class PlotPane(QWidget):
         if mode_view is not None:
             mode_view.apply_palette(palette)
         for channel in getattr(self, "channels", ()):
-            apply_channel_palette(channel, palette)
+            if isinstance(channel, ChannelPlot):
+                apply_channel_palette(channel, palette)
         # Page-local overlays are rebuilt rather than re-penned: they are
         # replaced wholesale on every page change anyway, so rebuilding keeps
         # one code path for their geometry.
@@ -368,8 +373,24 @@ class PlotPane(QWidget):
     def refresh_palette(self) -> None:
         """Reapply trace and canvas palette colours after a preference change."""
         self._apply_palette()
-        if self._view_mode != PLOT_MODE_STACKED:
-            self.set_view_mode(self._view_mode)
+        self._refresh_mode_view()
+
+    def _refresh_mode_view(self) -> None:
+        """Sync the Overlaid / Heatmap canvas with current channel visibility and data."""
+        if self._view_mode == PLOT_MODE_STACKED:
+            return
+        phase = (
+            self._sweep_control.advance(self._sweep_control.last_master_time).phase
+            if self.sweep_start is not None
+            else 0.0
+        )
+        self._mode_view.render_from_channels(
+            self.channels,
+            self.window_duration,
+            self.palette(),
+            reveal=self.presentation != PlotPresentation.REVIEW,
+            phase=phase,
+        )
 
     def load_channels(
         self,
@@ -507,12 +528,14 @@ class PlotPane(QWidget):
         self._requested_rows = ()
         self._source_time_maps.clear()
         self._units.clear()
+        self._pending_pinned.clear()
         self._interactions.clear_gap_markers()
         self._master_plot = None
         self._link_x_axes()
         self._relayout_rows()
+        self._refresh_mode_view()
         self.sources_changed.emit([])
-        self._interactions.redraw_annotations()
+        self._interactions.redraw_page_overlays()
         for reader in readers_to_close:
             reader.close()
 
@@ -549,6 +572,7 @@ class PlotPane(QWidget):
             self._warp.to_master(self._sweep_control.last_master_time), force=True
         )
         self._apply_presentation()
+        self._flush_pending_pins()
         self.sources_changed.emit([ch.reader for ch in self.channels])
         self._interactions.redraw_annotations()
         self.rows_pending.emit(0)
@@ -667,9 +691,10 @@ class PlotPane(QWidget):
 
         self._link_x_axes()
         self._relayout_rows()
+        self._refresh_mode_view()
 
         self.sources_changed.emit([ch.reader for ch in self.channels])
-        self._interactions.redraw_annotations()
+        self._interactions.redraw_page_overlays()
         for ch in to_remove:
             ch.reader.source_reader.close()
 
@@ -720,9 +745,10 @@ class PlotPane(QWidget):
 
         self._link_x_axes()
         self._relayout_rows()
+        self._refresh_mode_view()
 
         self.sources_changed.emit([ch.reader for ch in self.channels])
-        self._interactions.redraw_annotations()
+        self._interactions.redraw_page_overlays()
         for ch in to_remove:
             ch.reader.source_reader.close()
 
@@ -828,15 +854,7 @@ class PlotPane(QWidget):
                 if channel.y_mode == Y_FIT_ONCE and channel.y_range is not None:
                     channel.y_mode = Y_MANUAL
         self._last_installed_generation = page.generation
-        if self._view_mode != PLOT_MODE_STACKED:
-            pos = self._sweep_control.advance(self._sweep_control.last_master_time)
-            self._mode_view.render_from_channels(
-                self.channels,
-                self.window_duration,
-                self.palette(),
-                reveal=self.presentation != PlotPresentation.REVIEW,
-                phase=pos.phase,
-            )
+        self._refresh_mode_view()
         self.page_ready.emit(page.generation)
 
     @Slot(str)
@@ -882,14 +900,8 @@ class PlotPane(QWidget):
         self._mode_view.setVisible(not stacked)
         if not stacked:
             self._mode_view.set_mode(mode)
-            pos = self._sweep_control.advance(self._sweep_control.last_master_time)
-            self._mode_view.render_from_channels(
-                self.channels,
-                self.window_duration,
-                self.palette(),
-                reveal=self.presentation != PlotPresentation.REVIEW,
-                phase=pos.phase,
-            )
+            self._refresh_mode_view()
+            self._interactions.redraw_page_overlays()
 
     def set_channel_pinned(self, channel: ChannelKey | str, pinned: bool) -> None:
         """Pin *channel* to the sticky top stack or return it to the scrollable stack."""
@@ -898,6 +910,42 @@ class PlotPane(QWidget):
             if ch.pinned != bool(pinned):
                 ch.pinned = bool(pinned)
                 changed = True
+        if changed:
+            rebuild_rows_across_stacks(self)
+
+    def clear_pending_pins(self) -> None:
+        """Forget deferred session-restore channel pins."""
+        self._pending_pinned.clear()
+
+    def apply_pinned_channels(
+        self,
+        entries: list[dict[str, str]],
+        relink_map: Mapping[str, str] | None = None,
+    ) -> None:
+        """Pin channels immediately when loaded, and defer unloaded ones until rows build."""
+        remap = relink_map or {}
+        for item in entries:
+            chan = str(item.get("channel", ""))
+            if not chan:
+                continue
+            raw_src = str(item.get("source_id", ""))
+            src = remap.get(raw_src, raw_src) if raw_src else ""
+            self._pending_pinned.add((src, chan))
+        self._flush_pending_pins()
+
+    def _flush_pending_pins(self) -> None:
+        if not self._pending_pinned or not self.channels:
+            return
+        changed = False
+        for ch in self.channels:
+            exact = (ch.reader.source_id, ch.name)
+            loose = ("", ch.name)
+            if exact in self._pending_pinned or loose in self._pending_pinned:
+                self._pending_pinned.discard(exact)
+                self._pending_pinned.discard(loose)
+                if not ch.pinned:
+                    ch.pinned = True
+                    changed = True
         if changed:
             rebuild_rows_across_stacks(self)
 
@@ -965,7 +1013,9 @@ class PlotPane(QWidget):
         if visible and self.sweep_start is not None:
             # The shown row's page comes from the worker like any other.
             self.update_plots()
-            self._redraw_sweep_overlays()
+        else:
+            self._refresh_mode_view()
+        self._redraw_sweep_overlays()
         self._relayout_rows()
 
     def reset_zoom(self) -> None:
@@ -1304,6 +1354,13 @@ class PlotPane(QWidget):
         review = presentation == PlotPresentation.REVIEW
         for channel in self.channels:
             channel.curve.set_reveal_enabled(not review)
+        if self._view_mode != PLOT_MODE_STACKED:
+            phase = (
+                self._sweep_control.advance(self._sweep_control.last_master_time).phase
+                if self.sweep_start is not None
+                else 0.0
+            )
+            self._mode_view.set_cursor_phase(phase, reveal=not review)
 
     def _set_sweep_for_time(self, t: float, *, force: bool = False) -> float:
         """Derive sweep position from master time and refresh only at boundaries."""

@@ -18,6 +18,9 @@ if TYPE_CHECKING:
 
 def connect_annotations(window: MainWindow) -> None:
     """Keep the timeline, command availability, and undo log in step with annotations."""
+    window.annotation_store.frame_resolver = lambda t: (
+        ethogram_bar.frames_at(window, t) if window.video_grid.panes else None
+    )
     window.annotation_store.changed.connect(window._update_timeline_annotations)
     # Export Changes is available exactly when one of these has something
     # in it, so both drive the availability pass.

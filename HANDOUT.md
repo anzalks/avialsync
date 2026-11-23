@@ -211,7 +211,7 @@ Two product laws govern that phase and outrank convention:
   registered layer with a checkbox in View → Overlays, plugin overlays included (D-090).
 
 ### Done (Phase 4)
-- Session save/load `.avv` (current schema v14; large exact mappings in `<session>_avv_sync/`), autosave 2 min, recent files, relink dialog
+- Session save/load `.avv` (current schema v15, adding `plot_view_mode` and `pinned_channels`; I/O and dict-parsing helpers in `core/session_io.py`; large exact mappings in `<session>_avv_sync/`), autosave 2 min, recent files, relink dialog
 - File → Reset Session (also Sources → Open Files) cancels pending loads and clears the current workspace without
   modifying recordings, their cache, or a saved `.avv` file.
 - File → Cache: Delete Cache for This Trial / Delete All Cache / Trim Cache / Show Cache Folder
@@ -736,7 +736,7 @@ ignore`, or one added to land a change, is a rejected PR (AGENTS.md, coding stan
 | `ui/trigger_dialog.py` | Where the user says what each trigger column **is**. Leads with the kind, because the difference between a strobe and a trigger is the difference between an exact mapping and a fitted one | `TriggerEvidenceDialog`, `TrainChoice` |
 | `engine/trigger_worker.py` | Reads every declared train in one job, off the UI thread. All or nothing — a partial set leaves the user to notice which train went missing | `TriggerReadWorker`, `TriggerTrainResult` |
 | `loaders/trigger_csv.py` | Trigger evidence from a delimited file, either a sampled line or a column of event times. The config declares each train's `TriggerKind` — `suggest_trains` never guesses `frame_strobe` | `TriggerCSVSource`, `LEVEL`, `TIMESTAMPS` |
-| `core/session.py` | `.avv` session JSON, schema v14: per-channel visibility overrides (D-202); v13 adds imaging stacks with their import choices, time map and display view (D-190); v12 holds drift as ms/h (D-184); earlier versions retain their defaults | `SessionState`, `VideoEntry`, `ImagingEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance` |
+| `core/session.py`, `core/session_io.py` | `.avv` session JSON and exact-sync sidecar I/O, schema v15: `plot_view_mode` and `pinned_channels`; v14 adds per-channel visibility overrides (D-202); v13 adds imaging stacks with their import choices, time map and display view (D-190); v12 holds drift as ms/h (D-184); earlier versions retain their defaults | `SessionState`, `VideoEntry`, `ImagingEntry`, `SensorEntry`, `MarkerEntry`, `SyncProvenance`, `exact_mapping_dir()` |
 | `loaders/imaging_loader.py` | Lazy HDF5 hyperslab and TIFF page readers (plain, OME, ScanImage-interleaved); per-channel reads; a missing dataset/axes/depth/frame rate raises `ImagingChoiceRequired` rather than being guessed | `HDF5ImagingLoader`, `TIFFImagingLoader` |
 | `core/imaging_axes.py` | Default reading of a stack's dimensions (valid tag, else sizes) and every valid alternative, named by meaning and size for the pane's Axes list | `default_axes()`, `axis_choices()`, `describe_axes()` |
 | `core/imaging_display.py` | Headless display maths: per-channel reference window + brightness/contrast, centred odd-length moving average, additive colour overlay | `ImagingView`, `ChannelView`, `compose()`, `average_range()`, `auto_window()` |

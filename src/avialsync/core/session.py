@@ -3,33 +3,36 @@
 from __future__ import annotations
 
 import dataclasses
-import hashlib
-import json
-import uuid
-from functools import partial
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-from avialsync.core.drift import drift_from_legacy_entry
-from avialsync.core.timeline import PreparedExactMapping
+from avialsync.core.session_io import (
+    _EXACT_MAPPING_INLINE_LIMIT,
+    EXACT_MAPPING_DIR_SUFFIX,
+    exact_mapping_dir,
+    load_session_file,
+    parse_imaging_entries,
+    parse_marker_entries,
+    parse_sensor_entries,
+    parse_sync_provenance,
+    parse_trigger_entries,
+    parse_video_entries,
+    save_session_file,
+)
 
-_EXACT_MAPPING_INLINE_LIMIT = 500
-
-#: Appended to a session's stem for the folder holding its large exact-sync
-#: mappings: ``trial.avv`` -> ``trial_avv_sync/``.
-EXACT_MAPPING_DIR_SUFFIX = "_avv_sync"
-
-
-def exact_mapping_dir(session_path: Path) -> Path:
-    """Return the folder beside *session_path* holding its exact-sync arrays.
-
-    Part of the session, not the cache: a mapping the user accepted is
-    a decision, and the session will not open without the arrays it names.
-    Keeping them out of the cache root is what makes that root safe to delete.
-    """
-    return session_path.with_name(f"{session_path.stem}{EXACT_MAPPING_DIR_SUFFIX}")
+__all__ = [
+    "EXACT_MAPPING_DIR_SUFFIX",
+    "ImagingEntry",
+    "MarkerEntry",
+    "SensorEntry",
+    "SessionState",
+    "SyncProvenance",
+    "TriggerEntry",
+    "VideoEntry",
+    "exact_mapping_dir",
+]
 
 
 @dataclasses.dataclass
@@ -110,10 +113,7 @@ class SyncProvenance:
     matched_count: int
     rejected_count: int
     tolerance: float
-    #: How this mapping was arrived at (schema v9). The numbers beside it
-    #: cannot say: a typed offset and a three-event fit with perfect residuals
-    #: are the same six floats, and the reader used to render the typed one as
-    #: the most confident record in the session. Values are
+    #: How this mapping was arrived at (schema v9). Values are
     #: `core.sync.AlignmentMethod`; a v8 session has none and is read back as
     #: an affine fit, which is what every mapping those sessions could record
     #: actually was.
@@ -129,23 +129,16 @@ class SyncProvenance:
     #: (schema v9). 1.0 is unopposed; 0.0 is a coin toss.
     ambiguity_margin: float = 1.0
     #: What replaced this evidence, when the mapping it describes no longer
-    #: holds (schema v9). Accepting a fit and then nudging the source by five
-    #: frames left the session still claiming the fit's residual, because
-    #: nothing connected the two; the record is kept rather than deleted so the
-    #: user can see what the alignment *was*, and that it is no longer that.
+    #: holds (schema v9). Kept rather than deleted so the user can see what
+    #: the alignment *was*, and that it is no longer that.
     superseded_by: str = ""
     #: The window of reference time the fit was computed over (schema v9), when
-    #: the user restricted it. Persisted because it changes what the mapping
-    #: claims: outside this span the alignment is an extension of a trend that
-    #: was measured elsewhere, and a reader who cannot see the window cannot
-    #: know that.
+    #: the user restricted it.
     restricted_to: list[float] = dataclasses.field(default_factory=list)
     matches: list[dict[str, float]] = dataclasses.field(default_factory=list)
     exact_master: list[float] | np.ndarray = dataclasses.field(default_factory=list)
     exact_source: list[float] | np.ndarray = dataclasses.field(default_factory=list)
-    #: The clock the reference events were recorded on. Matches carry both its
-    #: raw times and the master times the fit used after that clock's own
-    #: accepted mapping was applied.
+    #: The clock the reference events were recorded on.
     reference_clock_id: str = ""
     #: 0.0 for a record saved before precision was assessed: "not
     #: assessed" is reported, never "unverified".
@@ -157,8 +150,7 @@ class SyncProvenance:
     extrapolated_after: float = 0.0
     excluded_incomplete_count: int = 0
     measurement_resolution: float = 0.0
-    #: Reference events inside the target's recording once mapped: the match
-    #: rate's denominator. Zero for records saved before it was measured.
+    #: Reference events inside the target's recording once mapped.
     overlap_reference_count: int = 0
     exact_offset_anchor: float | None = None
     exact_drift_anchor: float | None = None
@@ -168,12 +160,6 @@ class SyncProvenance:
 @dataclasses.dataclass
 class TriggerEntry:
     """A trigger file and what the user said its lines are (schema v9).
-
-    The declaration is the whole value of the record: which column is a camera
-    strobe rather than a pulse generator's request is a fact about the wiring
-    that the file cannot state and the user supplied once. Losing it on reload
-    would not merely lose a path -- it would lose the reason an exact mapping
-    was allowed.
 
     Only the path and the configuration are stored. The trains themselves are
     re-read on restore, exactly as sensor channels are re-imported, so a file
@@ -188,7 +174,7 @@ class TriggerEntry:
 
 @dataclasses.dataclass
 class SessionState:
-    """Complete serialisable state of a AvialSync session.
+    """Complete serialisable state of an AvialSync session.
 
     Only stores paths and logical offsets — UI geometry is stored separately
     via QSettings so it does not pollute the data-layer .avv file.
@@ -203,42 +189,30 @@ class SessionState:
     t_end: float = 0.0
     plot_x0: float | None = None
     plot_x1: float | None = None
-    #: Overlay visibility, schema v7. Only differences from each
-    #: layer's default are written, so a later change of default still reaches
-    #: sessions that never expressed a preference.
+    #: Overlay visibility, schema v7. Only differences from each layer's default
+    #: are written.
     overlays: dict[str, Any] = dataclasses.field(default_factory=dict)
-    #: Per-source display window, schema v7. Normalised 0-1 so it keeps
-    #: its meaning if the same rig is later recorded at a different bit depth.
+    #: Per-source display window, schema v7 (normalised 0-1).
     display_levels: dict[str, Any] = dataclasses.field(default_factory=dict)
-    #: Hand corrections to tracked points, schema v8. Sparse: one entry
-    #: per coordinate the user moved, in the pose source's own video pixels. The
-    #: imported CSV and its cache are never rewritten, so removing this list
-    #: restores exactly the model's own predictions.
+    #: Hand corrections to tracked points, schema v8.
     point_edits: list[dict[str, Any]] = dataclasses.field(default_factory=list)
-    #: Unix epoch of master-clock zero, after NWB's `session_start_time`
-    #: (schema v9). 0.0 means the session has no wall clock -- every source is
-    #: container-relative, and elapsed time is the only thing that can honestly
-    #: be displayed. `ui/time_format.format_time` has always taken this and
-    #: always received 0.0, which is why two of the three time display modes
-    #: could not work. See `core/session_time.py`.
+    #: Unix epoch of master-clock zero, after NWB's `session_start_time` (schema v9).
     session_start_time: float = 0.0
-    #: Trigger evidence the user loaded and typed (schema v9). Evidence, not
-    #: data: nothing here is ever plotted.
+    #: Trigger evidence the user loaded and typed (schema v9).
     triggers: list[TriggerEntry] = dataclasses.field(default_factory=list)
-    #: Accepted identity swaps per pose source, schema v10. Normally a
-    #: count and where the swaps live, exactly as `point_edits` records a count:
-    #: the authority is the `_avialswap.csv` beside the pose file, and the count
-    #: is what lets a missing one be reported rather than silently obeyed. The
-    #: events themselves appear here only when that file could not be written.
+    #: Accepted identity swaps per pose source, schema v10.
     identity_swaps: list[dict[str, Any]] = dataclasses.field(default_factory=list)
-    #: Session view choice: compare the estimator's imported tracker against
-    #: the edited generation without changing either one.
+    #: Compare imported tracker against edited generation without changing either.
     show_original_tracker: bool = False
     #: 3D view orientation and camera zoom/pan for this session.
     view_3d: dict[str, Any] = dataclasses.field(default_factory=dict)
+    #: Plot layout presentation mode (schema v15): stacked, overlay, or heatmap.
+    plot_view_mode: str = "stacked"
+    #: Pinned channels kept visible at the top of the plot pane (schema v15).
+    pinned_channels: list[dict[str, str]] = dataclasses.field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict (always writes version 14)."""
+        """Serialise to a JSON-compatible dict (always writes version 15)."""
         provenance = []
         for item in self.sync_provenance:
             encoded = dataclasses.asdict(item)
@@ -254,7 +228,7 @@ class SessionState:
             )
             provenance.append(encoded)
         return {
-            "version": 14,
+            "version": 15,
             "videos": [dataclasses.asdict(v) for v in self.videos],
             "imaging": [dataclasses.asdict(v) for v in self.imaging],
             "sensors": [dataclasses.asdict(s) for s in self.sensors],
@@ -272,243 +246,71 @@ class SessionState:
             "identity_swaps": self.identity_swaps,
             "show_original_tracker": self.show_original_tracker,
             "view_3d": self.view_3d,
+            "plot_view_mode": self.plot_view_mode,
+            "pinned_channels": [dict(item) for item in self.pinned_channels],
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SessionState:
-        """Deserialise from a parsed JSON dict (accepts v1 through v14).
-
-        Schema 12 stores clock drift as ``drift_ms_per_hour``; earlier
-        versions stored a rate per million, converted on read by
-        :func:`avialsync.core.drift.drift_from_legacy_entry`. Schema 13
-        adds two-photon imaging stacks; schema 14 adds channel visibility
-        overrides. Older files use the loader's current defaults.
+        """Deserialise from a parsed JSON dict (accepts v1 through v15).
 
         Every added field is optional with a default, so an older file loads and
-        renders exactly as it did before the bump -- that equivalence is the
-        migration requirement, not an aspiration.
+        renders exactly as it did before the bump.
         """
         version = data.get("version", 1)
-        if version not in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14):
+        if version not in range(1, 16):
             raise ValueError(f"Unsupported session file version: {version}")
-
-        videos = [
-            VideoEntry(
-                path=v["path"],
-                offset=v.get("offset", 0.0),
-                drift_ms_per_hour=drift_from_legacy_entry(v),
-                integrity_flags=v.get("integrity_flags", {}),
-                metadata=v.get("metadata", {}),
-                view={str(k): float(val) for k, val in (v.get("view") or {}).items()},
-            )
-            for v in data.get("videos", [])
+        raw_mode = data.get("plot_view_mode", "stacked")
+        mode = str(raw_mode) if raw_mode in ("stacked", "overlay", "heatmap") else "stacked"
+        pinned = [
+            {"source_id": str(item.get("source_id", "")), "channel": str(item["channel"])}
+            for item in (data.get("pinned_channels") or [])
+            if isinstance(item, dict) and item.get("channel")
         ]
-        sensors = [
-            SensorEntry(
-                path=s["path"],
-                channels=s.get("channels", []),
-                channel_visibility={
-                    str(name): bool(visible)
-                    for name, visible in s.get("channel_visibility", {}).items()
-                },
-                loader_id=s.get("loader_id", ""),
-                import_config=s.get("import_config", {}),
-                import_report=s.get("import_report"),
-                # Pre-v6 sessions have no sensor mapping; identity is correct.
-                offset=float(s.get("offset", 0.0)),
-                drift_ms_per_hour=drift_from_legacy_entry(s),
-                tracking_overlay_visible=bool(s.get("tracking_overlay_visible", False)),
-                tracking_plot_visible=bool(s.get("tracking_plot_visible", False)),
-            )
-            for s in data.get("sensors", [])
-        ]
-        markers = [
-            MarkerEntry(
-                t_start=float(m["t_start"]),
-                t_end=float(m["t_end"]) if m.get("t_end") is not None else None,
-                label=m.get("label", ""),
-                video_frames=list(m.get("video_frames", [])),
-            )
-            for m in data.get("markers", [])
-        ]
-        sync_provenance = [
-            SyncProvenance(
-                reference_id=str(item["reference_id"]),
-                target_id=str(item["target_id"]),
-                offset=float(item["offset"]),
-                drift_ms_per_hour=drift_from_legacy_entry(item),
-                rms_residual=float(item["rms_residual"]),
-                max_residual=float(item["max_residual"]),
-                matched_count=int(item["matched_count"]),
-                rejected_count=int(item["rejected_count"]),
-                tolerance=float(item["tolerance"]),
-                # A v8 session recorded nothing but affine fits and manual
-                # entries it could not distinguish, so "affine" is the only
-                # honest default -- and the reason the field exists is that the
-                # two were indistinguishable, which no migration can undo.
-                method=str(item.get("method", "affine")),
-                reference_count=int(item.get("reference_count", 0)),
-                target_count=int(item.get("target_count", 0)),
-                offset_stderr=float(item.get("offset_stderr", 0.0)),
-                ambiguity_margin=float(item.get("ambiguity_margin", 1.0)),
-                reference_clock_id=str(item.get("reference_clock_id", "")),
-                precision_requirement=float(item.get("precision_requirement", 0.0)),
-                precision_verified=bool(item.get("precision_verified", False)),
-                coverage_fraction=float(item.get("coverage_fraction", 0.0)),
-                largest_unsupported_interval=float(item.get("largest_unsupported_interval", 0.0)),
-                extrapolated_before=float(item.get("extrapolated_before", 0.0)),
-                extrapolated_after=float(item.get("extrapolated_after", 0.0)),
-                excluded_incomplete_count=int(item.get("excluded_incomplete_count", 0)),
-                measurement_resolution=float(item.get("measurement_resolution", 0.0)),
-                overlap_reference_count=int(item.get("overlap_reference_count", 0)),
-                exact_offset_anchor=(
-                    float(item["exact_offset_anchor"])
-                    if item.get("exact_offset_anchor") is not None
-                    else None
-                ),
-                exact_drift_anchor=(
-                    float(item["exact_drift_anchor"])
-                    if item.get("exact_drift_anchor") is not None
-                    else None
-                ),
-                settings=dict(item.get("settings", {})),
-                superseded_by=str(item.get("superseded_by", "")),
-                restricted_to=[float(value) for value in item.get("restricted_to", [])],
-                matches=[
-                    {
-                        "reference_time": float(match["reference_time"]),
-                        "raw_reference_time": float(
-                            match.get("raw_reference_time", match["reference_time"])
-                        ),
-                        "target_time": float(match["target_time"]),
-                        "residual": float(match["residual"]),
-                    }
-                    for match in item.get("matches", [])
-                ],
-                exact_master=[float(value) for value in item.get("exact_master", [])],
-                exact_source=[float(value) for value in item.get("exact_source", [])],
-            )
-            for item in data.get("sync_provenance", [])
-        ]
-
         return cls(
-            videos=videos,
-            imaging=[
-                ImagingEntry(
-                    path=str(item["path"]),
-                    loader_id=str(item.get("loader_id", "")),
-                    import_config=dict(item.get("import_config", {})),
-                    offset=float(item.get("offset", 0.0)),
-                    drift_ms_per_hour=float(item.get("drift_ms_per_hour", 0.0)),
-                    display=dict(item.get("display", {})),
-                )
-                for item in data.get("imaging", [])
-            ],
-            sensors=sensors,
-            markers=markers,
-            sync_provenance=sync_provenance,
+            videos=parse_video_entries(data, VideoEntry),
+            imaging=parse_imaging_entries(data, ImagingEntry),
+            sensors=parse_sensor_entries(data, SensorEntry),
+            markers=parse_marker_entries(data, MarkerEntry),
+            sync_provenance=parse_sync_provenance(data, SyncProvenance),
             t_start=data.get("t_start", 0.0),
             t_end=data.get("t_end", 0.0),
             plot_x0=data.get("plot_x0"),
             plot_x1=data.get("plot_x1"),
             session_start_time=float(data.get("session_start_time", 0.0)),
-            triggers=[
-                TriggerEntry(
-                    path=str(item["path"]),
-                    config=dict(item.get("config", {})),
-                    offset=float(item.get("offset", 0.0)),
-                    drift_ms_per_hour=float(item.get("drift_ms_per_hour", 0.0)),
-                )
-                for item in data.get("triggers", [])
-            ],
+            triggers=parse_trigger_entries(data, TriggerEntry),
             overlays=data.get("overlays") or {},
             display_levels=data.get("display_levels") or {},
             point_edits=list(data.get("point_edits") or []),
             identity_swaps=list(data.get("identity_swaps") or []),
             show_original_tracker=bool(data.get("show_original_tracker", False)),
             view_3d=dict(data.get("view_3d") or {}),
+            plot_view_mode=mode,
+            pinned_channels=pinned,
         )
 
     def save(self, path: Path) -> None:
-        """Write session JSON and large exact mappings atomically.
-
-        Small mappings remain inline for backwards-readable hand-authored
-        sessions.  Per-frame mappings use compact NumPy sidecars so saving does
-        not first inflate them into millions of Python floats or JSON tokens.
-        """
-        # `to_dict` validates every provenance entry's array lengths and raises
-        # on a mismatch, so it has already run for all of them by the time this
-        # loop starts; repeating the check here was unreachable.
+        """Write session JSON and large exact mappings atomically."""
         payload = self.to_dict()
-        sidecar_dir = exact_mapping_dir(path)
-        for index, provenance in enumerate(self.sync_provenance):
-            master = np.asarray(provenance.exact_master, dtype=np.float64)
-            source = np.asarray(provenance.exact_source, dtype=np.float64)
-            if len(master) <= _EXACT_MAPPING_INLINE_LIMIT:
-                continue
-            sidecar_dir.mkdir(parents=True, exist_ok=True)
-            filename = f"exact-sync-{index}-{uuid.uuid4().hex}.npz"
-            mapping_path = sidecar_dir / filename
-            from avialsync.core.artifact_io import publish
-
-            publish(
-                mapping_path,
-                partial(np.savez_compressed, master=master, source=source),
-                kind="sync-array",
+        exact_pairs = [
+            (
+                np.asarray(item.exact_master, dtype=np.float64),
+                np.asarray(item.exact_source, dtype=np.float64),
             )
-            digest = hashlib.sha256(mapping_path.read_bytes()).hexdigest()
-            item = payload["sync_provenance"][index]
-            item["exact_master"] = []
-            item["exact_source"] = []
-            item["exact_mapping"] = {
-                "file": mapping_path.relative_to(path.parent).as_posix(),
-                "sha256": digest,
-                "count": int(len(master)),
-            }
-        from avialsync.core.artifact_io import publish
-        from avialsync.core.artifact_provenance import record
-
-        source_paths = tuple(entry.path for entry in self.videos)
-        source_paths += tuple(entry.path for entry in self.sensors)
-        source_paths += tuple(entry.path for entry in self.imaging)
-        payload["format"] = "avialsync-session/13"
-        payload["provenance"] = record("session", source_paths, session=path)
-
-        def write(temporary: Path) -> None:
-            with open(temporary, "w", encoding="utf-8") as handle:
-                json.dump(payload, handle, indent=2)
-
-        publish(path, write, kind="session", sources=source_paths)
+            for item in self.sync_provenance
+        ]
+        source_paths = (
+            *(entry.path for entry in self.videos),
+            *(entry.path for entry in self.sensors),
+            *(entry.path for entry in self.imaging),
+        )
+        save_session_file(path, payload, exact_pairs, source_paths)
 
     @classmethod
     def load(cls, path: Path) -> SessionState:
         """Read a .avv session file and validate any exact-map sidecars."""
-        with open(path, encoding="utf-8") as f:
-            data = json.load(f)
-        state = cls.from_dict(data)
-        raw_provenance = data.get("sync_provenance", [])
-        for index, raw in enumerate(raw_provenance):
-            mapping = raw.get("exact_mapping")
-            if mapping is None:
-                continue
-            try:
-                mapping_path = path.parent / str(mapping["file"])
-                file_bytes = mapping_path.read_bytes()
-                if hashlib.sha256(file_bytes).hexdigest() != str(mapping["sha256"]):
-                    raise ValueError("checksum mismatch")
-                with np.load(mapping_path) as arrays:
-                    master = np.asarray(arrays["master"], dtype=np.float64)
-                    source = np.asarray(arrays["source"], dtype=np.float64)
-                if len(master) != len(source) or len(master) != int(mapping["count"]):
-                    raise ValueError("array length mismatch")
-                # Validated and frozen here, on the load worker, so restoring a
-                # million-frame mapping installs shared buffers on the UI thread
-                # instead of scanning and copying them there.
-                prepared = PreparedExactMapping.prepare(master, source)
-            except (KeyError, OSError, ValueError):
-                raise ValueError(
-                    f"Invalid exact synchronization sidecar for entry {index}."
-                ) from None
+        state, sidecars = load_session_file(path, cls.from_dict)
+        for index, prepared in sidecars:
             state.sync_provenance[index].exact_master = prepared.master
             state.sync_provenance[index].exact_source = prepared.source
         return state

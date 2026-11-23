@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Any
 from PySide6.QtCore import QByteArray, QSettings, Qt
 from PySide6.QtWidgets import QInputDialog
 
+from avialsync.core.channel_reader import ChannelKey
 from avialsync.ui.app_settings import app_settings
 from avialsync.ui.i18n import tr
 from avialsync.ui.inspector_dock import (
@@ -74,6 +75,8 @@ class Workspace:
     camera_order: tuple[str, ...] = ()
     camera_views: dict[str, dict[str, float]] = dataclasses.field(default_factory=dict)
     view_3d: dict[str, Any] = dataclasses.field(default_factory=dict)
+    plot_view_mode: str = "stacked"
+    pinned_channels: tuple[tuple[str, str], ...] = ()
 
 
 def _store() -> QSettings:
@@ -103,36 +106,17 @@ def capture(window: MainWindow) -> Workspace:
         camera_order=tuple(window.video_grid.pane_paths()),
         camera_views=window.video_grid.camera_views(),
         view_3d=window.tracking_3d_pane.view_orientation(),
+        plot_view_mode=window.plot_pane.view_mode,
+        pinned_channels=tuple(
+            (str(ch.reader.source_id), str(ch.name))
+            for ch in window.plot_pane.channels
+            if ch.pinned
+        ),
     )
 
 
-def apply(window: MainWindow, workspace: Workspace) -> None:
-    """Put the window into *workspace*.
-
-    The two repairs afterwards are not optional. ``restoreState`` also restores
-    a splitter's collapsible flag, and a layout saved when a pane happened to
-    be collapsed would otherwise come back with a zero-width pane the user
-    cannot get back -- which is what ``session_controller.restore_geometry``
-    already guards against for the single implicit layout.
-    """
-    if workspace.geometry:
-        window.restoreGeometry(workspace.geometry)
-
-    for name, state in workspace.splitters.items():
-        splitter = getattr(window, name, None)
-        if splitter is not None and state:
-            splitter.restoreState(state)
-    if not workspace.dock_state.isEmpty():
-        apply_dock_state(window, window.inspector_dock, workspace.dock_state)
-    elif workspace.legacy_inspector_width:
-        window.resizeDocks(
-            [window.inspector_dock],
-            [default_dock_width(window._left_tabs, workspace.legacy_inspector_width)],
-            Qt.Orientation.Horizontal,
-        )
-
-    tab_count = window._left_tabs.count()
-    window._left_tabs.setCurrentIndex(max(0, min(workspace.inspector_tab, tab_count - 1)))
+def _apply_detached_panes(window: MainWindow, workspace: Workspace) -> None:
+    """Restore detached-window state and geometries for Plots, 3D, and Imaging."""
     window._act_detach_plots.setChecked(workspace.plots_detached)
     if workspace.plots_detached and not workspace.plots_geometry.isEmpty():
         detached = window._detached_plot_window
@@ -158,6 +142,29 @@ def apply(window: MainWindow, workspace: Workspace) -> None:
             det_img.restoreGeometry(workspace.imaging_geometry)
             window._bring_onto_screen(det_img)
 
+
+def apply(window: MainWindow, workspace: Workspace) -> None:
+    """Put the window into *workspace* and re-assert splitter invariants."""
+    if workspace.geometry:
+        window.restoreGeometry(workspace.geometry)
+
+    for name, state in workspace.splitters.items():
+        splitter = getattr(window, name, None)
+        if splitter is not None and state:
+            splitter.restoreState(state)
+    if not workspace.dock_state.isEmpty():
+        apply_dock_state(window, window.inspector_dock, workspace.dock_state)
+    elif workspace.legacy_inspector_width:
+        window.resizeDocks(
+            [window.inspector_dock],
+            [default_dock_width(window._left_tabs, workspace.legacy_inspector_width)],
+            Qt.Orientation.Horizontal,
+        )
+
+    tab_count = window._left_tabs.count()
+    window._left_tabs.setCurrentIndex(max(0, min(workspace.inspector_tab, tab_count - 1)))
+    _apply_detached_panes(window, workspace)
+
     if workspace.camera_order:
         window.video_grid.reorder_panes(workspace.camera_order)
         window.sidebar.reorder_videos(workspace.camera_order)
@@ -165,11 +172,17 @@ def apply(window: MainWindow, workspace: Workspace) -> None:
         window.video_grid.apply_camera_views(workspace.camera_views)
     if workspace.view_3d:
         window.tracking_3d_pane.set_view_orientation(workspace.view_3d)
+    window.plot_pane.set_view_mode(workspace.plot_view_mode)
+    pinned_set = set(workspace.pinned_channels)
+    for ch in list(window.plot_pane.channels):
+        key = ChannelKey(str(ch.reader.source_id), str(ch.name))
+        if ch.pinned and key not in pinned_set:
+            window.plot_pane.set_channel_pinned(key, False)
+    for src, ch_name in workspace.pinned_channels:
+        window.plot_pane.set_channel_pinned(ChannelKey(src, ch_name), True)
 
     window._enforce_splitter_policy()
     window._repair_collapsed_panes()
-    # The restored arrangement is now the ratio to hold, so a later resize
-    # scales it rather than drifting back toward whatever preceded it.
     window._pane_proportions.record_all()
 
 
@@ -193,6 +206,11 @@ def save(name: str, workspace: Workspace) -> None:
     store.setValue("camera_order_json", json.dumps(list(workspace.camera_order)))
     store.setValue("camera_views_json", json.dumps(workspace.camera_views))
     store.setValue("view_3d_json", json.dumps(workspace.view_3d))
+    store.setValue("plot_view_mode", workspace.plot_view_mode)
+    store.setValue(
+        "pinned_channels_json",
+        json.dumps([list(pair) for pair in workspace.pinned_channels]),
+    )
     store.endGroup()
 
 
@@ -209,36 +227,21 @@ def load(name: str) -> Workspace | None:
             state = store.value(f"splitter_{splitter_name}")
             if state is not None:
                 splitters[splitter_name] = state
-        # QSettings hands back a string on some platforms and an int on
-        # others; a stored tab index that arrives as "2" must not become 0.
-        tab = store.value("inspector_tab", 0)
-        try:
-            tab_index = int(str(tab))
-        except (TypeError, ValueError):
-            tab_index = 0
-        stored_detached = store.value("plots_detached", False)
-        if isinstance(stored_detached, bool):
-            plots_detached = stored_detached
-        else:
-            plots_detached = str(stored_detached).strip().lower() in {"1", "true", "yes"}
-        plots_geometry = store.value("plots_geometry", QByteArray())
-        if not isinstance(plots_geometry, QByteArray):
-            plots_geometry = QByteArray()
-        docks = store.value("dock_state", QByteArray())
-        if not isinstance(docks, QByteArray):
-            docks = QByteArray()
+        docks = _as_bytes(store.value("dock_state", QByteArray()))
         legacy = store.value(f"splitter_{_LEGACY_INSPECTOR}")
         legacy_width = (
             inspector_width_from_splitter_state(legacy)
             if docks.isEmpty() and isinstance(legacy, QByteArray)
             else None
         )
+        raw_mode = store.value("plot_view_mode", "stacked")
+        plot_mode = str(raw_mode) if isinstance(raw_mode, str) and raw_mode else "stacked"
         return Workspace(
             geometry=geometry,
             splitters=splitters,
-            inspector_tab=tab_index,
-            plots_detached=plots_detached,
-            plots_geometry=plots_geometry,
+            inspector_tab=_as_int(store.value("inspector_tab", 0)),
+            plots_detached=_as_bool(store.value("plots_detached", False)),
+            plots_geometry=_as_bytes(store.value("plots_geometry", QByteArray())),
             dock_state=docks,
             legacy_inspector_width=legacy_width,
             tracking_3d_detached=_as_bool(store.value("tracking_3d_detached", False)),
@@ -248,9 +251,18 @@ def load(name: str) -> Workspace | None:
             camera_order=tuple(_as_json_list(store.value("camera_order_json", ""))),
             camera_views=_as_camera_views(store.value("camera_views_json", "")),
             view_3d=_as_json_dict(store.value("view_3d_json", "")),
+            plot_view_mode=plot_mode,
+            pinned_channels=_as_pinned_channels(store.value("pinned_channels_json", "")),
         )
     finally:
         store.endGroup()
+
+
+def _as_int(value: object, default: int = 0) -> int:
+    try:
+        return int(str(value))
+    except (TypeError, ValueError):
+        return default
 
 
 def _as_bool(value: object) -> bool:
@@ -292,6 +304,20 @@ def _as_camera_views(raw: object) -> dict[str, dict[str, float]]:
                 str(k): float(v) for k, v in spec.items() if isinstance(v, (int, float))
             }
     return out
+
+
+def _as_pinned_channels(raw: object) -> tuple[tuple[str, str], ...]:
+    if not isinstance(raw, str) or not raw.strip():
+        return ()
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        return ()
+    if not isinstance(parsed, list):
+        return ()
+    return tuple(
+        (str(item[0]), str(item[1])) for item in parsed if isinstance(item, list) and len(item) == 2
+    )
 
 
 def names() -> list[str]:

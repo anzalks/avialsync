@@ -126,7 +126,30 @@ class ChangesPanel(QGroupBox):
 
         self.ethogram_bar = EthogramBar(annotations, content)
         layout.addWidget(self.ethogram_bar)
+        layout.addLayout(self._build_filter_row())
+        self._table = self._build_table()
+        layout.addWidget(self._table)
+        # Names what fills the page: wrapped, as the sidebar is
+        # narrower than the sentence.
+        self._empty = EmptyNote(
+            tr(
+                "Nothing has been changed yet. Flag a frame (M or Flag Frame under the "
+                "videos), label a range, or correct a tracked point, and it is listed here."
+            ),
+            self,
+        )
+        layout.addWidget(self._empty)
+        layout.addLayout(self._build_action_buttons())
 
+        scroll.setWidget(content)
+        outer.addWidget(scroll)
+
+        self._annotations.changed.connect(self.refresh)
+        self._time_mode = TimeDisplayMode.RELATIVE
+        self._t_epoch = 0.0
+        self.refresh()
+
+    def _build_filter_row(self) -> QHBoxLayout:
         filter_row = QHBoxLayout()
         filter_row.setContentsMargins(0, 0, 0, 0)
         filter_row.setSpacing(spacing("xs"))
@@ -151,36 +174,27 @@ class ChangesPanel(QGroupBox):
         self.search_edit.textChanged.connect(self.refresh)
         filter_row.addWidget(self.kind_filter)
         filter_row.addWidget(self.search_edit, 1)
-        layout.addLayout(filter_row)
+        return filter_row
 
-        self._table = ThemedTable(0, len(_COLUMNS))
-        self._table.setHorizontalHeaderLabels([tr(name) for name in _COLUMNS])
-        header = self._table.horizontalHeader()
+    def _build_table(self) -> ThemedTable:
+        table = ThemedTable(0, len(_COLUMNS))
+        table.setHorizontalHeaderLabels([tr(name) for name in _COLUMNS])
+        header = table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        self._table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self._table.setEditTriggers(QTableWidget.EditTrigger.DoubleClicked)
-        self._table.setAccessibleName(tr("Changes made in this session"))
-        self._table.setAccessibleDescription(
+        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        table.setEditTriggers(QTableWidget.EditTrigger.DoubleClicked)
+        table.setAccessibleName(tr("Changes made in this session"))
+        table.setAccessibleDescription(
             tr("Flagged frames, labelled ranges, corrected points, and identity swaps")
         )
-        self._table.itemChanged.connect(self._on_item_changed)
-        self._table.itemSelectionChanged.connect(self._on_selection_changed)
-        layout.addWidget(self._table)
+        table.itemChanged.connect(self._on_item_changed)
+        table.itemSelectionChanged.connect(self._on_selection_changed)
+        return table
 
-        # Names what fills the page: wrapped, as the sidebar is
-        # narrower than the sentence.
-        self._empty = EmptyNote(
-            tr(
-                "Nothing has been changed yet. Flag a frame (M or Flag Frame under the "
-                "videos), label a range, or correct a tracked point, and it is listed here."
-            ),
-            self,
-        )
-        layout.addWidget(self._empty)
-
+    def _build_action_buttons(self) -> QVBoxLayout:
         # Stacked, destructive last, as Open Files is: side by side the
         # pair needed 294 px at 16 pt against the 280 px page.
         buttons = QVBoxLayout()
@@ -197,15 +211,7 @@ class ChangesPanel(QGroupBox):
         self._export_button = ActionButton(self)
         buttons.addWidget(self._export_button)
         buttons.addWidget(self._delete_button)
-        layout.addLayout(buttons)
-
-        scroll.setWidget(content)
-        outer.addWidget(scroll)
-
-        self._annotations.changed.connect(self.refresh)
-        self._time_mode = TimeDisplayMode.RELATIVE
-        self._t_epoch = 0.0
-        self.refresh()
+        return buttons
 
     # ── what it shows ────────────────────────────────────────────────
 

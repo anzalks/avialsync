@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import dataclasses
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -86,6 +87,8 @@ class AnnotationStore(QObject):
         super().__init__(parent)
         self._markers: list[Marker] = []
         self._color_idx = 0
+        #: Optional callback resolving per-camera ``VideoFrame`` records at ``t_master``.
+        self.frame_resolver: Callable[[float], list[VideoFrame] | None] | None = None
 
     @property
     def markers(self) -> list[Marker]:
@@ -177,8 +180,13 @@ class AnnotationStore(QObject):
         after = (start, end)
         if before == after:
             return
+        start_changed = marker.t_start != start
         marker.t_start = start
         marker.t_end = end
+        if start_changed and self.frame_resolver is not None:
+            resolved = self.frame_resolver(start)
+            if resolved is not None:
+                marker.video_frames = resolved
         self.marker_moved.emit(index, before, after)
         self.changed.emit()
 

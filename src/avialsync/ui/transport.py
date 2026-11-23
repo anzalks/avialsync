@@ -1499,6 +1499,14 @@ class Transport(QWidget):
         self.set_playing(False)
         self.play_toggled.emit(False)
 
+    def reset_transport_state(self) -> None:
+        """Clear A/B loop pins and reset shuttle direction and playback rate."""
+        self._on_ab_clear()
+        self.set_direction(1)
+        idx = self.rate_combo.findData(1.0)
+        if idx >= 0:
+            self.rate_combo.setCurrentIndex(idx)
+
     def _update_shuttle_tooltip(self) -> None:
         if self._direction < 0 and self.play_btn.isChecked():
             self.play_btn.setToolTip(tr("Playing in reverse — press K or Space to pause"))

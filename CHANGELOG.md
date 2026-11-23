@@ -39,6 +39,12 @@ full history is in git. Versions follow the tags in the repository.
 - Internal: the main window is composed of focused modules; behaviour is unchanged (D-248).
 
 ### Fixed
+- Dragging a page-clipped range marker on a plot preserves its off-page endpoint, moving a marker
+  refreshes its exported camera frame snapshot, `Overlaid` and `Heatmap` plot modes sync immediately
+  on channel hide, source removal, and pause while rendering timeline annotations and measure pins,
+  `Previous / Next Suspect Frame` respects accepted identity swaps and hand corrections, `Reset
+  Session` clears active ethogram bouts and transport shuttle/loop state while `Undo` restores full
+  session state, and `.avv` schema v15 persists plot view mode and pinned rows.
 - Detached workspace windows share all live playhead, shuttle, marker, and ethogram shortcuts;
   `Export` and `Help` menu items appear in the command palette and shortcuts table; `Export Trimmed
   Video Clip…` waits for a complete `I`–`O` range; and `Preferences` changes for A–B looping,

@@ -237,7 +237,7 @@ def test_the_session_writes_the_current_schema_version() -> None:
     The name no longer carries it: this test asserted 9 under a name that said
     8 for a whole schema version, which is how a literal and its label drift.
     """
-    assert SessionState().to_dict()["version"] == 14
+    assert SessionState().to_dict()["version"] == 15
 
 
 # ── the window wiring ────────────────────────────────────────────────

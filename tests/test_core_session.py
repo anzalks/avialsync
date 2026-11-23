@@ -1,5 +1,6 @@
 """Tests for SessionState serialisation and schema migrations."""
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -9,11 +10,16 @@ import pytest
 from avialsync.core.drift import LEGACY_DRIFT_KEY
 from avialsync.core.errors import ExportError
 from avialsync.core.session import (
+    _EXACT_MAPPING_INLINE_LIMIT,
+    EXACT_MAPPING_DIR_SUFFIX,
+    ImagingEntry,
     MarkerEntry,
     SensorEntry,
     SessionState,
     SyncProvenance,
+    TriggerEntry,
     VideoEntry,
+    exact_mapping_dir,
 )
 
 FIXTURE_V1 = Path(__file__).parent / "fixtures" / "session_v1.avv"
@@ -53,13 +59,14 @@ def test_v1_session_loads_under_current_schema():
 
 
 def test_v1_session_roundtrips_as_v7(tmp_path: Path) -> None:
-    """Loading a v1 session then saving it should produce a valid v5 file."""
+    """Loading a v1 session then saving it should produce a valid v15 file."""
     state = SessionState.load(FIXTURE_V1)
     out = tmp_path / "out.avv"
     state.save(out)
 
     data = json.loads(out.read_text())
-    assert data["version"] == 14
+    assert data["version"] == 15
+    assert data["format"] == "avialsync-session/15"
     assert data["videos"][0]["offset"] == 0.5
     assert data["sensors"][0]["channels"] == ["ch1", "ch2"]
     assert data["sensors"][0]["import_report"] is None
@@ -163,6 +170,17 @@ def test_v7_roundtrip_with_inspection_and_sync_fields(tmp_path: Path) -> None:
                 drift_ms_per_hour=2.5,
                 integrity_flags={"is_vfr": True, "has_gaps": False},
                 metadata={"container": "mp4", "width": 640},
+                view={"zoom": 1.5},
+            )
+        ],
+        imaging=[
+            ImagingEntry(
+                path="/tmp/stack.tif",
+                loader_id="TiffImagingLoader",
+                import_config={"fps": 15.0},
+                offset=0.25,
+                drift_ms_per_hour=0.5,
+                display={"channel": 0},
             )
         ],
         sensors=[
@@ -180,6 +198,14 @@ def test_v7_roundtrip_with_inspection_and_sync_fields(tmp_path: Path) -> None:
                 video_frames=[{"path": "/tmp/vid.mp4", "frame_index": 30, "media_timestamp": 1.0}],
             )
         ],
+        triggers=[
+            TriggerEntry(
+                path="/tmp/triggers.csv",
+                config={"strobe_col": "cam_ttl"},
+                offset=0.1,
+                drift_ms_per_hour=0.2,
+            )
+        ],
         sync_provenance=[
             SyncProvenance(
                 reference_id="sensor:ttl",
@@ -191,6 +217,9 @@ def test_v7_roundtrip_with_inspection_and_sync_fields(tmp_path: Path) -> None:
                 matched_count=12,
                 rejected_count=1,
                 tolerance=0.01,
+                restricted_to=[0.5, 9.5],
+                exact_offset_anchor=1.2,
+                exact_drift_anchor=3.4,
                 matches=[
                     {"reference_time": 1.0, "target_time": 2.25, "residual": 0.0},
                 ],
@@ -203,17 +232,25 @@ def test_v7_roundtrip_with_inspection_and_sync_fields(tmp_path: Path) -> None:
     state.save(out)
 
     data = json.loads(out.read_text())
-    assert data["version"] == 14
+    assert data["version"] == 15
 
     loaded = SessionState.load(out)
     assert loaded.videos[0].integrity_flags == {"is_vfr": True, "has_gaps": False}
     assert loaded.videos[0].drift_ms_per_hour == pytest.approx(2.5)
     assert loaded.videos[0].metadata["container"] == "mp4"
+    assert loaded.videos[0].view == {"zoom": 1.5}
+    assert loaded.imaging[0].path == "/tmp/stack.tif"
+    assert loaded.imaging[0].loader_id == "TiffImagingLoader"
     assert loaded.sensors[0].loader_id == "CSVLoader"
     assert loaded.sensors[0].import_config == {"fps": 30.0}
     assert loaded.sensors[0].import_report == {"rows_parsed": 100, "gap_count": 2}
     assert loaded.markers[0].video_frames[0]["frame_index"] == 30
+    assert loaded.triggers[0].path == "/tmp/triggers.csv"
+    assert loaded.triggers[0].config == {"strobe_col": "cam_ttl"}
     assert loaded.sync_provenance[0].drift_ms_per_hour == pytest.approx(3.5)
+    assert loaded.sync_provenance[0].restricted_to == [0.5, 9.5]
+    assert loaded.sync_provenance[0].exact_offset_anchor == pytest.approx(1.2)
+    assert loaded.sync_provenance[0].exact_drift_anchor == pytest.approx(3.4)
     assert loaded.sync_provenance[0].matches[0]["target_time"] == pytest.approx(2.25)
     assert loaded.sync_provenance[0].exact_master == [1.0, 2.0, 3.0]
     assert loaded.sync_provenance[0].exact_source == [2.25, 3.25, 4.25]
@@ -231,6 +268,29 @@ def test_unsupported_version_raises() -> None:
         SessionState.from_dict(data)
 
 
+def test_mismatched_exact_sync_arrays_raise_on_serialisation() -> None:
+    """Exact mapping arrays of unequal length cannot be serialised."""
+    state = SessionState(
+        sync_provenance=[
+            SyncProvenance(
+                reference_id="sensor:ttl",
+                target_id="video:cam1",
+                offset=0.0,
+                drift_ms_per_hour=0.0,
+                rms_residual=0.0,
+                max_residual=0.0,
+                matched_count=2,
+                rejected_count=0,
+                tolerance=0.01,
+                exact_master=[1.0, 2.0],
+                exact_source=[1.0],
+            )
+        ]
+    )
+    with pytest.raises(ValueError, match="different lengths"):
+        state.to_dict()
+
+
 def test_empty_session_roundtrip(tmp_path: Path) -> None:
     """An empty session should save and load without error."""
     state = SessionState()
@@ -243,6 +303,7 @@ def test_empty_session_roundtrip(tmp_path: Path) -> None:
 
 
 def test_large_exact_mapping_is_stored_in_a_validated_binary_sidecar(tmp_path: Path) -> None:
+    assert _EXACT_MAPPING_INLINE_LIMIT == 500
     master = np.arange(10_000, dtype=np.float64) * 0.01
     source = master + 2.5
     state = SessionState(
@@ -263,6 +324,7 @@ def test_large_exact_mapping_is_stored_in_a_validated_binary_sidecar(tmp_path: P
         ]
     )
     path = tmp_path / "session.avv"
+    assert exact_mapping_dir(path) == tmp_path / f"session{EXACT_MAPPING_DIR_SUFFIX}"
 
     state.save(path)
 
@@ -276,6 +338,22 @@ def test_large_exact_mapping_is_stored_in_a_validated_binary_sidecar(tmp_path: P
     np.testing.assert_array_equal(loaded.sync_provenance[0].exact_source, source)
 
     sidecar = tmp_path / mapping["file"]
+    np.savez_compressed(sidecar, master=np.array([1.0, 2.0]), source=np.array([1.0]))
+    serialized["sync_provenance"][0]["exact_mapping"]["sha256"] = hashlib.sha256(
+        sidecar.read_bytes()
+    ).hexdigest()
+    path.write_text(json.dumps(serialized), encoding="utf-8")
+    with pytest.raises(ValueError, match="Invalid exact synchronization sidecar"):
+        SessionState.load(path)
+
+    np.savez_compressed(sidecar, master=np.array([1.0, 2.0]), source=np.array([1.0, 2.0]))
+    serialized["sync_provenance"][0]["exact_mapping"]["sha256"] = hashlib.sha256(
+        sidecar.read_bytes()
+    ).hexdigest()
+    path.write_text(json.dumps(serialized), encoding="utf-8")
+    with pytest.raises(ValueError, match="Invalid exact synchronization sidecar"):
+        SessionState.load(path)
+
     sidecar.write_bytes(b"not a mapping")
     with pytest.raises(ValueError, match="Invalid exact synchronization sidecar"):
         SessionState.load(path)
@@ -332,11 +410,11 @@ def test_a_v8_session_reads_back_as_the_affine_fit_it_recorded(tmp_path: Path) -
     assert provenance.offset_stderr == 0.0
     assert provenance.ambiguity_margin == 1.0
 
-    # And it re-saves as v9 without inventing anything.
+    # And it re-saves as v15 without inventing anything.
     out = tmp_path / "resaved.avv"
     loaded.save(out)
     resaved = json.loads(out.read_text())
-    assert resaved["version"] == 14
+    assert resaved["version"] == 15
     assert resaved["sync_provenance"][0]["method"] == "affine"
     assert resaved["sync_provenance"][0]["matched_count"] == 47
     assert resaved["sync_provenance"][0]["drift_ms_per_hour"] == pytest.approx(12.6)
@@ -371,3 +449,51 @@ def test_a_manual_mapping_is_recorded_as_manual(tmp_path: Path) -> None:
     assert reloaded.sync_provenance[0].method == "manual"
     # No fabricated count to make it look measured.
     assert reloaded.sync_provenance[0].matched_count == 0
+
+
+def test_v14_session_loads_with_default_plot_view_and_pinned_channels() -> None:
+    """Loading a v14 dict preserves backwards compatibility with v15 defaults."""
+    v14 = {"version": 14, "videos": [], "sensors": [], "markers": []}
+    state = SessionState.from_dict(v14)
+    assert state.plot_view_mode == "stacked"
+    assert state.pinned_channels == []
+
+
+def test_v15_plot_view_mode_and_pinned_channels_roundtrip(tmp_path: Path) -> None:
+    """Schema v15 persists plot_view_mode and pinned_channels across save/load."""
+    state = SessionState(
+        plot_view_mode="heatmap",
+        pinned_channels=[{"source_id": "/s.csv", "channel": "ch0"}],
+    )
+    out = tmp_path / "v15.avv"
+    state.save(out)
+
+    raw = json.loads(out.read_text(encoding="utf-8"))
+    assert raw["version"] == 15
+    assert raw["plot_view_mode"] == "heatmap"
+    assert raw["pinned_channels"] == [{"source_id": "/s.csv", "channel": "ch0"}]
+
+    loaded = SessionState.load(out)
+    assert loaded.plot_view_mode == "heatmap"
+    assert loaded.pinned_channels == [{"source_id": "/s.csv", "channel": "ch0"}]
+
+
+def test_invalid_plot_view_mode_and_malformed_pinned_channels_fall_back_cleanly() -> None:
+    """Unknown plot_view_mode falls back to stacked; malformed pinned entries are skipped."""
+    data = {
+        "version": 15,
+        "plot_view_mode": "bogus",
+        "pinned_channels": [
+            "not-a-dict",
+            {"source_id": "/s.csv", "channel": ""},
+            {"source_id": "/s.csv"},
+            {"source_id": "/s.csv", "channel": "ch1"},
+            {"channel": "ch2"},
+        ],
+    }
+    state = SessionState.from_dict(data)
+    assert state.plot_view_mode == "stacked"
+    assert state.pinned_channels == [
+        {"source_id": "/s.csv", "channel": "ch1"},
+        {"source_id": "", "channel": "ch2"},
+    ]

@@ -10,12 +10,13 @@ from __future__ import annotations
 import dataclasses
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QFileDialog
 
+from avialsync.core.channel_reader import ChannelKey
 from avialsync.core.errors import CacheError, FileUnreadableError, SourceOpenError
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.session import (
@@ -137,6 +138,15 @@ def _video_entries(window: MainWindow) -> list[VideoEntry]:
     return entries
 
 
+def _pinned_channel_entries(window: MainWindow) -> list[dict[str, str]]:
+    """Serialise pinned plot channels in their current order."""
+    return [
+        {"source_id": ch.reader.source_id, "channel": ch.name}
+        for ch in window.plot_pane.channels
+        if ch.pinned
+    ]
+
+
 def build_session_state(window: MainWindow) -> SessionState:
     """Snapshot current app state into a SessionState."""
     from avialsync.ui.sidebar import SensorInfoWidget
@@ -194,6 +204,11 @@ def build_session_state(window: MainWindow) -> SessionState:
     # The fixed sweep always displays 0..window_duration.
     plot_x0 = 0.0 if window.plot_pane.channels else None
     plot_x1 = window.plot_pane.window_duration if window.plot_pane.channels else None
+    extra: dict[str, Any] = {}
+    if "plot_view_mode" in SessionState.__dataclass_fields__:
+        extra["plot_view_mode"] = window.plot_pane.view_mode
+    if "pinned_channels" in SessionState.__dataclass_fields__:
+        extra["pinned_channels"] = _pinned_channel_entries(window)
 
     return SessionState(
         videos=videos,
@@ -213,6 +228,7 @@ def build_session_state(window: MainWindow) -> SessionState:
         identity_swaps=identity_controller.build_manifest(window),
         show_original_tracker=window._show_original_tracker,
         view_3d=window.tracking_3d_pane.view_orientation(),
+        **extra,
     )
 
 
@@ -342,13 +358,7 @@ def start_session_load(window: MainWindow, path: Path) -> None:
 
         worker.finished.connect(thread.quit)
         worker.error.connect(thread.quit)
-        # No `worker.deleteLater` here: these signals are emitted in the
-        # worker thread, where the worker also lives, so the connection is
-        # direct and ~QObject runs inside that thread — severing connections
-        # while holding one of Qt's pooled signal/slot mutexes and then
-        # taking the GIL for PySide's disconnectNotify, which deadlocks a UI
-        # thread holding the GIL and waiting on a colliding mutex.
-        # The owning registry drops its reference on the UI thread instead.
+        # Registry drops the worker reference on the UI thread (see start_session_save).
 
     window._run_job(worker, configure=_wire)
 
@@ -480,6 +490,7 @@ def reset_session(window: MainWindow, *, discard_recovery: bool = True) -> None:
     window.session_runtime.item_labels.clear()
     window.session_runtime.item_kinds.clear()
     window.session_runtime.coverage_groups.clear()
+    window.reset_transient_ui_state()
 
     window._refresh_pose_3d()
     window.clock.set_bounds(0.0, 0.0)
@@ -604,7 +615,7 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
 def _restore_markers_and_views(
     window: MainWindow, state: SessionState, relink_map: dict[str, str]
 ) -> None:
-    """Restore markers, plot span, per-camera zoom/pan, and 3D orientation."""
+    """Restore markers, plot span, plot view mode/pins, camera zoom/pan, and 3D view."""
     from avialsync.ui.annotations import VideoFrame
 
     camera_views = {
@@ -613,6 +624,15 @@ def _restore_markers_and_views(
     window.video_grid.apply_camera_views(camera_views, defer_unloaded=True)
     if state.view_3d:
         window.tracking_3d_pane.set_view_orientation(state.view_3d, defer_until_loaded=True)
+    window.plot_pane.set_view_mode(getattr(state, "plot_view_mode", "stacked"))
+    pinned = getattr(state, "pinned_channels", None) or []
+    if pinned:
+        apply_pins = getattr(window.plot_pane, "apply_pinned_channels", None)
+        if callable(apply_pins):
+            apply_pins(pinned, relink_map)
+        for p in pinned:
+            src = relink_map.get(p["source_id"], p["source_id"])
+            window.plot_pane.set_channel_pinned(ChannelKey(src, p["channel"]), True)
     for me in state.markers:
         vfs = [
             VideoFrame(
@@ -703,26 +723,11 @@ def recover_unsaved_work(window: MainWindow) -> None:
 
 
 def offer_pending_recovery(window: MainWindow) -> bool:
-    """Offer unsaved work from a previous run, if asked to. Non-modal.
+    """Offer unsaved work from a previous run via the non-modal notification strip.
 
-    The other half of hot exit. The snapshot has been written on every quit
-    since quitting stopped asking, but nothing ever offered it back, so the work was
-    preserved on disk and unreachable from the interface -- and the payload
-    nests the session under a ``state`` key, so Open Session could not read it
-    either.
-
-    An offer, never a gate: it is one line in the notification strip with a
-    Restore button beside it, and dismissing it records the declined version
-    without deleting the snapshot. The application never blocks the user, and a
-    launch-time "restore your work?" modal is exactly that. Dismissing
-    remembers this version so it does not reappear on the next launch.
-
-    Silent unless the user turned the offer on. Every quit writes a
-    fresh snapshot, and a dismissal is remembered per snapshot content, so work
-    that changed since the last dismissal is correctly a new offer -- which for
-    anyone who works without saving is an offer at every launch, in a strip they
-    then clear by hand. The snapshot is always written and **File → Recover
-    Unsaved Work** always reaches it; only the unrequested bar is opt-in.
+    Silent unless ``storage/offer_recovery_at_launch`` is enabled; the snapshot
+    is always written on quit and reachable via **File → Recover Unsaved Work**.
+    Dismissing records the declined revision without deleting the snapshot.
     """
     from avialsync.ui.recovery_worker import present_pending_recovery
 
@@ -731,12 +736,7 @@ def offer_pending_recovery(window: MainWindow) -> bool:
 
 
 def restore_pending_recovery(window: MainWindow, snapshot: recovery.RecoverySnapshot) -> None:
-    """Load a recovery snapshot into the window, as an ordinary session restore.
-
-    The snapshot is cleared only once the restore has actually gone through.
-    Clearing first would turn a failure to decode into the data loss the
-    snapshot exists to prevent, and there is no second copy.
-    """
+    """Load a recovery snapshot into the window, clearing it only once restored."""
     try:
         state = SessionState.from_dict(snapshot.state)
     except Exception as error:
@@ -758,20 +758,7 @@ def restore_pending_recovery(window: MainWindow, snapshot: recovery.RecoverySnap
 
 
 def _write_recovery_snapshot(window: MainWindow) -> bool:
-    """Persist unsaved work for an untitled session. Returns whether it wrote.
-
-    An empty workspace writes nothing and clears whatever was there. Reset
-    Session empties the workspace and sets ``_session_path`` to ``None``, so
-    without this a reset followed by a quit would overwrite a good snapshot
-    with an empty one — the safety net causing the loss it exists to prevent.
-
-    Serialising is inside the guard, not before it. One call site is
-    ``closeEvent``, where the workspace can hold whatever a half-finished load
-    left behind, and ``SessionState.to_dict`` raises on state
-    it cannot encode. A safety net that throws on the way up is worse than no
-    safety net: the surrounding ``_close_step`` would log and continue, but the
-    snapshot this function exists to write would silently not happen.
-    """
+    """Persist unsaved work for an untitled session, clearing when empty."""
     try:
         state = window._build_session_state().to_dict()
     except Exception:
@@ -785,16 +772,7 @@ def _write_recovery_snapshot(window: MainWindow) -> bool:
 
 
 def write_session_snapshot(window: MainWindow) -> None:
-    """Write the session synchronously, if one is open.
-
-    Threading this is not an option at either call site: the window is about to
-    go away, or a media client is about to be torn down in a way that can kill
-    the process outright. Both are bounded by a single small JSON write, which
-    is why this is the one legitimate blocking write in the application.
-
-    With no session path the same state goes to the recovery snapshot instead,
-    so closing an untitled session preserves it rather than discarding it.
-    """
+    """Write the open session or untitled recovery snapshot synchronously on teardown."""
     if window.session_runtime.path is None:
         _write_recovery_snapshot(window)
         return
@@ -804,15 +782,7 @@ def write_session_snapshot(window: MainWindow) -> None:
 
 
 def autosave_before_close(window: MainWindow) -> None:
-    """Flush a final synchronous autosave before the window closes.
-
-    A threaded save started here could never finish: the window (and its
-    worker registry) is gone right after this returns. It runs after the final
-    paint, so the write is not competing with a UI-thread budget.
-
-    Quitting still never prompts. It is lossless instead, which is what
-    removes the reason to prompt.
-    """
+    """Flush a final synchronous autosave before the window closes."""
     write_session_snapshot(window)
 
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
 import pyqtgraph as pg
@@ -19,11 +21,14 @@ from avialsync.ui.plot_overlays import (
     redraw_identity_markers,
     redraw_measure_lines,
     show_context_menu,
+    show_mode_context_menu,
 )
-from avialsync.ui.plot_row import Y_AUTO, Y_FIT_ONCE, Y_MANUAL, reveal_row_tools
+from avialsync.ui.plot_row import Y_AUTO, Y_FIT_ONCE, Y_MANUAL, ChannelPlot, reveal_row_tools
 
 if TYPE_CHECKING:
     from avialsync.ui.plot_pane import PlotPane
+
+logger = logging.getLogger(__name__)
 
 
 class PlotInteractionController:
@@ -71,10 +76,23 @@ class PlotInteractionController:
         self._measure_b = None
         self.redraw_measure_lines()
 
+    def _real_channels(self) -> list[ChannelPlot]:
+        return [ch for ch in self._pane.channels if isinstance(ch, ChannelPlot)]
+
+    def _overlay_targets(self) -> list[Any]:
+        """Return stacked rows plus the Overlaid/Heatmap canvas when channels exist."""
+        rows = self._real_channels()
+        targets: list[Any] = list(rows)
+        mode_view = getattr(self._pane, "_mode_view", None)
+        if mode_view is not None and getattr(mode_view, "plot_item", None) is not None:
+            has_visible = any(ch.visible for ch in rows)
+            targets.append(SimpleNamespace(plot_item=mode_view.plot_item, visible=has_visible))
+        return targets
+
     def redraw_measure_lines(self) -> None:
         """Refresh measurement pins in the current shared page."""
         self._measure_a_lines, self._measure_b_lines = redraw_measure_lines(
-            self._pane.channels,
+            self._overlay_targets(),
             self._measure_a,
             self._measure_b,
             self._pane._display_x,
@@ -83,7 +101,7 @@ class PlotInteractionController:
             self._pane.palette(),
         )
         self._measure_callout_items = redraw_measure_callouts(
-            self._pane.channels,
+            self._real_channels(),
             self._measure_a,
             self._measure_b,
             self._pane.x_range,
@@ -132,7 +150,7 @@ class PlotInteractionController:
 
     def redraw_gap_markers(self) -> None:
         """Refresh all visible gap evidence."""
-        redraw_gap_markers(self._pane.channels, self._pane._display_x, self._pane.palette())
+        redraw_gap_markers(self._real_channels(), self._pane._display_x, self._pane.palette())
 
     def set_identity_events(self, source_id: str, events: list[tuple[float, str]]) -> None:
         """Show accepted flips from one source on that source's plot rows."""
@@ -142,7 +160,7 @@ class PlotInteractionController:
     def redraw_identity_markers(self) -> None:
         """Refresh page-local flip boundaries from the accepted event store."""
         self._identity_items = redraw_identity_markers(
-            self._pane.channels,
+            self._real_channels(),
             self._identity_events,
             self._pane._display_x,
             self._pane.palette(),
@@ -157,13 +175,16 @@ class PlotInteractionController:
     def redraw_segment_boundaries(self) -> None:
         """Draw the trial boundaries that fall on the visible page."""
         for plot_item, line in self._segment_items:
-            plot_item.removeItem(line)
+            try:
+                plot_item.removeItem(line)
+            except RuntimeError:
+                logger.debug("Plot item was already deleted", exc_info=True)
         self._segment_items = []
         if not self._segment_bounds:
             return
         palette = self._pane.palette()
         pen = pg.mkPen(palette.color(palette.ColorRole.Mid), width=1, style=Qt.PenStyle.DashLine)
-        for channel in self._pane.channels:
+        for channel in self._overlay_targets():
             if not channel.visible:
                 continue
             for time in self._segment_bounds:
@@ -185,12 +206,13 @@ class PlotInteractionController:
         """Refresh page-local annotation graphics."""
         store = self._annotation_store
         self._annotation_items = redraw_annotations(
-            self._pane.channels,
+            self._overlay_targets(),
             store,
             self._pane._display_x,
             self._pane.x_range,
             self._annotation_items,
             master_at=self._pane.master_at,
+            x_of=self._pane.x_of,
             on_marker_moved=store.set_span if store is not None else None,
         )
 
@@ -267,8 +289,11 @@ class PlotInteractionController:
         choice = show_context_menu(
             event, channel, self._pane.master_at, self._extra_context_actions
         )
-        if choice is None:
-            return
+        if choice is not None:
+            self._apply_context_choice(choice, channel)
+            event.accept()
+
+    def _apply_context_choice(self, choice: Any, channel: Any) -> None:
         target: ChannelKey | str = (
             choice.channel_key if choice.channel_key is not None else choice.channel_id
         )
@@ -292,4 +317,38 @@ class PlotInteractionController:
             show_plot_exporter(channel.plot_item)
         elif choice.action == "hide":
             self._pane.hide_channel_row(target)
-        event.accept()
+
+    def on_mode_moved(self, scene_pos: Any) -> None:
+        """Update synchronized hover hairline over the Overlaid / Heatmap canvas."""
+        mode_view = getattr(self._pane, "_mode_view", None)
+        if mode_view is None or self._pane.sweep_start is None or self._pane.window_duration <= 0:
+            return
+        vb = mode_view.plot_item.vb
+        if not vb.sceneBoundingRect().contains(scene_pos):
+            self.clear_hover()
+            return
+        x_page = float(vb.mapSceneToView(scene_pos).x())
+        x_clamped = min(self._pane.window_duration, max(0.0, x_page))
+        t_master = self._pane.master_at(x_clamped)
+        targets = self._overlay_targets()
+        self._hover.update(targets, None, x_clamped, t_master, self._pane.palette())
+        self._pane.hover_time_changed.emit(t_master)
+
+    def on_mode_context_menu(self, event: Any) -> None:
+        """Show time-axis context menu on Overlaid / Heatmap canvas."""
+        mode_view = getattr(self._pane, "_mode_view", None)
+        if mode_view is None or self._pane.sweep_start is None:
+            return
+        choice = show_mode_context_menu(
+            event, mode_view.plot_item, self._pane.master_at, self._extra_context_actions
+        )
+        if choice is None:
+            return
+        if choice.action == "annotate":
+            self._pane.annotate_at_requested.emit(choice.time)
+        elif choice.action == "measure_a":
+            self.set_measure_a(choice.time)
+        elif choice.action == "measure_b":
+            self.set_measure_b(choice.time)
+        elif choice.action == "clear_measure":
+            self.clear_measure()

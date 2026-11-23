@@ -167,7 +167,9 @@ class ImagingControls(QWidget):
         ):
             self._grid.addWidget(heading, 0, column, 1, span)
         layout.addLayout(self._grid)
+        layout.addLayout(self._build_average_row())
 
+    def _build_average_row(self) -> QHBoxLayout:
         average_row = QHBoxLayout()
         average_row.setContentsMargins(0, spacing("s", self), 0, 0)
         average_row.setSpacing(spacing("s", self))
@@ -205,6 +207,10 @@ class ImagingControls(QWidget):
         self.clipping_check.toggled.connect(self._on_clipping)
         average_row.addWidget(self.clipping_check)
         average_row.addStretch(1)
+        self._add_level_buttons(average_row)
+        return average_row
+
+    def _add_level_buttons(self, average_row: QHBoxLayout) -> None:
         # Auto and Full range, the same pair the video's Display Levels offers.
         self.auto_button = QPushButton(tr("Auto"), self)
         self.auto_button.setAccessibleName(tr("Automatic display levels"))
@@ -219,7 +225,6 @@ class ImagingControls(QWidget):
         self.full_range_button.setToolTip(tr("Show the whole recorded range"))
         self.full_range_button.clicked.connect(self.apply_full_range)
         average_row.addWidget(self.full_range_button)
-        layout.addLayout(average_row)
 
     # ── state in ─────────────────────────────────────────────────────
 

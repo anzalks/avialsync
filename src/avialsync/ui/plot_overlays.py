@@ -105,8 +105,40 @@ def show_context_menu(
     return ContextChoice(action, time, channel.name, channel.reader.key)
 
 
+def show_mode_context_menu(
+    event: Any,
+    plot_item: pg.PlotItem,
+    master_at: Callable[[float], float],
+    extra_actions: Iterable[QAction],
+) -> ContextChoice | None:
+    """Show shared time-axis actions for Overlaid / Heatmap mode canvas."""
+    scene_pos = event.scenePos()
+    view_pos = plot_item.vb.mapSceneToView(scene_pos)
+    time = master_at(float(view_pos.x()))
+    menu = QMenu()
+    annotate = menu.addAction(tr("Add marker here  ({time} s)").format(time=f"{time:.3f}"))
+    menu.addSeparator()
+    measure_a = menu.addAction(tr("Set Measure A  ({time} s)").format(time=f"{time:.3f}"))
+    measure_b = menu.addAction(tr("Set Measure B  ({time} s)").format(time=f"{time:.3f}"))
+    clear_measure = menu.addAction(tr("Clear Measure"))
+    extras = tuple(extra_actions)
+    if extras:
+        menu.addSeparator()
+        for extra in extras:
+            menu.addAction(extra)
+    chosen = menu.exec(event.screenPos().toPoint())
+    actions: dict[QAction, ContextAction] = {
+        annotate: "annotate",
+        measure_a: "measure_a",
+        measure_b: "measure_b",
+        clear_measure: "clear_measure",
+    }
+    action = actions.get(chosen)
+    return ContextChoice(action, time, "") if action is not None else None
+
+
 def redraw_measure_lines(
-    channels: list[ChannelPlot],
+    channels: list[Any],
     measure_a: float | None,
     measure_b: float | None,
     display_x: Callable[[float], float | None],
@@ -195,19 +227,79 @@ def redraw_identity_markers(
     return new_items
 
 
+def _resolve_region_drag(
+    orig_start: float,
+    orig_end: float,
+    init_span: tuple[float, float],
+    new_span: tuple[float, float],
+    master_at: Callable[[float], float],
+    x_of: Callable[[float], float | None] | None,
+) -> tuple[float, float]:
+    """Preserve off-page endpoints when a page-clipped range marker is dragged."""
+    init_r0, init_r1 = init_span
+    new_r0, new_r1 = new_span
+    left_clipped = abs(master_at(init_r0) - orig_start) > 1e-6
+    right_clipped = abs(master_at(init_r1) - orig_end) > 1e-6
+    d0 = new_r0 - init_r0
+    d1 = new_r1 - init_r1
+    if (left_clipped or right_clipped) and abs(d0) > 1e-9 and abs(d0 - d1) <= 1e-6:
+        if x_of is not None:
+            raw0, raw1 = x_of(orig_start), x_of(orig_end)
+            if raw0 is not None and raw1 is not None:
+                return master_at(raw0 + d0), master_at(raw1 + d0)
+    resolved_start = orig_start if (left_clipped and abs(d0) <= 1e-9) else master_at(new_r0)
+    resolved_end = orig_end if (right_clipped and abs(d1) <= 1e-9) else master_at(new_r1)
+    return resolved_start, resolved_end
+
+
+def _build_range_region(
+    marker: Any,
+    marker_idx: int,
+    span: tuple[float, float],
+    color: Any,
+    *,
+    movable: bool,
+    master_at: Callable[[float], float] | None,
+    x_of: Callable[[float], float | None] | None,
+    on_marker_moved: Callable[[int, float, float | None], None] | None,
+) -> pg.LinearRegionItem:
+    brush = QColor(marker.color)
+    brush.setAlpha(40)
+    region = pg.LinearRegionItem(
+        values=list(span),
+        movable=movable,
+        brush=brush,
+        pen=pg.mkPen(color, width=1, style=Qt.PenStyle.DashLine),
+    )
+    if movable and master_at is not None and on_marker_moved is not None:
+        orig_s, orig_e = float(marker.t_start), float(marker.t_end)
+        region.sigRegionChangeFinished.connect(
+            lambda item=region, idx=marker_idx, s0=orig_s, e0=orig_e, sp=span: on_marker_moved(
+                idx,
+                *_resolve_region_drag(s0, e0, sp, item.getRegion(), master_at, x_of),
+            )
+        )
+    region.setZValue(-5)
+    return region
+
+
 def redraw_annotations(
-    channels: list[ChannelPlot],
+    channels: list[Any],
     annotation_store: AnnotationStore | None,
     display_x: Callable[[float], float | None],
     x_range: Callable[[float, float], tuple[float, float] | None],
     old_items: list[tuple[pg.PlotItem, object]],
     *,
     master_at: Callable[[float], float] | None = None,
+    x_of: Callable[[float], float | None] | None = None,
     on_marker_moved: Callable[[int, float, float | None], None] | None = None,
 ) -> list[tuple[pg.PlotItem, object]]:
     """Replace page-local annotation graphics from the authoritative store."""
     for plot_item, item in old_items:
-        plot_item.removeItem(item)
+        try:
+            plot_item.removeItem(item)
+        except RuntimeError:
+            logger.debug("Plot item was already deleted", exc_info=True)
     if annotation_store is None:
         return []
     movable = master_at is not None and on_marker_moved is not None
@@ -235,23 +327,16 @@ def redraw_annotations(
             span = x_range(marker.t_start, marker.t_end)
             if span is None:
                 continue
-            brush = QColor(marker.color)
-            brush.setAlpha(40)
-            region = pg.LinearRegionItem(
-                values=list(span),
+            region = _build_range_region(
+                marker,
+                marker_idx,
+                span,
+                color,
                 movable=movable,
-                brush=brush,
-                pen=pg.mkPen(color, width=1, style=Qt.PenStyle.DashLine),
+                master_at=master_at,
+                x_of=x_of,
+                on_marker_moved=on_marker_moved,
             )
-            if movable and master_at is not None and on_marker_moved is not None:
-                region.sigRegionChangeFinished.connect(
-                    lambda item=region, idx=marker_idx: on_marker_moved(
-                        idx,
-                        master_at(float(item.getRegion()[0])),
-                        master_at(float(item.getRegion()[1])),
-                    )
-                )
-            region.setZValue(-5)
             channel.plot_item.addItem(region)
             new_items.append((channel.plot_item, region))
     return new_items

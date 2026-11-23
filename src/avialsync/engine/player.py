@@ -65,6 +65,9 @@ class Player(QObject):
     construction.
     """
 
+    #: Default at class scope so bare ``Player.__new__(Player)`` test harnesses work.
+    _loop_ab_enabled: bool = True
+
     def __init__(
         self,
         clock: MasterClock,
@@ -151,6 +154,7 @@ class Player(QObject):
         effectively as a stopped timer.
         """
         self.clock.pause()
+        self.clock.set_direction(1)
         self._pending_scrub_t = None
         self._playing_pane_ids.clear()
         self._is_scrubbing = False

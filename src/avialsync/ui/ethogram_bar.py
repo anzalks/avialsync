@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 __all__ = [
     "EthogramBar",
     "EthogramSlot",
+    "frames_at",
     "jump_to_marker",
     "load_ethogram_slots",
     "mark_ab_range",
@@ -48,17 +49,19 @@ EthogramMode = Literal["point", "bout"]
 
 _SETTINGS_KEY = "annotations/ethogram_json"
 
-_DEFAULT_SLOTS: tuple[tuple[int, str, EthogramMode], ...] = (
-    (1, "Grooming", "bout"),
-    (2, "Rearing", "bout"),
-    (3, "Locomotion", "bout"),
-    (4, "Stimulus", "point"),
-    (5, "Freeze", "bout"),
-    (6, "", "bout"),
-    (7, "", "bout"),
-    (8, "", "point"),
-    (9, "", "point"),
-)
+
+def _default_slots() -> tuple[tuple[int, str, EthogramMode], ...]:
+    return (
+        (1, tr("Grooming"), "bout"),
+        (2, tr("Rearing"), "bout"),
+        (3, tr("Locomotion"), "bout"),
+        (4, tr("Stimulus"), "point"),
+        (5, tr("Freeze"), "bout"),
+        (6, "", "bout"),
+        (7, "", "bout"),
+        (8, "", "point"),
+        (9, "", "point"),
+    )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -83,7 +86,7 @@ def load_ethogram_slots() -> list[EthogramSlot]:
     raw = app_settings().value(_SETTINGS_KEY, "")
     by_digit: dict[int, EthogramSlot] = {
         digit: EthogramSlot(digit=digit, label=label, mode=mode)
-        for digit, label, mode in _DEFAULT_SLOTS
+        for digit, label, mode in _default_slots()
     }
     if isinstance(raw, str) and raw.strip():
         try:
@@ -342,7 +345,8 @@ class EthogramBar(QWidget):
         self._bout_widget.setVisible(True)
 
 
-def _frames_at(window: MainWindow, t_master: float) -> list[VideoFrame]:
+def frames_at(window: MainWindow, t_master: float) -> list[VideoFrame]:
+    """Snapshot displayed ``VideoFrame`` records across all loaded cameras at *t_master*."""
     return [
         VideoFrame(
             path=str(r["path"]),
@@ -359,7 +363,7 @@ def mark_ab_range(window: MainWindow) -> None:
     if span is None:
         return
     t0, t1 = span
-    window.annotation_store.add_range(t0, t1, video_frames=_frames_at(window, t0))
+    window.annotation_store.add_range(t0, t1, video_frames=frames_at(window, t0))
     window.statusBar().showMessage(
         tr("Marked range {start:.3f}–{end:.3f}s").format(start=t0, end=t1), 2000
     )
@@ -398,7 +402,7 @@ def trigger_ethogram_slot(window: MainWindow, digit: int) -> None:
         return
     t_master = window.clock.state.t
     msg = window.changes_panel.ethogram_bar.trigger_slot(
-        digit, t_master, _frames_at(window, t_master)
+        digit, t_master, frames_at(window, t_master)
     )
     if msg:
         window.statusBar().showMessage(msg, 2500)

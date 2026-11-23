@@ -443,21 +443,10 @@ class WindowMutationTarget:
         }
 
     def restore_workspace(self, snapshot: Any) -> None:
-        window = self._window
+        from avialsync.ui.workspace_restore import restore_workspace_snapshot
+
         with self.replaying():
-            for path in snapshot.get("videos", []):
-                window._load_video(Path(path))
-            state = snapshot.get("state")
-            if state is not None:
-                imaging_integration.restore_entries(window, state.imaging, {})
-            for path in snapshot.get("sensors", []):
-                window._start_data_import(Path(path))
-            if state is not None:
-                for entry in state.markers:
-                    if entry.t_end is None:
-                        window.annotation_store.add_point(entry.t_start, entry.label)
-                    else:
-                        window.annotation_store.add_range(entry.t_start, entry.t_end, entry.label)
+            restore_workspace_snapshot(self._window, snapshot)
 
     def clear_workspace(self) -> None:
         from avialsync.ui.controllers import session_controller

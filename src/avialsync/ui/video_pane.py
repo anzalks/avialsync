@@ -38,6 +38,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import (
     QAccessible,
     QCloseEvent,
+    QColor,
     QFontDatabase,
     QImage,
     QMouseEvent,
@@ -637,6 +638,15 @@ def _saved_osd_detail() -> str:
     return value if value in _OSD_DETAILS else "compact"
 
 
+def _apply_overlay_label_colors(widget: QWidget, bg: QColor) -> None:
+    """Apply fixed white-on-dark overlay colours via QPalette without QSS."""
+    pal = widget.palette()
+    pal.setColor(QPalette.ColorRole.Window, bg)
+    pal.setColor(QPalette.ColorRole.WindowText, QColor(255, 255, 255))
+    widget.setPalette(pal)
+    widget.setAutoFillBackground(True)
+
+
 class _ChromeOsd(QLabel):
     """The timecode block: its natural width when it fits, wrapped when not.
 
@@ -1213,15 +1223,14 @@ class VideoPane(VideoTimingMixin, QWidget):
         # Set up overlay
         self.overlay = QWidget()
         self.overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self.overlay.setStyleSheet("background: transparent;")
         olayout = QVBoxLayout(self.overlay)
         olayout.setContentsMargins(0, 0, 0, 0)
 
         # Chrome over the picture keeps fixed white-on-translucent colours: the
         # video behind it, not the theme, decides what is legible.
-        chrome_style = "color: white; background-color: rgba(0,0,0,128);"
+        chrome_bg = QColor(0, 0, 0, 128)
         self.lbl_name = _ChromeName()
-        self.lbl_name.setStyleSheet(chrome_style)
+        _apply_overlay_label_colors(self.lbl_name, chrome_bg)
         self.lbl_name.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
         self.lbl_name.setVisible(False)
         # The chrome labels are readouts, not controls. Their container is
@@ -1236,7 +1245,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.lbl_osd = _ChromeOsd(self._osd_reserve)
         self.lbl_osd.setText(format_video_osd(0.0, 0.0, self._metadata, None, self._osd_detail))
         mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
-        self.lbl_osd.setStyleSheet(chrome_style)
+        _apply_overlay_label_colors(self.lbl_osd, chrome_bg)
         self.lbl_osd.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
         self.lbl_osd.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         set_font_family(self.lbl_osd, mono_font)
@@ -1251,7 +1260,7 @@ class VideoPane(VideoTimingMixin, QWidget):
         olayout.addLayout(top_layout)
 
         self.lbl_no_footage = QLabel(tr("No Footage"))
-        self.lbl_no_footage.setStyleSheet("color: white; background-color: rgb(0,0,0);")
+        _apply_overlay_label_colors(self.lbl_no_footage, QColor(0, 0, 0, 255))
         self.lbl_no_footage.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_no_footage.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.lbl_no_footage.setVisible(False)

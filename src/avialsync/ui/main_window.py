@@ -1178,6 +1178,16 @@ class MainWindow(QMainWindow):
                 self._record(command)
         session_controller.reset_session(self)
 
+    def reset_transient_ui_state(self) -> None:
+        """Clear transient playback, bout, plot-mode, and suspect-cache state."""
+        self._suspect_cache = None
+        self.changes_panel.ethogram_bar.cancel_active_bouts()
+        self.transport.reset_transport_state()
+        self.plot_pane.set_view_mode("stacked")
+        clear_pins = getattr(self.plot_pane, "clear_pending_pins", None)
+        if callable(clear_pins):
+            clear_pins()
+
     def _start_session_load(self, path: Path) -> None:
         session_controller.start_session_load(self, path)
 
@@ -1611,6 +1621,7 @@ class MainWindow(QMainWindow):
         # The routing every overlay asks about has just changed. Dropped here,
         # in the one place that hears every add, remove and bulk load, so no
         # caller has to remember a second rule about when it went stale.
+        self._suspect_cache = None
         identity_controller.forget_routes(self)
         self._refresh_action_availability()
         self._refresh_identity_lane()
