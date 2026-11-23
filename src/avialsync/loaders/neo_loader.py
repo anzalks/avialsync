@@ -33,8 +33,9 @@ import numpy as np
 
 from avialsync.core.errors import SourceOpenError
 from avialsync.core.messages import MAX_MESSAGES, Message, clean
-from avialsync.core.source import ChannelInfo, TimeSeriesSource
+from avialsync.core.source import ChannelInfo, TimeSeriesSource, display_unit
 from avialsync.loaders.open_ephys_format import (
+    declared_channel_units,
     event_stream_defects,
     find_recordings,
     is_recording_dir,
@@ -396,6 +397,18 @@ class NeoLoader(TimeSeriesSource):
         """Describe every selected analogue channel and note whether one clock spans them."""
         assert self._block is not None
         clocks: set[tuple[int, float, float, int]] = set()
+        folder_units, shared_units = (
+            declared_channel_units(self._resolved_path)
+            if self._resolved_path is not None and is_recording_dir(self._resolved_path)
+            else ({}, {})
+        )
+        direct_folder = (
+            self._path.name
+            if self._path is not None
+            and self._path.parent.name == "continuous"
+            and self._path.name in folder_units
+            else ""
+        )
 
         for seg_idx, segment in enumerate(self._block.segments):
             for asig_idx, asig in enumerate(segment.analogsignals):
@@ -417,9 +430,15 @@ class NeoLoader(TimeSeriesSource):
                 dtype = str(getattr(asig, "dtype", np.dtype(np.float64)))
 
                 for col, raw_name in enumerate(self._column_names(asig, seg_idx, asig_idx)):
+                    channel_unit = unit
+                    if not display_unit(channel_unit):
+                        if direct_folder:
+                            channel_unit = folder_units[direct_folder].get(raw_name, channel_unit)
+                        else:
+                            channel_unit = shared_units.get(raw_name, channel_unit)
                     name = self._unique(safe_channel_name(raw_name))
                     self._schema_channels.append(
-                        ChannelInfo(name=name, unit=unit, dtype=dtype, rate_hz=rate)
+                        ChannelInfo(name=name, unit=channel_unit, dtype=dtype, rate_hz=rate)
                     )
                     self._channel_map[name] = (seg_idx, asig_idx, col)
 

@@ -169,6 +169,8 @@ def test_closed_reader_rejects_reads_and_can_explicitly_reopen(tmp_path: Path) -
     reader.close()
     with pytest.raises(CacheError, match="closed"):
         reader.coverage()
+    with pytest.raises(CacheError, match="closed"):
+        reader.sample_count()
     reader.reopen(entry)
     assert reader.coverage() == (0.0, 1.0)
     reader.close()
@@ -294,3 +296,61 @@ def test_unknown_plugin_role_retains_delivery_until_plot_rows_own_it(tmp_path: P
     qtbot.waitUntil(lambda: inspection.cache_pin is None, timeout=5000)
     assert len(window.plot_pane.channels) == 1
     window.close()
+
+
+def test_finalizing_interpreter_skips_reader_and_manager_del(tmp_path: Path, monkeypatch) -> None:
+    manager, source, entry = _published_entry(tmp_path)
+    staging = manager.get_temp_cache_dir(source)
+    reader = PyramidReader(entry, "signal")
+
+    monkeypatch.setattr(sys, "is_finalizing", lambda: True)
+    reader.__del__()
+    manager.__del__()
+    assert not reader._closed
+    assert staging in manager._staging_leases
+
+    monkeypatch.setattr(sys, "is_finalizing", lambda: False)
+    reader.__del__()
+    manager.__del__()
+    assert reader._closed
+    assert manager._staging_leases == {}
+
+
+def test_coverage_reads_time_bounds_without_loading_values_and_caches(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from avialsync.core import pyramid as pyramid_mod
+
+    _, _, entry = _published_entry(tmp_path)
+    empty_dir = tmp_path / "empty_cache"
+    empty_dir.mkdir()
+    PyramidBuilder(empty_dir, "empty").build_and_save(np.array([]), np.array([]))
+
+    reader = PyramidReader(entry, "signal")
+    assert reader.coverage() == (0.0, 1.0)
+    assert "signal_1" not in reader._arrays
+    assert reader.coverage() == (0.0, 1.0)
+
+    loaded_reader = PyramidReader(entry, "signal")
+    loaded_reader.sample_count()
+    assert loaded_reader.coverage() == (0.0, 1.0)
+    loaded_reader.close()
+
+    empty_loaded = PyramidReader(empty_dir, "empty")
+    empty_loaded.sample_count()
+    assert empty_loaded.coverage() is None
+    assert PyramidReader(empty_dir, "empty").coverage() is None
+
+    # A reader closed or reopened mid-read returns bounds without caching stale state.
+    race_reader = PyramidReader(entry, "signal")
+    real_read = pyramid_mod.read_time_bounds
+
+    def close_during_read(directory: Path, channel: str) -> tuple[float, float] | None:
+        result = real_read(directory, channel)
+        race_reader.close()
+        return result
+
+    monkeypatch.setattr(pyramid_mod, "read_time_bounds", close_during_read)
+    assert race_reader.coverage() == (0.0, 1.0)
+    assert not race_reader._coverage_cached
+    reader.close()

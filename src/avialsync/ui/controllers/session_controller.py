@@ -610,21 +610,22 @@ def restore_session(window: MainWindow, state: SessionState) -> None:
         window.plot_pane.set_window_duration(state.plot_x1 - state.plot_x0)
 
 
-def autosave(window: MainWindow) -> None:
+def autosave(window: MainWindow, *, background: bool = False) -> None:
     """Silently autosave, to the session file or to the recovery snapshot.
 
-    Runs on the same worker path as an explicit save, so a large session
-    never stalls playback on the two-minute timer.
-
-    This used to return early when there was no session path, which meant the
-    two-minute autosave protected only sessions that were already safe. A
-    session that had never been saved had no protection at all, so an
-    untitled session now writes a recovery snapshot instead of nothing.
+    Runs on the same worker path as an explicit save when triggered by the
+    periodic timer (``background=True``), so a large session never stalls
+    playback on the two-minute timer.
     """
     if window._save_in_progress:
         return
     if window.session_runtime.path is None:
-        _write_recovery_snapshot(window)
+        if background:
+            from avialsync.ui.recovery_worker import start_recovery_write
+
+            start_recovery_write(window)
+        else:
+            _write_recovery_snapshot(window)
         return
     window._start_session_save(window.session_runtime.path, is_autosave=True)
 

@@ -1166,7 +1166,7 @@ class MainWindow(QMainWindow):
         session_controller.restore_session(self, state)
 
     def _autosave(self) -> None:
-        session_controller.autosave(self)
+        session_controller.autosave(self, background=True)
 
     def _recover_unsaved_work(self) -> None:
         session_controller.recover_unsaved_work(self)

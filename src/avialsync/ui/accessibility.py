@@ -129,6 +129,19 @@ def derive_name(widget: QWidget) -> str:
     return ""
 
 
+def _interactive_descendants(root: QWidget) -> list[QWidget]:
+    """Query Qt directly for interactive base classes, avoiding QLabel/layout wrapper churn."""
+    seen: set[int] = set()
+    found: list[QWidget] = []
+    for cls in INTERACTIVE:
+        for widget in root.findChildren(cls):
+            widget_id = id(widget)
+            if widget_id not in seen and not _is_qt_internal(widget):
+                seen.add(widget_id)
+                found.append(widget)
+    return found
+
+
 def apply_accessibility(root: QWidget) -> int:
     """Name every unnamed interactive widget under *root*. Returns how many.
 
@@ -137,10 +150,7 @@ def apply_accessibility(root: QWidget) -> int:
     overwritten by a derived one.
     """
     named = 0
-    for widget in root.findChildren(QWidget):
-        if not isinstance(widget, INTERACTIVE) or _is_qt_internal(widget):
-            continue
-
+    for widget in _interactive_descendants(root):
         if isinstance(widget, QAbstractButton) and not widget.property("av_role"):
             apply_role(widget, ControlRole.SECONDARY)
 
@@ -169,11 +179,8 @@ def unnamed_widgets(root: QWidget) -> list[QWidget]:
     """
     return [
         widget
-        for widget in root.findChildren(QWidget)
-        if isinstance(widget, INTERACTIVE)
-        and not _is_qt_internal(widget)
-        and widget.isVisible()
-        and not widget.accessibleName()
+        for widget in _interactive_descendants(root)
+        if widget.isVisible() and not widget.accessibleName()
     ]
 
 

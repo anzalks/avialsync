@@ -1256,3 +1256,44 @@ def test_a_camera_with_a_sidecar_is_left_to_its_per_frame_mapping(
 
     assert "frame_timestamps" in item.config
     assert "offset" not in item.config
+
+
+def test_non_si_declared_channel_units_survive_quantities_fallback(tmp_path: Path) -> None:
+    """Open Ephys auxiliary units like 'Deg.' must not collapse to dimensionless."""
+    spec = RecordingSpec(
+        streams=[
+            StreamSpec(
+                name="imu",
+                sample_rate=100.0,
+                channels=["Eul-Y", "Temp"],
+                samples=50,
+                bit_volts=1.0,
+                units="Deg.",
+            )
+        ],
+        ttl=None,
+    )
+    recording = write_recording(tmp_path, spec)
+    stream_dir = recording / "continuous" / "Board-1.imu"
+
+    loader = NeoLoader()
+    loader.open(stream_dir, {"root": str(recording), "auto_resolved": True})
+    units = {ch.name: ch.unit for ch in loader.channels()}
+    assert units == {"Eul-Y": "Deg.", "Temp": "Deg."}
+
+
+def test_session_scan_reads_primary_neo_header_once(session_dir: Path, monkeypatch) -> None:
+    import neo
+
+    calls = 0
+    real_get_io = neo.io.get_io
+
+    def counting_get_io(path: str):
+        nonlocal calls
+        calls += 1
+        return real_get_io(path)
+
+    monkeypatch.setattr(neo.io, "get_io", counting_get_io)
+    layout = OpenEphysSessionSource().scan(session_dir, LoaderRegistry())
+    assert len(layout.items) == 4
+    assert calls == 1

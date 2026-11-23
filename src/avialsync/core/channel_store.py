@@ -46,6 +46,7 @@ __all__ = [
     "level_stem",
     "load_layout",
     "read_level",
+    "read_time_bounds",
     "safe_save",
     "write_layout",
     "write_times",
@@ -342,6 +343,15 @@ def columns_intact(
     except (OSError, ValueError, KeyError, TypeError):
         return False
     return True
+
+
+def read_time_bounds(directory: Path, channel: str) -> tuple[float, float] | None:
+    """``(t_first, t_last)`` from level 1's time axis alone, without mapping values."""
+    layout = load_layout(directory, channel)
+    times = _times(directory, level_stem(channel, 1), layout, 1)
+    if len(times) == 0:
+        return None
+    return float(times[0]), float(times[-1])
 
 
 def read_level(

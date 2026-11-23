@@ -23,7 +23,7 @@ from avialsync.core.source import TimeSeriesSource
 from avialsync.ui.controllers import identity_controller
 from avialsync.ui.i18n import tr
 from avialsync.ui.sync_lifecycle import restore_adjustment
-from avialsync.ui.tracking_timing import calibrate_overlay_timing
+from avialsync.ui.tracking_timing import calibrate_overlay_timing, teardown_for_rebind
 
 if TYPE_CHECKING:
     from avialsync.engine.importer import ImportWorker
@@ -219,8 +219,6 @@ def rebind_frame_indexed_sources(window: MainWindow) -> None:
     and the one whose camera is still missing stays provisional rather than
     being dated by somebody else's video.
     """
-    from avialsync.core.cache import CacheManager
-
     pending = list(window._frame_indexed_sources)
     window._frame_indexed_sources.clear()
     for dlc_path, loader_cls, config in pending:
@@ -231,9 +229,7 @@ def rebind_frame_indexed_sources(window: MainWindow) -> None:
             # It is rebound when that import finishes.
             window._frame_indexed_sources.append((dlc_path, loader_cls, config))
             continue
-        cache_dir = CacheManager(loader_version=5).get_cache_dir(dlc_path)
-        window.plot_pane.remove_channels(cache_dir)
-        window.sidebar.remove_sensor(str(dlc_path))
+        teardown_for_rebind(window, dlc_path)
         config["fps"] = fps
         config["fps_provisional"] = False
         window._enqueue_import(dlc_path, loader_cls, config)
@@ -425,7 +421,7 @@ def on_import_finished(
             if not role:
                 # Pose sources have no plot rows to mark.
                 for ch in channels:
-                    window.plot_pane.set_gap_markers(ch, gap_times)
+                    window.plot_pane.set_gap_markers(ChannelKey(path, ch), gap_times)
     window.transport.set_status(f"Ready · imported {Path(path).name}")
     from avialsync.ui.controllers.pairing_controller import partner_source_loaded
 

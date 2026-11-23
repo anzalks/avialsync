@@ -403,7 +403,7 @@ def system_accent(palette: QPalette, *, platform: bool = False) -> QColor:
                 capture_output=True,
                 text=True,
                 check=True,
-                timeout=1,
+                timeout=0.2,
             )
             _macos_accent = QColor(_MACOS_ACCENT_COLORS[int(result.stdout.strip())])
             return QColor(_macos_accent)

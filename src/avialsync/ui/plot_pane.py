@@ -398,6 +398,9 @@ class PlotPane(QWidget):
             unit = self._units.get(channel.reader.key) or self._units.get(name)
             if unit:
                 set_channel_unit(channel, unit)
+            gaps = self._interactions.gap_times_for(channel.reader.key, name)
+            if gaps:
+                channel.gap_times = gaps
             # No data yet: the view stays frozen until the last row exists, and
             # `_finish_loading` then requests one page for all of them from the
             # worker. Querying here made each UI slice wait on cold mmap pages.
@@ -437,6 +440,7 @@ class PlotPane(QWidget):
     def clear_sources(self) -> None:
         """Remove every plotted source and its pending row work."""
         self.cancel_pending_rows()
+        readers_to_close = [channel.reader.source_reader for channel in self.channels]
         for channel in self.channels:
             detach_row(self.graphics_layout, channel)
         self.channels.clear()
@@ -444,11 +448,14 @@ class PlotPane(QWidget):
         self._requested_rows = ()
         self._source_time_maps.clear()
         self._units.clear()
+        self._interactions.clear_gap_markers()
         self._master_plot = None
         self._link_x_axes()
         self._relayout_rows()
         self.sources_changed.emit([])
         self._interactions.redraw_annotations()
+        for reader in readers_to_close:
+            reader.close()
 
     def _finish_loading(self) -> None:
         """Apply the once-per-load work after the last queued row exists."""
@@ -468,12 +475,17 @@ class PlotPane(QWidget):
         # the view's real size, which is what pushes geometry onto the item.
         # The stack's height is part of the geometry being pushed, so it is set
         # before the resize rather than with the rest of the row layout after it.
-        self.graphics_layout.setUpdatesEnabled(True)
         self._apply_stack_height()
         self.graphics_layout.resizeEvent(None)
         self.graphics_layout.ci.layout.activate()
-        self._configure_shared_x_range()
+        # Silence non-bottom axes and cull offscreen ViewBoxes *before*
+        # propagating the shared X range and re-enabling updates, so a 200+ row
+        # load does not render HTML tick labels and scene bounds for rows below
+        # the fold.
         self._update_axis_visibility()
+        self._cull_offscreen_rows()
+        self.graphics_layout.setUpdatesEnabled(True)
+        self._configure_shared_x_range()
         self._set_sweep_for_time(
             self._warp.to_master(self._sweep_control.last_master_time), force=True
         )
@@ -571,9 +583,19 @@ class PlotPane(QWidget):
     def remove_channels(self, cache_dir: Path) -> None:
         """Remove all channels associated with a specific cache_dir (source)."""
         self._source_time_maps.pop(cache_dir, None)
+        removed_pending = [row for row in self._pending_rows if row[0] == cache_dir]
+        if removed_pending:
+            self._pending_rows = [row for row in self._pending_rows if row[0] != cache_dir]
+            for _dir, name, _tm, source_id, _vis in removed_pending:
+                key = ChannelKey(source_id, name)
+                self._units.pop(key, None)
+                self._interactions.forget_gap_markers(key)
+            if not self._pending_rows:
+                self.graphics_layout.setUpdatesEnabled(True)
         to_remove = [ch for ch in self.channels if ch.reader.cache_dir == cache_dir]
         for ch in to_remove:
             self._units.pop(ch.reader.key, None)
+            self._interactions.forget_gap_markers(ch.reader.key)
         for ch in to_remove:
             detach_row(self.graphics_layout, ch)
             self.channels.remove(ch)
@@ -586,6 +608,8 @@ class PlotPane(QWidget):
 
         self.sources_changed.emit([ch.reader for ch in self.channels])
         self._interactions.redraw_annotations()
+        for ch in to_remove:
+            ch.reader.source_reader.close()
 
     def _matching(self, channel: ChannelKey | str) -> list[ChannelPlot]:
         """Resolve a channel reference to the rows it identifies.
@@ -609,8 +633,20 @@ class PlotPane(QWidget):
 
     def remove_channel(self, channel: ChannelKey | str) -> None:
         """Remove the row(s) identified by *channel*."""
+        if isinstance(channel, ChannelKey):
+            self._pending_rows = [
+                row
+                for row in self._pending_rows
+                if not (row[3] == channel.source_id and row[1] == channel.channel_id)
+            ]
+        else:
+            self._pending_rows = [row for row in self._pending_rows if row[1] != channel]
+        if not self._pending_rows:
+            self.graphics_layout.setUpdatesEnabled(True)
         to_remove = self._matching(channel)
         for ch in to_remove:
+            self._units.pop(ch.reader.key, None)
+            self._interactions.forget_gap_markers(ch.reader.key)
             detach_row(self.graphics_layout, ch)
             self.channels.remove(ch)
 
@@ -622,6 +658,8 @@ class PlotPane(QWidget):
 
         self.sources_changed.emit([ch.reader for ch in self.channels])
         self._interactions.redraw_annotations()
+        for ch in to_remove:
+            ch.reader.source_reader.close()
 
     def load_source(self, cache_dir: Path, channel_id: str) -> None:
         """Backwards compatibility for the original single-channel load."""
@@ -809,21 +847,19 @@ class PlotPane(QWidget):
             if ch.y_range is not None:
                 ch.y_mode = Y_MANUAL
 
-    def set_channel_y_mode(self, channel_id: str, mode: str) -> None:
+    def set_channel_y_mode(self, channel_id: ChannelKey | str, mode: str) -> None:
         """Set one row's explicit Fit/Auto/Manual amplitude behaviour."""
         if mode not in {Y_FIT_ONCE, Y_AUTO, Y_MANUAL}:
             raise ValueError(f"Unknown plot Y mode: {mode}")
-        for ch in self.channels:
-            if ch.name == channel_id:
-                ch.y_mode = mode
-                if mode == Y_FIT_ONCE:
-                    ch.y_range = None
-                    fit_channel_y(ch)
-                    if ch.y_range is not None:
-                        ch.y_mode = Y_MANUAL
-                elif mode == Y_AUTO:
-                    fit_channel_y(ch)
-                break
+        for ch in self._matching(channel_id):
+            ch.y_mode = mode
+            if mode == Y_FIT_ONCE:
+                ch.y_range = None
+                fit_channel_y(ch)
+                if ch.y_range is not None:
+                    ch.y_mode = Y_MANUAL
+            elif mode == Y_AUTO:
+                fit_channel_y(ch)
 
     def set_channel_unit(self, channel: ChannelKey | str, unit: str) -> None:
         """Update the fixed channel gutter after import metadata is available."""
@@ -1184,14 +1220,21 @@ class PlotPane(QWidget):
             n=shown, window=f"{self.window_duration:g}"
         )
 
-    def hide_channel_row(self, channel_id: str) -> None:
+    def hide_channel_row(self, channel_id: ChannelKey | str) -> None:
         """Hide a row as its close tool does, from the row's context menu."""
         self._request_channel_close(channel_id)
 
-    def _request_channel_close(self, channel_id: str) -> None:
+    def _request_channel_close(self, channel_id: ChannelKey | str) -> None:
         """Row close button: hide this source's row and tell the sidebar which one."""
-        match = next((ch for ch in self.channels if ch.reader.channel_id == channel_id), None)
-        key = match.reader.key if match is not None else ChannelKey("", channel_id)
+        if isinstance(channel_id, ChannelKey):
+            match = next((ch for ch in self.channels if ch.reader.key == channel_id), None)
+            key = match.reader.key if match is not None else channel_id
+        else:
+            match = next(
+                (ch for ch in self.channels if ch.reader.channel_id == channel_id and ch.visible),
+                None,
+            ) or next((ch for ch in self.channels if ch.reader.channel_id == channel_id), None)
+            key = match.reader.key if match is not None else ChannelKey("", channel_id)
         self.set_channel_visible(key, False)
         self.channel_close_requested.emit(key.source_id, key.channel_id)
 
@@ -1233,7 +1276,7 @@ class PlotPane(QWidget):
         """Draw a dashed line on every row where one trial ends and the next begins."""
         self._interactions.set_segment_boundaries(times)
 
-    def set_gap_markers(self, channel_id: str, gap_times: list[float]) -> None:
+    def set_gap_markers(self, channel_id: ChannelKey | str, gap_times: list[float]) -> None:
         """Overlay thin red vertical lines at gap positions for one channel."""
         self._interactions.set_gap_markers(channel_id, gap_times)
 

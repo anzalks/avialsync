@@ -8,6 +8,7 @@ import pyqtgraph as pg
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 
+from avialsync.core.channel_reader import ChannelKey
 from avialsync.ui.annotations import AnnotationStore
 from avialsync.ui.axis_nav import show_plot_exporter
 from avialsync.ui.plot_overlays import (
@@ -39,6 +40,7 @@ class PlotInteractionController:
         self._identity_items: list[tuple[pg.PlotItem, pg.InfiniteLine]] = []
         self._segment_bounds: tuple[float, ...] = ()
         self._segment_items: list[tuple[pg.PlotItem, pg.InfiniteLine]] = []
+        self._gap_times: dict[ChannelKey | str, tuple[float, ...]] = {}
 
     def set_context_actions(self, actions: list[QAction]) -> None:
         """Register shared QActions for the plot context menu."""
@@ -76,13 +78,36 @@ class PlotInteractionController:
             self._pane.palette(),
         )
 
-    def set_gap_markers(self, channel_id: str, gap_times: list[float]) -> None:
+    def set_gap_markers(self, channel_id: ChannelKey | str, gap_times: list[float]) -> None:
         """Update stored gap evidence for one channel and redraw the page."""
+        stored = tuple(gap_times)
+        self._gap_times[channel_id] = stored
+        matched = False
         for channel in self._pane.channels:
-            if channel.name == channel_id:
-                channel.gap_times = tuple(gap_times)
-                self.redraw_gap_markers()
-                return
+            matches = (
+                channel.reader.key == channel_id
+                if isinstance(channel_id, ChannelKey)
+                else channel.name == channel_id
+            )
+            if matches:
+                channel.gap_times = stored
+                matched = True
+        if matched:
+            self.redraw_gap_markers()
+
+    def gap_times_for(self, key: ChannelKey, name: str) -> tuple[float, ...]:
+        """Return queued gap evidence for a newly constructed row, if any."""
+        if key in self._gap_times:
+            return self._gap_times[key]
+        return self._gap_times.get(name, ())
+
+    def forget_gap_markers(self, key: ChannelKey) -> None:
+        """Drop queued gap evidence for a removed source channel."""
+        self._gap_times.pop(key, None)
+
+    def clear_gap_markers(self) -> None:
+        """Drop all queued gap evidence when clearing sources."""
+        self._gap_times.clear()
 
     def redraw_gap_markers(self) -> None:
         """Refresh all visible gap evidence."""
@@ -185,6 +210,9 @@ class PlotInteractionController:
         )
         if choice is None:
             return
+        target: ChannelKey | str = (
+            choice.channel_key if choice.channel_key is not None else choice.channel_id
+        )
         if choice.action == "annotate":
             self._pane.annotate_at_requested.emit(choice.time)
         elif choice.action == "measure_a":
@@ -194,13 +222,13 @@ class PlotInteractionController:
         elif choice.action == "clear_measure":
             self.clear_measure()
         elif choice.action == "fit_y":
-            self._pane.set_channel_y_mode(choice.channel_id, Y_FIT_ONCE)
+            self._pane.set_channel_y_mode(target, Y_FIT_ONCE)
         elif choice.action == "auto_y":
-            self._pane.set_channel_y_mode(choice.channel_id, Y_AUTO)
+            self._pane.set_channel_y_mode(target, Y_AUTO)
         elif choice.action == "hold_y":
-            self._pane.set_channel_y_mode(choice.channel_id, Y_MANUAL)
+            self._pane.set_channel_y_mode(target, Y_MANUAL)
         elif choice.action == "export":
             show_plot_exporter(channel.plot_item)
         elif choice.action == "hide":
-            self._pane.hide_channel_row(choice.channel_id)
+            self._pane.hide_channel_row(target)
         event.accept()

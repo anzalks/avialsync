@@ -350,7 +350,8 @@ class SensorInfoWidget(QFrame):
         #: Held while a group toggle is being applied, so recomputing a parent
         #: from its children does not report a second group action.
         self._applying_group = False
-        nodes = {"": self.tree.invisibleRootItem()}
+        nodes: dict[str, QTreeWidgetItem] = {}
+        top_items: list[QTreeWidgetItem] = []
 
         # Prefixes are decided across the whole source: whether "Jaw" is a
         # group depends on how many other channels share it, which no single
@@ -363,12 +364,15 @@ class SensorInfoWidget(QFrame):
             for part in parts[:-1]:
                 path_key = parent_path + "/" + part if parent_path else part
                 if path_key not in nodes:
-                    group_item = QTreeWidgetItem(nodes[parent_path])
+                    group_item = (
+                        QTreeWidgetItem(nodes[parent_path]) if parent_path else QTreeWidgetItem()
+                    )
+                    if not parent_path:
+                        top_items.append(group_item)
                     group_item.setText(0, part)
                     font = group_item.font(0)
                     font.setBold(True)
                     group_item.setFont(0, font)
-                    group_item.setExpanded(True)
                     # Checkable, so forty channels can be hidden in one click.
                     # Tristate because a partly-hidden group must look partly
                     # hidden rather than claim to be one or the other.
@@ -383,7 +387,9 @@ class SensorInfoWidget(QFrame):
                 parent_path = path_key
 
             leaf_part = parts[-1]
-            item = QTreeWidgetItem(nodes[parent_path])
+            item = QTreeWidgetItem(nodes[parent_path]) if parent_path else QTreeWidgetItem()
+            if not parent_path:
+                top_items.append(item)
             item.setText(0, leaf_part)
             item.setToolTip(0, (channel_descriptions or {}).get(ch, ch))
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
@@ -396,6 +402,13 @@ class SensorInfoWidget(QFrame):
 
             self._channel_items[ch] = item
 
+        self.tree.setUpdatesEnabled(False)
+        try:
+            self.tree.addTopLevelItems(top_items)
+            for group_item in self._group_items:
+                group_item.setExpanded(True)
+        finally:
+            self.tree.setUpdatesEnabled(True)
         self.tree.itemChanged.connect(self._on_item_changed)
 
         # ── Show all / Hide all, for the whole source ────────────────

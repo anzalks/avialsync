@@ -12,6 +12,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QColor, QPalette
 from PySide6.QtWidgets import QMenu
 
+from avialsync.core.channel_reader import ChannelKey
 from avialsync.ui.annotations import AnnotationStore
 from avialsync.ui.i18n import tr
 from avialsync.ui.plot_row import ChannelPlot
@@ -39,6 +40,7 @@ class ContextChoice:
     action: ContextAction
     time: float
     channel_id: str
+    channel_key: ChannelKey | None = None
 
 
 def show_context_menu(
@@ -91,7 +93,7 @@ def show_context_menu(
     action = actions.get(chosen)
     if action is None:
         return None
-    return ContextChoice(action, time, channel.name)
+    return ContextChoice(action, time, channel.name, channel.reader.key)
 
 
 def redraw_measure_lines(

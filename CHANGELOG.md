@@ -30,6 +30,13 @@ full history is in git. Versions follow the tags in the repository.
 - At the Extra large font size the Sources sidebar widens to fit its own controls instead of
   showing a permanent horizontal scrollbar.
 - Quitting no longer prints a cache-lock traceback.
+- Provisional frame-rate tracking overlays and 3D poses release their cached readers before
+  rebinding to a camera's measured rate.
+- Plot row close, Y-scale menus, and sliced gap markers stay scoped to their owning source when
+  channels share a name, and large multi-channel loads cull offscreen rows before preparing the
+  scene.
+- Periodic untitled-session recovery autosaves run off the UI thread, and Open Ephys auxiliary
+  channels retain non-SI units such as `Deg.` and `°C`.
 - The alignment window's expanded options fit without a sideways scrollbar at larger text sizes
   on Windows.
 

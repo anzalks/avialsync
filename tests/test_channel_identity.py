@@ -182,3 +182,51 @@ def test_csv_export_labels_each_block_with_its_source(
     text = output.read_text(encoding="utf-8")
     assert "# Source: left-rig.csv" in text
     assert "# Source: right-rig.csv" in text
+
+
+def test_row_close_button_and_y_mode_target_only_their_source(window: MainWindow, qtbot) -> None:
+    from avialsync.ui.plot_row import Y_AUTO, Y_FIT_ONCE
+
+    window.plot_pane.wait_for_pending_rows()
+    by_source = {ch.reader.source_id: ch for ch in window.plot_pane.channels}
+
+    # Hide LEFT first; clicking RIGHT's close button must still hide RIGHT rather than no-op.
+    by_source[LEFT].close_button.click()
+    assert by_source[LEFT].visible is False
+    assert by_source[RIGHT].visible is True
+
+    by_source[RIGHT].close_button.click()
+    assert by_source[RIGHT].visible is False
+
+    window.plot_pane.set_channel_y_mode(ChannelKey(RIGHT, SHARED_NAME), Y_AUTO)
+    assert by_source[RIGHT].y_mode == Y_AUTO
+    assert by_source[LEFT].y_mode == Y_FIT_ONCE
+
+
+def test_gap_markers_survive_sliced_pending_rows_and_stay_source_scoped(
+    qapp: QApplication, qtbot, tmp_path: Path
+) -> None:
+    times = np.arange(100, dtype=np.float64) / 10.0
+    left_dir = tmp_path / "left_many"
+    right_dir = tmp_path / "right_many"
+    names = [f"ch_{idx}" for idx in range(24)]
+    for directory in (left_dir, right_dir):
+        directory.mkdir()
+        for name in names:
+            PyramidBuilder(directory, name).build_and_save(times, times)
+
+    from avialsync.ui.plot_pane import PlotPane
+
+    pane = PlotPane()
+    qtbot.addWidget(pane)
+    pane.load_channels(left_dir, names, source_id=LEFT)
+    pane.load_channels(right_dir, names, source_id=RIGHT)
+    for name in names:
+        pane.set_gap_markers(ChannelKey(RIGHT, name), [2.5, 5.0])
+    pane.wait_for_pending_rows()
+
+    left_gaps = {ch.gap_times for ch in pane.channels if ch.reader.source_id == LEFT}
+    right_gaps = {ch.gap_times for ch in pane.channels if ch.reader.source_id == RIGHT}
+    assert left_gaps == {()}
+    assert right_gaps == {(2.5, 5.0)}
+    pane.shutdown()

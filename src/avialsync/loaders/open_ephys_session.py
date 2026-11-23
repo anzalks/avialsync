@@ -104,13 +104,21 @@ class OpenEphysSessionSource(SessionSource):
             )
 
         primary = recordings[0]
-        clock = _RecordingClock.probe(primary)
+        primary_defects = event_stream_defects(primary)
+        primary_streams = [] if primary_defects else _neo_streams(primary)
+        first_sample = min(
+            (s.start for s in primary_streams if np.isfinite(s.start)),
+            default=None,
+        )
+        if first_sample is None and not primary_defects:
+            first_sample = _first_sample_time(primary)
+        clock = _RecordingClock.probe(primary, first_sample_time=first_sample)
 
         items: list[SessionItem] = []
         warnings: list[str] = []
         parts: list[Part] = []
-        for recording in recordings:
-            defects = event_stream_defects(recording)
+        for index, recording in enumerate(recordings):
+            defects = primary_defects if index == 0 else event_stream_defects(recording)
             if defects:
                 # neo raises on these while parsing the header, so *no* stream of
                 # this recording can be enumerated and it would otherwise drop
@@ -119,7 +127,7 @@ class OpenEphysSessionSource(SessionSource):
                 warnings.append(f"{recording.name} could not be read — {listed}")
                 logger.warning("Skipping unreadable Open Ephys recording %s: %s", recording, listed)
                 continue
-            streams = _neo_streams(recording)
+            streams = primary_streams if index == 0 else _neo_streams(recording)
             items.extend(_stream_items(recording, streams))
             items.extend(_event_items(recording))
             parts.extend(_recording_part(recording, streams, clock.anchor_epoch))
@@ -140,6 +148,9 @@ class OpenEphysSessionSource(SessionSource):
         )
 
 
+_UNSET = object()
+
+
 class _RecordingClock:
     """What one recording knows about its own place in wall-clock time."""
 
@@ -151,10 +162,16 @@ class _RecordingClock:
         self.first_sample_time = first_sample_time
 
     @classmethod
-    def probe(cls, recording: Path) -> _RecordingClock:
+    def probe(
+        cls, recording: Path, *, first_sample_time: float | None | object = _UNSET
+    ) -> _RecordingClock:
         """Read the recording's absolute instant and the offset it implies."""
         software_epoch = parse_software_epoch(recording)
-        first_sample = _first_sample_time(recording)
+        first_sample = (
+            _first_sample_time(recording)
+            if first_sample_time is _UNSET
+            else (float(first_sample_time) if isinstance(first_sample_time, (int, float)) else None)
+        )
         return cls(
             anchor=anchor_epoch(software_epoch, first_sample),
             utc_offset=recording_utc_offset(recording),

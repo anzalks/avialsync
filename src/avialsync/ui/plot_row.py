@@ -14,7 +14,7 @@ from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QGraphicsProxyWidget, QToolButton
 
-from avialsync.core.channel_reader import MappedChannelReader
+from avialsync.core.channel_reader import ChannelKey, MappedChannelReader
 from avialsync.core.pyramid import PyramidReader
 from avialsync.core.timeline import TimeMap
 from avialsync.ui.design_tokens import ControlRole, apply_role
@@ -277,7 +277,7 @@ def create_channel_plot(
     cache_dir: Path,
     channel_name: str,
     color_index: int,
-    close_requested: Callable[[str], None],
+    close_requested: Callable[[ChannelKey | str], None],
     time_map: TimeMap | None = None,
     source_id: str = "",
     row_height: int = 110,
@@ -297,8 +297,9 @@ def create_channel_plot(
     close_button.setToolTip(tr("Hide {name}").format(name=channel_name))
     apply_role(close_button, ControlRole.TOOL, "close")
     close_button.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+    close_target: ChannelKey | str = reader.key if source_id else channel_name
     close_button.clicked.connect(
-        lambda _checked=False, channel_id=channel_name: close_requested(channel_id)
+        lambda _checked=False, target=close_target: close_requested(target)
     )
     close_proxy = QGraphicsProxyWidget()
     close_proxy.setWidget(close_button)
@@ -326,7 +327,10 @@ def create_channel_plot(
     # regenerates the same tick geometry once per row. pyqtgraph's third tick
     # level (every 0.2 s on a 20 s span, 14 px apart) was 80 % of those lines
     # and most of a 48-row span change's UI time; major and minor remain.
-    plot_item.getAxis("bottom").setStyle(maxTickLevel=1)
+    bottom_axis = plot_item.getAxis("bottom")
+    bottom_axis.setStyle(maxTickLevel=1, showValues=False)
+    bottom_axis.showLabel(False)
+    bottom_axis.enableAutoSIPrefix(False)
     # The hidden top and right axes are linked like the visible ones, and
     # pyqtgraph's automatic SI prefix rewrote their (never shown) HTML label
     # on every range change: 48 of the 49 label renders a span change made.

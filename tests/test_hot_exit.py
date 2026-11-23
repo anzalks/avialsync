@@ -545,3 +545,18 @@ def test_a_reset_stops_the_command_offering_discarded_work(main_window, isolated
 
     assert main_window.session_runtime.pending_recovery is None
     assert _recover_action(main_window).isEnabled() is False
+
+
+def test_periodic_timer_autosave_writes_recovery_off_the_ui_thread(
+    main_window, isolated_recovery_dir, qtbot
+):
+    """The two-minute timer slot must serialize and write via a background worker."""
+    _seed_workspace(main_window)
+    main_window.session_runtime.path = None
+
+    main_window._autosave()
+    qtbot.waitUntil(lambda: recovery.read_recovery() is not None, timeout=5000)
+
+    snapshot = recovery.read_recovery()
+    assert snapshot is not None
+    assert snapshot.state["markers"]

@@ -41,6 +41,11 @@ class Tracking3DPrepareWorker(QObject):
         except Exception as error:  # noqa: BLE001 - job boundary reports unexpected file failures
             logger.exception("Could not prepare the 3D pose view")
             self.error.emit(str(error) or "Could not prepare the 3D pose view")
+        finally:
+            for pin in self._pins:
+                pin.close()
+            self._pins = ()
+            self._readers = ()
 
 
 def start_pose_preparation(window: MainWindow, readers: list[MappedChannelReader]) -> None:

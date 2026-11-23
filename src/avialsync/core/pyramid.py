@@ -3,6 +3,7 @@
 import math
 import os
 import struct
+import sys
 import threading
 import warnings
 from collections.abc import Iterator
@@ -14,7 +15,13 @@ from typing import Any
 import numpy as np
 
 from avialsync.core.cache_leases import GenerationPin, pin_published_reader
-from avialsync.core.channel_store import level_stem, read_level, safe_save, write_times
+from avialsync.core.channel_store import (
+    level_stem,
+    read_level,
+    read_time_bounds,
+    safe_save,
+    write_times,
+)
 from avialsync.core.columns import RegularTimes, ScaledColumn, fit_regular, no_gaps
 from avialsync.core.errors import CacheError
 from avialsync.core.trials import GAP_FACTOR
@@ -473,6 +480,8 @@ class PyramidReader:
         self.cache_dir = cache_dir
         self.channel_id = channel_id
         self._arrays: dict[str, tuple[Any, Any, Any, np.ndarray]] = {}
+        self._coverage: tuple[float, float] | None = None
+        self._coverage_cached = False
         # A plot row's reader is also read by the page worker. The lock keeps a
         # level loaded from a directory `reopen` has just replaced out of the
         # cache, where it would serve the old generation from then on.
@@ -485,12 +494,16 @@ class PyramidReader:
         """Release cached arrays and their generation after consumers finish."""
         with self._lock:
             self._arrays.clear()
+            self._coverage = None
+            self._coverage_cached = False
             self._closed = True
             pin, self._pin = self._pin, None
         if pin is not None:
             pin.close()
 
     def __del__(self) -> None:
+        if sys.is_finalizing():
+            return
         self.close()
 
     def reopen(self, cache_dir: Path) -> None:
@@ -513,6 +526,8 @@ class PyramidReader:
             previous, self._pin = self._pin, pin
             self.cache_dir = cache_dir
             self._arrays.clear()
+            self._coverage = None
+            self._coverage_cached = False
             self._closed = False
         if previous is not None:
             previous.close()
@@ -550,10 +565,28 @@ class PyramidReader:
 
     def coverage(self) -> tuple[float, float] | None:
         """Return this channel's ``(t_first, t_last)`` extent, or None when empty."""
-        t, _, _, _ = self._load_level(1)
-        if len(t) == 0:
-            return None
-        return float(t[0]), float(t[-1])
+        with self._lock:
+            if self._closed:
+                raise CacheError("The cached reader is closed")
+            if self._coverage_cached:
+                return self._coverage
+            cached = self._arrays.get(f"{self.channel_id}_1")
+            cache_dir = self.cache_dir
+        if cached is not None:
+            t = cached[0]
+            bounds = None if len(t) == 0 else (float(t[0]), float(t[-1]))
+        else:
+            pin = pin_published_reader(cache_dir)
+            try:
+                bounds = read_time_bounds(cache_dir, self.channel_id)
+            finally:
+                if pin is not None:
+                    pin.close()
+        with self._lock:
+            if not self._closed and self.cache_dir == cache_dir:
+                self._coverage = bounds
+                self._coverage_cached = True
+        return bounds
 
     def sample_count(self) -> int:
         """Return the number of stored full-resolution samples."""

@@ -67,14 +67,11 @@ def on_sensor_remove_requested(window: MainWindow, path: str) -> None:
     tracking_source = window._tracking_plot_sources.pop(path, None)
     window._tracking_visibility.pop(path, None)
     window._pending_tracking_visibility.pop(path, None)
-    window._pose_3d_sources.pop(path, None)
-    for sources in window._overlay_sources.values():
-        sources.pop(path, None)
-    for video in window._overlay_sources:
-        window._refresh_overlays(video)
-    window._refresh_pose_3d()
+    pose_cache_dir = tracking_timing.release_pose_source(window, path)
     if tracking_source is not None:
         cache_dir = tracking_source[0]
+    elif cache_dir is None:
+        cache_dir = pose_cache_dir
     if cache_dir is None:
         # Pre-import removal: fall back to the manager's derived location.
         from avialsync.core.cache import CacheManager

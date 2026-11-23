@@ -160,6 +160,8 @@ class CacheManager:
         self._staging_leases = {}
 
     def __del__(self) -> None:
+        if sys.is_finalizing():
+            return
         self.close()
 
     def _hash_file_edges(self, path: Path) -> str:

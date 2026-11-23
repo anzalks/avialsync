@@ -357,3 +357,58 @@ def test_the_import_landing_rebinds_it_to_the_camera_that_opened_meanwhile(tmp_p
     assert win._frame_indexed_sources == []
 
     win.close()
+
+
+def test_rebind_overlay_pose_releases_cache_pin_and_commits_cleanly(tmp_path, qtbot):
+    """Provisional 2D overlay pose must release its readers so camera rebind can commit."""
+    from avialsync.engine.importer import ImportWorker
+    from avialsync.loaders.tracking_loader import TrackingLoader
+    from avialsync.ui.main_window import MainWindow
+
+    csv = _write_dlc_csv(tmp_path / "pose.csv", n_frames=16)
+    win = MainWindow()
+    qtbot.addWidget(win)
+
+    provisional_cfg = {
+        "fps": 30.0,
+        "fps_provisional": True,
+        "role": "overlay2d",
+        "overlay_video": "cam.mp4",
+    }
+    win._frame_indexed_sources.append((csv, TrackingLoader, dict(provisional_cfg)))
+
+    worker1 = ImportWorker(csv, dict(provisional_cfg), TrackingLoader)
+    deliveries1: list[tuple] = []
+    worker1.finished.connect(lambda *args: deliveries1.append(args))
+    worker1.run()
+    assert len(deliveries1) == 1
+    win._on_import_finished(*deliveries1[0])
+    assert str(csv) in win._overlay_sources.get("cam.mp4", {})
+
+    # Now the camera finishes probing at 50 fps; capture the rebound import config.
+    enqueued: list[tuple] = []
+    win._video_fps["cam.mp4"] = 50.0
+    orig_enqueue = win._enqueue_import
+    win._enqueue_import = lambda p, lc, cfg: enqueued.append((p, lc, cfg))  # type: ignore[method-assign]
+    try:
+        win._rebind_frame_indexed_sources()
+    finally:
+        win._enqueue_import = orig_enqueue  # type: ignore[method-assign]
+
+    assert len(enqueued) == 1
+    rebound_path, rebound_loader, rebound_cfg = enqueued[0]
+    assert rebound_cfg["fps"] == 50.0
+    assert rebound_cfg["fps_provisional"] is False
+
+    # Running the rebound worker must commit cleanly without CacheError.
+    worker2 = ImportWorker(rebound_path, dict(rebound_cfg), rebound_loader)
+    errors: list[str] = []
+    deliveries2: list[tuple] = []
+    worker2.error.connect(errors.append)
+    worker2.finished.connect(lambda *args: deliveries2.append(args))
+    worker2.run()
+    assert errors == []
+    assert len(deliveries2) == 1
+    assert deliveries2[0][3] == pytest.approx((0.0, 15.0 / 50.0))
+    win._on_import_finished(*deliveries2[0])
+    win.close()

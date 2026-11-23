@@ -41,6 +41,55 @@ def _readers(window: MainWindow, path: str) -> list[Any]:
     return readers
 
 
+def release_pose_source(window: MainWindow, path: str) -> Path | None:
+    """Detach and close every overlay and 3D reader built for *path*."""
+    readers = _readers(window, path)
+    had_3d = window._pose_3d_sources.pop(path, None) is not None
+    pose_cache_dir = window._pose_cache_dirs.pop(path, None)
+    window._pose_schemas.pop(path, None)
+    videos = [video for video, sources in window._overlay_sources.items() if path in sources]
+    for video in videos:
+        window._overlay_sources[video].pop(path, None)
+    for video in videos:
+        window._refresh_overlays(video)
+    if had_3d:
+        window._refresh_pose_3d()
+    for reader in readers:
+        reader.source_reader.close()
+    return pose_cache_dir
+
+
+def teardown_for_rebind(window: MainWindow, path: Path) -> Path:
+    """Release a provisional frame-indexed source's pins and readers before re-importing."""
+    from avialsync.core.cache import CacheManager
+
+    key = str(path)
+    if key in window._tracking_visibility:
+        window._pending_tracking_visibility.setdefault(key, dict(window._tracking_visibility[key]))
+    user_offset, drift = window.sidebar.sensor_mapping(key)
+    if user_offset or drift:
+        window._pending_sensor_mappings.setdefault(
+            key, (window.effective_offset(key, user_offset), drift)
+        )
+    inspection = window._inspections.get(key)
+    if inspection is not None:
+        inspection.release_cache_pin()
+    pose_cache_dir = release_pose_source(window, key)
+    sensor_cache_dir = window._sensor_cache_dirs.pop(key, None)
+    tracking_source = window._tracking_plot_sources.pop(key, None)
+    window._tracking_visibility.pop(key, None)
+    window._pending_bounds_sources.pop(key, None)
+    cache_dir = (
+        sensor_cache_dir
+        or pose_cache_dir
+        or (tracking_source[0] if tracking_source is not None else None)
+        or CacheManager().get_cache_dir(path)
+    )
+    window.plot_pane.remove_channels(cache_dir)
+    window.sidebar.remove_sensor(key)
+    return cache_dir
+
+
 def _time_maps(window: MainWindow, path: str) -> list[TimeMap]:
     """The distinct time maps those readers share (usually one)."""
     maps: dict[int, TimeMap] = {}

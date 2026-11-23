@@ -28,6 +28,7 @@ from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from fractions import Fraction
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 from PySide6.QtCore import QEvent, QEventLoop, QPoint, QRect, QSettings, Qt, QTimer
@@ -178,7 +179,7 @@ def wait_until(
         raise RuntimeError(f"Timed out waiting for {description}.")
 
 
-def pin_layout(window: QWidget) -> None:
+def pin_layout(window: Any) -> None:
     """Put the panes back where a first run puts them.
 
     ``MainWindow.__init__`` restores saved geometry, so a developer who has
@@ -196,11 +197,11 @@ def pin_layout(window: QWidget) -> None:
     It also takes down the launch-time recovery offer. ``MainWindow.__init__``
     asks whether this machine has unsaved work from a previous run, so whoever
     last quit the real application mid-session decides whether the docs get a
-    notification bar across them. Dismissing declines without deleting (D-105),
-    so this reads the operator's snapshot and leaves it exactly where it was.
+    notification bar across them. Clearing drops the banner without deleting
+    the snapshot (D-105), leaving the operator's recovery file untouched.
     """
     window._apply_default_splitter_sizes()
-    window.notifications.clear()
+    window.notifications.clear_all()
 
 
 def capture(

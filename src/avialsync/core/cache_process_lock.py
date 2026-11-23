@@ -14,9 +14,17 @@ import os
 import sys
 from functools import lru_cache
 from pathlib import Path
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 
 from avialsync.core.errors import CacheError
+
+
+@lru_cache(maxsize=1)
+def _posix_fcntl() -> Any:
+    """Cache ``fcntl`` on first lock acquisition so unlock needs no import machinery."""
+    import fcntl
+
+    return fcntl
 
 
 class _WindowsCtypes(Protocol):
@@ -92,8 +100,7 @@ def _windows_lock(descriptor: int, exclusive: bool) -> bool:
 def _try_lock(descriptor: int, exclusive: bool) -> bool:
     if sys.platform == "win32":
         return _windows_lock(descriptor, exclusive)
-    import fcntl
-
+    fcntl = _posix_fcntl()
     mode = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
     try:
         fcntl.flock(descriptor, mode | fcntl.LOCK_NB)
@@ -118,8 +125,7 @@ def _unlock(descriptor: int) -> None:
             native = cast(_WindowsCtypes, ctypes)
             raise native.WinError(native.get_last_error())
         return
-    import fcntl
-
+    fcntl = _posix_fcntl()
     fcntl.flock(descriptor, fcntl.LOCK_UN)
 
 

@@ -140,6 +140,34 @@ def stream_folder_names(recording: Path) -> list[str]:
     ]
 
 
+def declared_channel_units(
+    recording: Path,
+) -> tuple[dict[str, dict[str, str]], dict[str, str]]:
+    """Return ``(by_folder, unambiguous)`` channel units declared in ``structure.oebin``.
+
+    ``quantities`` rejects Open Ephys auxiliary unit spellings like ``"Deg."`` and
+    ``"°C"`` and reports those signals as ``dimensionless``.  Reading the raw
+    manifest preserves the unit string the acquisition system actually wrote.
+    """
+    by_folder: dict[str, dict[str, str]] = {}
+    seen: dict[str, set[str]] = {}
+    for entry in _declared_entries(recording, "continuous"):
+        folder = str(entry["folder_name"]).rstrip("/")
+        channels_map: dict[str, str] = {}
+        for ch in entry.get("channels", []) or []:
+            if not isinstance(ch, dict):
+                continue
+            name = str(ch.get("channel_name", "")).strip()
+            unit = str(ch.get("units", "")).strip()
+            if name and unit:
+                channels_map[name] = unit
+                seen.setdefault(name, set()).add(unit)
+        if channels_map:
+            by_folder[folder] = channels_map
+    unambiguous = {name: next(iter(units)) for name, units in seen.items() if len(units) == 1}
+    return by_folder, unambiguous
+
+
 def parse_software_epoch(recording: Path) -> float | None:
     """Return the UTC epoch the GUI wrote at record start, or ``None``.
 

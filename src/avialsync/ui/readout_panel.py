@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import cast
 
 import numpy as np
@@ -33,10 +34,15 @@ def _display_sample(reader: MappedChannelReader, time: float) -> tuple[int, floa
     return reader.sample_at(time)
 
 
+@lru_cache(maxsize=1)
+def _fixed_font_family() -> str:
+    """Resolve the platform fixed-width family once rather than per label."""
+    return QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
+
+
 def _set_monospace(widget: QWidget) -> None:
     """Preserve a fixed-width family while inheriting the application font size."""
-    family = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
-    set_font_family(widget, family)
+    set_font_family(widget, _fixed_font_family())
 
 
 class _ChannelReadout(QWidget):
@@ -67,6 +73,12 @@ class _ChannelReadout(QWidget):
         layout.addWidget(self._name_lbl)
         layout.addWidget(self._val_lbl, stretch=1)
         layout.addWidget(self._idx_lbl)
+
+    def configure(self, name: str, unit: str) -> None:
+        """Update label and unit in place when a row survives a source refresh."""
+        if self._name_lbl.text() != name:
+            self._name_lbl.setText(name)
+        self._unit = unit
 
     def set_value(self, v: float | None, sample_idx: int | None = None) -> None:
         if v is None or np.isnan(v):
@@ -268,21 +280,33 @@ class ReadoutPanel(QGroupBox):
         Rows are keyed by ``(source_id, channel_id)``, and a name owned by more
         than one source is shown qualified so the user can tell them apart.
         """
-        for _, row in self._rows.values():
-            self._layout.removeWidget(row)
-            row.deleteLater()
-        self._rows.clear()
         self._readers = list(readers)
         self._units = dict(units or {})
-
         labels = disambiguate([reader.key for reader in readers])
-        for reader in readers:
-            key = reader.key
-            unit = self._units.get(key, self._units.get(ChannelKey("", key.channel_id), ""))
-            row = _ChannelReadout(labels[key], unit)
-            self._layout.insertWidget(self._layout.count() - 1, row)
-            self._rows[key] = (reader, row)
-        self._refresh_empty()
+        previous = self._rows
+        next_rows: dict[ChannelKey, tuple[MappedChannelReader, _ChannelReadout]] = {}
+
+        self._content.setUpdatesEnabled(False)
+        try:
+            for _, row in previous.values():
+                self._layout.removeWidget(row)
+            for reader in readers:
+                key = reader.key
+                unit = self._units.get(key, self._units.get(ChannelKey("", key.channel_id), ""))
+                reused = previous.pop(key, None)
+                if reused is not None:
+                    row = reused[1]
+                    row.configure(labels[key], unit)
+                else:
+                    row = _ChannelReadout(labels[key], unit)
+                self._layout.insertWidget(self._layout.count() - 1, row)
+                next_rows[key] = (reader, row)
+            for _, stale_row in previous.values():
+                stale_row.deleteLater()
+            self._rows = next_rows
+            self._refresh_empty()
+        finally:
+            self._content.setUpdatesEnabled(True)
 
     def set_cursor(self, t: float) -> None:
         """Display the last available sample at or before *t*."""
