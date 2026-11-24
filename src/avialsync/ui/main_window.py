@@ -960,8 +960,9 @@ class MainWindow(QMainWindow):
             self.transport.set_status(f"Building plot rows… {remaining} left")
 
     def _on_sources_changed(self, readers: list[Any]) -> None:
-        """Forward to ReadoutPanel with accumulated units for known channels."""
-        self.readout_panel.update_sources(readers, self._channel_units)
+        """Forward visible channels to ReadoutPanel and all channels to 3D pose."""
+        visible = [ch.reader for ch in self.plot_pane.channels if ch.visible]
+        self.readout_panel.update_sources(visible, self._channel_units)
         # Plotted XYZ channels still feed the 3D view, but they are no longer its
         # only feed: pose sources register themselves without being plotted.
         self._plotted_readers = list(readers)

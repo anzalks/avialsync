@@ -8035,3 +8035,24 @@ pixels in cyan and saturated (`>= high`) pixels in red on the imaging reader thr
 on pointer hover without disk I/O. `ImagingMetadata.roi_boxes` (populated by `NWBRoiGridSource`)
 drives `ui/roi_linking.py`: clicking an ROI tile reveals and scrolls to its trace in `PlotPane`, and
 hovering an ROI row in `PlotPane` outlines the corresponding cell tile in `ImagingFrameView`.
+
+## 2026-11-24 · D-254 · Unified signal grouping across Sources, Plots, and the Values inspector
+
+**Context.** Multi-modal NWB, electrophysiology, IMU, and pose recordings exposed ungrouped or overly
+nested channel walls: `channel_tree` missed hyphen/colon delimiters, split `tail_base_x` at the first
+underscore, left mixed `CH`/`ADC` banks flat, and kept redundant NWB wrapper nodes (`RoiResponseSeries`,
+`SpatialSeries`) expanded across hundreds of ROIs; `PlotPane` offered global `Overlaid`/`Heatmap`
+modes that mixed incompatible physical units on one axis while clipping long dotted names in the 104 px
+gutter; and `ReadoutPanel` (`Values`) dumped raw `[sample_index]` brackets and hidden channels in a flat
+clipped list.
+
+**Decision.** `ui/channel_tree.py::channel_tree_paths` derives shared hierarchy paths across `/`, `.`,
+`_`, `-`, `:`, longest equal-count stems, multi-bank numbered hardware stems, and redundant NWB wrapper
+elision, with `SensorInfoWidget` displaying `active/total` group badges and starting hidden or `> 16`-leaf
+groups collapsed. `PlotHeader` and `PlotModeCanvas` (`ui/plot_group_canvas.py`) add `Grouped`
+(`plot_view_mode = "grouped"`), partitioning visible channels by `(source_id, signal_group, unit)` into
+independent X-linked bands (`<= 8` overlaid traces with legend, `> 8` per-group Viridis raster), while
+`plot_row.py` renders concise `group · leaf` gutter labels. `PlotPane.visible_sources_changed` feeds
+only visible channels to `ReadoutPanel` (`ui/readout_widgets.py`), which groups signals with collapsible
+`μ [min…max]` summaries for dense (`> 6`-channel) groups and keeps raw sample indices strictly in the
+copyable `Text view…` summary.

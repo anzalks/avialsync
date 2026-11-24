@@ -207,7 +207,7 @@ class SessionState:
     show_original_tracker: bool = False
     #: 3D view orientation and camera zoom/pan for this session.
     view_3d: dict[str, Any] = dataclasses.field(default_factory=dict)
-    #: Plot layout presentation mode (schema v15): stacked, overlay, or heatmap.
+    #: Plot layout presentation mode (schema v15): stacked, grouped, overlay, or heatmap.
     plot_view_mode: str = "stacked"
     #: Pinned channels kept visible at the top of the plot pane (schema v15).
     pinned_channels: list[dict[str, str]] = dataclasses.field(default_factory=list)
@@ -268,7 +268,9 @@ class SessionState:
         if version not in range(1, 16):
             raise ValueError(f"Unsupported session file version: {version}")
         raw_mode = data.get("plot_view_mode", "stacked")
-        mode = str(raw_mode) if raw_mode in ("stacked", "overlay", "heatmap") else "stacked"
+        mode = (
+            str(raw_mode) if raw_mode in ("stacked", "grouped", "overlay", "heatmap") else "stacked"
+        )
         pinned = [
             {"source_id": str(item.get("source_id", "")), "channel": str(item["channel"])}
             for item in (data.get("pinned_channels") or [])

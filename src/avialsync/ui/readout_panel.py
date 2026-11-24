@@ -1,29 +1,58 @@
-"""Cursor readout panel — per-channel values, camera frame numbers, Δ measurement."""
+"""Cursor readout panel — grouped signal values, camera frames, Δ measurement."""
 
 from __future__ import annotations
 
-from functools import lru_cache
+from functools import partial
+from pathlib import Path
 from typing import cast
 
 import numpy as np
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QFontDatabase, QPalette, QShowEvent
+from PySide6.QtGui import QAction, QPalette, QShowEvent
 from PySide6.QtWidgets import (
     QFrame,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
 from avialsync.core.channel_reader import ChannelKey, MappedChannelReader, disambiguate
+from avialsync.ui.channel_tree import channel_tree_paths, compact_channel_label, matches_filter
 from avialsync.ui.design_tokens import spacing
+from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.empty_note import EmptyNote
 from avialsync.ui.i18n import tr
-from avialsync.ui.theme import set_bold, set_font_family
+from avialsync.ui.readout_widgets import (
+    _CameraRow,
+    _ChannelReadout,
+    _DeltaRow,
+    _SignalGroupSection,
+    _StatsRow,
+    format_channel_summary,
+    set_monospace,
+)
+from avialsync.ui.theme import set_bold
+from avialsync.ui.time_format import TimeDisplayMode, format_time
+
+__all__ = ["ReadoutPanel", "_ChannelReadout", "_MAX_WIDGET_ROWS"]
+
+#: Maximum live per-channel QWidget rows mounted in the sidebar scroll area;
+#: dense groups start collapsed to a summary line and remain listed in ``Text view…``.
+_MAX_WIDGET_ROWS = 64
+
+#: Signal groups with more channels than this start collapsed to a group summary
+#: (mean + min…max) so high-ROI/ephys sources do not dump raw numbers down the page.
+_AUTO_COLLAPSE_GROUP_ROWS = 6
+
+#: Maximum channels sampled per collapsed dense group on each cursor update.
+_MAX_GROUP_SUMMARY_SAMPLES = 24
+
+_FILTER_THRESHOLD = 8
 
 
 def _display_sample(reader: MappedChannelReader, time: float) -> tuple[int, float] | None:
@@ -34,224 +63,56 @@ def _display_sample(reader: MappedChannelReader, time: float) -> tuple[int, floa
     return reader.sample_at(time)
 
 
-@lru_cache(maxsize=1)
-def _fixed_font_family() -> str:
-    """Resolve the platform fixed-width family once rather than per label."""
-    return QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
+class ReadoutPanel(QWidget):
+    """Grouped live signal summary and camera frame readout at the playhead.
 
-
-def _set_monospace(widget: QWidget) -> None:
-    """Preserve a fixed-width family while inheriting the application font size."""
-    set_font_family(widget, _fixed_font_family())
-
-
-#: Maximum live per-channel QWidget rows mounted in the sidebar scroll area;
-#: sessions with hundreds of ROIs remain listed in ``_rows`` and ``Text view…``
-#: without constructing thousands of hidden QLabels on the UI thread.
-_MAX_WIDGET_ROWS = 64
-
-
-def _format_channel_summary(name: str, unit: str, sample: tuple[int, float] | None) -> str:
-    if sample is None or np.isnan(sample[1]):
-        val_text = tr("—")
-        idx_text = "" if sample is None else str(sample[0])
-    else:
-        unit_str = f" {unit}" if unit else ""
-        val_text = f"{sample[1]:.4g}{unit_str}"
-        idx_text = str(sample[0])
-    suffix = tr(" (sample {index})").format(index=idx_text) if idx_text else ""
-    return f"{name}: {val_text}{suffix}"
-
-
-class _ChannelReadout(QWidget):
-    """Single row: channel name | value (unit) | sample index."""
-
-    def __init__(self, name: str, unit: str = "", parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self._unit = unit
-        self._last_val_text = "—"
-        self._last_idx_text = ""
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        self._name_lbl = QLabel(name)
-        self._name_lbl.setFixedWidth(130)
-
-        self._val_lbl = QLabel("—")
-        _set_monospace(self._val_lbl)
-        self._val_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-
-        self._idx_lbl = QLabel("")
-        self._idx_lbl.setFixedWidth(60)
-        # A role, not a colour: Qt re-resolves it against whatever palette is
-        # current, so this de-emphasised text follows a light/dark switch on its
-        # own. The stylesheet literal it replaces stayed dark grey on a dark
-        # panel, where it was very nearly invisible.
-        self._idx_lbl.setForegroundRole(QPalette.ColorRole.PlaceholderText)
-        self._idx_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-
-        layout.addWidget(self._name_lbl)
-        layout.addWidget(self._val_lbl, stretch=1)
-        layout.addWidget(self._idx_lbl)
-
-    def configure(self, name: str, unit: str) -> None:
-        """Update label and unit in place when a row survives a source refresh."""
-        if self._name_lbl.text() != name:
-            self._name_lbl.setText(name)
-        self._unit = unit
-        self._last_val_text = ""
-
-    def set_value(self, v: float | None, sample_idx: int | None = None) -> None:
-        if v is None or np.isnan(v):
-            val_text = tr("—")
-        else:
-            unit_str = f" {self._unit}" if self._unit else ""
-            val_text = f"{v:.4g}{unit_str}"
-        if val_text != self._last_val_text:
-            self._last_val_text = val_text
-            self._val_lbl.setText(val_text)
-        if sample_idx is not None:
-            idx_text = f"[{sample_idx}]"
-            if idx_text != self._last_idx_text:
-                self._last_idx_text = idx_text
-                self._idx_lbl.setText(idx_text)
-
-    def summary_line(self) -> str:
-        """Return the visible channel name, value, unit, and sample index."""
-        sample = self._idx_lbl.text().strip("[]")
-        suffix = tr(" (sample {index})").format(index=sample) if sample else ""
-        return f"{self._name_lbl.text()}: {self._val_lbl.text()}{suffix}"
-
-
-class _StatsRow(QWidget):
-    """Shows min/max/mean/rms for one channel in a region."""
-
-    def __init__(self, name: str, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        self._name_lbl = QLabel(name)
-        self._name_lbl.setFixedWidth(80)
-
-        self._stats_lbl = QLabel("—")
-        _set_monospace(self._stats_lbl)
-        self._stats_lbl.setWordWrap(True)
-
-        layout.addWidget(self._name_lbl)
-        layout.addWidget(self._stats_lbl, stretch=1)
-
-    def set_stats(self, stats: dict | None) -> None:
-        if not stats or "min" not in stats:
-            self._stats_lbl.setText(tr("—"))
-            return
-        self._stats_lbl.setText(
-            tr("min={min}  max={max}  mean={mean}  rms={rms}").format(
-                **{key: f"{stats[key]:.4g}" for key in ("min", "max", "mean", "rms")}
-            )
-        )
-
-
-class _CameraRow(QWidget):
-    """Shows frame number and media timestamp for one camera."""
-
-    def __init__(self, label: str, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        self._name_lbl = QLabel(label)
-        self._name_lbl.setFixedWidth(90)
-
-        self._info_lbl = QLabel("—")
-        _set_monospace(self._info_lbl)
-
-        layout.addWidget(self._name_lbl)
-        layout.addWidget(self._info_lbl, stretch=1)
-
-    def set_state(self, time_pos: float, fps: float, frame_index: int | None = None) -> None:
-        """Show this camera's frame number and media time.
-
-        Deliberately not called ``update``: that is ``QWidget.update``, which Qt
-        calls with no arguments to request a repaint. Overriding it with a
-        required two-argument signature makes the widget unrepaintable.
-        """
-        if frame_index is not None:
-            self._info_lbl.setText(
-                tr("frame {index}  ({time:.3f} s)").format(index=frame_index, time=time_pos)
-            )
-        elif fps > 0:
-            frame_num = int(time_pos * fps)
-            self._info_lbl.setText(
-                tr("frame {index}  ({time:.3f} s)").format(index=frame_num, time=time_pos)
-            )
-        else:
-            self._info_lbl.setText(tr("{time:.3f} s").format(time=time_pos))
-
-    def summary_line(self) -> str:
-        """Return this camera's current frame and media time."""
-        return tr("{camera}: {state}").format(
-            camera=self._name_lbl.text(), state=self._info_lbl.text()
-        )
-
-
-class _DeltaRow(QWidget):
-    """Shows Δvalue for one channel."""
-
-    def __init__(self, name: str, unit: str = "", parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self._unit = unit
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        lbl = QLabel(f"Δ {name}")
-        lbl.setFixedWidth(130)
-
-        self._val_lbl = QLabel("—")
-        _set_monospace(self._val_lbl)
-        self._val_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-
-        layout.addWidget(lbl)
-        layout.addWidget(self._val_lbl, stretch=1)
-
-    def set_delta(self, dv: float | None) -> None:
-        if dv is None or np.isnan(dv):
-            self._val_lbl.setText(tr("—"))
-        else:
-            unit_str = f" {self._unit}" if self._unit else ""
-            self._val_lbl.setText(f"{dv:+.4g}{unit_str}")
-
-
-class ReadoutPanel(QGroupBox):
-    """Live channel value readout at the current playhead position.
-
-    Call `update_sources(readers, units)` when channels change, then update
-    `set_cursor(t)` and `set_camera_frame_records(records)` at presentation rate.
+    Shows only active/visible signals when connected to ``PlotPane``, organized
+    by signal group with collapsible summaries for dense multi-ROI / electrode
+    banks rather than dumping raw ungrouped array indices.
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__("Channel Values", parent)
+        super().__init__(parent)
         self.setAccessibleName(tr("Channel values and camera frames"))
         outer = QVBoxLayout(self)
         outer.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
+        outer.setSpacing(spacing("xs"))
+
+        top_bar = QHBoxLayout()
+        top_bar.setContentsMargins(0, 0, 0, 0)
+        top_bar.setSpacing(spacing("xs"))
+        self._time_lbl = ElidedLabel(tr("Playhead: —"), self)
+        set_monospace(self._time_lbl)
+        self._time_lbl.setMinimumWidth(48)
 
         self._text_summary_button = QPushButton(tr("Text view…"), self)
+        self._text_summary_button.setSizePolicy(
+            QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed
+        )
         self._text_summary_button.setAccessibleName(tr("Show a text summary of current values"))
         self._text_summary_button.setToolTip(
             tr("Open a copyable text summary of channel values and camera frames.")
         )
         self._text_summary_button.clicked.connect(self._show_text_summary)
-        outer.addWidget(self._text_summary_button)
+        top_bar.addWidget(self._time_lbl, stretch=1)
+        top_bar.addWidget(self._text_summary_button)
+        outer.addLayout(top_bar)
 
-        self._scroll = QScrollArea()
+        self._filter_edit = QLineEdit(self)
+        self._filter_edit.setPlaceholderText(tr("Filter signals…"))
+        self._filter_edit.setClearButtonEnabled(True)
+        self._filter_edit.setAccessibleName(tr("Filter displayed signal values"))
+        self._filter_edit.setVisible(False)
+        self._filter_edit.textChanged.connect(self._apply_filter)
+        outer.addWidget(self._filter_edit)
+
+        self._scroll = QScrollArea(self)
         self._scroll.setWidgetResizable(True)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        # No sunken frame and no filled viewport, as the Messages and Changes
-        # tabs beside it: a filled viewport painted a Window-coloured slab
-        # inside the group box, so this one tab sat on a different surface.
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._scroll.viewport().setAutoFillBackground(False)
-        outer.addWidget(self._scroll)
+        outer.addWidget(self._scroll, stretch=1)
+
         self.empty_note = EmptyNote(
             tr(
                 "No values yet. Each visible channel and camera shows its value here "
@@ -265,47 +126,82 @@ class ReadoutPanel(QGroupBox):
         self._layout = QVBoxLayout(self._content)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(spacing("xs"))
+
+        self._cam_box = QWidget(self._content)
+        self._cam_layout = QVBoxLayout(self._cam_box)
+        self._cam_layout.setContentsMargins(0, 0, 0, 2)
+        self._cam_layout.setSpacing(2)
+        self._cam_label = QLabel(tr("Cameras"), self._cam_box)
+        set_bold(self._cam_label)
+        self._cam_layout.addWidget(self._cam_label)
+        self._cam_box.setVisible(False)
+        self._layout.addWidget(self._cam_box)
+
+        self._signals_box = QWidget(self._content)
+        self._signals_layout = QVBoxLayout(self._signals_box)
+        self._signals_layout.setContentsMargins(0, 0, 0, 0)
+        self._signals_layout.setSpacing(spacing("xs"))
+        self._layout.addWidget(self._signals_box)
+
+        self._extras_box = QWidget(self._content)
+        self._extras_layout = QVBoxLayout(self._extras_box)
+        self._extras_layout.setContentsMargins(0, 0, 0, 0)
+        self._extras_layout.setSpacing(2)
+        self._layout.addWidget(self._extras_box)
+
         self._layout.addStretch()
         self._scroll.setWidget(self._content)
-        # After setWidget, which switches the content's own fill back on.
         self._content.setAutoFillBackground(False)
 
-        # Keyed by (source_id, channel_id): two files may both contain the
-        # same channel name, and neither may overwrite the other's row.
         self._rows: dict[ChannelKey, tuple[MappedChannelReader, _ChannelReadout | None]] = {}
         self._labels: dict[ChannelKey, str] = {}
+        self._compact_labels: dict[ChannelKey, str] = {}
         self._units: dict[ChannelKey, str] = {}
         self._readers: list[MappedChannelReader] = []
+        self._group_sections: list[tuple[_SignalGroupSection, list[ChannelKey]]] = []
+        self._group_expansion_prefs: dict[tuple[str, str], bool] = {}
+        self._signal_headers: list[QWidget] = []
         self._cursor_time: float | None = None
         self._cursor_dirty = False
-        self._overflow_lbl = QLabel()
+        self._time_mode = TimeDisplayMode.RELATIVE
+        self._t_epoch = 0.0
+
+        self._overflow_lbl = QLabel(self._signals_box)
         self._overflow_lbl.setWordWrap(True)
         self._overflow_lbl.setForegroundRole(QPalette.ColorRole.PlaceholderText)
         self._overflow_lbl.setVisible(False)
 
-        # Section labels + rows for optional sections
-        self._cam_label = QLabel(tr("Camera Positions"))
-        set_bold(self._cam_label)
-        self._cam_label.setVisible(False)
         self._cam_rows: list[_CameraRow] = []
 
-        self._stats_label = QLabel(tr("Region Stats"))
+        self._stats_label = QLabel(tr("Region Stats"), self._extras_box)
         set_bold(self._stats_label)
         self._stats_label.setVisible(False)
         self._stats_rows: dict[str, _StatsRow] = {}
 
-        self._delta_label = QLabel(tr("Δ Measurement"))
+        self._delta_label = QLabel(tr("Δ Measurement"), self._extras_box)
         set_bold(self._delta_label)
         self._delta_label.setVisible(False)
         self._delta_rows: dict[ChannelKey, _DeltaRow] = {}
         self._delta_extra_widgets: list[QWidget] = []
-        self._delta_t_lbl = QLabel(tr("Δt = —"))
-        _set_monospace(self._delta_t_lbl)
+        self._delta_t_lbl = QLabel(tr("Δt = —"), self._extras_box)
+        set_monospace(self._delta_t_lbl)
+        self._delta_t_lbl.setVisible(False)
 
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
         if self._cursor_dirty:
             self._flush_cursor()
+
+    def set_time_mode(self, mode: TimeDisplayMode, t_epoch: float = 0.0) -> None:
+        """Keep the playhead header synchronized with the application time display."""
+        self._time_mode = mode
+        self._t_epoch = t_epoch
+        if self._cursor_time is not None:
+            self._update_time_header(self._cursor_time)
+
+    def _update_time_header(self, t: float) -> None:
+        formatted = format_time(t, self._time_mode, self._t_epoch)
+        self._time_lbl.setText(tr("Playhead: {time}").format(time=formatted))
 
     # ── Public API ────────────────────────────────────────────────────
 
@@ -314,13 +210,10 @@ class ReadoutPanel(QGroupBox):
         readers: list[MappedChannelReader],
         units: dict[ChannelKey, str] | None = None,
     ) -> None:
-        """Replace displayed channels with a new list of readers.
-
-        Rows are keyed by ``(source_id, channel_id)``, and a name owned by more
-        than one source is shown qualified so the user can tell them apart.
-        """
+        """Rebuild grouped signal sections from the active *readers*."""
         self._readers = list(readers)
-        self._units = dict(units or {})
+        if units is not None:
+            self._units = dict(units)
         labels = disambiguate([reader.key for reader in readers])
         self._labels = labels
         previous = self._rows
@@ -328,45 +221,204 @@ class ReadoutPanel(QGroupBox):
 
         self._content.setUpdatesEnabled(False)
         try:
-            self._layout.removeWidget(self._overflow_lbl)
-            self._overflow_lbl.setVisible(False)
-            for _, old_row in previous.values():
-                if old_row is not None:
-                    self._layout.removeWidget(old_row)
-            for idx, reader in enumerate(readers):
-                key = reader.key
-                unit = self._units.get(key, self._units.get(ChannelKey("", key.channel_id), ""))
-                reused = previous.pop(key, None)
-                old_widget = reused[1] if reused is not None else None
-                if idx < _MAX_WIDGET_ROWS:
-                    if old_widget is not None:
-                        row = old_widget
-                        row.configure(labels[key], unit)
-                    else:
-                        row = _ChannelReadout(labels[key], unit)
-                    self._layout.insertWidget(self._layout.count() - 1, row)
-                    next_rows[key] = (reader, row)
-                else:
-                    if old_widget is not None:
-                        old_widget.deleteLater()
-                    next_rows[key] = (reader, None)
-            if len(readers) > _MAX_WIDGET_ROWS:
-                extra = len(readers) - _MAX_WIDGET_ROWS
+            self._teardown_signal_widgets(previous)
+            self._filter_edit.setVisible(len(readers) > _FILTER_THRESHOLD)
+            mounted = self._build_grouped_signals(readers, previous, next_rows)
+            if len(readers) > _MAX_WIDGET_ROWS and mounted >= _MAX_WIDGET_ROWS:
+                extra = len(readers) - mounted
                 self._overflow_lbl.setText(
                     tr("+{count} more channels — use Text view… for all values").format(count=extra)
                 )
                 self._overflow_lbl.setVisible(True)
-                self._layout.insertWidget(self._layout.count() - 1, self._overflow_lbl)
+                self._signals_layout.addWidget(self._overflow_lbl)
             for _, stale_row in previous.values():
                 if stale_row is not None:
                     stale_row.deleteLater()
             self._rows = next_rows
+            if self._filter_edit.text().strip():
+                self._apply_filter(self._filter_edit.text())
             self._cursor_dirty = self._cursor_time is not None
             if self._cursor_dirty and (self.parentWidget() is None or self.isVisible()):
                 self._flush_cursor()
             self._refresh_empty()
         finally:
             self._content.setUpdatesEnabled(True)
+
+    def _teardown_signal_widgets(
+        self,
+        previous: dict[ChannelKey, tuple[MappedChannelReader, _ChannelReadout | None]],
+    ) -> None:
+        self._signals_layout.removeWidget(self._overflow_lbl)
+        self._overflow_lbl.setVisible(False)
+        for _, old_row in previous.values():
+            if old_row is not None:
+                old_row.setParent(None)
+        for section, _keys in self._group_sections:
+            self._signals_layout.removeWidget(section)
+            section.deleteLater()
+        self._group_sections.clear()
+        for hdr in self._signal_headers:
+            self._signals_layout.removeWidget(hdr)
+            hdr.deleteLater()
+        self._signal_headers.clear()
+        self._compact_labels.clear()
+
+    def _build_grouped_signals(
+        self,
+        readers: list[MappedChannelReader],
+        previous: dict[ChannelKey, tuple[MappedChannelReader, _ChannelReadout | None]],
+        next_rows: dict[ChannelKey, tuple[MappedChannelReader, _ChannelReadout | None]],
+    ) -> int:
+        by_source: dict[str, list[MappedChannelReader]] = {}
+        for reader in readers:
+            by_source.setdefault(reader.key.source_id, []).append(reader)
+
+        multi_source = len(by_source) > 1
+        mounted = 0
+
+        for src_id, src_readers in by_source.items():
+            if multi_source and src_id:
+                src_lbl = ElidedLabel(Path(src_id).name, self._signals_box)
+                set_bold(src_lbl)
+                src_lbl.setToolTip(src_id)
+                self._signals_layout.addWidget(src_lbl)
+                self._signal_headers.append(src_lbl)
+
+            paths = channel_tree_paths([r.key.channel_id for r in src_readers])
+            groups: dict[str, list[tuple[MappedChannelReader, list[str]]]] = {}
+            order: list[tuple[str, str]] = []
+            for r in src_readers:
+                cid = r.key.channel_id
+                parts = paths.get(cid, [cid])
+                self._compact_labels[r.key] = compact_channel_label(cid, parts)
+                if len(parts) > 1:
+                    gk = "/".join(parts[:-1])
+                    if gk not in groups:
+                        order.append(("group", gk))
+                    groups.setdefault(gk, []).append((r, parts))
+                else:
+                    solo_key = f"__solo__:{cid}"
+                    groups[solo_key] = [(r, parts)]
+                    order.append(("solo", solo_key))
+
+            for kind, gk in order:
+                items = groups[gk]
+                if kind == "solo":
+                    r, parts = items[0]
+                    mounted += self._mount_channel_row(
+                        r,
+                        parts[-1],
+                        self._signals_layout,
+                        previous,
+                        next_rows,
+                        mounted,
+                        indent_px=0,
+                    )
+                    continue
+
+                sample_parts = items[0][1]
+                g_title = (
+                    sample_parts[-2]
+                    if len(sample_parts) == 2
+                    else f"{sample_parts[-3]} / {sample_parts[-2]}"
+                )
+                units_in_group = {self._unit_for(r.key) for r, _ in items if self._unit_for(r.key)}
+                g_unit = next(iter(units_in_group)) if len(units_in_group) == 1 else ""
+                pref_key = (src_id, gk)
+                default_open = len(items) <= _AUTO_COLLAPSE_GROUP_ROWS
+                expanded = self._group_expansion_prefs.get(pref_key, default_open)
+
+                section = _SignalGroupSection(
+                    g_title,
+                    len(items),
+                    g_unit,
+                    expanded=expanded,
+                    on_toggle=partial(self._on_group_toggled, pref_key),
+                    parent=self._signals_box,
+                )
+                self._signals_layout.addWidget(section)
+                member_keys = [r.key for r, _ in items]
+                self._group_sections.append((section, member_keys))
+
+                for r, parts in items:
+                    mounted += self._mount_channel_row(
+                        r,
+                        parts[-1],
+                        section.body_layout,
+                        previous,
+                        next_rows,
+                        mounted,
+                        indent_px=10,
+                    )
+        return mounted
+
+    def _mount_channel_row(
+        self,
+        reader: MappedChannelReader,
+        leaf_name: str,
+        target_layout: QVBoxLayout,
+        previous: dict[ChannelKey, tuple[MappedChannelReader, _ChannelReadout | None]],
+        next_rows: dict[ChannelKey, tuple[MappedChannelReader, _ChannelReadout | None]],
+        mounted_so_far: int,
+        *,
+        indent_px: int,
+    ) -> int:
+        key = reader.key
+        unit = self._unit_for(key)
+        summary_name = self._labels.get(key, key.channel_id)
+        reused = previous.pop(key, None)
+        old_widget = reused[1] if reused is not None else None
+        if mounted_so_far < _MAX_WIDGET_ROWS:
+            if old_widget is not None:
+                row = old_widget
+                row.setParent(self._signals_box)
+                row.configure(leaf_name, unit, summary_name=summary_name, indent_px=indent_px)
+            else:
+                row = _ChannelReadout(
+                    leaf_name,
+                    unit,
+                    self._signals_box,
+                    summary_name=summary_name,
+                    indent_px=indent_px,
+                )
+            target_layout.addWidget(row)
+            next_rows[key] = (reader, row)
+            return 1
+        if old_widget is not None:
+            old_widget.deleteLater()
+        next_rows[key] = (reader, None)
+        return 0
+
+    def _unit_for(self, key: ChannelKey) -> str:
+        return self._units.get(key, self._units.get(ChannelKey("", key.channel_id), ""))
+
+    def _on_group_toggled(
+        self, pref_key: tuple[str, str], _section: _SignalGroupSection, expanded: bool
+    ) -> None:
+        self._group_expansion_prefs[pref_key] = expanded
+        if self._cursor_time is not None:
+            self._flush_cursor()
+
+    def _apply_filter(self, needle: str) -> None:
+        query = needle.strip()
+        grouped_keys = {k for _, keys in self._group_sections for k in keys}
+        for key, (_reader, row) in self._rows.items():
+            if row is not None and key not in grouped_keys:
+                row.setVisible(matches_filter(key.channel_id, query))
+        for section, keys in self._group_sections:
+            any_match = False
+            for key in keys:
+                matched = matches_filter(key.channel_id, query) or matches_filter(
+                    section.group_title, query
+                )
+                if matched:
+                    any_match = True
+                entry = self._rows.get(key)
+                if entry is not None and entry[1] is not None:
+                    entry[1].setVisible(matched)
+            section.setVisible(any_match)
+            if query and any_match:
+                section.set_expanded(True)
 
     def set_cursor(self, t: float) -> None:
         """Display the last available sample at or before *t*."""
@@ -381,8 +433,30 @@ class ReadoutPanel(QGroupBox):
         t = self._cursor_time
         if t is None:
             return
-        for _name, (reader, row) in self._rows.items():
-            if row is None:
+        self._update_time_header(t)
+
+        collapsed_keys: set[ChannelKey] = set()
+        for section, keys in self._group_sections:
+            if not section.is_expanded:
+                collapsed_keys.update(keys)
+                stride = max(1, len(keys) // _MAX_GROUP_SUMMARY_SAMPLES)
+                vals: list[float] = []
+                for key in keys[::stride]:
+                    entry = self._rows.get(key)
+                    if entry is None:
+                        continue
+                    try:
+                        sample = _display_sample(entry[0], t)
+                        if sample is not None and np.isfinite(sample[1]):
+                            vals.append(float(sample[1]))
+                    except Exception:
+                        continue
+                section.set_summary_values(vals)
+            else:
+                section.set_summary_values([])
+
+        for key, (reader, row) in self._rows.items():
+            if row is None or key in collapsed_keys:
                 continue
             try:
                 sample = _display_sample(reader, t)
@@ -395,7 +469,7 @@ class ReadoutPanel(QGroupBox):
                 row.set_value(None)
 
     def textual_summary(self) -> str:
-        """Return a screen-reader-friendly text view of the current readout."""
+        """Return a screen-reader-friendly and copyable text view of current values."""
         if self._cursor_dirty:
             self._flush_cursor()
         if self._cursor_time is None:
@@ -403,10 +477,7 @@ class ReadoutPanel(QGroupBox):
         else:
             lines = [tr("Master time: {time:.6f} s").format(time=self._cursor_time)]
         for key, (reader, row) in self._rows.items():
-            if row is not None:
-                lines.append(row.summary_line())
-                continue
-            unit = self._units.get(key, self._units.get(ChannelKey("", key.channel_id), ""))
+            unit = self._unit_for(key)
             label = self._labels.get(key, key.channel_id)
             sample: tuple[int, float] | None = None
             if self._cursor_time is not None:
@@ -414,7 +485,14 @@ class ReadoutPanel(QGroupBox):
                     sample = _display_sample(reader, self._cursor_time)
                 except Exception:
                     sample = None
-            lines.append(_format_channel_summary(label, unit, sample))
+            if row is not None and sample is not None:
+                row.set_value(sample[1], sample[0])
+                lines.append(row.summary_line())
+                continue
+            if row is not None and self._cursor_time is None:
+                lines.append(row.summary_line())
+                continue
+            lines.append(format_channel_summary(label, unit, sample))
         lines.extend(row.summary_line() for row in self._cam_rows)
         if not self._rows and not self._cam_rows:
             lines.append(tr("No channel values or camera frames are available."))
@@ -436,58 +514,55 @@ class ReadoutPanel(QGroupBox):
         self.empty_note.set_action(action)
 
     def _refresh_empty(self) -> None:
-        self.empty_note.setVisible(not self._rows and not self._cam_rows)
+        is_empty = not self._rows and not self._cam_rows
+        self.empty_note.setVisible(is_empty)
+        self._scroll.setVisible(not is_empty)
 
     def set_camera_states(self, states: list[tuple[str, float, float]]) -> None:
         """Update per-camera frame display.  states = [(label, time_pos, fps), ...]"""
-        # Remove stale rows
         for row in self._cam_rows:
-            self._layout.removeWidget(row)
+            self._cam_layout.removeWidget(row)
             row.deleteLater()
         self._cam_rows.clear()
-        self._layout.removeWidget(self._cam_label)
 
         if not states:
-            self._cam_label.setVisible(False)
+            self._cam_box.setVisible(False)
             self._refresh_empty()
             return
 
-        self._cam_label.setVisible(True)
-        self._refresh_empty()
-        self._layout.insertWidget(0, self._cam_label)
-        for i, (label, time_pos, fps) in enumerate(states):
-            row = _CameraRow(label)
+        self._cam_box.setVisible(True)
+        for label, time_pos, fps in states:
+            row = _CameraRow(label, self._cam_box)
             row.set_state(time_pos, fps)
-            self._layout.insertWidget(1 + i, row)
+            self._cam_layout.addWidget(row)
             self._cam_rows.append(row)
+        self._refresh_empty()
 
     def set_camera_frame_records(self, records: list[tuple[str, int, float]]) -> None:
         """Update camera rows from authoritative frame indices and media times."""
         labels = [label for label, _, _ in records]
-        current_labels = [row._name_lbl.text() for row in self._cam_rows]
+        current_labels = [row._raw_label for row in self._cam_rows]
         if labels == current_labels:
             for row, (_, frame_index, media_time) in zip(self._cam_rows, records, strict=True):
                 row.set_state(media_time, 0.0, frame_index)
             return
 
         for row in self._cam_rows:
-            self._layout.removeWidget(row)
+            self._cam_layout.removeWidget(row)
             row.deleteLater()
         self._cam_rows.clear()
-        self._layout.removeWidget(self._cam_label)
         if not records:
-            self._cam_label.setVisible(False)
+            self._cam_box.setVisible(False)
             self._refresh_empty()
             return
 
-        self._cam_label.setVisible(True)
-        self._refresh_empty()
-        self._layout.insertWidget(0, self._cam_label)
-        for index, (label, frame_index, media_time) in enumerate(records):
-            row = _CameraRow(label)
+        self._cam_box.setVisible(True)
+        for label, frame_index, media_time in records:
+            row = _CameraRow(label, self._cam_box)
             row.set_state(media_time, 0.0, frame_index)
-            self._layout.insertWidget(1 + index, row)
+            self._cam_layout.addWidget(row)
             self._cam_rows.append(row)
+        self._refresh_empty()
 
     def display_region_stats(self, stats_list: list[dict[str, float | str]]) -> None:
         """Display A/B-region statistics computed by a background worker."""
@@ -496,14 +571,15 @@ class ReadoutPanel(QGroupBox):
             self._clear_stats()
             if not stats_list:
                 return
-
             self._stats_label.setVisible(True)
-            self._layout.insertWidget(self._layout.count() - 1, self._stats_label)
+            self._extras_layout.addWidget(self._stats_label)
             for stats in stats_list[:_MAX_WIDGET_ROWS]:
                 ch = str(stats.get("channel", "?"))
-                row = _StatsRow(ch)
+                short = compact_channel_label(ch)
+                row = _StatsRow(short, self._extras_box)
+                row._name_lbl.setToolTip(ch)
                 row.set_stats(stats)
-                self._layout.insertWidget(self._layout.count() - 1, row)
+                self._extras_layout.addWidget(row)
                 self._stats_rows[ch] = row
         finally:
             self._content.setUpdatesEnabled(True)
@@ -520,46 +596,50 @@ class ReadoutPanel(QGroupBox):
             self._clear_delta()
             dt = t_b - t_a
             self._delta_label.setVisible(True)
+            self._delta_t_lbl.setVisible(True)
             self._delta_t_lbl.setText(tr("Δt = {dt} s").format(dt=f"{dt:+.3f}"))
-            self._layout.insertWidget(self._layout.count() - 1, self._delta_label)
-            self._layout.insertWidget(self._layout.count() - 1, self._delta_t_lbl)
+            self._extras_layout.addWidget(self._delta_label)
+            self._extras_layout.addWidget(self._delta_t_lbl)
 
             labels = self._labels or disambiguate(list(self._rows))
             for idx, (key, (reader, _)) in enumerate(self._rows.items()):
                 if idx >= _MAX_WIDGET_ROWS:
                     break
-                unit = self._units.get(key, "")
+                unit = self._unit_for(key)
                 try:
                     sample_a = _display_sample(reader, t_a)
                     sample_b = _display_sample(reader, t_b)
-                    if sample_a is None or sample_b is None:
-                        dv = None
-                    else:
-                        dv = sample_b[1] - sample_a[1]
+                    dv = None if sample_a is None or sample_b is None else sample_b[1] - sample_a[1]
                 except Exception:
                     dv = None
-                row = _DeltaRow(labels.get(key, key.channel_id), unit)
+                short = self._compact_labels.get(key) or compact_channel_label(key.channel_id)
+                full = labels.get(key, key.channel_id)
+                row = _DeltaRow(short, unit, self._extras_box, tooltip=full)
                 row.set_delta(dv)
-                self._layout.insertWidget(self._layout.count() - 1, row)
+                self._extras_layout.addWidget(row)
                 self._delta_rows[key] = row
 
             if len(self._rows) > _MAX_WIDGET_ROWS:
                 more_lbl = QLabel(
-                    tr("+{count} more channels").format(count=len(self._rows) - _MAX_WIDGET_ROWS)
+                    tr("+{count} more channels").format(count=len(self._rows) - _MAX_WIDGET_ROWS),
+                    self._extras_box,
                 )
                 more_lbl.setForegroundRole(QPalette.ColorRole.PlaceholderText)
-                self._layout.insertWidget(self._layout.count() - 1, more_lbl)
+                self._extras_layout.addWidget(more_lbl)
                 self._delta_extra_widgets.append(more_lbl)
 
             if camera_states:
-                fps_row = QLabel(tr("Frames between:"))
+                fps_row = QLabel(tr("Frames between:"), self._extras_box)
                 set_bold(fps_row)
-                self._layout.insertWidget(self._layout.count() - 1, fps_row)
+                self._extras_layout.addWidget(fps_row)
                 self._delta_extra_widgets.append(fps_row)
                 for label, _tp, fps in camera_states:
-                    n = int(round(dt * fps)) if fps > 0 else "—"
-                    r = QLabel(tr("  {label}: {count} frames").format(label=label, count=n))
-                    self._layout.insertWidget(self._layout.count() - 1, r)
+                    n = int(round(dt * fps)) if fps > 0 else tr("—")
+                    r = QLabel(
+                        tr("  {label}: {count} frames").format(label=label, count=n),
+                        self._extras_box,
+                    )
+                    self._extras_layout.addWidget(r)
                     self._delta_extra_widgets.append(r)
         finally:
             self._content.setUpdatesEnabled(True)
@@ -570,25 +650,24 @@ class ReadoutPanel(QGroupBox):
     def clear_delta(self) -> None:
         self._clear_delta()
 
-    # ── Internal ──────────────────────────────────────────────────────
-
     def _clear_stats(self) -> None:
         self._stats_label.setVisible(False)
-        self._layout.removeWidget(self._stats_label)
+        self._extras_layout.removeWidget(self._stats_label)
         for row in self._stats_rows.values():
-            self._layout.removeWidget(row)
+            self._extras_layout.removeWidget(row)
             row.deleteLater()
         self._stats_rows.clear()
 
     def _clear_delta(self) -> None:
         self._delta_label.setVisible(False)
-        self._layout.removeWidget(self._delta_label)
-        self._layout.removeWidget(self._delta_t_lbl)
+        self._delta_t_lbl.setVisible(False)
+        self._extras_layout.removeWidget(self._delta_label)
+        self._extras_layout.removeWidget(self._delta_t_lbl)
         for row in self._delta_rows.values():
-            self._layout.removeWidget(row)
+            self._extras_layout.removeWidget(row)
             row.deleteLater()
         self._delta_rows.clear()
         for extra in self._delta_extra_widgets:
-            self._layout.removeWidget(extra)
+            self._extras_layout.removeWidget(extra)
             extra.deleteLater()
         self._delta_extra_widgets.clear()

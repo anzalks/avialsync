@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import TypeVar
 
 from PySide6.QtCore import QEvent, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QPalette
 from PySide6.QtWidgets import (
     QCheckBox,
     QDoubleSpinBox,
@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
 from avialsync.core.inspection import SourceInspection
 from avialsync.core.source import ImagingMetadata
 from avialsync.ui.action_button import ActionButton
-from avialsync.ui.channel_tree import group_prefixes, matches_filter, split_channel
+from avialsync.ui.channel_tree import channel_tree_paths, matches_filter
 from avialsync.ui.design_tokens import ControlRole, apply_role, spacing
 from avialsync.ui.drift_spin import DriftSpinBox
 from avialsync.ui.elided_label import ElidedLabel
@@ -85,6 +85,10 @@ def _children_of(item: QTreeWidgetItem) -> list[QTreeWidgetItem]:
 
 #: Channel count above which the per-source filter is worth its own row.
 _FILTER_THRESHOLD = 8
+
+#: Group leaf count above which the tree starts collapsed so high-ROI/ephys
+#: sources present their signal groups at a glance instead of hundreds of rows.
+_AUTO_COLLAPSE_GROUP_SIZE = 16
 
 
 def _issues_button(parent: QWidget) -> QPushButton:
@@ -313,10 +317,12 @@ class SensorInfoWidget(QFrame):
         # ── Channel Tree ─────────────────────────────────────────────
 
         self.tree = QTreeWidget()
-        self.tree.setColumnCount(1)
+        self.tree.setColumnCount(2)
         self.tree.setHeaderHidden(True)
         self.tree.setUniformRowHeights(True)
+        self.tree.header().setStretchLastSection(False)
         self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.tree.setIndentation(12)
         self.tree.setMinimumHeight(120)
         self.tree.setMaximumHeight(250)
@@ -478,12 +484,13 @@ class SensorInfoWidget(QFrame):
         """Build group and leaf items with canonical IDs in ``UserRole``."""
         nodes: dict[str, QTreeWidgetItem] = {}
         top_items: list[QTreeWidgetItem] = []
-        groupable = group_prefixes(list(channels))
+        paths = channel_tree_paths(list(channels))
         bold_font = self.tree.font()
         bold_font.setBold(True)
+        muted = self.palette().brush(QPalette.ColorGroup.Active, QPalette.ColorRole.PlaceholderText)
 
         for ch in channels:
-            parts = split_channel(ch, groupable)
+            parts = paths[ch]
             parent_path = ""
             for part in parts[:-1]:
                 path_key = parent_path + "/" + part if parent_path else part
@@ -496,6 +503,10 @@ class SensorInfoWidget(QFrame):
                     group_item.setText(0, part)
                     group_item.setData(0, Qt.ItemDataRole.UserRole, path_key)
                     group_item.setFont(0, bold_font)
+                    group_item.setTextAlignment(
+                        1, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+                    )
+                    group_item.setForeground(1, muted)
                     # Omit ItemIsAutoTristate: Qt propagates child itemChanged
                     # signals before the group item, corrupting Undo and firing
                     # O(N) signals per click. Tristate is synced explicitly.
@@ -524,15 +535,24 @@ class SensorInfoWidget(QFrame):
         self.tree.setUpdatesEnabled(False)
         try:
             self.tree.addTopLevelItems(top_items)
-            for group_item in self._group_items:
-                group_item.setExpanded(True)
             self._sync_group_check_states()
+            for group_item in self._group_items:
+                has_subgroups = any(
+                    self._leaf_channel(child) is None for child in _children_of(group_item)
+                )
+                leaves = self._leaf_items_under(group_item)
+                any_checked = any(leaf.checkState(0) == Qt.CheckState.Checked for leaf in leaves)
+                should_expand = any_checked and (
+                    has_subgroups or len(leaves) <= _AUTO_COLLAPSE_GROUP_SIZE
+                )
+                group_item.setExpanded(should_expand)
         finally:
             self.tree.setUpdatesEnabled(was_enabled)
 
     def _sync_group_check_states(self) -> None:
-        """Set every group's tristate from its children under ``blockSignals(True)``."""
+        """Set every group's tristate and active/total badge under ``blockSignals(True)``."""
         blocked = self.tree.blockSignals(True)
+        muted = self.palette().brush(QPalette.ColorGroup.Active, QPalette.ColorRole.PlaceholderText)
         try:
             for group in reversed(self._group_items):
                 count = group.childCount()
@@ -558,6 +578,15 @@ class SensorInfoWidget(QFrame):
                     target = Qt.CheckState.PartiallyChecked
                 if group.checkState(0) != target:
                     group.setCheckState(0, target)
+                leaves = self._leaf_items_under(group)
+                leaf_total = len(leaves)
+                leaf_checked = sum(
+                    1 for leaf in leaves if leaf.checkState(0) == Qt.CheckState.Checked
+                )
+                badge = f"{leaf_checked}/{leaf_total}"
+                if group.text(1) != badge:
+                    group.setText(1, badge)
+                    group.setForeground(1, muted)
         finally:
             self.tree.blockSignals(blocked)
 

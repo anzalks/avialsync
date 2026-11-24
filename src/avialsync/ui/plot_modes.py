@@ -1,4 +1,4 @@
-"""Alternative multi-channel plot presentations (Overlaid, 2D Carpet Heatmap) and row pinning."""
+"""Alternative multi-channel plot presentations (Grouped, Overlaid, Heatmap) and row pinning."""
 
 from __future__ import annotations
 
@@ -8,19 +8,26 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pyqtgraph as pg
-from PySide6.QtCore import QRectF, Qt, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAccessible, QPalette
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
 
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.ui.accessible_views import register_painted
 from avialsync.ui.i18n import tr
+from avialsync.ui.plot_group_canvas import (
+    GROUP_OVERLAY_LIMIT,
+    build_signal_group_bands,
+    populate_heatmap_item,
+    render_group_band,
+)
 from avialsync.ui.plot_row import (
     ChannelPlot,
     apply_channel_visibility,
     create_channel_plot,
     detach_row,
     fit_channel_y,
+    set_channel_gutter_alias,
     set_channel_unit,
 )
 from avialsync.ui.plot_stack_view import PlotStackView
@@ -34,6 +41,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "PLOT_MODE_GROUPED",
     "PLOT_MODE_HEATMAP",
     "PLOT_MODE_OVERLAY",
     "PLOT_MODE_STACKED",
@@ -42,6 +50,7 @@ __all__ = [
 ]
 
 PLOT_MODE_STACKED = "stacked"
+PLOT_MODE_GROUPED = "grouped"
 PLOT_MODE_OVERLAY = "overlay"
 PLOT_MODE_HEATMAP = "heatmap"
 
@@ -108,8 +117,25 @@ def _viridis_lut() -> np.ndarray:
 _HEATMAP_LUT = _viridis_lut()
 
 
+def _configure_mode_plot_item(plot_item: Any, *, show_bottom: bool) -> None:
+    plot_item.setMenuEnabled(False)
+    plot_item.setMouseEnabled(x=False, y=False)
+    plot_item.enableAutoRange(axis="x", enable=False)
+    plot_item.enableAutoRange(axis="y", enable=False)
+    plot_item.getAxis("left").setWidth(104)
+    plot_item.getAxis("left").enableAutoSIPrefix(False)
+    bottom = plot_item.getAxis("bottom")
+    bottom.setStyle(showValues=show_bottom)
+    bottom.showLabel(show_bottom)
+    bottom.enableAutoSIPrefix(show_bottom)
+    if show_bottom:
+        bottom.setLabel(tr("Master time"), units="s")
+    for hidden in ("top", "right"):
+        plot_item.getAxis(hidden).enableAutoSIPrefix(False)
+
+
 class PlotModeCanvas(QWidget):
-    """Shared canvas rendering visible decimated channels as Overlaid traces or a 2D Heatmap."""
+    """Shared canvas rendering visible channels as Signal Groups, Overlaid traces, or Heatmap."""
 
     seek_requested = Signal(float)  # page-local x
     context_requested = Signal(object)  # QGraphicsSceneMouseEvent
@@ -119,7 +145,10 @@ class PlotModeCanvas(QWidget):
         self._mode = PLOT_MODE_OVERLAY
         self._curves: list[SweepCurveItem] = []
         self._image_item: pg.ImageItem | None = None
-        self._legend: pg.LegendItem | None = None
+        self._extra_images: list[tuple[Any, pg.ImageItem]] = []
+        self._legends: list[pg.LegendItem] = []
+        self._extra_plots: list[Any] = []
+        self._extra_cursors: list[pg.InfiniteLine] = []
         self._channel_names: list[str] = []
         self.plot_item: Any = None
 
@@ -128,24 +157,31 @@ class PlotModeCanvas(QWidget):
         layout.setSpacing(0)
 
         self.graphics_layout = PlotStackView(
-            lambda: [self.plot_item.getViewBox()] if self.plot_item is not None else [], self
+            lambda: [
+                p.getViewBox()
+                for p in (
+                    [self.plot_item, *self._extra_plots] if self.plot_item is not None else []
+                )
+            ],
+            self,
         )
         self.graphics_layout.setAccessibleName(tr("Combined plot canvas"))
         self.graphics_layout.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.graphics_layout.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.graphics_layout.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        layout.addWidget(self.graphics_layout)
+
+        self._scroll = QScrollArea(self)
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._scroll.setAccessibleName(tr("Grouped plot stack"))
+        self._scroll.setWidget(self.graphics_layout)
+        layout.addWidget(self._scroll)
 
         self.plot_item = self.graphics_layout.addPlot(row=0, col=0, enableMenu=False)
-        self.plot_item.setMenuEnabled(False)
-        self.plot_item.setMouseEnabled(x=False, y=False)
-        self.plot_item.enableAutoRange(axis="x", enable=False)
-        self.plot_item.enableAutoRange(axis="y", enable=False)
-        self.plot_item.getAxis("left").setWidth(104)
-        self.plot_item.getAxis("left").enableAutoSIPrefix(False)
-        self.plot_item.getAxis("bottom").setLabel(tr("Master time"), units="s")
-        for hidden in ("top", "right"):
-            self.plot_item.getAxis(hidden).enableAutoSIPrefix(False)
+        _configure_mode_plot_item(self.plot_item, show_bottom=True)
 
         self.cursor_line = pg.InfiniteLine(
             angle=90, movable=False, pen=pg.mkPen(playhead_color(self.palette()), width=2)
@@ -171,15 +207,19 @@ class PlotModeCanvas(QWidget):
         return vp if isinstance(vp, QWidget) else None
 
     def set_mode(self, mode: str) -> None:
-        """Select ``'overlay'`` or ``'heatmap'`` presentation."""
+        """Select ``'grouped'``, ``'overlay'``, or ``'heatmap'`` presentation."""
         self._mode = mode
 
     def apply_palette(self, palette: QPalette) -> None:
         apply_canvas_palette(self.graphics_layout, palette)
-        self.cursor_line.setPen(pg.mkPen(playhead_color(palette), width=2))
-        self.plot_item.showGrid(
-            x=True, y=self._mode == PLOT_MODE_OVERLAY, alpha=plot_colors(palette).grid_alpha
-        )
+        pen = pg.mkPen(playhead_color(palette), width=2)
+        self.cursor_line.setPen(pen)
+        for line in self._extra_cursors:
+            line.setPen(pen)
+        if self._mode != PLOT_MODE_GROUPED:
+            self.plot_item.showGrid(
+                x=True, y=self._mode == PLOT_MODE_OVERLAY, alpha=plot_colors(palette).grid_alpha
+            )
 
     def set_x_window(self, duration: float) -> None:
         if duration > 0:
@@ -187,6 +227,8 @@ class PlotModeCanvas(QWidget):
 
     def set_cursor_phase(self, phase: float, *, reveal: bool) -> None:
         self.cursor_line.setValue(phase)
+        for line in self._extra_cursors:
+            line.setValue(phase)
         for curve in self._curves:
             curve.set_reveal_enabled(reveal)
             curve.set_sweep_position(phase)
@@ -209,28 +251,117 @@ class PlotModeCanvas(QWidget):
             self.set_x_window(window_duration)
             self.cursor_line.setValue(phase)
             if not visible:
+                self.graphics_layout.setMinimumHeight(0)
                 return
-            if self._mode == PLOT_MODE_HEATMAP:
+            if self._mode == PLOT_MODE_GROUPED:
+                self._render_grouped(channels, window_duration, palette, reveal=reveal, phase=phase)
+            elif self._mode == PLOT_MODE_HEATMAP:
+                self.graphics_layout.setMinimumHeight(0)
+                _configure_mode_plot_item(self.plot_item, show_bottom=True)
                 self._render_heatmap(visible, window_duration)
             else:
+                self.graphics_layout.setMinimumHeight(0)
+                _configure_mode_plot_item(self.plot_item, show_bottom=True)
                 self._render_overlay(visible, palette, reveal=reveal, phase=phase)
         finally:
             self.graphics_layout.setUpdatesEnabled(True)
 
     def _clear_items(self) -> None:
         for curve in self._curves:
-            self.plot_item.removeItem(curve)
+            try:
+                parent = curve.parentItem()
+                if parent is not None:
+                    scene = curve.scene()
+                    if scene is not None:
+                        scene.removeItem(curve)
+            except RuntimeError:
+                pass
+            with_plot = getattr(curve, "_host_plot", self.plot_item)
+            try:
+                with_plot.removeItem(curve)
+            except RuntimeError:
+                pass
         self._curves.clear()
         if self._image_item is not None:
             self.plot_item.removeItem(self._image_item)
             self._image_item = None
-        if self._legend is not None:
+        for host, img in self._extra_images:
             try:
-                self._legend.scene().removeItem(self._legend)
+                host.removeItem(img)
+            except RuntimeError:
+                pass
+        self._extra_images.clear()
+        for legend in self._legends:
+            try:
+                legend.scene().removeItem(legend)
             except (AttributeError, RuntimeError):
                 logger.debug("Legend item was already removed", exc_info=True)
-            self._legend = None
+        self._legends.clear()
+        for extra_plot in self._extra_plots:
+            extra_plot.setXLink(None)
+            self.graphics_layout.removeItem(extra_plot)
+        self._extra_plots.clear()
+        self._extra_cursors.clear()
         self.plot_item.getAxis("left").setTicks(None)
+
+    def _render_grouped(
+        self,
+        all_channels: list[ChannelPlot],
+        window_duration: float,
+        palette: QPalette,
+        *,
+        reveal: bool,
+        phase: float,
+    ) -> None:
+        bands = build_signal_group_bands(all_channels)
+        if not bands:
+            self.graphics_layout.setMinimumHeight(0)
+            return
+        cursor_pen = pg.mkPen(playhead_color(palette), width=2)
+        total_min_h = 0
+        for row_idx, band in enumerate(bands):
+            is_last = row_idx == len(bands) - 1
+            if row_idx == 0:
+                p_item = self.plot_item
+                _configure_mode_plot_item(p_item, show_bottom=is_last)
+            else:
+                p_item = pg.PlotItem(enableMenu=False)
+                _configure_mode_plot_item(p_item, show_bottom=is_last)
+                self.graphics_layout.addItem(p_item, row=row_idx, col=0)
+                if window_duration > 0:
+                    p_item.setXRange(0.0, window_duration, padding=0)
+                p_item.setXLink(self.plot_item)
+                c_line = pg.InfiniteLine(pos=phase, angle=90, movable=False, pen=cursor_pen)
+                c_line.setZValue(10)
+                p_item.addItem(c_line, ignoreBounds=True)
+                self._extra_plots.append(p_item)
+                self._extra_cursors.append(c_line)
+
+            band_h = 135 if len(band.channels) > GROUP_OVERLAY_LIMIT else 105
+            p_item.setMinimumHeight(band_h)
+            total_min_h += band_h + 6
+
+            curves, img, legend = render_group_band(
+                p_item,
+                band,
+                window_duration,
+                palette,
+                _HEATMAP_LUT,
+                reveal=reveal,
+                phase=phase,
+            )
+            for curve in curves:
+                curve._host_plot = p_item  # type: ignore[attr-defined]
+                self._curves.append(curve)
+            if img is not None:
+                if row_idx == 0:
+                    self._image_item = img
+                else:
+                    self._extra_images.append((p_item, img))
+            if legend is not None:
+                self._legends.append(legend)
+
+        self.graphics_layout.setMinimumHeight(total_min_h if len(bands) > 1 else 0)
 
     def _render_overlay(
         self,
@@ -240,13 +371,16 @@ class PlotModeCanvas(QWidget):
         reveal: bool,
         phase: float,
     ) -> None:
+        self.plot_item.setMinimumHeight(0)
         self.plot_item.showGrid(x=True, y=True, alpha=plot_colors(palette).grid_alpha)
         units = {ch.unit for ch in visible if ch.unit}
         unit_label = f" ({next(iter(units))})" if len(units) == 1 else ""
         self.plot_item.setLabel("left", html.escape(tr("Overlaid") + unit_label))
 
+        legend: pg.LegendItem | None = None
         if len(visible) <= 12:
-            self._legend = self.plot_item.addLegend(offset=(-10, 10))
+            legend = self.plot_item.addLegend(offset=(-10, 10))
+            self._legends.append(legend)
         y_min = float("inf")
         y_max = float("-inf")
         use_dashes = len(visible) > 1
@@ -259,7 +393,8 @@ class PlotModeCanvas(QWidget):
                     else Qt.PenStyle.SolidLine
                 )
                 pen = pg.mkPen(color=trace_color(palette, ch.color_index), width=1.4, style=style)
-                label = f"{ch.name} ({ch.unit})" if ch.unit else ch.name
+                short = ch.gutter_alias[1] if ch.gutter_alias[0] == ch.name else ch.name
+                label = f"{short} ({ch.unit})" if ch.unit else short
                 curve = SweepCurveItem(pen=pen, connect="finite", name=label)
                 curve.set_reveal_enabled(reveal)
                 curve.set_sweep_position(phase)
@@ -269,13 +404,12 @@ class PlotModeCanvas(QWidget):
                     if len(finite):
                         y_min = min(y_min, float(finite.min()))
                         y_max = max(y_max, float(finite.max()))
+                curve._host_plot = self.plot_item  # type: ignore[attr-defined]
                 self.plot_item.addItem(curve)
                 self._curves.append(curve)
-                if self._legend is not None:
-                    self._legend.addItem(curve, html.escape(label))
+                if legend is not None:
+                    legend.addItem(curve, html.escape(label))
         else:
-            # Batch dense overlays into one NaN-delimited curve per (colour, dash)
-            # pen group so 600+ ROIs draw ~32 paths instead of 600+ QGraphicsItems.
             buckets: dict[
                 tuple[int, Qt.PenStyle], tuple[Any, list[np.ndarray], list[np.ndarray]]
             ] = {}
@@ -311,6 +445,7 @@ class PlotModeCanvas(QWidget):
                 curve.set_reveal_enabled(reveal)
                 curve.set_sweep_position(phase)
                 curve.setData(np.concatenate(x_parts), np.concatenate(y_parts))
+                curve._host_plot = self.plot_item  # type: ignore[attr-defined]
                 self.plot_item.addItem(curve)
                 self._curves.append(curve)
 
@@ -321,65 +456,25 @@ class PlotModeCanvas(QWidget):
             self.plot_item.setYRange(-1.0, 1.0, padding=0)
 
     def _render_heatmap(self, visible: list[ChannelPlot], window_duration: float) -> None:
+        self.plot_item.setMinimumHeight(0)
         self.plot_item.showGrid(x=False, y=False)
         self.plot_item.setLabel("left", html.escape(tr("Channels")))
-        n_rows = len(visible)
-        n_bins = 256
-        dur = max(window_duration, 1e-6)
-        grid_x = np.linspace(0.0, dur, n_bins)
-        # ImageItem expects shape (width_x, height_y); row 0 at top -> y = n_rows - 1 - row_idx
-        matrix = np.zeros((n_bins, n_rows), dtype=np.float32)
-        sampled_rows = np.full((n_rows, n_bins), np.nan, dtype=np.float64)
-        valid_row_mask = np.zeros(n_rows, dtype=bool)
-
-        for row_idx, ch in enumerate(visible):
-            xs, ys = ch.curve.getData()
-            if xs is None or ys is None or len(xs) < 2:
-                continue
-            x_arr = np.asarray(xs, dtype=np.float64)
-            y_arr = np.asarray(ys, dtype=np.float64)
-            finite = np.isfinite(x_arr) & np.isfinite(y_arr)
-            if np.count_nonzero(finite) < 2:
-                continue
-            xf = x_arr[finite]
-            yf = y_arr[finite]
-            # Collapse interleaved (min, max) pairs monotonically along x; skip sort if monotonic.
-            if not bool(np.all(xf[1:] >= xf[:-1])):
-                order = np.argsort(xf, kind="mergesort")
-                xf = xf[order]
-                yf = yf[order]
-            sampled = np.interp(grid_x, xf, yf, left=np.nan, right=np.nan)
-            if np.any(np.isfinite(sampled)):
-                sampled_rows[row_idx] = sampled
-                valid_row_mask[row_idx] = True
-
-        if np.any(valid_row_mask):
-            active = sampled_rows[valid_row_mask]
-            lo, hi = np.nanpercentile(active, (2.0, 98.0), axis=1)
-            denom = np.where(hi > lo + 1e-12, hi - lo, 1.0)
-            normed = np.clip((active - lo[:, None]) / denom[:, None], 0.0, 1.0)
-            normed = np.nan_to_num(normed, nan=0.0)
-            dest_cols = (n_rows - 1) - np.flatnonzero(valid_row_mask)
-            matrix[:, dest_cols] = normed.T.astype(np.float32)
-
-        img = pg.ImageItem(matrix)
-        img.setLookupTable(_HEATMAP_LUT)
-        img.setLevels([0.0, 1.0])
-        img.setRect(QRectF(0.0, 0.0, dur, float(n_rows)))
-        img.setZValue(1)
-        self.plot_item.addItem(img)
-        self._image_item = img
-        self.plot_item.setYRange(0.0, float(n_rows), padding=0)
-
-        step = max(1, (n_rows + 11) // 12)
-        ticks = [
-            (float(n_rows - 1 - i) + 0.5, visible[i].name[:14]) for i in range(0, n_rows, step)
+        labels = [
+            ch.gutter_alias[1] if ch.gutter_alias[0] == ch.name and ch.gutter_alias[1] else ch.name
+            for ch in visible
         ]
-        self.plot_item.getAxis("left").setTicks([ticks])
+        self._image_item = populate_heatmap_item(
+            self.plot_item, visible, labels, window_duration, _HEATMAP_LUT
+        )
 
     def _on_clicked(self, event: Any) -> None:
         scene_pos = event.scenePos()
-        if not self.plot_item.vb.sceneBoundingRect().contains(scene_pos):
+        target_vb = None
+        for p_item in (self.plot_item, *self._extra_plots):
+            if p_item is not None and p_item.vb.sceneBoundingRect().contains(scene_pos):
+                target_vb = p_item.vb
+                break
+        if target_vb is None:
             return
         if event.button() == Qt.MouseButton.RightButton:
             self.context_requested.emit(event)
@@ -390,7 +485,7 @@ class PlotModeCanvas(QWidget):
         mods = event.modifiers() if hasattr(event, "modifiers") else Qt.KeyboardModifier.NoModifier
         if bool(mods & Qt.KeyboardModifier.ShiftModifier):
             return
-        x = float(self.plot_item.vb.mapSceneToView(scene_pos).x())
+        x = float(target_vb.mapSceneToView(scene_pos).x())
         self.seek_requested.emit(x)
         event.accept()
 
@@ -431,6 +526,8 @@ def _rebuild_one_channel(
     rebuilt.y_mode = ch.y_mode
     rebuilt.y_range = ch.y_range
     rebuilt.gap_times = ch.gap_times
+    if ch.gutter_alias[0] == ch.name and ch.gutter_alias[1]:
+        set_channel_gutter_alias(rebuilt, ch.gutter_alias[1])
     if ch.unit:
         set_channel_unit(rebuilt, ch.unit)
     if not rebuilt.visible:

@@ -185,8 +185,9 @@ right and restarts at the left edge when the window completes.
 - Right-click any channel and choose **Pin to top** to keep a reference trace (such as a TTL line or
   wheel speed) fixed above the scroll area while scrolling through dozens of channels.
 - The display-mode selector switches visible channels between **Stacked** rows (the default),
-  **Overlaid** traces on one shared axis, and a 2D Viridis **Heatmap** carpet for high-channel-count
-  electrophysiology or ROI matrices.
+  **Grouped** signal bands (one independent-scale row per signal group, drawing overlaid traces for
+  small groups and a 2D Viridis raster for dense ROI or electrode banks), **Overlaid** traces on one
+  shared axis, and a 2D Viridis **Heatmap** carpet.
 
 ![Plot pane in 2D Viridis Heatmap mode with the header Mode selector](../_static/screenshots/feature_plot_heatmap.png)
 - The single slider below the plots sets the visible span and controls every row together. Rows do

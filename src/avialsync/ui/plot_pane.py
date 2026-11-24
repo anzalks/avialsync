@@ -20,6 +20,7 @@ from avialsync.engine.plot_page_worker import PlotPage, PlotPageWorker, PlotRowR
 from avialsync.ui.accessible_views import register_painted
 from avialsync.ui.annotations import AnnotationStore
 from avialsync.ui.app_settings import app_settings
+from avialsync.ui.channel_tree import channel_tree_paths, compact_channel_label
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import JobManager
 from avialsync.ui.plot_canvas_nav import PlotCanvasNavigator
@@ -43,6 +44,7 @@ from avialsync.ui.plot_row import (
     enforce_channel_visibility,
     fit_channel_y,
     point_budget_for_width,
+    set_channel_gutter_alias,
     set_channel_unit,
     update_channel_coverage,
 )
@@ -106,8 +108,10 @@ class PlotPane(QWidget):
     All channels share the same X-axis.
     """
 
-    # Emitted when the set of active readers changes so ReadoutPanel can refresh
+    # Emitted when the set of loaded readers changes so tracking/prop consumers can refresh
     sources_changed = Signal(list)  # list[MappedChannelReader]
+    # Emitted when the set of visible readers changes so Values shows only active signals
+    visible_sources_changed = Signal(list)  # list[MappedChannelReader]
     # Emitted when both measure points are set (t_a, t_b)
     measure_changed = Signal(float, float)
     # Emitted when measure points are cleared
@@ -559,6 +563,7 @@ class PlotPane(QWidget):
             self.graphics_layout.setUpdatesEnabled(True)
         self._refresh_mode_view()
         self.sources_changed.emit([])
+        self.visible_sources_changed.emit([])
         self._interactions.redraw_page_overlays()
         for reader in readers_to_close:
             reader.close()
@@ -581,6 +586,7 @@ class PlotPane(QWidget):
         # the view's real size, which is what pushes geometry onto the item.
         # The stack's height is part of the geometry being pushed, so it is set
         # before the resize rather than with the rest of the row layout after it.
+        self._refresh_gutter_aliases()
         self._apply_stack_height()
         self.graphics_layout.resizeEvent(None)
         self.graphics_layout.ci.layout.activate()
@@ -599,9 +605,24 @@ class PlotPane(QWidget):
         self._apply_presentation()
         self._flush_pending_pins()
         self.sources_changed.emit([ch.reader for ch in self.channels])
+        self._emit_visible_sources()
         self._interactions.redraw_annotations()
         self.rows_pending.emit(0)
         self.channels_loaded.emit()
+
+    def _emit_visible_sources(self) -> None:
+        """Publish currently visible channel readers for the Values inspector."""
+        self.visible_sources_changed.emit([ch.reader for ch in self.channels if ch.visible])
+
+    def _refresh_gutter_aliases(self) -> None:
+        """Compute concise ``group · leaf`` gutter labels per source."""
+        by_source: dict[str, list[ChannelPlot]] = {}
+        for ch in self.channels:
+            by_source.setdefault(ch.reader.source_id, []).append(ch)
+        for rows in by_source.values():
+            paths = channel_tree_paths([ch.name for ch in rows])
+            for ch in rows:
+                set_channel_gutter_alias(ch, compact_channel_label(ch.name, paths.get(ch.name)))
 
     def wait_for_pending_rows(self) -> None:
         """Finish any queued row building immediately.
@@ -798,6 +819,7 @@ class PlotPane(QWidget):
         self._refresh_mode_view()
 
         self.sources_changed.emit([ch.reader for ch in self.channels])
+        self._emit_visible_sources()
         self._interactions.redraw_page_overlays()
         for ch in to_remove:
             ch.reader.source_reader.close()
@@ -889,6 +911,7 @@ class PlotPane(QWidget):
         self._refresh_mode_view()
 
         self.sources_changed.emit([ch.reader for ch in self.channels])
+        self._emit_visible_sources()
         self._interactions.redraw_page_overlays()
         for ch in to_remove:
             ch.reader.source_reader.close()
@@ -1080,8 +1103,8 @@ class PlotPane(QWidget):
         return self._view_mode
 
     def set_view_mode(self, mode: str) -> None:
-        """Switch between stacked rows, overlaid traces, and 2D carpet heatmap."""
-        if mode not in ("stacked", "overlay", "heatmap") or mode == self._view_mode:
+        """Switch between stacked rows, grouped signal bands, overlaid traces, and heatmap."""
+        if mode not in ("stacked", "grouped", "overlay", "heatmap") or mode == self._view_mode:
             return
         self._view_mode = mode
         idx = self.view_mode_combo.findData(mode)
@@ -1238,6 +1261,7 @@ class PlotPane(QWidget):
             self._refresh_mode_view()
         self._redraw_sweep_overlays()
         self._relayout_rows()
+        self._emit_visible_sources()
 
     def set_channels_visible(
         self,
@@ -1289,6 +1313,7 @@ class PlotPane(QWidget):
                 self._refresh_mode_view()
             self._redraw_sweep_overlays()
             self._relayout_rows()
+            self._emit_visible_sources()
             return
         self.graphics_layout.setUpdatesEnabled(False)
         self._pinned_layout.setUpdatesEnabled(False)
@@ -1316,6 +1341,7 @@ class PlotPane(QWidget):
         else:
             self._refresh_mode_view()
         self._redraw_sweep_overlays()
+        self._emit_visible_sources()
 
     def reset_zoom(self) -> None:
         """Set the shared sweep window to the full master-timeline duration."""

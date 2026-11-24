@@ -362,9 +362,11 @@ def persist(window: MainWindow) -> None:
         _enqueue(window, target_3d, write_3d)
 
 
-_Solved3DMap = dict[tuple[str, int], tuple[tuple[float, float, float], float | None]]
 _MARKER_2D_CACHE: dict[str, tuple[int, int, dict[tuple[str, int], tuple[float, float]]]] = {}
-_MARKER_3D_CACHE: dict[str, tuple[int, int, _Solved3DMap]] = {}
+_MARKER_3D_CACHE: dict[
+    str,
+    tuple[int, int, dict[tuple[str, int], tuple[tuple[float, float, float], float | None]]],
+] = {}
 
 
 def _cached_read_2d(source: Path) -> dict[tuple[str, int], tuple[float, float]]:
@@ -383,7 +385,9 @@ def _cached_read_2d(source: Path) -> dict[tuple[str, int], tuple[float, float]]:
     return parsed
 
 
-def _cached_read_3d(target: Path | None) -> _Solved3DMap:
+def _cached_read_3d(
+    target: Path | None,
+) -> dict[tuple[str, int], tuple[tuple[float, float, float], float | None]]:
     """Read a 3D marker sidecar only when it exists and changed since last read."""
     if target is None:
         return {}

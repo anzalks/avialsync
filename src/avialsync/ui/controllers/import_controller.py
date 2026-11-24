@@ -246,7 +246,7 @@ def _tracking_coverage(
     """
     readers = window.source_readers(path)
     if readers and (span := readers[0].coverage()):
-        return float(span[0]), float(span[1])
+        return (float(span[0]), float(span[1]))
     from avialsync.core.timeline import TimeMap
 
     mapping = TimeMap(offset=offset, drift_ms_per_hour=drift)

@@ -68,6 +68,9 @@ class ChannelPlot:
     #: the row is offset by the difference and its samples stay at their
     #: true times instead of reading as the new page's.
     page_t0: float | None = None
+    #: ``(source_channel_name, concise_gutter_label)`` derived from the source's
+    #: hierarchy so deep NWB/ephys paths do not clip inside the 104 px gutter.
+    gutter_alias: tuple[str, str] = ("", "")
 
 
 def point_budget_for_width(width: int) -> int:
@@ -146,18 +149,35 @@ def fit_channel_y(channel: ChannelPlot) -> None:
     channel.plot_item.enableAutoRange(axis="y", enable=False)
 
 
+def set_channel_gutter_alias(channel: ChannelPlot, short_label: str) -> None:
+    """Assign a concise gutter label derived from *channel*'s group hierarchy."""
+    pair = (channel.name, short_label)
+    if channel.gutter_alias == pair:
+        return
+    channel.gutter_alias = pair
+    _update_channel_gutter(channel)
+
+
 def _update_channel_gutter(channel: ChannelPlot) -> None:
-    """Name the axis: the channel, and its unit when it has one.
+    """Name the axis: the channel (concisely when nested), and its unit.
 
     The fitted range was a third line here. The tick numbers already state the
     limits, so it repeated them in a crowded gutter; the label says only what
     the axis means. Joined with ``<br/>`` rather than ``\\n``: pyqtgraph wraps
     an axis label in a ``<span>`` for ``setHtml``, where a newline is whitespace.
     """
-    lines = [html.escape(channel.name)]
+    shown_name = (
+        channel.gutter_alias[1]
+        if channel.gutter_alias[0] == channel.name and channel.gutter_alias[1]
+        else channel.name
+    )
+    lines = [html.escape(shown_name)]
     if channel.unit:
         lines.append(html.escape(f"({channel.unit})"))
-    channel.plot_item.setLabel("left", "<br/>".join(lines))
+    axis = channel.plot_item.getAxis("left")
+    axis.setLabel("<br/>".join(lines))
+    if shown_name != channel.name:
+        axis.setToolTip(channel.name)
 
 
 def update_channel_coverage(

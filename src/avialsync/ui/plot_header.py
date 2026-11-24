@@ -67,12 +67,16 @@ class PlotHeader(QWidget):
 
         self.view_mode_combo = QComboBox(self)
         self.view_mode_combo.addItem(tr("Stacked"), "stacked")
+        self.view_mode_combo.addItem(tr("Grouped"), "grouped")
         self.view_mode_combo.addItem(tr("Overlaid"), "overlay")
         self.view_mode_combo.addItem(tr("Heatmap"), "heatmap")
         self.view_mode_combo.setCurrentIndex(0)
         self.view_mode_combo.setAccessibleName(tr("Plot display mode"))
         self.view_mode_combo.setToolTip(
-            tr("Display visible channels as stacked rows, overlaid traces, or a 2D heatmap")
+            tr(
+                "Display visible channels as stacked rows, grouped signal bands, "
+                "overlaid traces, or a 2D heatmap"
+            )
         )
         self.view_mode_combo.currentIndexChanged.connect(self._emit_view_mode)
         layout.addWidget(self.view_mode_combo)

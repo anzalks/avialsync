@@ -281,14 +281,15 @@ def test_multi_roi_nwb_ui_workflows_stay_responsive(
         _on_roi_clicked(window, "roi120")
         assert hidden_row.visible
 
-        # Show Values tab: _rows tracks every channel while mounted widgets stay bounded
+        # Show Values tab: only visible channels appear in Values (no hidden-ROI dump),
+        # and dense ROI groups collapse to a summary row by default.
         window._left_tabs.setCurrentWidget(window.readout_panel)
         qapp.processEvents()
-        assert len(window.readout_panel._rows) == len(channels)
-        mounted_rows = sum(1 for _, r in window.readout_panel._rows.values() if r is not None)
-        assert mounted_rows == _MAX_WIDGET_ROWS
+        visible_count = sum(1 for ch in window.plot_pane.channels if ch.visible)
+        assert visible_count < len(channels)
+        assert len(window.readout_panel._rows) == visible_count
 
-        # Bulk Show all -> all 300+ channels visible
+        # Bulk Show all -> all 300+ channels visible; mounted widgets stay bounded
         card = window.sidebar.sensor_widget(src_path)
         assert card is not None
         t0 = time.perf_counter()
@@ -296,6 +297,9 @@ def test_multi_roi_nwb_ui_workflows_stay_responsive(
         qapp.processEvents()
         assert (time.perf_counter() - t0) < 1.5
         assert all(ch.visible for ch in window.plot_pane.channels)
+        assert len(window.readout_panel._rows) == len(channels)
+        mounted_rows = sum(1 for _, r in window.readout_panel._rows.values() if r is not None)
+        assert mounted_rows == _MAX_WIDGET_ROWS
         qtbot.waitUntil(lambda: window.plot_pane._page_worker is None, timeout=10_000)
 
         # Measure A/B across 300+ visible channels stays fast and only builds onscreen callouts
