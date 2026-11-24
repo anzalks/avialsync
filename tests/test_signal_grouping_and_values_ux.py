@@ -25,11 +25,19 @@ def test_channel_tree_paths_groups_hyphens_stems_banks_and_elides_nwb_wrappers()
     assert imu_paths["Gyr-Z"] == ["Gyr", "Z"]
     assert imu_paths["TTL-1"] == ["TTL", "1"]
 
-    # Longest equal-count stem prevents splitting tail_base_x into ["tail", "base_x"]
-    pose = ["tail_base_x", "tail_base_y", "tail_base_likelihood", "nose_x", "nose_y"]
+    # Preserves first-token prefix grouping while nesting branching compound stems
+    pose = [
+        "head_bar_x",
+        "head_bar_y",
+        "tail_base_x",
+        "tail_base_y",
+        "tail_tip_x",
+        "tail_tip_y",
+    ]
     pose_paths = channel_tree_paths(pose)
-    assert pose_paths["tail_base_x"] == ["tail_base", "x"]
-    assert pose_paths["nose_y"] == ["nose", "y"]
+    assert pose_paths["head_bar_x"] == ["head", "bar_x"]
+    assert pose_paths["tail_base_x"] == ["tail", "base", "x"]
+    assert pose_paths["tail_tip_y"] == ["tail", "tip", "y"]
 
     # Multi-animal pose nests animal -> bodypart -> axis
     multi = [

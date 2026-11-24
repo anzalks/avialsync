@@ -29,6 +29,9 @@ from avialsync.core.columns import RegularTimes, ScaledColumn, fit_regular, no_g
 from avialsync.core.errors import CacheError
 from avialsync.core.trials import GAP_FACTOR
 
+_store_read_level = read_level
+_store_read_time_bounds = read_time_bounds
+
 LEVELS = [1, 16, 256, 4096]
 
 #: Samples reduced per pass when building the first decimated level, so a level-1
@@ -578,18 +581,6 @@ class PyramidReader:
         if previous is not None:
             previous.close()
 
-    def _resolve_layout(self, cache_dir: Path) -> Layout:
-        with self._lock:
-            if self._layout is not None and self.cache_dir == cache_dir:
-                return self._layout
-        loaded = load_layout(cache_dir, self.channel_id)
-        with self._lock:
-            if not self._closed and self.cache_dir == cache_dir:
-                if self._layout is None:
-                    self._layout = loaded
-                return self._layout
-        return loaded
-
     def _load_level(self, level: int) -> tuple[Any, Any, Any, np.ndarray]:
         key = f"{self.channel_id}_{level}"
         with self._lock:
@@ -597,19 +588,25 @@ class PyramidReader:
                 raise CacheError("The cached reader is closed")
             cached = self._arrays.get(key)
             cache_dir = self.cache_dir
+            layout = self._layout
         if cached is not None:
             return cached
         # Opened outside the lock: a cold mmap open must not hold up a reader
         # on another thread that only wants a level already loaded.
         pin = pin_published_reader(cache_dir)
         try:
-            layout = self._resolve_layout(cache_dir)
-            loaded = read_level(cache_dir, self.channel_id, level, layout=layout)
+            if read_level is _store_read_level:
+                if layout is None:
+                    layout = load_layout(cache_dir, self.channel_id)
+                loaded = _store_read_level(cache_dir, self.channel_id, level, layout=layout)
+            else:
+                loaded = read_level(cache_dir, self.channel_id, level)
         finally:
             if pin is not None:
                 pin.close()
         with self._lock:
             if not self._closed and self.cache_dir == cache_dir:
+                self._layout = layout
                 return self._arrays.setdefault(key, loaded)
         # Replaced while loading. This read is already obsolete -- the caller's
         # page or sample is superseded by the change that replaced it -- but it
@@ -631,19 +628,24 @@ class PyramidReader:
                 return self._coverage
             cached = self._arrays.get(f"{self.channel_id}_1")
             cache_dir = self.cache_dir
+            layout = self._layout
         if cached is not None:
             t = cached[0]
             bounds = None if len(t) == 0 else (float(t[0]), float(t[-1]))
         else:
             pin = pin_published_reader(cache_dir)
             try:
-                layout = self._resolve_layout(cache_dir)
-                bounds = read_time_bounds(cache_dir, self.channel_id, layout=layout)
+                if read_time_bounds is _store_read_time_bounds:
+                    layout = load_layout(cache_dir, self.channel_id)
+                    bounds = _store_read_time_bounds(cache_dir, self.channel_id, layout=layout)
+                else:
+                    bounds = read_time_bounds(cache_dir, self.channel_id)
             finally:
                 if pin is not None:
                     pin.close()
         with self._lock:
             if not self._closed and self.cache_dir == cache_dir:
+                self._layout = layout
                 self._coverage = bounds
                 self._coverage_cached = True
         return bounds

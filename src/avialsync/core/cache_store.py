@@ -272,12 +272,12 @@ def _tree_size(directory: Path) -> int:
             with os.scandir(current) as entries:
                 for entry in entries:
                     try:
+                        if entry.is_symlink():
+                            continue
                         if entry.is_dir(follow_symlinks=False):
                             stack.append(entry.path)
                             continue
-                        if entry.is_symlink() and entry.is_dir(follow_symlinks=True):
-                            continue
-                        stat = entry.stat(follow_symlinks=False)
+                        stat = os.lstat(entry.path)
                     except OSError:
                         continue
                     identity = (stat.st_dev, stat.st_ino)

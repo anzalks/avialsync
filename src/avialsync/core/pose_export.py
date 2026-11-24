@@ -191,8 +191,6 @@ def _compile_routes(
     for _boundary, route in routes:
         pairs: list[tuple[int, int]] = []
         for display, data in route.items():
-            if display == data:
-                continue
             d_cols = fields_by_point.get(display)
             s_cols = fields_by_point.get(data)
             if d_cols is None or s_cols is None:
@@ -263,17 +261,6 @@ def _stream(
         swapped_rows=swapped_rows,
         unmatched_frames=len(set(corrections) - seen_frames),
     )
-
-
-def _route_at(
-    routes: tuple[tuple[int, Mapping[str, str]], ...],
-    boundaries: list[int],
-    frame: int,
-) -> Mapping[str, str]:
-    """The identity in force on *frame*: the last route at or before it."""
-    if not routes or frame < boundaries[0]:
-        return {}
-    return routes[bisect.bisect_right(boundaries, frame) - 1][1]
 
 
 def _reroute(row: list[str], columns: dict[tuple[str, str], int], route: Mapping[str, str]) -> bool:

@@ -59,7 +59,7 @@ def export_data_slice_csv(
                     if should_cancel is not None and should_cancel():
                         raise ExportError("Data export was cancelled.")
                     if len(times) != len(values):
-                        raise ValueError("Time and value chunk lengths differ.")
+                        raise ExportError("Time and value chunk lengths differ.")
                     if not wrote_header:
                         writer.writerow([f"# Source: {_source_label(reader)}"])
                         if getattr(reader, "source_id", ""):

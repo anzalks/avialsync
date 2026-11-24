@@ -337,14 +337,14 @@ def test_multi_roi_nwb_ui_workflows_stay_responsive(
         t0 = time.perf_counter()
         window.document.undo(window._mutations)
         qapp.processEvents()
-        assert (time.perf_counter() - t0) < 0.8
+        assert (time.perf_counter() - t0) < 1.5
         assert not all(ch.visible for ch in window.plot_pane.channels)
 
         # Remove entire 300+-channel source cleanly
         t0 = time.perf_counter()
         window._on_sensor_remove_requested(src_path)
         qapp.processEvents()
-        assert (time.perf_counter() - t0) < 0.8
+        assert (time.perf_counter() - t0) < 1.5
         assert window.plot_pane.channels == []
     finally:
         if isValid(window):

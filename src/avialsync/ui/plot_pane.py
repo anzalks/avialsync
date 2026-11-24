@@ -799,8 +799,12 @@ class PlotPane(QWidget):
             self.graphics_layout.setUpdatesEnabled(False)
             self._pinned_layout.setUpdatesEnabled(False)
             try:
-                for ch in to_remove:
-                    ch.plot_item.setXLink(None)
+                for ch in reversed(to_remove):
+                    vb_blocked = ch.plot_item.vb.blockSignals(True)
+                    try:
+                        ch.plot_item.setXLink(None)
+                    finally:
+                        ch.plot_item.vb.blockSignals(vb_blocked)
                     owner = self._pinned_layout if ch.pinned_in_layout else self.graphics_layout
                     detach_row(owner, ch)
                 self.channels = [ch for ch in self.channels if id(ch) not in remove_ids]

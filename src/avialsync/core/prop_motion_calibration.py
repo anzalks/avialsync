@@ -126,13 +126,14 @@ def _belt_residuals(
     parameters: np.ndarray,
     belt: BeltProp,
     cameras: Mapping[str, CameraModel],
-    origin_reading: float,
+    origin_reading: float | None = None,
     *,
     include_boundary_penalty: bool = True,
 ) -> np.ndarray:
     """Return image residuals (plus independent open-path boundary penalties when enabled)."""
     binding = belt.binding
     assert binding is not None
+    origin = binding.reference_reading if origin_reading is None else float(origin_reading)
     reference_distance, scale = (float(parameters[0]), float(parameters[1]))
     pixel_errors: list[float] = []
     penalties: list[float] = []
@@ -142,13 +143,13 @@ def _belt_residuals(
                 "A saved belt check is missing its displacement reading."
             )
         reading = check.source_values[0]
-        point = _belt_point(belt, reference_distance, scale, reading, origin_reading)
+        point = _belt_point(belt, reference_distance, scale, reading, origin)
         boundary_penalty = 0.0
         if point is None:
             # ``least_squares`` samples outside the valid span while looking
             # for a solution. Keep the penalty independent of signed pixel X
             # error so a negative reprojection offset can never cancel it.
-            distance = _belt_distance(belt, reference_distance, scale, reading, origin_reading)
+            distance = _belt_distance(belt, reference_distance, scale, reading, origin)
             boundary_penalty = 1_000.0 * max(0.0, -distance, distance - belt.path_length)
             clamped = float(np.clip(distance, 0.0, belt.path_length))
             point = belt.track.material_point(0.0, clamped)
@@ -352,13 +353,16 @@ def _ball_residuals(
     parameters: np.ndarray,
     ball: BallProp,
     cameras: Mapping[str, CameraModel],
-    reference_orientation: UnitQuaternion,
+    reference_orientation: UnitQuaternion | None = None,
 ) -> np.ndarray:
     """Return image residuals after conjugating sensor rotation into visual axes."""
     binding = ball.binding
     assert binding is not None
+    ref_q = (
+        binding.reference_orientation if reference_orientation is None else reference_orientation
+    )
     correction = _quaternion_from_vector(parameters)
-    ref_inv = reference_orientation.inverse()
+    ref_inv = ref_q.inverse()
     residuals: list[float] = []
     for check in binding.checks:
         if len(check.source_values) != 4:

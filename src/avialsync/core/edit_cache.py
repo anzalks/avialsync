@@ -34,7 +34,7 @@ import logging
 import os
 import shutil
 import uuid
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 
 import numpy as np
@@ -240,20 +240,22 @@ def _group_corrections_by_display(
     """Map each displayed point name to ``(sample_index, (x, y))`` corrections it shows."""
     if not program.corrections:
         return {}
-    inv_cache: dict[int, dict[str, list[str]]] = {}
+    inv_cache: dict[int, tuple[Mapping[str, str], dict[str, list[str]]]] = {}
     grouped: dict[str, list[tuple[int, tuple[float, float]]]] = {}
     for (raw_point, index), coords in program.corrections.items():
-        route = program.route_at(index)
+        cached_entry = inv_cache.get(index)
+        if cached_entry is None:
+            route = program.route_at(index)
+            inv: dict[str, list[str]] = {}
+            for display, donor in route.items():
+                inv.setdefault(donor, []).append(display)
+            cached_entry = (route, inv)
+            inv_cache[index] = cached_entry
+        else:
+            route, inv = cached_entry
         if not route:
             grouped.setdefault(raw_point, []).append((index, coords))
             continue
-        inv = inv_cache.get(id(route))
-        if inv is None:
-            inv = {}
-            for display, donor in route.items():
-                if display != donor:
-                    inv.setdefault(donor, []).append(display)
-            inv_cache[id(route)] = inv
         for display in inv.get(raw_point, ()):
             grouped.setdefault(display, []).append((index, coords))
         if route.get(raw_point, raw_point) == raw_point:
@@ -375,15 +377,6 @@ def _edited_values(
         reader.close()
         for donor in donors.values():
             donor.close()
-
-
-def _corrected_indices(program: EditProgram, name: str, count: int) -> set[int]:
-    """Which samples of *name* show a hand-corrected coordinate."""
-    return {
-        index
-        for index, _pos in _group_corrections_by_display(program).get(name, ())
-        if 0 <= index < count
-    }
 
 
 def _read_manifest(directory: Path) -> dict[str, object] | None:

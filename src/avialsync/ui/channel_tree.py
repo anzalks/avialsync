@@ -78,11 +78,12 @@ def _candidate_delimiter_prefixes(leaf: str) -> list[tuple[str, str]]:
 def _delimiter_prefixes(channels: Sequence[str]) -> set[str]:
     """Prefixes worth grouping across ``_``, ``-``, and ``:``.
 
-    When every channel starting with ``tail_`` actually starts with ``tail_base_``
-    (equal counts), only ``tail_base`` is kept so ``tail_base_x`` groups as
-    ``["tail_base", "x"]`` rather than ``["tail", "base_x"]``. When a broader
-    group contains multiple subgroups (``mouse1_snout_x``, ``mouse1_ear_x``),
-    both ``mouse1`` and ``mouse1_snout`` remain active for nested grouping.
+    The outermost token (``partition(delim)``) is always kept whenever at least
+    :data:`MIN_GROUP_SIZE` channels share it, preserving the established
+    first-prefix grouping contract (e.g. ``head_bar_x`` / ``head_bar_y`` ->
+    group ``head``). Deeper prefixes are added only when an outer group
+    branches into multiple subgroups (``mouse1_snout_x``, ``mouse1_ear_x`` ->
+    ``["mouse1", "snout", "x"]``), collapsing redundant single-child stems.
     """
     counts: Counter[tuple[str, str]] = Counter()
     by_leaf: list[list[tuple[str, str]]] = []
@@ -95,15 +96,21 @@ def _delimiter_prefixes(channels: Sequence[str]) -> set[str]:
 
     active: set[str] = set()
     for cands in by_leaf:
+        last_active_count: int | None = None
         for idx, (delim, prefix) in enumerate(cands):
             count = counts[(delim, prefix)]
             if count < MIN_GROUP_SIZE:
                 continue
-            # Suppress a shorter prefix if a longer prefix on the same leaf
-            # accounts for every single member of the shorter one.
+            if last_active_count is None:
+                active.add(prefix)
+                last_active_count = count
+                continue
+            if count >= last_active_count:
+                continue
             shadowed = any(counts[longer] == count for longer in cands[idx + 1 :])
             if not shadowed:
                 active.add(prefix)
+                last_active_count = count
     return active
 
 

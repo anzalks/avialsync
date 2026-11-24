@@ -269,15 +269,9 @@ def fit_piecewise(
         precision_requirement,
         worst_residual=knot_error,
     )
-    if knot_count <= MAX_PROPOSAL_MATCHES:
-        matches = tuple(
-            SyncMatch(float(m), float(s), 0.0) for m, s in zip(master, source, strict=True)
-        )
-    else:
-        indices = np.unique(np.linspace(0, knot_count - 1, MAX_PROPOSAL_MATCHES, dtype=np.intp))
-        matches = tuple(
-            SyncMatch(float(master[int(i)]), float(source[int(i)]), 0.0) for i in indices
-        )
+    matches = subsample_matches(
+        tuple(SyncMatch(float(m), float(s), 0.0) for m, s in zip(master, source, strict=True))
+    )
     return SyncProposal(
         reference_id=reference_id,
         target_id=target_id,

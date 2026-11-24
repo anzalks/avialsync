@@ -512,15 +512,11 @@ def _advance_group_step(
             continue
         mapping[first], mapping[second] = mapping[second], mapping[first]
         for lane in (first, second):
-            display = group.point(lane, part)
-            if display is None:
-                continue
             src_lane = mapping[lane]
-            if lane == src_lane:
-                step.pop(display, None)
-            else:
-                data = group.point(src_lane, part)
-                if data is not None:
-                    step[display] = data
-                else:
+            display = group.point(lane, part)
+            data = group.point(src_lane, part)
+            if display is not None:
+                if lane == src_lane or data is None:
                     step.pop(display, None)
+                else:
+                    step[display] = data
