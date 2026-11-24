@@ -1,5 +1,7 @@
 """Tests for the asynchronous time-series import pipeline."""
 
+import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -134,6 +136,16 @@ def test_import_rebuilds_when_cached_array_is_truncated(tmp_path: Path) -> None:
     assert _BulkLoader.bulk_calls == 2
 
 
+def _corrupt_in_place(level: Path, offset: int, whence: int, payload: bytes) -> None:
+    """Overwrite bytes in *level* and ensure coarse 15.6 ms Windows NTFS mtime advances."""
+    before_ns = level.stat().st_mtime_ns
+    with level.open("r+b") as stream:
+        stream.seek(offset, whence)
+        stream.write(payload)
+    if level.stat().st_mtime_ns == before_ns:
+        os.utime(level, ns=(before_ns, before_ns + 1_000_000))
+
+
 def test_import_rebuilds_when_pyramid_header_changes_without_size_change(tmp_path: Path) -> None:
     source = tmp_path / "signal.csv"
     source.write_text("source bytes", encoding="utf-8")
@@ -141,8 +153,7 @@ def test_import_rebuilds_when_pyramid_header_changes_without_size_change(tmp_pat
     ImportWorker(source, {}, _BulkLoader).run()
     level = cache_dir_for(source) / "left_pyr_16_vmin.npy"
     size = level.stat().st_size
-    with level.open("r+b") as stream:
-        stream.write(b"bad")
+    _corrupt_in_place(level, 0, 0, b"bad")
 
     ImportWorker(source, {}, _BulkLoader).run()
 
@@ -155,16 +166,27 @@ def test_import_rebuilds_when_pyramid_content_changes_without_size_change(tmp_pa
     source.write_text("source bytes", encoding="utf-8")
     _BulkLoader.open_calls = 0
     ImportWorker(source, {}, _BulkLoader).run()
-    level = cache_dir_for(source) / "left_pyr_16_vmin.npy"
+    cache_dir = cache_dir_for(source)
+    level = cache_dir / "left_pyr_16_vmin.npy"
     size = level.stat().st_size
-    with level.open("r+b") as stream:
-        stream.seek(-4, 2)
-        stream.write(b"bad!")
+    _corrupt_in_place(level, -4, 2, b"bad!")
 
     ImportWorker(source, {}, _BulkLoader).run()
 
     assert level.stat().st_size == size
     assert _BulkLoader.open_calls == 2
+
+    # Legacy manifests without array_mtimes also catch in-place tail edits via fingerprints.
+    manifest_path = cache_dir / "import.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest.pop("array_mtimes", None)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with level.open("r+b") as stream:
+        stream.seek(-4, 2)
+        stream.write(b"bad!")
+
+    ImportWorker(source, {}, _BulkLoader).run()
+    assert _BulkLoader.open_calls == 3
 
 
 @pytest.mark.parametrize("regular", [False, True])
