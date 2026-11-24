@@ -251,6 +251,8 @@ def _frame_schedule(
 def _reader_bounds(reader: PyAVReader, time_map: TimeMap) -> tuple[float, float]:
     """Include the last frame's presentation interval in source coverage."""
     times = reader.frame_times
+    if len(times) == 0:
+        raise ExportError("Video carries no presentation timestamps.")
     intervals = np.diff(times[-17:])
     positive = intervals[intervals > 0]
     if len(positive):

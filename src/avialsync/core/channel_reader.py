@@ -156,9 +156,9 @@ class MappedChannelReader:
             return None
         times, _values, gaps = self._reader.mapped_columns()
         index = found[0]
-        if source_time < times[0] or source_time > times[-1]:
+        if source_time < float(times[0]) - 5e-7 or source_time > float(times[-1]) + 5e-7:
             return None
-        if index + 1 < len(times) and source_time > times[index] and gaps[index]:
+        if index + 1 < len(times) and source_time > float(times[index]) + 5e-7 and gaps[index]:
             return None
         return found
 

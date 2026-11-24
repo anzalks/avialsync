@@ -9,6 +9,8 @@ from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QImage, QPainter, QPen
 
 from avialsync.core.timeline import TimeMap
+from avialsync.core.trials import FrameGaps
+from avialsync.core.video_timing import PTS_EPSILON_S
 from avialsync.engine.display_pipeline import to_display_array
 from avialsync.engine.pyav_reader import PyAVReader
 from avialsync.engine.stimulus_grid_bands import (
@@ -53,25 +55,27 @@ def _render_frame(
     )
     image = static.copy()
     painter = QPainter(image)
-    painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+    try:
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
 
-    for index, row in enumerate(videos):
-        reader = readers[index]
-        for event_index, event_time in enumerate(events):
-            cell = layout.cell_rect(index, event_index)
-            master_time = event_time + relative_time
-            if isinstance(reader, ImagingRow):
-                _draw_picture(painter, cell, reader.image_at(master_time), labels.no_imaging)
-            elif isinstance(row, GridVideo):
-                _draw_camera_tile(painter, cell, row, *reader, master_time, labels)
+        for index, row in enumerate(videos):
+            reader = readers[index]
+            for event_index, event_time in enumerate(events):
+                cell = layout.cell_rect(index, event_index)
+                master_time = event_time + relative_time
+                if isinstance(reader, ImagingRow):
+                    _draw_picture(painter, cell, reader.image_at(master_time), labels.no_imaging)
+                elif isinstance(row, GridVideo):
+                    _draw_camera_tile(painter, cell, row, *reader, master_time, labels)
 
-    if bands:
-        for number, area in enumerate(_band_areas(layout, bands)):
-            label = labels.current if number == 0 else None
-            draw_band_cursor(painter, area, before, after, relative_time, label)
-    else:
-        _draw_ruler(painter, layout, before, after, relative_time, labels)
-    painter.end()
+        if bands:
+            for number, area in enumerate(_band_areas(layout, bands)):
+                label = labels.current if number == 0 else None
+                draw_band_cursor(painter, area, before, after, relative_time, label)
+        else:
+            _draw_ruler(painter, layout, before, after, relative_time, labels)
+    finally:
+        painter.end()
     return image
 
 
@@ -181,6 +185,19 @@ def _draw_picture(painter: QPainter, cell: QRect, image: QImage | None, missing:
     )
 
 
+def _in_camera_gap(reader: PyAVReader, source_time: float) -> bool:
+    """Whether *source_time* falls inside an unrecorded inter-trial gap (D-217)."""
+    times = getattr(reader, "frame_times", None)
+    if times is None or len(times) < 2:
+        return False
+    cached = getattr(reader, "_avial_frame_gaps", None)
+    if cached is None or getattr(reader, "_avial_frame_gaps_for", None) is not times:
+        cached = FrameGaps(times)
+        reader._avial_frame_gaps = cached  # type: ignore[attr-defined]
+        reader._avial_frame_gaps_for = times  # type: ignore[attr-defined]
+    return bool(cached.in_gap(source_time))
+
+
 def _draw_camera_tile(
     painter: QPainter,
     cell: QRect,
@@ -192,10 +209,16 @@ def _draw_camera_tile(
     labels: GridLabels,
 ) -> None:
     """Draw one decoded camera frame inside its tile."""
-    if not bounds[0] <= master_time < bounds[1]:
+    if not time_map.contains_master_time(master_time) or not (
+        bounds[0] - PTS_EPSILON_S <= master_time < bounds[1]
+    ):
         _draw_picture(painter, cell, None, labels.no_footage)
         return
-    frame_index = reader.index_at_time(time_map.to_source(master_time))
+    source_time = time_map.to_source(master_time)
+    if _in_camera_gap(reader, source_time):
+        _draw_picture(painter, cell, None, labels.no_footage)
+        return
+    frame_index = reader.index_at_time(source_time)
     frame = reader.frame_at_index(frame_index)
     pixels, is_greyscale = to_display_array(frame, video.display_levels)
     pixels = np.ascontiguousarray(pixels)

@@ -191,21 +191,16 @@ def _coordinate_name(channel_id: str) -> tuple[str, str] | None:
 
 
 def _nearest_index(times: np.ndarray, target: float) -> int | None:
-    """Find the nearest timestamp without scanning a trajectory."""
+    """Resolve the active sample index at *target* (last sample with ``pts <= target``)."""
     if len(times) == 0:
         return None
-    right = int(np.searchsorted(times, target))
-    if right == 0:
-        index = 0
-    elif right == len(times):
-        index = len(times) - 1
-    elif target - float(times[right - 1]) <= float(times[right]) - target:
-        index = right - 1
-    else:
-        index = right
-    if abs(float(times[index]) - target) > _SAMPLE_TOLERANCE_S:
+    if (
+        target < float(times[0]) - _SAMPLE_TOLERANCE_S
+        or target > float(times[-1]) + _SAMPLE_TOLERANCE_S
+    ):
         return None
-    return index
+    index = int(np.searchsorted(times, target + 1e-6, side="right")) - 1
+    return max(0, min(index, len(times) - 1))
 
 
 def _same_time_axis(
@@ -269,7 +264,7 @@ def _build_sources(
             if reference_times is None:
                 reference_times = arrays[0][0]
                 reference_reader = x_reader
-                source_time_map = getattr(x_reader, "time_map", source_time_map).copy()
+                source_time_map = getattr(x_reader, "time_map", source_time_map)
             if reference_reader is None or any(
                 not _same_time_axis(reference_reader, axes[axis], reference_times, arrays[index][0])
                 for index, axis in enumerate(("x", "y", "z"))

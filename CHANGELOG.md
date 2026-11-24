@@ -42,6 +42,19 @@ full history is in git. Versions follow the tags in the repository.
 - Internal: the main window is composed of focused modules; behaviour is unchanged (D-248).
 
 ### Fixed
+- Frame-by-frame stepping (`←` / `→`, `,` / `.`, and transport `Prev frame` / `Next frame`) and
+  timeline scrubbing stay synchronized across multi-camera rigs, 2D overlays, 3D pose, two-photon
+  imaging, plots, and `Values`: backward steps from mid-interval positions always advance to the
+  previous frame rather than re-selecting the current frame; co-exposed cameras within 1 ms advance
+  and step back together in one key press without leaving sibling cameras one frame behind; paused
+  video OSD and 2D overlays flush without playback throttling; `Tracking3DPane` uses causal
+  `pts <= t` sample selection with live `TimeMap` references; `PyramidReader.sample_at` and
+  `MappedChannelReader.available_sample_at` absorb sub-microsecond float64 `TimeMap` round-trip ULP
+  drift; `PlotPane.set_cursor` avoids re-querying unchanged sweep pages on seeks/steps; and
+  `Export Stimulus Grid…` / `remux_clip` now support active-low falling-edge TTL triggers, gap-aware
+  pulse scanning, queued/hidden NWB channels, discrete session event sources (accepted TTL/sync
+  pulses, trial segments, recorded messages, annotations), per-event trimmed clip export, B-frame
+  tail preservation, and inter-trial camera gap masking (D-075, D-201, D-211, D-217).
 - Full-scale multi-thousand-channel, multi-hour 50 kHz, multi-trial, and 16-camera sessions stay
   correct and responsive across import, alignment, editing, playback, export, and session
   persistence: sidebar group checkboxes batch as a single undoable command without `AutoTristate`

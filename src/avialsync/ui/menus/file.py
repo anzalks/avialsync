@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QMenu, QMenuBar
 
 from avialsync.ui.feedback.cache_indicator import is_measuring
 from avialsync.ui.i18n import tr
+from avialsync.ui.stimulus_grid_sources import has_stimulus_inputs
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
@@ -189,8 +190,8 @@ def _file_exports(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
     _reg(act, "File")
     window._require(
         act,
-        lambda: bool(window.video_grid._paths) and bool(window.plot_pane.channels),
-        tr("Load at least one video and one sensor channel first."),
+        lambda: has_stimulus_inputs(window),
+        tr("Load a video or imaging stack and a sensor channel or TTL event source first."),
     )
 
     act = file_menu.addAction(tr("Export Data Slice…"))

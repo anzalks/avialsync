@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import cast
 
@@ -47,8 +48,16 @@ class StimulusChannelOption:
     group: str = ""
 
 
+@dataclass(frozen=True)
+class StimulusEventSourceOption:
+    """Discrete session event times on the master clock (TTL, trials, messages, flags)."""
+
+    label: str
+    times: tuple[float, ...]
+
+
 class StimulusGridDialog(QDialog):
-    """Inspect a sensor timeline and choose event-aligned video windows."""
+    """Inspect a sensor or event timeline and choose event-aligned video windows."""
 
     scan_requested = Signal(object)
     preview_requested = Signal(object)
@@ -58,11 +67,14 @@ class StimulusGridDialog(QDialog):
         channels: list[StimulusChannelOption],
         parent: QWidget | None = None,
         rows: GridRowsPanel | None = None,
+        *,
+        event_sources: Sequence[StimulusEventSourceOption] = (),
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(tr("Export Stimulus Grid"))
         self.setMinimumSize(1100 if rows is not None else 820, 640)
-        self._channels = channels
+        self._channels = list(channels)
+        self._event_sources = tuple(event_sources)
         self._events: np.ndarray = np.empty(0, dtype=np.float64)
         self._selected_indices: set[int] = set()
         self._scan_worker: StimulusEventScanWorker | None = None
@@ -81,9 +93,8 @@ class StimulusGridDialog(QDialog):
             outer.addWidget(rows, 2)
         intro = QLabel(
             tr(
-                "Choose a sensor channel and rising threshold, review the detected events, "
-                "then export selected windows as an aligned grid of cameras, imaging and "
-                "sensor traces."
+                "Choose a sensor/TTL channel or session event source, review the events, "
+                "then export selected windows as an aligned comparison grid or per-event clips."
             )
         )
         intro.setWordWrap(True)
@@ -91,19 +102,30 @@ class StimulusGridDialog(QDialog):
 
         scan_form = QFormLayout()
         self.channel_combo = QComboBox(self)
-        self.channel_combo.setAccessibleName(tr("Stimulus sensor channel"))
-        self.channel_combo.setAccessibleDescription(tr("Choose the channel used to find stimuli"))
-        for channel in channels:
+        self.channel_combo.setAccessibleName(tr("Stimulus trigger source"))
+        self.channel_combo.setAccessibleDescription(
+            tr("Choose a sensor/TTL channel or a session event source to locate stimuli")
+        )
+        for channel in self._channels:
             self.channel_combo.addItem(channel.label)
+        for event_src in self._event_sources:
+            self.channel_combo.addItem(event_src.label)
+        self.polarity_combo = QComboBox(self)
+        self.polarity_combo.setAccessibleName(tr("Trigger edge polarity"))
+        self.polarity_combo.setAccessibleDescription(
+            tr("Detect upward rising crossings or active-low downward falling crossings")
+        )
+        self.polarity_combo.addItem(tr("Rising edge"), False)
+        self.polarity_combo.addItem(tr("Falling edge (active-low TTL)"), True)
         self.threshold_spin = QDoubleSpinBox(self)
         self.threshold_spin.setRange(-1_000_000_000, 1_000_000_000)
         self.threshold_spin.setDecimals(3)
         self.threshold_spin.setSingleStep(0.1)
         self.threshold_spin.setValue(0.5)
         self.threshold_spin.setKeyboardTracking(False)
-        self.threshold_spin.setAccessibleName(tr("Rising threshold"))
+        self.threshold_spin.setAccessibleName(tr("Trigger threshold"))
         self.threshold_spin.setAccessibleDescription(
-            tr("An event starts when the sensor signal crosses this value upward")
+            tr("An event starts when the sensor signal crosses this threshold")
         )
         self.min_interval_spin = QDoubleSpinBox(self)
         self.min_interval_spin.setRange(0, 600)
@@ -114,7 +136,7 @@ class StimulusGridDialog(QDialog):
         self.min_interval_spin.setKeyboardTracking(False)
         self.min_interval_spin.setAccessibleName(tr("Minimum event spacing"))
         self.min_interval_spin.setAccessibleDescription(
-            tr("Ignore repeated rising edges closer together than this interval")
+            tr("Ignore repeated trigger edges closer together than this interval")
         )
         scan_controls = QHBoxLayout()
         self.scan_button = QPushButton(tr("Scan events"), self)
@@ -126,8 +148,9 @@ class StimulusGridDialog(QDialog):
         self.cancel_scan_button.clicked.connect(self._cancel_scan)
         scan_controls.addWidget(self.scan_button)
         scan_controls.addWidget(self.cancel_scan_button)
-        scan_form.addRow(tr("Sensor channel"), self.channel_combo)
-        scan_form.addRow(tr("Rising threshold"), self.threshold_spin)
+        scan_form.addRow(tr("Trigger source"), self.channel_combo)
+        scan_form.addRow(tr("Edge polarity"), self.polarity_combo)
+        scan_form.addRow(tr("Threshold"), self.threshold_spin)
         scan_form.addRow(tr("Minimum spacing"), self.min_interval_spin)
         scan_form.addRow(tr("Detection"), scan_controls)
         layout.addLayout(scan_form)
@@ -162,6 +185,16 @@ class StimulusGridDialog(QDialog):
         layout.addWidget(self.scan_status)
 
         window_form = QFormLayout()
+        self.export_mode_combo = QComboBox(self)
+        self.export_mode_combo.setAccessibleName(tr("Export format"))
+        self.export_mode_combo.setAccessibleDescription(
+            tr(
+                "Export one synchronized multi-event grid video "
+                "or individual trimmed clips per event"
+            )
+        )
+        self.export_mode_combo.addItem(tr("Comparison grid (.mp4)"), "grid")
+        self.export_mode_combo.addItem(tr("Trimmed clips per event (folder)"), "clips")
         self.before_spin = self._seconds_spin(0, 600, 0.5, tr("Time before stimulus"))
         self.after_spin = self._seconds_spin(0.001, 600, 1.5, tr("Time after stimulus"))
         self.fps_spin = QSpinBox(self)
@@ -205,6 +238,7 @@ class StimulusGridDialog(QDialog):
         speed_layout.setContentsMargins(0, 0, 0, 0)
         speed_layout.addWidget(self.speed_combo)
         speed_layout.addWidget(self.custom_speed_spin)
+        window_form.addRow(tr("Export format"), self.export_mode_combo)
         window_form.addRow(tr("Before"), self.before_spin)
         window_form.addRow(tr("After"), self.after_spin)
         window_form.addRow(tr("Output frame rate"), self.fps_spin)
@@ -223,8 +257,10 @@ class StimulusGridDialog(QDialog):
         layout.addWidget(self.buttons)
 
         self.channel_combo.currentIndexChanged.connect(self._channel_changed)
+        self.polarity_combo.currentIndexChanged.connect(self._polarity_changed)
         self.threshold_spin.valueChanged.connect(self._detection_settings_changed)
         self.min_interval_spin.valueChanged.connect(self._detection_settings_changed)
+        self.export_mode_combo.currentIndexChanged.connect(self._export_mode_changed)
         self.before_spin.valueChanged.connect(self._window_changed)
         self.after_spin.valueChanged.connect(self._window_changed)
         self.speed_combo.currentIndexChanged.connect(self._speed_changed)
@@ -233,18 +269,18 @@ class StimulusGridDialog(QDialog):
         self.output_detail_combo.currentIndexChanged.connect(lambda _index: self._refresh_rows())
         if rows is not None:
             rows.changed.connect(self._refresh_rows)
-            if channels:
-                rows.check_group(channels[0].group)
+            if self._channels:
+                rows.check_group(self._channels[0].group)
+        self._apply_source_mode()
         self._refresh_rows()
         self._refresh_timeline()
 
     def request_preview(self) -> None:
         """Ask the registered job owner for a cached overview of this channel."""
-        if self._channels:
+        channel = self.channel_option()
+        if channel is not None:
             index = self.channel_combo.currentIndex()
-            self.preview_requested.emit(
-                StimulusTimelineWorker(index, self._channels[index].reference)
-            )
+            self.preview_requested.emit(StimulusTimelineWorker(index, channel.reference))
 
     @Slot(int, object)
     def set_preview(self, index: int, result: object) -> None:
@@ -277,9 +313,30 @@ class StimulusGridDialog(QDialog):
         spin.setAccessibleName(accessible_name)
         return spin
 
-    def channel_option(self) -> StimulusChannelOption:
-        """Return the currently selected signal and its worker reference."""
-        return self._channels[self.channel_combo.currentIndex()]
+    def channel_option(self) -> StimulusChannelOption | None:
+        """Return the selected sensor channel, or None when a session event source is active."""
+        index = self.channel_combo.currentIndex()
+        if 0 <= index < len(self._channels):
+            return self._channels[index]
+        return None
+
+    def event_source_option(self) -> StimulusEventSourceOption | None:
+        """Return the selected session event source, or None when a sensor channel is active."""
+        offset = self.channel_combo.currentIndex() - len(self._channels)
+        if 0 <= offset < len(self._event_sources):
+            return self._event_sources[offset]
+        return None
+
+    def falling_edge(self) -> bool:
+        """Whether sensor threshold scanning detects downward (active-low TTL) crossings."""
+        return bool(self.polarity_combo.currentData())
+
+    def export_mode(self) -> str:
+        """Return ``'grid'`` for a comparison movie or ``'clips'`` for per-event trimmed clips."""
+        return str(self.export_mode_combo.currentData() or "grid")
+
+    def _max_selectable_events(self) -> int:
+        return _MAX_DISPLAYED_EVENTS if self.export_mode() == "clips" else MAX_GRID_EVENTS
 
     def selected_events(self) -> tuple[float, ...]:
         """Return checked event times in chronological order."""
@@ -302,11 +359,19 @@ class StimulusGridDialog(QDialog):
 
     @Slot()
     def _scan(self) -> None:
+        event_src = self.event_source_option()
+        if event_src is not None:
+            self.set_events(event_src.times)
+            return
+        channel = self.channel_option()
+        if channel is None:
+            return
         self._clear_events()
         worker = StimulusEventScanWorker(
-            self.channel_option().reference,
+            channel.reference,
             self.threshold_spin.value(),
             self.min_interval_spin.value(),
+            falling_edge=self.falling_edge(),
         )
         self._scan_worker = worker
         self._set_scanning(True)
@@ -327,7 +392,8 @@ class StimulusGridDialog(QDialog):
             return
         self._events = np.asarray(value, dtype=np.float64)
         total = int(len(self._events))
-        self._selected_indices = set(range(min(total, MAX_GRID_EVENTS)))
+        limit = self._max_selectable_events()
+        self._selected_indices = set(range(min(total, limit)))
         displayed = min(total, _MAX_DISPLAYED_EVENTS)
         self._updating_events = True
         self.event_table.setUpdatesEnabled(False)
@@ -354,18 +420,16 @@ class StimulusGridDialog(QDialog):
         self._set_scanning(False)
         if total > _MAX_DISPLAYED_EVENTS:
             self.scan_status.setText(
-                tr(
-                    "Found {count} rising events (showing first {shown}). Select up to {limit}."
-                ).format(count=total, shown=displayed, limit=MAX_GRID_EVENTS)
+                tr("Found {count} events (showing first {shown}). Select up to {limit}.").format(
+                    count=total, shown=displayed, limit=limit
+                )
             )
         elif total > 0:
             self.scan_status.setText(
-                tr("Found {count} rising events. Select up to {limit}.").format(
-                    count=total, limit=MAX_GRID_EVENTS
-                )
+                tr("Found {count} events. Select up to {limit}.").format(count=total, limit=limit)
             )
         else:
-            self.scan_status.setText(tr("No rising events found at this threshold."))
+            self.scan_status.setText(tr("No events found at these detection settings."))
         self._event_selection_changed()
 
     @Slot(str)
@@ -384,11 +448,19 @@ class StimulusGridDialog(QDialog):
         self.scan_status.setText(tr("Event scan cancelled."))
 
     def _set_scanning(self, scanning: bool) -> None:
-        self.scan_button.setEnabled(not scanning)
+        sensor_active = self.channel_option() is not None
+        self.scan_button.setEnabled(not scanning and sensor_active)
         self.cancel_scan_button.setVisible(scanning)
         self.channel_combo.setEnabled(not scanning)
-        self.threshold_spin.setEnabled(not scanning)
-        self.min_interval_spin.setEnabled(not scanning)
+        self.polarity_combo.setEnabled(not scanning and sensor_active)
+        self.threshold_spin.setEnabled(not scanning and sensor_active)
+        self.min_interval_spin.setEnabled(not scanning and sensor_active)
+
+    def _apply_source_mode(self) -> None:
+        event_src = self.event_source_option()
+        self._set_scanning(False)
+        if event_src is not None:
+            self.set_events(event_src.times)
 
     def _clear_events(self) -> None:
         self._events = np.empty(0, dtype=np.float64)
@@ -408,17 +480,63 @@ class StimulusGridDialog(QDialog):
     def _channel_changed(self, index: int) -> None:
         self._clear_events()
         self._preview = None
-        # The channel that finds the events is the one the movie should show.
         if self.rows_panel is not None and 0 <= index < len(self._channels):
             self.rows_panel.check_group(self._channels[index].group)
+        self._apply_source_mode()
         self.request_preview()
 
+    @Slot(int)
+    def _polarity_changed(self, _index: int) -> None:
+        self._clear_events()
+
+    @Slot(int)
+    def _export_mode_changed(self, _index: int) -> None:
+        grid_mode = self.export_mode() == "grid"
+        self.fps_spin.setEnabled(grid_mode)
+        self.speed_combo.setEnabled(grid_mode)
+        self.custom_speed_spin.setEnabled(grid_mode)
+        self.output_detail_combo.setEnabled(grid_mode)
+        limit = self._max_selectable_events()
+        self.event_table.setAccessibleDescription(
+            tr("Select up to {count} events to export").format(count=limit)
+        )
+        if grid_mode and len(self._selected_indices) > MAX_GRID_EVENTS:
+            keep = set(sorted(self._selected_indices)[:MAX_GRID_EVENTS])
+            self._selected_indices = keep
+            self._updating_events = True
+            try:
+                for row in range(self.event_table.rowCount()):
+                    item = self.event_table.item(row, 0)
+                    if item is not None:
+                        item.setCheckState(
+                            Qt.CheckState.Checked if row in keep else Qt.CheckState.Unchecked
+                        )
+            finally:
+                self._updating_events = False
+        selected = self.selected_events()
+        self._update_event_details(selected)
+        self._refresh_rows()
+
     def _refresh_rows(self) -> None:
-        """Re-estimate row sizes; Continue needs events and a grid that fits."""
+        """Re-estimate row sizes; Continue needs events and valid output rows."""
         selected = self.selected_events()
         fits = True
         if self.rows_panel is not None:
-            fits = self.rows_panel.update_estimate(len(selected), self.high_detail())
+            if self.export_mode() == "clips":
+                has_cam = bool(self.rows_panel.camera_keys())
+                if not has_cam:
+                    self.rows_panel.estimate.setText(
+                        tr("Tick at least one camera row to export per-event video clips.")
+                    )
+                else:
+                    self.rows_panel.estimate.setText(
+                        tr("Trimming {count} event window(s) per ticked camera.").format(
+                            count=len(selected)
+                        )
+                    )
+                fits = has_cam
+            else:
+                fits = self.rows_panel.update_estimate(len(selected), self.high_detail())
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(bool(selected) and fits)
 
     @Slot(float)
@@ -443,17 +561,16 @@ class StimulusGridDialog(QDialog):
             return
         if _item is not None and _item.column() == 0:
             row = _item.row()
+            limit = self._max_selectable_events()
             if _item.checkState() == Qt.CheckState.Checked:
-                if row not in self._selected_indices and len(self._selected_indices) >= (
-                    MAX_GRID_EVENTS
-                ):
+                if row not in self._selected_indices and len(self._selected_indices) >= limit:
                     self._updating_events = True
                     try:
                         _item.setCheckState(Qt.CheckState.Unchecked)
                     finally:
                         self._updating_events = False
                     self.scan_status.setText(
-                        tr("Choose no more than {count} events.").format(count=MAX_GRID_EVENTS)
+                        tr("Choose no more than {count} events.").format(count=limit)
                     )
                 else:
                     self._selected_indices.add(row)
@@ -472,6 +589,14 @@ class StimulusGridDialog(QDialog):
             return
         event_time = selected[0]
         start, end = event_time - self.before_spin.value(), event_time + self.after_spin.value()
+        if self.export_mode() == "clips":
+            self.event_details.setText(
+                tr(
+                    "First selected event: {time:.3f} s. Clip window: {start:.3f} to {end:.3f} s "
+                    "({count} event clip window(s) selected)."
+                ).format(time=event_time, start=start, end=end, count=len(selected))
+            )
+            return
         speed = self.playback_speed()
         output_duration = (self.before_spin.value() + self.after_spin.value()) / speed
         self.event_details.setText(
@@ -483,9 +608,22 @@ class StimulusGridDialog(QDialog):
 
     def _refresh_timeline(self) -> None:
         self.timeline.clear()
-        if not self._channels:
+        channel = self.channel_option()
+        if channel is None:
+            selected = self.selected_events()
+            if len(self._events) > 0:
+                lo, hi = float(np.min(self._events)), float(np.max(self._events))
+                span = max(1.0, hi - lo)
+                self.timeline.setXRange(lo - 0.05 * span, hi + 0.05 * span, padding=0.0)
+                for ev in self._events[:_MAX_DISPLAYED_EVENTS]:
+                    is_first = bool(selected) and abs(float(ev) - selected[0]) < 1e-9
+                    width = 2 if is_first else 1
+                    colour = "#ef665d" if float(ev) in selected else "#65b39b"
+                    self.timeline.addItem(
+                        pg.InfiniteLine(pos=float(ev), angle=90, pen=pg.mkPen(colour, width=width))
+                    )
             return
-        reader = self.channel_option().reader
+        reader = channel.reader
         preview_times: np.ndarray | None = None
         mid_values: np.ndarray | None = None
         preview_bounds: tuple[float, float] | None = None

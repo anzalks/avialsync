@@ -664,9 +664,9 @@ class PyramidReader:
         t, v, _, _ = self._load_level(1)
         if len(t) == 0:
             return None
-        # The method, not np.searchsorted: the same answer without NumPy's dispatch,
-        # on a stored array or a grid alike.
-        index = int(t.searchsorted(t_target, side="right")) - 1
+        # Absorb float64 master->source round-trip ULP drift (e.g. ~2.4e-7 s at
+        # UTC epoch 1.7e9) while staying 40x finer than a 50 kHz sample (20 us).
+        index = int(t.searchsorted(t_target + 5e-7, side="right")) - 1
         index = max(0, min(index, len(v) - 1))
         return index, float(v[index])
 

@@ -250,6 +250,20 @@ class GridRowsPanel(QWidget):
             and item.checkState(0) == Qt.CheckState.Checked
         ]
 
+    def camera_keys(self) -> list[str]:
+        """Source paths of ticked camera rows, in order (excluding imaging rows)."""
+        keys: list[str] = []
+        for item in self._top_items():
+            key = str(item.data(0, _ROLE))
+            option = self._pictures.get(key)
+            if (
+                option is not None
+                and option.kind == "camera"
+                and item.checkState(0) == Qt.CheckState.Checked
+            ):
+                keys.append(option.key)
+        return keys
+
     def bands(
         self, trigger: ReaderReference | None = None, threshold: float | None = None
     ) -> list[GridBand]:

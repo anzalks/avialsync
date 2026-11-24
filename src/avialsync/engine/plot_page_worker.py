@@ -81,20 +81,20 @@ class PlotPageWorker(QObject):
         """Prepare bounded interleaved min/max curves for the requested viewport."""
         prepared: list[tuple[int, np.ndarray, np.ndarray]] = []
         try:
+            first, last = self.warp.to_master(self.t0), self.warp.to_master(self.t1)
             for number, spec in enumerate(self.rows):
                 if self._cancelled.is_set():
                     self.cancelled.emit()
                     return
                 reader = MappedChannelReader(spec.reader, spec.time_map, spec.source_id)
-                # The master time the view page spans, collapsed gaps included:
-                # no source recorded in them, so nothing from them is drawn.
-                first, last = self.warp.to_master(self.t0), self.warp.to_master(self.t1)
                 t, lower, upper, gaps = reader.query(first, last, max_points=self.budget)
                 x = np.repeat(self.warp.to_view_array(t) - self.t0, 2)
                 y = np.empty(len(x), dtype=np.float64)
                 y[0::2] = lower
                 y[1::2] = upper
-                y[np.repeat(np.asarray(gaps, dtype=bool), 2)] = np.nan
+                gap_arr = np.asarray(gaps, dtype=bool)
+                if np.any(gap_arr):
+                    y[np.repeat(gap_arr, 2)] = np.nan
                 prepared.append((spec.index, x, y))
                 self.progress.emit(int(100 * (number + 1) / max(len(self.rows), 1)))
             if self._cancelled.is_set():

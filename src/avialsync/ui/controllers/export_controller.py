@@ -1,31 +1,9 @@
-"""Snapshot, data-slice, video-clip, and A/B region-statistics export.
+"""Snapshot, data-slice, video-clip, stimulus-grid, and A/B region-statistics export.
 
-Every job here hands immutable captures or worker-safe reader references to a
-background thread and reports the outcome through the feedback surface.
-
-**These four used to run outside :class:`~avialsync.ui.job_manager.JobManager`**.
-Each kept its own ``dict[QThread, object]`` on the window, wired its
-own ``started``/``finished``/``error`` connections, reported progress by writing
-the transport status line directly, and announced its result in a raw
-``QMessageBox`` — a modal *on success*, for work the user had already been told
-was running.  Four consequences, all of them things the user met:
-
-* **Cancel did nothing.**  The activity area's cancel button drives
-  ``_active_cancel``, which only the CSV import and the proxy builder ever set,
-  so a running export offered no way to stop.
-* **A stall was invisible.**  ``JobManager``'s watchdog is what separates "slow"
-  from "stuck"; a wedged ffmpeg on a network share merely looked busy.
-* **The status line contradicted itself.**  ``_on_jobs_changed`` writes "Ready"
-  whenever the manager empties, so saving a session while an export ran wiped
-  the export's own status text.
-* **Neighbouring menu items behaved differently.**  Export Changes reported
-  through the notification strip while the three items under it in the same
-  menu raised modals, two of them on success.
-
-So they go through ``window._run_job`` like everything else, and say what
-happened through ``window.notifications``.  Failures go through
-``window.report_failure`` so a worker's raw text lands behind "Show details"
-rather than in the message itself.
+Every job hands immutable captures or worker-safe reader references to a
+background thread via ``window._run_job``, announces completions through
+``window.notifications``, and routes failures through ``window.report_failure``
+so raw worker diagnostics stay behind "Show details".
 """
 
 from __future__ import annotations
@@ -52,7 +30,6 @@ from avialsync.ui.export_destinations import choose_file, choose_folder
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import on_ui_thread
 from avialsync.ui.snapshot_capture import capture_figure, capture_pane_figure
-from avialsync.ui.stimulus_grid_dialog import StimulusGridDialog
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
@@ -367,37 +344,47 @@ def on_video_clip_error(window: MainWindow, error: str) -> None:
 # ── Stimulus-aligned camera grid ─────────────────────────────────────
 
 
+def _run_stimulus_dialog_worker(
+    window: MainWindow,
+    dialog: object,
+    worker: StimulusEventScanWorker | StimulusTimelineWorker,
+) -> None:
+    if isinstance(worker, StimulusTimelineWorker):
+        worker.finished.connect(dialog.set_preview)  # type: ignore[attr-defined]
+        worker.error.connect(dialog.set_preview_error)  # type: ignore[attr-defined]
+        label = tr("Preparing stimulus timeline")
+    else:
+        worker.finished.connect(dialog.set_events)  # type: ignore[attr-defined]
+        worker.error.connect(dialog.set_scan_error)  # type: ignore[attr-defined]
+        worker.cancelled.connect(dialog.set_scan_cancelled)  # type: ignore[attr-defined]
+        label = tr("Finding stimulus events")
+    window._run_job(worker, label=label)
+
+
 def export_stimulus_grid(window: MainWindow) -> None:
-    """Choose sensor events and export their aligned cameras, imaging and sensor bands."""
+    """Choose sensor or TTL events and export an aligned comparison grid or per-event clips."""
     from avialsync.ui import stimulus_grid_sources as sources
-    from avialsync.ui.stimulus_grid_rows import GridRowsPanel
 
-    groups, channels = sources.sensor_groups(window)
-    pictures = sources.camera_rows(window) + sources.imaging_rows(window)
-    rows = GridRowsPanel(pictures, groups, sources.remembered(window))
-    dialog = StimulusGridDialog(channels, window, rows)
-
-    def _start(worker: StimulusEventScanWorker | StimulusTimelineWorker) -> None:
-        if isinstance(worker, StimulusTimelineWorker):
-            worker.finished.connect(dialog.set_preview)
-            worker.error.connect(dialog.set_preview_error)
-            label = tr("Preparing stimulus timeline")
-        else:
-            worker.finished.connect(dialog.set_events)
-            worker.error.connect(dialog.set_scan_error)
-            worker.cancelled.connect(dialog.set_scan_cancelled)
-            label = tr("Finding stimulus events")
-        window._run_job(worker, label=label)
-
-    dialog.scan_requested.connect(_start)
-    dialog.preview_requested.connect(_start)
+    dialog, rows = sources.build_stimulus_dialog(window)
+    dialog.scan_requested.connect(lambda w: _run_stimulus_dialog_worker(window, dialog, w))
+    dialog.preview_requested.connect(lambda w: _run_stimulus_dialog_worker(window, dialog, w))
     dialog.request_preview()
     if dialog.exec() != QDialog.DialogCode.Accepted:
         return
     sources.remember(window, rows.choices())
     events = dialog.selected_events()
+    if not events:
+        return
+    before, after = dialog.before_spin.value(), dialog.after_spin.value()
+    if dialog.export_mode() == "clips":
+        out_dir = choose_folder(window, "clip", tr("Export Event Video Clips"), Path.home())
+        if out_dir:
+            clips = sources.event_clips(window, rows.camera_keys(), events, before, after, out_dir)
+            if clips:
+                start_video_clip_export(window, clips)
+        return
     videos = tuple(rows.picture_rows())
-    if not events or not videos:
+    if not videos:
         return
     destination = choose_file(
         window,
@@ -408,18 +395,21 @@ def export_stimulus_grid(window: MainWindow) -> None:
     )
     if not destination:
         return
-    destination_path = _mp4_output_path(str(destination))
     channel = dialog.channel_option()
+    bands = rows.bands(
+        channel.reference if channel is not None else None,
+        dialog.threshold_spin.value() if channel is not None else None,
+    )
     start_stimulus_grid_export(
         window,
         videos,
         events,
-        dialog.before_spin.value(),
-        dialog.after_spin.value(),
+        before,
+        after,
         dialog.fps_spin.value(),
-        destination_path,
+        _mp4_output_path(str(destination)),
         sources.grid_labels(),
-        bands=tuple(rows.bands(channel.reference, dialog.threshold_spin.value())),
+        bands=tuple(bands),
         playback_speed=dialog.playback_speed(),
         high_detail=dialog.high_detail(),
     )

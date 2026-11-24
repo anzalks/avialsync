@@ -8,11 +8,18 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import numpy as np
 from PySide6.QtCore import QObject, Qt, QTimer
 
 from avialsync.core.timeline import MasterClock
 from avialsync.core.trials import TimeWarp
 from avialsync.engine.seeker import SeekGroup
+
+#: Co-exposure window across synchronized cameras (1 ms): absorbs container
+#: timebase rounding (e.g. Matroska's 1 ms grid vs MP4's 90 kHz grid) and
+#: sub-millisecond hardware trigger / linear-fit residuals while staying well
+#: below even a 500 fps camera's 2 ms frame interval.
+_COEXPOSURE_TOLERANCE_S = 1e-3
 
 if TYPE_CHECKING:
     # Layering: the engine must not depend on the UI at module scope, or
@@ -50,6 +57,27 @@ _PRESENTATION_INTERVAL_S = 1.0 / _PRESENTATION_HZ
 #: monotonic on every platform we ship, the only property ``advance`` needs.
 #: CPython gave ``monotonic`` the same clock in 3.13 (gh-88494); we cannot wait.
 _now = time.perf_counter
+
+
+def _coexposed_ceiling(
+    panes: list[VideoPane], anchor: float, current_t: float, direction: int
+) -> float:
+    """Lift *anchor* across any co-exposed sibling camera frame within 1 ms."""
+    ceiling = anchor
+    limit = anchor + _COEXPOSURE_TOLERANCE_S
+    for pane in panes:
+        frame_times = getattr(pane, "_frame_times", None)
+        time_map = getattr(pane, "time_map", None)
+        if not isinstance(frame_times, np.ndarray) or len(frame_times) == 0 or time_map is None:
+            continue
+        source_anchor = float(time_map.to_source(anchor))
+        start_idx = max(0, int(np.searchsorted(frame_times, source_anchor, side="left")) - 1)
+        stop_idx = min(len(frame_times), start_idx + 4)
+        for idx in range(start_idx, stop_idx):
+            master_pts = float(time_map.to_master(float(frame_times[idx])))
+            if anchor < master_pts <= limit and (direction > 0 or master_pts < current_t - 1e-9):
+                ceiling = max(ceiling, master_pts)
+    return ceiling
 
 
 class Player(QObject):
@@ -270,23 +298,39 @@ class Player(QObject):
     def _frame_step_target(self, panes: list[VideoPane], direction: int) -> float | None:
         """Where one frame step goes: the chosen camera's next frame, else the nearest.
 
-        It followed the first pane, so on a 30 fps + 230 fps rig every step
-        skipped about seven frames of the fast camera. A camera the user chose
-        (``step_reference``) decides; with none chosen, the step lands on the
-        nearest next frame of any camera, so no camera's frame is skipped.
+        Co-exposed frames across synchronized cameras (within
+        :data:`_COEXPOSURE_TOLERANCE_S`) coalesce to the latest timestamp in the
+        cluster so every camera's ``pts <= t`` lookup advances together in one
+        step rather than stepping one camera per key press or leaving a sibling
+        camera one frame behind.
         """
         t = self.clock.state.t
         chosen = self.step_reference() if self.step_reference is not None else None
         if chosen is not None and any(chosen is pane for pane in panes):
-            return chosen.frame_step_master_target(t, direction)
+            chosen_target = chosen.frame_step_master_target(t, direction)
+            if chosen_target is not None and (chosen_target - t) * direction > 1e-9:
+                return _coexposed_ceiling(panes, float(chosen_target), t, direction)
+            if len(panes) == 1:
+                return chosen_target
+        raw_targets = [pane.frame_step_master_target(t, direction) for pane in panes]
+        imaging = getattr(self, "imaging_pane", None)
+        if imaging is not None and imaging.isVisible():
+            raw_targets.append(imaging.frame_step_master_target(t, direction))
         targets = [
-            target
-            for target in (pane.frame_step_master_target(t, direction) for pane in panes)
-            if target is not None and (target - t) * direction > 0
+            float(target)
+            for target in raw_targets
+            if target is not None and (target - t) * direction > 1e-9
         ]
         if not targets:
             return None
-        return min(targets, key=lambda target: abs(target - t))
+        nearest = min(targets, key=lambda target: abs(target - t))
+        cluster_max = max(
+            target
+            for target in targets
+            if abs(target - nearest) <= _COEXPOSURE_TOLERANCE_S
+            and (direction > 0 or target < t - 1e-9)
+        )
+        return _coexposed_ceiling(panes, cluster_max, t, direction)
 
     def _data_step_target(self, direction: int) -> float | None:
         """Where a frame step goes with no video: the next imaging frame, else sample.

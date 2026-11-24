@@ -92,14 +92,19 @@ def remux_clip(source: Path | str, destination: Path | str, start: float, end: f
                 output_stream = output_container.add_stream_from_template(stream)
                 provenance = record("clip", (source,))
                 output_container.metadata["creation_time"] = str(provenance["written"])
+                seek_start = max(0.0, start)
                 input_container.seek(
-                    int(start / time_base), stream=stream, backward=True, any_frame=False
+                    int(seek_start / time_base), stream=stream, backward=True, any_frame=False
                 )
                 first_pts: int | None = None
                 for packet in input_container.demux(stream):
                     if packet.pts is None:
                         continue
-                    if float(packet.pts * time_base) > end:
+                    decode_ticks = packet.dts if packet.dts is not None else packet.pts
+                    if (
+                        float(decode_ticks * time_base) > end
+                        and float(packet.pts * time_base) > end
+                    ):
                         break
                     if first_pts is None:
                         first_pts = packet.pts

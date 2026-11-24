@@ -66,10 +66,11 @@ def adjacent_frame_time(
     Returns:
         The neighbour's presentation timestamp, clamped at either end.
     """
+    if source_time < float(frame_times[0]) - PTS_EPSILON_S:
+        return float(frame_times[0])
+    current = frame_index_at(frame_times, source_time)
     if direction > 0:
-        index = int(np.searchsorted(frame_times, source_time + PTS_EPSILON_S, side="right"))
-        index = min(index, len(frame_times) - 1)
+        index = min(current + 1, len(frame_times) - 1)
     else:
-        index = int(np.searchsorted(frame_times, source_time - PTS_EPSILON_S, side="left")) - 1
-        index = max(index, 0)
+        index = max(current - 1, 0)
     return float(frame_times[index])

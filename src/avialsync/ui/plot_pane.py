@@ -1104,25 +1104,35 @@ class PlotPane(QWidget):
         # Rows are matched by identity, not position: a row removed while the
         # page was prepared must not hand its curve to the row after it.
         alive = {id(channel) for channel in self.channels}
-        for index, x, y in page.rows:
-            if index >= len(self._requested_rows):
-                continue
-            channel = self._requested_rows[index]
-            if id(channel) not in alive:
-                continue
-            channel.curve.setData(x, y)
-            channel.curve.setPos(0.0, 0.0)
-            channel.page_t0 = page.t0
-            if index < len(self._requested_keys):
-                channel._loaded_page_key = self._requested_keys[index]  # type: ignore[attr-defined]
-            if channel.y_mode == Y_AUTO or (
-                channel.y_mode == Y_FIT_ONCE and channel.y_range is None
-            ):
-                fit_channel_y(channel)
-                if channel.y_mode == Y_FIT_ONCE and channel.y_range is not None:
-                    channel.y_mode = Y_MANUAL
-        self._last_installed_generation = page.generation
-        self._refresh_mode_view()
+        suspend = not self._pending_rows
+        if suspend:
+            self.graphics_layout.setUpdatesEnabled(False)
+            self._pinned_layout.setUpdatesEnabled(False)
+        try:
+            for index, x, y in page.rows:
+                if index >= len(self._requested_rows):
+                    continue
+                channel = self._requested_rows[index]
+                if id(channel) not in alive:
+                    continue
+                channel.curve.setData(x, y)
+                if channel.curve.pos().x() != 0.0:
+                    channel.curve.setPos(0.0, 0.0)
+                channel.page_t0 = page.t0
+                if index < len(self._requested_keys):
+                    channel._loaded_page_key = self._requested_keys[index]  # type: ignore[attr-defined]
+                if channel.y_mode == Y_AUTO or (
+                    channel.y_mode == Y_FIT_ONCE and channel.y_range is None
+                ):
+                    fit_channel_y(channel)
+                    if channel.y_mode == Y_FIT_ONCE and channel.y_range is not None:
+                        channel.y_mode = Y_MANUAL
+            self._last_installed_generation = page.generation
+            self._refresh_mode_view()
+        finally:
+            if suspend:
+                self._pinned_layout.setUpdatesEnabled(True)
+                self.graphics_layout.setUpdatesEnabled(True)
         self.page_ready.emit(page.generation)
 
     @Slot(str)
@@ -1145,7 +1155,7 @@ class PlotPane(QWidget):
         """Advance the fixed sweep from the master-clock time."""
         if immediate or self._playing:
             self._sweep_control.follow_time_if_outside(self._warp.to_view(t))
-        self._set_sweep_for_time(t, force=immediate)
+        self._set_sweep_for_time(t, immediate_cursor=immediate)
 
     @property
     def view_mode(self) -> str:
@@ -1770,16 +1780,19 @@ class PlotPane(QWidget):
             )
             self._mode_view.set_cursor_phase(phase, reveal=not review)
 
-    def _set_sweep_for_time(self, t: float, *, force: bool = False) -> float:
+    def _set_sweep_for_time(
+        self, t: float, *, force: bool = False, immediate_cursor: bool = False
+    ) -> float:
         """Derive sweep position from master time and refresh only at boundaries."""
         position = self._sweep_control.advance(self._warp.to_view(t))
-        if position.changed or force:
+        needs_initial_page = self._page_generation == 0 and bool(self.channels)
+        if position.changed or force or needs_initial_page:
             self.update_plots()
             self._redraw_sweep_overlays()
 
         # Time has already advanced; from here down we are only moving pixels.
         # A page boundary changes *what* is drawn, so it is never deferred.
-        if not (position.changed or force) and not self._cursor_repaint_due():
+        if not (position.changed or force or immediate_cursor) and not self._cursor_repaint_due():
             return position.phase
 
         # Two items per visible row: the trace and the cursor.  This loop is the

@@ -1573,6 +1573,7 @@ class Transport(QWidget):
 
         self.slider = ScrubBar(self)
         self.slider.setRange(0, 10000)
+        self._last_t: float | None = None
         self.slider.setAccessibleName(tr("Master timeline scrubber"))
         self.slider.setToolTip(tr("Master timeline — drag to scrub; release for an exact seek"))
         self.slider.sliderPressed.connect(self._on_slider_pressed)
@@ -1951,12 +1952,13 @@ class Transport(QWidget):
 
     def set_time(self, t: float) -> None:
         """Update the displayed time (unless the user is typing)."""
+        self._last_t = float(t)
         if not self._time_editing:
             self._time_edit.setText(format_time(t, self._time_mode, self._t_epoch))
 
         if not self._is_scrubbing:
             if self._bounds[1] > self._bounds[0]:
-                val = max(0, min(10000, int(self._time_to_frac(t) * 10000)))
+                val = max(0, min(10000, round(self._time_to_frac(t) * 10000)))
                 self.slider.blockSignals(True)
                 self.slider.setValue(val)
                 self.slider.blockSignals(False)
@@ -2025,9 +2027,11 @@ class Transport(QWidget):
 
     def _on_slider_pressed(self) -> None:
         self._is_scrubbing = True
+        self._last_t = None
         self.seek_requested.emit(self._t_from_slider(self.slider.value()), False)
 
     def _on_slider_moved(self, val: int) -> None:
+        self._last_t = None
         self.seek_requested.emit(self._t_from_slider(val), False)
 
     def _on_slider_released(self) -> None:
@@ -2045,8 +2049,10 @@ class Transport(QWidget):
         self._time_editing = False
 
     def _on_ab_in(self) -> None:
-        """Set A/B in-point at current slider position."""
-        self._ab_in_t = self._t_from_slider(self.slider.value())
+        """Set A/B in-point at the exact playhead time (or slider position if unset)."""
+        self._ab_in_t = (
+            self._last_t if self._last_t is not None else self._t_from_slider(self.slider.value())
+        )
         self._ab_in_btn.setChecked(True)
         self._pin_in.pin_to_slider(self.slider, self._time_to_frac(self._ab_in_t))
         self._sync_scrub_track()
@@ -2057,8 +2063,10 @@ class Transport(QWidget):
         self._on_ab_in()
 
     def _on_ab_out(self) -> None:
-        """Set A/B out-point at current slider position."""
-        self._ab_out_t = self._t_from_slider(self.slider.value())
+        """Set A/B out-point at the exact playhead time (or slider position if unset)."""
+        self._ab_out_t = (
+            self._last_t if self._last_t is not None else self._t_from_slider(self.slider.value())
+        )
         self._ab_out_btn.setChecked(True)
         self._pin_out.pin_to_slider(self.slider, self._time_to_frac(self._ab_out_t))
         self._sync_scrub_track()

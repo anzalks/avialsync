@@ -950,13 +950,11 @@ class VideoPane(VideoTimingMixin, QWidget):
     def seek(self, t: float, exact: bool = True) -> None:
         """Show the frame whose presentation interval contains source time ``t``.
 
-        ``exact`` is accepted and ignored.  Under libmpv a non-exact seek bought
-        speed by landing on a keyframe; here the frame containing ``t`` costs a
-        few milliseconds when it is anywhere near where the decoder already is,
-        so there is nothing to trade away, and an inexact scrub position is
-        exactly the misattribution frame-exact decoding exists to remove.
+        ``exact`` marks discrete seeks and frame steps (as opposed to continuous
+        mouse-drag scrubbing) so paused OSD and overlay layers flush immediately
+        with the decoded frame rather than waiting for the 20 Hz burst throttle.
         """
-        del exact
+        self._exact_seek = bool(exact)
         if not self._media_loaded or self._worker is None:
             self._pending_seek = float(t)
             return
@@ -1086,15 +1084,23 @@ class VideoPane(VideoTimingMixin, QWidget):
         trailing timer guarantees the final frame of a burst is not dropped.
         """
         now = _elapsed()
-        remaining = _OSD_MIN_INTERVAL_S - (now - self._last_osd_flush)
-        # Anything this close to due is painted now.  Deferring it would arm a
-        # timer for less than the clock's own resolution.
-        if remaining > _OSD_DUE_EPSILON_S:
-            # Leave _osd_event_pending set: newer frames keep overwriting
-            # _pending_osd instead of queueing more events, so the timer paints
-            # the newest frame exactly once.
-            self._arm_osd_flush_timer(remaining)
-            return
+        immediate = bool(
+            getattr(self, "_target_pause", False) and getattr(self, "_exact_seek", True)
+        )
+        if not immediate:
+            remaining = _OSD_MIN_INTERVAL_S - (now - self._last_osd_flush)
+            # Anything this close to due is painted now.  Deferring it would arm a
+            # timer for less than the clock's own resolution.
+            if remaining > _OSD_DUE_EPSILON_S:
+                # Leave _osd_event_pending set: newer frames keep overwriting
+                # _pending_osd instead of queueing more events, so the timer paints
+                # the newest frame exactly once.
+                self._arm_osd_flush_timer(remaining)
+                return
+        else:
+            timer = getattr(self, "_osd_flush_timer", None)
+            if timer is not None and timer.isActive():
+                timer.stop()
 
         with self._osd_lock:
             t, fps = self._pending_osd
