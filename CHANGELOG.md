@@ -21,7 +21,8 @@ full history is in git. Versions follow the tags in the repository.
   synchronized hover crosshairs with inline value pills and on-canvas `Δt`/`Δy` measure callouts,
   sticky pinned plot rows, `Stacked` / `Grouped` / `Overlaid` / `Heatmap` plot modes, unified signal
   grouping across `Sources`, plot gutters, and `Plots`, and a grouped visible-only `Values` inspector
-  with collapsible summary statistics for dense ROI/electrode banks (D-252, D-254).
+  with collapsible summary statistics for dense ROI/electrode banks and a clean empty-state layout
+  (D-252, D-254).
 - Perceptual imaging colormaps (`Viridis`, `Magma`, `Inferno`, `Turbo`), under/over-exposure clipping
   highlights, live `(x, y)` pixel intensity readouts, and bidirectional 2P ROI-to-plot linking
   (D-253).

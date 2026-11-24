@@ -75,9 +75,6 @@ def connect_transport_and_panes(window: MainWindow) -> None:
     window.plot_pane.visible_sources_changed.connect(
         lambda readers: window.readout_panel.update_sources(readers, window._channel_units)
     )
-    window.time_mode_changed.connect(
-        lambda mode: window.readout_panel.set_time_mode(mode, window.session_start_time)
-    )
     window.transport.marker_move_requested.connect(window.annotation_store.set_span)
     window.changes_panel.ethogram_bar.slot_activated.connect(
         lambda digit: ethogram_bar.trigger_ethogram_slot(window, digit)

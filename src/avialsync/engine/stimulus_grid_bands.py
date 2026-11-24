@@ -23,7 +23,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from PySide6.QtCore import QRect, Qt
-from PySide6.QtGui import QColor, QFont, QPainter, QPen
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QPainter, QPen
 
 from avialsync.engine.export_worker import ReaderReference
 from avialsync.engine.stimulus_grid_trace import GridTrace, draw_relative_ticks
@@ -283,6 +283,13 @@ def _draw_mean(
         previous = point
 
 
+def _band_font(point_size: int = 9) -> QFont:
+    """Return an installed system UI font sized for rendered grid bands."""
+    font = QFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.GeneralFont))
+    font.setPointSize(point_size)
+    return font
+
+
 def draw_band_background(
     painter: QPainter,
     area: QRect,
@@ -298,7 +305,7 @@ def draw_band_background(
     """Draw one band's events, means, names and trigger line once for every frame."""
     left, top, width, height = area.x(), area.y(), area.width(), area.height()
     painter.fillRect(area, _BACKGROUND)
-    painter.setFont(QFont("Arial", 9))
+    painter.setFont(_band_font(9))
     _draw_names(painter, area, band, title)
     scales = _scales(band, traces, area)
 
@@ -370,7 +377,7 @@ def draw_band_cursor(
     left, top, width, height = area.x(), area.y(), area.width(), area.height()
     if current_label is not None:
         painter.setPen(_TEXT)
-        painter.setFont(QFont("Arial", 9))
+        painter.setFont(_band_font(9))
         painter.drawText(
             QRect(left, top - 24, width, 22),
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,

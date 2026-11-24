@@ -6,7 +6,7 @@ from collections.abc import Sequence
 
 import numpy as np
 from PySide6.QtCore import QRect, Qt
-from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPen
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QImage, QPainter, QPen
 
 from avialsync.core.timeline import TimeMap
 from avialsync.engine.display_pipeline import to_display_array
@@ -113,6 +113,14 @@ def _render_background(
     return image
 
 
+def _grid_font(point_size: int, weight: QFont.Weight = QFont.Weight.Normal) -> QFont:
+    """Return an installed system UI font sized for off-screen grid labels."""
+    font = QFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.GeneralFont))
+    font.setPointSize(point_size)
+    font.setWeight(weight)
+    return font
+
+
 def _draw_grid_labels(
     painter: QPainter,
     videos: Sequence[GridRow],
@@ -122,7 +130,7 @@ def _draw_grid_labels(
 ) -> None:
     """Name each event column and picture row outside the image tiles."""
     painter.setPen(QColor("#f1f4f2"))
-    painter.setFont(QFont("Arial", 11, QFont.Weight.DemiBold))
+    painter.setFont(_grid_font(11, QFont.Weight.DemiBold))
     painter.drawText(
         QRect(12, 0, layout.width - 24, _TOP_BAND),
         Qt.AlignmentFlag.AlignVCenter,
@@ -132,7 +140,7 @@ def _draw_grid_labels(
     for event_index, event_time in enumerate(events):
         x = layout.cell_rect(0, event_index).x()
         painter.setPen(QColor("#c3d1cd"))
-        painter.setFont(QFont("Arial", 9))
+        painter.setFont(_grid_font(9))
         painter.drawText(
             QRect(x, _TOP_BAND, layout.cell_width, _COLUMN_LABEL_HEIGHT),
             Qt.AlignmentFlag.AlignCenter,
@@ -210,7 +218,7 @@ def _draw_ruler(
     y = layout.height - layout.bottom_band + 12
     left = _LEFT_GUTTER
     width = layout.width - _LEFT_GUTTER - _RIGHT_GUTTER
-    painter.setFont(QFont("Arial", 9))
+    painter.setFont(_grid_font(9))
     painter.setPen(QPen(QColor("#879894"), 1))
     painter.drawLine(left, y, left + width, y)
     painter.setPen(QColor("#c3d1cd"))

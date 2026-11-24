@@ -268,14 +268,6 @@ class PlotModeCanvas(QWidget):
 
     def _clear_items(self) -> None:
         for curve in self._curves:
-            try:
-                parent = curve.parentItem()
-                if parent is not None:
-                    scene = curve.scene()
-                    if scene is not None:
-                        scene.removeItem(curve)
-            except RuntimeError:
-                pass
             with_plot = getattr(curve, "_host_plot", self.plot_item)
             try:
                 with_plot.removeItem(curve)

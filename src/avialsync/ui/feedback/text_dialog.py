@@ -20,7 +20,7 @@ ad-hoc dialect has nowhere else to be added.
 
 from __future__ import annotations
 
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QFontDatabase
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -68,11 +68,13 @@ class TextDialog(QDialog):
             tr("Read-only text. Use the Copy button to put it on the clipboard.")
         )
         if monospace:
-            # Columns only line up in a fixed pitch, and every caller here is
-            # showing something aligned in columns or wrapped at a fixed width.
+            # Resolve the platform's registered fixed-pitch family (e.g. Menlo on
+            # macOS, Consolas on Windows) via QFontDatabase rather than passing a
+            # CSS/X11 alias like "monospace", which triggers a ~90 ms CoreText
+            # font-alias scan on macOS.
+            fixed = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
             font = QFont(self.body.font())
-            font.setStyleHint(QFont.StyleHint.Monospace)
-            font.setFamily("monospace")
+            font.setFamily(fixed.family())
             self.body.setFont(font)
         layout.addWidget(self.body)
 

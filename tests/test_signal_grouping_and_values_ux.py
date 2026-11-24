@@ -214,3 +214,103 @@ def test_grouped_plot_mode_and_values_ux_present_clean_grouped_signals(
     finally:
         if isValid(window):
             window.close()
+
+
+def test_empty_values_page_has_no_playhead_header_or_blank_scroll_gap(qapp, qtbot) -> None:
+    from avialsync.ui.readout_panel import ReadoutPanel
+
+    panel = ReadoutPanel()
+    qtbot.addWidget(panel)
+    panel.resize(260, 620)
+    panel.show()
+    qapp.processEvents()
+
+    assert panel.empty_note.isVisibleTo(panel)
+    assert not panel._scroll.isVisibleTo(panel)
+    assert not panel._toolbar.isVisibleTo(panel)
+    assert panel.empty_note.height() > 200
+    assert panel.empty_note.label.height() >= panel.empty_note.label.sizeHint().height()
+    shown_labels = [lbl.text() for lbl in panel.findChildren(QLabel) if lbl.isVisibleTo(panel)]
+    assert not any("Playhead" in text for text in shown_labels)
+
+
+def test_no_missing_font_aliases_or_scene_remove_warnings(
+    qapp, qtbot, tmp_path: Path, monkeypatch
+) -> None:
+    import re
+
+    from PySide6.QtCore import QtMsgType, qInstallMessageHandler
+
+    from avialsync.ui.batch_import_dialog import BatchImportDialog
+    from avialsync.ui.feedback.text_dialog import TextDialog
+    from avialsync.ui.import_report import ImportReportDialog
+    from avialsync.ui.plot_modes import PLOT_MODE_HEATMAP, PLOT_MODE_OVERLAY
+    from avialsync.ui.preferences_dialog import PreferencesDialog
+    from avialsync.ui.shortcuts_dialog import ShortcutsDialog
+
+    # 1. Source guard against missing X11/CSS/OS-specific font family literals
+    bad_font_re = re.compile(
+        r'(?:QFont|setFamily)\(\s*["\'](?:monospace|Monospace|sans-serif|Arial|Helvetica)["\']'
+    )
+    offenders: list[str] = []
+    for py_path in sorted(Path("src/avialsync").rglob("*.py")):
+        text = py_path.read_text(encoding="utf-8")
+        if bad_font_re.search(text):
+            offenders.append(str(py_path))
+    assert offenders == [], f"Hardcoded non-portable font family literals found: {offenders}"
+
+    # 2. Live Qt warning guard across dialogs and plot modes
+    rec = tmp_path / "rec"
+    rec.mkdir(exist_ok=True)
+    monkeypatch.setattr(recovery, "recovery_dir", lambda: rec)
+
+    warnings_seen: list[str] = []
+
+    def _capture(mode: QtMsgType, _ctx, message: str) -> None:
+        if mode == QtMsgType.QtDebugMsg:
+            return
+        if "propagateSizeHints" in message:
+            return
+        warnings_seen.append(message)
+
+    previous_handler = qInstallMessageHandler(_capture)
+    try:
+        cache_dir = tmp_path / "warn_cache"
+        cache_dir.mkdir()
+        times = np.linspace(0.0, 2.0, 50, dtype=np.float64)
+        for name in ("Grp.a", "Grp.b", "solo"):
+            PyramidBuilder(cache_dir, name).build_and_save(times, np.cos(times))
+
+        win = MainWindow()
+        qtbot.addWidget(win)
+        win.resize(1100, 720)
+        win.show()
+        win.plot_pane.set_timeline_bounds(0.0, 2.0)
+        win.plot_pane.set_window_duration(2.0)
+        win.plot_pane.load_channels(cache_dir, ["Grp.a", "Grp.b", "solo"], source_id="s.nwb")
+        win.plot_pane.wait_for_pending_rows()
+        qtbot.waitUntil(lambda: win.plot_pane._last_installed_generation > 0, timeout=3000)
+
+        for mode in (PLOT_MODE_GROUPED, PLOT_MODE_OVERLAY, PLOT_MODE_HEATMAP, PLOT_MODE_STACKED):
+            win.plot_pane.set_view_mode(mode)
+            qapp.processEvents()
+
+        td = TextDialog("Values", "line 1\nline 2", parent=win)
+        td.show()
+        pd = PreferencesDialog(win)
+        pd.show()
+        sd = ShortcutsDialog({"File": [win._act_open_video]}, win)
+        sd.show()
+        ird = ImportReportDialog(None, win, properties="k: v", title="Props")
+        ird.show()
+        bid = BatchImportDialog([], win)
+        bid.show()
+        qapp.processEvents()
+
+        for dlg in (bid, ird, sd, pd, td):
+            dlg.close()
+        win.close()
+    finally:
+        qInstallMessageHandler(previous_handler)
+
+    assert warnings_seen == [], f"Unexpected Qt runtime warnings: {warnings_seen}"

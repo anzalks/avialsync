@@ -37,7 +37,6 @@ from avialsync.ui.readout_widgets import (
     set_monospace,
 )
 from avialsync.ui.theme import set_bold
-from avialsync.ui.time_format import TimeDisplayMode, format_time
 
 __all__ = ["ReadoutPanel", "_ChannelReadout", "_MAX_WIDGET_ROWS"]
 
@@ -78,14 +77,19 @@ class ReadoutPanel(QWidget):
         outer.setContentsMargins(spacing("s"), spacing("s"), spacing("s"), spacing("s"))
         outer.setSpacing(spacing("xs"))
 
-        top_bar = QHBoxLayout()
+        self._toolbar = QWidget(self)
+        top_bar = QHBoxLayout(self._toolbar)
         top_bar.setContentsMargins(0, 0, 0, 0)
         top_bar.setSpacing(spacing("xs"))
-        self._time_lbl = ElidedLabel(tr("Playhead: —"), self)
-        set_monospace(self._time_lbl)
-        self._time_lbl.setMinimumWidth(48)
 
-        self._text_summary_button = QPushButton(tr("Text view…"), self)
+        self._filter_edit = QLineEdit(self._toolbar)
+        self._filter_edit.setPlaceholderText(tr("Filter signals…"))
+        self._filter_edit.setClearButtonEnabled(True)
+        self._filter_edit.setAccessibleName(tr("Filter displayed signal values"))
+        self._filter_edit.setVisible(False)
+        self._filter_edit.textChanged.connect(self._apply_filter)
+
+        self._text_summary_button = QPushButton(tr("Text view…"), self._toolbar)
         self._text_summary_button.setSizePolicy(
             QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed
         )
@@ -94,24 +98,17 @@ class ReadoutPanel(QWidget):
             tr("Open a copyable text summary of channel values and camera frames.")
         )
         self._text_summary_button.clicked.connect(self._show_text_summary)
-        top_bar.addWidget(self._time_lbl, stretch=1)
-        top_bar.addWidget(self._text_summary_button)
-        outer.addLayout(top_bar)
-
-        self._filter_edit = QLineEdit(self)
-        self._filter_edit.setPlaceholderText(tr("Filter signals…"))
-        self._filter_edit.setClearButtonEnabled(True)
-        self._filter_edit.setAccessibleName(tr("Filter displayed signal values"))
-        self._filter_edit.setVisible(False)
-        self._filter_edit.textChanged.connect(self._apply_filter)
-        outer.addWidget(self._filter_edit)
+        top_bar.addWidget(self._filter_edit, stretch=1)
+        top_bar.addStretch(0)
+        top_bar.addWidget(self._text_summary_button, 0, Qt.AlignmentFlag.AlignRight)
+        outer.addWidget(self._toolbar)
 
         self._scroll = QScrollArea(self)
         self._scroll.setWidgetResizable(True)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._scroll.viewport().setAutoFillBackground(False)
-        outer.addWidget(self._scroll, stretch=1)
+        outer.addWidget(self._scroll)
 
         self.empty_note = EmptyNote(
             tr(
@@ -163,8 +160,6 @@ class ReadoutPanel(QWidget):
         self._signal_headers: list[QWidget] = []
         self._cursor_time: float | None = None
         self._cursor_dirty = False
-        self._time_mode = TimeDisplayMode.RELATIVE
-        self._t_epoch = 0.0
 
         self._overflow_lbl = QLabel(self._signals_box)
         self._overflow_lbl.setWordWrap(True)
@@ -187,21 +182,12 @@ class ReadoutPanel(QWidget):
         set_monospace(self._delta_t_lbl)
         self._delta_t_lbl.setVisible(False)
 
+        self._refresh_empty()
+
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
         if self._cursor_dirty:
             self._flush_cursor()
-
-    def set_time_mode(self, mode: TimeDisplayMode, t_epoch: float = 0.0) -> None:
-        """Keep the playhead header synchronized with the application time display."""
-        self._time_mode = mode
-        self._t_epoch = t_epoch
-        if self._cursor_time is not None:
-            self._update_time_header(self._cursor_time)
-
-    def _update_time_header(self, t: float) -> None:
-        formatted = format_time(t, self._time_mode, self._t_epoch)
-        self._time_lbl.setText(tr("Playhead: {time}").format(time=formatted))
 
     # ── Public API ────────────────────────────────────────────────────
 
@@ -433,7 +419,6 @@ class ReadoutPanel(QWidget):
         t = self._cursor_time
         if t is None:
             return
-        self._update_time_header(t)
 
         collapsed_keys: set[ChannelKey] = set()
         for section, keys in self._group_sections:
@@ -514,9 +499,10 @@ class ReadoutPanel(QWidget):
         self.empty_note.set_action(action)
 
     def _refresh_empty(self) -> None:
-        is_empty = not self._rows and not self._cam_rows
-        self.empty_note.setVisible(is_empty)
-        self._scroll.setVisible(not is_empty)
+        has_values = bool(self._rows or self._cam_rows or self._delta_rows or self._stats_rows)
+        self.empty_note.setVisible(not has_values)
+        self._scroll.setVisible(has_values)
+        self._toolbar.setVisible(bool(self._rows or self._cam_rows))
 
     def set_camera_states(self, states: list[tuple[str, float, float]]) -> None:
         """Update per-camera frame display.  states = [(label, time_pos, fps), ...]"""
@@ -570,6 +556,7 @@ class ReadoutPanel(QWidget):
         try:
             self._clear_stats()
             if not stats_list:
+                self._refresh_empty()
                 return
             self._stats_label.setVisible(True)
             self._extras_layout.addWidget(self._stats_label)
@@ -581,6 +568,7 @@ class ReadoutPanel(QWidget):
                 row.set_stats(stats)
                 self._extras_layout.addWidget(row)
                 self._stats_rows[ch] = row
+            self._refresh_empty()
         finally:
             self._content.setUpdatesEnabled(True)
 
@@ -641,14 +629,17 @@ class ReadoutPanel(QWidget):
                     )
                     self._extras_layout.addWidget(r)
                     self._delta_extra_widgets.append(r)
+            self._refresh_empty()
         finally:
             self._content.setUpdatesEnabled(True)
 
     def clear_region_stats(self) -> None:
         self._clear_stats()
+        self._refresh_empty()
 
     def clear_delta(self) -> None:
         self._clear_delta()
+        self._refresh_empty()
 
     def _clear_stats(self) -> None:
         self._stats_label.setVisible(False)
