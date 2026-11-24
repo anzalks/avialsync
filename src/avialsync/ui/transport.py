@@ -1527,7 +1527,7 @@ class Transport(QWidget):
 
     # Ordered playback-rate steps (J/K/L model)
     _RATE_STEPS = PLAYBACK_RATE_STEPS
-    _COMPACT_TIMELINE_WIDTH = 760
+    _MIN_SINGLE_ROW_SLIDER_WIDTH = 120
     _MIN_COMPACT_WIDTH = 392
 
     def __init__(self, parent: QWidget | None = None):
@@ -2020,9 +2020,28 @@ class Transport(QWidget):
         hint = self._root_layout.minimumSize()
         return QSize(min(hint.width(), self._MIN_COMPACT_WIDTH), hint.height())
 
+    def _single_row_min_width(self) -> int:
+        """Minimum width required to keep all transport controls and a usable slider on one row."""
+        margins = self._root_layout.contentsMargins()
+        gap = max(0, self._timeline_layout.spacing())
+        items = (
+            *self._playhead_buttons,
+            self._time_edit,
+            self._end_time_label,
+            *self._loop_rate_controls,
+        )
+        controls_w = sum(max(w.minimumWidth(), w.minimumSizeHint().width()) for w in items)
+        return (
+            margins.left()
+            + margins.right()
+            + controls_w
+            + self._MIN_SINGLE_ROW_SLIDER_WIDTH
+            + gap * len(items)
+        )
+
     def _sync_timeline_mode(self, width: int) -> None:
         """Split seek and transport controls into two rows when narrow."""
-        want_compact = 0 < width < self._COMPACT_TIMELINE_WIDTH
+        want_compact = 0 < width < self._single_row_min_width()
         if want_compact == self._compact_timeline:
             return
         while self._timeline_layout.count():
@@ -2065,6 +2084,12 @@ class Transport(QWidget):
         super().showEvent(event)
         self._sync_timeline_mode(self.width())
         self._repin()
+
+    def changeEvent(self, event: QEvent) -> None:  # noqa: N802
+        super().changeEvent(event)
+        if event.type() in (QEvent.Type.FontChange, QEvent.Type.StyleChange):
+            self._sync_timeline_mode(self.width())
+            self._repin()
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)

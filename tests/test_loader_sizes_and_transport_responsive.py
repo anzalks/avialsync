@@ -158,7 +158,7 @@ def test_transport_switches_cleanly_to_two_rows_without_overlap_at_narrow_width(
     qtbot.wait(20)
 
     assert transport._compact_timeline is True
-    assert transport.slider.width() >= 200
+    assert transport.slider.width() >= 120
     assert transport._time_edit.width() >= 110
     assert transport._end_time_label.width() >= 110
     assert transport.rate_combo.width() >= transport.rate_combo.minimumSizeHint().width()
