@@ -253,6 +253,11 @@ class PlotPane(QWidget):
         self._last_cursor_repaint = 0.0
         self._pending_rows: list[tuple[Path, str, TimeMap, str, bool]] = []
         self._pending_pinned: set[tuple[str, str]] = set()
+        self._retiring_rows: list[ChannelPlot] = []
+        self._retire_timer = QTimer(self)
+        self._retire_timer.setSingleShot(True)
+        self._retire_timer.setInterval(1)
+        self._retire_timer.timeout.connect(self._drain_retiring_rows)
         # The rows the page in flight was requested for, by request index.
         self._requested_rows: tuple[ChannelPlot, ...] = ()
         self._requested_keys: tuple[tuple[object, ...] | None, ...] = ()
@@ -337,8 +342,51 @@ class PlotPane(QWidget):
         """
         self._closed = True
         self.cancel_pending_rows()
+        self._retire_timer.stop()
+        self._retiring_rows.clear()
         if self._page_manager is not None:
             self._page_manager.shutdown()
+
+    def _drain_retiring_rows(self) -> None:
+        """Drop detached PlotItem wrappers in small slices so GC never stalls the UI."""
+        if not self._retiring_rows:
+            return
+        del self._retiring_rows[:24]
+        if self._retiring_rows and not self._closed:
+            self._retire_timer.start()
+
+    def _detach_rows_bulk(self, to_remove: list[ChannelPlot]) -> None:
+        """Detach *to_remove* from graphics layouts without O(N^2) itemIndex scans."""
+        remove_ids = {id(ch) for ch in to_remove}
+        all_unpinned = all(id(ch) in remove_ids for ch in self.channels if not ch.pinned_in_layout)
+        all_pinned = all(id(ch) in remove_ids for ch in self.channels if ch.pinned_in_layout)
+        for ch in to_remove:
+            vb_blocked = ch.plot_item.vb.blockSignals(True)
+            try:
+                ch.plot_item.setXLink(None)
+            finally:
+                ch.plot_item.vb.blockSignals(vb_blocked)
+        if all_unpinned:
+            self.graphics_layout.clear()
+        if all_pinned:
+            self._pinned_layout.clear()
+        for ch in to_remove:
+            if ch.pinned_in_layout:
+                if not all_pinned:
+                    self._pinned_layout.removeItem(ch.plot_item)
+                    self._pinned_layout.removeItem(ch.close_proxy)
+            elif not all_unpinned:
+                self.graphics_layout.removeItem(ch.plot_item)
+                self.graphics_layout.removeItem(ch.close_proxy)
+            ch.close_proxy.deleteLater()
+
+    def _retire_detached_rows(self, rows: list[ChannelPlot]) -> None:
+        """Queue detached rows for sliced C++ PlotItem destruction after readers close."""
+        if not rows or self._closed or len(rows) <= 24:
+            return
+        self._retiring_rows.extend(rows)
+        if not self._retire_timer.isActive():
+            self._retire_timer.start()
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         """Coalesce resize storms before selecting a new pyramid resolution."""
@@ -535,13 +583,12 @@ class PlotPane(QWidget):
         self._interactions._hover.discard_items()
         self._interactions.clear_measure()
         readers_to_close = [channel.reader.source_reader for channel in self.channels]
+        detached = list(self.channels)
         self.graphics_layout.setUpdatesEnabled(False)
         self._pinned_layout.setUpdatesEnabled(False)
         try:
-            for channel in self.channels:
-                channel.plot_item.setXLink(None)
-                owner = self._pinned_layout if channel.pinned_in_layout else self.graphics_layout
-                detach_row(owner, channel)
+            if detached:
+                self._detach_rows_bulk(detached)
             self.channels.clear()
             self._index_cache = None
             # The rows of a page still in flight hold their readers' memory maps.
@@ -567,6 +614,7 @@ class PlotPane(QWidget):
         self._interactions.redraw_page_overlays()
         for reader in readers_to_close:
             reader.close()
+        self._retire_detached_rows(detached)
 
     def _finish_loading(self) -> None:
         """Apply the once-per-load work after the last queued row exists."""
@@ -796,17 +844,13 @@ class PlotPane(QWidget):
             self._interactions.forget_gap_markers(ch.reader.key)
         if to_remove:
             remove_ids = {id(ch) for ch in to_remove}
+            if any(id(ch) in remove_ids for ch in self._requested_rows):
+                self._requested_rows = ()
+                self._requested_keys = ()
             self.graphics_layout.setUpdatesEnabled(False)
             self._pinned_layout.setUpdatesEnabled(False)
             try:
-                for ch in reversed(to_remove):
-                    vb_blocked = ch.plot_item.vb.blockSignals(True)
-                    try:
-                        ch.plot_item.setXLink(None)
-                    finally:
-                        ch.plot_item.vb.blockSignals(vb_blocked)
-                    owner = self._pinned_layout if ch.pinned_in_layout else self.graphics_layout
-                    detach_row(owner, ch)
+                self._detach_rows_bulk(to_remove)
                 self.channels = [ch for ch in self.channels if id(ch) not in remove_ids]
                 self._index_cache = None
                 if any(self._master_plot == ch.plot_item for ch in to_remove):
@@ -827,6 +871,7 @@ class PlotPane(QWidget):
         self._interactions.redraw_page_overlays()
         for ch in to_remove:
             ch.reader.source_reader.close()
+        self._retire_detached_rows(to_remove)
 
     def _channel_maps(
         self,
@@ -919,6 +964,7 @@ class PlotPane(QWidget):
         self._interactions.redraw_page_overlays()
         for ch in to_remove:
             ch.reader.source_reader.close()
+        self._retire_detached_rows(to_remove)
 
     def load_source(self, cache_dir: Path, channel_id: str) -> None:
         """Backwards compatibility for the original single-channel load."""
