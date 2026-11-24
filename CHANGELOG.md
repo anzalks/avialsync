@@ -6,6 +6,8 @@ full history is in git. Versions follow the tags in the repository.
 
 ## Unreleased
 
+## 0.1.14 — 2026-11-25
+
 ### Added
 - Multi-monitor detachment for the 3D view, the two-photon imaging pane, individual camera tiles, and
   secondary inspector pages (`Values`, `Changes`, etc.), undoable camera reordering (`Alt`+drag or

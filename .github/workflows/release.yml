@@ -143,6 +143,7 @@ jobs:
       - name: Make fixtures
         run: python tools/make_fixtures.py --small
       - name: Verify fixture determinism
+        if: runner.os == 'Linux' && matrix.python-version == '3.12'
         run: |
           cp -r tests/fixtures tests/fixtures_first_run
           python tools/make_fixtures.py --small

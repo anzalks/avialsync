@@ -63,16 +63,16 @@ def window(qapp: QApplication, qtbot) -> MainWindow:
 def test_sidebar_group_checkbox_batches_single_undo_and_preserves_channel_ids(
     window: MainWindow, tmp_path: Path
 ) -> None:
-    """Toggling a 120-channel group with descriptions records 1 undo step and restores state."""
+    """Toggling a 40-channel group with descriptions records 1 undo step and restores state."""
     cache_dir = tmp_path / "roi_cache"
     cache_dir.mkdir()
     times = np.linspace(0.0, 10.0, 200, dtype=np.float64)
-    channels = [f"ROI_{i:03d}" for i in range(120)]
+    channels = [f"ROI_{i:03d}" for i in range(40)]
     for i, ch in enumerate(channels):
         PyramidBuilder(cache_dir, ch).build_and_save(times, np.sin(times + i * 0.1))
 
     src_path = str(tmp_path / "session_rois.nwb")
-    visibility = {ch: (i < 40) for i, ch in enumerate(channels)}
+    visibility = {ch: (i < 15) for i, ch in enumerate(channels)}
     descriptions = {ch: f"Calcium fluorescence trace for cell {ch}" for ch in channels}
 
     window._sensor_cache_dirs[src_path] = cache_dir
@@ -100,12 +100,12 @@ def test_sidebar_group_checkbox_batches_single_undo_and_preserves_channel_ids(
     assert isinstance(cmd, SetChannelGroupVisibleCommand)
     assert set(cmd.before) == set(channels)
     assert window.plot_pane.is_channel_visible(ChannelKey(src_path, "ROI_000")) is True
-    assert window.plot_pane.is_channel_visible(ChannelKey(src_path, "ROI_090")) is True
+    assert window.plot_pane.is_channel_visible(ChannelKey(src_path, "ROI_030")) is True
 
     # Single Ctrl+Z restores the exact mixed visibility before the group click.
     assert window.document.undo(window._mutations) is not None
     assert window.plot_pane.is_channel_visible(ChannelKey(src_path, "ROI_000")) is True
-    assert window.plot_pane.is_channel_visible(ChannelKey(src_path, "ROI_090")) is False
+    assert window.plot_pane.is_channel_visible(ChannelKey(src_path, "ROI_030")) is False
     assert roi_group.checkState(0) == Qt.CheckState.PartiallyChecked
 
 

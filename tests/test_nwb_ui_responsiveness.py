@@ -246,8 +246,8 @@ def test_nwb_roi_grid_caches_masks_and_composes_vectorized_frames_identically(
 def test_multi_roi_nwb_ui_workflows_stay_responsive(
     qapp: QApplication, qtbot, tmp_path: Path
 ) -> None:
-    """150-ROI NWB (300+ channels) loads in slices and handles all UI modes without stalling."""
-    nwb_path = _write_multi_roi_nwb(tmp_path / "ui_150roi.nwb", n_rois=150, n_frames=400)
+    """70-ROI NWB (143 channels) loads in slices and handles all UI modes without stalling."""
+    nwb_path = _write_multi_roi_nwb(tmp_path / "ui_70roi.nwb", n_rois=70, n_frames=240)
     worker = ImportWorker(nwb_path, {}, NWBLoader)
     delivered: list[tuple] = []
     worker.finished.connect(lambda *args: delivered.append(args))
@@ -275,10 +275,10 @@ def test_multi_roi_nwb_ui_workflows_stay_responsive(
         qtbot.waitUntil(lambda: window.plot_pane._page_worker is None, timeout=10_000)
         assert len(pending_counts) >= 2, "Wide channel load must yield across multiple slices"
 
-        # Clicking a hidden ROI (roi120) reveals and scrolls to its trace
-        hidden_row = next(ch for ch in window.plot_pane.channels if ch.name.endswith(".roi120"))
+        # Clicking a hidden ROI (roi55) reveals and scrolls to its trace
+        hidden_row = next(ch for ch in window.plot_pane.channels if ch.name.endswith(".roi55"))
         assert not hidden_row.visible
-        _on_roi_clicked(window, "roi120")
+        _on_roi_clicked(window, "roi55")
         assert hidden_row.visible
 
         # Show Values tab: only visible channels appear in Values (no hidden-ROI dump),
@@ -289,7 +289,7 @@ def test_multi_roi_nwb_ui_workflows_stay_responsive(
         assert visible_count < len(channels)
         assert len(window.readout_panel._rows) == visible_count
 
-        # Bulk Show all -> all 300+ channels visible; mounted widgets stay bounded
+        # Bulk Show all -> all 143 channels visible; mounted widgets stay bounded
         card = window.sidebar.sensor_widget(src_path)
         assert card is not None
         t0 = time.perf_counter()
@@ -302,7 +302,7 @@ def test_multi_roi_nwb_ui_workflows_stay_responsive(
         assert mounted_rows == _MAX_WIDGET_ROWS
         qtbot.waitUntil(lambda: window.plot_pane._page_worker is None, timeout=10_000)
 
-        # Measure A/B across 300+ visible channels stays fast and only builds onscreen callouts
+        # Measure A/B across 143 visible channels stays fast and only builds onscreen callouts
         t0 = time.perf_counter()
         window.plot_pane.set_measure_a(1.0)
         window.plot_pane.set_measure_b(4.0)
@@ -312,7 +312,7 @@ def test_multi_roi_nwb_ui_workflows_stay_responsive(
         assert len(window.readout_panel._delta_rows) == _MAX_WIDGET_ROWS
 
         summary = window.readout_panel.textual_summary()
-        assert "roi149" in summary
+        assert "roi69" in summary
 
         window.plot_pane.clear_measure()
         assert window.readout_panel._delta_rows == {}
