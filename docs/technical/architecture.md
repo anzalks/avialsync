@@ -37,7 +37,7 @@ them.
 | `core/` | Headless timeline, cache, session, synchronization, command bus, settings schema, and plugin contracts. It does not import the Qt interface. |
 | `loaders/` | Built-in readers for CSV, tracking, standard video, two-photon HDF5/TIFF stacks, NWB (HDF5, Zarr, DANDI), Vicon C3D, Open Ephys / Neo, and AOL sessions. Third-party readers use the same plugin contracts. |
 | `engine/` | Background imports, cache construction, playback coordination, exports, and synchronization workers. |
-| `ui/` | The desktop window, multi-monitor detached views, video panes, decimated stacked/overlaid/heatmap plots, imaging viewer, sidebar, transport and ethogram controls, dialogs, and the registries that keep actions, overlays, and feedback single-authored. |
+| `ui/` | The desktop window, multi-monitor detached views, video panes, decimated stacked/grouped/overlaid/heatmap plots, imaging viewer, sidebar, transport and ethogram controls, dialogs, and the registries that keep actions, overlays, and feedback single-authored. |
 
 The main window is a composition rather than one large class. `ui/main_window.py` builds the
 window in ordered construction phases and keeps the Qt receivers, so every signal is still

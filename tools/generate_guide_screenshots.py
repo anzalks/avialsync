@@ -18,8 +18,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtGui import QCursor
+from PySide6.QtWidgets import QApplication, QDialogButtonBox
 
 from avialsync.core.triggers import TriggerKind
 from avialsync.engine.importer import ImportWorker
@@ -105,6 +106,7 @@ def _generate(out_dir: Path, session: Path) -> None:
     window = MainWindow()
     window.resize(1280, 860)
     window.show()
+    QCursor.setPos(QPoint(10, 10))
     settle(app)
     pin_layout(window)
     settle(app)
@@ -150,11 +152,13 @@ def _capture_messages(window: MainWindow, app: QApplication, out_dir: Path, sess
     # scrolled off the right edge, and the image would show times and a source
     # but not a single message.
     window.resizeDocks([window.inspector_dock], [640], Qt.Orientation.Horizontal)
+    window.setFocus()
     settle(app)
     capture(
         window,
         out_dir / "guide_messages_tab.png",
-        [window.message_panel],
+        [window.message_panel._notes, window.message_panel._table],
+        numbered=True,
         crop=window._left_tabs,
     )
     window._left_tabs.setCurrentIndex(0)
@@ -204,11 +208,12 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path, session: 
         preview = handle.read(64 * 1024)
     wizard = ImportWizard(import_path, preview)
     wizard.show()
+    wizard.setFocus()
     settle(app)
     capture(
         wizard,
         out_dir / "guide_import_structure.png",
-        [wizard._has_headers_cb, wizard._sep_combo, wizard._time_col_combo],
+        [wizard._has_headers_cb, wizard._sep_combo, wizard._time_col_combo, wizard._units_table],
         numbered=True,
     )
     capture(
@@ -220,7 +225,7 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path, session: 
     capture(
         wizard,
         out_dir / "guide_import_timezone.png",
-        [wizard._tz_combo, wizard._anchor_chk],
+        [wizard._tz_combo, (wizard._anchor_chk, wizard._anchor_date)],
         numbered=True,
     )
     capture(
@@ -241,6 +246,7 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path, session: 
     wizards = window.findChildren(SyncWizard)
     if wizards:
         wizard = wizards[0]
+        wizard.setFocus()
         settle(app)
         _select_by_text(wizard._reference_combo, "cam_strobe")
         wizard._use_all_times_chk.setChecked(False)
@@ -251,10 +257,11 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path, session: 
             numbered=True,
         )
         _select_by_text(wizard._reference_combo, "TTL")
+        settle(app)
         capture(
             wizard,
             out_dir / "guide_sync_ttl_threshold.png",
-            [wizard._threshold, wizard._use_all_times_chk],
+            [wizard._threshold, wizard._use_all_times_chk, wizard._recorded_strobe],
             numbered=True,
         )
         _select_by_text(wizard._reference_combo, "cam_strobe")
@@ -294,16 +301,23 @@ def _capture_all(window: MainWindow, app: QApplication, out_dir: Path, session: 
         if wizard.proposal is None:
             raise RuntimeError(f"Synchronization preview failed: {wizard._summary.text()}")
         settle(app)
+        ok_btn = wizard._buttons.button(QDialogButtonBox.StandardButton.Ok)
+        cancel_btn = wizard._buttons.button(QDialogButtonBox.StandardButton.Cancel)
         capture(
             wizard,
             out_dir / "guide_sync_preview_accept.png",
-            [wizard._status, wizard._buttons],
+            [wizard._status, ok_btn],
             numbered=True,
         )
         wizard.resize(760, 560)
         wizard.steps.more_toggle.setChecked(True)
         settle(app)
-        capture(wizard, out_dir / "guide_sync_small_screen.png", [wizard._pages, wizard._buttons])
+        capture(
+            wizard,
+            out_dir / "guide_sync_small_screen.png",
+            [wizard._pages.tabBar(), (cancel_btn, ok_btn)],
+            numbered=True,
+        )
         wizard.close()
         settle(app)
         # Introduce visual pairs in a fresh dialog: changing the method after

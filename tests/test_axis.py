@@ -107,3 +107,20 @@ def test_plot_page_elision_keeps_the_latest_full_range_in_its_tooltip(qtbot) -> 
     pane.page_label.setText("00:00:04.000 – 00:00:08.000")
 
     assert pane.page_label.toolTip() == pane.page_label.text()
+
+
+def test_plot_header_reflows_into_two_rows_when_narrow_and_restores_one_row(qtbot) -> None:
+    """Narrow center columns split plot span and action buttons cleanly across two rows."""
+    pane = PlotPane()
+    qtbot.addWidget(pane)
+    pane.resize(420, 320)
+    pane.show()
+    qtbot.waitExposed(pane)
+
+    assert pane._plot_header._compact_mode is True
+    assert pane.window_slider.width() >= 84
+    assert pane.reset_button.geometry().right() <= pane._plot_header.width()
+
+    pane.resize(960, 320)
+    qtbot.waitUntil(lambda: pane._plot_header._compact_mode is False)
+    assert pane._plot_header._compact_mode is False

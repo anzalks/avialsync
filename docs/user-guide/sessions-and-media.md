@@ -259,7 +259,7 @@ not a second copy.
 2D skeleton limbs, fading motion trails, low-confidence point cues, calibrated epipolar guide lines,
 body-part names, the track legend, hand-corrected marks, hand-placed 3D markers, the wheel model
 and hidden wheel bars, physical props, 3D reprojection, 3D body-part names, the camera name,
-the timecode and format readout, and the 4× corner magnifier loupe shown while placing or dragging
+the timecode and format readout, and the 5× corner magnifier loupe shown while placing or dragging
 markers, with **Show All** and **Hide All** at the bottom. Anything a
 plugin draws appears here too — nothing is drawn over your footage that you cannot account for.
 

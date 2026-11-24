@@ -109,6 +109,9 @@ class LadderPatternControls(QWidget):
         self.count = QSpinBox(self)
         self.count.setRange(0, 10_000)
         self.count.setSpecialValueText(tr("No guide"))
+        self.count.setMinimumWidth(
+            self.count.fontMetrics().horizontalAdvance(self.count.specialValueText()) + 40
+        )
         self.count.setAccessibleName(tr("Steps in total"))
         self.count.setAccessibleDescription(
             tr("Total including both clicked endpoints; zero (No guide) removes the guide.")

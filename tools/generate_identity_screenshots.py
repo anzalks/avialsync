@@ -253,6 +253,8 @@ def generate(out_dir: Path = DEFAULT_OUTPUT_DIR) -> None:
     def shot(window, name: str, highlights=(), *, numbered: bool = False, crop=None) -> None:
         _settle(app)
         window.notifications.clear_all()
+        if "Interface stalled" in window.transport.status_line.text():
+            window.transport.set_status("Ready")
         _settle(app)
         capture(window, out_dir / name, highlights, numbered=numbered, crop=crop)
 
@@ -338,14 +340,9 @@ def generate(out_dir: Path = DEFAULT_OUTPUT_DIR) -> None:
             panel._apply.click()
             _wait_idle(app, window)
             after = record("After Apply swap: every name is back on its own animal")
-            _write_gif([*before, *after], out_dir / "identity_swap.gif")
             seek(4.5)
-            shot(
-                window,
-                "identity_applied.png",
-                [panel._remove, panel._remove_all],
-                numbered=True,
-            )
+            shot(window, "identity_applied.png")
+            _write_gif([*before, *after], out_dir / "identity_swap.gif")
 
             # The tracker's card, now carrying its swap count, and the status
             # icon a source with something to report shows on its card.

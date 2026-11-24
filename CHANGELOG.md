@@ -54,10 +54,11 @@ full history is in git. Versions follow the tags in the repository.
   enclosed or streamed NWB `ImageSeries` now report true underlying media byte sizes rather than
   manifest/inode metadata sizes, exclude unrecorded inter-trial `GAP_FACTOR` breaks from VFR and
   instantaneous frame-rate readouts so steady joined cameras are no longer flagged as `0.01 fps` VFR,
-  split the `Transport` seek bar and playback/loop controls cleanly across two non-overlapping rows
-  when open side panels narrow the central workspace column, preserve a usable `Time span` slider width
-  inside `PlotControlStrip`, and elide narrow `ImagingPane` status readouts cleanly (D-009, D-170,
-  D-216, D-217).
+  split both the `Transport` seek bar and `PlotHeader` (`Time span` vs plot mode/fit/reset buttons)
+  cleanly across two non-overlapping rows when open side panels narrow the central workspace column,
+  preserve a usable `Time span` slider width inside `PlotControlStrip`, keep `ChangesPanel` `Detail`
+  labels and `PropsPanel` spinboxes legible at default dock width, and elide narrow `ImagingPane`
+  status readouts cleanly (D-009, D-170, D-216, D-217).
 - Frame-by-frame stepping (`←` / `→`, `,` / `.`, and transport `Prev frame` / `Next frame`) and
   timeline scrubbing stay synchronized across multi-camera rigs, 2D overlays, 3D pose, two-photon
   imaging, plots, and `Values`: backward steps from mid-interval positions always advance to the

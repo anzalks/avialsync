@@ -91,7 +91,7 @@ physical starts. Record a shared event or camera exposure strobe to align them.
 
 ### Tell it how to read the reference
 
-![The TTL threshold and the all-samples checkbox](../_static/screenshots/guide_sync_ttl_threshold.png)
+![The TTL threshold, event-timestamps checkbox, and exposure-strobe checkbox](../_static/screenshots/guide_sync_ttl_threshold.png)
 
 1. **TTL high threshold** — the level, in the channel's own units, above which a sample counts as
    a logical high. Left at *Midpoint of the signal*, it sits halfway between the channel's lowest

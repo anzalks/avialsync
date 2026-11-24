@@ -129,9 +129,11 @@ def _prepare_prop_viewers(
         wait_until(app, lambda pane=pane: pane.surface._buffer is not None, f"{name} frame")
     assert calibration_controller.resolve_calibration(window)
     assert len(wheel_display.camera_models(window)) == 3
-    window.resize(1600, 900)
+    window.resize(1680, 920)
     settle(app)
-    window._media_splitter.setSizes((950, 400))
+    window.resizeDocks([window.inspector_dock], [450], Qt.Orientation.Horizontal)
+    window._media_splitter.setSizes((860, 360))
+    window.setFocus()
     settle(app)
     return models, paths
 
@@ -167,20 +169,29 @@ def _capture_props(
     assert window.tracking_3d_pane.up_axis_combo.currentData() == (2, False)
     panel.select_prop("", "ladder")
     window.props_app.create("Ladder")
+    window.setFocus()
     settle(app)
-    capture(window, out_dir / "feature_props_tab.png", (panel.kind, panel.name))
+    capture(
+        window,
+        out_dir / "feature_props_tab.png",
+        (panel.kind, panel.name, panel.create_button),
+        numbered=True,
+    )
     assert window.props_app.tab is not None
     tab = window.props_app.tab
     tab.ensureWidgetVisible(panel.save_step)
+    window.setFocus()
     settle(app)
     capture(
         window,
         out_dir / "feature_props_ladder_steps.png",
         (panel.add_point, panel.add_rung, panel.save_step),
+        numbered=True,
         crop=window._left_tabs,
     )
     panel.add_rung.click()
     _click_world(window, models, paths, (-35.0, -50.0, 70.0))
+    window.setFocus()
     settle(app)
     capture(window, out_dir / "feature_props_ladder_clicks.png", (panel.next_point,))
     panel.next_point.click()
@@ -207,11 +218,13 @@ def _capture_props(
     ladder = window.props_app.store.get("Ladder")
     assert isinstance(ladder, Ladder) and ladder.pattern is not None
     tab.ensureWidgetVisible(panel.extrapolate)
+    window.setFocus()
     settle(app)
     capture(
         window,
         out_dir / "feature_props_ladder_support.png",
         (panel.ladder_support, panel.rung_count, panel.extrapolate, panel.step_irregular),
+        numbered=True,
         crop=window._left_tabs,
     )
     capture(window, out_dir / "feature_props_ladder_viewer.png", crop=window._media_splitter)
@@ -237,30 +250,40 @@ def _capture_props(
     assert isinstance(belt, BeltProp) and belt.corners is not None and belt.rollers is not None
     assert abs(belt.rollers.width - 16.0) < 0.01 and abs(belt.rollers.run_length - 80.0) < 1e-6
     tab.verticalScrollBar().setValue(0)
+    window.setFocus()
     settle(app)
     capture(window, out_dir / "feature_props_belt.png", (panel.belt_geometry_mode,))
     tab.ensureWidgetVisible(panel.belt_placement.place)
+    tab.horizontalScrollBar().setValue(0)
+    window.setFocus()
     settle(app)
     capture(
         window,
         out_dir / "feature_props_belt_geometry.png",
         (panel.belt_centre_distance, panel.belt_radius, panel.belt_placement.start),
+        numbered=True,
         crop=window._left_tabs,
     )
     tab.ensureWidgetVisible(panel.belt_normal_fields[2])
+    tab.horizontalScrollBar().setValue(0)
+    window.setFocus()
     settle(app)
     capture(
         window,
         out_dir / "feature_props_belt_surface_fields.png",
-        (panel.belt_width, panel.belt_normal_fields[2]),
+        (panel.belt_width, tuple(panel.belt_normal_fields)),
+        numbered=True,
         crop=window._left_tabs,
     )
-    tab.ensureWidgetVisible(panel.track_belt)
+    tab.ensureWidgetVisible(panel.check_belt)
+    tab.horizontalScrollBar().setValue(0)
+    window.setFocus()
     settle(app)
     capture(
         window,
         out_dir / "feature_props_belt_evidence.png",
-        (panel.belt_channel, panel.bind_belt, panel.track_belt),
+        (panel.belt_channel, panel.track_belt, panel.bind_belt),
+        numbered=True,
         crop=window._left_tabs,
     )
     panel.track_belt.click()
@@ -300,19 +323,24 @@ def _capture_props(
     panel.ball_units.setCurrentIndex(panel.ball_units.findData("mm"))
     panel.records.save_button.click()
     tab.verticalScrollBar().setValue(0)
+    window.setFocus()
     settle(app)
     capture(
         window,
         out_dir / "feature_props_ball_geometry.png",
-        (panel.ball_centre_fields[0], panel.ball_radius, panel.ball_units),
+        (tuple(panel.ball_centre_fields), panel.ball_radius, panel.ball_units),
+        numbered=True,
         crop=window._left_tabs,
     )
-    tab.ensureWidgetVisible(panel.track_ball)
+    tab.ensureWidgetVisible(panel.check_ball)
+    tab.horizontalScrollBar().setValue(0)
+    window.setFocus()
     settle(app)
     capture(
         window,
         out_dir / "feature_props_ball_evidence.png",
         (panel.ball_visual_mark, panel.track_ball),
+        numbered=True,
         crop=window._left_tabs,
     )
     panel.track_ball.click()

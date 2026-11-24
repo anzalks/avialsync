@@ -117,7 +117,7 @@ running, a line the software wrote when the session started. The **Messages** ta
 the loaded files carry, placed on the shared timeline, and the shared time bar shows them as their
 own lane.
 
-![The Messages tab: one untimed note above the table, and four timed messages with their source and text](../_static/screenshots/guide_messages_tab.png)
+![The Messages tab: (1) one untimed note above the table, and (2) four timed messages with their source and text](../_static/screenshots/guide_messages_tab.png)
 
 *The messages in this image are generated for it — the source is called `synthetic_rig_log.txt` — not read from a recording. The untimed note sits above the table, as described below; the four timed rows are placed on the clock.*
 
@@ -148,11 +148,13 @@ Covered in [Tutorial: flag frames and export](../tutorials/annotating-and-export
 - The **Changes** tab lists what you flagged; double-click a label to name it.
 - **File → Export Changes…** writes your annotations, and any corrected pose data, out.
 - **File → Export Snapshot… / Export Trimmed Video Clip… / Export Data Slice…** cover images, media, and signals.
-- **File → Export Stimulus Grid…** makes an event-column MP4 with a row per chosen camera and imaging
-  stack, and a full-width band per chosen sensor group underneath (every event overlaid, the
-  mean bold). Choose the output frame rate and playback speed to slow high-speed
+- **File → Export Stimulus Grid…** makes an event-column MP4 (or separate trimmed clips per event)
+  from rising or active-low falling TTL edges or discrete session triggers, with a row per chosen
+  camera and imaging stack, and a full-width band per chosen sensor group underneath (every event
+  overlaid, the mean bold). Choose the output frame rate and playback speed to slow high-speed
   footage. See the [illustrated export walkthrough](../tutorials/annotating-and-exporting.md#export-an-event-aligned-video-grid-with-its-ttl-trace).
-  Clips are copied rather than re-encoded, so they keep the original pixels.
+  Clips are copied rather than re-encoded where possible, and multi-camera folder exports assign
+  distinct, non-overwriting names per camera.
 
 ## Useful controls
 
@@ -266,7 +268,7 @@ Pose estimates are sometimes wrong: an occluded nose lands on the wall. Select *
 - **Edit → Previous / Next Suspect Frame** (`Ctrl+[` / `Ctrl+]`) scans imported pose tracks in the
   background for low-confidence dips and abrupt jump spikes and seeks straight to each candidate.
 - While placing a 3D marker or dragging a point in **Fix Tracker** on a calibrated rig, AvialSync
-  projects dashed epipolar guide curves into the other cameras and shows a 4× corner magnifier loupe
+  projects dashed epipolar guide curves into the other cameras and shows a 5× corner magnifier loupe
   for sub-pixel placement.
 - Zooming with the wheel and panning with the middle mouse button keep working while the mode is on.
 
@@ -450,7 +452,7 @@ frame. Load the recorded sensor channel for motion on other frames; gaps remain 
 check **Wheel model** on the Wheel page (the same action as **View → Overlays → Wheel model**)
 if the model is hidden.
 
-![The Props tab with the prop-kind chooser, a ladder named and selected, and the step controls](../_static/screenshots/feature_props_tab.png)
+![The Props tab with (1) the prop-kind chooser, (2) the prop name field, and (3) Add ladder](../_static/screenshots/feature_props_tab.png)
 
 For a **ladder**, each step is clicked on its own: **Click foothold** records one point, **Click rung
 ends** records the two ends of a rung, and **Close outline** joins the last point to the first for a
@@ -488,11 +490,11 @@ move a rung. In the example, three rungs are clicked on side rails, the third ta
 the run is extrapolated to six rungs. Clicked ends are solid in their camera; estimates and
 projections into an unclicked camera are dashed.
 
-![The ladder controls for clicking a foothold or rung and saving the step](../_static/screenshots/feature_props_ladder_steps.png)
+![The ladder controls for (1) clicking a foothold, (2) clicking rung ends, and (3) saving the step](../_static/screenshots/feature_props_ladder_steps.png)
 
 ![Clicking a rung end in a calibrated camera](../_static/screenshots/feature_props_ladder_clicks.png)
 
-![The ladder's support, step regularity and save-and-next controls](../_static/screenshots/feature_props_ladder_support.png)
+![The ladder's (1) support bars, (2) total step count, (3) endpoint spacing fill, and (4) step regularity controls](../_static/screenshots/feature_props_ladder_support.png)
 
 ![Clicked rungs on side rails with the rest of a regular run extrapolated](../_static/screenshots/feature_props_ladder_viewer.png)
 
@@ -527,15 +529,15 @@ geometry's units, and choose **Bind displacement at current frame**. The top can
 roller centres remain fixed. The **Legacy point path** choice opens belts saved with individual
 path vertices; use it only when the apparatus cannot be described by two equal rollers.
 
-![The belt's measured roller centres and radius](../_static/screenshots/feature_props_belt_geometry.png)
+![The belt's (1) measured centre distance, (2) roller radius, and (3) four-corner placement control](../_static/screenshots/feature_props_belt_geometry.png)
 
-![The belt's measured width and top-surface direction](../_static/screenshots/feature_props_belt_surface_fields.png)
+![The belt's (1) measured surface width and (2) top-surface normal components](../_static/screenshots/feature_props_belt_surface_fields.png)
 
 ![Four clicked top corners placing the belt in every camera](../_static/screenshots/feature_props_belt_corners.png)
 
 ![A one-camera belt placed from its hubs and top in a side view](../_static/screenshots/feature_props_belt_side_view.png)
 
-![The belt's displacement channel and camera-click tracking controls](../_static/screenshots/feature_props_belt_evidence.png)
+![The belt's (1) displacement channel, (2) camera-click tracking, and (3) displacement-binding controls](../_static/screenshots/feature_props_belt_evidence.png)
 
 ![A stereo-clicked belt mark over the recreated top, return and roller-wrap surface in camera and 3D viewers](../_static/screenshots/feature_props_belt_viewer.png)
 
@@ -545,7 +547,7 @@ select four quaternion channels (`w`, `x`, `y`, `z`) from one source, and choose
 current frame**. The support path or sphere stays fixed while the identified mark follows the
 measured channel values. Missing readings leave that mark hidden.
 
-![The ball's centre, radius and calibration units](../_static/screenshots/feature_props_ball_geometry.png)
+![The ball's (1) centre coordinates, (2) radius, and (3) calibration units](../_static/screenshots/feature_props_ball_geometry.png)
 
 ![The recreated ball surface and short labels in camera and 3D viewers](../_static/screenshots/feature_props_ball_viewer.png)
 
@@ -579,7 +581,7 @@ as one rigid sphere also leave motion unknown, with the reason shown in Props. T
 does not automatically shift to fit a mark. These visual tracks use the same Props record and can
 be cleared or undone. Clicking a visual mark replaces the prop's channel motion binding.
 
-![The ball's named surface-mark selector and camera-click tracking control](../_static/screenshots/feature_props_ball_evidence.png)
+![The ball's (1) named surface-mark selector and (2) camera-click tracking control](../_static/screenshots/feature_props_ball_evidence.png)
 
 The wheel has its own workflow, described in [Placing a running wheel](#placing-a-running-wheel).
 

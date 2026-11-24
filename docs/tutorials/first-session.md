@@ -49,9 +49,9 @@ For a copyable text view of the current channel values, sample indices, and came
 
 For a closer look, hold `Ctrl` (`Cmd` on macOS) and roll the mouse wheel over the plots to zoom the
 shared time span around the pointer, `Shift`+left-drag (or middle-drag) to pan horizontally, or set
-**Time span** and drag the slider below the traces. Switch **Mode** in the plot header between
-**Stacked**, **Overlaid**, and **Heatmap** when inspecting dense multi-channel recordings, or
-right-click a reference channel and choose **Pin row to top**. Every trace keeps the same window:
+**Time span** and drag the slider below the traces. Switch the plot display mode between
+**Stacked**, **Grouped**, **Overlaid**, and **Heatmap** when inspecting dense multi-channel
+recordings, or right-click a reference channel and choose **Pin row to top**. Every trace keeps the same window:
 they sweep left to right together and restart together, because comparing them is the point.
 
 ## 4. Mark it

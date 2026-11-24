@@ -107,7 +107,7 @@ flip is noticed.
 You can also drag the lane line in the braid onto the other lane's row at the time of the crossing.
 The drag snaps to the nearby evidence, so the frame is the evidence's rather than the pointer's.
 
-![After Apply swap: the labels are correct, the accepted swap is a filled diamond, and Remove swap and Remove all swaps are enabled](../_static/screenshots/identity_applied.png)
+![After Apply swap: the labels are correct, the accepted swap is a filled diamond, and the crossing is marked accepted](../_static/screenshots/identity_applied.png)
 
 The loop below is the whole fix in one place: the same eight frames around the crossing, first as the
 tracker filed them and then after **Apply swap**.

@@ -182,13 +182,15 @@ class ChangesPanel(QGroupBox):
     def _build_table(self) -> ThemedTable:
         table = ThemedTable(0, len(_COLUMNS))
         table.setHorizontalHeaderLabels([tr(name) for name in _COLUMNS])
+        table.verticalHeader().hide()
         header = table.horizontalHeader()
+        header.setMinimumSectionSize(48)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         metrics = table.fontMetrics()
-        pad = spacing("xl", table)
+        pad = spacing("m", table)
         table.setColumnWidth(
             0,
             max(metrics.horizontalAdvance(tr("When")), metrics.horizontalAdvance("00:00:00.000"))
@@ -196,15 +198,12 @@ class ChangesPanel(QGroupBox):
         )
         table.setColumnWidth(
             1,
-            max(
-                metrics.horizontalAdvance(tr("Change")),
-                metrics.horizontalAdvance(tr("Identity swap")),
-            )
+            max(metrics.horizontalAdvance(tr("Change")), metrics.horizontalAdvance(tr("Range")))
             + pad,
         )
         table.setColumnWidth(
             2,
-            max(metrics.horizontalAdvance(tr("Where")), metrics.horizontalAdvance("camera_00.mp4"))
+            max(metrics.horizontalAdvance(tr("Where")), metrics.horizontalAdvance("timeline"))
             + pad,
         )
         table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)

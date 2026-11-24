@@ -59,8 +59,8 @@ The **Exports** inspector page shows every output as a visible button. The same 
 |---|---|---|
 | **Export Changes…** | Annotation rows, one edited pose copy per source with corrections or accepted identity swaps, and a DeepLabCut or single-view Lightning Pose retraining set when frames were hand-corrected | Analysis and pose-model retraining |
 | **Export Snapshot…** | A composed figure of the current moment | Figures, notes, lab reports |
-| **Export Trimmed Video Clip…** | The marked range, copied out of the source | Sharing a moment without re-encoding it |
-| **Export Stimulus Grid…** | Selected sensor-triggered windows: camera and imaging rows by event columns, above one full-width band per chosen sensor group | Comparing repeated stimuli across cameras, imaging and sensors |
+| **Export Trimmed Video Clip…** | The marked range, copied out of each loaded camera without overwriting existing files | Sharing a moment without re-encoding it |
+| **Export Stimulus Grid…** | Selected TTL- or session-event windows as a multi-column comparison grid MP4 (cameras, imaging, and overlaid sensor bands) or separate trimmed clips per event | Comparing or extracting repeated stimuli across cameras, imaging and sensors |
 | **Export Data Slice…** | The marked range of the loaded signals | Analysis in another tool |
 
 **Export Changes…** is also the **Export…** button in the Changes tab; it is one action, so the two
@@ -110,7 +110,9 @@ silently dropped for lack of a camera.
 **Clips are copied, not re-encoded.** The exported video holds the original pixels rather than a
 second generation of them, which matters when someone measures from it later. The cut is aligned to
 the nearest keyframe at or before your start point, because a clip beginning mid-GOP would have no
-frame to decode from.
+frame to decode from. When exporting several cameras (including joined multi-trial cameras or
+same-named cameras in sibling folders) into one folder, AvialSync derives a distinct stem per camera
+and appends `_2`, `_3`, … rather than overwriting an existing file.
 
 ### Export an event-aligned video grid with its TTL trace
 
@@ -145,9 +147,9 @@ follows the selected speed, and its labels remain relative to stimulus onset.
 Saving over an existing MP4 replaces it when the export finishes. AvialSync confirms the
 replacement in its notification strip. If that MP4 is already open in a video player, reopen it
 to see the new version. Choose an output path separate from the camera source videos; AvialSync
-rejects source/output collisions. A cancelled or failed export leaves the existing file intact.
-While encoding, a temporary `.tmp.mp4` file is written beside the target and renamed to the final
-MP4 only after a successful encode.
+rejects source/output and cache-folder collisions. A cancelled or failed export leaves the existing
+file intact. While encoding, a staging `.exporting.*.part.mp4` file is written beside the target and
+atomically renamed to the final MP4 only after a successful encode.
 
 ![The export dialog at a 30 fps base rate and a custom 0.130435x playback speed, previewing a 15.33-second MP4](../_static/screenshots/stimulus_grid_slow_motion.png)
 

@@ -33,7 +33,13 @@ from typing import Any
 import numpy as np
 from PySide6.QtCore import QEvent, QEventLoop, QPoint, QRect, QSettings, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
-from PySide6.QtWidgets import QApplication, QWidget
+from PySide6.QtWidgets import (
+    QAbstractScrollArea,
+    QApplication,
+    QCheckBox,
+    QPushButton,
+    QWidget,
+)
 
 from avialsync.core.cache import CACHE_DIR_ENV
 from avialsync.engine.transcode import encode_video
@@ -72,9 +78,15 @@ USER_STATE_SANDBOX = isolate_user_state()
 HIGHLIGHT = QColor(255, 64, 64)
 HIGHLIGHT_WIDTH = 3
 
-#: Padding between a widget's bounds and its box, so the outline never sits on
-#: top of the text it is pointing at.
-_PAD = 4
+#: Padding between a widget's bounds and its box: compact controls on macOS
+#: already carry internal focus margin, so 1 px hugs the control without
+#: crossing into adjacent form rows or stacked buttons.
+_PAD_COMPACT = 1
+_PAD_CONTAINER = 2
+_BADGE_RADIUS = 9
+_BOX_CLEAR_GAP = 4
+
+HighlightTarget = QWidget | Sequence[QWidget]
 
 
 def pin_appearance(app: QApplication) -> None:
@@ -207,90 +219,226 @@ def pin_layout(window: Any) -> None:
 def capture(
     window: QWidget,
     path: Path,
-    highlights: Sequence[QWidget] = (),
+    highlights: Sequence[HighlightTarget] = (),
     *,
     numbered: bool = False,
     crop: QWidget | None = None,
 ) -> None:
-    """Grab *window* and save it, boxing each widget in *highlights*.
-
-    Args:
-        window: The widget to capture. Usually the main window or a dialog.
-        path: Destination PNG.
-        highlights: Widgets to outline, in the order the reader should use them.
-        numbered: Draw a step number on each box. Use when the order matters;
-            leave off when the boxes are alternatives or a single target, where
-            numbers would imply a sequence that does not exist.
-        crop: A widget inside *window* to cut the image down to, after the boxes
-            are drawn. For a control that lives in one corner, where a full
-            window would leave it a few pixels tall.
-    """
-    # Loading a fixture posts "Imported ..." toasts that wait to be dismissed
-    # (D-107), so an image taken straight after one carries a Dismiss button
-    # that no reader would recognise as part of the window. Declining them
-    # acts on nothing.
+    """Grab *window* and save it, boxing each widget or widget group in *highlights*."""
     notifications = getattr(window, "notifications", None)
     if notifications is not None:
         notifications.clear_all()
         app = QApplication.instance()
         if app is not None:
             app.processEvents()
+    crop_rect = _crop_bounds_in(window, crop) if crop is not None else None
+    canvas_rect = crop_rect if crop_rect is not None else window.rect()
+    safe_canvas = canvas_rect.adjusted(
+        HIGHLIGHT_WIDTH, HIGHLIGHT_WIDTH, -HIGHLIGHT_WIDTH, -HIGHLIGHT_WIDTH
+    )
     pixmap = window.grab()
     if highlights:
+        entries: list[tuple[QRect, QWidget]] = []
+        for target in highlights:
+            resolved = _target_bounds_in(window, target, safe_canvas)
+            if resolved is not None:
+                entries.append(resolved)
+        boxes = _decollide_boxes([rect for rect, _ in entries])
+        widgets = [w for _, w in entries]
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         painter.setPen(QPen(HIGHLIGHT, HIGHLIGHT_WIDTH))
-        for index, widget in enumerate(highlights, start=1):
-            box = _bounds_in(window, widget)
-            if box is None:
-                continue
+        for box in boxes:
             painter.drawRoundedRect(box, 5, 5)
-            if numbered:
-                _draw_step_number(painter, box, index)
-        painter.end()
-    if crop is not None:
-        box = _bounds_in(window, crop)
-        if box is not None:
-            # The pixmap is device-pixel sized; the box is in logical pixels.
-            ratio = pixmap.devicePixelRatio()
-            pixmap = pixmap.copy(
-                QRect(
-                    round(box.x() * ratio),
-                    round(box.y() * ratio),
-                    round(box.width() * ratio),
-                    round(box.height() * ratio),
+        if numbered:
+            placed_badges: list[QRect] = []
+            badge_canvas = canvas_rect.adjusted(2, 2, -2, -2)
+            for idx, (box, primary_widget) in enumerate(zip(boxes, widgets, strict=True)):
+                circle = _choose_badge_circle(
+                    box, idx, boxes, placed_badges, badge_canvas, primary_widget
                 )
+                placed_badges.append(circle)
+                _draw_step_number(painter, circle, idx + 1)
+        painter.end()
+    if crop_rect is not None:
+        ratio = pixmap.devicePixelRatio()
+        pixmap = pixmap.copy(
+            QRect(
+                round(crop_rect.x() * ratio),
+                round(crop_rect.y() * ratio),
+                round(crop_rect.width() * ratio),
+                round(crop_rect.height() * ratio),
             )
+        )
     path.parent.mkdir(parents=True, exist_ok=True)
     pixmap.save(str(path))
 
 
-def _bounds_in(window: QWidget, widget: QWidget) -> QRect | None:
-    """Return *widget*'s padded rectangle in *window* coordinates.
+def _crop_bounds_in(window: QWidget, crop: QWidget) -> QRect | None:
+    """Return *crop*'s exact unpadded rectangle in *window* coordinates."""
+    if not crop.isVisible() or crop.width() <= 0 or crop.height() <= 0:
+        return None
+    top_left = crop.mapTo(window, QPoint(0, 0))
+    return QRect(top_left, crop.size()).intersected(window.rect())
 
-    Returns None for a widget that is hidden or has no size yet, so a step that
-    highlights something not currently on screen produces a plain screenshot
-    rather than a box drawn at the origin.
-    """
+
+def _bounds_in(window: QWidget, widget: QWidget) -> QRect | None:
+    """Return *widget*'s padded, viewport-clamped rectangle in *window* coordinates."""
     if not widget.isVisible() or widget.width() <= 0 or widget.height() <= 0:
         return None
     top_left = widget.mapTo(window, QPoint(0, 0))
-    return QRect(top_left, widget.size()).adjusted(-_PAD, -_PAD, _PAD, _PAD)
+    width = widget.width()
+    if isinstance(widget, QCheckBox):
+        width = min(width, widget.sizeHint().width() + 6)
+    pad = _PAD_COMPACT if widget.height() <= 44 else _PAD_CONTAINER
+    rect = QRect(top_left.x(), top_left.y(), width, widget.height()).adjusted(-pad, -pad, pad, pad)
+    parent = widget.parentWidget()
+    while parent is not None and parent is not window:
+        if isinstance(parent, QAbstractScrollArea):
+            vp = parent.viewport()
+            if vp is not None and vp.isVisible():
+                vp_rect = QRect(vp.mapTo(window, QPoint(0, 0)), vp.size()).adjusted(2, 2, -2, -2)
+                rect = rect.intersected(vp_rect)
+        parent = parent.parentWidget()
+    return rect if rect.width() > 4 and rect.height() > 4 else None
 
 
-def _draw_step_number(painter: QPainter, box: QRect, number: int) -> None:
-    """Draw a filled step badge on the box's top-left corner."""
-    radius = 11
-    centre = box.topLeft()
-    circle = QRect(centre.x() - radius, centre.y() - radius, radius * 2, radius * 2)
+def _target_bounds_in(
+    window: QWidget, target: HighlightTarget, safe_canvas: QRect
+) -> tuple[QRect, QWidget] | None:
+    """Resolve a single widget or a sequence of widgets into one clamped box."""
+    members: tuple[QWidget, ...] = (target,) if isinstance(target, QWidget) else tuple(target)
+    rects = [(r, w) for w in members if (r := _bounds_in(window, w)) is not None]
+    if not rects:
+        return None
+    combined = rects[0][0]
+    for rect, _ in rects[1:]:
+        combined = combined.united(rect)
+    clamped = combined.intersected(safe_canvas)
+    if clamped.width() <= 4 or clamped.height() <= 4:
+        return None
+    return clamped, rects[0][1]
+
+
+def _contains_mostly(outer: QRect, inner: QRect) -> bool:
+    inter = outer.intersected(inner)
+    if inter.isEmpty():
+        return False
+    area = max(1, inner.width() * inner.height())
+    return (inter.width() * inter.height()) / area >= 0.8
+
+
+def _decollide_boxes(boxes: list[QRect]) -> list[QRect]:
+    """Separate adjacent highlight outlines so strokes never touch or cross."""
+    out = [QRect(b) for b in boxes]
+    half_gap = _BOX_CLEAR_GAP // 2
+    for _ in range(2):
+        for i in range(len(out)):
+            for j in range(i + 1, len(out)):
+                a, b = out[i], out[j]
+                if _contains_mostly(a, b) or _contains_mostly(b, a):
+                    continue
+                x_ov = min(a.right(), b.right()) - max(a.left(), b.left())
+                y_ov = min(a.bottom(), b.bottom()) - max(a.top(), b.top())
+                dy = abs(a.center().y() - b.center().y())
+                dx = abs(a.center().x() - b.center().x())
+                if x_ov > 6 and dy >= 12:
+                    upper, lower = (a, b) if a.center().y() <= b.center().y() else (b, a)
+                    if upper.bottom() >= lower.top() - _BOX_CLEAR_GAP:
+                        mid = (upper.bottom() + lower.top()) // 2
+                        if (
+                            mid - half_gap - upper.top() >= 10
+                            and lower.bottom() - (mid + half_gap) >= 10
+                        ):
+                            upper.setBottom(mid - half_gap)
+                            lower.setTop(mid + half_gap)
+                elif y_ov > 6 and dx >= 14:
+                    left_b, right_b = (a, b) if a.center().x() <= b.center().x() else (b, a)
+                    if left_b.right() >= right_b.left() - _BOX_CLEAR_GAP:
+                        mid = (left_b.right() + right_b.left()) // 2
+                        if (
+                            mid - half_gap - left_b.left() >= 12
+                            and right_b.right() - (mid + half_gap) >= 12
+                        ):
+                            left_b.setRight(mid - half_gap)
+                            right_b.setLeft(mid + half_gap)
+    return out
+
+
+def _choose_badge_circle(
+    box: QRect,
+    index: int,
+    boxes: list[QRect],
+    placed_badges: list[QRect],
+    canvas_rect: QRect,
+    primary_widget: QWidget,
+) -> QRect:
+    """Pick a collision-free badge circle for *box* within *canvas_rect*."""
+    r = _BADGE_RADIUS
+    wide_button = isinstance(primary_widget, QPushButton) and box.width() >= 160
+    stacked_with_button = wide_button and any(
+        m != index
+        and abs(boxes[m].left() - box.left()) < 24
+        and abs(boxes[m].center().y() - box.center().y()) < 80
+        for m in range(len(boxes))
+    )
+    narrow_button = box.width() < 60
+    candidates: list[tuple[int, int]] = []
+    if stacked_with_button:
+        candidates.append((box.left() + r + 5, box.center().y()))
+    if narrow_button:
+        candidates.extend(
+            [
+                (box.left() + 1, box.top() - 4),
+                (box.right() - 1, box.top() - 4),
+                (box.left() + 1, box.bottom() + 4),
+                (box.right() - 1, box.bottom() + 4),
+            ]
+        )
+    candidates.extend(
+        [
+            (box.left() + 1, box.top() - 4),
+            (box.right() + r + 5, box.center().y()),
+            (box.right() - 2, box.top() - 4),
+            (box.left() + r + 5, box.center().y())
+            if wide_button
+            else (box.left() + 8, box.bottom() + 3),
+            (box.left() + 8, box.bottom() + 3),
+            (box.right() - 6, box.bottom() + 3),
+        ]
+    )
+    for cx, cy in candidates:
+        circle = QRect(cx - r, cy - r, r * 2, r * 2)
+        if not canvas_rect.contains(circle):
+            continue
+        if any(
+            m != index
+            and not _contains_mostly(boxes[m], box)
+            and circle.intersects(boxes[m].adjusted(-3, -3, 3, 3))
+            for m in range(len(boxes))
+        ):
+            continue
+        if any(circle.intersects(prev.adjusted(-2, -2, 2, 2)) for prev in placed_badges):
+            continue
+        return circle
+    # Clamped fallback inside canvas_rect, clear of boxes immediately above
+    cx = max(canvas_rect.left() + r, min(canvas_rect.right() - r, box.left() + r + 4))
+    cy = max(canvas_rect.top() + r, min(canvas_rect.bottom() - r, box.top() + r + 5))
+    return QRect(cx - r, cy - r, r * 2, r * 2)
+
+
+def _draw_step_number(painter: QPainter, circle: QRect, number: int) -> None:
+    """Draw a filled step badge with a subtle dark halo so it separates from borders."""
     painter.save()
-    painter.setBrush(HIGHLIGHT)
     painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(QColor(24, 26, 30))
+    painter.drawEllipse(circle.adjusted(-2, -2, 2, 2))
+    painter.setBrush(HIGHLIGHT)
     painter.drawEllipse(circle)
     painter.setPen(QPen(QColor(255, 255, 255)))
     font = QFont(painter.font())
     font.setBold(True)
-    font.setPointSize(max(9, radius))
+    font.setPointSize(9)
     painter.setFont(font)
     painter.drawText(circle, Qt.AlignmentFlag.AlignCenter, str(number))
     painter.restore()

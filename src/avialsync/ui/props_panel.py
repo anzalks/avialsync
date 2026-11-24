@@ -338,6 +338,9 @@ class PropsPanel(QWidget):
         # its label above its field instead of forcing the panel wider.
         for form in self.findChildren(QFormLayout):
             form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        for spin in self.findChildren(QDoubleSpinBox):
+            spin.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+            spin.setMinimumWidth(88)
         self.kind.currentIndexChanged.connect(self._kind_changed)
         self._kind_changed()
         self.refresh()
@@ -348,6 +351,8 @@ class PropsPanel(QWidget):
         field.setRange(-1_000_000_000.0, 1_000_000_000.0)
         field.setDecimals(4)
         field.setKeyboardTracking(False)
+        field.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        field.setMinimumWidth(88)
         field.setAccessibleName(name)
         return field
 
