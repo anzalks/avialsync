@@ -121,6 +121,7 @@ def test_plot_header_reflows_into_two_rows_when_narrow_and_restores_one_row(qtbo
     assert pane.window_slider.width() >= 84
     assert pane.reset_button.geometry().right() <= pane._plot_header.width()
 
-    pane.resize(960, 320)
+    wide_width = max(960, pane._plot_header._single_row_min_width() + 80)
+    pane.resize(wide_width, 320)
     qtbot.waitUntil(lambda: pane._plot_header._compact_mode is False)
     assert pane._plot_header._compact_mode is False

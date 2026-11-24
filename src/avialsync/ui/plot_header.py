@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QEvent, QSize, Qt, Signal
+from PySide6.QtCore import QEvent, QObject, QSize, Qt, Signal
 from PySide6.QtGui import QResizeEvent, QShowEvent
 from PySide6.QtWidgets import (
     QComboBox,
@@ -30,8 +30,6 @@ class PlotHeader(QWidget):
     fit_all_requested = Signal()
     row_height_changed = Signal(int)
     view_mode_changed = Signal(str)
-
-    _MIN_COMPACT_WIDTH = 220
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -116,10 +114,6 @@ class PlotHeader(QWidget):
         self._span_control = control
         self._rebuild_rows(self._compact_mode)
 
-    def minimumSizeHint(self) -> QSize:  # noqa: N802
-        hint = self._root_layout.minimumSize()
-        return QSize(min(hint.width(), self._MIN_COMPACT_WIDTH), hint.height())
-
     def _single_row_min_width(self) -> int:
         margins = self._root_layout.contentsMargins()
         gap = max(0, self._primary_row.spacing())
@@ -196,10 +190,30 @@ class PlotControlStrip(QScrollArea):
         self.setWidgetResizable(True)
         self.setWidget(header)
         self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.horizontalScrollBar().rangeChanged.connect(self._on_scroll_range_changed)
+
+    def _on_scroll_range_changed(self, _minimum: int, _maximum: int) -> None:
+        self.updateGeometry()
 
     def _sync_header_mode(self, width: int) -> None:
         if self._header.sync_width(width):
             self.updateGeometry()
+
+    def event(self, event: QEvent) -> bool:
+        handled = super().event(event)
+        if event.type() in (QEvent.Type.Resize, QEvent.Type.Show):
+            self._sync_header_mode(self.viewport().width() or self.width())
+        return handled
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        handled = super().eventFilter(watched, event)
+        if watched is self.widget() and event.type() in (
+            QEvent.Type.LayoutRequest,
+            QEvent.Type.FontChange,
+            QEvent.Type.StyleChange,
+        ):
+            self.updateGeometry()
+        return handled
 
     def showEvent(self, event: QShowEvent) -> None:  # noqa: N802
         super().showEvent(event)
@@ -210,11 +224,11 @@ class PlotControlStrip(QScrollArea):
         self._sync_header_mode(self.viewport().width() or event.size().width())
 
     def sizeHint(self) -> QSize:
-        """Reserve active row height plus scrollbar height only when visible."""
+        """Reserve active row height plus scrollbar height only when needed."""
         content = self.widget()
         row_height = content.sizeHint().height() if content is not None else 0
         hbar = self.horizontalScrollBar()
-        bar_height = hbar.sizeHint().height() if hbar.isVisible() else 0
+        bar_height = hbar.sizeHint().height() if (self.isVisible() and hbar.maximum() > 0) else 0
         return QSize(1, row_height + bar_height + 2)
 
     def minimumSizeHint(self) -> QSize:
