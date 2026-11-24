@@ -28,6 +28,7 @@ def generate_proxy(window: MainWindow) -> None:
 
     from avialsync.engine.proxy import ProxyWorker
     from avialsync.ui import export_destinations
+    from avialsync.ui.controllers.artifact_write_controller import loaded_sources
 
     # The selected camera, as a nudge moves it. This was the first camera
     # whatever was selected, so with three loaded only one could be proxied.
@@ -41,7 +42,8 @@ def generate_proxy(window: MainWindow) -> None:
     chosen = export_destinations.choose_proxy(window, video_path)  # D-244
     if chosen is None:
         return
-    worker = ProxyWorker(video_path, chosen)
+    media_path = Path(window.video_grid.media_path_for(path))
+    worker = ProxyWorker(video_path, chosen, loaded_sources(window), media_path)
 
     # Proxy generation is minutes of transcoding. Behind a modal that was
     # minutes of unusable application, for work the user started so they

@@ -31,7 +31,7 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   ├── demo.py                       # in-process PyAV sample-session generator (`avialsync demo`)
 │   ├── core/                         # HEADLESS — must never import PySide6 (test-enforced)
 │   │   ├── timeline.py               # MasterClock, TimeMap(offset, drift), PlaybackState
-│   │   ├── session.py                # Session model + .avv JSON (versioned schema v14)
+│   │   ├── session.py                # Session model + .avv JSON (versioned schema v15)
 │   │   ├── source.py                 # ABCs + VideoMetadata (plugin contract, §4)
 │   │   ├── pyramid.py                # NaN/gap-aware min-max pyramid build + query (D-009)
 │   │   ├── cache.py                  # per-user cache entries, content-hash key (D-008), atomic writes (D-160)
@@ -62,7 +62,7 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   ├── seeker.py                 # parallel exact seeks across panes
 │   │   ├── importer.py               # QThread worker: parse → cache → pyramid; progress + cancel signals
 │   │   ├── export.py                 # snapshot, data slice (CSV/Parquet), video clip trim
-│   │   ├── stimulus_grid.py          # event-aligned multi-camera/imaging/sensor MP4 grid encoder
+│   │   ├── stimulus_grid_export.py   # event-aligned multi-camera/imaging/sensor MP4 grid encoder
 │   │   ├── proxy.py                  # in-process PyAV short-GOP proxies + prepare() conversion flow (D-075)
 │   │   ├── sync_worker.py            # chunked event extraction and deterministic fitting (D-026)
 │   │   ├── drop_worker.py            # off-thread drop classification; format-neutral, defers folders to SessionSource (D-068)
@@ -107,17 +107,17 @@ avialsync/                          # repo root = GitHub repo `avialsync`
 │   │   ├── video_pane.py             # decode→blit; ONE path on all OSes (D-075 removed the per-OS split)
 │   │   ├── video_timing.py           # timestamp rates, OSD text, frame lookup/step behavior
 │   │   ├── video_overlay.py          # transparent overlay; multi-source 2D pose tracks + legend (D-046)
-│   │   ├── pose_overlay_extras.py    # 2D skeleton, trails, low-confidence rings, 4x loupe & epipolar guides (D-251)
+│   │   ├── pose_overlay_extras.py    # 2D skeleton, trails, low-confidence rings, 5x loupe & epipolar guides (D-251)
 │   │   ├── pose_suspects.py          # off-thread low-confidence / jump-spike suspect frame scanner (D-251)
 │   │   ├── video_grid.py             # dynamic N columns, labels, no-footage state (D-010), fullscreen, tile reorder
 │   │   ├── panel_detachment.py       # detach 3D, Imaging, cameras & pop-out Inspector pages across displays (D-249)
 │   │   ├── plot_pane.py              # pyramid-fed pyqtgraph rows, playhead, channel tree/groups (§5c); measure markers
 │   │   ├── plot_row.py               # one channel row's plot/curve/close-control construction
 │   │   ├── plot_sweep.py             # shared continuous window control + deterministic sweep state
-│   │   ├── plot_header.py            # page label, Time span, Stacked/Overlaid/Heatmap mode, Fit Y, Reset Plots strip
+│   │   ├── plot_header.py            # page label, Time span, Stacked/Grouped/Overlaid/Heatmap mode, Fit Y, Reset Plots strip
 │   │   ├── plot_canvas_nav.py        # cursor-anchored Ctrl+wheel zoom and Shift/middle-drag horizontal pan (D-252)
 │   │   ├── plot_crosshair.py         # synchronized hover crosshair + inline value & A-B delta callouts (D-252)
-│   │   ├── plot_modes.py             # Stacked / Overlaid / Viridis Heatmap modes + sticky top row pinning (D-252)
+│   │   ├── plot_modes.py             # Stacked / Grouped / Overlaid / Viridis Heatmap modes + sticky top row pinning (D-252, D-254)
 │   │   ├── plot_interactions.py      # plot context actions, measurement, annotation, gap state
 │   │   ├── plot_overlays.py          # bounded page-local overlay drawing + draggable marker handles
 │   │   ├── tracking_3d_pane.py       # cache-backed current-pose projection; orbit/zoom (D-041); head-up axis (D-046)

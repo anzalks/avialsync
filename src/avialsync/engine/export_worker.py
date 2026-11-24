@@ -228,16 +228,25 @@ class VideoClipWorker(QObject):
     finished = Signal(int, int)  # successful, total
     error = Signal(str)
 
-    def __init__(self, clips: list[tuple[str, float, float, Path]]) -> None:
+    def __init__(
+        self,
+        clips: list[tuple[str, float, float, Path]],
+        sources: tuple[Path, ...] = (),
+    ) -> None:
         super().__init__()
         self._clips = clips
+        self._sources = sources
 
     @Slot()
     def run(self) -> None:
         """Trim every requested clip sequentially without blocking UI input."""
         try:
             successful = sum(
-                trim_video_clip(video_path, t0, t1, output_path)
+                (
+                    trim_video_clip(video_path, t0, t1, output_path, sources=self._sources)
+                    if self._sources
+                    else trim_video_clip(video_path, t0, t1, output_path)
+                )
                 for video_path, t0, t1, output_path in self._clips
             )
             self.finished.emit(successful, len(self._clips))

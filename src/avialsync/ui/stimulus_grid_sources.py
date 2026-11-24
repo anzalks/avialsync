@@ -215,15 +215,25 @@ def event_clips(
     before: float,
     after: float,
     out_dir: Path,
+    *,
+    forbidden: Iterable[Path | str] = (),
 ) -> list[tuple[str, float, float, Path]]:
     """Build per-event ``(media_path, src_start, src_end, output_path)`` trim specs."""
+    from avialsync.ui.clip_naming import (
+        clip_container_suffix,
+        non_overwriting_path,
+        unique_camera_stems,
+    )
+
     chosen = list(camera_paths) or list(window.video_grid._paths)
+    stems = unique_camera_stems(chosen)
+    reserved: set[Path] = set()
     clips: list[tuple[str, float, float, Path]] = []
     for orig_path in chosen:
         media_path = window.video_grid.media_path_for(orig_path)
         mapping = window.video_grid.time_map_for(orig_path)
-        suffix = Path(media_path).suffix or ".mp4"
-        stem = Path(orig_path).stem
+        suffix = clip_container_suffix(media_path)
+        stem = stems[orig_path]
         for idx, event_t in enumerate(events, start=1):
             t0, t1 = float(event_t - before), float(event_t + after)
             if mapping is not None:
@@ -233,7 +243,8 @@ def event_clips(
             if s0 > s1:
                 s0, s1 = s1, s0
             stamp = f"{event_t:.3f}".replace("-", "neg").replace(".", "_")
-            dest = out_dir / f"{stem}_event_{idx:03d}_{stamp}s{suffix}"
+            candidate = out_dir / f"{stem}_event_{idx:03d}_{stamp}s{suffix}"
+            dest = non_overwriting_path(candidate, reserved, forbidden)
             clips.append((media_path, s0, s1, dest))
     return clips
 

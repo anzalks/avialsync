@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal
 
-from avialsync.engine.transcode import TranscodeCancelled, encode_proxy
+from avialsync.core.artifact_io import publish
+from avialsync.core.sidecar_names import on_disk
+from avialsync.engine.transcode import TranscodeCancelled, encode_proxy, expanded_media_sources
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +23,8 @@ def proxy_path_for(video_path: Path) -> Path:
     It is only the *suggestion* in a Save dialog: nothing is written into a
     recording's folder without the user choosing that place (D-244).
     """
-    return video_path.parent / f"{video_path.stem}_proxy.mp4"
+    disk_path = on_disk(video_path)
+    return disk_path.parent / f"{disk_path.stem}_proxy.mp4"
 
 
 def needs_proxy(video_path: Path) -> bool:
@@ -28,7 +32,8 @@ def needs_proxy(video_path: Path) -> bool:
     pp = proxy_path_for(video_path)
     if not pp.exists():
         return True
-    return pp.stat().st_mtime < video_path.stat().st_mtime
+    ref = video_path.parent if video_path.parent.is_file() else video_path
+    return pp.stat().st_mtime < ref.stat().st_mtime
 
 
 class ProxyWorker(QObject):
@@ -47,10 +52,18 @@ class ProxyWorker(QObject):
     finished = Signal(str, str)  # original_path, proxy_path
     error = Signal(str)
 
-    def __init__(self, video_path: Path, destination: Path | None = None) -> None:
+    def __init__(
+        self,
+        video_path: Path,
+        destination: Path | None = None,
+        sources: Iterable[Path | str] = (),
+        media_path: Path | None = None,
+    ) -> None:
         super().__init__()
         self._video_path = video_path
         self._destination = destination
+        self._sources = tuple(sources)
+        self._media_path = media_path
         self._cancel = False
 
     def cancel(self) -> None:
@@ -58,27 +71,28 @@ class ProxyWorker(QObject):
 
     def run(self) -> None:
         src = self._video_path
+        media_src = self._media_path or src
         dst = self._destination or proxy_path_for(src)
-        tmp = dst.with_suffix(".tmp.mp4")
+        protected = expanded_media_sources(media_src, (src, *self._sources))
 
         try:
-            encode_proxy(
-                src,
-                tmp,
-                progress=lambda fraction: self.progress.emit(int(fraction * 100)),
-                should_cancel=lambda: self._cancel,
+            publish(
+                dst,
+                lambda tmp: encode_proxy(
+                    media_src,
+                    tmp,
+                    progress=lambda fraction: self.progress.emit(int(fraction * 100)),
+                    should_cancel=lambda: self._cancel,
+                ),
+                kind="proxy",
+                sources=protected,
             )
         except TranscodeCancelled:
-            tmp.unlink(missing_ok=True)
             return
         except Exception as error:
-            tmp.unlink(missing_ok=True)
             logger.warning("Proxy generation failed for %s", src, exc_info=True)
             self.error.emit(f"Could not build a proxy for {src.name}: {error}")
             return
 
-        # Published only once it is complete, so a reader can never open a
-        # proxy that is still being written.
-        tmp.replace(dst)
         self.progress.emit(100)
         self.finished.emit(str(src), str(dst))

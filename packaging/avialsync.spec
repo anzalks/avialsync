@@ -1,10 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 import re
 import sys
-from importlib.metadata import distribution
+from importlib.metadata import PackageNotFoundError, distribution
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy_metadata
 
 # PyInstaller supplies SPECPATH as the directory containing this spec.
 project_root = Path(SPECPATH).parent
@@ -17,7 +17,31 @@ application_icon = project_root / "packaging" / {
 
 hidden_imports = []
 hidden_imports += collect_submodules('avialsync')
-hidden_imports += ['PySide6', 'pyqtgraph', 'av', 'polars', 'numpy']
+hidden_imports += [
+    'PySide6',
+    'pyqtgraph',
+    'av',
+    'polars',
+    'numpy',
+    'aiohttp',
+    'fsspec.implementations.http',
+]
+hidden_imports += collect_submodules('zarr.codecs')
+hidden_imports += collect_submodules('numcodecs')
+hidden_imports += collect_submodules('neo.rawio')
+
+extra_datas = (
+    copy_metadata('avialsync')
+    + copy_metadata('zarr')
+    + copy_metadata('numcodecs')
+)
+try:
+    distribution('tzdata')
+except PackageNotFoundError:
+    pass
+else:
+    hidden_imports += collect_submodules('tzdata')
+    extra_datas += collect_data_files('tzdata')
 
 
 def license_datas(package):
@@ -42,6 +66,7 @@ a = Analysis(
         (str(project_root / "src" / "avialsync" / "resources" / "avialsync.png"), "avialsync/resources"),
         (str(project_root / "CITATION.cff"), "avialsync/resources"),
     ]
+    + extra_datas
     + license_datas("h5py")
     + license_datas("tifffile")
     + license_datas("zarr")

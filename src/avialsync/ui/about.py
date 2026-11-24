@@ -27,9 +27,11 @@ __all__ = ["docs_url", "project_urls", "version_report", "citation_text"]
 #: Fallbacks used only when the package metadata is unavailable — a source tree
 #: run without an install. Never the primary source.
 _FALLBACK_URLS = {
+    "Homepage": "https://github.com/anzalks/avialsync",
     "Documentation": "https://avialsync.readthedocs.io/",
     "Source": "https://github.com/anzalks/avialsync",
     "Issues": "https://github.com/anzalks/avialsync/issues",
+    "Changelog": "https://github.com/anzalks/avialsync/releases",
 }
 
 

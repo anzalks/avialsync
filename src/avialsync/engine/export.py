@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import csv
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from itertools import chain
 from pathlib import Path
 from typing import Any
@@ -248,6 +248,8 @@ def trim_video_clip(
     t0: float,
     t1: float,
     output_path: Path,
+    *,
+    sources: Iterable[Path | str] = (),
 ) -> bool:
     """Trim a video clip by copying packets — no re-encode.
 
@@ -257,4 +259,4 @@ def trim_video_clip(
     the cut is keyframe-aligned at the start exactly as a stream copy
     has always been.
     """
-    return remux_clip(video_path, output_path, t0, t1)
+    return remux_clip(video_path, output_path, t0, t1, sources=sources)

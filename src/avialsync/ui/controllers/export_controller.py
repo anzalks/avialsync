@@ -25,6 +25,7 @@ from avialsync.engine.stimulus_grid_worker import (
     StimulusGridExportWorker,
     StimulusTimelineWorker,
 )
+from avialsync.ui.clip_naming import planned_trim_clips
 from avialsync.ui.controllers.artifact_write_controller import loaded_sources, show_exported
 from avialsync.ui.export_destinations import choose_file, choose_folder
 from avialsync.ui.i18n import tr
@@ -279,17 +280,13 @@ def export_video_clip(window: MainWindow) -> None:
         out_dir = choose_folder(window, "clip", tr("Export Trimmed Video Clip"), Path.home())
         if not out_dir:
             return
-        # Read from what each pane decodes -- a proxy, for a source that has one
-        # -- and named after the recording it shows.
-        media = {path: window.video_grid.media_path_for(path) for path in window.video_grid._paths}
-        clips = [
-            (
-                media[orig_path],
-                *_source_range(window, orig_path, t0, t1),
-                out_dir / f"{Path(orig_path).stem}_trim{Path(media[orig_path]).suffix}",
-            )
-            for orig_path in window.video_grid._paths
-        ]
+        clips = planned_trim_clips(
+            list(window.video_grid.pane_paths()),
+            window.video_grid.media_path_for,
+            lambda orig: _source_range(window, orig, t0, t1),
+            out_dir,
+            loaded_sources(window),
+        )
     window._start_video_clip_export(clips)
 
 
@@ -299,7 +296,7 @@ def start_video_clip_export(
     """Run ffmpeg trim work in a worker thread."""
     from avialsync.engine.export_worker import VideoClipWorker
 
-    worker = VideoClipWorker(clips)
+    worker = VideoClipWorker(clips, loaded_sources(window))
 
     def _wire(thread: QThread) -> None:
         worker.finished.connect(
@@ -379,7 +376,15 @@ def export_stimulus_grid(window: MainWindow) -> None:
     if dialog.export_mode() == "clips":
         out_dir = choose_folder(window, "clip", tr("Export Event Video Clips"), Path.home())
         if out_dir:
-            clips = sources.event_clips(window, rows.camera_keys(), events, before, after, out_dir)
+            clips = sources.event_clips(
+                window,
+                rows.camera_keys(),
+                events,
+                before,
+                after,
+                out_dir,
+                forbidden=loaded_sources(window),
+            )
             if clips:
                 start_video_clip_export(window, clips)
         return
@@ -443,6 +448,7 @@ def start_stimulus_grid_export(
         playback_speed,
         high_detail,
         bands,
+        loaded_sources(window),
     )
 
     def _wire(_thread: QThread) -> None:

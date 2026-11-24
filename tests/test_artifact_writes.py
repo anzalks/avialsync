@@ -46,12 +46,16 @@ _KNOWN_WRITERS: dict[str, str] = {
     "engine/changes_export_worker.py:_save_png": "Saves publish's temporary frame PNG path.",
     "engine/transcode.py:remux_clip": "Writes publish's temporary clip container.",
     "engine/transcode.py:encode_video": "Generic encoder; callers own staging.",
-    "engine/transcode.py:encode_proxy": "Disposable proxy encoder has cache ownership.",
+    "engine/transcode.py:encode_proxy": "Writes publish's temporary proxy container.",
     "engine/transcode.py:_clip_segments": "Joined-video clip into publish's temporary.",
     "engine/transcode.py:_proxy_segments": "encode_proxy's encoder for a joined video.",
+    "engine/stimulus_grid_worker.py:run": (
+        "Stages into non-hidden .exporting.*.part.mp4 with source/cache guards."
+    ),
     "ui/recovery.py:write_recovery": "Crash recovery has its own startup lifecycle.",
     "ui/recovery.py:dismiss_recovery": "Crash recovery dismissal marker.",
     "loaders/nwb_storage.py:create_remote_link": "App-data link to a remote NWB source.",
+    "demo.py:_generate_video": "Standalone demo data generator, not a user export.",
     "demo.py:_write_sensors": "Standalone demo data generator, not a user export.",
     "demo.py:_write_ephys": "Standalone demo data generator, not a user export.",
     "demo.py:_write_tracking": "Standalone demo data generator, not a user export.",
@@ -71,6 +75,11 @@ def _write_call(node: ast.Call) -> str | None:
     name = _name(node.func)
     if name in {"os.replace", "os.rename", "pq.write_table"}:
         return name
+    if name.endswith(".replace") and name != "dataclasses.replace":
+        # Path.replace(target) takes one positional argument and no keywords;
+        # str.replace(old, new) takes two or more positional arguments.
+        if len(node.args) == 1 and not node.keywords:
+            return name
     if name.startswith("np.save"):
         return name
     if name.endswith((".write_text", ".write_bytes")):

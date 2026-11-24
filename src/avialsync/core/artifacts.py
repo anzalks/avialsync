@@ -142,6 +142,7 @@ KINDS: dict[str, ArtifactKind] = {
         _export("data-slice-parquet", "Parquet", "schema metadata"),
         _export("snapshot", "PNG", "PNG text"),
         _export("clip", "MP4 or MKV", "container metadata"),
+        _export("proxy", "MP4", "container metadata"),
         _export("stimulus-grid", "MP4", "container metadata"),
         _export("provenance", "JSON", "top-level fields"),
     )

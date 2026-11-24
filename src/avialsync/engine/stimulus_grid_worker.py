@@ -198,6 +198,7 @@ class StimulusGridExportWorker(QObject):
         playback_speed: float = 1.0,
         high_detail: bool = False,
         bands: tuple[GridBand, ...] = (),
+        sources: tuple[Path, ...] = (),
     ) -> None:
         super().__init__()
         self._bands = bands
@@ -211,6 +212,7 @@ class StimulusGridExportWorker(QObject):
         self._signal = signal
         self._playback_speed = playback_speed
         self._high_detail = high_detail
+        self._sources = sources
         self._cancel = threading.Event()
 
     def cancel(self) -> None:
@@ -218,22 +220,31 @@ class StimulusGridExportWorker(QObject):
         self._cancel.set()
 
     def _destination_is_source(self) -> bool:
+        from avialsync.engine.transcode import expanded_media_sources
+
         destination = self._destination.resolve()
+        candidates: list[Path] = list(self._sources)
         for video in self._videos:
-            if destination == video.path.resolve():
+            candidates.extend(expanded_media_sources(video.path))
+        for src_path in candidates:
+            if destination == src_path.resolve():
                 return True
-            if self._destination.exists() and video.path.exists():
-                if self._destination.samefile(video.path):
+            if self._destination.exists() and src_path.exists():
+                if self._destination.samefile(src_path):
                     return True
         return False
 
     @Slot()
     def run(self) -> None:
+        from avialsync.core.cache import cache_root
+
         temporary: Path | None = None
         replaced = False
         try:
             if self._destination_is_source():
                 raise ExportError("Choose an output file separate from the source videos.")
+            if self._destination.resolve().is_relative_to(cache_root().resolve()):
+                raise ExportError("Choose a destination outside the disposable cache")
             self._destination.parent.mkdir(parents=True, exist_ok=True)
             with tempfile.NamedTemporaryFile(
                 prefix=f"{self._destination.stem}.exporting.",

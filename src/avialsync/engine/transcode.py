@@ -52,7 +52,45 @@ def _even(value: float) -> int:
     return max(2, int(value) // 2 * 2)
 
 
-def remux_clip(source: Path | str, destination: Path | str, start: float, end: float) -> bool:
+def clip_container_suffix(media_path: Path | str) -> str:
+    """Return a muxable container extension for a clip of *media_path*."""
+    if is_segmented(media_path):
+        from avialsync.engine.segmented_media import read_manifest
+
+        try:
+            first_ext = Path(read_manifest(media_path)[0].path).suffix.lower()
+        except (OSError, ValueError, IndexError):
+            first_ext = ""
+        return first_ext if first_ext in {".mp4", ".mkv", ".mov", ".avi"} else ".mkv"
+    suffix = Path(media_path).suffix.lower()
+    return suffix if suffix else ".mp4"
+
+
+def expanded_media_sources(
+    source: Path | str, extra_sources: Iterable[Path | str] = ()
+) -> tuple[Path, ...]:
+    """Return *source*, its underlying segment files if segmented, and *extra_sources*."""
+    src_path = Path(source)
+    collected: list[Path] = [src_path]
+    if is_segmented(src_path):
+        from avialsync.engine.segmented_media import read_manifest
+
+        try:
+            collected.extend(Path(seg.path) for seg in read_manifest(src_path))
+        except (OSError, ValueError):
+            pass
+    collected.extend(Path(item) for item in extra_sources)
+    return tuple(dict.fromkeys(collected))
+
+
+def remux_clip(
+    source: Path | str,
+    destination: Path | str,
+    start: float,
+    end: float,
+    *,
+    sources: Iterable[Path | str] = (),
+) -> bool:
     """Copy the packets covering ``[start, end]`` into a new container.
 
     A stream copy: nothing is decoded or re-encoded, so the exported clip holds
@@ -120,7 +158,12 @@ def remux_clip(source: Path | str, destination: Path | str, start: float, end: f
             raise EmptyClip
 
     try:
-        publish(destination, write, kind="clip", sources=(source,))
+        publish(
+            destination,
+            write,
+            kind="clip",
+            sources=expanded_media_sources(source, sources),
+        )
     except (av.FFmpegError, OSError, IndexError, ValueError, EmptyClip):
         logger.warning("Could not trim %s to %s", source, destination, exc_info=True)
         return False

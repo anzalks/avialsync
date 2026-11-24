@@ -21,6 +21,7 @@ from PySide6.QtCore import QThread
 from PySide6.QtWidgets import QDialog
 
 from avialsync.core import pose_export
+from avialsync.core.sidecar_names import on_disk
 from avialsync.ui.annotations import marker_rows
 from avialsync.ui.controllers import corrections_controller, identity_controller
 from avialsync.ui.export_dialog import (
@@ -76,29 +77,33 @@ def available_exports(window: MainWindow) -> list[ExportItem]:
                 source_id=source_id,
             )
         )
-        if not count:
-            continue
-        video = corrections_controller.video_for(window, source_id)
-        if not video:
-            continue
-        video_path = Path(video)
-        schema = identity_controller.schema_for(window, source_id)
-        items.append(
-            ExportItem(
-                kind=RETRAINING_SET,
-                title=tr("Retraining set — {source}").format(source=source.name),
-                detail=tr(
-                    "The {n} corrected frame(s) as labeled data, with their images, "
-                    "ready to merge into a training set."
-                ).format(n=len(_corrected_indices(window, source_id))),
-                target=video_path.parent / f"{video_path.stem}_{source.stem}_training_export",
-                source_id=source_id,
-                video=video,
-                selected=False,
-                multi_animal=bool(schema and schema.multi_animal),
-            )
-        )
+        if count:
+            retrain = _retraining_export_item(window, source_id, source)
+            if retrain is not None:
+                items.append(retrain)
     return items
+
+
+def _retraining_export_item(window: MainWindow, source_id: str, source: Path) -> ExportItem | None:
+    video = corrections_controller.video_for(window, source_id)
+    if not video:
+        return None
+    video_path = on_disk(video)
+    source_disk = on_disk(source)
+    schema = identity_controller.schema_for(window, source_id)
+    return ExportItem(
+        kind=RETRAINING_SET,
+        title=tr("Retraining set — {source}").format(source=source.name),
+        detail=tr(
+            "The {n} corrected frame(s) as labeled data, with their images, "
+            "ready to merge into a training set."
+        ).format(n=len(_corrected_indices(window, source_id))),
+        target=video_path.parent / f"{video_path.stem}_{source_disk.stem}_training_export",
+        source_id=source_id,
+        video=video,
+        selected=False,
+        multi_animal=bool(schema and schema.multi_animal),
+    )
 
 
 def _corrected_indices(window: MainWindow, source_id: str) -> set[int]:
@@ -112,7 +117,7 @@ def _annotation_target(window: MainWindow) -> Path:
         return Path(session).with_suffix(".annotations.csv")
     videos = window.video_grid.pane_paths()
     if videos:
-        return Path(videos[0]).with_name("annotations.csv")
+        return on_disk(videos[0]).with_name("annotations.csv")
     # Home, not a bare name: a relative path in the field would be written
     # wherever the process happens to have been started from, which is not
     # somewhere the user can predict or find it again.

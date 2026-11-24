@@ -42,6 +42,14 @@ full history is in git. Versions follow the tags in the repository.
 - Internal: the main window is composed of focused modules; behaviour is unchanged (D-248).
 
 ### Fixed
+- Multi-camera clip exports (`Export Trimmed Video Clip…` and per-event stimulus clips), scrubbing
+  proxies, stimulus-grid exports, and retraining exports now disambiguate joined-trial
+  (`FaceCam.avi/joined_trials`) and multi-folder (`left/video.mp4`, `right/video.mp4`) camera stems,
+  resolve real container extensions instead of `.json` for segmented manifests, avoid silently
+  overwriting existing files in folder-based exports, and enforce `artifact_io` source/cache guards on
+  proxy, clip, and stimulus-grid writers; standalone PyInstaller bundles also include `avialsync` /
+  `zarr` / `numcodecs` dist-info metadata, `aiohttp` / `fsspec` HTTP streaming, `neo.rawio`, and
+  `tzdata` timezone data (D-197, D-216, D-244).
 - Joined multi-trial camera manifests (`*.segments.json`), directory-backed `.nwb.zarr` stores, and
   enclosed or streamed NWB `ImageSeries` now report true underlying media byte sizes rather than
   manifest/inode metadata sizes, exclude unrecorded inter-trial `GAP_FACTOR` breaks from VFR and

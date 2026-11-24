@@ -120,3 +120,33 @@ def test_distributions_ship_the_package_and_its_citation_only() -> None:
     assert targets["wheel"]["force-include"] == {"CITATION.cff": "avialsync/resources/CITATION.cff"}
     spec = (root / "packaging" / "avialsync.spec").read_text(encoding="utf-8")
     assert '(str(project_root / "CITATION.cff"), "avialsync/resources")' in spec
+    assert "copy_metadata('avialsync')" in spec
+    assert "'fsspec.implementations.http'" in spec
+    assert "'aiohttp'" in spec
+    assert "collect_data_files('tzdata')" in spec
+
+
+def test_pyproject_entry_points_cover_every_builtin_loader_and_session_scanner() -> None:
+    """Every built-in loader and session scanner must also be declared as an entry point."""
+    from avialsync.core.registry import _BUILTIN_LOADERS, _BUILTIN_SESSIONS
+
+    root = Path(__file__).parents[1]
+    project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    entry_points = project["entry-points"]
+
+    declared_loaders = set(entry_points["avialsync.loaders"].values())
+    expected_loaders = {f"{mod}:{cls}" for mod, cls in _BUILTIN_LOADERS}
+    assert expected_loaders <= declared_loaders
+
+    declared_sessions = set(entry_points["avialsync.sessions"].values())
+    expected_sessions = {f"{mod}:{cls}" for mod, cls in _BUILTIN_SESSIONS}
+    assert expected_sessions <= declared_sessions
+
+
+def test_about_fallback_urls_cover_every_declared_project_url() -> None:
+    """Frozen builds without dist-info fallbacks must still resolve every Help URL."""
+    from avialsync.ui.about import _FALLBACK_URLS
+
+    root = Path(__file__).parents[1]
+    project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    assert set(project["urls"]) <= set(_FALLBACK_URLS)
