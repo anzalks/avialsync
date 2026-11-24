@@ -10,6 +10,7 @@ from PySide6.QtCore import (
     QObject,
     QPoint,
     QRegularExpression,
+    QSize,
     Qt,
     Signal,
 )
@@ -27,6 +28,7 @@ from PySide6.QtGui import (
     QPolygon,
     QRegularExpressionValidator,
     QResizeEvent,
+    QShowEvent,
 )
 from PySide6.QtWidgets import (
     QApplication,
@@ -34,6 +36,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLayout,
     QLineEdit,
     QPushButton,
     QScrollArea,
@@ -1524,6 +1527,8 @@ class Transport(QWidget):
 
     # Ordered playback-rate steps (J/K/L model)
     _RATE_STEPS = PLAYBACK_RATE_STEPS
+    _COMPACT_TIMELINE_WIDTH = 760
+    _MIN_COMPACT_WIDTH = 392
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -1531,12 +1536,16 @@ class Transport(QWidget):
         # frame stepping; reaching the lanes is a keyboard user's choice.
         self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
         self._root_layout = QVBoxLayout(self)
+        self._root_layout.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
         self._root_layout.setContentsMargins(
             spacing("s"), spacing("xs"), spacing("s"), spacing("s")
         )
         self._root_layout.setSpacing(spacing("xs"))
         self._timeline_layout = QHBoxLayout()
         self._timeline_layout.setSpacing(spacing("s"))
+        self._controls_layout = QHBoxLayout()
+        self._controls_layout.setSpacing(spacing("s"))
+        self._compact_timeline = False
         self.evidence = TimelineEvidence(self)
         self.status_line = StatusLine(self)
         self.overview = self.evidence.overview
@@ -1573,6 +1582,7 @@ class Transport(QWidget):
 
         self.slider = ScrubBar(self)
         self.slider.setRange(0, 10000)
+        self.slider.setMinimumWidth(80)
         self._last_t: float | None = None
         self.slider.setAccessibleName(tr("Master timeline scrubber"))
         self.slider.setToolTip(tr("Master timeline — drag to scrub; release for an exact seek"))
@@ -1654,23 +1664,29 @@ class Transport(QWidget):
 
         # ── Rate combo (0.01× – 10×) ──────────────────────────────────
         self.rate_combo = QComboBox()
+        self.rate_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         for r in self._RATE_STEPS:
             self.rate_combo.addItem(rate_label(r), r)
         self.rate_combo.setCurrentText("1.0x")
         self.rate_combo.setToolTip(tr("Playback rate (L = step up, K = pause)"))
         self.rate_combo.currentIndexChanged.connect(self._on_rate_changed)
-        playhead_buttons = (
+        self._playhead_buttons = (
             self._jump_back_btn,
             self._step_back_btn,
             self.play_btn,
             self._step_fwd_btn,
             self._jump_fwd_btn,
         )
-        for index, button in enumerate(playhead_buttons):
+        self._loop_rate_controls = (
+            self._ab_in_btn,
+            self._ab_out_btn,
+            self._ab_clear_btn,
+            self.rate_combo,
+        )
+        for index, button in enumerate(self._playhead_buttons):
             self._timeline_layout.insertWidget(index, button)
-        for button in (self._ab_in_btn, self._ab_out_btn, self._ab_clear_btn):
-            self._timeline_layout.addWidget(button)
-        self._timeline_layout.addWidget(self.rate_combo)
+        for control in self._loop_rate_controls:
+            self._timeline_layout.addWidget(control)
 
         self._bounds = (0.0, 0.0)
         self._direction = 1
@@ -1999,6 +2015,45 @@ class Transport(QWidget):
             return 0.0
         return max(0.0, min(1.0, (warp.to_view(t) - t0) / duration))
 
+    def minimumSizeHint(self) -> QSize:  # noqa: N802
+        """Allow horizontal splitters to narrow smoothly into two-row compact mode."""
+        hint = self._root_layout.minimumSize()
+        return QSize(min(hint.width(), self._MIN_COMPACT_WIDTH), hint.height())
+
+    def _sync_timeline_mode(self, width: int) -> None:
+        """Split seek and transport controls into two rows when narrow."""
+        want_compact = 0 < width < self._COMPACT_TIMELINE_WIDTH
+        if want_compact == self._compact_timeline:
+            return
+        while self._timeline_layout.count():
+            self._timeline_layout.takeAt(0)
+        while self._controls_layout.count():
+            self._controls_layout.takeAt(0)
+        controls_index = self._root_layout.indexOf(self._controls_layout)
+        if controls_index >= 0:
+            self._root_layout.takeAt(controls_index)
+        if want_compact:
+            self._timeline_layout.addWidget(self._time_edit)
+            self._timeline_layout.addWidget(self.slider, 1)
+            self._timeline_layout.addWidget(self._end_time_label)
+            for button in self._playhead_buttons:
+                self._controls_layout.addWidget(button)
+            self._controls_layout.addStretch(1)
+            for control in self._loop_rate_controls:
+                self._controls_layout.addWidget(control)
+            self._root_layout.addLayout(self._controls_layout)
+        else:
+            for button in self._playhead_buttons:
+                self._timeline_layout.addWidget(button)
+            self._timeline_layout.addWidget(self._time_edit)
+            self._timeline_layout.addWidget(self.slider, 1)
+            self._timeline_layout.addWidget(self._end_time_label)
+            for control in self._loop_rate_controls:
+                self._timeline_layout.addWidget(control)
+        self._compact_timeline = want_compact
+        self.updateGeometry()
+        self._root_layout.activate()
+
     def _repin(self) -> None:
         """Reposition all visible A/B pins from stored times + current geometry."""
         if self._ab_in_t is not None:
@@ -2006,8 +2061,14 @@ class Transport(QWidget):
         if self._ab_out_t is not None:
             self._pin_out.pin_to_slider(self.slider, self._time_to_frac(self._ab_out_t))
 
+    def showEvent(self, event: QShowEvent) -> None:  # noqa: N802
+        super().showEvent(event)
+        self._sync_timeline_mode(self.width())
+        self._repin()
+
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
+        self._sync_timeline_mode(event.size().width())
         self._repin()
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:

@@ -76,9 +76,16 @@
   [Sessions, proxies, and the 3D view](sessions-and-media.md)
 
 Click a camera picture to make it the target for **Left/Right** frame stepping and return
-keyboard control from an editor to playback. With no camera selected, stepping goes to the nearest
-neighbouring frame of any visible camera. An aligned camera steps along its own mapped frame
-timestamps, including when another camera has a different frame rate.
+keyboard control from an editor to playback. With no camera selected, stepping advances across the
+visible cameras' frames, coalescing co-exposed cameras within 1 ms so hardware-triggered rigs step in
+lockstep across every camera, overlay, 3D pose, imaging plane, plot cursor, and **Values** readout.
+An aligned camera steps along its own mapped frame timestamps, including when another camera has a
+different frame rate.
+
+The **Values** page lists live playhead readouts only for currently visible cameras and plotted
+channels, grouped using the same signal hierarchy as **Sources** and the **Grouped** plot mode;
+large banks (such as multi-hundred-ROI or multi-electrode groups) summarize `μ [min…max]` on their
+collapsible header row so the inspector stays compact and readable.
 
 ## Aligning recordings
 

@@ -9,6 +9,7 @@ import numpy as np
 
 from avialsync.core.source import VideoMetadata
 from avialsync.core.timeline import TimeMap
+from avialsync.core.trials import GAP_FACTOR
 
 # Frame selection lives in core/ so the headless decoder resolves time through
 # the same call this readout names it with — one authority, never two.
@@ -24,6 +25,12 @@ def instantaneous_frame_rate(frame_times: np.ndarray | None, t: float, fallback:
     index = int(np.searchsorted(frame_times, t, side="right"))
     index = max(1, min(index, len(frame_times) - 1))
     interval = float(frame_times[index] - frame_times[index - 1])
+    if index >= 2:
+        prev_interval = float(frame_times[index - 1] - frame_times[index - 2])
+        if prev_interval > 1e-9 and interval > prev_interval * GAP_FACTOR:
+            interval = prev_interval
+    elif fallback > 0.0 and interval > (1.0 / fallback) * GAP_FACTOR:
+        return fallback
     return 1.0 / interval if interval > 1e-9 else fallback
 
 

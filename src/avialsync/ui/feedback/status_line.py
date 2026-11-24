@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QPainter, QPaintEvent
-from PySide6.QtWidgets import QLabel, QSizePolicy, QWidget
+from PySide6.QtWidgets import QLabel, QSizePolicy, QStatusBar, QWidget
 
 from avialsync.ui.design_tokens import spacing
 from avialsync.ui.i18n import tr
@@ -59,6 +59,9 @@ class StatusLine(QLabel):
         self.setText(f"{prefixes.get(severity, tr('Status'))}: {message}")
         self.setToolTip(self.text())
         self.setAccessibleDescription(self.text())
+        parent = self.parentWidget()
+        if isinstance(parent, QStatusBar) and parent.currentMessage():
+            parent.clearMessage()
         self.show()
         if severity == "busy":
             self._status_clear_timer.stop()
@@ -84,6 +87,9 @@ class StatusLine(QLabel):
     def paintEvent(self, event: QPaintEvent) -> None:
         """Draw status ink from the current palette on every repaint."""
         del event
+        parent = self.parentWidget()
+        if isinstance(parent, QStatusBar) and parent.currentMessage():
+            return
         painter = QPainter(self)
         painter.setPen(self.ink_color())
         area = self.contentsRect()

@@ -105,6 +105,32 @@ def source_exists(path: Path) -> bool:
     return path.exists() or container_of(path) is not None
 
 
+def source_size_bytes(path: Path | str | None) -> int:
+    """Return on-disk bytes for a file, directory store, or enclosed object.
+
+    Remote URLs and missing paths return ``0``. Directory stores (such as
+    ``.zarr`` folders) sum their regular files while counting hard links once.
+    """
+    if path is None:
+        return 0
+    raw = str(path)
+    if "://" in raw:
+        return 0
+    target = Path(raw)
+    if not target.exists():
+        container = container_of(target)
+        if container is None:
+            return 0
+        target = container
+    if target.name.endswith(".nwb-link"):
+        return 0
+    if target.is_file():
+        return int(target.stat().st_size)
+    from avialsync.core.cache_store import _tree_size
+
+    return _tree_size(target)
+
+
 @dataclass(frozen=True, slots=True)
 class VideoMetadata:
     """Format-neutral video metadata exposed by every video source.

@@ -115,9 +115,17 @@ frame to decode from.
 ### Export an event-aligned video grid with its TTL trace
 
 Run `avialsync demo` for four generated cameras and a channel named **TTL**, or open your own
-aligned videos and stimulus channel. Choose **File → Export Stimulus Grid…**. In the dialog, select
-the stimulus channel, set a rising threshold and minimum event spacing, then choose **Scan events**.
-Select up to twelve events and set the time before and after each one. **Output frame rate**
+aligned videos and stimulus channel. Choose **File → Export Stimulus Grid…**. In **Trigger source**,
+choose either any loaded sensor/TTL channel (including hidden or queued channels) or a discrete
+session event list (**Accepted TTL / Sync Events**, **Trials / Stimulus Segments**, **Recorded
+Messages**, or **Annotations / Flags**). For continuous channels, choose **Rising edge** or
+**Falling edge (active-low TTL)** under **Edge polarity**, set the threshold and minimum event
+spacing, and choose **Scan events**; discrete session sources populate their event timestamps
+directly without threshold scanning. Select up to twelve events for a comparison grid (or any number
+when exporting separate clips) and set the time before and after each one. **Export format** offers
+**Comparison grid (.mp4)** — one multi-column composite movie — or **Trimmed clips per event
+(folder)**, which stream-copies (or H.264-encodes as fallback) a separate synchronization-mapped clip
+per selected event and camera. **Output frame rate**
 defaults to 10 fps and caps the composite output rate; raise it (up to 120 fps) to keep more of a
 fast camera's frames. Each camera is sampled at emitted output
 times; source transitions between them are skipped. **Playback speed** stretches or compresses

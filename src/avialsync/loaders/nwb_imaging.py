@@ -305,11 +305,14 @@ class NWBImagingSource(VideoSource):
         return float(np.median(np.diff(times)))
 
     def video_metadata(self) -> VideoMetadata:
+        from avialsync.core.source import source_size_bytes
+        from avialsync.loaders.video_standard import _interval_rate_statistics
+
         times = self._frame_times if self._frame_times is not None else np.empty(0)
-        rates = 1.0 / np.diff(times) if len(times) > 1 else np.empty(0)
-        rates = rates[np.isfinite(rates)]
-        measured = float(len(rates) / np.sum(1.0 / rates)) if len(rates) else self.fps()
-        median = float(np.median(rates)) if len(rates) else 0.0
+        nominal = self.fps()
+        is_vfr, measured, min_rate, max_rate = _interval_rate_statistics(
+            times if len(times) else None, nominal
+        )
         info = self._info
         return VideoMetadata(
             container="mp4 (NWB proxy)",
@@ -317,15 +320,15 @@ class NWBImagingSource(VideoSource):
             pixel_format=self._pixel_format,
             width=info.frame_shape[1] if info else 0,
             height=info.frame_shape[0] if info else 0,
-            nominal_fps=self.fps(),
+            nominal_fps=nominal,
             measured_fps=measured,
-            min_frame_rate=float(np.min(rates)) if len(rates) else 0.0,
-            max_frame_rate=float(np.max(rates)) if len(rates) else 0.0,
-            is_vfr=bool(len(rates) and np.any(np.abs(rates - median) > max(1e-3, median * 5e-3))),
+            min_frame_rate=min_rate if len(times) > 1 else 0.0,
+            max_frame_rate=max_rate if len(times) > 1 else 0.0,
+            is_vfr=is_vfr,
             frame_count=len(times) or None,
             duration=max(0.0, self.time_bounds()[1] - self.time_bounds()[0]),
             start_time=None,
-            file_size_bytes=self._path.stat().st_size if self._path else 0,
+            file_size_bytes=source_size_bytes(self._path),
         )
 
     def label(self) -> str:

@@ -111,6 +111,7 @@ behaviour, traps), git history, and `archive/plans/` (the executable plans, kept
 | UI/UX review and frame stepping | Imports state their timebase, no one-click cache deletion, proxies where the user chooses, keyboard lanes, bulk relink; frame steps keep their chosen timestamp and picture clicks select the camera | D-243, D-244, D-246 |
 | Prop persistence | Prop TOML owns its projection and recording references, so saved geometry reloads on its own | D-245 |
 | Window composition, Stage A | `ui/main_window.py` 3,440 → 2,302 lines across eight new modules, no function over 60 lines, construction verified identical by inventory; Stage B awaits a decision | D-248 |
+| Multi-view inspection, grouping & scale | Multi-monitor detachment (3D, Imaging, individual cameras, inspector pages), `J`/`K`/`L` shuttle, draggable markers & `1`–`9` ethogram hotkeys, 2D skeleton/trails/5× loupe/epipolar guides/suspect jumps, plot cursor zoom/pan/crosshair/`Stacked`·`Grouped`·`Overlaid`·`Heatmap` modes & grouped visible-only `Values`, perceptual imaging colormaps & 2P ROI linking, co-exposed multi-camera stepping, active-low/session-event TTL grid & clip exports, and full-scale NWB/session hardening | D-249 – D-254 |
 
 ### Standing requirements carried forward from delivered phases
 

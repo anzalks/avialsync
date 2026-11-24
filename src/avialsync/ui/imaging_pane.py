@@ -21,7 +21,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
     QLabel,
-    QSizePolicy,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -36,6 +35,7 @@ from avialsync.core.video_timing import frame_index_at
 from avialsync.engine.imaging_reader import ImagingReadWorker
 from avialsync.ui.accessible_views import register_painted
 from avialsync.ui.design_tokens import spacing
+from avialsync.ui.elided_label import ElidedLabel
 from avialsync.ui.i18n import tr
 from avialsync.ui.imaging_card import describe_picture, frame_rate
 from avialsync.ui.imaging_controls import ImagingControls
@@ -136,9 +136,8 @@ class ImagingPane(QWidget):
         self.controls.view_edited.connect(self._on_view_edited)
         status_row = QHBoxLayout()
         status_row.setSpacing(gap)
-        self.status_label = QLabel("", self)
+        self.status_label = ElidedLabel("", self, mode=Qt.TextElideMode.ElideRight)
         self.status_label.setAccessibleName(tr("Imaging frame status"))
-        self.status_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         status_row.addWidget(self.status_label, 1)
         self.pixel_label = QLabel("", self)
         self.pixel_label.setAccessibleName(tr("Hovered imaging pixel value"))

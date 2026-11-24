@@ -41,7 +41,7 @@ pane draws. Nothing in AvialSync knows this lab's format.*
   and pop-out inspector pages) for multi-monitor rigs.
 - Sensor, electrode, and tracking traces beside the video, up to 50 kHz across many channels, with
   `Ctrl`-wheel cursor zoom, `Shift`-drag panning, sticky pinned reference rows, and `Stacked`,
-  `Overlaid`, or 2D Viridis `Heatmap` plot modes.
+  `Grouped`, `Overlaid`, or 2D Viridis `Heatmap` plot modes.
 - Two-photon HDF5, OME-TIFF and ScanImage stacks on the same clock, with channel overlays,
   perceptual colormaps (`Viridis`, `Magma`, `Inferno`, `Turbo`), false-colour clipping indicators,
   live pixel intensity readouts, bidirectional ROI-tile ↔ `ΔF/F` trace linking, and a centred moving
@@ -52,11 +52,12 @@ pane draws. Nothing in AvialSync knows this lab's format.*
 - Event marks, draggable point and range annotations (`Shift+M`), configurable `1`–`9` behavioral
   ethogram hotkeys (instant points or start/stop bouts), A/B time ranges, and exports of snapshots or
   selected spans for analysis elsewhere.
-- Event-aligned grid MP4 export, with cameras above one shared TTL or stimulus trace and a selectable
-  playback speed for high-speed footage; see the
+- Event-aligned grid MP4 or per-event trimmed clip export, driven by rising or active-low falling
+  TTL thresholds or discrete session triggers (accepted sync pulses, trials, messages, annotations),
+  with cameras above one shared trace and selectable slow-motion speed; see the
   [illustrated export demo](https://avialsync.readthedocs.io/en/latest/tutorials/annotating-and-exporting.html#export-an-event-aligned-video-grid-with-its-ttl-trace).
 - Correction of a wrong pose estimate by hand — aided by low-confidence hollow rings, motion trails,
-  a `4×` pixel-grid zoom loupe, calibrated multi-camera epipolar guide curves, and off-thread
+  a `5×` pixel-grid zoom loupe, calibrated multi-camera epipolar guide curves, and off-thread
   suspect-frame navigation (`Ctrl+[` / `Ctrl+]`) — saved beside the pose file and exportable either as
   corrected data or as a DeepLabCut or single-view Lightning Pose retraining set.
 - Repair of a tracker that swapped two animals or left/right body parts, by accepting the crossings

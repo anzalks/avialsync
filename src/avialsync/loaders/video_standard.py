@@ -369,11 +369,19 @@ class VideoStandardLoader(VideoSource):
         """
         import av
 
-        from avialsync.engine.segmented_media import is_segmented, read_manifest
+        from avialsync.core.source import source_size_bytes
+        from avialsync.engine.segmented_media import (
+            is_segmented,
+            manifest_size_bytes,
+            read_manifest,
+        )
 
         # A joined video's files share codec and frame size: its first file
-        # describes them. Its length comes from the joined frame table.
-        probed = Path(read_manifest(path)[0].path) if is_segmented(path) else path
+        # describes them. Its length comes from the joined frame table, and its
+        # byte size sums the underlying segment recordings rather than the JSON
+        # manifest in the cache.
+        segmented = is_segmented(path)
+        probed = Path(read_manifest(path)[0].path) if segmented else path
         try:
             container = av.open(str(probed))
         except (av.FFmpegError, OSError) as error:
@@ -387,7 +395,7 @@ class VideoStandardLoader(VideoSource):
             if container.start_time is not None:
                 self._start_time = container.start_time / 1_000_000.0
             self._duration = (container.duration or 0) / 1_000_000.0
-            self._file_size = path.stat().st_size
+            self._file_size = manifest_size_bytes(path) if segmented else source_size_bytes(path)
 
             try:
                 stream = container.streams.video[0]
@@ -530,20 +538,7 @@ class VideoStandardLoader(VideoSource):
     def _frame_rate_statistics(self) -> tuple[bool, float, float, float]:
         if self._timing_stats_source is self._frame_times:
             return self._timing_stats
-        if self._frame_times is None or len(self._frame_times) < 2:
-            stats = (False, self._fps, self._fps, self._fps)
-        else:
-            intervals = np.diff(self._frame_times)
-            intervals = intervals[intervals > 1e-9]
-            if len(intervals) == 0:
-                stats = (False, self._fps, self._fps, self._fps)
-            else:
-                median_interval = float(np.median(intervals))
-                tolerance = max(2e-6, median_interval * 5e-3)
-                is_vfr = bool(np.any(np.abs(intervals - median_interval) > tolerance))
-                measured = float(len(intervals) / np.sum(intervals))
-                rates = 1.0 / intervals
-                stats = (is_vfr, measured, float(np.min(rates)), float(np.max(rates)))
+        stats = _interval_rate_statistics(self._frame_times, self._fps)
         self._timing_stats_source = self._frame_times
         self._timing_stats = stats
         return stats
@@ -558,19 +553,7 @@ class VideoStandardLoader(VideoSource):
         """Return ``(is_vfr, measured, min, max)`` from whichever timing is authoritative."""
         if self._exact_master is None or len(self._exact_master) < 2:
             return self._frame_rate_statistics()
-        intervals = np.diff(self._exact_master)
-        intervals = intervals[intervals > 1e-9]
-        if len(intervals) == 0:  # pragma: no cover - the mapping is strictly increasing
-            return self._frame_rate_statistics()
-        median = float(np.median(intervals))
-        tolerance = max(2e-6, median * 5e-3)
-        rates = 1.0 / intervals
-        return (
-            bool(np.any(np.abs(intervals - median) > tolerance)),
-            float(len(intervals) / float(np.sum(intervals))),
-            float(np.min(rates)),
-            float(np.max(rates)),
-        )
+        return _interval_rate_statistics(self._exact_master, self._fps)
 
     def video_metadata(self) -> VideoMetadata:
         """Return timestamp-authoritative stream metadata for inspection and OSD.
@@ -614,3 +597,33 @@ class VideoStandardLoader(VideoSource):
         if self._path is None:
             return "Unknown"
         return self._path.name
+
+
+def _interval_rate_statistics(
+    times: np.ndarray | None, fallback_fps: float
+) -> tuple[bool, float, float, float]:
+    """Return ``(is_vfr, measured, min_rate, max_rate)`` excluding recording gaps.
+
+    Joined multi-trial cameras and gapped streams carry unrecorded stretches
+    exceeding ``GAP_FACTOR`` median periods where ``FrameGaps`` withholds the
+    picture (D-009, D-217). Counting those empty stretches as frame exposures
+    misreported steady cameras as ``0.01 fps`` VFR.
+    """
+    from avialsync.core.trials import GAP_FACTOR
+
+    if times is None or len(times) < 2:
+        return (False, fallback_fps, fallback_fps, fallback_fps)
+    intervals = np.diff(times)
+    intervals = intervals[intervals > 1e-9]
+    if len(intervals) == 0:
+        return (False, fallback_fps, fallback_fps, fallback_fps)
+    median_interval = float(np.median(intervals))
+    contiguous = intervals[intervals <= median_interval * GAP_FACTOR]
+    if len(contiguous) > 0:
+        intervals = contiguous
+        median_interval = float(np.median(intervals))
+    tolerance = max(2e-6, median_interval * 5e-3)
+    is_vfr = bool(np.any(np.abs(intervals - median_interval) > tolerance))
+    measured = float(len(intervals) / float(np.sum(intervals)))
+    rates = 1.0 / intervals
+    return (is_vfr, measured, float(np.min(rates)), float(np.max(rates)))

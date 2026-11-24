@@ -150,6 +150,7 @@ class SweepWindowControl(QWidget):
 
         self.slider = QSlider(Qt.Orientation.Horizontal, self)
         self.slider.setRange(1, self._SLIDER_STEPS)
+        self.slider.setMinimumWidth(84)
         self.slider.setAccessibleName(tr("Shared plot window slider"))
         self.slider.setToolTip(tr("Continuously adjust the time span shared by every visible plot"))
         self.slider.sliderPressed.connect(self._on_slider_pressed)

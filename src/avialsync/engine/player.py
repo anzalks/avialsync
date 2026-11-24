@@ -59,23 +59,55 @@ _PRESENTATION_INTERVAL_S = 1.0 / _PRESENTATION_HZ
 _now = time.perf_counter
 
 
+def _local_master_period(pane: object, source_t: float) -> float:
+    """Return *pane*'s local frame period in master seconds near *source_t*, or ``0.0``."""
+    frame_times = getattr(pane, "_frame_times", None)
+    time_map = getattr(pane, "time_map", None)
+    if not isinstance(frame_times, np.ndarray) or len(frame_times) < 2 or time_map is None:
+        return 0.0
+    idx = max(
+        1, min(int(np.searchsorted(frame_times, source_t, side="left")), len(frame_times) - 1)
+    )
+    t0 = float(time_map.to_master(float(frame_times[idx - 1])))
+    t1 = float(time_map.to_master(float(frame_times[idx])))
+    return abs(t1 - t0)
+
+
 def _coexposed_ceiling(
-    panes: list[VideoPane], anchor: float, current_t: float, direction: int
+    panes: list[VideoPane],
+    anchor_pane: object | None,
+    anchor: float,
+    current_t: float,
+    direction: int,
 ) -> float:
-    """Lift *anchor* across any co-exposed sibling camera frame within 1 ms."""
+    """Lift *anchor* across co-exposed same-rate sibling camera frames within 1 ms."""
+    anchor_map = getattr(anchor_pane, "time_map", None) if anchor_pane is not None else None
+    anchor_period = (
+        _local_master_period(anchor_pane, float(anchor_map.to_source(anchor)))
+        if anchor_map is not None
+        else 0.0
+    )
     ceiling = anchor
     limit = anchor + _COEXPOSURE_TOLERANCE_S
     for pane in panes:
+        if pane is anchor_pane:
+            continue
         frame_times = getattr(pane, "_frame_times", None)
         time_map = getattr(pane, "time_map", None)
         if not isinstance(frame_times, np.ndarray) or len(frame_times) == 0 or time_map is None:
             continue
         source_anchor = float(time_map.to_source(anchor))
+        if anchor_period > 0.0:
+            sibling_period = _local_master_period(pane, source_anchor)
+            if sibling_period > 0.0 and (
+                abs(sibling_period - anchor_period) > 0.05 * max(sibling_period, anchor_period)
+            ):
+                continue
         start_idx = max(0, int(np.searchsorted(frame_times, source_anchor, side="left")) - 1)
         stop_idx = min(len(frame_times), start_idx + 4)
         for idx in range(start_idx, stop_idx):
             master_pts = float(time_map.to_master(float(frame_times[idx])))
-            if anchor < master_pts <= limit and (direction > 0 or master_pts < current_t - 1e-9):
+            if anchor < master_pts < limit and (direction > 0 or master_pts < current_t - 1e-9):
                 ceiling = max(ceiling, master_pts)
     return ceiling
 
@@ -309,28 +341,23 @@ class Player(QObject):
         if chosen is not None and any(chosen is pane for pane in panes):
             chosen_target = chosen.frame_step_master_target(t, direction)
             if chosen_target is not None and (chosen_target - t) * direction > 1e-9:
-                return _coexposed_ceiling(panes, float(chosen_target), t, direction)
+                return _coexposed_ceiling(panes, chosen, float(chosen_target), t, direction)
             if len(panes) == 1:
                 return chosen_target
-        raw_targets = [pane.frame_step_master_target(t, direction) for pane in panes]
+        candidates: list[tuple[object, float]] = []
+        for pane in panes:
+            raw = pane.frame_step_master_target(t, direction)
+            if raw is not None and (raw - t) * direction > 1e-9:
+                candidates.append((pane, float(raw)))
         imaging = getattr(self, "imaging_pane", None)
         if imaging is not None and imaging.isVisible():
-            raw_targets.append(imaging.frame_step_master_target(t, direction))
-        targets = [
-            float(target)
-            for target in raw_targets
-            if target is not None and (target - t) * direction > 1e-9
-        ]
-        if not targets:
+            raw_img = imaging.frame_step_master_target(t, direction)
+            if raw_img is not None and (raw_img - t) * direction > 1e-9:
+                candidates.append((imaging, float(raw_img)))
+        if not candidates:
             return None
-        nearest = min(targets, key=lambda target: abs(target - t))
-        cluster_max = max(
-            target
-            for target in targets
-            if abs(target - nearest) <= _COEXPOSURE_TOLERANCE_S
-            and (direction > 0 or target < t - 1e-9)
-        )
-        return _coexposed_ceiling(panes, cluster_max, t, direction)
+        nearest_owner, nearest = min(candidates, key=lambda item: abs(item[1] - t))
+        return _coexposed_ceiling(panes, nearest_owner, nearest, t, direction)
 
     def _data_step_target(self, direction: int) -> float | None:
         """Where a frame step goes with no video: the next imaging frame, else sample.

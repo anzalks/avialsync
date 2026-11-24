@@ -45,6 +45,7 @@ __all__ = [
     "SegmentedReader",
     "file_table",
     "is_segmented",
+    "manifest_size_bytes",
     "read_manifest",
     "write_manifest",
     "write_tables",
@@ -70,6 +71,25 @@ class Segment:
 
 def is_segmented(path: Path | str) -> bool:
     return str(path).endswith(MANIFEST_SUFFIX)
+
+
+def manifest_size_bytes(path: Path | str) -> int:
+    """Total on-disk byte size of the distinct segment files named by *path*."""
+    from avialsync.core.source import source_size_bytes
+
+    seen: set[Path] = set()
+    total = 0
+    for segment in read_manifest(path):
+        candidate = Path(segment.path)
+        try:
+            key = candidate.resolve()
+        except OSError:
+            key = candidate
+        if key in seen:
+            continue
+        seen.add(key)
+        total += source_size_bytes(key)
+    return total
 
 
 def _ticks_path(path: Path) -> Path:
