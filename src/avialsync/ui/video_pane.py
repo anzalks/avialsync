@@ -18,6 +18,7 @@ from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
+from weakref import ref
 
 import numpy as np
 from PySide6.QtCore import (
@@ -1248,7 +1249,13 @@ class VideoPane(VideoTimingMixin, QWidget):
         self.lbl_name.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
 
         self._osd_detail = _saved_osd_detail()
-        self.lbl_osd = _ChromeOsd(self._osd_reserve)
+        pane_ref = ref(self)
+
+        def _osd_reserve() -> int:
+            pane = pane_ref()
+            return pane._osd_reserve() if pane is not None else 8
+
+        self.lbl_osd = _ChromeOsd(_osd_reserve)
         self.lbl_osd.setText(format_video_osd(0.0, 0.0, self._metadata, None, self._osd_detail))
         mono_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont).family()
         _apply_overlay_label_colors(self.lbl_osd, chrome_bg)

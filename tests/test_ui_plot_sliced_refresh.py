@@ -113,3 +113,56 @@ def test_a_queued_slice_does_not_outlive_the_pane(pane: PlotPane) -> None:
     pane.cancel_pending_rows()
 
     assert pane._page_worker is not None and not pane._page_worker.can_cancel()
+
+
+def test_plot_pane_close_leaves_no_python_reference_cycle(qapp, channel_cache: Path) -> None:
+    """Closed standalone PlotPane releases rows immediately without awaiting cyclic GC."""
+    import gc
+    import weakref
+
+    from PySide6.QtCore import QCoreApplication, QEvent
+
+    from avialsync.ui.job_manager import drain_abandoned
+
+    widget = PlotPane()
+    widget.resize(1280, 800)
+    widget.load_channels(channel_cache, [f"ch{index}" for index in range(16)])
+    widget.wait_for_pending_rows()
+    widget.set_timeline_bounds(0.0, 60.0)
+    widget.set_window_duration(7.0)
+
+    pane_ref = weakref.ref(widget)
+    gc.collect()
+    gc.disable()
+    try:
+        widget.close()
+        assert widget.channels == []
+        widget.deleteLater()
+        del widget
+        qapp.processEvents()
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        assert pane_ref() is None
+    finally:
+        gc.enable()
+        drain_abandoned()
+
+
+def test_closed_plot_pane_ignores_application_palette_change(qapp, channel_cache: Path) -> None:
+    """A closed PlotPane still alive in QApplication.allWidgets() survives setPalette()."""
+    from PySide6.QtGui import QPalette
+
+    from avialsync.ui.theme import THEME_DARK, THEME_LIGHT, _apply
+
+    before_palette = QPalette(qapp.palette())
+    before_dark = qapp.property("avialsync_theme_dark")
+    widget = PlotPane()
+    widget.load_channels(channel_cache, ["ch0", "ch1"])
+    widget.wait_for_pending_rows()
+    try:
+        widget.close()
+        _apply(qapp, THEME_DARK, persist=False)
+        _apply(qapp, THEME_LIGHT, persist=False)
+    finally:
+        qapp.setPalette(before_palette)
+        qapp.setProperty("avialsync_theme_dark", before_dark)
+        widget.deleteLater()

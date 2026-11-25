@@ -54,6 +54,14 @@ def _wait_loaded(window: MainWindow, qtbot, path: Path) -> None:
     qtbot.waitUntil(lambda: _imaging(path) in window.imaging_pane.source_paths(), timeout=20_000)
     qtbot.waitUntil(lambda: str(path) in window._sensor_cache_dirs, timeout=20_000)
     qtbot.waitUntil(lambda: window.imaging_pane.metadata_for(_imaging(path)).frame_count == 12)
+    qtbot.waitUntil(
+        lambda: (
+            bool(window.plot_pane.channels)
+            and not window.plot_pane._pending_rows
+            and not window.plot_pane._finish_loading_pending
+        ),
+        timeout=20_000,
+    )
 
 
 def test_dandi_menu_action_routes_asset_to_the_regular_open_path(
@@ -116,7 +124,10 @@ def test_dropping_an_nwb_file_shows_its_imaging_and_its_series(
     assert coverage[_imaging(path)][2] == "imaging"
     assert coverage[str(path)][2] == "data"
     # Every series' rows, named by where they sit in the file.
-    qtbot.waitUntil(lambda: len(window.plot_pane.channels) > 10, timeout=20_000)
+    qtbot.waitUntil(
+        lambda: len(window.plot_pane.channels) > 10 and not window.plot_pane._pending_rows,
+        timeout=20_000,
+    )
     names = {channel.name for channel in window.plot_pane.channels}
     assert {"ElectricalSeries.ch10", "Position.SpatialSeries.x", "trials"} <= names
     # One clock: the file's own start time is the session's zero.

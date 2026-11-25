@@ -5,12 +5,14 @@ from __future__ import annotations
 import html
 import logging
 from typing import TYPE_CHECKING, Any
+from weakref import ref
 
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAccessible, QPalette
 from PySide6.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
+from shiboken6 import isValid
 
 from avialsync.core.channel_reader import ChannelKey
 from avialsync.ui.accessible_views import register_painted
@@ -142,6 +144,7 @@ class PlotModeCanvas(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._closed = False
         self._mode = PLOT_MODE_OVERLAY
         self._curves: list[SweepCurveItem] = []
         self._image_item: pg.ImageItem | None = None
@@ -156,15 +159,27 @@ class PlotModeCanvas(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        self.graphics_layout = PlotStackView(
-            lambda: [
-                p.getViewBox()
-                for p in (
-                    [self.plot_item, *self._extra_plots] if self.plot_item is not None else []
-                )
-            ],
-            self,
-        )
+        self_ref = ref(self)
+
+        def _mode_views() -> list[pg.ViewBox | None]:
+            canvas = self_ref()
+            if canvas is None or canvas.plot_item is None:
+                return []
+            return [p.getViewBox() for p in [canvas.plot_item, *canvas._extra_plots]]
+
+        def _mode_value() -> str:
+            canvas = self_ref()
+            if canvas is None:
+                return ""
+            return tr("{mode} view of {n} channels").format(
+                mode=canvas._mode, n=len(canvas._channel_names)
+            )
+
+        def _mode_detail() -> str:
+            canvas = self_ref()
+            return ", ".join(canvas._channel_names[:16]) if canvas is not None else ""
+
+        self.graphics_layout = PlotStackView(_mode_views, self)
         self.graphics_layout.setAccessibleName(tr("Combined plot canvas"))
         self.graphics_layout.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.graphics_layout.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -193,14 +208,7 @@ class PlotModeCanvas(QWidget):
         scene.contextMenu = []
         scene.sigMouseClicked.connect(self._on_clicked)
 
-        register_painted(
-            self.graphics_layout,
-            QAccessible.Role.Chart,
-            lambda: tr("{mode} view of {n} channels").format(
-                mode=self._mode, n=len(self._channel_names)
-            ),
-            lambda: ", ".join(self._channel_names[:16]),
-        )
+        register_painted(self.graphics_layout, QAccessible.Role.Chart, _mode_value, _mode_detail)
 
     def viewport(self) -> QWidget | None:
         vp = self.graphics_layout.viewport()
@@ -211,24 +219,32 @@ class PlotModeCanvas(QWidget):
         self._mode = mode
 
     def apply_palette(self, palette: QPalette) -> None:
+        if self._closed or self.plot_item is None or not isValid(self.graphics_layout):
+            return
         apply_canvas_palette(self.graphics_layout, palette)
         pen = pg.mkPen(playhead_color(palette), width=2)
-        self.cursor_line.setPen(pen)
+        if isValid(self.cursor_line):
+            self.cursor_line.setPen(pen)
         for line in self._extra_cursors:
-            line.setPen(pen)
-        if self._mode != PLOT_MODE_GROUPED:
+            if isValid(line):
+                line.setPen(pen)
+        if self._mode != PLOT_MODE_GROUPED and isValid(self.plot_item):
             self.plot_item.showGrid(
                 x=True, y=self._mode == PLOT_MODE_OVERLAY, alpha=plot_colors(palette).grid_alpha
             )
 
     def set_x_window(self, duration: float) -> None:
-        if duration > 0:
+        if not self._closed and self.plot_item is not None and duration > 0:
             self.plot_item.setXRange(0.0, duration, padding=0)
 
     def set_cursor_phase(self, phase: float, *, reveal: bool) -> None:
-        self.cursor_line.setValue(phase)
+        if self._closed or self.plot_item is None:
+            return
+        if isValid(self.cursor_line):
+            self.cursor_line.setValue(phase)
         for line in self._extra_cursors:
-            line.setValue(phase)
+            if isValid(line):
+                line.setValue(phase)
         for curve in self._curves:
             curve.set_reveal_enabled(reveal)
             curve.set_sweep_position(phase)
@@ -243,6 +259,8 @@ class PlotModeCanvas(QWidget):
         phase: float,
     ) -> None:
         """Render the already-installed decimated curve arrays from visible *channels*."""
+        if self._closed or self.plot_item is None or not isValid(self.graphics_layout):
+            return
         self.graphics_layout.setUpdatesEnabled(False)
         try:
             self._clear_items()
@@ -269,14 +287,15 @@ class PlotModeCanvas(QWidget):
     def _clear_items(self) -> None:
         for curve in self._curves:
             with_plot = getattr(curve, "_host_plot", self.plot_item)
-            try:
-                with_plot.removeItem(curve)
-            except RuntimeError:
-                pass
+            if with_plot is not None:
+                try:
+                    with_plot.removeItem(curve)
+                except RuntimeError:
+                    pass
         self._curves.clear()
-        if self._image_item is not None:
+        if self._image_item is not None and self.plot_item is not None:
             self.plot_item.removeItem(self._image_item)
-            self._image_item = None
+        self._image_item = None
         for host, img in self._extra_images:
             try:
                 host.removeItem(img)
@@ -294,7 +313,16 @@ class PlotModeCanvas(QWidget):
             self.graphics_layout.removeItem(extra_plot)
         self._extra_plots.clear()
         self._extra_cursors.clear()
-        self.plot_item.getAxis("left").setTicks(None)
+        if self.plot_item is not None:
+            self.plot_item.getAxis("left").setTicks(None)
+
+    def shutdown(self) -> None:
+        """Detach PlotItems before C++ destruction so cyclic GC never sees dead views."""
+        self._closed = True
+        if isValid(self.graphics_layout):
+            self._clear_items()
+            self.graphics_layout.clear()
+        self.plot_item = None
 
     def _render_grouped(
         self,

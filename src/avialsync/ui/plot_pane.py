@@ -6,12 +6,14 @@ import time
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
+from weakref import ref
 
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QAccessible, QAction, QCloseEvent, QResizeEvent
 from PySide6.QtWidgets import QFrame, QScrollArea, QVBoxLayout, QWidget
+from shiboken6 import isValid
 
 from avialsync.core.channel_reader import ChannelKey, MappedChannelReader
 from avialsync.core.timeline import TimeMap
@@ -177,10 +179,29 @@ class PlotPane(QWidget):
         self.reset_button = self._plot_header.reset_button
         self._view_mode = PLOT_MODE_STACKED
 
-        self._pinned_layout = PlotStackView(
-            lambda: [ch.plot_item.getViewBox() for ch in self.channels if ch.pinned_in_layout],
-            self,
-        )
+        self_ref = ref(self)
+
+        def _pinned_views() -> list[pg.ViewBox | None]:
+            pane = self_ref()
+            if pane is None:
+                return []
+            return [ch.plot_item.getViewBox() for ch in pane.channels if ch.pinned_in_layout]
+
+        def _scroll_views() -> list[pg.ViewBox | None]:
+            pane = self_ref()
+            if pane is None:
+                return []
+            return [ch.plot_item.getViewBox() for ch in pane.channels if not ch.pinned_in_layout]
+
+        def _chart_value() -> str:
+            pane = self_ref()
+            return pane.accessible_value() if pane is not None else ""
+
+        def _chart_detail() -> str:
+            pane = self_ref()
+            return pane.accessible_detail() if pane is not None else ""
+
+        self._pinned_layout = PlotStackView(_pinned_views, self)
         self._pinned_layout.setAccessibleName(tr("Pinned plot rows"))
         self._pinned_layout.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._pinned_layout.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -188,16 +209,9 @@ class PlotPane(QWidget):
         self._pinned_layout.hide()
         _layout.addWidget(self._pinned_layout)
 
-        self.graphics_layout = PlotStackView(
-            lambda: [ch.plot_item.getViewBox() for ch in self.channels if not ch.pinned_in_layout]
-        )
+        self.graphics_layout = PlotStackView(_scroll_views)
         self.graphics_layout.setAccessibleName(tr("Plot rows"))
-        register_painted(
-            self.graphics_layout,
-            QAccessible.Role.Chart,
-            self.accessible_value,
-            self.accessible_detail,
-        )
+        register_painted(self.graphics_layout, QAccessible.Role.Chart, _chart_value, _chart_detail)
         self.graphics_layout.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.graphics_layout.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         # The channel stack scrolls in an ordinary scroll area, not in the
@@ -218,9 +232,7 @@ class PlotPane(QWidget):
         _layout.addWidget(self._plot_scroll)
         self._mode_view = PlotModeCanvas(self)
         self._mode_view.hide()
-        self._mode_view.seek_requested.connect(
-            lambda x: self.seek_requested.emit(self.master_at(x))
-        )
+        self._mode_view.seek_requested.connect(self._on_mode_seek_requested)
         _layout.addWidget(self._mode_view, 1)
         self._cull_timer = QTimer(self)
         self._cull_timer.setSingleShot(True)
@@ -252,6 +264,11 @@ class PlotPane(QWidget):
         self._last_point_budget = 0
         self._last_cursor_repaint = 0.0
         self._pending_rows: list[tuple[Path, str, TimeMap, str, bool]] = []
+        self._finish_loading_pending = False
+        self._row_build_timer = QTimer(self)
+        self._row_build_timer.setSingleShot(True)
+        self._row_build_timer.setInterval(0)
+        self._row_build_timer.timeout.connect(self._advance_row_build)
         self._pending_pinned: set[tuple[str, str]] = set()
         self._retiring_rows: list[ChannelPlot] = []
         self._retire_timer = QTimer(self)
@@ -297,21 +314,41 @@ class PlotPane(QWidget):
         self._master_plot: pg.PlotItem | None = None
         self._interactions = PlotInteractionController(self)
         scene = self.graphics_layout.scene()
+        scene_ref = ref(scene)
         # pyqtgraph's scene carries its own "Export..." for its stock menu, which
         # rows no longer show; triggered any other way it raised. Rows offer
         # Export in their own menu instead (axis_nav.show_plot_exporter).
         scene.contextMenu = []
         scene.sigMouseClicked.connect(
-            lambda ev, s=scene: self._interactions.on_scene_clicked(ev, s)
+            lambda ev, r=self_ref, sr=scene_ref: (
+                r()._interactions.on_scene_clicked(ev, sr())
+                if r() is not None and sr() is not None
+                else None
+            )
         )
-        scene.sigMouseMoved.connect(lambda pos, s=scene: self._interactions.on_scene_moved(pos, s))
+        scene.sigMouseMoved.connect(
+            lambda pos, r=self_ref, sr=scene_ref: (
+                r()._interactions.on_scene_moved(pos, sr())
+                if r() is not None and sr() is not None
+                else None
+            )
+        )
         pinned_scene = self._pinned_layout.scene()
+        pinned_scene_ref = ref(pinned_scene)
         pinned_scene.contextMenu = []
         pinned_scene.sigMouseClicked.connect(
-            lambda ev, s=pinned_scene: self._interactions.on_scene_clicked(ev, s)
+            lambda ev, r=self_ref, sr=pinned_scene_ref: (
+                r()._interactions.on_scene_clicked(ev, sr())
+                if r() is not None and sr() is not None
+                else None
+            )
         )
         pinned_scene.sigMouseMoved.connect(
-            lambda pos, s=pinned_scene: self._interactions.on_scene_moved(pos, s)
+            lambda pos, r=self_ref, sr=pinned_scene_ref: (
+                r()._interactions.on_scene_moved(pos, sr())
+                if r() is not None and sr() is not None
+                else None
+            )
         )
         mode_scene = self._mode_view.graphics_layout.scene()
         mode_scene.sigMouseMoved.connect(self._interactions.on_mode_moved)
@@ -321,9 +358,14 @@ class PlotPane(QWidget):
         self._navigator.attach(self._pinned_layout)
         self._navigator.attach(self._mode_view.graphics_layout)
 
+    def _on_mode_seek_requested(self, x: float) -> None:
+        self.seek_requested.emit(self.master_at(x))
+
     def changeEvent(self, event: QEvent) -> None:
         """Keep pyqtgraph's canvas aligned with an application palette change."""
         super().changeEvent(event)
+        if self._closed:
+            return
         if event.type() in (QEvent.Type.PaletteChange, QEvent.Type.ApplicationPaletteChange):
             self._apply_palette()
 
@@ -333,7 +375,7 @@ class PlotPane(QWidget):
         super().closeEvent(event)
 
     def shutdown(self) -> None:
-        """Stop requesting pages and cancel the one in flight, for good.
+        """Stop requesting pages, detach C++ graphics rows, and cancel work in flight.
 
         Called by the window's close sequence before its jobs shut down, and by
         :meth:`closeEvent` for a standalone pane. Without the flag, the
@@ -342,10 +384,55 @@ class PlotPane(QWidget):
         """
         self._closed = True
         self.cancel_pending_rows()
+        self._resize_refresh_timer.stop()
+        self._cull_timer.stop()
         self._retire_timer.stop()
         self._retiring_rows.clear()
+        worker, thread = self._page_worker, self._page_thread
+        self._page_worker = None
+        self._page_thread = None
+        self._requested_rows = ()
+        self._requested_keys = ()
+        if worker is not None:
+            worker.cancel()
+            for sig, slot in (
+                (worker.finished, self._on_page_ready),
+                (worker.error, self._on_page_error),
+            ):
+                try:
+                    sig.disconnect(slot)
+                except (RuntimeError, TypeError):
+                    pass
+        if thread is not None:
+            try:
+                thread.finished.disconnect(self._on_page_thread_finished)
+            except (RuntimeError, TypeError):
+                pass
         if self._page_manager is not None:
             self._page_manager.shutdown()
+        self._interactions.shutdown()
+        self._navigator.shutdown()
+        if self.channels:
+            readers_to_close = [ch.reader.source_reader for ch in self.channels]
+            for ch in self.channels:
+                if isValid(ch.plot_item.vb):
+                    ch.plot_item.vb.blockSignals(True)
+                    ch.plot_item.setXLink(None)
+                if isValid(ch.close_proxy):
+                    ch.close_proxy.deleteLater()
+            if isValid(self.graphics_layout):
+                self.graphics_layout.clear()
+            if isValid(self._pinned_layout):
+                self._pinned_layout.clear()
+            self.channels.clear()
+            for reader in readers_to_close:
+                reader.close()
+        if isValid(self._mode_view):
+            self._mode_view.shutdown()
+        self._master_plot = None
+        self._index_cache = None
+        self._readers_by_cache_and_id.clear()
+        self._first_reader_by_cache.clear()
 
     def _drain_retiring_rows(self) -> None:
         """Drop detached PlotItem wrappers in small slices so GC never stalls the UI."""
@@ -391,6 +478,8 @@ class PlotPane(QWidget):
     def resizeEvent(self, event: QResizeEvent) -> None:
         """Coalesce resize storms before selecting a new pyramid resolution."""
         super().resizeEvent(event)
+        if self._closed:
+            return
         enforce_channel_visibility([ch for ch in self.channels if not ch.visible])
         if self.channels and self.sweep_start is not None:
             self._resize_refresh_timer.start()
@@ -410,6 +499,8 @@ class PlotPane(QWidget):
         re-penned explicitly. The two are not redundant: the first covers
         construction, the second covers everything already constructed.
         """
+        if getattr(self, "_closed", False):
+            return
         palette = self.palette()
         pg.setConfigOption("background", palette.color(palette.ColorRole.Base).name())
         pg.setConfigOption("foreground", palette.color(palette.ColorRole.Text).name())
@@ -442,12 +533,14 @@ class PlotPane(QWidget):
 
     def refresh_palette(self) -> None:
         """Reapply trace and canvas palette colours after a preference change."""
+        if self._closed:
+            return
         self._apply_palette()
         self._refresh_mode_view()
 
     def _refresh_mode_view(self) -> None:
         """Sync the Overlaid / Heatmap canvas with current channel visibility and data."""
-        if self._view_mode == PLOT_MODE_STACKED:
+        if self._closed or self._view_mode == PLOT_MODE_STACKED:
             return
         phase = (
             self._sweep_control.advance(self._sweep_control.last_master_time).phase
@@ -485,6 +578,8 @@ class PlotPane(QWidget):
             time_map.drift_ms_per_hour = float(drift_ms_per_hour)
 
         defaults = visibility or {}
+        self._row_build_timer.stop()
+        self._finish_loading_pending = False
         self._pending_rows.extend(
             (cache_dir, name, time_map, source_id, bool(defaults.get(name, True)))
             for name in channel_names
@@ -555,14 +650,24 @@ class PlotPane(QWidget):
 
         if self._pending_rows:
             self.rows_pending.emit(len(self._pending_rows))
-            # Context-object overload: Qt drops the callback if this pane is
-            # destroyed first, instead of firing into a deleted C++ object.
-            QTimer.singleShot(0, self, self._build_pending_rows)
+            self._row_build_timer.start()
             return
         # Completion is its own event-loop turn. Stacking it onto the tail of a
         # slice made one block out of two, which is what kept the worst-case
         # near 90 ms.
-        QTimer.singleShot(0, self, self._finish_loading)
+        self._finish_loading_pending = True
+        self._row_build_timer.start()
+
+    @Slot()
+    def _advance_row_build(self) -> None:
+        """Run the next queued row-build slice or finalize loading on its own turn."""
+        if self._closed:
+            return
+        if self._pending_rows:
+            self._build_pending_rows()
+        elif self._finish_loading_pending:
+            self._finish_loading_pending = False
+            self._finish_loading()
 
     def cancel_pending_rows(self) -> None:
         """Abandon queued row building.
@@ -571,6 +676,8 @@ class PlotPane(QWidget):
         firing into a pane whose widgets are being destroyed, and the close must
         never wait for construction it no longer needs.
         """
+        self._row_build_timer.stop()
+        self._finish_loading_pending = False
         self._pending_rows.clear()
         self._page_generation += 1
         if self._page_worker is not None:
@@ -679,8 +786,11 @@ class PlotPane(QWidget):
         restore. Interactive loads must not use this: blocking is the
         defect the slicing exists to avoid.
         """
+        self._row_build_timer.stop()
         while self._pending_rows:
             self._build_pending_rows()
+        self._row_build_timer.stop()
+        self._finish_loading_pending = False
         # `_build_pending_rows` defers completion to the event loop; a caller
         # that asked to wait needs it applied before it continues.
         self._finish_loading()
@@ -1528,9 +1638,14 @@ class PlotPane(QWidget):
             axis.tickStrings = plain
             return
 
+        pane_ref = ref(self)
+
         def strings(values: list[float], scale: float, spacing: float) -> list[str]:
-            origin = self.master_at(0.0)
-            shifted = [self.master_at(value) - origin for value in values]
+            pane = pane_ref()
+            if pane is None:
+                return [str(text) for text in plain(values, scale, spacing)]
+            origin = pane.master_at(0.0)
+            shifted = [pane.master_at(value) - origin for value in values]
             return [str(text) for text in plain(shifted, scale, spacing)]
 
         axis.tickStrings = strings

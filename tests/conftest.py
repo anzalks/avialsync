@@ -1,6 +1,7 @@
 """Pytest configuration."""
 
 import faulthandler
+import gc
 import os
 import sys
 import tempfile
@@ -185,3 +186,16 @@ def isolated_recovery_dir(
     target = tmp_path_factory.mktemp("recovery-appdata")
     monkeypatch.setattr(recovery, "recovery_dir", lambda: target)
     yield target
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_teardown(item: pytest.Item) -> Iterator[None]:
+    """Flush DeferredDelete widgets and cyclic garbage after fixture finalizers run."""
+    yield
+    if not ({"qtbot", "qapp", "window", "pane"} & set(item.fixturenames)):
+        return
+    from PySide6.QtCore import QCoreApplication, QEvent
+
+    if QCoreApplication.instance() is not None:
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        gc.collect()

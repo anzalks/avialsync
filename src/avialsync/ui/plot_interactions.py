@@ -7,6 +7,7 @@ from collections.abc import Mapping, Sequence
 from time import perf_counter as _elapsed
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
+from weakref import ReferenceType, ref
 
 import numpy as np
 import pyqtgraph as pg
@@ -41,7 +42,7 @@ class PlotInteractionController:
     """Own page-local overlay state while delegating semantic actions to PlotPane."""
 
     def __init__(self, pane: PlotPane) -> None:
-        self._pane = pane
+        self._pane_ref: ReferenceType[PlotPane] = ref(pane)
         self._extra_context_actions: list[QAction] = []
         self._measure_a: float | None = None
         self._measure_b: float | None = None
@@ -63,6 +64,26 @@ class PlotInteractionController:
         self._segment_bounds_arr: np.ndarray = np.empty(0, dtype=np.float64)
         self._segment_items: list[tuple[pg.PlotItem, Any]] = []
         self._gap_times: dict[ChannelKey | str, tuple[float, ...]] = {}
+
+    @property
+    def _pane(self) -> PlotPane:
+        pane = self._pane_ref()
+        if pane is None:
+            raise RuntimeError("PlotPane has already been destroyed")
+        return pane
+
+    def shutdown(self) -> None:
+        """Stop hover timers and release graphics item references before pane teardown."""
+        self._pending_hover = None
+        self._hover_timer.stop()
+        self._hover.discard_items()
+        self._extra_context_actions.clear()
+        self._measure_a_lines.clear()
+        self._measure_b_lines.clear()
+        self._measure_callout_items.clear()
+        self._annotation_items.clear()
+        self._identity_items.clear()
+        self._segment_items.clear()
 
     def set_context_actions(self, actions: list[QAction]) -> None:
         """Register shared QActions for the plot context menu."""
@@ -288,7 +309,7 @@ class PlotInteractionController:
     def _flush_pending_hover(self) -> None:
         pending = self._pending_hover
         self._pending_hover = None
-        if pending is None:
+        if pending is None or self._pane_ref() is None:
             return
         self._last_hover_at = _elapsed()
         kind, scene_pos, scene = pending

@@ -256,7 +256,7 @@ def test_tracking_pane_is_hidden_without_xyz_channels(window: MainWindow) -> Non
 
 
 def test_tracking_pane_appears_once_a_source_has_triplets(
-    window: MainWindow, qapp: QApplication, tmp_path: Path
+    window: MainWindow, qapp: QApplication, qtbot, tmp_path: Path
 ) -> None:
     # Match the documented GIF capture, which resets saved splitter state before
     # loading the three-video plus 3D session.
@@ -277,6 +277,7 @@ def test_tracking_pane_appears_once_a_source_has_triplets(
     window._on_import_finished(
         "/tmp/pose.csv", str(tmp_path), ["nose_x", "nose_y", "nose_z"], (0.0, 9.98), None
     )
+    qtbot.waitUntil(window.tracking_3d_pane.isVisible, timeout=5000)
     qapp.processEvents()
 
     assert window.tracking_3d_pane.isVisible()

@@ -10,11 +10,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+from weakref import ReferenceType, ref
 
 import pyqtgraph as pg
 from PySide6.QtCore import QEvent, QObject, QPointF, Qt
 from PySide6.QtGui import QMouseEvent, QWheelEvent
 from PySide6.QtWidgets import QWidget
+from shiboken6 import isValid
 
 if TYPE_CHECKING:
     from avialsync.ui.plot_pane import PlotPane
@@ -37,10 +39,25 @@ class PlotCanvasNavigator(QObject):
 
     def __init__(self, pane: PlotPane) -> None:
         super().__init__(pane)
-        self._pane = pane
+        self._pane_ref: ReferenceType[PlotPane] = ref(pane)
         self._pan: _PanDrag | None = None
         self.suppress_click = False
         self._views: dict[QWidget, pg.GraphicsLayoutWidget] = {}
+
+    @property
+    def _pane(self) -> PlotPane:
+        pane = self._pane_ref()
+        if pane is None:
+            raise RuntimeError("PlotPane has already been destroyed")
+        return pane
+
+    def shutdown(self) -> None:
+        """Detach viewport event filters and release graphics references."""
+        for viewport in list(self._views):
+            if isValid(viewport):
+                viewport.removeEventFilter(self)
+        self._views.clear()
+        self._pan = None
 
     def attach(self, graphics_widget: pg.GraphicsLayoutWidget) -> None:
         """Install navigation filtering on *graphics_widget*'s viewport."""
@@ -52,6 +69,8 @@ class PlotCanvasNavigator(QObject):
         viewport.installEventFilter(self)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:  # noqa: N802
+        if self._pane_ref() is None:
+            return False
         if not isinstance(watched, QWidget) or watched not in self._views:
             return super().eventFilter(watched, event)
         graphics = self._views[watched]
