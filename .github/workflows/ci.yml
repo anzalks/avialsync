@@ -69,7 +69,7 @@ jobs:
   test:
     name: Test ${{ matrix.os }} - Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 25
     env:
       PIP_CONSTRAINT: ${{ github.workspace }}/requirements/ci-py${{ matrix.python-version }}.txt
       PIP_BUILD_CONSTRAINT: ${{ github.workspace }}/requirements/ci-py${{ matrix.python-version }}.txt

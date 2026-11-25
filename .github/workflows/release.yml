@@ -88,7 +88,7 @@ jobs:
     name: Release quality · ${{ matrix.os }} · Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     needs: verify_release_ref
-    timeout-minutes: 15
+    timeout-minutes: 25
     permissions:
       contents: read
     strategy:

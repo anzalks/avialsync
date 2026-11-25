@@ -52,8 +52,10 @@ def _picture(window: MainWindow, qtbot) -> np.ndarray:
     qtbot.waitUntil(lambda: pane._image is not None, timeout=_TIMEOUT)
     image = pane._image.convertToFormat(pane._image.Format.Format_RGB888)
     data = np.frombuffer(image.constBits(), np.uint8, image.sizeInBytes())
-    return data.reshape(image.height(), image.bytesPerLine())[:, : image.width() * 3].reshape(
-        image.height(), image.width(), 3
+    return (
+        data.reshape(image.height(), image.bytesPerLine())[:, : image.width() * 3]
+        .reshape(image.height(), image.width(), 3)
+        .copy()
     )
 
 

@@ -188,9 +188,13 @@ def isolated_recovery_dir(
     yield target
 
 
+_LAST_TEARDOWN_MODULE: Path | None = None
+
+
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_teardown(item: pytest.Item) -> Iterator[None]:
-    """Flush DeferredDelete widgets and cyclic garbage after fixture finalizers run."""
+    """Flush DeferredDelete widgets per test and run full cyclic GC once per module."""
+    global _LAST_TEARDOWN_MODULE
     yield
     if not ({"qtbot", "qapp", "window", "pane"} & set(item.fixturenames)):
         return
@@ -198,4 +202,8 @@ def pytest_runtest_teardown(item: pytest.Item) -> Iterator[None]:
 
     if QCoreApplication.instance() is not None:
         QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-        gc.collect()
+        if item.path != _LAST_TEARDOWN_MODULE:
+            _LAST_TEARDOWN_MODULE = item.path
+            gc.collect()
+        else:
+            gc.collect(0)
