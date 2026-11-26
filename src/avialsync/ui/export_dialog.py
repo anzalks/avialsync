@@ -47,11 +47,19 @@ from avialsync.ui.export_destinations import choose_file, choose_folder, remembe
 from avialsync.ui.i18n import tr
 from avialsync.ui.tables import ThemedTable
 
-__all__ = ["ExportItem", "ExportChangesDialog"]
+__all__ = [
+    "ANNOTATIONS",
+    "CORRECTED_POSE",
+    "REPROJECTED_POSE",
+    "RETRAINING_SET",
+    "ExportItem",
+    "ExportChangesDialog",
+]
 
 #: What an artifact is. The kind decides which writer runs, never the label.
 ANNOTATIONS = "annotations"
 CORRECTED_POSE = "corrected_pose"
+REPROJECTED_POSE = "reprojected_pose"
 RETRAINING_SET = "retraining_set"
 
 _COLUMNS = ("Export", "Destination", "Format", "Scorer", "")

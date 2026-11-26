@@ -14,7 +14,7 @@ later exactly the state the rest of the grid is in, before its first paint.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -57,6 +57,7 @@ class GridOverlayMixin:
         self._props: Callable[[str, float], list] | None = None
         self._epipolar: Callable[[str, float], list] | None = None
         self._skeleton_2d: list[tuple[str, str]] = []
+        self._skeleton_edges_source: Callable[[], Sequence[tuple[str, str]]] | None = None
 
     def _apply_held_overlays(self, pane: VideoPane, path: str) -> None:
         """Give a pane built now whatever already resolved for its camera."""
@@ -85,6 +86,8 @@ class GridOverlayMixin:
             pane.set_prop_source(self._props_for(path))
         if self._epipolar is not None and hasattr(pane, "set_epipolar_source"):
             pane.set_epipolar_source(self._epipolar_for(path))
+        if self._skeleton_edges_source is not None and hasattr(pane, "set_skeleton_edges_source"):
+            pane.set_skeleton_edges_source(self._skeleton_edges_source)
         canvas = getattr(pane, "paint_canvas", None)
         if canvas is not None and hasattr(canvas, "declared_skeleton_2d"):
             canvas.declared_skeleton_2d = list(self._skeleton_2d)
@@ -223,6 +226,15 @@ class GridOverlayMixin:
             if canvas is not None and hasattr(canvas, "declared_skeleton_2d"):
                 canvas.declared_skeleton_2d = list(self._skeleton_2d)
                 canvas.update()
+
+    def set_skeleton_edges_source(
+        self, source: Callable[[], Sequence[tuple[str, str]]] | None
+    ) -> None:
+        """Share live 3D skeleton edges with current and future camera panes."""
+        self._skeleton_edges_source = source
+        for pane in self.panes:
+            if hasattr(pane, "set_skeleton_edges_source"):
+                pane.set_skeleton_edges_source(source)
 
     def _epipolar_for(self, path: str) -> Callable[[float], list] | None:
         source = self._epipolar

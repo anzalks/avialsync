@@ -6,6 +6,13 @@ full history is in git. Versions follow the tags in the repository.
 
 ## Unreleased
 
+### Added
+- Registered `3D reprojection skeleton` overlay (`tracking.reprojection_skeleton`) with live 3D
+  skeleton connectivity, independent raw/reprojected marker and skeleton layer toggles, solo-white vs
+  dual pastel sky-blue skeleton comparison rendering (keeping body-part marker colours synced with the
+  3D view), and drop-in per-camera `*_reprojected.csv` export in `File → Export Changes…` and the
+  `Exports` tab preserving headers, `scorer`, and `likelihood` untouched (D-255).
+
 ## 0.1.14 — 2026-11-25
 
 ### Added

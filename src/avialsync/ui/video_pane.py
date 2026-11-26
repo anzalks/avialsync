@@ -14,7 +14,7 @@ rather than by a tuned control loop.
 import logging
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -1046,6 +1046,12 @@ class VideoPane(VideoTimingMixin, QWidget):
         """Where this camera asks for 3D points projected into its pixels."""
         self.paint_canvas.set_reprojection_source(source)
 
+    def set_skeleton_edges_source(
+        self, source: Callable[[], Sequence[tuple[str, str]]] | None
+    ) -> None:
+        """Supply live 3D skeleton connectivity to this camera's overlay."""
+        self.paint_canvas.set_skeleton_edges_source(source)
+
     def set_wheel_source(self, source: Callable[[float], WheelDrawing | None] | None) -> None:
         """Where this camera asks for the wheel model, projected into its pixels."""
         self.paint_canvas.set_wheel_source(source)
@@ -1169,6 +1175,9 @@ class VideoPane(VideoTimingMixin, QWidget):
             visibility.get("tracking.custom_markers", True)
         )
         self.paint_canvas.set_reprojection_visible(visibility.get("tracking.reprojection", False))
+        self.paint_canvas.set_reprojection_skeleton_visible(
+            visibility.get("tracking.reprojection_skeleton", False)
+        )
         self.paint_canvas.set_wheel_visible(
             visibility.get("tracking.wheel", True), visibility.get("tracking.wheel_hidden", False)
         )

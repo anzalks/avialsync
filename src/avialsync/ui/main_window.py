@@ -486,6 +486,13 @@ class MainWindow(QMainWindow):
         self.video_grid.set_reprojection_source(
             lambda path, t: calibration_controller.reprojected(self, path, t)
         )
+        self.video_grid.set_skeleton_edges_source(
+            lambda: (
+                self.tracking_3d_pane.canvas.skeleton_edges
+                or self.tracking_3d_pane.canvas.declared_skeleton
+            )
+        )
+        self.tracking_3d_pane.skeleton_changed.connect(self.video_grid.refresh_point_edits)
         self.video_grid.set_epipolar_source(
             lambda path, t: pose_overlay_extras.epipolar_guides_for(self, path, t)
         )

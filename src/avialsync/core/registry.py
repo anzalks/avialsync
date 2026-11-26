@@ -18,6 +18,7 @@ from avialsync.core.custom_markers import is_custom_marker_path
 from avialsync.core.identity_sidecar import is_swap_path
 from avialsync.core.point_edit_sidecar import is_correction_path
 from avialsync.core.prop_file import is_prop_path
+from avialsync.core.reprojected_pose_export import is_reprojected_pose_path
 from avialsync.core.settings_schema import Setting
 from avialsync.core.source import (
     PLUGIN_API_VERSION,
@@ -44,6 +45,7 @@ def is_own_sidecar(path: Path | str) -> bool:
         or is_swap_path(path)
         or is_custom_marker_path(path)
         or is_prop_path(path)
+        or is_reprojected_pose_path(path)
     )
 
 

@@ -148,7 +148,7 @@ class VideoGrid(GridOverlayMixin, QWidget):
         """Return the mapping the pane named *path* decodes by, if it is loaded."""
         try:
             mapping: TimeMap = self.panes[self._paths.index(path)].time_map
-        except ValueError:
+        except (ValueError, IndexError):
             return None
         return mapping
 

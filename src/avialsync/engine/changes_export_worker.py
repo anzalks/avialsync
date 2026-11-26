@@ -29,10 +29,17 @@ from avialsync.core.edit_program import EditProgram
 from avialsync.core.errors import ExportError
 from avialsync.engine.display_pipeline import DisplayLevels, to_display_array
 from avialsync.engine.export_worker import ReaderReference
+from avialsync.engine.reprojected_pose_job import ReprojectedPoseJob, run_reprojected_pose_job
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["AnnotationJob", "CorrectedPoseJob", "RetrainingJob", "ChangesExportWorker"]
+__all__ = [
+    "AnnotationJob",
+    "CorrectedPoseJob",
+    "ReprojectedPoseJob",
+    "RetrainingJob",
+    "ChangesExportWorker",
+]
 
 
 @dataclasses.dataclass
@@ -189,6 +196,8 @@ class ChangesExportWorker(QObject):
             return self._write_corrected_pose(job)
         if isinstance(job, RetrainingJob):
             return self._write_retraining_set(job)
+        if isinstance(job, ReprojectedPoseJob):
+            return run_reprojected_pose_job(job, should_cancel=lambda: self._cancelled)
         raise TypeError(f"Unknown export job: {type(job).__name__}")
 
     @staticmethod

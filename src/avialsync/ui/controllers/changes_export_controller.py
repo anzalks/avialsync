@@ -27,12 +27,18 @@ from avialsync.ui.controllers import corrections_controller, identity_controller
 from avialsync.ui.export_dialog import (
     ANNOTATIONS,
     CORRECTED_POSE,
+    REPROJECTED_POSE,
     RETRAINING_SET,
     ExportChangesDialog,
     ExportItem,
 )
 from avialsync.ui.i18n import tr
 from avialsync.ui.job_manager import on_ui_thread
+from avialsync.ui.reprojected_pose_export import (
+    ensure_reprojection_ready,
+    reprojected_export_items,
+    reprojected_job_for,
+)
 
 if TYPE_CHECKING:
     from avialsync.ui.main_window import MainWindow
@@ -81,6 +87,7 @@ def available_exports(window: MainWindow) -> list[ExportItem]:
             retrain = _retraining_export_item(window, source_id, source)
             if retrain is not None:
                 items.append(retrain)
+    items.extend(reprojected_export_items(window, has_manual_changes=bool(items)))
     return items
 
 
@@ -124,18 +131,32 @@ def _annotation_target(window: MainWindow) -> Path:
     return Path.home() / "annotations.csv"
 
 
-def export_changes(window: MainWindow) -> None:
-    """Write the session's annotations and corrected tracking data.
+def _has_manual_changes(window: MainWindow) -> bool:
+    return (
+        bool(window.annotation_store.markers)
+        or len(window.point_edits) > 0
+        or bool(window.identity_swaps.source_ids())
+    )
 
-    One command for both, because a user who has flagged frames and corrected
-    points has made one body of work and wants one answer about where it went.
-    """
+
+def export_changes(window: MainWindow) -> None:
+    """Write the session's annotations, corrected tracking, or 3D reprojections."""
+    if ensure_reprojection_ready(
+        window,
+        has_manual_changes=_has_manual_changes(window),
+        proceed=lambda: _present_export_dialog(window),
+    ):
+        return
+    _present_export_dialog(window)
+
+
+def _present_export_dialog(window: MainWindow) -> None:
     items = available_exports(window)
     if not items:
         window.notifications.show_warning(
             tr(
                 "There is nothing to export yet — flag a frame, correct a point, "
-                "or accept an identity swap first."
+                "accept an identity swap, or load calibrated 3D tracking first."
             )
         )
         return
@@ -144,9 +165,11 @@ def export_changes(window: MainWindow) -> None:
     if dialog.exec() != QDialog.DialogCode.Accepted:
         return
     chosen = dialog.selected_items()
-    if not chosen:
-        return
+    if chosen:
+        _start_changes_export(window, chosen)
 
+
+def _start_changes_export(window: MainWindow, chosen: list[ExportItem]) -> None:
     jobs = [job for job in (_job_for(window, item) for item in chosen) if job is not None]
     if not jobs:
         window.notifications.show_warning(tr("Nothing was written: no artifact had any content."))
@@ -159,8 +182,6 @@ def export_changes(window: MainWindow) -> None:
     def on_finished(results: list) -> None:
         from avialsync.ui.controllers.artifact_write_controller import show_exported
 
-        # One notification lists the results; its action opens the first
-        # destination's folder when the user chose several locations.
         show_exported(
             window,
             tr("Exported: {summary}").format(summary="; ".join(str(line) for line in results)),
@@ -170,12 +191,6 @@ def export_changes(window: MainWindow) -> None:
     def on_error(message: str) -> None:
         window.notifications.show_error(tr("The export did not finish"), details=message)
 
-    # Wired inside `configure`: `_run_job` returns an already-running thread, so
-    # a fast export can finish before a connection made afterwards exists and
-    # the user is never told.
-    # `on_finished`/`on_error` are closures, not slots on a QObject, so they
-    # would be called directly in the worker thread and raise the notification
-    # from there. `on_ui_thread` gives them a receiver on the window.
     def _wire(thread: QThread) -> None:
         worker.finished.connect(on_ui_thread(on_finished, window))
         worker.error.connect(on_ui_thread(on_error, window))
@@ -219,6 +234,8 @@ def _job_for(window: MainWindow, item: ExportItem) -> object | None:
 
     if item.kind == RETRAINING_SET:
         return _retraining_job_for(window, item)
+    if item.kind == REPROJECTED_POSE:
+        return reprojected_job_for(window, item)
     return None
 
 

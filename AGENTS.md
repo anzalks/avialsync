@@ -199,19 +199,14 @@ ALL project commands must be prefixed with `conda run -n <env>`. Never run proje
 commands (pytest, ruff, mypy, pip, avialsync) without this prefix — the system Python
 may differ from the env Python.
 
-**The env is `avialsync`, and check it before you use it.** This paragraph has now
-been wrong three times, in both directions, which is the reason it insists you
-verify rather than read. It named `avialview` for several phases, was corrected
-to `avialsync`, was corrected back to `avialview`, and as of 2026-09-14
-`conda env list` has no `avialview` at all: the envs holding an editable install
-pointing at this working tree are **`avialsync`** (Python 3.12, the one to use),
-`avialsync311` (Python 3.11, for checking the lower bound of the supported
-range), and `kinochronix` (a leftover of the previous name). `avialsync_test`
-points at a different checkout entirely (`~/Documents/avialsync`) and is not the
-development env.
+**The env on this machine is `avialview`, and check it before you use it.** This
+paragraph has flipped several times across machines (`avialsync` vs `avialview`),
+which is why you must verify rather than trust it. On this Windows checkout (verified
+2026-11-26), `conda env list` has no `avialsync` env; **`avialview`** holds the
+editable install pointing at `src/avialsync/` in this working tree.
 
 Verify rather than trust this paragraph:
-`conda run -n avialsync python -c "import avialsync; print(avialsync.__file__)"`
+`conda run -n avialview python -c "import avialsync; print(avialsync.__file__)"`
 must resolve to `src/avialsync/` in this working tree. If it does not, run
 `conda env list` and find the one that does -- and then correct this paragraph in
 the same commit as whatever else you were doing, because the next agent pays for

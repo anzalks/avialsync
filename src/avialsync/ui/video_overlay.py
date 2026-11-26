@@ -20,6 +20,7 @@ from PySide6.QtWidgets import QWidget
 
 from avialsync.core.point_edits import PointKey
 from avialsync.core.pose import split_channel
+from avialsync.ui.i18n import tr
 from avialsync.ui.marker_overlay import (
     MarkerOverlayMixin,
     ResolvedPoint,
@@ -27,12 +28,14 @@ from avialsync.ui.marker_overlay import (
 )
 from avialsync.ui.overlay_registry import default_visible_for
 from avialsync.ui.pose_overlay_extras import (
+    SOLO_SKELETON_COLOR,
     confidence_threshold,
     draw_2d_skeleton,
     draw_epipolar_guides,
     draw_magnifier_loupe,
     draw_motion_trails,
     marker_radius,
+    skeleton_comparison_colors,
     style_point_by_confidence,
     trail_frame_count,
 )
@@ -294,7 +297,7 @@ class PaintCanvas(MarkerOverlayMixin):
         """Return every body part of *track* that has a position right now.
 
         Sorted by name for deterministic paint order only; colour is name-keyed
-        and does not depend on this ordering.
+        from the shared 2D/3D body-part palette (:func:`color_for_point`).
         """
         resolved: list[ResolvedPoint] = []
         for name, (reader_x, reader_y) in sorted(track.points.items()):
@@ -347,30 +350,50 @@ class PaintCanvas(MarkerOverlayMixin):
             )
         return resolved
 
+    def _resolve_loose_points(self) -> list[ResolvedPoint]:
+        """Return complete XY loose-reader points at ``self.t``."""
+        points: dict[str, dict[str, float]] = {}
+        for reader, point_name, axis in self._active_loose_xy():
+            sample = self._sample(reader)
+            if sample is None or not np.isfinite(sample[1]):
+                continue
+            points.setdefault(point_name, {})[axis] = sample[1]
+        return [
+            ResolvedPoint(
+                name=name,
+                x=float(coords["x"]),
+                y=float(coords["y"]),
+                color=color_for_point(name),
+                key=None,
+                corrected=False,
+            )
+            for name, coords in sorted(points.items())
+            if "x" in coords and "y" in coords
+        ]
+
     # ── painting ─────────────────────────────────────────────────────
 
     def paintEvent(self, event: QPaintEvent) -> None:
-        """Draw every complete XY point of every track at the current source time."""
+        """Draw every active pose, reprojection, prop, and guide layer at ``self.t``."""
         del event
-        # Edit mode overrides a hidden points layer: a mode whose whole purpose
-        # is grabbing markers must not start with nothing on screen to grab.
-        draw_points = (self._points_visible or self._edit_mode) and bool(
-            self._active_loose_xy() or self.tracks or self._custom
+        draw_raw_points = self._points_visible or self._edit_mode
+        want_raw = (draw_raw_points or self._skeleton_2d_visible) and bool(
+            self._active_loose_xy() or self.tracks
         )
-        # The wheel is its own layer, not a kind of point: hiding the tracking
-        # must not hide the wheel the animal is running on, or the reverse.
+        draw_custom = bool(self._custom) and (self._custom_visible or self._edit_mode)
         wheel = self._wheel(self.t) if self._wheel is not None else None
         props = self._props(self.t) if self._props is not None and self._props_visible else []
-        # Reprojection is its own layer too: the 3D points' crosses alone are
-        # how a triangulation is checked against the footage.
-        reproject = self._reprojection_visible and self._reprojection is not None
+        want_reproject = (
+            self._reprojection_visible or self._reprojection_skeleton_visible
+        ) and self._reprojection is not None
         epipolar = (
             self._epipolar(self.t) if self._epipolar is not None and self._epipolar_visible else []
         )
         loupe = self._loupe_visible and self._loupe_video_xy is not None
         if (
-            not draw_points
-            and not reproject
+            not want_raw
+            and not draw_custom
+            and not want_reproject
             and wheel is None
             and not props
             and not epipolar
@@ -386,7 +409,17 @@ class PaintCanvas(MarkerOverlayMixin):
         try:
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             self._paint_layers(
-                painter, draw_points, wheel, props, epipolar, scale, offset_x, offset_y
+                painter,
+                draw_raw_points,
+                want_raw,
+                draw_custom,
+                want_reproject,
+                wheel,
+                props,
+                epipolar,
+                scale,
+                offset_x,
+                offset_y,
             )
         finally:
             # A Python exception must not return control to Qt with this widget
@@ -397,7 +430,10 @@ class PaintCanvas(MarkerOverlayMixin):
     def _paint_layers(
         self,
         painter: QPainter,
-        draw_points: bool,
+        draw_raw_points: bool,
+        want_raw: bool,
+        draw_custom: bool,
+        want_reproject: bool,
         wheel: WheelDrawing | None,
         props: list[PropDrawing],
         epipolar: list[tuple[str, Any]],
@@ -423,30 +459,72 @@ class PaintCanvas(MarkerOverlayMixin):
                 show_facing=self._wheel_visible,
                 show_hidden=self._wheel_hidden_visible,
             )
-        if not draw_points:
-            if self._reprojection_visible:
-                self._draw_reprojection(painter, scale, offset_x, offset_y)
-            if wheel is not None and (wheel.clicks or wheel.projections or wheel.prompt):
-                draw_wheel_clicks(painter, wheel, scale, offset_x, offset_y, bounds, chrome)
-            return
 
-        if self.tracks:
-            drawn: list[tuple[str, tuple[int, int, int]]] = []
-            # Models first, ensemble last, so the fused result stays readable.
-            ordered = sorted(self.tracks, key=lambda track: track.is_ensemble)
-            for track in ordered:
-                if self._draw_track(painter, track, scale, offset_x, offset_y):
-                    drawn.append((track.label, track.color))
-            if self._show_legend and len(drawn) > 1:
-                self._draw_legend(painter, drawn)
+        reproj_points = self._resolve_reprojection() if want_reproject else []
+        ordered_tracks = sorted(self.tracks, key=lambda track: track.is_ensemble) if want_raw else []
+        has_ensemble = any(track.is_ensemble for track in ordered_tracks)
+        track_batches = [
+            (
+                track,
+                bool(track.is_ensemble or (not has_ensemble and len(ordered_tracks) == 1)),
+                self._resolve(track),
+            )
+            for track in ordered_tracks
+        ]
+        loose_active = bool(want_raw and self._active_loose_xy())
+        loose_points = self._resolve_loose_points() if loose_active else []
+        raw_has_visible = any(bool(pts) for _t, _p, pts in track_batches) or bool(loose_points)
+        reproj_has_visible = bool(reproj_points)
+        raw_skel_rgb, reproj_skel_rgb = skeleton_comparison_colors(
+            raw_active=raw_has_visible,
+            reprojection_active=reproj_has_visible,
+        )
 
-        if self._active_loose_xy():
-            self._draw_loose_readers(painter, scale, offset_x, offset_y)
+        drawn: list[tuple[str, tuple[int, int, int]]] = []
+        for track, is_primary, resolved in track_batches:
+            if self._draw_track(
+                painter,
+                track,
+                scale,
+                offset_x,
+                offset_y,
+                resolved=resolved,
+                is_primary=is_primary,
+                draw_markers=draw_raw_points,
+                skeleton_color=raw_skel_rgb,
+            ):
+                drawn.append((track.label, track.color))
 
-        if self._reprojection_visible:
-            self._draw_reprojection(painter, scale, offset_x, offset_y)
+        if loose_active:
+            self._draw_loose_readers(
+                painter, scale, offset_x, offset_y, skeleton_color=raw_skel_rgb
+            )
 
-        if self._custom and (self._custom_visible or self._edit_mode):
+        if reproj_has_visible:
+            self._draw_reprojection(
+                painter,
+                scale,
+                offset_x,
+                offset_y,
+                points=reproj_points,
+                skeleton_color=reproj_skel_rgb,
+                dashed_skeleton=raw_has_visible,
+                show_labels=self._point_labels_visible and not (raw_has_visible and draw_raw_points),
+            )
+
+        legend_entries = list(drawn) if len(drawn) > 1 else []
+        if (
+            raw_has_visible
+            and reproj_has_visible
+            and self._skeleton_2d_visible
+            and self._reprojection_skeleton_visible
+        ):
+            legend_entries.append((tr("2D skeleton"), raw_skel_rgb))
+            legend_entries.append((tr("3D reprojection skeleton"), reproj_skel_rgb))
+        if self._show_legend and len(legend_entries) > 1:
+            self._draw_legend(painter, legend_entries)
+
+        if draw_custom:
             self._draw_custom(painter, scale, offset_x, offset_y)
 
         if wheel is not None and (wheel.clicks or wheel.projections or wheel.prompt):
@@ -495,30 +573,43 @@ class PaintCanvas(MarkerOverlayMixin):
         scale: float,
         offset_x: float,
         offset_y: float,
+        *,
+        resolved: list[ResolvedPoint] | None = None,
+        is_primary: bool | None = None,
+        draw_markers: bool = True,
+        skeleton_color: tuple[int, int, int] = SOLO_SKELETON_COLOR,
     ) -> bool:
-        """Draw one prediction source; returns whether anything was visible.
-
-        Each marker is named in place.  A dot alone tells you a body part was
-        tracked but not *which* one, which is the question being asked when
-        several parts sit close together.
-        """
-        radius = marker_radius() if track.is_ensemble else _MODEL_RADIUS
+        """Draw one prediction source; returns whether anything was visible."""
+        primary = track.is_ensemble if is_primary is None else is_primary
+        radius = marker_radius() if primary else _MODEL_RADIUS
 
         label_font = painter.font()
         label_font.setPointSizeF(overlay_label_point_size())
-        label_font.setBold(track.is_ensemble)
+        label_font.setBold(primary)
 
-        resolved = self._resolve(track)
-        if self._trails_visible and resolved:
+        pts = self._resolve(track) if resolved is None else resolved
+        if self._trails_visible and draw_markers and pts:
             draw_motion_trails(
-                painter, track, resolved, scale, offset_x, offset_y, trail_frame_count()
+                painter, track, pts, scale, offset_x, offset_y, trail_frame_count()
             )
-        if self._skeleton_2d_visible and track.is_ensemble and len(resolved) >= 2:
-            draw_2d_skeleton(painter, resolved, track.edges, scale, offset_x, offset_y)
+        any_drawn = False
+        if self._skeleton_2d_visible and primary and len(pts) >= 2:
+            draw_2d_skeleton(
+                painter,
+                pts,
+                self.active_skeleton_edges(track.edges),
+                scale,
+                offset_x,
+                offset_y,
+                color=skeleton_color,
+                dashed=False,
+            )
+            any_drawn = True
+        if not draw_markers:
+            return any_drawn
 
         thresh = confidence_threshold()
-        any_drawn = False
-        for point in resolved:
+        for point in pts:
             x = offset_x + point.x * scale
             y = offset_y + point.y * scale
 
@@ -529,7 +620,7 @@ class PaintCanvas(MarkerOverlayMixin):
                 point.confidence,
                 thresh,
                 enabled=self._confidence_visible,
-                is_ensemble=track.is_ensemble,
+                is_ensemble=primary,
             )
             r = (radius + 2) if low_conf else radius
             painter.drawEllipse(int(x) - r, int(y) - r, r * 2, r * 2)
@@ -580,33 +671,39 @@ class PaintCanvas(MarkerOverlayMixin):
         painter.restore()
 
     def _draw_loose_readers(
-        self, painter: QPainter, scale: float, offset_x: float, offset_y: float
+        self,
+        painter: QPainter,
+        scale: float,
+        offset_x: float,
+        offset_y: float,
+        *,
+        skeleton_color: tuple[int, int, int] = SOLO_SKELETON_COLOR,
     ) -> None:
-        points: dict[str, dict[str, float]] = {}
-        for reader, point_name, axis in self._active_loose_xy():
-            sample = self._sample(reader)
-            if sample is None or not np.isfinite(sample[1]):
-                continue
-            points.setdefault(point_name, {})[axis] = sample[1]
-
+        resolved = self._resolve_loose_points()
+        if self._skeleton_2d_visible and len(resolved) >= 2:
+            draw_2d_skeleton(
+                painter,
+                resolved,
+                self.active_skeleton_edges(),
+                scale,
+                offset_x,
+                offset_y,
+                color=skeleton_color,
+                dashed=False,
+            )
+        if not (self._points_visible or self._edit_mode):
+            return
         label_font = painter.font()
         label_font.setPointSizeF(overlay_label_point_size())
-        for name, point in sorted(points.items()):
-            if "x" not in point or "y" not in point:
-                continue
-            color = color_for_point(name)
-            painter.setPen(QPen(QColor(*color), 3))
-            painter.setBrush(QColor(*color))
-            x = offset_x + point["x"] * scale
-            y = offset_y + point["y"] * scale
+        for point in resolved:
+            qcolor = QColor(*point.color)
+            painter.setPen(QPen(qcolor, 3))
+            painter.setBrush(qcolor)
+            x = offset_x + point.x * scale
+            y = offset_y + point.y * scale
             painter.drawEllipse(int(x) - 3, int(y) - 3, 6, 6)
-            # Named, and named through the same switch as every other point.
-            # These dots used to carry no text and consult no layer, so "Body-
-            # part names" appeared to do nothing for a pose file that had come
-            # in as plain channels -- the one case where the names are most
-            # needed, because nothing else on screen says what the dots are.
-            if self._point_labels_visible and name:
-                self._draw_point_label(painter, label_font, QColor(*color), name, x, y)
+            if self._point_labels_visible and point.name:
+                self._draw_point_label(painter, label_font, qcolor, point.name, x, y)
 
     def _draw_legend(
         self, painter: QPainter, entries: list[tuple[str, tuple[int, int, int]]]
@@ -659,5 +756,9 @@ class PaintCanvas(MarkerOverlayMixin):
             or self._custom
             or self._wheel is not None
             or (self._props is not None and self._props_visible)
+            or (
+                self._reprojection is not None
+                and (self._reprojection_visible or self._reprojection_skeleton_visible)
+            )
         ):
             self.update()

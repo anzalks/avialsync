@@ -9,6 +9,7 @@ import numpy as np
 from PySide6.QtCore import QPointF, QRect, QRectF, Qt
 from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QPolygonF
 
+from avialsync.core.reprojected_pose_export import match_3d_to_2d_names
 from avialsync.core.settings_schema import setting_for
 from avialsync.ui.app_settings import settings_revision
 from avialsync.ui.preferences_dialog import read_setting
@@ -20,6 +21,8 @@ if TYPE_CHECKING:
     from avialsync.ui.video_overlay import OverlayTrack
 
 __all__ = [
+    "DUAL_REPROJECTION_SKELETON_COLOR",
+    "SOLO_SKELETON_COLOR",
     "confidence_threshold",
     "draw_2d_skeleton",
     "draw_epipolar_guides",
@@ -29,9 +32,27 @@ __all__ = [
     "infer_2d_edges",
     "invalidate_overlay_settings_cache",
     "marker_radius",
+    "skeleton_comparison_colors",
     "style_point_by_confidence",
     "trail_frame_count",
 ]
+
+#: Crisp off-white used for skeleton limbs whenever only one pose family (raw 2D
+#: OR 3D reprojection) is shown on a camera, and for the raw 2D skeleton when
+#: both are shown together.
+SOLO_SKELETON_COLOR: tuple[int, int, int] = (235, 240, 245)
+#: Pastel sky blue used for the 3D-to-2D reprojection skeleton when raw 2D
+#: tracking is simultaneously visible on the same camera (CVD distance >= 0.20).
+DUAL_REPROJECTION_SKELETON_COLOR: tuple[int, int, int] = (118, 198, 255)
+
+
+def skeleton_comparison_colors(
+    *, raw_active: bool, reprojection_active: bool
+) -> tuple[tuple[int, int, int], tuple[int, int, int]]:
+    """Return ``(raw_skeleton_rgb, reprojection_skeleton_rgb)`` for active layers."""
+    if raw_active and reprojection_active:
+        return SOLO_SKELETON_COLOR, DUAL_REPROJECTION_SKELETON_COLOR
+    return SOLO_SKELETON_COLOR, SOLO_SKELETON_COLOR
 
 _LOUPE_SIZE = 136
 _LOUPE_ZOOM = 5.0
@@ -142,6 +163,30 @@ def infer_2d_edges(points: Sequence[ResolvedPoint]) -> list[tuple[str, str]]:
     return edges
 
 
+def _resolve_skeleton_edges(
+    by_name: dict[str, ResolvedPoint],
+    points: Sequence[ResolvedPoint],
+    declared_edges: Sequence[tuple[str, str]],
+    *,
+    allow_inferred_fallback: bool,
+) -> list[tuple[str, str]]:
+    direct = [(a, b) for a, b in declared_edges if a in by_name and b in by_name]
+    if direct:
+        return direct
+    if declared_edges:
+        edge_names = tuple(dict.fromkeys(name for edge in declared_edges for name in edge))
+        to_edge = match_3d_to_2d_names(edge_names, tuple(by_name))
+        from_edge = {edge_name: pt_name for pt_name, edge_name in to_edge.items()}
+        mapped = [
+            (from_edge[a], from_edge[b])
+            for a, b in declared_edges
+            if a in from_edge and b in from_edge
+        ]
+        if mapped:
+            return mapped
+    return infer_2d_edges(points) if allow_inferred_fallback else []
+
+
 def draw_2d_skeleton(
     painter: QPainter,
     points: Sequence[ResolvedPoint],
@@ -149,19 +194,27 @@ def draw_2d_skeleton(
     scale: float,
     offset_x: float,
     offset_y: float,
+    *,
+    color: tuple[int, int, int] = SOLO_SKELETON_COLOR,
+    dashed: bool = False,
+    allow_inferred_fallback: bool = True,
 ) -> None:
-    """Paint limb segments behind the 2D pose markers."""
+    """Paint limb segments behind pose or reprojected markers."""
     if len(points) < 2:
         return
     by_name = {pt.name: pt for pt in points}
-    edges = [(a, b) for a, b in declared_edges if a in by_name and b in by_name] or infer_2d_edges(
-        points
+    edges = _resolve_skeleton_edges(
+        by_name,
+        points,
+        declared_edges,
+        allow_inferred_fallback=allow_inferred_fallback,
     )
     if not edges:
         return
     painter.save()
-    under_pen = QPen(QColor(0, 0, 0, 140), 3.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
-    line_pen = QPen(QColor(235, 240, 245, 185), 1.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+    style = Qt.PenStyle.DashLine if dashed else Qt.PenStyle.SolidLine
+    under_pen = QPen(QColor(0, 0, 0, 175), 3.4, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+    line_pen = QPen(QColor(*color, 230), 1.8, style, Qt.PenCapStyle.RoundCap)
     for name_a, name_b in edges:
         pa, pb = by_name[name_a], by_name[name_b]
         p1 = QPointF(offset_x + pa.x * scale, offset_y + pa.y * scale)

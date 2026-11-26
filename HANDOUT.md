@@ -230,6 +230,12 @@ Two product laws govern that phase and outrank convention:
 - Video/channel visibility checkboxes (hide without unloading)
 - A/B loop + region stats in ReadoutPanel
 - Annotations (point + range markers, M key, CSV export)
+- Per-camera 3D-to-2D reprojected pose skeleton overlay (`tracking.reprojection_skeleton`, synced with
+  `Tracking3DPane`'s active edges; solo-white skeleton when one family is shown, white vs dashed pastel
+  sky-blue skeletons when raw 2D and 3D reprojection are shown together while markers keep
+  `ui/tracking_colors.py`) and drop-in `*_reprojected.csv` export via `File → Export Changes…` /
+  `Exports` (`core/reprojected_pose_export.py`, `engine/reprojected_pose_job.py`,
+  `ui/reprojected_pose_export.py`, D-255)
 - Keyboard shortcuts dialog (`?` key)
 - Snapshot / data slice / video clip export
 - Stimulus-grid MP4 export: select a sensor rising threshold and event window, review events on a

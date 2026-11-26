@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt
+from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QRect, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import (
     QAccessible,
     QAction,
@@ -1367,6 +1367,8 @@ class _ControlsScrollArea(QScrollArea):
 class Tracking3DPane(QWidget):
     """Timeline-synchronized 3D tracking pane."""
 
+    skeleton_changed = Signal()
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("tracking_3d_pane")
@@ -1465,6 +1467,7 @@ class Tracking3DPane(QWidget):
                 self.canvas.apply_view_orientation(self._pending_orientation)
                 self._sync_up_axis_combo()
                 self._pending_orientation = None
+        self.skeleton_changed.emit()
 
     def view_orientation(self) -> dict[str, Any]:
         """Return the current or pending 3D camera orientation."""
@@ -1536,16 +1539,19 @@ class Tracking3DPane(QWidget):
             return
         axis, inverted = data
         self.canvas.set_up_axis(axis, inverted, automatic=False)
+        self.skeleton_changed.emit()
 
     def set_up_axis(self, axis: int, inverted: bool) -> None:
         """Pin which source axis renders upward (see :meth:`Tracking3DCanvas.set_up_axis`)."""
         self.canvas.set_up_axis(axis, inverted, automatic=False)
         self._sync_up_axis_combo()
+        self.skeleton_changed.emit()
 
     def set_skeleton(self, edges: list[tuple[str, str]]) -> None:
         """Set the connectivity the session declared; empty falls back to detection."""
         self.canvas.set_skeleton(edges)
         self._refresh_status()
+        self.skeleton_changed.emit()
 
     def set_bone_mode(self, mode: BoneMode) -> None:
         """Pin which skeleton the view draws (see :class:`BoneMode`)."""
@@ -1556,6 +1562,7 @@ class Tracking3DPane(QWidget):
             self.bone_combo.setCurrentIndex(index)
             self.bone_combo.blockSignals(False)
         self._refresh_status()
+        self.skeleton_changed.emit()
 
     def _on_bone_mode_selected(self, index: int) -> None:
         """Apply the skeleton mode the user chose in the display panel."""
@@ -1564,6 +1571,7 @@ class Tracking3DPane(QWidget):
             return
         self.canvas.set_bone_mode(mode)
         self._refresh_status()
+        self.skeleton_changed.emit()
 
     def _on_bone_thickness_changed(self, diameter: float) -> None:
         """Apply the visual diameter selected in the 3D display panel."""

@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QMenu, QMenuBar
 
 from avialsync.ui.feedback.cache_indicator import is_measuring
 from avialsync.ui.i18n import tr
+from avialsync.ui.reprojected_pose_export import can_export_reprojected_pose
 from avialsync.ui.stimulus_grid_sources import has_stimulus_inputs
 
 if TYPE_CHECKING:
@@ -21,6 +22,7 @@ Register = Callable[[QAction, str], QAction]
 def build_file_menu(window: MainWindow, menu: QMenuBar, _reg: Register) -> QMenu:
     """Create File actions in their original order."""
     file_menu = menu.addMenu(tr("File"))
+    file_menu.aboutToShow.connect(window._refresh_action_availability)
     _file_open(window, file_menu, _reg)
     _file_reset(window, file_menu, _reg)
     _file_changes(window, file_menu, _reg)
@@ -149,8 +151,12 @@ def _file_changes(window: MainWindow, file_menu: QMenu, _reg: Register) -> None:
             bool(window.annotation_store.markers)
             or len(window.point_edits) > 0
             or bool(window.identity_swaps.source_ids())
+            or can_export_reprojected_pose(window)
         ),
-        tr("Flag a frame, correct a tracked point, or accept an identity swap first."),
+        tr(
+            "Flag a frame, correct a tracked point, accept an identity swap, "
+            "or load 3D tracking with camera calibration first."
+        ),
     )
 
     window._recent_menu = file_menu.addMenu(tr("Recent Sessions"))

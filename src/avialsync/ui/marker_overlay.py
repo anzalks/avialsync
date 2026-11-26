@@ -13,7 +13,7 @@ hit-testing alike -- the rule :class:`ResolvedPoint` exists for.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from PySide6.QtCore import Qt
@@ -23,6 +23,7 @@ from PySide6.QtWidgets import QApplication
 from avialsync.core.point_edits import PointKey
 from avialsync.ui.overlay_registry import default_visible_for
 from avialsync.ui.point_edit_tool import CUSTOM_MARKER_SOURCE, PointEditMixin
+from avialsync.ui.pose_overlay_extras import SOLO_SKELETON_COLOR, draw_2d_skeleton
 from avialsync.ui.prop_overlay import PropDrawing
 from avialsync.ui.theme import font_scale
 from avialsync.ui.tracking_colors import color_for_point
@@ -93,7 +94,10 @@ class MarkerOverlayMixin(PointEditMixin):
         self._custom_visible = True
         #: ``t_master -> [(name, x, y)]``: 3D points projected into this camera.
         self._reprojection: Callable[[float], list[tuple[str, float, float]]] | None = None
-        self._reprojection_visible = False
+        self._reprojection_visible = default_visible_for("tracking.reprojection")
+        self._reprojection_skeleton_visible = default_visible_for("tracking.reprojection_skeleton")
+        self._skeleton_edges_source: Callable[[], Sequence[tuple[str, str]]] | None = None
+        self.declared_skeleton_2d: list[tuple[str, str]] = []
         #: ``t_master -> WheelDrawing``: the wheel model projected into this
         #: camera, and its two layers.
         self._wheel: Callable[[float], WheelDrawing | None] | None = None
@@ -154,21 +158,90 @@ class MarkerOverlayMixin(PointEditMixin):
         self._reprojection_visible = bool(visible)
         self.update()
 
-    def _draw_reprojection(
-        self, painter: QPainter, scale: float, offset_x: float, offset_y: float
+    def set_reprojection_skeleton_visible(self, visible: bool) -> None:
+        """Show or hide limb lines connecting reprojected 3D points on this camera."""
+        self._reprojection_skeleton_visible = bool(visible)
+        self.update()
+
+    def set_skeleton_edges_source(
+        self, source: Callable[[], Sequence[tuple[str, str]]] | None
     ) -> None:
-        """Draw each reprojected 3D point as a cross in its body part's colour."""
+        """Supply live 3D skeleton connectivity for 2D and reprojected overlays."""
+        self._skeleton_edges_source = source
+        self.update()
+
+    def active_skeleton_edges(
+        self, fallback: Sequence[tuple[str, str]] = ()
+    ) -> tuple[tuple[str, str], ...]:
+        """Return current skeleton limb edges from the 3D view, session, or track."""
+        if self._skeleton_edges_source is not None:
+            live = tuple(self._skeleton_edges_source())
+            if live:
+                return live
+        if self.declared_skeleton_2d:
+            return tuple(self.declared_skeleton_2d)
+        return tuple(fallback)
+
+    def _resolve_reprojection(self) -> list[ResolvedPoint]:
+        """Return visible 3D-to-2D reprojected points at ``self.t``."""
         if self._reprojection is None:
+            return []
+        return [
+            ResolvedPoint(
+                name=name,
+                x=float(px),
+                y=float(py),
+                color=color_for_point(name),
+                key=None,
+                corrected=False,
+            )
+            for name, px, py in self._reprojection(self.t)
+        ]
+
+    def _draw_reprojection(
+        self,
+        painter: QPainter,
+        scale: float,
+        offset_x: float,
+        offset_y: float,
+        *,
+        points: Sequence[ResolvedPoint] | None = None,
+        skeleton_color: tuple[int, int, int] = SOLO_SKELETON_COLOR,
+        dashed_skeleton: bool = False,
+        show_labels: bool = False,
+    ) -> None:
+        """Draw reprojected 3D skeleton limbs and/or cross markers."""
+        resolved = self._resolve_reprojection() if points is None else list(points)
+        if not resolved:
+            return
+        if self._reprojection_skeleton_visible and len(resolved) >= 2:
+            edges = self.active_skeleton_edges()
+            draw_2d_skeleton(
+                painter,
+                resolved,
+                edges,
+                scale,
+                offset_x,
+                offset_y,
+                color=skeleton_color,
+                dashed=dashed_skeleton,
+                allow_inferred_fallback=not bool(edges),
+            )
+        if not self._reprojection_visible:
             return
         arm = _REPROJECTION_ARM
-        for name, px, py in self._reprojection(self.t):
-            x = int(offset_x + px * scale)
-            y = int(offset_y + py * scale)
-            color = QColor(*color_for_point(name))
-            for pen in (QPen(QColor(0, 0, 0, 200), 4), QPen(color, 2)):
+        label_font = painter.font()
+        label_font.setPointSizeF(overlay_label_point_size())
+        for pt in resolved:
+            x = int(offset_x + pt.x * scale)
+            y = int(offset_y + pt.y * scale)
+            qcolor = QColor(*pt.color)
+            for pen in (QPen(QColor(0, 0, 0, 200), 4), QPen(qcolor, 2)):
                 painter.setPen(pen)
                 painter.drawLine(x - arm, y, x + arm, y)
                 painter.drawLine(x, y - arm, x, y + arm)
+            if show_labels and pt.name:
+                self._draw_point_label(painter, label_font, qcolor, pt.name, float(x), float(y))
 
     def set_custom_markers_visible(self, visible: bool) -> None:
         """Show or hide the hand-placed 3D markers on this camera."""

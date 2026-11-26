@@ -8056,3 +8056,25 @@ independent X-linked bands (`<= 8` overlaid traces with legend, `> 8` per-group 
 only visible channels to `ReadoutPanel` (`ui/readout_widgets.py`), which groups signals with collapsible
 `μ [min…max]` summaries for dense (`> 6`-channel) groups and keeps raw sample indices strictly in the
 copyable `Text view…` summary.
+
+## 2026-11-26 · D-255 · 3D-to-2D reprojection skeleton overlay and drop-in `*_reprojected.csv` export
+
+**Context.** Checking calibrated 3D pose reconstructions against raw 2D camera tracking lacked limb
+connectivity on the 3D-to-2D reprojected points, could not toggle raw and reprojected markers/skeletons
+independently without losing skeleton contrast when both were shown, and offered no way to export
+calibrated 3D-to-2D reprojections back as per-camera 2D tracking CSVs that downstream analysis scripts
+could consume without code changes.
+
+**Decision.** `tracking.reprojection_skeleton` is registered in `ui/overlay_registry.py` (rule 13,
+D-090) and synchronized live with `Tracking3DPane`'s active 3D skeleton edges. Body-part markers (raw
+2D `●` dots and 3D reprojected `+` crosses) keep their shared 2D/3D pastel `POINT_COLORS` palette
+(`ui/tracking_colors.py`). Skeleton limb lines render in crisp white (`SOLO_SKELETON_COLOR`) whenever
+only one pose family (raw 2D or 3D reprojection) is visible on a camera; when both are active
+simultaneously, the raw 2D skeleton stays solid white while the 3D reprojection skeleton switches to a
+CVD-validated pastel sky blue (`DUAL_REPROJECTION_SKELETON_COLOR`, dashed, rule 17). `File → Export
+Changes…` and the `Exports` inspector tab (`ChangesExportWorker` + `ReprojectedPoseJob` +
+`core/reprojected_pose_export.py`) offer one `<Stem>_reprojected.csv` per calibrated camera beside its
+data, cloning existing 2D DLC/Lightning Pose headers, `scorer`, `likelihood`, smoother columns, and
+2D-only landmarks verbatim while replacing matched `(point, x)`/`(point, y)` cells with depth-gated
+camera projections (and recording provenance in the companion `.json` sidecar). `is_own_sidecar`
+excludes `*_reprojected.csv` from folder re-import scans.

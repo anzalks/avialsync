@@ -176,6 +176,13 @@ OVERLAY_LAYERS: tuple[OverlayLayer, ...] = (
         ),
     ),
     OverlayLayer(
+        overlay_id="tracking.reprojection_skeleton",
+        label=tr("3D reprojection skeleton"),
+        group="Tracking",
+        default_visible=False,
+        description=tr("Limb lines connecting 3D points projected back onto each camera view."),
+    ),
+    OverlayLayer(
         overlay_id="tracking.edit_handles",
         label="Fix Tracker handles",
         group="Tracking",

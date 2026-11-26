@@ -40,6 +40,7 @@ EXPECTED_INVENTORY = {
     "tracking.wheel_hidden",
     "tracking.props",
     "tracking.reprojection",
+    "tracking.reprojection_skeleton",
     "tracking.3d_point_labels",
     "tracking.edit_handles",
     "camera.name",
@@ -287,6 +288,10 @@ def test_the_canvas_starts_at_the_registry_default_not_its_own(qapp: QApplicatio
     assert canvas._corrections_visible is default_visible_for("tracking.corrections")
     assert canvas._show_legend is default_visible_for("tracking.legend")
     assert canvas._props_visible is default_visible_for("tracking.props")
+    assert canvas._reprojection_visible is default_visible_for("tracking.reprojection")
+    assert canvas._reprojection_skeleton_visible is default_visible_for(
+        "tracking.reprojection_skeleton"
+    )
     assert canvas._point_labels_visible is False
 
 

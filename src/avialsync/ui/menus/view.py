@@ -94,7 +94,10 @@ def overlay_toggled(
         )
     )
     window._apply_overlay_state()
-    if overlay_id == calibration_controller.REPROJECTION_OVERLAY:
+    if overlay_id in (
+        calibration_controller.REPROJECTION_OVERLAY,
+        calibration_controller.REPROJECTION_SKELETON_OVERLAY,
+    ):
         # Draws with the calibration in force, or offers to find one; never
         # a dialog in front of a checkbox or Show All.
         calibration_controller.reprojection_toggled(window, visible)

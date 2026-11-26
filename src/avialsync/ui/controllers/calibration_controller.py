@@ -49,6 +49,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "REPROJECTION_OVERLAY",
+    "REPROJECTION_SKELETON_OVERLAY",
     "CalibrationState",
     "calibration_quietly",
     "resolve_calibration",
@@ -59,6 +60,7 @@ __all__ = [
 
 #: The overlay layer drawing 3D points projected back into each camera.
 REPROJECTION_OVERLAY = "tracking.reprojection"
+REPROJECTION_SKELETON_OVERLAY = "tracking.reprojection_skeleton"
 
 
 @dataclass

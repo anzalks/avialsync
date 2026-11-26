@@ -134,6 +134,7 @@ KINDS: dict[str, ArtifactKind] = {
             True,
         ),
         _export("corrected-pose", "DLC CSV", "scorer and companion JSON"),
+        _export("reprojected-pose", "DLC CSV", "companion JSON"),
         _export("dlc-retraining", "DLC CSV", "companion JSON"),
         _export("lightning-pose-retraining", "Lightning Pose CSV", "companion JSON"),
         _export("dlc-frame", "PNG", "PNG text"),

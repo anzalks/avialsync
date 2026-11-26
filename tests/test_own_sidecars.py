@@ -20,6 +20,7 @@ _ROWS = "frame,value\n1,2.0\n2,3.0\n"
 SIDECARS = [
     "pose_csv_avialswap.csv",
     "pose_csv_avialfix.csv",
+    "FaceCam_eks_reprojected.csv",
     "session_custom_markers.csv",
     "wheel_prop.toml",
 ]
